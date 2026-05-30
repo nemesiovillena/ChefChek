@@ -6,6 +6,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './modules/products/products.module';
 import { RecipesModule } from './modules/recipes/recipes.module';
+import { MenusModule } from './modules/menus/menus.module';
 import { GuardsModule } from './guards/guards.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
 import { TenantsController } from './modules/tenants/tenants.controller';
@@ -13,6 +14,7 @@ import { UsersController } from './modules/users/users.controller';
 import { AuthController } from './modules/auth/auth.controller';
 import { ProductsController } from './modules/products/products.controller';
 import { RecipesController } from './modules/recipes/recipes.controller';
+import { MenusController } from './modules/menus/menus.controller';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { RecipesController } from './modules/recipes/recipes.controller';
     AuthModule,
     ProductsModule,
     RecipesModule,
+    MenusModule,
     GuardsModule,
   ],
   controllers: [
@@ -34,6 +37,7 @@ import { RecipesController } from './modules/recipes/recipes.controller';
     AuthController,
     ProductsController,
     RecipesController,
+    MenusController,
   ],
   providers: [],
 })
