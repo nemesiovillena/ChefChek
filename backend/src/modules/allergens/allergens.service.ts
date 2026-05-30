@@ -1,0 +1,375 @@
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { UpdateProductAllergensDto, AllergenConflictDto, AllergenComplianceReportDto } from './dto/allergens.dto';
+import { ALLERGENS_INFO } from './dto/allergens.dto';
+
+@Injectable()
+export class AllergensService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async updateProductAllergens(
+    tenantId: string,
+    productId: string,
+    dto: UpdateProductAllergensDto
+  ): Promise<any> {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const updatedProduct = await this.prisma.product.update({
+      where: { id: productId },
+      data: {
+        allergens: dto.allergens,
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        allergens: updatedProduct.allergens,
+      },
+    };
+  }
+
+  async calculateRecipeAllergens(recipeId: string): Promise<number[]> {
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: recipeId },
+      include: {
+        ingredients: {
+          include: {
+            product: true,
+          },
+        },
+        subRecipes: {
+          include: {
+            subRecipe: true,
+          },
+        },
+      },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    const directAllergens = new Set<number>();
+    const cascadeAllergens = new Set<number>();
+
+    recipe.ingredients.forEach((ingredient) => {
+      if (ingredient.product.allergens) {
+        ingredient.product.allergens.forEach((allergenId) => {
+          directAllergens.add(allergenId);
+        });
+      }
+    });
+
+    for (const subRecipeRel of recipe.subRecipes) {
+      const subRecipeAllergens = await this.calculateRecipeAllergens(subRecipeRel.subRecipeId);
+      subRecipeAllergens.forEach((allergenId) => {
+        cascadeAllergens.add(allergenId);
+      });
+    }
+
+    const allAllergens = [...directAllergens, ...cascadeAllergens];
+    const uniqueAllergens = [...new Set(allAllergens)];
+
+    await this.prisma.recipe.update({
+      where: { id: recipeId },
+      data: {
+        allergens: uniqueAllergens,
+      },
+    });
+
+    return uniqueAllergens;
+  }
+
+  async calculateMenuAllergens(menuId: string): Promise<number[]> {
+    const menu = await this.prisma.menu.findUnique({
+      where: { id: menuId },
+      include: {
+        sections: {
+          include: {
+            items: {
+              include: {
+                recipe: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!menu) {
+      throw new NotFoundException('Menu not found');
+    }
+
+    const menuAllergens = new Set<number>();
+
+    for (const section of menu.sections) {
+      for (const item of section.items) {
+        if (item.recipe) {
+          if (!item.recipe.allergens) {
+            await this.calculateRecipeAllergens(item.recipe.id);
+            const updatedRecipe = await this.prisma.recipe.findUnique({
+              where: { id: item.recipe.id },
+            });
+            updatedRecipe.allergens.forEach((allergenId) => {
+              menuAllergens.add(allergenId);
+            });
+          } else {
+            item.recipe.allergens.forEach((allergenId) => {
+              menuAllergens.add(allergenId);
+            });
+          }
+        }
+      }
+    }
+
+    const uniqueAllergens = [...menuAllergens];
+
+    await this.prisma.menu.update({
+      where: { id: menuId },
+      data: {
+        allergens: uniqueAllergens,
+      },
+    });
+
+    return uniqueAllergens;
+  }
+
+  async detectAllergenConflicts(
+    tenantId: string,
+    menuId: string,
+    filteredAllergens: number[]
+  ): Promise<AllergenConflictDto[]> {
+    const menu = await this.prisma.menu.findFirst({
+      where: { id: menuId, tenantId },
+      include: {
+        sections: {
+          include: {
+            items: {
+              include: {
+                recipe: {
+                  include: {
+                    ingredients: {
+                      include: {
+                        product: true,
+                      },
+                    },
+                    subRecipes: {
+                      include: {
+                        subRecipe: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!menu) {
+      throw new NotFoundException('Menu not found');
+    }
+
+    const conflicts: AllergenConflictDto[] = [];
+
+    for (const section of menu.sections) {
+      for (const item of section.items) {
+        if (item.recipe) {
+          const recipeAllergens = await this.calculateRecipeAllergens(item.recipe.id);
+          const conflictingAllergens = recipeAllergens.filter((allergenId) =>
+            filteredAllergens.includes(allergenId)
+          );
+
+          if (conflictingAllergens.length > 0) {
+            conflicts.push({
+              recipeId: item.recipe.id,
+              filteredAllergens: conflictingAllergens,
+            });
+          }
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  async generateComplianceReport(
+    tenantId: string,
+    menuId: string,
+    reportType: 'FULL' | 'SUMMARY' = 'FULL'
+  ): Promise<AllergenComplianceReportDto> {
+    const menu = await this.prisma.menu.findFirst({
+      where: { id: menuId, tenantId },
+      include: {
+        sections: {
+          include: {
+            items: {
+              include: {
+                recipe: {
+                  include: {
+                    ingredients: {
+                      include: {
+                        product: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!menu) {
+      throw new NotFoundException('Menu not found');
+    }
+
+    const missingDeclarations = new Set<number>();
+    const allProductsUsed = new Set<string>();
+
+    for (const section of menu.sections) {
+      for (const item of section.items) {
+        if (item.recipe) {
+          for (const ingredient of item.recipe.ingredients) {
+            allProductsUsed.add(ingredient.productId);
+
+            if (!ingredient.product.allergens || ingredient.product.allergens.length === 0) {
+              missingDeclarations.add(ingredient.product.id);
+            }
+          }
+        }
+      }
+    }
+
+    const conflicts = await this.detectAllergenConflicts(tenantId, menuId, []);
+
+    const report: AllergenComplianceReportDto = {
+      menuId,
+      reportType,
+      missingDeclarations: Array.from(missingDeclarations),
+      conflicts: conflicts.length > 0 ? conflicts : undefined,
+    };
+
+    return report;
+  }
+
+  async getAllergensInfo(): Promise<any[]> {
+    return ALLERGENS_INFO;
+  }
+
+  async getProductsWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId,
+        allergens: {
+          hasSome: allergenIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        allergens: true,
+      },
+    });
+
+    return products;
+  }
+
+  async getRecipesWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+    const recipes = await this.prisma.recipe.findMany({
+      where: {
+        tenantId,
+        allergens: {
+          hasSome: allergenIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        allergens: true,
+      },
+    });
+
+    return recipes;
+  }
+
+  async getMenusWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+    const menus = await this.prisma.menu.findMany({
+      where: {
+        tenantId,
+        allergens: {
+          hasSome: allergenIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        allergens: true,
+      },
+    });
+
+    return menus;
+  }
+
+  async recalculateAllAllergensForTenant(tenantId: string): Promise<any> {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    const recipes = await this.prisma.recipe.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    const menus = await this.prisma.menu.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+
+    for (const product of products) {
+      await this.prisma.product.update({
+        where: { id: product.id },
+        data: { allergens: product.id ? await this.getProductAllergens(product.id) : [] },
+      });
+    }
+
+    for (const recipe of recipes) {
+      await this.calculateRecipeAllergens(recipe.id);
+    }
+
+    for (const menu of menus) {
+      await this.calculateMenuAllergens(menu.id);
+    }
+
+    return {
+      success: true,
+      message: 'All allergens recalculated for tenant',
+      stats: {
+        products: products.length,
+        recipes: recipes.length,
+        menus: menus.length,
+      },
+    };
+  }
+
+  private async getProductAllergens(productId: string): Promise<number[]> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { allergens: true },
+    });
+
+    return product?.allergens || [];
+  }
+}
