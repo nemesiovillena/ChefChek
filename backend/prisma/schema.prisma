@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core - Multi-tenancy
+model Tenant {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  domain        String?   @unique
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  users         User[]
+  products      Product[]
+  recipes       Recipe[]
+  menus         Menu[]
+  invoices      Invoice[]
+  warehouses    Warehouse[]
+  orders        Order[]
+  appccControls AppccControl[]
+
+  @@map("tenants")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  tenantId      String
+  email         String
+  passwordHash  String
+  name          String
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions      Session[]
+
+  @@unique([email, tenantId])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  expiresAt    DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Escandallos - Core Fase 1
+model Product {
+  id               String           @id @default(cuid())
+  tenantId          String
+  name              String
+  description       String?
+  category          String
+  supplier          String?
+
+  // Multi-unidad
+  purchaseUnit      String           // UC: Caja 10kg, Bote 300uds
+  storageUnit       String           // UA: Kilogramos, Litros
+  recipeUnit        String           // UR: Gramos, Mililitros
+
+  // Precios
+  purchasePrice      Float
+  netPrice          Float
+  profitMargin      Float            @default(0)
+
+  // Rendimiento
+  wastePercentage   Float            @default(0)
+  yieldFactor       Float            @default(1.0)
+
+  // Alérgenos (array de IDs)
+  allergens         Int[]
+
+  isActive          Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipeIngredients  RecipeIngredient[]
+  stockMovements   StockMovement[]
+
+  @@map("products")
+}
+
+model Recipe {
+  id               String           @id @default(cuid())
+  tenantId          String
+  name              String
+  description       String?
+  elaboration       String           // TipTap JSON
+
+  // Costeo
+  totalCost         Float            @default(0)
+  totalCostPerUnit  Float            @default(0)
+
+  // Rendimiento
+  portions          Int              @default(1)
+  portionSize       Float            @default(1)
+
+  // Versionado
+  version           Int              @default(1)
+  parentVersion     String?
+
+  isActive          Boolean          @default(true)
+  isPublic          Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients       RecipeIngredient[]
+  subRecipes        RecipeSubRecipe[]
+  menuItems         MenuItem[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  id           String   @id @default(cuid())
+  recipeId     String
+  productId    String
+  quantity     Float
+  unit         String
+
+  recipe       Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, productId])
+  @@map("recipe_ingredients")
+}
+
+model RecipeSubRecipe {
+  id              String   @id @default(cuid())
+  parentRecipeId  String
+  subRecipeId     String
+  quantity        Float
+  unit            String
+
+  parentRecipe    Recipe   @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
+  subRecipe       Recipe   @relation("SubRecipe", fields: [subRecipeId], references: [id], onDelete: Cascade)
+
+  @@unique([parentRecipeId, subRecipeId])
+  @@map("recipe_sub_recipes")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VIEWER
+}
