@@ -5,12 +5,14 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProductsModule } from './modules/products/products.module';
+import { RecipesModule } from './modules/recipes/recipes.module';
 import { GuardsModule } from './guards/guards.module';
 import { TenantMiddleware } from './middleware/tenant.middleware';
 import { TenantsController } from './modules/tenants/tenants.controller';
 import { UsersController } from './modules/users/users.controller';
 import { AuthController } from './modules/auth/auth.controller';
 import { ProductsController } from './modules/products/products.controller';
+import { RecipesController } from './modules/recipes/recipes.controller';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { ProductsController } from './modules/products/products.controller';
     UsersModule,
     AuthModule,
     ProductsModule,
+    RecipesModule,
     GuardsModule,
   ],
   controllers: [
@@ -30,6 +33,7 @@ import { ProductsController } from './modules/products/products.controller';
     UsersController,
     AuthController,
     ProductsController,
+    RecipesController,
   ],
   providers: [],
 })
