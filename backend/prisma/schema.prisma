@@ -9,156 +9,762 @@ datasource db {
 
 // Core - Multi-tenancy
 model Tenant {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique
-  domain        String?   @unique
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   users         User[]
   products      Product[]
   recipes       Recipe[]
   menus         Menu[]
   invoices      Invoice[]
+  temperatureControls TemperatureControl[]
+  cleaningPlans CleaningPlan[]
+  pestControls   PestControl[]
+  goodsReceptions GoodsReception[]
+  alerts        Alert[]
+  staffMembers   StaffMember[]
+  workBatches   WorkBatch[]
+  taskAssignments TaskAssignment[]
+  productionAlerts ProductionAlert[]
+  productionOrders ProductionOrder[]
   warehouses    Warehouse[]
   orders        Order[]
   appccControls AppccControl[]
+  documents     Document[]
 
   @@map("tenants")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  tenantId      String
-  email         String
-  passwordHash  String
-  name          String
-  role          UserRole  @default(USER)
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  name         String
+  role         UserRole @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions      Session[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions Session[]
 
   @@unique([email, tenantId])
   @@map("users")
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  expiresAt    DateTime
-  ipAddress    String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
 
 // Escandallos - Core Fase 1
 model Product {
-  id               String           @id @default(cuid())
-  tenantId          String
-  name              String
-  description       String?
-  category          String
-  supplier          String?
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  category    String
+  supplier    String?
 
   // Multi-unidad
-  purchaseUnit      String           // UC: Caja 10kg, Bote 300uds
-  storageUnit       String           // UA: Kilogramos, Litros
-  recipeUnit        String           // UR: Gramos, Mililitros
+  purchaseUnit String // UC: Caja 10kg, Bote 300uds
+  storageUnit  String // UA: Kilogramos, Litros
+  recipeUnit   String // UR: Gramos, Mililitros
 
   // Precios
-  purchasePrice      Float
-  netPrice          Float
-  profitMargin      Float            @default(0)
+  purchasePrice Float
+  netPrice      Float
+  profitMargin  Float @default(0)
 
   // Rendimiento
-  wastePercentage   Float            @default(0)
-  yieldFactor       Float            @default(1.0)
+  wastePercentage Float @default(0)
+  yieldFactor     Float @default(1.0)
 
   // Alérgenos (array de IDs)
-  allergens         Int[]
+  allergens Int[]
 
-  isActive          Boolean          @default(true)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recipeIngredients  RecipeIngredient[]
-  stockMovements   StockMovement[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipeIngredients RecipeIngredient[]
+  stockMovements    StockMovement[]
 
   @@map("products")
 }
 
 model Recipe {
-  id               String           @id @default(cuid())
-  tenantId          String
-  name              String
-  description       String?
-  elaboration       String           // TipTap JSON
+  id          String  @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  elaboration String // TipTap JSON
 
   // Costeo
-  totalCost         Float            @default(0)
-  totalCostPerUnit  Float            @default(0)
+  totalCost        Float @default(0)
+  totalCostPerUnit Float @default(0)
 
   // Rendimiento
-  portions          Int              @default(1)
-  portionSize       Float            @default(1)
+  portions    Int   @default(1)
+  portionSize Float @default(1)
 
   // Versionado
-  version           Int              @default(1)
-  parentVersion     String?
+  version       Int     @default(1)
+  parentVersion String?
 
-  isActive          Boolean          @default(true)
-  isPublic          Boolean          @default(false)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  isActive  Boolean  @default(true)
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ingredients       RecipeIngredient[]
-  subRecipes        RecipeSubRecipe[]
-  menuItems         MenuItem[]
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients        RecipeIngredient[]
+  subRecipes         RecipeSubRecipe[]  @relation("ParentRecipe")
+  subRecipesAsChild  RecipeSubRecipe[]  @relation("SubRecipe")
+  menuItems          MenuItem[]
+  menuSectionItems   MenuSectionItem[]
+  allergens          Int[] @default([])
+  translations       RecipeTranslation[]
 
   @@map("recipes")
 }
 
 model RecipeIngredient {
-  id           String   @id @default(cuid())
-  recipeId     String
-  productId    String
-  quantity     Float
-  unit         String
+  id        String @id @default(cuid())
+  recipeId  String
+  productId String
+  quantity  Float
+  unit      String
 
-  recipe       Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([recipeId, productId])
   @@map("recipe_ingredients")
 }
 
 model RecipeSubRecipe {
-  id              String   @id @default(cuid())
-  parentRecipeId  String
-  subRecipeId     String
-  quantity        Float
-  unit            String
+  id             String @id @default(cuid())
+  parentRecipeId String
+  subRecipeId    String
+  quantity       Float
+  unit           String
 
-  parentRecipe    Recipe   @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
-  subRecipe       Recipe   @relation("SubRecipe", fields: [subRecipeId], references: [id], onDelete: Cascade)
+  parentRecipe Recipe @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
+  subRecipe    Recipe @relation("SubRecipe", fields: [subRecipeId], references: [id], onDelete: Cascade)
 
   @@unique([parentRecipeId, subRecipeId])
   @@map("recipe_sub_recipes")
+}
+
+model RecipeTranslation {
+  id           String  @id @default(cuid())
+  recipeId     String
+  language     String
+  name         String
+  description  String?
+  elaboration  String?
+  createdAt    DateTime @default(now())
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, language])
+  @@map("recipe_translations")
 }
 
 enum UserRole {
   ADMIN
   USER
   VIEWER
+}
+
+// Sprint Tracker - Sprint 16
+model Sprint {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  type           String // DEVELOPMENT, REFACTORING, DOCUMENTATION, TESTING, INFRASTRUCTURE
+  status         String // NOT_STARTED, IN_PROGRESS, BLOCKED, COMPLETED, CANCELLED
+  startDate      DateTime
+  endDate        DateTime
+  tenantId       String
+  projectId      String?
+  objectives     Json?
+  teamMembers    Json?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  progress       Float    @default(0)
+  totalTasks     Int      @default(0)
+  completedTasks Int      @default(0)
+
+  tasks      Task[]
+  teamMember TeamMember[]
+
+  @@map("sprints")
+}
+
+model Task {
+  id             String    @id @default(cuid())
+  title          String
+  description    String
+  sprintId       String
+  status         String // TODO, IN_PROGRESS, IN_REVIEW, COMPLETED, CANCELLED, BLOCKED
+  priority       String // CRITICAL, HIGH, MEDIUM, LOW
+  dueDate        DateTime?
+  tags           Json?
+  estimatedHours Float?
+  assignedTo     String?
+  dependsOn      String[]
+  blockedBy      Json?
+  notes          String?
+  tenantId       String
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sprint         Sprint         @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  assignedMember TeamMember?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  notifications  Notification[]
+  taskAssignments TaskAssignment[]
+
+  @@map("tasks")
+}
+
+model TeamMember {
+  id             String   @id @default(cuid())
+  name           String
+  role           String
+  email          String
+  avatar         String?
+  isActive       Boolean  @default(true)
+  availableHours Float    @default(40)
+  assignedTasks  Int      @default(0)
+  completedTasks Int      @default(0)
+  tenantId       String
+  createdAt      DateTime @default(now())
+
+  tasks   Task[]
+  sprints Sprint[]
+
+  @@map("team_members")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  message     String
+  taskId      String?
+  sprintId    String?
+  recipientId String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  priority    String // LOW, MEDIUM, HIGH, URGENT
+  metadata    Json?
+
+  task Task? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Menú y Cartas
+model Menu {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  slug        String?
+  qrCodeId    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  portions    Int      @default(1)
+  totalCost   Float    @default(0)
+  totalPrice  Float    @default(0)
+  totalMargin Float    @default(0)
+  isActive    Boolean  @default(true)
+  allergens   Int[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items        MenuItem[]
+  translations MenuTranslation[]
+  analytics    MenuAnalytics[]
+  sections     MenuSection[]
+
+  @@map("menus")
+}
+
+model MenuTranslation {
+  id                  String  @id @default(cuid())
+  menuId              String
+  language            String
+  title               String
+  name                String?
+  description         String?
+  branding            Json?
+  sectionsTranslations Json?
+  createdAt           DateTime @default(now())
+
+  menu         Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@map("menu_translations")
+}
+
+model MenuAnalytics {
+  id             String    @id @default(cuid())
+  menuId         String
+  type           String // view, interaction
+  viewedAt       DateTime
+  metadata       Json?
+
+  menu           Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@map("menu_analytics")
+}
+
+model MenuSection {
+  id             String    @id @default(cuid())
+  menuId         String
+  name           String
+  description    String?
+  sortOrder      Int       @default(0)
+  isActive       Boolean   @default(true)
+
+  menu           Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  items          MenuSectionItem[]
+
+  @@map("menu_sections")
+}
+
+model MenuSectionItem {
+  id             String    @id @default(cuid())
+  sectionId      String
+  recipeId       String
+  order          Int       @default(0)
+  price          Float     @default(0)
+  cost           Float     @default(0)
+  margin         Float     @default(0)
+  isAvailable    Boolean   @default(true)
+
+  section        MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  recipe         Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@map("menu_section_items")
+}
+
+model MenuItem {
+  id        String  @id @default(cuid())
+  menuId    String
+  recipeId  String
+  category  String
+  sortOrder Int     @default(0)
+  price     Float   @default(0)
+  cost      Float   @default(0)
+  margin    Float   @default(0)
+  isAvailable Boolean @default(true)
+  isActive  Boolean @default(true)
+
+  menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([menuId, recipeId])
+  @@map("menu_items")
+}
+
+// Facturación
+model Invoice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  invoiceNumber String
+  supplier      String
+  totalAmount   Float
+  status        String
+  issuedAt      DateTime
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("invoices")
+}
+
+// Almacenes
+model Warehouse {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  location  String?
+  capacity  Float?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  movements StockMovement[]
+
+  @@map("warehouses")
+}
+
+// Movimientos de Stock
+model StockMovement {
+  id          String   @id @default(cuid())
+  productId   String
+  warehouseId String?
+  type        String // ENTRANCE, EXIT, ADJUSTMENT
+  quantity    Float
+  unit        String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
+  @@map("stock_movements")
+}
+
+// Órdenes
+model Order {
+  id          String    @id @default(cuid())
+  tenantId    String
+  orderNumber String
+  supplier    String
+  totalAmount Float
+  status      String
+  orderedAt   DateTime
+  receivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("orders")
+}
+
+// APPCC - Temperature Control
+model TemperatureControl {
+  id             String    @id @default(cuid())
+  tenantId       String
+  type           String // FRIDGE, FREEZER, STORAGE, etc.
+  location       String
+  targetTemperature Float?
+  tolerance      Float
+  unit           String // CELSIUS, FAHRENHEIT
+  description    String?
+  responsible    String?
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  measurements   TemperatureMeasurement[]
+
+  @@map("temperature_controls")
+}
+
+model TemperatureMeasurement {
+  id             String    @id @default(cuid())
+  controlId      String
+  temperature    Float
+  status         String // OK, WARNING, CRITICAL
+  notes          String?
+  withinRange    Boolean  @default(true)
+  measuredBy     String
+  measuredAt     DateTime @default(now())
+  recordedAt     DateTime @default(now())
+
+  control        TemperatureControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@map("temperature_measurements")
+}
+
+// APPCC - Cleaning Plan
+model CleaningPlan {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  area           String
+  planType       String // DAILY, WEEKLY, MONTHLY
+  frequency      String
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tasks          CleaningTask[]
+
+  @@map("cleaning_plans")
+}
+
+model CleaningTask {
+  id             String    @id @default(cuid())
+  planId         String
+  taskName       String
+  description    String?
+  completed      Boolean  @default(false)
+  completedBy    String?
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  plan           CleaningPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("cleaning_tasks")
+}
+
+// APPCC - Pest Control
+model PestControl {
+  id             String    @id @default(cuid())
+  tenantId       String
+  controlDate    DateTime
+  date           DateTime
+  controlType    String // PREVENTIVE, CURATIVE
+  area           String
+  empresa        String?
+  company        String?
+  technician     String
+  products       Json?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("pest_controls")
+}
+
+// APPCC - Goods Reception
+model GoodsReception {
+  id             String    @id @default(cuid())
+  tenantId       String
+  receptionDate  DateTime
+  supplier       String
+  orderNumber    String?
+  items          Json?
+  notes          String?
+  receivedBy     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("goods_receptions")
+}
+
+// APPCC - Alerts
+model Alert {
+  id             String    @id @default(cuid())
+  tenantId       String
+  alertType      String
+  severity       String // INFO, WARNING, ERROR, CRITICAL
+  message        String
+  isResolved     Boolean  @default(false)
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("alerts")
+}
+
+// Production - Staff Member
+model StaffMember {
+  id             String    @id @default(cuid())
+  tenantId       String
+  name           String
+  role           String
+  email          String?
+  isActive       Boolean  @default(true)
+  availableHours Float    @default(40)
+  assignedTasks  Int      @default(0)
+  completedTasks Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taskAssignments TaskAssignment[]
+
+  @@map("staff_members")
+}
+
+// Production - Task Assignment
+model TaskAssignment {
+  id             String    @id @default(cuid())
+  tenantId       String
+  taskId         String
+  staffMemberId  String
+  status         String // ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
+  assignedAt     DateTime @default(now())
+  completedAt    DateTime?
+  notes          String?
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  task           Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staffMember    StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+
+  @@map("task_assignments")
+}
+
+// Production - Work Batch
+model WorkBatch {
+  id             String    @id @default(cuid())
+  tenantId       String
+  orderId        String?
+  batchNumber    String
+  batchType      String // PREPARATION, COOKING, PLATING
+  status         String // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor   DateTime
+  startedAt      DateTime?
+  completedAt    DateTime?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  progressTrackings ProgressTracking[]
+  order          ProductionOrder? @relation("BatchOrder", fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@map("work_batches")
+}
+
+// Production - Progress Tracking
+model ProgressTracking {
+  id             String    @id @default(cuid())
+  workBatchId    String
+  taskId         String?
+  progress       Float @default(0)
+  status         String
+  notes          String?
+  trackedBy      String
+  trackedAt      DateTime @default(now())
+
+  workBatch      WorkBatch @relation(fields: [workBatchId], references: [id], onDelete: Cascade)
+
+  @@map("progress_trackings")
+}
+
+// Production - Production Order
+model ProductionOrder {
+  id             String    @id @default(cuid())
+  tenantId       String
+  orderNumber    String
+  orderType      String // PREPARATION, COOKING, PLATING
+  status         String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor   DateTime
+  startedAt      DateTime?
+  completedAt    DateTime?
+  items          Json?
+  notes          String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workBatches    WorkBatch[] @relation("BatchOrder")
+
+  @@map("production_orders")
+}
+
+// Production - Production Alert
+model ProductionAlert {
+  id             String    @id @default(cuid())
+  tenantId       String
+  alertType      String // DELAY, QUALITY, STOCK, STAFF
+  severity       String // INFO, WARNING, ERROR, CRITICAL
+  message        String
+  isResolved     Boolean @default(false)
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("production_alerts")
+}
+
+// APPCC
+model AppccControl {
+  id           String   @id @default(cuid())
+  tenantId     String
+  controlType  String // TEMPERATURE, CLEANING, PEST_CONTROL, RECEPTION
+  value        Float
+  unit         String?
+  status       String // OK, WARNING, CRITICAL
+  notes        String?
+  controlledBy String
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("appcc_controls")
+}
+
+// Fichas Técnicas - Templates
+model TechnicalSheetTemplate {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  type         String // STANDARD, MINIMAL, DETAILED, CUSTOM
+  description  String?
+  layout       Json?
+  fields       Json?
+  styles       Json?
+  isActive     Boolean  @default(true)
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents    Document[]
+
+  @@map("technical_sheet_templates")
+}
+
+// Documentos
+model Document {
+  id             String   @id @default(cuid())
+  tenantId       String
+  name           String
+  type           String // TECHNICAL_SHEET, RECIPE_CARD, INSTRUCTION, OTHER
+  category       String
+  recipeId       String?
+  templateId     String?
+  version        Int      @default(1)
+  createdBy      String
+  fileSize       Int
+  fileFormat     String // PDF, DOCX
+  url            String
+  createdAt      DateTime @default(now())
+
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template       TechnicalSheetTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@map("documents")
 }
