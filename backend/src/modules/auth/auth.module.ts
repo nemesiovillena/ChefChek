@@ -9,7 +9,7 @@ import { TenantsModule } from "../tenants/tenants.module";
 import { PrismaModule } from "../../common/services/prisma.module";
 
 @Module({
-  imports: [forwardRef(() => UsersModule), TenantsModule, PrismaModule],
+  imports: [forwardRef(() => UsersModule), forwardRef(() => TenantsModule), PrismaModule],
   controllers: [AuthController],
   providers: [
     AuthService,
