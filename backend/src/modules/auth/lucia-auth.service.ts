@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
-import { Lucia } from "lucia";
+import { Lucia, TimeSpan } from "lucia";
 import { PrismaAdapter } from "@lucia-auth/adapter-prisma";
 import { PrismaService } from "../../common/services/prisma.service";
 import { User, Session } from "@prisma/client";
@@ -34,9 +34,7 @@ export class LuciaAuthService implements OnModuleInit {
           isActive: attributes.isActive,
         };
       },
-      sessionExpiresIn: {
-        getPeriod: () => new Date(Date.now() + 86400000), // 24 horas
-      },
+      sessionExpiresIn: new TimeSpan(24, "h"), // 24 horas
     } as any);
   }
 
