@@ -6,38 +6,38 @@ import {
   IsOptional,
   IsBoolean,
   IsDate,
-} from 'class-validator';
+} from "class-validator";
 
-enum TemperatureUnit {
-  CELSIUS = 'CELSIUS',
-  FAHRENHEIT = 'FAHRENHEIT',
+export enum TemperatureUnit {
+  CELSIUS = "CELSIUS",
+  FAHRENHEIT = "FAHRENHEIT",
 }
 
-enum ControlType {
-  CAMERA = 'CAMERA',
-  EQUIPMENT = 'EQUIPMENT',
-  PRODUCT = 'PRODUCT',
+export enum ControlType {
+  CAMERA = "CAMERA",
+  EQUIPMENT = "EQUIPMENT",
+  PRODUCT = "PRODUCT",
 }
 
-enum CleaningFrequency {
-  DAILY = 'DAILY',
-  WEEKLY = 'WEEKLY',
-  MONTHLY = 'MONTHLY',
-  QUARTERLY = 'QUARTERLY',
+export enum CleaningFrequency {
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  MONTHLY = "MONTHLY",
+  QUARTERLY = "QUARTERLY",
 }
 
-enum PestType {
-  RATS = 'RATS',
-  INSECTS = 'INSECTS',
-  RODENTS = 'RODENTS',
-  BIRDS = 'BIRDS',
+export enum PestType {
+  RATS = "RATS",
+  INSECTS = "INSECTS",
+  RODENTS = "RODENTS",
+  BIRDS = "BIRDS",
 }
 
-enum AlertSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
+export enum AlertSeverity {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  CRITICAL = "CRITICAL",
 }
 
 export class CreateTemperatureControlDto {
@@ -199,7 +199,7 @@ export class CreateAlertDto {
   severity: AlertSeverity;
 
   @IsString()
-  type: 'TEMPERATURE' | 'CLEANING' | 'APPCC' | 'PEST';
+  type: "TEMPERATURE" | "CLEANING" | "APPCC" | "PEST";
 
   @IsString()
   title: string;
@@ -224,7 +224,7 @@ export class CreateAlertDto {
 export class UpdateAlertDto {
   @IsOptional()
   @IsString()
-  status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status?: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
   @IsOptional()
   @IsString()
@@ -236,8 +236,8 @@ export class UpdateAlertDto {
 }
 
 export class GenerateComplianceReportDto {
-  @IsEnum(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY'])
-  period: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY';
+  @IsEnum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY"])
+  period: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY";
 
   @IsDate()
   startDate: Date;

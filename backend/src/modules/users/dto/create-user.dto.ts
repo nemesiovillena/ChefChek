@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsBoolean, IsOptional } from "class-validator";
 
 export class CreateUserDto {
   @IsString()
@@ -13,9 +13,9 @@ export class CreateUserDto {
   @IsString()
   name: string;
 
-  @IsEnum(['ADMIN', 'USER', 'VIEWER'])
+  @IsEnum(["ADMIN", "USER", "VIEWER"])
   @IsOptional()
-  role?: 'ADMIN' | 'USER' | 'VIEWER';
+  role?: "ADMIN" | "USER" | "VIEWER";
 
   @IsBoolean()
   @IsOptional()
@@ -36,8 +36,8 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(['ADMIN', 'USER', 'VIEWER'])
-  role?: 'ADMIN' | 'USER' | 'VIEWER';
+  @IsEnum(["ADMIN", "USER", "VIEWER"])
+  role?: "ADMIN" | "USER" | "VIEWER";
 
   @IsOptional()
   @IsBoolean()

@@ -1,33 +1,38 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { Request } from 'express';
-import { AuthService } from '../modules/auth/auth.service';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { SessionService } from "../modules/auth/session.service";
+import { AuthenticatedRequest } from "../types/auth.types";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly sessionService: SessionService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
-    const authorizationHeader = request.headers['authorization'];
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const authorizationHeader = request.headers["authorization"];
 
     if (!authorizationHeader) {
-      throw new UnauthorizedException('Authorization header is required');
+      throw new UnauthorizedException("Authorization header is required");
     }
 
-    const sessionId = authorizationHeader.replace('Bearer ', '');
+    const sessionId = authorizationHeader.replace("Bearer ", "");
 
     if (!sessionId) {
-      throw new UnauthorizedException('Invalid authorization header format');
+      throw new UnauthorizedException("Invalid authorization header format");
     }
 
-    const validation = await this.authService.validateSession(sessionId);
+    const validation = await this.sessionService.validateSession(sessionId);
 
     if (!validation.valid || !validation.user) {
-      throw new UnauthorizedException('Invalid or expired session');
+      throw new UnauthorizedException("Invalid or expired session");
     }
 
-    // Adjuntar usuario al contexto de la request
-    request.user = validation.user;
+    request.user = validation.user as any;
+    request.sessionId = sessionId;
 
     return true;
   }

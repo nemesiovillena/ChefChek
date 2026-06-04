@@ -1,70 +1,130 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, HttpCode, HttpStatus, Req } from '@nestjs/common';
-import { ProductsService } from './products.service';
-import { CreateProductDto, UpdateProductDto, ProductsQueryDto } from './dto/create-product.dto';
-import { Roles } from '../../decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
-import { AuthGuard } from '../../guards/auth.guard';
-import { RolesGuard } from '../../guards/roles.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Req,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
+import { ProductsService } from "./products.service";
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  ProductsQueryDto,
+} from "./dto/create-product.dto";
+import { Roles } from "../../decorators/roles.decorator";
+import { UseGuards } from "@nestjs/common";
+import { AuthGuard } from "../../guards/auth.guard";
+import { RolesGuard } from "../../guards/roles.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
 
-@Controller('api/v1/products')
+@ApiTags("Products")
+@ApiBearerAuth("JWT-auth")
+@Controller("api/v1/products")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  @Roles('ADMIN', 'USER')
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear un nuevo producto" })
+  @ApiResponse({ status: 201, description: "Producto creado exitosamente" })
+  @ApiResponse({ status: 400, description: "Datos inválidos" })
+  @ApiResponse({ status: 403, description: "Permiso denegado" })
   async create(@Body() createProductDto: CreateProductDto, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.create(createProductDto, tenantId);
   }
 
   @Get()
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar todos los productos del tenant" })
+  @ApiResponse({ status: 200, description: "Lista de productos" })
   async findAll(@Query() query: ProductsQueryDto, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.findAll(query, tenantId);
   }
 
-  @Get('categories')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("categories")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Obtener todas las categorías de productos" })
+  @ApiResponse({ status: 200, description: "Lista de categorías" })
   async getCategories(@Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.getCategories(tenantId);
   }
 
-  @Get('suppliers')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("suppliers")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Obtener todos los proveedores" })
+  @ApiResponse({ status: 200, description: "Lista de proveedores" })
   async getSuppliers(@Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.getSuppliers(tenantId);
   }
 
-  @Get(':id/calculate')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async calculateCost(@Param('id') id: string, @Req() req: any) {
+  @Get(":id/calculate")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Calcular costo de producto (incluye mermas)" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiResponse({ status: 200, description: "Costo calculado exitosamente" })
+  @ApiResponse({ status: 404, description: "Producto no encontrado" })
+  async calculateCost(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.calculateProductCost(id, tenantId);
   }
 
-  @Get(':id')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async findOne(@Param('id') id: string, @Req() req: any) {
+  @Get(":id")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Obtener un producto por ID" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiResponse({ status: 200, description: "Producto encontrado" })
+  @ApiResponse({ status: 404, description: "Producto no encontrado" })
+  async findOne(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.findOne(id, tenantId);
   }
 
-  @Patch(':id')
-  @Roles('ADMIN', 'USER')
-  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @Req() req: any) {
+  @Patch(":id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar un producto" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiResponse({
+    status: 200,
+    description: "Producto actualizado exitosamente",
+  })
+  @ApiResponse({ status: 403, description: "Permiso denegado" })
+  @ApiResponse({ status: 404, description: "Producto no encontrado" })
+  async update(
+    @Param("id") id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @Req() req: any,
+  ) {
     const tenantId = req.tenantId;
     return this.productsService.update(id, updateProductDto, tenantId);
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles('ADMIN', 'USER')
-  async remove(@Param('id') id: string, @Req() req: any) {
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Eliminar un producto" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiResponse({ status: 204, description: "Producto eliminado exitosamente" })
+  @ApiResponse({ status: 403, description: "Permiso denegado" })
+  @ApiResponse({ status: 404, description: "Producto no encontrado" })
+  async remove(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.remove(id, tenantId);
   }

@@ -1,4 +1,17 @@
-import { IsString, IsNumber, IsOptional, IsArray, Min, Max, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  Min,
+  Max,
+  IsNotEmpty,
+  MinLength,
+  MaxLength,
+  IsPositive,
+  IsBoolean,
+  IsIn,
+} from "class-validator";
 
 export class CreateProductDto {
   @IsString()
@@ -21,15 +34,15 @@ export class CreateProductDto {
   // Multi-unidad
   @IsString()
   @IsNotEmpty()
-  purchaseUnit: string;  // UC: Caja 10kg, Bote 300uds
+  purchaseUnit: string; // UC: Caja 10kg, Bote 300uds
 
   @IsString()
   @IsNotEmpty()
-  storageUnit: string;  // UA: Kilogramos, Litros
+  storageUnit: string; // UA: Kilogramos, Litros
 
   @IsString()
   @IsNotEmpty()
-  recipeUnit: string;   // UR: Gramos, Mililitros
+  recipeUnit: string; // UR: Gramos, Mililitros
 
   // Precios
   @IsNumber()
@@ -158,7 +171,7 @@ export class ProductsQueryDto {
 
   @IsOptional()
   @IsString()
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 
   @IsOptional()
   @IsNumber()

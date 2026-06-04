@@ -9,11 +9,13 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import { OrdersService } from './orders.service';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { Roles } from '../../auth/decorators/roles.decorator';
+  Req,
+} from "@nestjs/common";
+import { OrdersService } from "./orders.service";
+import { AuthGuard } from "../../guards/auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { RolesGuard } from "../../guards/roles.guard";
+import { Roles } from "../../decorators/roles.decorator";
 import {
   CreateOrderRequirementDto,
   CreateAutomatedOrderDto,
@@ -21,27 +23,32 @@ import {
   ApproveOrderDto,
   SendOrderDto,
   ExportOrderDto,
-} from './dto/orders.dto';
+} from "./dto/orders.dto";
 
-@Controller('api/v1/orders')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller("api/v1/orders")
+@UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
-  @Post('calculate-requirements')
-  @Roles('ADMIN', 'USER')
+  @Post("calculate-requirements")
+  @Roles("ADMIN", "USER")
   @HttpCode(HttpStatus.OK)
-  async calculateRequirements(@Body() dto: CreateOrderRequirementDto) {
-    return this.ordersService.calculateOrderRequirements(dto);
+  async calculateRequirements(
+    @Req() req: any,
+    @Body() dto: CreateOrderRequirementDto,
+  ) {
+    const tenantId = req.tenantId;
+    return this.ordersService.calculateOrderRequirements({ ...dto, tenantId });
   }
 
-  @Get('requirements')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("requirements")
+  @Roles("ADMIN", "USER", "VIEWER")
   async listRequirements(
-    @Query('tenantId') tenantId: string,
-    @Query('historicalPeriod') historicalPeriod?: number,
-    @Query('lookaheadDays') lookaheadDays?: number,
+    @Req() req: any,
+    @Query("historicalPeriod") historicalPeriod?: number,
+    @Query("lookaheadDays") lookaheadDays?: number,
   ) {
+    const tenantId = req.tenantId;
     return this.ordersService.calculateOrderRequirements({
       tenantId,
       historicalPeriod,
@@ -49,71 +56,86 @@ export class OrdersController {
     });
   }
 
-  @Post('generate')
-  @Roles('ADMIN', 'USER')
+  @Post("generate")
+  @Roles("ADMIN", "USER")
   @HttpCode(HttpStatus.CREATED)
-  async generateOrder(@Body() dto: CreateAutomatedOrderDto) {
-    return this.ordersService.createAutomatedOrder(dto);
+  async generateOrder(@Req() req: any, @Body() dto: CreateAutomatedOrderDto) {
+    const tenantId = req.tenantId;
+    return this.ordersService.createAutomatedOrder({ ...dto, tenantId });
   }
 
-  @Get(':orderId')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getOrder(@Param('orderId') orderId: string) {
-    return this.ordersService.getAutomatedOrder(orderId);
+  @Get(":orderId")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getOrder(@Req() req: any, @Param("orderId") orderId: string) {
+    const tenantId = req.tenantId;
+    return this.ordersService.getAutomatedOrder(tenantId, orderId);
   }
 
-  @Put(':orderId/items/:itemId')
-  @Roles('ADMIN', 'USER')
+  @Put(":orderId/items/:itemId")
+  @Roles("ADMIN", "USER")
   async updateOrderItem(
-    @Param('orderId') orderId: string,
-    @Param('itemId') itemId: string,
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+    @Param("itemId") itemId: string,
     @Body() dto: UpdateOrderItemDto,
   ) {
-    return this.ordersService.updateOrderItem(orderId, itemId, dto);
+    const tenantId = req.tenantId;
+    return this.ordersService.updateOrderItem(tenantId, orderId, itemId, dto);
   }
 
-  @Post(':orderId/approve')
-  @Roles('ADMIN', 'USER')
+  @Post(":orderId/approve")
+  @Roles("ADMIN", "USER")
   @HttpCode(HttpStatus.OK)
   async approveOrder(
-    @Param('orderId') orderId: string,
+    @Req() req: any,
+    @Param("orderId") orderId: string,
     @Body() dto: ApproveOrderDto,
   ) {
-    return this.ordersService.approveOrder(orderId, dto);
+    const tenantId = req.tenantId;
+    return this.ordersService.approveOrder(tenantId, orderId, dto);
   }
 
-  @Post(':orderId/send')
-  @Roles('ADMIN', 'USER')
+  @Post(":orderId/send")
+  @Roles("ADMIN", "USER")
   @HttpCode(HttpStatus.OK)
   async sendOrder(
-    @Param('orderId') orderId: string,
+    @Req() req: any,
+    @Param("orderId") orderId: string,
     @Body() dto: SendOrderDto,
   ) {
-    return this.ordersService.sendOrder(orderId, dto);
+    const tenantId = req.tenantId;
+    return this.ordersService.sendOrder(tenantId, orderId, dto);
   }
 
-  @Get('history')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getHistory(@Query('tenantId') tenantId: string) {
+  @Get("history")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getHistory(@Req() req: any) {
+    const tenantId = req.tenantId;
     return this.ordersService.getOrdersHistory(tenantId);
   }
 
-  @Get('by-supplier/:supplierId')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getBySupplier(@Param('supplierId') supplierId: string) {
-    return this.ordersService.getOrdersBySupplier(supplierId);
+  @Get("by-supplier/:supplierId")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getBySupplier(
+    @Req() req: any,
+    @Param("supplierId") supplierId: string,
+  ) {
+    const tenantId = req.tenantId;
+    return this.ordersService.getOrdersBySupplier(tenantId, supplierId);
   }
 
-  @Get('by-zone/:zone')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getByZone(@Param('zone') zone: string) {
-    return this.ordersService.getOrdersByZone(zone);
+  @Get("by-zone/:zone")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getByZone(@Req() req: any, @Param("zone") zone: string) {
+    const tenantId = req.tenantId;
+    return this.ordersService.getOrdersByZone(tenantId, zone);
   }
 
-  @Get(':orderId/status')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getOrderStatus(@Param('orderId') orderId: string) {
-    const order = await this.ordersService.getAutomatedOrder(orderId);
+  @Get(":orderId/status")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getOrderStatus(@Req() req: any, @Param("orderId") orderId: string) {
+    const tenantId = req.tenantId;
+    const order = await this.ordersService.getAutomatedOrder(tenantId, orderId);
     return {
       orderId: order.id,
       status: order.status,
@@ -124,25 +146,28 @@ export class OrdersController {
     };
   }
 
-  @Get(':orderId/export/:format')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get(":orderId/export/:format")
+  @Roles("ADMIN", "USER", "VIEWER")
   async exportOrder(
-    @Param('orderId') orderId: string,
-    @Param('format') format: 'PDF' | 'EXCEL',
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+    @Param("format") format: "PDF" | "EXCEL",
     @Body() dto?: ExportOrderDto,
   ) {
-    return this.ordersService.generatePurchaseTemplate(orderId, {
+    const tenantId = req.tenantId;
+    return this.ordersService.generatePurchaseTemplate(tenantId, orderId, {
       format: format as any,
       recipientEmail: dto?.recipientEmail,
     });
   }
 
-  @Get('classify/supplier')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("classify/supplier")
+  @Roles("ADMIN", "USER", "VIEWER")
   async classifyBySupplier(
-    @Query('tenantId') tenantId: string,
-    @Query('historicalPeriod') historicalPeriod?: number,
+    @Req() req: any,
+    @Query("historicalPeriod") historicalPeriod?: number,
   ) {
+    const tenantId = req.tenantId;
     const requirements = await this.ordersService.calculateOrderRequirements({
       tenantId,
       historicalPeriod,
@@ -151,12 +176,13 @@ export class OrdersController {
     return this.ordersService.classifyBySupplier(requirements);
   }
 
-  @Get('classify/zone')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("classify/zone")
+  @Roles("ADMIN", "USER", "VIEWER")
   async classifyByZone(
-    @Query('tenantId') tenantId: string,
-    @Query('historicalPeriod') historicalPeriod?: number,
+    @Req() req: any,
+    @Query("historicalPeriod") historicalPeriod?: number,
   ) {
+    const tenantId = req.tenantId;
     const requirements = await this.ordersService.calculateOrderRequirements({
       tenantId,
       historicalPeriod,
@@ -165,12 +191,13 @@ export class OrdersController {
     return this.ordersService.classifyByZone(requirements);
   }
 
-  @Get('classify/category')
-  @Roles('ADMIN', 'USER', 'VIEWER')
+  @Get("classify/category")
+  @Roles("ADMIN", "USER", "VIEWER")
   async classifyByCategory(
-    @Query('tenantId') tenantId: string,
-    @Query('historicalPeriod') historicalPeriod?: number,
+    @Req() req: any,
+    @Query("historicalPeriod") historicalPeriod?: number,
   ) {
+    const tenantId = req.tenantId;
     const requirements = await this.ordersService.calculateOrderRequirements({
       tenantId,
       historicalPeriod,
@@ -179,22 +206,32 @@ export class OrdersController {
     return this.ordersService.classifyByCategory(requirements);
   }
 
-  @Get('suppliers/:supplierId/classification')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async getSupplierClassification(@Param('supplierId') supplierId: string) {
-    return this.ordersService.getSupplierClassification(supplierId);
+  @Get("suppliers/:supplierId/classification")
+  @Roles("ADMIN", "USER", "VIEWER")
+  async getSupplierClassification(
+    @Req() req: any,
+    @Param("supplierId") supplierId: string,
+  ) {
+    const tenantId = req.tenantId;
+    return this.ordersService.getSupplierClassification(tenantId, supplierId);
   }
 
-  @Get(':orderId/export/email')
-  @Roles('ADMIN', 'USER')
+  @Get(":orderId/export/email")
+  @Roles("ADMIN", "USER")
   async exportOrderEmail(
-    @Param('orderId') orderId: string,
+    @Req() req: any,
+    @Param("orderId") orderId: string,
     @Body() dto: ExportOrderDto,
   ) {
-    const template = await this.ordersService.generatePurchaseTemplate(orderId, dto);
+    const tenantId = req.tenantId;
+    const template = await this.ordersService.generatePurchaseTemplate(
+      tenantId,
+      orderId,
+      dto,
+    );
     return {
       template,
-      message: 'Order template sent via email',
+      message: "Order template sent via email",
     };
   }
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 import {
   Tabs,
   TabsContent,
@@ -109,6 +111,7 @@ interface ComplianceKPI {
   overallCompliance: number;
 }
 
+export const dynamic = 'force-dynamic';
 export default function AppccPage() {
   const [activeTab, setActiveTab] = useState('temperature');
 
@@ -785,7 +788,7 @@ export default function AppccPage() {
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Label htmlFor="period">Periodo</Label>
-                  <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                  <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v || 'MONTHLY')}>
                     <SelectTrigger id="period">
                       <SelectValue />
                     </SelectTrigger>

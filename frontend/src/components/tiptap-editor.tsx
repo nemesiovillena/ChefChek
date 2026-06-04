@@ -3,10 +3,16 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import ListItem from '@tiptap/extension-list-item';
-import TextStyle from '@tiptap/extension-text-style';
+import { TextStyle } from '@tiptap/extension-text-style';
 import './tiptap-editor.css';
 
-export function TipTapEditor({ content, onChange, editable = true }) {
+interface TipTapEditorProps {
+  content: string;
+  onChange: (content: string) => void;
+  editable?: boolean;
+}
+
+export function TipTapEditor({ content, onChange, editable = true }: TipTapEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -20,7 +26,7 @@ export function TipTapEditor({ content, onChange, editable = true }) {
     content,
     onUpdate: () => {
       if (onChange && editor) {
-        onChange(editor.getJSON());
+        onChange(editor.getHTML());
       }
     },
     editable,

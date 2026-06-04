@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Download, Send, CheckCircle, Clock, FileText, Package, Filter, TrendingUp, Settings, ChevronRight, ChevronLeft } from 'lucide-react';
+import { AlertCircle, Download, Send, CheckCircle, Clock, FileText, Package, Filter, TrendingUp, Settings, ChevronRight, ChevronLeft, Plus } from 'lucide-react';
 
 type Urgency = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 type OrderStatus = 'DRAFT' | 'REVIEW' | 'APPROVED' | 'SENT' | 'RECEIVED' | 'CANCELLED';
@@ -58,6 +58,7 @@ interface AutomatedOrder {
   items: OrderItem[];
 }
 
+export const dynamic = 'force-dynamic';
 export default function OrdersPage() {
   const [requirements, setRequirements] = useState<OrderRequirement[]>([]);
   const [orders, setOrders] = useState<AutomatedOrder[]>([]);

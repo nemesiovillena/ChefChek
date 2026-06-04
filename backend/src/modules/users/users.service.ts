@@ -1,18 +1,30 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../common/services/prisma.service';
-import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
-import * as bcrypt from 'bcrypt';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
+import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto, requestTenantId: string) {
-    const { tenantId, email, password, name, role = 'USER', isActive = true } = createUserDto;
+    const {
+      tenantId,
+      email,
+      password,
+      name,
+      role = "USER",
+      isActive = true,
+    } = createUserDto;
 
     // Validar que el tenant ID coincida con el tenant de la request
     if (tenantId !== requestTenantId) {
-      throw new ForbiddenException('Cannot create user for different tenant');
+      throw new ForbiddenException("Cannot create user for different tenant");
     }
 
     // Verificar que el tenant existe y está activo
@@ -21,11 +33,11 @@ export class UsersService {
     });
 
     if (!tenantExists) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException("Tenant not found");
     }
 
     if (!tenantExists.isActive) {
-      throw new ForbiddenException('Tenant is not active');
+      throw new ForbiddenException("Tenant is not active");
     }
 
     // Verificar que el email no exista en el mismo tenant
@@ -39,7 +51,7 @@ export class UsersService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User already exists in this tenant');
+      throw new ConflictException("User already exists in this tenant");
     }
 
     // Hash password
@@ -68,7 +80,7 @@ export class UsersService {
     return {
       success: true,
       data: user,
-      message: 'User created successfully',
+      message: "User created successfully",
     };
   }
 
@@ -80,7 +92,7 @@ export class UsersService {
         where: { tenantId: requestTenantId },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           email: true,
@@ -103,7 +115,7 @@ export class UsersService {
         page,
         limit,
       },
-      message: 'Users retrieved successfully',
+      message: "Users retrieved successfully",
     };
   }
 
@@ -125,17 +137,21 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     return {
       success: true,
       data: user,
-      message: 'User retrieved successfully',
+      message: "User retrieved successfully",
     };
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, requestTenantId: string) {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    requestTenantId: string,
+  ) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
         id,
@@ -144,7 +160,7 @@ export class UsersService {
     });
 
     if (!existingUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     const updateData: any = { ...updateUserDto };
@@ -172,7 +188,7 @@ export class UsersService {
     return {
       success: true,
       data: user,
-      message: 'User updated successfully',
+      message: "User updated successfully",
     };
   }
 
@@ -185,7 +201,7 @@ export class UsersService {
     });
 
     if (!existingUser) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException("User not found");
     }
 
     await this.prisma.user.delete({
@@ -195,7 +211,7 @@ export class UsersService {
     return {
       success: true,
       data: null,
-      message: 'User deleted successfully',
+      message: "User deleted successfully",
     };
   }
 
@@ -244,7 +260,10 @@ export class UsersService {
     };
   }
 
-  async validateUserPermissions(userId: string, requiredRoles: string[]): Promise<boolean> {
+  async validateUserPermissions(
+    userId: string,
+    requiredRoles: string[],
+  ): Promise<boolean> {
     const user = await this.findById(userId);
 
     if (!user || !user.isActive) {
@@ -253,15 +272,15 @@ export class UsersService {
 
     // Roles con mayor jerarquía: ADMIN > USER > VIEWER
     const roleHierarchy: { [key: string]: number } = {
-      'ADMIN': 3,
-      'USER': 2,
-      'VIEWER': 1,
+      ADMIN: 3,
+      USER: 2,
+      VIEWER: 1,
     };
 
     const userRoleLevel = roleHierarchy[user.role] || 0;
 
     // Verificar si el usuario tiene al menos uno de los roles requeridos
-    return requiredRoles.some(role => {
+    return requiredRoles.some((role) => {
       const requiredRoleLevel = roleHierarchy[role] || 0;
       return userRoleLevel >= requiredRoleLevel;
     });

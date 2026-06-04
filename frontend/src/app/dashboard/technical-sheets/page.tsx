@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
 
 interface Template {
   id: string;
@@ -39,7 +41,24 @@ interface Recipe {
   }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function TechnicalSheetsPage() {
+  const router = useRouter();
+  const { session, isAuthenticated, loading: authLoading } = useAuth();
+
+  // Auth redirect
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Prevent loading if not authenticated
+  if (authLoading || !isAuthenticated) {
+    return null;
+  }
+
   const [templates, setTemplates] = useState<Template[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);

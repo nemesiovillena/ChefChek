@@ -1,18 +1,25 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateRecipeDto } from './dto/create-recipe.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import {
   RecipeResponse,
   IngredientResponse,
   SubRecipeResponse,
-  RecipeCostBreakdown
-} from './dto/recipe-response.dto';
+  RecipeCostBreakdown,
+} from "./dto/recipe-response.dto";
 
 @Injectable()
 export class RecipesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(tenantId: string, createRecipeDto: CreateRecipeDto): Promise<RecipeResponse> {
+  async create(
+    tenantId: string,
+    createRecipeDto: CreateRecipeDto,
+  ): Promise<RecipeResponse> {
     const {
       name,
       description,
@@ -29,11 +36,15 @@ export class RecipesService {
     try {
       parsedElaboration = JSON.parse(elaboration);
     } catch (error) {
-      throw new BadRequestException('Elaboration must be valid TipTap JSON');
+      throw new BadRequestException("Elaboration must be valid TipTap JSON");
     }
 
     // Calcular costos iniciales
-    const costBreakdown = await this.calculateCost(tenantId, ingredients, subRecipes);
+    const costBreakdown = await this.calculateCost(
+      tenantId,
+      ingredients,
+      subRecipes,
+    );
 
     // Crear receta
     const recipe = await this.prisma.recipe.create({
@@ -49,19 +60,22 @@ export class RecipesService {
         version: 1,
         isPublic,
         ingredients: {
-          create: ingredients.map(ing => ({
+          create: ingredients.map((ing) => ({
             productId: ing.productId,
             quantity: ing.quantity,
             unit: ing.unit,
           })),
         },
-        subRecipes: subRecipes.length > 0 ? {
-          create: subRecipes.map(sub => ({
-            subRecipeId: sub.subRecipeId,
-            quantity: sub.quantity,
-            unit: sub.unit,
-          })),
-        } : undefined,
+        subRecipes:
+          subRecipes.length > 0
+            ? {
+                create: subRecipes.map((sub) => ({
+                  subRecipeId: sub.subRecipeId,
+                  quantity: sub.quantity,
+                  unit: sub.unit,
+                })),
+              }
+            : undefined,
       },
       include: {
         ingredients: {
@@ -80,14 +94,22 @@ export class RecipesService {
     return this.formatRecipeResponse(recipe);
   }
 
-  async findAll(tenantId: string, query?: { search?: string; category?: string }): Promise<RecipeResponse[]> {
+  async findAll(
+    tenantId: string,
+    query?: { search?: string; category?: string },
+  ): Promise<RecipeResponse[]> {
     const where = {
       tenantId,
       isActive: true,
       ...(query?.search && {
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' as const } },
-          { description: { contains: query.search, mode: 'insensitive' as const } },
+          { name: { contains: query.search, mode: "insensitive" as const } },
+          {
+            description: {
+              contains: query.search,
+              mode: "insensitive" as const,
+            },
+          },
         ],
       }),
     };
@@ -106,10 +128,10 @@ export class RecipesService {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
-    return recipes.map(recipe => this.formatRecipeResponse(recipe));
+    return recipes.map((recipe) => this.formatRecipeResponse(recipe));
   }
 
   async findOne(tenantId: string, id: string): Promise<RecipeResponse> {
@@ -149,7 +171,11 @@ export class RecipesService {
     return this.formatRecipeResponse(recipe);
   }
 
-  async update(tenantId: string, id: string, updateRecipeDto: Partial<CreateRecipeDto>): Promise<RecipeResponse> {
+  async update(
+    tenantId: string,
+    id: string,
+    updateRecipeDto: Partial<CreateRecipeDto>,
+  ): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
       where: { id, tenantId, isActive: true },
     });
@@ -162,7 +188,11 @@ export class RecipesService {
     let version = recipe.version;
     let parentVersion = recipe.parentVersion;
 
-    if (updateRecipeDto.name || updateRecipeDto.ingredients || updateRecipeDto.subRecipes) {
+    if (
+      updateRecipeDto.name ||
+      updateRecipeDto.ingredients ||
+      updateRecipeDto.subRecipes
+    ) {
       version += 1;
       parentVersion = recipe.id;
 
@@ -186,7 +216,7 @@ export class RecipesService {
       try {
         JSON.parse(elaboration);
       } catch (error) {
-        throw new BadRequestException('Elaboration must be valid TipTap JSON');
+        throw new BadRequestException("Elaboration must be valid TipTap JSON");
       }
     }
 
@@ -197,8 +227,8 @@ export class RecipesService {
     if (ingredients || subRecipes) {
       const costBreakdown = await this.calculateCost(
         tenantId,
-        ingredients || recipe.ingredients,
-        subRecipes || recipe.subRecipes,
+        ingredients || (recipe as any).ingredients,
+        subRecipes || (recipe as any).subRecipes,
       );
       totalCost = costBreakdown.totalCost;
       totalCostPerUnit = costBreakdown.costPerUnit;
@@ -234,9 +264,11 @@ export class RecipesService {
 
     // Actualizar ingredientes y sub-recetas si se proporcionan
     if (ingredients) {
-      await this.prisma.recipeIngredient.deleteMany({ where: { recipeId: id } });
+      await this.prisma.recipeIngredient.deleteMany({
+        where: { recipeId: id },
+      });
       await this.prisma.recipeIngredient.createMany({
-        data: ingredients.map(ing => ({
+        data: ingredients.map((ing) => ({
           recipeId: id,
           productId: ing.productId,
           quantity: ing.quantity,
@@ -246,9 +278,11 @@ export class RecipesService {
     }
 
     if (subRecipes) {
-      await this.prisma.recipeSubRecipe.deleteMany({ where: { parentRecipeId: id } });
+      await this.prisma.recipeSubRecipe.deleteMany({
+        where: { parentRecipeId: id },
+      });
       await this.prisma.recipeSubRecipe.createMany({
-        data: subRecipes.map(sub => ({
+        data: subRecipes.map((sub) => ({
           parentRecipeId: id,
           subRecipeId: sub.subRecipeId,
           quantity: sub.quantity,
@@ -292,7 +326,11 @@ export class RecipesService {
     });
   }
 
-  async duplicate(tenantId: string, id: string, newName?: string): Promise<RecipeResponse> {
+  async duplicate(
+    tenantId: string,
+    id: string,
+    newName?: string,
+  ): Promise<RecipeResponse> {
     const originalRecipe = await this.findOne(tenantId, id);
 
     const duplicatedRecipe = await this.create(tenantId, {
@@ -301,12 +339,12 @@ export class RecipesService {
       elaboration: originalRecipe.elaboration,
       portions: originalRecipe.portions,
       portionSize: originalRecipe.portionSize,
-      ingredients: originalRecipe.ingredients?.map(ing => ({
+      ingredients: originalRecipe.ingredients?.map((ing) => ({
         productId: ing.productId,
         quantity: ing.quantity,
         unit: ing.unit,
       })),
-      subRecipes: originalRecipe.subRecipes?.map(sub => ({
+      subRecipes: originalRecipe.subRecipes?.map((sub) => ({
         subRecipeId: sub.subRecipeId,
         quantity: sub.quantity,
         unit: sub.unit,
@@ -317,7 +355,10 @@ export class RecipesService {
     return duplicatedRecipe;
   }
 
-  async calculateRecipeCost(tenantId: string, id: string): Promise<RecipeCostBreakdown> {
+  async calculateRecipeCost(
+    tenantId: string,
+    id: string,
+  ): Promise<RecipeCostBreakdown> {
     const recipe = await this.findOne(tenantId, id);
     return recipe.costBreakdown!;
   }
@@ -337,7 +378,9 @@ export class RecipesService {
       });
 
       if (!product) {
-        throw new NotFoundException(`Product with ID ${ingredient.productId} not found`);
+        throw new NotFoundException(
+          `Product with ID ${ingredient.productId} not found`,
+        );
       }
 
       // Calcular costo: cantidad × costo/UR
@@ -353,7 +396,9 @@ export class RecipesService {
       });
 
       if (!subRecipeData) {
-        throw new NotFoundException(`Sub-recipe with ID ${subRecipe.subRecipeId} not found`);
+        throw new NotFoundException(
+          `Sub-recipe with ID ${subRecipe.subRecipeId} not found`,
+        );
       }
 
       // Calcular costo proporcional de sub-receta
@@ -387,8 +432,14 @@ export class RecipesService {
     const effectivePrice = netPrice;
 
     // Factores de conversión (deberían venir del producto o configuración)
-    const ucToUaFactor = this.getUcToUaFactor(product.purchaseUnit, product.storageUnit);
-    const uaToUrFactor = this.getUaToUrFactor(product.storageUnit, product.recipeUnit);
+    const ucToUaFactor = this.getUcToUaFactor(
+      product.purchaseUnit,
+      product.storageUnit,
+    );
+    const uaToUrFactor = this.getUaToUrFactor(
+      product.storageUnit,
+      product.recipeUnit,
+    );
 
     // Costo por UR
     return effectivePrice / (ucToUaFactor * uaToUrFactor);
@@ -396,11 +447,11 @@ export class RecipesService {
 
   private getUcToUaFactor(purchaseUnit: string, storageUnit: string): number {
     const conversionMap: { [key: string]: { [key: string]: number } } = {
-      'Caja 10kg': { 'Kilogramos': 10, 'Gramos': 10000 },
-      'Bote 300uds': { 'Unidades': 300 },
-      'Saco 25kg': { 'Kilogramos': 25, 'Gramos': 25000 },
-      'Litro': { 'Litros': 1, 'Mililitros': 1000 },
-      'Kilogramo': { 'Kilogramos': 1, 'Gramos': 1000 },
+      "Caja 10kg": { Kilogramos: 10, Gramos: 10000 },
+      "Bote 300uds": { Unidades: 300 },
+      "Saco 25kg": { Kilogramos: 25, Gramos: 25000 },
+      Litro: { Litros: 1, Mililitros: 1000 },
+      Kilogramo: { Kilogramos: 1, Gramos: 1000 },
     };
 
     return conversionMap[purchaseUnit]?.[storageUnit] || 1;
@@ -408,9 +459,9 @@ export class RecipesService {
 
   private getUaToUrFactor(storageUnit: string, recipeUnit: string): number {
     const conversionMap: { [key: string]: { [key: string]: number } } = {
-      'Kilogramos': { 'Gramos': 1000 },
-      'Litros': { 'Mililitros': 1000 },
-      'Unidades': { 'Unidades': 1 },
+      Kilogramos: { Gramos: 1000 },
+      Litros: { Mililitros: 1000 },
+      Unidades: { Unidades: 1 },
     };
 
     return conversionMap[storageUnit]?.[recipeUnit] || 1;
@@ -423,28 +474,33 @@ export class RecipesService {
   }
 
   private formatRecipeResponse(recipe: any): RecipeResponse {
-    const ingredients: IngredientResponse[] = recipe.ingredients?.map((ing: any) => ({
-      id: ing.id,
-      productId: ing.productId,
-      productName: ing.product.name,
-      quantity: ing.quantity,
-      unit: ing.unit,
-      cost: ing.quantity * this.estimateIngredientCost(ing),
-    })) || [];
+    const ingredients: IngredientResponse[] =
+      recipe.ingredients?.map((ing: any) => ({
+        id: ing.id,
+        productId: ing.productId,
+        productName: ing.product.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        cost: ing.quantity * this.estimateIngredientCost(ing),
+      })) || [];
 
-    const subRecipes: SubRecipeResponse[] = recipe.subRecipes?.map((sub: any) => ({
-      id: sub.id,
-      subRecipeId: sub.subRecipeId,
-      subRecipeName: sub.subRecipe.name,
-      quantity: sub.quantity,
-      unit: sub.unit,
-      totalCost: sub.subRecipe.totalCost,
-      costPerUnit: sub.subRecipe.totalCostPerUnit,
-    })) || [];
+    const subRecipes: SubRecipeResponse[] =
+      recipe.subRecipes?.map((sub: any) => ({
+        id: sub.id,
+        subRecipeId: sub.subRecipeId,
+        subRecipeName: sub.subRecipe.name,
+        quantity: sub.quantity,
+        unit: sub.unit,
+        totalCost: sub.subRecipe.totalCost,
+        costPerUnit: sub.subRecipe.totalCostPerUnit,
+      })) || [];
 
     const costBreakdown: RecipeCostBreakdown = {
       ingredientsCost: ingredients.reduce((sum, ing) => sum + ing.cost, 0),
-      subRecipesCost: subRecipes.reduce((sum, sub) => sum + (sub.quantity * sub.costPerUnit), 0),
+      subRecipesCost: subRecipes.reduce(
+        (sum, sub) => sum + sub.quantity * sub.costPerUnit,
+        0,
+      ),
       totalCost: recipe.totalCost,
       costPerPortion: recipe.totalCost / recipe.portions,
       costPerUnit: recipe.totalCostPerUnit,
@@ -452,14 +508,18 @@ export class RecipesService {
 
     // Calcular alérgenos (unión de ingredientes + sub-recetas)
     const allergens = new Set<number>();
-    ingredients.forEach(ing => {
-      const product = recipe.ingredients.find((i: any) => i.id === ing.id)?.product;
+    ingredients.forEach((ing) => {
+      const product = recipe.ingredients.find(
+        (i: any) => i.id === ing.id,
+      )?.product;
       if (product?.allergens) {
         product.allergens.forEach((a: number) => allergens.add(a));
       }
     });
-    subRecipes.forEach(sub => {
-      const subRecipeData = recipe.subRecipes.find((s: any) => s.id === sub.id)?.subRecipe;
+    subRecipes.forEach((sub) => {
+      const subRecipeData = recipe.subRecipes.find(
+        (s: any) => s.id === sub.id,
+      )?.subRecipe;
       if (subRecipeData?.ingredients) {
         subRecipeData.ingredients.forEach((ing: any) => {
           if (ing.product?.allergens) {

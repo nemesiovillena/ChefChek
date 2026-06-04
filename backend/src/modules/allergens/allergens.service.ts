@@ -1,7 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { UpdateProductAllergensDto, AllergenConflictDto, AllergenComplianceReportDto } from './dto/allergens.dto';
-import { ALLERGENS_INFO } from './dto/allergens.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import {
+  UpdateProductAllergensDto,
+  AllergenConflictDto,
+  AllergenComplianceReportDto,
+} from "./dto/allergens.dto";
+import { ALLERGENS_INFO } from "./dto/allergens.dto";
 
 @Injectable()
 export class AllergensService {
@@ -10,14 +18,14 @@ export class AllergensService {
   async updateProductAllergens(
     tenantId: string,
     productId: string,
-    dto: UpdateProductAllergensDto
+    dto: UpdateProductAllergensDto,
   ): Promise<any> {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
     });
 
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
 
     const updatedProduct = await this.prisma.product.update({
@@ -37,9 +45,12 @@ export class AllergensService {
     };
   }
 
-  async calculateRecipeAllergens(recipeId: string): Promise<number[]> {
-    const recipe = await this.prisma.recipe.findUnique({
-      where: { id: recipeId },
+  async calculateRecipeAllergens(
+    tenantId: string,
+    recipeId: string,
+  ): Promise<number[]> {
+    const recipe = await this.prisma.recipe.findFirst({
+      where: { id: recipeId, tenantId },
       include: {
         ingredients: {
           include: {
@@ -55,7 +66,7 @@ export class AllergensService {
     });
 
     if (!recipe) {
-      throw new NotFoundException('Recipe not found');
+      throw new NotFoundException("Recipe not found");
     }
 
     const directAllergens = new Set<number>();
@@ -70,7 +81,10 @@ export class AllergensService {
     });
 
     for (const subRecipeRel of recipe.subRecipes) {
-      const subRecipeAllergens = await this.calculateRecipeAllergens(subRecipeRel.subRecipeId);
+      const subRecipeAllergens = await this.calculateRecipeAllergens(
+        tenantId,
+        subRecipeRel.subRecipeId,
+      );
       subRecipeAllergens.forEach((allergenId) => {
         cascadeAllergens.add(allergenId);
       });
@@ -89,9 +103,12 @@ export class AllergensService {
     return uniqueAllergens;
   }
 
-  async calculateMenuAllergens(menuId: string): Promise<number[]> {
-    const menu = await this.prisma.menu.findUnique({
-      where: { id: menuId },
+  async calculateMenuAllergens(
+    tenantId: string,
+    menuId: string,
+  ): Promise<number[]> {
+    const menu = await this.prisma.menu.findFirst({
+      where: { id: menuId, tenantId },
       include: {
         sections: {
           include: {
@@ -106,7 +123,7 @@ export class AllergensService {
     });
 
     if (!menu) {
-      throw new NotFoundException('Menu not found');
+      throw new NotFoundException("Menu not found");
     }
 
     const menuAllergens = new Set<number>();
@@ -115,7 +132,7 @@ export class AllergensService {
       for (const item of section.items) {
         if (item.recipe) {
           if (!item.recipe.allergens) {
-            await this.calculateRecipeAllergens(item.recipe.id);
+            await this.calculateRecipeAllergens(tenantId, item.recipe.id);
             const updatedRecipe = await this.prisma.recipe.findUnique({
               where: { id: item.recipe.id },
             });
@@ -146,7 +163,7 @@ export class AllergensService {
   async detectAllergenConflicts(
     tenantId: string,
     menuId: string,
-    filteredAllergens: number[]
+    filteredAllergens: number[],
   ): Promise<AllergenConflictDto[]> {
     const menu = await this.prisma.menu.findFirst({
       where: { id: menuId, tenantId },
@@ -177,7 +194,7 @@ export class AllergensService {
     });
 
     if (!menu) {
-      throw new NotFoundException('Menu not found');
+      throw new NotFoundException("Menu not found");
     }
 
     const conflicts: AllergenConflictDto[] = [];
@@ -185,9 +202,12 @@ export class AllergensService {
     for (const section of menu.sections) {
       for (const item of section.items) {
         if (item.recipe) {
-          const recipeAllergens = await this.calculateRecipeAllergens(item.recipe.id);
+          const recipeAllergens = await this.calculateRecipeAllergens(
+            tenantId,
+            item.recipe.id,
+          );
           const conflictingAllergens = recipeAllergens.filter((allergenId) =>
-            filteredAllergens.includes(allergenId)
+            filteredAllergens.includes(allergenId),
           );
 
           if (conflictingAllergens.length > 0) {
@@ -206,7 +226,7 @@ export class AllergensService {
   async generateComplianceReport(
     tenantId: string,
     menuId: string,
-    reportType: 'FULL' | 'SUMMARY' = 'FULL'
+    reportType: "FULL" | "SUMMARY" = "FULL",
   ): Promise<AllergenComplianceReportDto> {
     const menu = await this.prisma.menu.findFirst({
       where: { id: menuId, tenantId },
@@ -232,10 +252,10 @@ export class AllergensService {
     });
 
     if (!menu) {
-      throw new NotFoundException('Menu not found');
+      throw new NotFoundException("Menu not found");
     }
 
-    const missingDeclarations = new Set<number>();
+    const missingDeclarations = new Set<string>();
     const allProductsUsed = new Set<string>();
 
     for (const section of menu.sections) {
@@ -244,7 +264,10 @@ export class AllergensService {
           for (const ingredient of item.recipe.ingredients) {
             allProductsUsed.add(ingredient.productId);
 
-            if (!ingredient.product.allergens || ingredient.product.allergens.length === 0) {
+            if (
+              !ingredient.product.allergens ||
+              ingredient.product.allergens.length === 0
+            ) {
               missingDeclarations.add(ingredient.product.id);
             }
           }
@@ -268,7 +291,10 @@ export class AllergensService {
     return ALLERGENS_INFO;
   }
 
-  async getProductsWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+  async getProductsWithAllergens(
+    tenantId: string,
+    allergenIds: number[],
+  ): Promise<any[]> {
     const products = await this.prisma.product.findMany({
       where: {
         tenantId,
@@ -286,7 +312,10 @@ export class AllergensService {
     return products;
   }
 
-  async getRecipesWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+  async getRecipesWithAllergens(
+    tenantId: string,
+    allergenIds: number[],
+  ): Promise<any[]> {
     const recipes = await this.prisma.recipe.findMany({
       where: {
         tenantId,
@@ -304,7 +333,10 @@ export class AllergensService {
     return recipes;
   }
 
-  async getMenusWithAllergens(tenantId: string, allergenIds: number[]): Promise<any[]> {
+  async getMenusWithAllergens(
+    tenantId: string,
+    allergenIds: number[],
+  ): Promise<any[]> {
     const menus = await this.prisma.menu.findMany({
       where: {
         tenantId,
@@ -341,21 +373,25 @@ export class AllergensService {
     for (const product of products) {
       await this.prisma.product.update({
         where: { id: product.id },
-        data: { allergens: product.id ? await this.getProductAllergens(product.id) : [] },
+        data: {
+          allergens: product.id
+            ? await this.getProductAllergens(product.id)
+            : [],
+        },
       });
     }
 
     for (const recipe of recipes) {
-      await this.calculateRecipeAllergens(recipe.id);
+      await this.calculateRecipeAllergens(tenantId, recipe.id);
     }
 
     for (const menu of menus) {
-      await this.calculateMenuAllergens(menu.id);
+      await this.calculateMenuAllergens(tenantId, menu.id);
     }
 
     return {
       success: true,
-      message: 'All allergens recalculated for tenant',
+      message: "All allergens recalculated for tenant",
       stats: {
         products: products.length,
         recipes: recipes.length,

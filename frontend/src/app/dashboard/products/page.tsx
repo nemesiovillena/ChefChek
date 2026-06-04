@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useNotification } from '@/components/notification-system';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 interface Product {
   id: string;
@@ -24,38 +28,50 @@ interface Product {
 
 export default function ProductsPage() {
   const t = useTranslations('nav');
+  const { user, session, loading, isAuthenticated } = useAuth();
+  const router = useRouter();
   const addNotification = useNotification();
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [session, setSession] = useState<any>(null);
 
-  // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
 
-  // Datos adicionales
   const [categories, setCategories] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<string[]>([]);
   const [showCostModal, setShowCostModal] = useState(false);
   const [costCalculation, setCostCalculation] = useState<any>(null);
 
-  useEffect(() => {
-    const sessionData = localStorage.getItem('session');
-    if (sessionData) {
-      const parsedSession = JSON.parse(sessionData);
-      setSession(parsedSession.session);
-      fetchProducts(parsedSession.session.token);
-      fetchCategories(parsedSession.session.token);
-      fetchSuppliers(parsedSession.session.token);
-    } else {
-      window.location.href = '/login';
-    }
-  }, []);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    category: '',
+    supplier: '',
+    purchaseUnit: '',
+    storageUnit: '',
+    recipeUnit: '',
+    purchasePrice: '',
+    wastePercentage: '',
+    profitMargin: '',
+    allergens: '',
+  });
 
-  const fetchProducts = async (token: string) => {
+  if (!isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
+
+  useEffect(() => {
+    if (session?.id) {
+      fetchProducts();
+      fetchCategories();
+      fetchSuppliers();
+    }
+  }, [session]);
+
+  const fetchProducts = async () => {
     try {
       const queryParams = new URLSearchParams();
       if (searchTerm) queryParams.append('search', searchTerm);
@@ -64,7 +80,7 @@ export default function ProductsPage() {
 
       const response = await fetch(`http://localhost:3001/api/v1/products?${queryParams}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -79,16 +95,14 @@ export default function ProductsPage() {
         title: 'Error',
         message: 'Failed to fetch products',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const fetchCategories = async (token: string) => {
+  const fetchCategories = async () => {
     try {
       const response = await fetch('http://localhost:3001/api/v1/products/categories', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -102,11 +116,11 @@ export default function ProductsPage() {
     }
   };
 
-  const fetchSuppliers = async (token: string) => {
+  const fetchSuppliers = async () => {
     try {
       const response = await fetch('http://localhost:3001/api/v1/products/suppliers', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -143,7 +157,7 @@ export default function ProductsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
         body: JSON.stringify(productData),
@@ -157,7 +171,7 @@ export default function ProductsPage() {
           message: 'Product created successfully',
         });
         setShowCreateForm(false);
-        fetchProducts(session?.token);
+        fetchProducts();
         e.currentTarget.reset();
       }
     } catch (error) {
@@ -173,7 +187,7 @@ export default function ProductsPage() {
     try {
       const response = await fetch(`http://localhost:3001/api/v1/products/${productId}`, {
         headers: {
-          'Authorization': `Bearer ${session?.token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -195,7 +209,7 @@ export default function ProductsPage() {
     try {
       const response = await fetch(`http://localhost:3001/api/v1/products/${productId}/calculate`, {
         headers: {
-          'Authorization': `Bearer ${session?.token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -244,7 +258,7 @@ export default function ProductsPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && fetchProducts(session?.token)}
+                onKeyPress={(e) => e.key === 'Enter' && fetchProducts()}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Search products..."
               />
@@ -278,7 +292,7 @@ export default function ProductsPage() {
           </div>
           <div className="mt-4 flex space-x-2">
             <button
-              onClick={() => fetchProducts(session?.token)}
+              onClick={fetchProducts}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
               Search
@@ -288,7 +302,7 @@ export default function ProductsPage() {
                 setSearchTerm('');
                 setSelectedCategory('');
                 setSelectedSupplier('');
-                fetchProducts(session?.token);
+                fetchProducts();
               }}
               className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
             >

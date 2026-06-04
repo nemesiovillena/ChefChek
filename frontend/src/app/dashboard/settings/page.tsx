@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 interface TenantConfig {
   id: string;
@@ -14,29 +18,32 @@ interface TenantConfig {
 
 export default function SettingsPage() {
   const t = useTranslations('nav');
+  const { user, session, loading, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [config, setConfig] = useState<TenantConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     domain: '',
   });
 
-  useEffect(() => {
-    const sessionData = localStorage.getItem('session');
-    if (sessionData) {
-      const parsedSession = JSON.parse(sessionData);
-      fetchTenantConfig(parsedSession.session.token, parsedSession.user.tenantId);
-    } else {
-      window.location.href = '/login';
-    }
-  }, []);
+  if (!isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
 
-  const fetchTenantConfig = async (token: string, tenantId: string) => {
+  useEffect(() => {
+    if (session?.id && user?.tenantId) {
+      fetchTenantConfig(session?.id, user?.tenantId);
+    }
+  }, [session, user]);
+
+  const fetchTenantConfig = async (sessionId: string, tenantId: string) => {
     try {
       const response = await fetch(`http://localhost:3001/api/v1/tenants/${tenantId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${sessionId}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -52,23 +59,20 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error fetching tenant config:', error);
     } finally {
-      setLoading(false);
+      setPageLoading(false);
     }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!config) return;
+    if (!config || !session?.id) return;
 
     try {
-      const sessionData = localStorage.getItem('session');
-      const parsedSession = JSON.parse(sessionData);
-
       const response = await fetch(`http://localhost:3001/api/v1/tenants/${config.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${parsedSession.session.token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
         body: JSON.stringify(formData),
@@ -94,7 +98,7 @@ export default function SettingsPage() {
     console.log('Currency changed to:', currency);
   };
 
-  if (loading) {
+  if (loading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg">Loading...</div>

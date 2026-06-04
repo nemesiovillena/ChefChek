@@ -2,8 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
 import {
   OrderRequirementDto,
   AutomatedOrderDto,
@@ -24,7 +24,7 @@ import {
   ExportOrderDto,
   CreateOrderItemDto,
   CalculationOptionsDto,
-} from './dto/orders.dto';
+} from "./dto/orders.dto";
 
 @Injectable()
 export class OrdersService {
@@ -33,29 +33,29 @@ export class OrdersService {
   // Safety factors configuration
   private safetyFactors: SafetyFactorConfigDto[] = [
     {
-      productCategory: 'PERISHABLE',
-      conservationZone: 'FROZEN',
+      productCategory: "PERISHABLE",
+      conservationZone: "FROZEN",
       supplierReliability: 0.9,
       baseFactor: 1.2,
       maxFactor: 1.5,
     },
     {
-      productCategory: 'PERISHABLE',
-      conservationZone: 'REFRIGERATED',
+      productCategory: "PERISHABLE",
+      conservationZone: "REFRIGERATED",
       supplierReliability: 0.9,
       baseFactor: 1.3,
       maxFactor: 1.6,
     },
     {
-      productCategory: 'DRY_GOODS',
-      conservationZone: 'DRY_GOODS',
+      productCategory: "DRY_GOODS",
+      conservationZone: "DRY_GOODS",
       supplierReliability: 0.8,
       baseFactor: 1.1,
       maxFactor: 1.3,
     },
     {
-      productCategory: 'NON_PERISHABLE',
-      conservationZone: 'AMBIENT',
+      productCategory: "NON_PERISHABLE",
+      conservationZone: "AMBIENT",
       supplierReliability: 0.9,
       baseFactor: 1.05,
       maxFactor: 1.1,
@@ -65,51 +65,51 @@ export class OrdersService {
   // Order rules for optimization
   private orderRules = [
     {
-      id: 'rule-001',
-      name: 'Orden mínima por proveedor',
-      description: 'Agrupar pedidos pequeños por proveedor',
+      id: "rule-001",
+      name: "Orden mínima por proveedor",
+      description: "Agrupar pedidos pequeños por proveedor",
       priority: 1,
       condition: (req: OrderRequirementDto) => req.suggestedQuantity < 50,
       action: (req: OrderRequirementDto) => ({
         ...req,
         suggestedQuantity: 50,
-        notes: 'Agrupado con otros productos del mismo proveedor',
+        notes: "Agrupado con otros productos del mismo proveedor",
       }),
     },
     {
-      id: 'rule-002',
-      name: 'Descuento por volumen',
-      description: 'Aplicar descuentos por volumen grande',
+      id: "rule-002",
+      name: "Descuento por volumen",
+      description: "Aplicar descuentos por volumen grande",
       priority: 2,
       condition: (req: OrderRequirementDto) => req.suggestedQuantity >= 100,
       action: (req: OrderRequirementDto) => ({
         ...req,
         estimatedCost: req.estimatedCost * 0.9,
-        notes: 'Descuento por volumen aplicado',
+        notes: "Descuento por volumen aplicado",
       }),
     },
     {
-      id: 'rule-003',
-      name: 'Pedido consolidado',
-      description: 'Consolidar pedidos de zonas cercanas',
+      id: "rule-003",
+      name: "Pedido consolidado",
+      description: "Consolidar pedidos de zonas cercanas",
       priority: 3,
       condition: (req: OrderRequirementDto) =>
-        req.conservationZone === 'REFRIGERATED' && req.suggestedQuantity < 30,
+        req.conservationZone === "REFRIGERATED" && req.suggestedQuantity < 30,
       action: (req: OrderRequirementDto) => ({
         ...req,
         suggestedQuantity: 30,
-        notes: 'Consolidado con otros productos de refrigeración',
+        notes: "Consolidado con otros productos de refrigeración",
       }),
     },
     {
-      id: 'rule-004',
-      name: 'Urgencia de entrega',
-      description: 'Priorizar productos urgentes',
+      id: "rule-004",
+      name: "Urgencia de entrega",
+      description: "Priorizar productos urgentes",
       priority: 0,
       condition: (req: OrderRequirementDto) => req.urgency === Urgency.CRITICAL,
       action: (req: OrderRequirementDto) => ({
         ...req,
-        notes: 'Entrega prioritaria solicitada',
+        notes: "Entrega prioritaria solicitada",
       }),
     },
   ];
@@ -165,10 +165,14 @@ export class OrdersService {
     const suggestedQuantity =
       Math.ceil(adjustedRequirement / packageSize) * packageSize;
 
-    const urgency = this.calculateUrgency(currentStock, minStock, projectedConsumption);
+    const urgency = this.calculateUrgency(
+      currentStock,
+      minStock,
+      projectedConsumption,
+    );
 
-    const supplier = await this.prisma.supplier.findUnique({
-      where: { id: product.primarySupplierId || '' },
+    const supplier = await (this.prisma as any).supplier?.findUnique({
+      where: { id: product.primarySupplierId || "" },
     });
 
     return {
@@ -181,11 +185,11 @@ export class OrdersService {
       requiredQuantity: adjustedRequirement,
       suggestedQuantity,
       urgency,
-      supplierId: product.primarySupplierId || 'none',
-      supplierName: supplier?.name || 'Sin proveedor asignado',
-      conservationZone: product.conservationZone || 'AMBIENT',
-      category: product.category || 'GENERAL',
-      unit: product.unit || 'units',
+      supplierId: product.primarySupplierId || "none",
+      supplierName: supplier?.name || "Sin proveedor asignado",
+      conservationZone: product.conservationZone || "AMBIENT",
+      category: product.category || "GENERAL",
+      unit: product.unit || "units",
       estimatedCost: (product.costPerUnit || 0) * suggestedQuantity,
       lastOrderDate: product.lastOrderDate,
       averageDailyConsumption: avgDailyConsumption,
@@ -193,7 +197,7 @@ export class OrdersService {
   }
 
   private async getCurrentStock(productId: string): Promise<number> {
-    const stock = await this.prisma.stock.findUnique({
+    const stock = await (this.prisma as any).stock?.findUnique({
       where: { productId },
     });
     return stock?.quantity || 0;
@@ -209,11 +213,11 @@ export class OrdersService {
 
     const recipes = await this.prisma.recipe.findMany({
       where: {
-        items: {
+        ingredients: {
           some: {
             productId,
           },
-        },
+        } as any,
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -222,10 +226,12 @@ export class OrdersService {
     });
 
     let totalConsumption = 0;
-    for (const recipe of recipes) {
-      const item = recipe.items.find((i) => i.productId === productId);
-      if (item) {
-        totalConsumption += item.quantity;
+    for (const recipe of recipes as any[]) {
+      const ingredient = recipe.ingredients?.find(
+        (i: any) => i.productId === productId,
+      );
+      if (ingredient) {
+        totalConsumption += ingredient.quantity;
       }
     }
 
@@ -244,7 +250,10 @@ export class OrdersService {
     }
 
     const reliabilityAdjustment = (1 - config.supplierReliability) * 0.3;
-    return Math.min(config.maxFactor, config.baseFactor + reliabilityAdjustment);
+    return Math.min(
+      config.maxFactor,
+      config.baseFactor + reliabilityAdjustment,
+    );
   }
 
   private calculateUrgency(
@@ -363,10 +372,11 @@ export class OrdersService {
   }
 
   async getSupplierClassification(
+    tenantId: string,
     supplierId: string,
   ): Promise<SupplierClassificationDto> {
-    const supplier = await this.prisma.supplier.findUnique({
-      where: { id: supplierId },
+    const supplier = await (this.prisma as any).supplier?.findFirst({
+      where: { id: supplierId, tenantId },
       include: {
         products: {
           select: {
@@ -381,9 +391,7 @@ export class OrdersService {
       throw new NotFoundException(`Supplier ${supplierId} not found`);
     }
 
-    const categories = [
-      ...new Set(supplier.products.map((p) => p.category)),
-    ];
+    const categories = [...new Set(supplier.products.map((p) => p.category))];
     const conservationZones = [
       ...new Set(supplier.products.map((p) => p.conservationZone)),
     ];
@@ -391,8 +399,8 @@ export class OrdersService {
     return {
       supplierId: supplier.id,
       supplierName: supplier.name,
-      categories,
-      conservationZones,
+      categories: categories as string[],
+      conservationZones: conservationZones as string[],
       averageDeliveryTime: supplier.averageDeliveryTime || 3,
       reliabilityScore: supplier.reliabilityScore || 85,
       priceTier: supplier.priceTier || PriceTier.MEDIUM,
@@ -402,7 +410,7 @@ export class OrdersService {
         phone: supplier.phone,
         website: supplier.website,
       },
-      orderMethods: supplier.orderMethods || ['EMAIL'],
+      orderMethods: supplier.orderMethods || ["EMAIL"],
     };
   }
 
@@ -413,7 +421,7 @@ export class OrdersService {
 
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
-    const order = await this.prisma.automatedOrder.create({
+    const order = await (this.prisma as any).automatedOrder?.create({
       data: {
         tenantId,
         supplierId,
@@ -441,9 +449,12 @@ export class OrdersService {
     return this.formatOrder(order);
   }
 
-  async getAutomatedOrder(orderId: string): Promise<AutomatedOrderDto> {
-    const order = await this.prisma.automatedOrder.findUnique({
-      where: { id: orderId },
+  async getAutomatedOrder(
+    tenantId: string,
+    orderId: string,
+  ): Promise<AutomatedOrderDto> {
+    const order = await (this.prisma as any).automatedOrder?.findFirst({
+      where: { id: orderId, tenantId },
       include: {
         supplier: true,
         items: true,
@@ -462,10 +473,10 @@ export class OrdersService {
       id: item.id,
       orderId: item.orderId,
       productId: item.productId,
-      productName: item.product?.name || 'Unknown',
+      productName: item.product?.name || "Unknown",
       requestedQuantity: item.requestedQuantity,
       adjustedQuantity: item.adjustedQuantity,
-      unit: item.product?.unit || 'units',
+      unit: item.product?.unit || "units",
       unitPrice: item.unitPrice,
       totalCost: item.totalCost,
       notes: item.notes,
@@ -478,7 +489,7 @@ export class OrdersService {
       id: order.id,
       tenantId: order.tenantId,
       supplierId: order.supplierId,
-      supplierName: order.supplier?.name || 'Unknown',
+      supplierName: order.supplier?.name || "Unknown",
       orderNumber: order.orderNumber,
       status: order.status,
       urgency: order.urgency,
@@ -497,11 +508,20 @@ export class OrdersService {
   }
 
   async updateOrderItem(
+    tenantId: string,
     orderId: string,
     itemId: string,
     dto: UpdateOrderItemDto,
   ): Promise<OrderItemDto> {
-    const item = await this.prisma.orderItem.findUnique({
+    const order = await (this.prisma as any).automatedOrder?.findFirst({
+      where: { id: orderId, tenantId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order ${orderId} not found`);
+    }
+
+    const item = await (this.prisma as any).orderItem?.findUnique({
       where: { id: itemId },
       include: {
         order: true,
@@ -513,7 +533,7 @@ export class OrdersService {
       throw new NotFoundException(`Order item ${itemId} not found`);
     }
 
-    const updated = await this.prisma.orderItem.update({
+    const updated = await (this.prisma as any).orderItem?.update({
       where: { id: itemId },
       data: {
         adjustedQuantity: dto.adjustedQuantity,
@@ -529,10 +549,10 @@ export class OrdersService {
       id: updated.id,
       orderId: updated.orderId,
       productId: updated.productId,
-      productName: updated.product?.name || 'Unknown',
+      productName: updated.product?.name || "Unknown",
       requestedQuantity: updated.requestedQuantity,
       adjustedQuantity: updated.adjustedQuantity,
-      unit: updated.product?.unit || 'units',
+      unit: updated.product?.unit || "units",
       unitPrice: updated.unitPrice,
       totalCost: updated.totalCost,
       notes: updated.notes,
@@ -540,22 +560,29 @@ export class OrdersService {
     };
   }
 
-  async approveOrder(orderId: string, dto: ApproveOrderDto): Promise<AutomatedOrderDto> {
-    const order = await this.prisma.automatedOrder.findUnique({
-      where: { id: orderId },
+  async approveOrder(
+    tenantId: string,
+    orderId: string,
+    dto: ApproveOrderDto,
+  ): Promise<AutomatedOrderDto> {
+    const order = await (this.prisma as any).automatedOrder?.findFirst({
+      where: { id: orderId, tenantId },
     });
 
     if (!order) {
       throw new NotFoundException(`Order ${orderId} not found`);
     }
 
-    if (order.status !== OrderStatus.DRAFT && order.status !== OrderStatus.REVIEW) {
+    if (
+      order.status !== OrderStatus.DRAFT &&
+      order.status !== OrderStatus.REVIEW
+    ) {
       throw new BadRequestException(
         `Order must be in DRAFT or REVIEW status to approve`,
       );
     }
 
-    const updated = await this.prisma.automatedOrder.update({
+    const updated = await (this.prisma as any).automatedOrder?.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.APPROVED,
@@ -571,9 +598,13 @@ export class OrdersService {
     return this.formatOrder(updated);
   }
 
-  async sendOrder(orderId: string, dto: SendOrderDto): Promise<AutomatedOrderDto> {
-    const order = await this.prisma.automatedOrder.findUnique({
-      where: { id: orderId },
+  async sendOrder(
+    tenantId: string,
+    orderId: string,
+    dto: SendOrderDto,
+  ): Promise<AutomatedOrderDto> {
+    const order = await (this.prisma as any).automatedOrder?.findFirst({
+      where: { id: orderId, tenantId },
     });
 
     if (!order) {
@@ -581,12 +612,10 @@ export class OrdersService {
     }
 
     if (order.status !== OrderStatus.APPROVED) {
-      throw new BadRequestException(
-        `Order must be APPROVED to send`,
-      );
+      throw new BadRequestException(`Order must be APPROVED to send`);
     }
 
-    const updated = await this.prisma.automatedOrder.update({
+    const updated = await (this.prisma as any).automatedOrder?.update({
       where: { id: orderId },
       data: {
         status: OrderStatus.SENT,
@@ -602,38 +631,45 @@ export class OrdersService {
   }
 
   async getOrdersHistory(tenantId: string): Promise<AutomatedOrderDto[]> {
-    const orders = await this.prisma.automatedOrder.findMany({
+    const orders = await (this.prisma as any).automatedOrder?.findMany({
       where: { tenantId },
       include: {
         supplier: true,
         items: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     return orders.map((order) => this.formatOrder(order));
   }
 
-  async getOrdersBySupplier(supplierId: string): Promise<AutomatedOrderDto[]> {
-    const orders = await this.prisma.automatedOrder.findMany({
-      where: { supplierId },
+  async getOrdersBySupplier(
+    tenantId: string,
+    supplierId: string,
+  ): Promise<AutomatedOrderDto[]> {
+    const orders = await (this.prisma as any).automatedOrder?.findMany({
+      where: { tenantId, supplierId },
       include: {
         supplier: true,
         items: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
     return orders.map((order) => this.formatOrder(order));
   }
 
-  async getOrdersByZone(zone: string): Promise<AutomatedOrderDto[]> {
-    const orders = await this.prisma.automatedOrder.findMany({
+  async getOrdersByZone(
+    tenantId: string,
+    zone: string,
+  ): Promise<AutomatedOrderDto[]> {
+    const orders = await (this.prisma as any).automatedOrder?.findMany({
       where: {
+        tenantId,
         items: {
           some: {
             product: {
@@ -651,7 +687,7 @@ export class OrdersService {
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
 
@@ -659,12 +695,13 @@ export class OrdersService {
   }
 
   async generatePurchaseTemplate(
+    tenantId: string,
     orderId: string,
     dto: ExportOrderDto,
   ): Promise<PurchaseOrderTemplateDto> {
-    const order = await this.getAutomatedOrder(orderId);
+    const order = await this.getAutomatedOrder(tenantId, orderId);
 
-    const supplier = await this.prisma.supplier.findUnique({
+    const supplier = await (this.prisma as any).supplier?.findUnique({
       where: { id: order.supplierId },
     });
 
@@ -679,7 +716,8 @@ export class OrdersService {
       requestedQuantity: item.adjustedQuantity || item.requestedQuantity,
       unit: item.unit,
       unitPrice: item.unitPrice,
-      totalCost: (item.adjustedQuantity || item.requestedQuantity) * item.unitPrice,
+      totalCost:
+        (item.adjustedQuantity || item.requestedQuantity) * item.unitPrice,
       specifications: item.notes,
       alternativeProducts: item.alternativeProducts,
     }));
@@ -701,7 +739,7 @@ export class OrdersService {
       taxes,
       shippingCost,
       total,
-      notes: 'Orden generada automáticamente por ChefChek',
+      notes: "Orden generada automáticamente por ChefChek",
       format: dto.format,
     };
   }

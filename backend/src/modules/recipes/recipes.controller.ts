@@ -9,105 +9,159 @@ import {
   UseGuards,
   Req,
   Query,
-} from '@nestjs/common';
-import { RecipesService } from './recipes.service';
-import { CreateRecipeDto } from './dto/create-recipe.dto';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
+import { RecipesService } from "./recipes.service";
+import { CreateRecipeDto } from "./dto/create-recipe.dto";
+import { AuthGuard } from "../../guards/auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { RolesGuard } from "../../guards/roles.guard";
+import { Roles } from "../../decorators/roles.decorator";
 
-@Controller('api/v1/recipes')
-@UseGuards(RolesGuard)
+@ApiTags("Recipes")
+@ApiBearerAuth("JWT-auth")
+@Controller("api/v1/recipes")
+@UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
 
   @Post()
-  @Roles('ADMIN', 'USER')
-  async create(@Req() req, @Body() createRecipeDto: CreateRecipeDto) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear una nueva receta/escandallo" })
+  @ApiResponse({ status: 201, description: "Receta creada exitosamente" })
+  @ApiResponse({ status: 400, description: "Datos inválidos" })
+  @ApiResponse({ status: 403, description: "Permiso denegado" })
+  async create(@Req() req: any, @Body() createRecipeDto: CreateRecipeDto) {
+    const tenantId = req.tenantId;
     const recipe = await this.recipesService.create(tenantId, createRecipeDto);
     return {
       success: true,
       data: recipe,
-      message: 'Recipe created successfully',
+      message: "Recipe created successfully",
     };
   }
 
   @Get()
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async findAll(@Req() req, @Query() query: { search?: string; category?: string }) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar todas las recetas del tenant" })
+  @ApiResponse({ status: 200, description: "Lista de recetas" })
+  async findAll(
+    @Req() req: any,
+    @Query() query: { search?: string; category?: string },
+  ) {
+    const tenantId = req.tenantId;
     const recipes = await this.recipesService.findAll(tenantId, query);
     return {
       success: true,
       data: recipes,
-      message: 'Recipes retrieved successfully',
+      message: "Recipes retrieved successfully",
     };
   }
 
-  @Get(':id')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async findOne(@Req() req, @Param('id') id: string) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
+  @Get(":id")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Obtener una receta por ID" })
+  @ApiParam({ name: "id", description: "ID de la receta" })
+  @ApiResponse({ status: 200, description: "Receta encontrada" })
+  @ApiResponse({ status: 404, description: "Receta no encontrada" })
+  async findOne(@Req() req: any, @Param("id") id: string) {
+    const tenantId = req.tenantId;
     const recipe = await this.recipesService.findOne(tenantId, id);
     return {
       success: true,
       data: recipe,
-      message: 'Recipe retrieved successfully',
+      message: "Recipe retrieved successfully",
     };
   }
 
-  @Patch(':id')
-  @Roles('ADMIN', 'USER')
+  @Patch(":id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar una receta" })
+  @ApiParam({ name: "id", description: "ID de la receta" })
+  @ApiResponse({ status: 200, description: "Receta actualizada exitosamente" })
+  @ApiResponse({ status: 403, description: "Permiso denegado" })
+  @ApiResponse({ status: 404, description: "Receta no encontrada" })
   async update(
-    @Req() req,
-    @Param('id') id: string,
+    @Req() req: any,
+    @Param("id") id: string,
     @Body() updateRecipeDto: Partial<CreateRecipeDto>,
   ) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
-    const recipe = await this.recipesService.update(tenantId, id, updateRecipeDto);
+    const tenantId = req.tenantId;
+    const recipe = await this.recipesService.update(
+      tenantId,
+      id,
+      updateRecipeDto,
+    );
     return {
       success: true,
       data: recipe,
-      message: 'Recipe updated successfully',
+      message: "Recipe updated successfully",
     };
   }
 
-  @Delete(':id')
-  @Roles('ADMIN')
-  async remove(@Req() req, @Param('id') id: string) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
+  @Delete(":id")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Eliminar una receta (solo ADMIN)" })
+  @ApiParam({ name: "id", description: "ID de la receta" })
+  @ApiResponse({ status: 200, description: "Receta eliminada exitosamente" })
+  @ApiResponse({ status: 403, description: "Permiso denegado (solo ADMIN)" })
+  @ApiResponse({ status: 404, description: "Receta no encontrada" })
+  async remove(@Req() req: any, @Param("id") id: string) {
+    const tenantId = req.tenantId;
     await this.recipesService.remove(tenantId, id);
     return {
       success: true,
-      message: 'Recipe deleted successfully',
+      message: "Recipe deleted successfully",
     };
   }
 
-  @Post(':id/duplicate')
-  @Roles('ADMIN', 'USER')
+  @Post(":id/duplicate")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Duplicar una receta" })
+  @ApiParam({ name: "id", description: "ID de la receta a duplicar" })
+  @ApiResponse({ status: 201, description: "Receta duplicada exitosamente" })
+  @ApiResponse({ status: 404, description: "Receta no encontrada" })
   async duplicate(
-    @Req() req,
-    @Param('id') id: string,
-    @Body('newName') newName?: string,
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body("newName") newName?: string,
   ) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
+    const tenantId = req.tenantId;
     const recipe = await this.recipesService.duplicate(tenantId, id, newName);
     return {
       success: true,
       data: recipe,
-      message: 'Recipe duplicated successfully',
+      message: "Recipe duplicated successfully",
     };
   }
 
-  @Get(':id/calculate')
-  @Roles('ADMIN', 'USER', 'VIEWER')
-  async calculateCost(@Req() req, @Param('id') id: string) {
-    const tenantId = req.tenant?.id || req.headers['x-tenant-slug'];
-    const costBreakdown = await this.recipesService.calculateRecipeCost(tenantId, id);
+  @Get(":id/calculate")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Calcular costo de receta (escandallo completo con mermas)",
+  })
+  @ApiParam({ name: "id", description: "ID de la receta" })
+  @ApiResponse({
+    status: 200,
+    description: "Costo calculado exitosamente con breakdown",
+  })
+  @ApiResponse({ status: 404, description: "Receta no encontrada" })
+  async calculateCost(@Req() req: any, @Param("id") id: string) {
+    const tenantId = req.tenantId;
+    const costBreakdown = await this.recipesService.calculateRecipeCost(
+      tenantId,
+      id,
+    );
     return {
       success: true,
       data: costBreakdown,
-      message: 'Recipe cost calculated successfully',
+      message: "Recipe cost calculated successfully",
     };
   }
 }

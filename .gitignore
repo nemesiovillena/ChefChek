@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+.env.production
+.env.production.local
+*.log
+.DS_Store
+.claude/
+bun.lock
+package-lock.json

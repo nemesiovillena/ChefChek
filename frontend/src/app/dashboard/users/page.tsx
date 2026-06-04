@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 interface User {
   id: string;
@@ -14,28 +18,28 @@ interface User {
 
 export default function UsersPage() {
   const t = useTranslations('auth');
+  const { user, session, loading, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [session, setSession] = useState<any>(null);
+
+  if (!isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
 
   useEffect(() => {
-    const sessionData = localStorage.getItem('session');
-    if (sessionData) {
-      const parsedSession = JSON.parse(sessionData);
-      setSession(parsedSession.session);
-      fetchUsers(parsedSession.session.token);
-    } else {
-      window.location.href = '/login';
+    if (session?.id) {
+      fetchUsers();
     }
-  }, []);
+  }, [session]);
 
-  const fetchUsers = async (token: string) => {
+  const fetchUsers = async () => {
     try {
       const response = await fetch('http://localhost:3001/api/v1/users', {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'X-Tenant-Slug': 'default', // In production, get from tenant config
+          'Authorization': `Bearer ${session?.id}`,
+          'X-Tenant-Slug': 'default',
         },
       });
 
@@ -45,8 +49,6 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -65,7 +67,7 @@ export default function UsersPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.token}`,
+          'Authorization': `Bearer ${session?.id}`,
           'X-Tenant-Slug': 'default',
         },
         body: JSON.stringify(userData),
@@ -74,7 +76,7 @@ export default function UsersPage() {
       const data = await response.json();
       if (data.success) {
         setShowCreateForm(false);
-        fetchUsers(session?.token);
+        fetchUsers();
         e.currentTarget.reset();
       }
     } catch (error) {

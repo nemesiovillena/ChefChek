@@ -7,42 +7,42 @@ import {
   IsOptional,
   Min,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 // Enums
 export enum Urgency {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  CRITICAL = "CRITICAL",
 }
 
 export enum OrderStatus {
-  DRAFT = 'DRAFT',
-  REVIEW = 'REVIEW',
-  APPROVED = 'APPROVED',
-  SENT = 'SENT',
-  RECEIVED = 'RECEIVED',
-  CANCELLED = 'CANCELLED',
+  DRAFT = "DRAFT",
+  REVIEW = "REVIEW",
+  APPROVED = "APPROVED",
+  SENT = "SENT",
+  RECEIVED = "RECEIVED",
+  CANCELLED = "CANCELLED",
 }
 
 export enum PreferredStatus {
-  PREFERRED = 'PREFERRED',
-  ALTERNATIVE = 'ALTERNATIVE',
-  EMERGENCY = 'EMERGENCY',
+  PREFERRED = "PREFERRED",
+  ALTERNATIVE = "ALTERNATIVE",
+  EMERGENCY = "EMERGENCY",
 }
 
 export enum PriceTier {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
 }
 
 export enum TemplateFormat {
-  PDF = 'PDF',
-  EMAIL = 'EMAIL',
-  EXCEL = 'EXCEL',
+  PDF = "PDF",
+  EMAIL = "EMAIL",
+  EXCEL = "EXCEL",
 }
 
 // DTOs

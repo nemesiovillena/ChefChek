@@ -1,46 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
   const t = useTranslations('nav');
-  const [user, setUser] = useState<any>(null);
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, session, loading, logout, isAuthenticated } = useAuth();
+  const router = useRouter();
 
-  useEffect(() => {
-    const sessionData = localStorage.getItem('session');
-    if (sessionData) {
-      const parsedSession = JSON.parse(sessionData);
-      setUser(parsedSession.user);
-      setSession(parsedSession.session);
-      setLoading(false);
-    } else {
-      window.location.href = '/login';
-    }
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      if (session) {
-        await fetch('http://localhost:3001/api/v1/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.token}`,
-          },
-          body: JSON.stringify({ sessionId: session.id }),
-        });
-      }
-      localStorage.removeItem('session');
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Logout error:', error);
-      localStorage.removeItem('session');
-      window.location.href = '/login';
-    }
-  };
+  if (!isAuthenticated) {
+    router.push('/login');
+    return null;
+  }
 
   if (loading) {
     return (
@@ -61,7 +35,7 @@ export default function DashboardPage() {
               {user?.name} ({user?.role})
             </span>
             <button
-              onClick={handleLogout}
+              onClick={logout}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
             >
               {t('logout')}
@@ -86,8 +60,8 @@ export default function DashboardPage() {
             <a href="/dashboard/menus" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
               {t('menus')}
             </a>
-            <a href="/dashboard/warehouse" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              {t('warehouse')}
+            <a href="/dashboard/users" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+              Users
             </a>
             <a href="/dashboard/settings" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
               {t('settings')}

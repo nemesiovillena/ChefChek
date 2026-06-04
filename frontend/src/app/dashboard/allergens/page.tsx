@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ALLERGENS_INFO } from '../../../../backend/src/modules/allergens/dto/allergens.dto';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/auth-context';
+import { ALLERGENS_INFO } from '@/types/allergens';
 
 interface Product {
   id: string;
@@ -33,7 +35,24 @@ interface ComplianceReport {
   conflicts?: AllergenConflict[];
 }
 
+export const dynamic = 'force-dynamic';
+
 export default function AllergensManagementPage() {
+  const router = useRouter();
+  const { session, isAuthenticated, loading: authLoading } = useAuth();
+
+  // Auth redirect
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Prevent loading if not authenticated
+  if (authLoading || !isAuthenticated) {
+    return null;
+  }
+
   const [products, setProducts] = useState<Product[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);

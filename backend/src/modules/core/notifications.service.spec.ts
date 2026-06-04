@@ -128,7 +128,10 @@ describe("NotificationsService", () => {
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          createdAt: new Date(),
+          tenantId: "tenant-1",
+          title: "Test",
+          type: "INFO",
+          alertType: "INFO",
         }),
       });
     });

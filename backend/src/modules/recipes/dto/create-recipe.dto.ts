@@ -1,5 +1,14 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsBoolean, Min, ValidateNested, IsObject } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  Min,
+  ValidateNested,
+  IsObject,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 class IngredientDto {
   @IsString()

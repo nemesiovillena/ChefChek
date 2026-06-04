@@ -2,9 +2,15 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
+  const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tenantId, setTenantId] = useState('');
@@ -17,24 +23,10 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, tenantId }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.setItem('session', JSON.stringify(data.data));
-        window.location.href = '/dashboard';
-      } else {
-        setError('Login failed');
-      }
+      await login(email, password, tenantId);
+      router.push('/dashboard');
     } catch (err) {
-      setError('Network error');
+      setError('Login failed');
     } finally {
       setLoading(false);
     }

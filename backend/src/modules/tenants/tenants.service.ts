@@ -1,14 +1,24 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from '../../common/services/prisma.service';
-import { CreateTenantDto, UpdateTenantDto } from './dto/create-tenant.dto';
-import * as bcrypt from 'bcrypt';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import { CreateTenantDto, UpdateTenantDto } from "./dto/create-tenant.dto";
+import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class TenantsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createTenantDto: CreateTenantDto) {
-    const { adminEmail, adminPassword, adminName, adminRole = 'ADMIN', ...tenantData } = createTenantDto;
+    const {
+      adminEmail,
+      adminPassword,
+      adminName,
+      adminRole = "ADMIN",
+      ...tenantData
+    } = createTenantDto;
 
     // Verificar si el slug ya existe
     const existingTenantBySlug = await this.prisma.tenant.findUnique({
@@ -16,7 +26,7 @@ export class TenantsService {
     });
 
     if (existingTenantBySlug) {
-      throw new ConflictException('Slug already exists');
+      throw new ConflictException("Slug already exists");
     }
 
     // Verificar si el domain ya existe
@@ -26,7 +36,7 @@ export class TenantsService {
       });
 
       if (existingTenantByDomain) {
-        throw new ConflictException('Domain already exists');
+        throw new ConflictException("Domain already exists");
       }
     }
 
@@ -61,7 +71,7 @@ export class TenantsService {
         createdAt: tenant.createdAt,
         updatedAt: tenant.updatedAt,
       },
-      message: 'Tenant created successfully with admin user',
+      message: "Tenant created successfully with admin user",
     };
   }
 
@@ -72,7 +82,7 @@ export class TenantsService {
       this.prisma.tenant.findMany({
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           name: true,
@@ -93,7 +103,7 @@ export class TenantsService {
         page,
         limit,
       },
-      message: 'Tenants retrieved successfully',
+      message: "Tenants retrieved successfully",
     };
   }
 
@@ -115,13 +125,13 @@ export class TenantsService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException("Tenant not found");
     }
 
     return {
       success: true,
       data: tenant,
-      message: 'Tenant retrieved successfully',
+      message: "Tenant retrieved successfully",
     };
   }
 
@@ -142,7 +152,7 @@ export class TenantsService {
     });
 
     if (!tenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException("Tenant not found");
     }
 
     return tenant;
@@ -154,7 +164,7 @@ export class TenantsService {
     });
 
     if (!existingTenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException("Tenant not found");
     }
 
     // Verificar si el nuevo slug ya existe
@@ -164,18 +174,21 @@ export class TenantsService {
       });
 
       if (existingSlug) {
-        throw new ConflictException('Slug already exists');
+        throw new ConflictException("Slug already exists");
       }
     }
 
     // Verificar si el nuevo domain ya existe
-    if (updateTenantDto.domain && updateTenantDto.domain !== existingTenant.domain) {
+    if (
+      updateTenantDto.domain &&
+      updateTenantDto.domain !== existingTenant.domain
+    ) {
       const existingDomain = await this.prisma.tenant.findUnique({
         where: { domain: updateTenantDto.domain },
       });
 
       if (existingDomain) {
-        throw new ConflictException('Domain already exists');
+        throw new ConflictException("Domain already exists");
       }
     }
 
@@ -195,7 +208,7 @@ export class TenantsService {
         createdAt: tenant.createdAt,
         updatedAt: tenant.updatedAt,
       },
-      message: 'Tenant updated successfully',
+      message: "Tenant updated successfully",
     };
   }
 
@@ -205,7 +218,7 @@ export class TenantsService {
     });
 
     if (!existingTenant) {
-      throw new NotFoundException('Tenant not found');
+      throw new NotFoundException("Tenant not found");
     }
 
     await this.prisma.tenant.delete({
@@ -215,7 +228,7 @@ export class TenantsService {
     return {
       success: true,
       data: null,
-      message: 'Tenant deleted successfully',
+      message: "Tenant deleted successfully",
     };
   }
 

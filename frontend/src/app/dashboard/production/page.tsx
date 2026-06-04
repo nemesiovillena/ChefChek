@@ -119,6 +119,7 @@ interface ProductionKPI {
   alertCount: number;
 }
 
+export const dynamic = 'force-dynamic';
 export default function ProductionPage() {
   const [activeTab, setActiveTab] = useState('batches');
 
@@ -197,6 +198,8 @@ export default function ProductionPage() {
     const batch: WorkBatch = {
       id: Date.now().toString(),
       ...newBatch,
+      status: 'PENDING',
+      scheduledDate: new Date(newBatch.scheduledDate),
       productionOrders: [],
     };
 
@@ -250,7 +253,7 @@ export default function ProductionPage() {
           orderId,
           name: 'Preparation',
           scheduledTime: new Date(Date.now() + 20 * 60 * 1000),
-          status: 'IN_PROGRESS',
+          status: 'DELAYED',
         },
         {
           id: '3',
@@ -748,7 +751,7 @@ export default function ProductionPage() {
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Label htmlFor="period">Periodo</Label>
-                  <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                  <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v || 'today')}>
                     <SelectTrigger id="period">
                       <SelectValue />
                     </SelectTrigger>

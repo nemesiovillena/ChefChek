@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
 import {
   CreateWorkBatchDto,
   CreateProductionOrderDto,
@@ -9,7 +13,7 @@ import {
   UpdateTaskAssignmentDto,
   UpdateAlertDto,
   GenerateProductionReportDto,
-} from './dto/production.dto';
+} from "./dto/production.dto";
 
 @Injectable()
 export class ProductionService {
@@ -19,21 +23,17 @@ export class ProductionService {
   async createWorkBatch(
     tenantId: string,
     userId: string,
-    dto: CreateWorkBatchDto
+    dto: CreateWorkBatchDto,
   ): Promise<any> {
     const batch = await this.prisma.workBatch.create({
       data: {
         tenantId,
-        name: dto.name,
-        description: dto.description,
-        scheduledDate: dto.scheduledDate,
-        scheduledTime: dto.scheduledTime,
-        priority: dto.priority,
-        responsible: dto.responsible,
-        kitchenZone: dto.kitchenZone,
-        status: 'PENDING',
+        batchNumber: dto.name,
+        batchType: "PREPARATION",
+        status: "PENDING",
+        scheduledFor: new Date(`${dto.scheduledDate} ${dto.scheduledTime}`),
         createdBy: userId,
-      },
+      } as any,
     });
 
     return {
@@ -43,18 +43,18 @@ export class ProductionService {
   }
 
   async getWorkBatches(tenantId: string): Promise<any[]> {
-    return await this.prisma.workBatch.findMany({
+    return await (this.prisma as any).workBatch.findMany({
       where: { tenantId },
-      orderBy: { scheduledDate: 'desc' },
+      orderBy: { scheduledDate: "desc" },
       include: {
         productionOrders: true,
       },
     });
   }
 
-  async getWorkBatchById(batchId: string): Promise<any> {
-    const batch = await this.prisma.workBatch.findUnique({
-      where: { id: batchId },
+  async getWorkBatchById(tenantId: string, batchId: string): Promise<any> {
+    const batch = await (this.prisma as any).workBatch.findFirst({
+      where: { id: batchId, tenantId },
       include: {
         productionOrders: {
           include: {
@@ -65,23 +65,34 @@ export class ProductionService {
     });
 
     if (!batch) {
-      throw new NotFoundException('Work batch not found');
+      throw new NotFoundException("Work batch not found");
     }
 
     return batch;
   }
 
-  async startWorkBatch(batchId: string, userId: string): Promise<any> {
+  async startWorkBatch(
+    tenantId: string,
+    batchId: string,
+    userId: string,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).workBatch.findFirst({
+      where: { id: batchId, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException("Work batch not found");
+    }
+
     const batch = await this.prisma.workBatch.update({
       where: { id: batchId },
       data: {
-        status: 'IN_PROGRESS',
+        status: "IN_PROGRESS",
         startedAt: new Date(),
       },
     });
 
     // Initialize progress tracking for each order
-    const orders = await this.prisma.productionOrder.findMany({
+    const orders = await (this.prisma as any).productionOrder.findMany({
       where: { batchId },
     });
 
@@ -95,11 +106,22 @@ export class ProductionService {
     };
   }
 
-  async completeWorkBatch(batchId: string, userId: string): Promise<any> {
+  async completeWorkBatch(
+    tenantId: string,
+    batchId: string,
+    userId: string,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).workBatch.findFirst({
+      where: { id: batchId, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException("Work batch not found");
+    }
+
     const batch = await this.prisma.workBatch.update({
       where: { id: batchId },
       data: {
-        status: 'COMPLETED',
+        status: "COMPLETED",
         completedAt: new Date(),
       },
     });
@@ -114,12 +136,15 @@ export class ProductionService {
   }
 
   // Production Orders
-  async createProductionOrder(dto: CreateProductionOrderDto): Promise<any> {
+  async createProductionOrder(
+    tenantId: string,
+    dto: CreateProductionOrderDto,
+  ): Promise<any> {
     // Check ingredient availability and reserve
     for (const ingredient of dto.ingredients) {
       if (!ingredient.isAvailable) {
         throw new BadRequestException(
-          `Ingredient ${ingredient.productName} is not available`
+          `Ingredient ${ingredient.productName} is not available`,
         );
       }
 
@@ -127,17 +152,18 @@ export class ProductionService {
       await this.reserveIngredient(ingredient.productId, ingredient.quantity);
     }
 
-    const order = await this.prisma.productionOrder.create({
+    const order = await (this.prisma as any).productionOrder.create({
       data: {
-        batchId: dto.batchId,
-        recipeId: dto.recipeId,
-        recipeName: dto.recipeName,
-        quantity: dto.quantity,
-        unit: dto.unit,
-        ingredients: dto.ingredients,
-        estimatedTime: dto.estimatedTime,
-        status: 'PENDING',
-      },
+        tenantId,
+        orderNumber: `PO-${Date.now()}`,
+        orderType: "PREPARATION",
+        status: "PENDING",
+        scheduledFor: new Date(),
+        items: dto.ingredients,
+        miseEnPlaceItems: dto.ingredients,
+        notes: (dto as any).notes || "",
+        createdBy: "system",
+      } as any,
     });
 
     return {
@@ -146,26 +172,36 @@ export class ProductionService {
     };
   }
 
-  async getProductionOrdersByBatch(batchId: string): Promise<any[]> {
-    return await this.prisma.productionOrder.findMany({
-      where: { batchId },
-      orderBy: { createdAt: 'asc' },
+  async getProductionOrdersByBatch(
+    tenantId: string,
+    batchId: string,
+  ): Promise<any[]> {
+    return await (this.prisma as any).productionOrder.findMany({
+      where: { batchId, batch: { tenantId } },
+      orderBy: { createdAt: "asc" },
       include: {
         miseEnPlaceItems: true,
       },
     });
   }
 
-  async startProductionOrder(orderId: string): Promise<any> {
+  async startProductionOrder(tenantId: string, orderId: string): Promise<any> {
+    const existing = await (this.prisma as any).productionOrder.findFirst({
+      where: { id: orderId, batch: { tenantId } },
+    });
+    if (!existing) {
+      throw new NotFoundException("Production order not found");
+    }
+
     const order = await this.prisma.productionOrder.update({
       where: { id: orderId },
       data: {
-        status: 'IN_PROGRESS',
+        status: "IN_PROGRESS",
       },
     });
 
     // Update progress tracking
-    await this.updateProgressTracking(orderId, 'IN_PROGRESS');
+    await this.updateProgressTracking(orderId, "IN_PROGRESS");
 
     return {
       success: true,
@@ -173,17 +209,28 @@ export class ProductionService {
     };
   }
 
-  async completeProductionOrder(orderId: string, actualTime: number): Promise<any> {
+  async completeProductionOrder(
+    tenantId: string,
+    orderId: string,
+    actualTime: number,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).productionOrder.findFirst({
+      where: { id: orderId, batch: { tenantId } },
+    });
+    if (!existing) {
+      throw new NotFoundException("Production order not found");
+    }
+
     const order = await this.prisma.productionOrder.update({
       where: { id: orderId },
       data: {
-        status: 'COMPLETED',
+        status: "COMPLETED",
         actualTime,
       },
     });
 
     // Update progress tracking
-    await this.updateProgressTracking(orderId, 'COMPLETED');
+    await this.updateProgressTracking(orderId, "COMPLETED");
 
     // Update inventory
     await this.updateInventory(orderId);
@@ -195,9 +242,13 @@ export class ProductionService {
   }
 
   // Mise en Place
-  async createMiseEnPlaceSheet(dto: CreateMiseEnPlaceSheetDto): Promise<any> {
-    const sheet = await this.prisma.miseEnPlaceSheet.create({
+  async createMiseEnPlaceSheet(
+    tenantId: string,
+    dto: CreateMiseEnPlaceSheetDto,
+  ): Promise<any> {
+    const sheet = await (this.prisma as any).miseEnPlaceSheet.create({
       data: {
+        tenantId,
         batchId: dto.batchId,
         orderId: dto.orderId,
         zone: dto.zone,
@@ -214,9 +265,9 @@ export class ProductionService {
     };
   }
 
-  async getMiseEnPlaceSheet(sheetId: string): Promise<any> {
-    const sheet = await this.prisma.miseEnPlaceSheet.findUnique({
-      where: { id: sheetId },
+  async getMiseEnPlaceSheet(tenantId: string, sheetId: string): Promise<any> {
+    const sheet = await (this.prisma as any).miseEnPlaceSheet.findFirst({
+      where: { id: sheetId, tenantId },
       include: {
         items: true,
         qualityChecks: true,
@@ -224,20 +275,24 @@ export class ProductionService {
     });
 
     if (!sheet) {
-      throw new NotFoundException('Mise en place sheet not found');
+      throw new NotFoundException("Mise en place sheet not found");
     }
 
     return sheet;
   }
 
-  async addMiseEnPlaceItem(dto: CreateMiseEnPlaceItemDto): Promise<any> {
-    const item = await this.prisma.miseEnPlaceItem.create({
+  async addMiseEnPlaceItem(
+    tenantId: string,
+    dto: CreateMiseEnPlaceItemDto,
+  ): Promise<any> {
+    const item = await (this.prisma as any).miseEnPlaceItem.create({
       data: {
+        tenantId,
         orderId: dto.orderId,
         description: dto.description,
         quantity: dto.quantity,
         unit: dto.unit,
-        status: 'PENDING',
+        status: "PENDING",
         notes: dto.notes,
       },
     });
@@ -248,18 +303,23 @@ export class ProductionService {
     };
   }
 
-  async updateMiseEnPlaceItem(itemId: string, status: string, userId?: string): Promise<any> {
+  async updateMiseEnPlaceItem(
+    tenantId: string,
+    itemId: string,
+    status: string,
+    userId?: string,
+  ): Promise<any> {
     const updateData: any = { status };
 
-    if (status === 'READY' || status === 'VERIFIED') {
+    if (status === "READY" || status === "VERIFIED") {
       updateData.completedAt = new Date();
     }
 
-    if (status === 'VERIFIED' && userId) {
+    if (status === "VERIFIED" && userId) {
       updateData.verifiedBy = userId;
     }
 
-    const item = await this.prisma.miseEnPlaceItem.update({
+    const item = await (this.prisma as any).miseEnPlaceItem.update({
       where: { id: itemId },
       data: updateData,
     });
@@ -270,8 +330,19 @@ export class ProductionService {
     };
   }
 
-  async verifyMiseEnPlaceSheet(sheetId: string, userId: string): Promise<any> {
-    const sheet = await this.prisma.miseEnPlaceSheet.update({
+  async verifyMiseEnPlaceSheet(
+    tenantId: string,
+    sheetId: string,
+    userId: string,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).miseEnPlaceSheet.findFirst({
+      where: { id: sheetId, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException("Mise en place sheet not found");
+    }
+
+    const sheet = await (this.prisma as any).miseEnPlaceSheet.update({
       where: { id: sheetId },
       data: {
         completedAt: new Date(),
@@ -286,18 +357,21 @@ export class ProductionService {
   }
 
   // Task Assignments
-  async createTaskAssignment(dto: CreateTaskAssignmentDto): Promise<any> {
+  async createTaskAssignment(
+    tenantId: string,
+    dto: CreateTaskAssignmentDto,
+  ): Promise<any> {
     // Check staff availability and capacity
     const staff = await this.getStaffMember(dto.assignedTo);
     if (!staff || !staff.availability) {
-      throw new BadRequestException('Staff member not available');
+      throw new BadRequestException("Staff member not available");
     }
 
     if (staff.currentTasks >= staff.maxTasks) {
-      throw new BadRequestException('Staff member at maximum capacity');
+      throw new BadRequestException("Staff member at maximum capacity");
     }
 
-    const assignment = await this.prisma.taskAssignment.create({
+    const assignment = await (this.prisma as any).taskAssignment.create({
       data: {
         batchId: dto.batchId,
         orderId: dto.orderId,
@@ -305,7 +379,7 @@ export class ProductionService {
         assignedTo: dto.assignedTo,
         taskType: dto.taskType,
         estimatedTime: dto.estimatedTime,
-        status: 'ASSIGNED',
+        status: "ASSIGNED",
         assignedAt: new Date(),
         dependencies: dto.dependencies || [],
       },
@@ -321,28 +395,29 @@ export class ProductionService {
   }
 
   async getTaskAssignments(tenantId: string): Promise<any[]> {
-    return await this.prisma.taskAssignment.findMany({
+    return await (this.prisma as any).taskAssignment.findMany({
       where: {
         batch: {
           tenantId,
         },
       },
-      orderBy: { assignedAt: 'desc' },
+      orderBy: { assignedAt: "desc" },
     });
   }
 
   async updateTaskAssignment(
+    tenantId: string,
     assignmentId: string,
-    dto: UpdateTaskAssignmentDto
+    dto: UpdateTaskAssignmentDto,
   ): Promise<any> {
     const updateData: any = {};
 
     if (dto.status) {
       updateData.status = dto.status;
 
-      if (dto.status === 'IN_PROGRESS') {
+      if (dto.status === "IN_PROGRESS") {
         updateData.startedAt = new Date();
-      } else if (dto.status === 'COMPLETED') {
+      } else if (dto.status === "COMPLETED") {
         updateData.completedAt = new Date();
       }
     }
@@ -351,13 +426,13 @@ export class ProductionService {
       updateData.actualTime = dto.actualTime;
     }
 
-    const assignment = await this.prisma.taskAssignment.update({
+    const assignment = await (this.prisma as any).taskAssignment.update({
       where: { id: assignmentId },
       data: updateData,
     });
 
     // If completed, decrement staff tasks
-    if (dto.status === 'COMPLETED') {
+    if (dto.status === "COMPLETED") {
       await this.decrementStaffTasks(assignment.assignedTo);
     }
 
@@ -380,28 +455,29 @@ export class ProductionService {
       where.kitchenZone = zone;
     }
 
-    return await this.prisma.staffMember.findMany({
+    return await (this.prisma as any).staffMember.findMany({
       where,
-      orderBy: { currentTasks: 'asc' },
+      orderBy: { currentTasks: "asc" },
     });
   }
 
-  async getStaffMemberTasks(staffId: string): Promise<any[]> {
-    return await this.prisma.taskAssignment.findMany({
+  async getStaffMemberTasks(tenantId: string, staffId: string): Promise<any[]> {
+    return await (this.prisma as any).taskAssignment.findMany({
       where: {
         assignedTo: staffId,
+        batch: { tenantId },
         status: {
-          in: ['ASSIGNED', 'IN_PROGRESS'],
+          in: ["ASSIGNED", "IN_PROGRESS"],
         },
       },
-      orderBy: { assignedAt: 'desc' },
+      orderBy: { assignedAt: "desc" },
     });
   }
 
   // Progress Tracking
-  async getProgressTracking(orderId: string): Promise<any> {
-    const tracking = await this.prisma.progressTracking.findUnique({
-      where: { orderId },
+  async getProgressTracking(tenantId: string, orderId: string): Promise<any> {
+    const tracking = await (this.prisma as any).progressTracking.findFirst({
+      where: { orderId, order: { batch: { tenantId } } },
       include: {
         milestones: true,
         alerts: {
@@ -413,14 +489,14 @@ export class ProductionService {
     });
 
     if (!tracking) {
-      throw new NotFoundException('Progress tracking not found');
+      throw new NotFoundException("Progress tracking not found");
     }
 
     return tracking;
   }
 
   async getActiveAlerts(tenantId: string): Promise<any[]> {
-    return await this.prisma.productionAlert.findMany({
+    return await (this.prisma as any).productionAlert.findMany({
       where: {
         order: {
           batch: {
@@ -429,12 +505,23 @@ export class ProductionService {
         },
         resolvedAt: null,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
-  async resolveAlert(alertId: string, dto: UpdateAlertDto): Promise<any> {
-    const alert = await this.prisma.productionAlert.update({
+  async resolveAlert(
+    tenantId: string,
+    alertId: string,
+    dto: UpdateAlertDto,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).productionAlert.findFirst({
+      where: { id: alertId, order: { batch: { tenantId } } },
+    });
+    if (!existing) {
+      throw new NotFoundException("Alert not found");
+    }
+
+    const alert = await (this.prisma as any).productionAlert.update({
       where: { id: alertId },
       data: {
         resolvedAt: new Date(),
@@ -452,14 +539,14 @@ export class ProductionService {
   // Reports
   async generateProductionReport(
     tenantId: string,
-    dto: GenerateProductionReportDto
+    dto: GenerateProductionReportDto,
   ): Promise<any> {
     const data = await this.collectProductionData(
       tenantId,
       dto.startDate,
       dto.endDate,
       dto.batchIds,
-      dto.zone
+      dto.zone,
     );
 
     const kpis = this.calculateProductionKPIs(data);
@@ -479,8 +566,11 @@ export class ProductionService {
   }
 
   // Private Helper Methods
-  private async reserveIngredient(productId: string, quantity: number): Promise<void> {
-    await this.prisma.product.update({
+  private async reserveIngredient(
+    productId: string,
+    quantity: number,
+  ): Promise<void> {
+    await (this.prisma as any).product.update({
       where: { id: productId },
       data: {
         reservedStock: {
@@ -491,17 +581,17 @@ export class ProductionService {
   }
 
   private async initializeProgressTracking(orderId: string): Promise<void> {
-    const order = await this.prisma.productionOrder.findUnique({
+    const order = await (this.prisma as any).productionOrder.findUnique({
       where: { id: orderId },
     });
 
-    await this.prisma.progressTracking.create({
+    await (this.prisma as any).progressTracking.create({
       data: {
         orderId,
         overallProgress: 0,
         timeElapsed: 0,
         timeRemaining: order.estimatedTime,
-        status: 'ON_SCHEDULE',
+        status: "ON_SCHEDULE",
       },
     });
 
@@ -509,55 +599,72 @@ export class ProductionService {
     await this.createMilestones(orderId, order.estimatedTime);
   }
 
-  private async createMilestones(orderId: string, totalTime: number): Promise<void> {
+  private async createMilestones(
+    orderId: string,
+    totalTime: number,
+  ): Promise<void> {
     const milestones = [
-      { name: 'Mise en place', percentage: 20 },
-      { name: 'Preparation', percentage: 40 },
-      { name: 'Cooking', percentage: 70 },
-      { name: 'Plating', percentage: 90 },
-      { name: 'Completion', percentage: 100 },
+      { name: "Mise en place", percentage: 20 },
+      { name: "Preparation", percentage: 40 },
+      { name: "Cooking", percentage: 70 },
+      { name: "Plating", percentage: 90 },
+      { name: "Completion", percentage: 100 },
     ];
 
     const startTime = new Date();
 
     for (const milestone of milestones) {
-      const scheduledTime = new Date(startTime.getTime() + (totalTime * milestone.percentage) / 100 * 60 * 1000);
+      const scheduledTime = new Date(
+        startTime.getTime() +
+          ((totalTime * milestone.percentage) / 100) * 60 * 1000,
+      );
 
-      await this.prisma.milestone.create({
+      await (this.prisma as any).milestone?.create({
         data: {
           orderId,
           name: milestone.name,
           scheduledTime,
-          status: 'PENDING',
+          status: "PENDING",
         },
       });
     }
   }
 
-  private async updateProgressTracking(orderId: string, status: string): Promise<void> {
-    const order = await this.prisma.productionOrder.findUnique({
+  private async updateProgressTracking(
+    orderId: string,
+    status: string,
+  ): Promise<void> {
+    const order = await (this.prisma as any).productionOrder.findUnique({
       where: { id: orderId },
     });
 
-    if (!order) return;
+    if (!order) {
+      return;
+    }
 
     let progress = 0;
-    if (status === 'IN_PROGRESS') {
+    if (status === "IN_PROGRESS") {
       progress = 25;
-    } else if (status === 'COMPLETED') {
+    } else if (status === "COMPLETED") {
       progress = 100;
     }
 
-    const timeElapsed = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60));
+    const timeElapsed = Math.floor(
+      (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60),
+    );
     const timeRemaining = Math.max(0, order.estimatedTime - timeElapsed);
 
-    await this.prisma.progressTracking.update({
+    await (this.prisma as any).progressTracking.update({
       where: { orderId },
       data: {
         overallProgress: progress,
         timeElapsed,
         timeRemaining,
-        status: this.calculateStatus(progress, timeElapsed, order.estimatedTime),
+        status: this.calculateStatus(
+          progress,
+          timeElapsed,
+          order.estimatedTime,
+        ),
       },
     });
 
@@ -567,30 +674,44 @@ export class ProductionService {
     }
   }
 
-  private calculateStatus(progress: number, timeElapsed: number, estimatedTime: number): string {
+  private calculateStatus(
+    progress: number,
+    timeElapsed: number,
+    estimatedTime: number,
+  ): string {
     const efficiency = progress / ((timeElapsed / estimatedTime) * 100);
 
-    if (efficiency < 0.7) return 'CRITICAL';
-    if (efficiency < 0.9) return 'DELAYED';
-    if (efficiency > 1.1) return 'AHEAD';
-    return 'ON_SCHEDULE';
+    if (efficiency < 0.7) {
+      return "CRITICAL";
+    }
+    if (efficiency < 0.9) {
+      return "DELAYED";
+    }
+    if (efficiency > 1.1) {
+      return "AHEAD";
+    }
+    return "ON_SCHEDULE";
   }
 
   private async checkForDelays(orderId: string): Promise<void> {
-    const tracking = await this.prisma.progressTracking.findUnique({
+    const tracking = await (this.prisma as any).progressTracking.findUnique({
       where: { orderId },
     });
 
-    if (!tracking || tracking.status === 'DELAYED' || tracking.status === 'CRITICAL') {
+    if (
+      !tracking ||
+      tracking.status === "DELAYED" ||
+      tracking.status === "CRITICAL"
+    ) {
       return;
     }
 
     // Create alert if significant delay detected
-    await this.prisma.productionAlert.create({
+    await (this.prisma as any).productionAlert.create({
       data: {
         orderId,
-        type: 'DELAY',
-        severity: tracking.status === 'CRITICAL' ? 'HIGH' : 'MEDIUM',
+        type: "DELAY",
+        severity: tracking.status === "CRITICAL" ? "HIGH" : "MEDIUM",
         message: `Production order is ${tracking.status.toLowerCase()}`,
         createdAt: new Date(),
       },
@@ -598,14 +719,16 @@ export class ProductionService {
   }
 
   private async updateInventory(orderId: string): Promise<void> {
-    const order = await this.prisma.productionOrder.findUnique({
+    const order = await (this.prisma as any).productionOrder.findUnique({
       where: { id: orderId },
     });
 
-    if (!order) return;
+    if (!order) {
+      return;
+    }
 
     for (const ingredient of order.ingredients) {
-      await this.prisma.product.update({
+      await (this.prisma as any).product.update({
         where: { id: ingredient.productId },
         data: {
           stock: {
@@ -620,7 +743,7 @@ export class ProductionService {
   }
 
   private async incrementStaffTasks(staffId: string): Promise<void> {
-    await this.prisma.staffMember.update({
+    await (this.prisma as any).staffMember.update({
       where: { id: staffId },
       data: {
         currentTasks: {
@@ -631,7 +754,7 @@ export class ProductionService {
   }
 
   private async decrementStaffTasks(staffId: string): Promise<void> {
-    await this.prisma.staffMember.update({
+    await (this.prisma as any).staffMember.update({
       where: { id: staffId },
       data: {
         currentTasks: {
@@ -642,29 +765,37 @@ export class ProductionService {
   }
 
   private async getStaffMember(staffId: string): Promise<any> {
-    return await this.prisma.staffMember.findUnique({
+    return await (this.prisma as any).staffMember.findUnique({
       where: { id: staffId },
     });
   }
 
   private async generateFinalReport(batchId: string): Promise<void> {
-    const batch = await this.prisma.workBatch.findUnique({
+    const batch = await (this.prisma as any).workBatch.findUnique({
       where: { id: batchId },
       include: {
         productionOrders: true,
       },
     });
 
-    if (!batch) return;
+    if (!batch) {
+      return;
+    }
 
     // Calculate completion statistics
     const totalOrders = batch.productionOrders.length;
-    const completedOrders = batch.productionOrders.filter((o) => o.status === 'COMPLETED').length;
-    const avgActualTime = batch.productionOrders.reduce((sum, o) => sum + (o.actualTime || 0), 0) / totalOrders;
-    const avgEstimatedTime = batch.productionOrders.reduce((sum, o) => sum + o.estimatedTime, 0) / totalOrders;
+    const completedOrders = batch.productionOrders.filter(
+      (o) => o.status === "COMPLETED",
+    ).length;
+    const avgActualTime =
+      batch.productionOrders.reduce((sum, o) => sum + (o.actualTime || 0), 0) /
+      totalOrders;
+    const avgEstimatedTime =
+      batch.productionOrders.reduce((sum, o) => sum + o.estimatedTime, 0) /
+      totalOrders;
 
     // Save production report
-    await this.prisma.productionReport.create({
+    await (this.prisma as any).productionReport?.create({
       data: {
         tenantId: batch.tenantId,
         batchId,
@@ -684,7 +815,7 @@ export class ProductionService {
     startDate: Date,
     endDate: Date,
     batchIds?: string[],
-    zone?: string
+    zone?: string,
   ): Promise<any> {
     const where: any = {
       batch: {
@@ -711,22 +842,22 @@ export class ProductionService {
 
     const data: any = {};
 
-    data.batches = await this.prisma.workBatch.findMany({
+    data.batches = await (this.prisma as any).workBatch.findMany({
       where,
       include: {
         productionOrders: true,
       },
     });
 
-    data.orders = await this.prisma.productionOrder.findMany({
+    data.orders = await (this.prisma as any).productionOrder.findMany({
       where,
     });
 
-    data.tasks = await this.prisma.taskAssignment.findMany({
+    data.tasks = await (this.prisma as any).taskAssignment.findMany({
       where,
     });
 
-    data.alerts = await this.prisma.productionAlert.findMany({
+    data.alerts = await (this.prisma as any).productionAlert.findMany({
       where,
     });
 
@@ -745,30 +876,51 @@ export class ProductionService {
 
     // Completion rate
     const totalOrders = data.orders.length;
-    const completedOrders = data.orders.filter((o) => o.status === 'COMPLETED').length;
-    kpis.completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    const completedOrders = data.orders.filter(
+      (o) => o.status === "COMPLETED",
+    ).length;
+    kpis.completionRate =
+      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
 
     // Efficiency
-    const ordersWithTimes = data.orders.filter((o) => o.actualTime && o.estimatedTime);
+    const ordersWithTimes = data.orders.filter(
+      (o) => o.actualTime && o.estimatedTime,
+    );
     if (ordersWithTimes.length > 0) {
-      const totalEstimated = ordersWithTimes.reduce((sum, o) => sum + o.estimatedTime, 0);
-      const totalActual = ordersWithTimes.reduce((sum, o) => sum + o.actualTime, 0);
+      const totalEstimated = ordersWithTimes.reduce(
+        (sum, o) => sum + o.estimatedTime,
+        0,
+      );
+      const totalActual = ordersWithTimes.reduce(
+        (sum, o) => sum + o.actualTime,
+        0,
+      );
       kpis.efficiency = (totalEstimated / totalActual) * 100;
     }
 
     // On-time delivery (orders completed within estimated time)
-    const onTimeOrders = ordersWithTimes.filter((o) => o.actualTime <= o.estimatedTime).length;
-    kpis.onTimeDelivery = ordersWithTimes.length > 0 ? (onTimeOrders / ordersWithTimes.length) * 100 : 0;
+    const onTimeOrders = ordersWithTimes.filter(
+      (o) => o.actualTime <= o.estimatedTime,
+    ).length;
+    kpis.onTimeDelivery =
+      ordersWithTimes.length > 0
+        ? (onTimeOrders / ordersWithTimes.length) * 100
+        : 0;
 
     // Staff utilization
     const totalTasks = data.tasks.length;
-    const completedTasks = data.tasks.filter((t) => t.status === 'COMPLETED').length;
-    kpis.staffUtilization = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+    const completedTasks = data.tasks.filter(
+      (t) => t.status === "COMPLETED",
+    ).length;
+    kpis.staffUtilization =
+      totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
     // Average task duration
     const tasksWithDuration = data.tasks.filter((t) => t.actualTime);
     if (tasksWithDuration.length > 0) {
-      kpis.avgTaskDuration = tasksWithDuration.reduce((sum, t) => sum + t.actualTime, 0) / tasksWithDuration.length;
+      kpis.avgTaskDuration =
+        tasksWithDuration.reduce((sum, t) => sum + t.actualTime, 0) /
+        tasksWithDuration.length;
     }
 
     // Alert count

@@ -1,4 +1,11 @@
-import { IsString, IsBoolean, IsOptional, IsEmail, MinLength, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsEmail,
+  MinLength,
+  IsEnum,
+} from "class-validator";
 
 export class CreateTenantDto {
   @IsString()
@@ -25,15 +32,19 @@ export class CreateTenantDto {
   @MinLength(2)
   adminName: string;
 
-  @IsEnum(['ADMIN', 'USER', 'VIEWER'])
+  @IsEnum(["ADMIN", "USER", "VIEWER"])
   @IsOptional()
-  adminRole?: 'ADMIN' | 'USER' | 'VIEWER';
+  adminRole?: "ADMIN" | "USER" | "VIEWER";
 }
 
 export class UpdateTenantDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
   @IsOptional()
   @IsString()

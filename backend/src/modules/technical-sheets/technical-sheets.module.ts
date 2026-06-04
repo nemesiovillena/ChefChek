@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { TechnicalSheetsService } from './technical-sheets.service';
-import { TechnicalSheetsController } from './technical-sheets.controller';
-import { PrismaModule } from '../prisma/prisma.module';
-import { AuthModule } from '../auth/auth.module';
+import { Module } from "@nestjs/common";
+import { TechnicalSheetsService } from "./technical-sheets.service";
+import { TechnicalSheetsController } from "./technical-sheets.controller";
+import { PrismaModule } from "../../common/services/prisma.module";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
   imports: [PrismaModule, AuthModule],

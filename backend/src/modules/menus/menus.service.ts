@@ -1,19 +1,26 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateMenuDto } from './dto/create-menu.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import { CreateMenuDto } from "./dto/create-menu.dto";
 import {
   MenuResponse,
   MenuItemResponse,
   MenuSectionResponse,
   MenuTranslationResponse,
   MenuCostBreakdown,
-} from './dto/menu-response.dto';
+} from "./dto/menu-response.dto";
 
 @Injectable()
 export class MenusService {
   constructor(private prisma: PrismaService) {}
 
-  async create(tenantId: string, createMenuDto: CreateMenuDto): Promise<MenuResponse> {
+  async create(
+    tenantId: string,
+    createMenuDto: CreateMenuDto,
+  ): Promise<MenuResponse> {
     const {
       name,
       description,
@@ -27,11 +34,14 @@ export class MenusService {
 
     // Validar fechas
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-      throw new BadRequestException('End date must be after start date');
+      throw new BadRequestException("End date must be after start date");
     }
 
     // Calcular costos del menú
-    const costBreakdown = await this.calculateMenuCost(sections, portions);
+    const costBreakdown = await this.calculateCostFromSections(
+      sections,
+      portions,
+    );
 
     // Crear menú
     const menu = await this.prisma.menu.create({
@@ -49,9 +59,9 @@ export class MenusService {
         sections: {
           create: sections.map((section, index) => ({
             name: section.name,
-            order: section.order,
+            sortOrder: section.order,
             items: {
-              create: section.items.map(item => ({
+              create: section.items.map((item) => ({
                 recipeId: item.recipeId,
                 price: item.price || 0, // Se calculará después
                 isAvailable: item.isAvailable ?? true,
@@ -59,14 +69,18 @@ export class MenusService {
             },
           })),
         },
-        translations: translations.length > 0 ? {
-          create: translations.map(translation => ({
-            language: translation.language,
-            name: translation.name,
-            description: translation.description,
-            sectionsTranslations: translation.sectionsTranslations || {},
-          })),
-        } : undefined,
+        translations:
+          translations.length > 0
+            ? {
+                create: translations.map((translation) => ({
+                  language: translation.language,
+                  title: translation.name,
+                  name: translation.name,
+                  description: translation.description,
+                  sectionsTranslations: translation.sectionsTranslations || {},
+                })),
+              }
+            : undefined,
       },
       include: {
         sections: {
@@ -77,7 +91,7 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
@@ -98,7 +112,7 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
@@ -107,14 +121,22 @@ export class MenusService {
     return this.formatMenuResponse(updatedMenu, costBreakdown);
   }
 
-  async findAll(tenantId: string, query?: { search?: string; isActive?: boolean }): Promise<MenuResponse[]> {
+  async findAll(
+    tenantId: string,
+    query?: { search?: string; isActive?: boolean },
+  ): Promise<MenuResponse[]> {
     const where = {
       tenantId,
       ...(query?.isActive !== undefined && { isActive: query.isActive }),
       ...(query?.search && {
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' as const } },
-          { description: { contains: query.search, mode: 'insensitive' as const } },
+          { name: { contains: query.search, mode: "insensitive" as const } },
+          {
+            description: {
+              contains: query.search,
+              mode: "insensitive" as const,
+            },
+          },
         ],
       }),
     };
@@ -130,14 +152,14 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
-    return menus.map(menu => {
+    return menus.map((menu) => {
       const costBreakdown = this.calculateMenuCostResponse(menu);
       return this.formatMenuResponse(menu, costBreakdown);
     });
@@ -155,7 +177,7 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
@@ -169,7 +191,11 @@ export class MenusService {
     return this.formatMenuResponse(menu, costBreakdown);
   }
 
-  async update(tenantId: string, id: string, updateMenuDto: Partial<CreateMenuDto>): Promise<MenuResponse> {
+  async update(
+    tenantId: string,
+    id: string,
+    updateMenuDto: Partial<CreateMenuDto>,
+  ): Promise<MenuResponse> {
     const menu = await this.prisma.menu.findFirst({
       where: { id, tenantId },
     });
@@ -193,13 +219,13 @@ export class MenusService {
     const start = startDate ? new Date(startDate) : menu.startDate;
     const end = endDate ? new Date(endDate) : menu.endDate;
     if (start && end && start > end) {
-      throw new BadRequestException('End date must be after start date');
+      throw new BadRequestException("End date must be after start date");
     }
 
     // Recalcular costos si hay cambios en secciones
     let costBreakdown = this.calculateMenuCostResponse(menu);
     if (sections) {
-      costBreakdown = await this.calculateMenuCost(sections, portions);
+      costBreakdown = await this.calculateCostFromSections(sections, portions);
     }
 
     const updatedMenu = await this.prisma.menu.update({
@@ -224,7 +250,7 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
@@ -252,7 +278,7 @@ export class MenusService {
               },
             },
           },
-          orderBy: { order: 'asc' },
+          orderBy: { sortOrder: "asc" },
         },
         translations: true,
       },
@@ -276,9 +302,12 @@ export class MenusService {
     });
   }
 
-  async calculateMenuCost(id: string): Promise<MenuCostBreakdown> {
-    const menu = await this.prisma.menu.findUnique({
-      where: { id },
+  async calculateMenuCost(
+    tenantId: string,
+    id: string,
+  ): Promise<MenuCostBreakdown> {
+    const menu = await this.prisma.menu.findFirst({
+      where: { id, tenantId },
       include: {
         sections: {
           include: {
@@ -299,7 +328,10 @@ export class MenusService {
     return this.calculateMenuCostResponse(menu);
   }
 
-  async generateQRCode(tenantId: string, id: string): Promise<{ qrCode: string; url: string }> {
+  async generateQRCode(
+    tenantId: string,
+    id: string,
+  ): Promise<{ qrCode: string; url: string }> {
     const menu = await this.prisma.menu.findFirst({
       where: { id, tenantId, isActive: true },
     });
@@ -309,7 +341,7 @@ export class MenusService {
     }
 
     // Generar URL única para el menú
-    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const baseUrl = process.env.FRONTEND_URL || "http://localhost:3000";
     const menuUrl = `${baseUrl}/menu/${id}`;
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(menuUrl)}`;
 
@@ -319,7 +351,10 @@ export class MenusService {
     };
   }
 
-  private async calculateMenuCost(sections: any[], portions: number): Promise<MenuCostBreakdown> {
+  private async calculateCostFromSections(
+    sections: any[],
+    portions: number,
+  ): Promise<MenuCostBreakdown> {
     let totalCost = 0;
     let totalPrice = 0;
     let totalItems = 0;
@@ -331,7 +366,9 @@ export class MenusService {
         });
 
         if (!recipe) {
-          throw new NotFoundException(`Recipe with ID ${item.recipeId} not found`);
+          throw new NotFoundException(
+            `Recipe with ID ${item.recipeId} not found`,
+          );
         }
 
         const cost = recipe.totalCost;
@@ -344,7 +381,8 @@ export class MenusService {
     }
 
     const totalMargin = totalPrice - totalCost;
-    const averageMarginPercentage = totalPrice > 0 ? (totalMargin / totalPrice) * 100 : 0;
+    const averageMarginPercentage =
+      totalPrice > 0 ? (totalMargin / totalPrice) * 100 : 0;
     const costPerPortion = totalCost / portions;
     const pricePerPortion = totalPrice / portions;
 
@@ -370,7 +408,8 @@ export class MenusService {
     });
 
     const totalMargin = totalPrice - totalCost;
-    const averageMarginPercentage = totalPrice > 0 ? (totalMargin / totalPrice) * 100 : 0;
+    const averageMarginPercentage =
+      totalPrice > 0 ? (totalMargin / totalPrice) * 100 : 0;
     const costPerPortion = totalCost / menu.portions;
     const pricePerPortion = totalPrice / menu.portions;
 
@@ -384,7 +423,10 @@ export class MenusService {
     };
   }
 
-  private async updateMenuSections(menuId: string, sections: any[]): Promise<void> {
+  private async updateMenuSections(
+    menuId: string,
+    sections: any[],
+  ): Promise<void> {
     // Eliminar secciones existentes
     await this.prisma.menuSection.deleteMany({ where: { menuId } });
 
@@ -394,7 +436,7 @@ export class MenusService {
         data: {
           menuId,
           name: section.name,
-          order: section.order,
+          sortOrder: section.order,
           items: {
             create: section.items.map((item: any) => ({
               recipeId: item.recipeId,
@@ -407,7 +449,10 @@ export class MenusService {
     }
   }
 
-  private async updateMenuTranslations(menuId: string, translations: any[]): Promise<void> {
+  private async updateMenuTranslations(
+    menuId: string,
+    translations: any[],
+  ): Promise<void> {
     // Eliminar traducciones existentes
     await this.prisma.menuTranslation.deleteMany({ where: { menuId } });
 
@@ -417,6 +462,7 @@ export class MenusService {
         data: {
           menuId,
           language: translation.language,
+          title: translation.name,
           name: translation.name,
           description: translation.description,
           sectionsTranslations: translation.sectionsTranslations || {},
@@ -437,7 +483,9 @@ export class MenusService {
       },
     });
 
-    if (!menu) return;
+    if (!menu) {
+      return;
+    }
 
     for (const section of menu.sections) {
       for (const item of section.items) {
@@ -458,40 +506,46 @@ export class MenusService {
     }
   }
 
-  private formatMenuResponse(menu: any, costBreakdown?: MenuCostBreakdown): MenuResponse {
-    const sections: MenuSectionResponse[] = menu.sections.map((section: any) => ({
-      id: section.id,
-      name: section.name,
-      order: section.order,
-      items: section.items.map((item: any) => {
-        const cost = item.recipe.totalCost;
-        const price = item.price;
-        const margin = price - cost;
-        const marginPercentage = price > 0 ? (margin / price) * 100 : 0;
+  private formatMenuResponse(
+    menu: any,
+    costBreakdown?: MenuCostBreakdown,
+  ): MenuResponse {
+    const sections: MenuSectionResponse[] = menu.sections.map(
+      (section: any) => ({
+        id: section.id,
+        name: section.name,
+        order: section.order,
+        items: section.items.map((item: any) => {
+          const cost = item.recipe.totalCost;
+          const price = item.price;
+          const margin = price - cost;
+          const marginPercentage = price > 0 ? (margin / price) * 100 : 0;
 
-        // Calcular alérgenos de la receta
-        const allergens = this.calculateAllergens(item.recipe);
+          // Calcular alérgenos de la receta
+          const allergens = this.calculateAllergens(item.recipe);
 
-        return {
-          id: item.id,
-          recipeId: item.recipeId,
-          recipeName: item.recipe.name,
-          price,
-          cost,
-          margin,
-          isAvailable: item.isAvailable,
-          allergens,
-        };
+          return {
+            id: item.id,
+            recipeId: item.recipeId,
+            recipeName: item.recipe.name,
+            price,
+            cost,
+            margin,
+            isAvailable: item.isAvailable,
+            allergens,
+          };
+        }),
       }),
-    }));
+    );
 
-    const translations: MenuTranslationResponse[] = menu.translations?.map((trans: any) => ({
-      id: trans.id,
-      language: trans.language,
-      name: trans.name,
-      description: trans.description,
-      sectionsTranslations: trans.sectionsTranslations || {},
-    })) || [];
+    const translations: MenuTranslationResponse[] =
+      menu.translations?.map((trans: any) => ({
+        id: trans.id,
+        language: trans.language,
+        name: trans.name,
+        description: trans.description,
+        sectionsTranslations: trans.sectionsTranslations || {},
+      })) || [];
 
     return {
       id: menu.id,

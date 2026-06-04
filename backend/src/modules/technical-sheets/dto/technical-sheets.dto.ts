@@ -1,35 +1,42 @@
-import { IsString, IsEnum, IsOptional, IsArray, IsNumber, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  IsBoolean,
+} from "class-validator";
 
 enum TemplateType {
-  STANDARD = 'STANDARD',
-  MINIMAL = 'MINIMAL',
-  DETAILED = 'DETAILED',
-  CUSTOM = 'CUSTOM',
+  STANDARD = "STANDARD",
+  MINIMAL = "MINIMAL",
+  DETAILED = "DETAILED",
+  CUSTOM = "CUSTOM",
 }
 
 enum FieldType {
-  TEXT = 'TEXT',
-  IMAGE = 'IMAGE',
-  LIST = 'LIST',
-  TABLE = 'TABLE',
-  CALCULATED = 'CALCULATED',
+  TEXT = "TEXT",
+  IMAGE = "IMAGE",
+  LIST = "LIST",
+  TABLE = "TABLE",
+  CALCULATED = "CALCULATED",
 }
 
 enum PDFFormat {
-  A4 = 'A4',
-  LETTER = 'LETTER',
+  A4 = "A4",
+  LETTER = "LETTER",
 }
 
 enum PDFOrientation {
-  PORTRAIT = 'PORTRAIT',
-  LANDSCAPE = 'LANDSCAPE',
+  PORTRAIT = "PORTRAIT",
+  LANDSCAPE = "LANDSCAPE",
 }
 
 enum DocumentType {
-  TECHNICAL_SHEET = 'TECHNICAL_SHEET',
-  RECIPE_CARD = 'RECIPE_CARD',
-  INSTRUCTION = 'INSTRUCTION',
-  OTHER = 'OTHER',
+  TECHNICAL_SHEET = "TECHNICAL_SHEET",
+  RECIPE_CARD = "RECIPE_CARD",
+  INSTRUCTION = "INSTRUCTION",
+  OTHER = "OTHER",
 }
 
 interface LayoutSection {
@@ -121,7 +128,7 @@ export class GenerateSheetDto {
   orientation?: PDFOrientation;
 
   @IsOptional()
-  quality?: 'STANDARD' | 'HIGH';
+  quality?: "STANDARD" | "HIGH";
 
   @IsOptional()
   watermark?: string;
@@ -157,7 +164,7 @@ export class GenerateBatchDto {
   orientation?: PDFOrientation;
 
   @IsOptional()
-  quality?: 'STANDARD' | 'HIGH';
+  quality?: "STANDARD" | "HIGH";
 
   @IsOptional()
   mergeIntoOne?: boolean;
@@ -196,6 +203,6 @@ export class DocumentResponseDto {
   createdAt: Date;
   createdBy: string;
   fileSize: number;
-  fileFormat: 'PDF' | 'DOCX';
+  fileFormat: "PDF" | "DOCX";
   url: string;
 }
