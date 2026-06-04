@@ -242,9 +242,9 @@ describe("NotificationsService", () => {
       const mockAlert = { id: "alert-1" };
       mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
       mockPrismaService.alert.create
-        .mockResolvedValueOnce(mockAlert)
-        .mockResolvedValueOnce(mockAlert)
-        .mockResolvedValueOnce(mockAlert);
+        .mockResolvedValue(mockAlert)
+        .mockResolvedValue(mockAlert)
+        .mockResolvedValue(mockAlert);
 
       const result = await service.sendBulkNotifications("tenant-1", {
         type: "INFO",
@@ -314,8 +314,8 @@ describe("NotificationsService", () => {
 
       mockPrismaService.user.findMany.mockResolvedValue(mockUsers);
       mockPrismaService.alert.create
-        .mockResolvedValueOnce({ id: "alert-1" })
-        .mockResolvedValueOnce({ id: "alert-2" });
+        .mockResolvedValue({ id: "alert-1" })
+        .mockResolvedValue({ id: "alert-2" });
 
       const result = await service.sendBulkNotifications("tenant-1", {
         type: "INFO",

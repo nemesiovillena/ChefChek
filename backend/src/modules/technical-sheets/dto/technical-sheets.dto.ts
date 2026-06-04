@@ -7,7 +7,7 @@ import {
   IsBoolean,
 } from "class-validator";
 
-enum TemplateType {
+export enum TemplateType {
   STANDARD = "STANDARD",
   MINIMAL = "MINIMAL",
   DETAILED = "DETAILED",

@@ -6,7 +6,6 @@ import { CreateRecipeDto } from "./dto/create-recipe.dto";
 
 describe("RecipesService", () => {
   let service: RecipesService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     recipe: {
@@ -89,11 +88,6 @@ describe("RecipesService", () => {
     subRecipes: [],
   };
 
-  const mockRecipeWithSubRecipe = {
-    ...mockRecipe,
-    subRecipes: [mockSubRecipe],
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -106,7 +100,6 @@ describe("RecipesService", () => {
     }).compile();
 
     service = module.get<RecipesService>(RecipesService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -413,6 +406,296 @@ describe("RecipesService", () => {
       await expect(
         service.calculateRecipeCost(tenantId, recipeId),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle recipe with no ingredients and no sub-recipes", async () => {
+      const emptyRecipe = {
+        ...mockRecipe,
+        ingredients: [],
+        subRecipes: [],
+        totalCost: 0,
+        totalCostPerUnit: 0,
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(emptyRecipe);
+
+      const result = await service.calculateRecipeCost(tenantId, recipeId);
+
+      expect(result.totalCost).toBe(0);
+      expect(result.ingredientsCost).toBe(0);
+      expect(result.subRecipesCost).toBe(0);
+    });
+
+    it("should handle recipe with very long name", async () => {
+      const longName = "A".repeat(300);
+      const createDto = {
+        name: longName,
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 1,
+        portionSize: 100,
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: longName,
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.name).toBe(longName);
+    });
+
+    it("should handle recipe with very large portions", async () => {
+      const createDto = {
+        name: "Large Portions Recipe",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 1000,
+        portionSize: 500,
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: "Large Portions Recipe",
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        portions: 1000,
+        portionSize: 500,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.portions).toBe(1000);
+    });
+
+    it("should handle invalid elaboration JSON gracefully", async () => {
+      const createDto = {
+        name: "Recipe",
+        elaboration: "{ invalid json }",
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      await expect(service.create(tenantId, createDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("should handle recipe with maximum portions", async () => {
+      const createDto = {
+        name: "Recipe",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 10000,
+        portionSize: 100,
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: "Recipe",
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        portions: 10000,
+        portionSize: 100,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.portions).toBe(10000);
+    });
+
+    it("should handle recipe with minimum portion size", async () => {
+      const createDto = {
+        name: "Recipe",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 1,
+        portionSize: 1,
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: "Recipe",
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        portions: 1,
+        portionSize: 1,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.portionSize).toBe(1);
+    });
+
+    it("should handle public recipe creation", async () => {
+      const createDto = {
+        name: "Recipe",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 1,
+        portionSize: 100,
+        ingredients: [],
+        subRecipes: [],
+        isPublic: true,
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: "Recipe",
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+        isPublic: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.isPublic).toBe(true);
+    });
+
+    it("should handle recipe with elaboration containing nested structure", async () => {
+      const elaboration = JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: "Step 1" },
+              { type: "text", marks: [{ type: "bold" }], text: " important" },
+            ],
+          },
+          {
+            type: "orderedList",
+            content: [
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Item 1" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      const createDto = {
+        name: "Recipe",
+        elaboration,
+        portions: 1,
+        portionSize: 100,
+        ingredients: [],
+        subRecipes: [],
+      };
+
+      const mockRecipe = {
+        id: "recipe-1",
+        name: "Recipe",
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        elaboration,
+        ingredients: [],
+        subRecipes: [],
+        isActive: true,
+      };
+
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      const result = await service.create(tenantId, createDto);
+
+      expect(result.elaboration).toBe(elaboration);
+    });
+
+    it("should handle recipe update with empty ingredients", async () => {
+      const mockRecipe = {
+        id: recipeId,
+        tenantId,
+        name: "Recipe",
+        ingredients: [
+          {
+            productId: "prod-1",
+            quantity: 100,
+            unit: "Gramos",
+            product: mockProduct,
+          },
+        ],
+        subRecipes: [],
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipeIngredient.deleteMany.mockResolvedValue({
+        count: 1,
+      });
+      mockPrismaService.recipeIngredient.createMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, { ingredients: [] });
+
+      expect(
+        mockPrismaService.recipeIngredient.deleteMany,
+      ).toHaveBeenCalledWith({
+        where: { recipeId },
+      });
+      expect(
+        mockPrismaService.recipeIngredient.createMany,
+      ).toHaveBeenCalledWith({
+        data: [],
+      });
+    });
+
+    it("should handle recipe with mixed ingredient and sub-recipe costs", async () => {
+      const mockRecipeWithBoth = {
+        ...mockRecipe,
+        ingredients: [mockIngredient],
+        subRecipes: [mockSubRecipe],
+        totalCost: 35.5, // 15.5 (ingredients) + 20 (sub-recipe)
+        totalCostPerUnit: 0.355,
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipeWithBoth);
+
+      const result = await service.calculateRecipeCost(tenantId, recipeId);
+
+      expect(result.totalCost).toBe(35.5);
+      expect(result.ingredientsCost).toBeDefined();
+      expect(result.subRecipesCost).toBeDefined();
     });
   });
 });

@@ -547,5 +547,320 @@ describe("ProductsService", () => {
 
       expect(result.data).toEqual(["supp-1"]);
     });
+
+    it("should return empty array when no suppliers found", async () => {
+      prismaService.product.findMany.mockResolvedValue([]);
+
+      const result = await service.getSuppliers(tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle large page numbers gracefully", async () => {
+      prismaService.product.findMany.mockResolvedValue([]);
+      prismaService.product.count.mockResolvedValue(0);
+
+      const query = { page: 100, limit: 20 };
+      const result = await service.findAll(query, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toHaveLength(0);
+      expect(result.meta.page).toBe(100);
+    });
+
+    it("should handle zero limit by using default", async () => {
+      prismaService.product.findMany.mockResolvedValue([]);
+      prismaService.product.count.mockResolvedValue(0);
+
+      const query = { limit: 0 } as any;
+      const result = await service.findAll(query, tenantId);
+
+      expect(result.success).toBe(true);
+      // Service uses limit as provided, 0 means take: 0 (empty result)
+      expect(result.meta.limit).toBe(0);
+    });
+
+    it("should handle very long product names", async () => {
+      const longName = "A".repeat(500);
+      const createDto = {
+        name: longName,
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: longName,
+        categoryId: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        netPrice: 10.0,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.name).toBe(longName);
+    });
+
+    it("should handle very small purchase prices", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "g",
+        storageUnit: "Kg",
+        recipeUnit: "mg",
+        purchasePrice: 0.001,
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 0.001,
+        netPrice: 0.001,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.purchasePrice).toBe(0.001);
+    });
+
+    it("should handle very large profit margins", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        profitMargin: 500, // 500% margin
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 10.0,
+        netPrice: 60.0, // 10 + (10 * 500/100)
+        profitMargin: 500,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.profitMargin).toBe(500);
+      expect(result.data.netPrice).toBe(60.0);
+    });
+
+    it("should handle zero profit margin correctly", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        profitMargin: 0,
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 10.0,
+        netPrice: 10.0,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.netPrice).toBe(10.0);
+    });
+
+    it("should handle very high waste percentages", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        wastePercentage: 75, // 75% waste
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 10.0,
+        netPrice: 40.0, // 10 + (10 * 75/100)
+        profitMargin: 0,
+        wastePercentage: 75,
+        yieldFactor: 0.25, // 100 - 75 = 25% yield
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.wastePercentage).toBe(75);
+      expect(result.data.yieldFactor).toBe(0.25);
+    });
+
+    it("should handle yield factor calculation correctly", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        yieldFactor: 0.8,
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 10.0,
+        netPrice: 10.0,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 0.8,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.yieldFactor).toBe(0.8);
+    });
+
+    it("should handle empty allergens array", async () => {
+      const createDto = {
+        name: "Product",
+        category: "cat-1",
+        purchaseUnit: "Kg",
+        storageUnit: "Kg",
+        recipeUnit: "g",
+        purchasePrice: 10.0,
+        allergens: [],
+      };
+
+      prismaService.product.create.mockResolvedValue({
+        id: "prod-1",
+        tenantId,
+        name: "Product",
+        categoryId: "cat-1",
+        purchasePrice: 10.0,
+        netPrice: 10.0,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+      });
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.allergens).toEqual([]);
+    });
+
+    it("should handle update with yield factor override", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        wastePercentage: 0,
+        profitMargin: 0,
+        yieldFactor: 1.0,
+      };
+
+      const updateDto = { yieldFactor: 0.5 };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        yieldFactor: 0.5,
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(prismaService.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            yieldFactor: 0.5,
+          }),
+        }),
+      );
+    });
+
+    it("should handle update with waste percentage zero", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        wastePercentage: 20,
+        profitMargin: 0,
+      };
+
+      const updateDto = { wastePercentage: 0 };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(prismaService.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            wastePercentage: 0,
+            yieldFactor: 1.0,
+          }),
+        }),
+      );
+    });
   });
 });

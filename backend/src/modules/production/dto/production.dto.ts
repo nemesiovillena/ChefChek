@@ -15,14 +15,14 @@ enum BatchStatus {
   CANCELLED = "CANCELLED",
 }
 
-enum BatchPriority {
+export enum BatchPriority {
   LOW = "LOW",
   MEDIUM = "MEDIUM",
   HIGH = "HIGH",
   URGENT = "URGENT",
 }
 
-enum KitchenZone {
+export enum KitchenZone {
   HOT_KITCHEN = "HOT_KITCHEN",
   COLD_KITCHEN = "COLD_KITCHEN",
   PASTRY_KITCHEN = "PASTRY_KITCHEN",
@@ -52,14 +52,14 @@ enum ChecklistCategory {
   SANITATION = "SANITATION",
 }
 
-enum TaskType {
+export enum TaskType {
   PREPARATION = "PREPARATION",
   COOKING = "COOKING",
   PLATING = "PLATING",
   QUALITY_CHECK = "QUALITY_CHECK",
 }
 
-enum TaskStatus {
+export enum TaskStatus {
   ASSIGNED = "ASSIGNED",
   IN_PROGRESS = "IN_PROGRESS",
   COMPLETED = "COMPLETED",

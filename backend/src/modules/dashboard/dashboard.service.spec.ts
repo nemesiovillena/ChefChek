@@ -328,5 +328,115 @@ describe("DashboardService", () => {
       expect(result.data.unresolved).toBe(2);
       expect(result.data.resolved).toBe(1);
     });
+
+    it("should handle zero alerts", async () => {
+      prismaService.dashboardAlert.count
+        .mockResolvedValueOnce(0) // total
+        .mockResolvedValueOnce(0) // resolved
+        .mockResolvedValueOnce(0); // unresolved
+
+      prismaService.dashboardAlert.groupBy.mockResolvedValue([]);
+
+      const result = await service.getAlertStats("tenant-1");
+
+      expect(result.data.total).toBe(0);
+      expect(result.data.unresolved).toBe(0);
+      expect(result.data.resolved).toBe(0);
+    });
+
+    it("should handle all alerts resolved", async () => {
+      prismaService.dashboardAlert.count
+        .mockResolvedValueOnce(5) // total
+        .mockResolvedValueOnce(5) // resolved
+        .mockResolvedValueOnce(0); // unresolved
+
+      prismaService.dashboardAlert.groupBy.mockResolvedValue([]);
+
+      const result = await service.getAlertStats("tenant-1");
+
+      expect(result.data.total).toBe(5);
+      expect(result.data.unresolved).toBe(0);
+      expect(result.data.resolved).toBe(5);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle empty product data in dashboard", async () => {
+      prismaService.product.findMany.mockResolvedValue([]);
+      prismaService.product.count.mockResolvedValue(0);
+      prismaService.order.findMany.mockResolvedValue([]);
+      prismaService.order.count.mockResolvedValue(0);
+      prismaService.production.findMany.mockResolvedValue([]);
+      prismaService.production.count.mockResolvedValue(0);
+      prismaService.recipe.count.mockResolvedValue(0);
+      prismaService.menu.findMany.mockResolvedValue([]);
+      prismaService.menu.count.mockResolvedValue(0);
+      prismaService.dashboardAlert.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      prismaService.dashboardAlert.groupBy.mockResolvedValue([]);
+      prismaService.stock.findMany.mockResolvedValue([]);
+      prismaService.stock.count.mockResolvedValue(0);
+      prismaService.stock.aggregate.mockResolvedValue({
+        _avg: { currentQuantity: 0 },
+      });
+
+      const result = await service.getDashboardMetrics("tenant-1", {
+        startDate: new Date(),
+        endDate: new Date(),
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it("should handle alert creation with minimal fields", async () => {
+      prismaService.dashboardAlert.create.mockResolvedValue({
+        id: "alert-1",
+        tenantId: "tenant-1",
+        alertType: "INFO",
+        severity: "LOW",
+        title: "Test",
+        description: "Test",
+      });
+
+      const result = await service.createAlert("tenant-1", {
+        alertType: "INFO",
+        severity: "LOW",
+        title: "Test",
+        description: "Test",
+      });
+
+      expect(result.success).toBe(true);
+      expect(prismaService.dashboardAlert.create).toHaveBeenCalled();
+    });
+
+    it("should handle alert with custom resolution notes", async () => {
+      const mockAlert = { id: "alert-1", tenantId: "tenant-1" };
+
+      prismaService.dashboardAlert.findFirst.mockResolvedValue(mockAlert);
+      prismaService.dashboardAlert.update.mockResolvedValue(mockAlert);
+
+      const longNote = "A".repeat(500);
+
+      const result = await service.resolveAlert(
+        "alert-1",
+        "tenant-1",
+        "user-1",
+        {
+          resolutionNote: longNote,
+        },
+      );
+
+      expect(result.success).toBe(true);
+      expect(prismaService.dashboardAlert.update).toHaveBeenCalledWith({
+        where: { id: "alert-1" },
+        data: expect.objectContaining({
+          isResolved: true,
+          resolvedAt: expect.any(Date),
+          resolvedBy: "user-1",
+        }),
+      });
+    });
   });
 });

@@ -834,4 +834,163 @@ describe("OrdersService", () => {
       });
     });
   });
+
+  describe("edge cases", () => {
+    const edgeTenantId = "tenant-edge-123";
+
+    it("should handle order with very large quantities", async () => {
+      const mockProduct = {
+        id: "prod-1",
+        name: "Product 1",
+        currentStock: 1000000,
+      };
+      mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrismaService.stock.findUnique.mockResolvedValue({ quantity: 20 });
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+
+      const requirements = await service.calculateOrderRequirements({
+        tenantId: edgeTenantId,
+        historicalPeriod: 7,
+        lookaheadDays: 7,
+      });
+
+      expect(requirements).toBeDefined();
+    });
+
+    it("should handle classification with empty products", async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([]);
+
+      const result = await service.classifyByCategory([]);
+
+      expect(result).toBeInstanceOf(Map);
+      expect(result.size).toBe(0);
+    });
+
+    it("should handle update of non-existent order item", async () => {
+      mockPrismaService.automatedOrder.findFirst.mockResolvedValue({
+        id: "order-1",
+      });
+      mockPrismaService.orderItem.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateOrderItem(edgeTenantId, "order-1", "order-item-1", {
+          quantity: 10,
+        } as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should handle order with missing supplier information", async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([
+        {
+          id: "prod-1",
+          name: "Product 1",
+          supplierId: null,
+        },
+      ]);
+
+      const result = await service.classifyBySupplier([]);
+
+      expect(result).toBeDefined();
+    });
+
+    it("should get orders by supplier", async () => {
+      const mockOrder = {
+        id: "order-1",
+        orderNumber: "ORD-001",
+        supplierId: "supplier-1",
+        supplierName: "Supplier 1",
+        createdAt: new Date(),
+        items: [],
+      };
+
+      mockPrismaService.automatedOrder.findMany.mockResolvedValue([mockOrder]);
+
+      const result = await service.getOrdersBySupplier(
+        "tenant-1",
+        "supplier-1",
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].supplierId).toBe("supplier-1");
+    });
+
+    it("should get orders by zone", async () => {
+      const mockOrder = {
+        id: "order-1",
+        orderNumber: "ORD-001",
+        supplierId: "supplier-1",
+        supplierName: "Supplier 1",
+        createdAt: new Date(),
+        items: [
+          {
+            product: {
+              conservationZone: "REFRIGERATED",
+            },
+          },
+        ],
+      };
+
+      mockPrismaService.automatedOrder.findMany.mockResolvedValue([mockOrder]);
+
+      const result = await service.getOrdersByZone("tenant-1", "REFRIGERATED");
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("should generate purchase template", async () => {
+      const mockOrder = {
+        id: "order-1",
+        tenantId: "tenant-1",
+        supplierId: "supplier-1",
+        orderNumber: "ORD-001",
+        status: OrderStatus.DRAFT,
+        urgency: Urgency.HIGH,
+        scheduledDelivery: new Date(),
+        createdAt: new Date(),
+        createdBy: "user-1",
+        items: [
+          {
+            id: "item-1",
+            productId: "prod-1",
+            productName: "Product 1",
+            requestedQuantity: 10,
+            unit: "kg",
+            unitPrice: 5,
+            totalCost: 50,
+            notes: "Notes",
+            alternativeProducts: [],
+            product: {
+              name: "Product 1",
+              unit: "kg",
+            },
+          },
+        ],
+        supplier: {
+          name: "Supplier 1",
+          email: "test@test.com",
+          phone: "123-456",
+          website: "test.com",
+        },
+      };
+
+      mockPrismaService.automatedOrder.findFirst.mockResolvedValue(mockOrder);
+      mockPrismaService.supplier.findUnique.mockResolvedValue(
+        mockOrder.supplier,
+      );
+
+      const result = await service.generatePurchaseTemplate(
+        "tenant-1",
+        "order-1",
+        {
+          format: TemplateFormat.PDF,
+        },
+      );
+
+      expect(result.id).toBe("template-order-1");
+      expect(result.supplierName).toBe("Supplier 1");
+      expect(result.orderItems).toHaveLength(1);
+      expect(result.total).toBeDefined();
+      expect(result.format).toBe(TemplateFormat.PDF);
+    });
+  });
 });
