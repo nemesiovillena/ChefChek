@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth.context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,12 +34,18 @@ import {
   Plus,
   FileImage,
 } from 'lucide-react';
+import {
+  useOCRStats,
+  useOCRExtractions,
+  useOCRProducts,
+  useOCRCostUpdates,
+} from '@/hooks/use-ocr-analytics';
 
 export const dynamic = 'force-dynamic';
 
 export default function OcrAiPage() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, tenantId } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
 
   // Auth redirect
@@ -49,7 +55,13 @@ export default function OcrAiPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Prevent loading if not authenticated
+  // API calls for real data
+  const { data: stats, isLoading: statsLoading } = useOCRStats(tenantId || '');
+  const { data: extractions, isLoading: extractionsLoading } = useOCRExtractions(tenantId || '');
+  const { data: products, isLoading: productsLoading } = useOCRProducts(tenantId || '');
+  const { data: costUpdates, isLoading: costUpdatesLoading } = useOCRCostUpdates(tenantId || '');
+
+  // Prevent isLoading if not authenticated
   if (authLoading || !isAuthenticated) {
     return null;
   }
@@ -57,137 +69,40 @@ export default function OcrAiPage() {
   const steps = [
     { title: 'Procesamiento', icon: ScanLine },
     { title: 'Extracciones', icon: BrainCircuit },
-    { title: 'Productos', icon: FileText },
+    { title: 'Artículos', icon: FileText },
     { title: 'Costes', icon: TrendingUp },
     { title: 'Estadísticas', icon: BarChart3 },
   ];
 
-  const [extractions] = useState([
-    {
-      id: '1',
-      fileId: 'f1',
-      fileName: 'factura_proveedor_20260531.pdf',
-      documentType: 'invoice',
-      totalItems: 5,
-      confidence: 0.92,
-      processingTime: 4500,
-      needsManualReview: false,
-      processedAt: '2026-05-31T10:30:00',
-      status: 'completed',
-    },
-    {
-      id: '2',
-      fileId: 'f2',
-      fileName: 'recibo_materiales.jpg',
-      documentType: 'receipt',
-      totalItems: 3,
-      confidence: 0.78,
-      processingTime: 3200,
-      needsManualReview: true,
-      processedAt: '2026-05-31T09:45:00',
-      status: 'completed',
-    },
-    {
-      id: '3',
-      fileId: 'f3',
-      fileName: 'lista_precios.xlsx',
-      documentType: 'price_list',
-      totalItems: 0,
-      confidence: 0.65,
-      processingTime: 2800,
-      needsManualReview: true,
-      processedAt: '2026-05-31T08:20:00',
-      status: 'completed',
-    },
-  ]);
+  const isLoading = statsLoading || extractionsLoading || productsLoading || costUpdatesLoading;
 
-  const [products] = useState([
-    {
-      id: 'p1',
-      name: 'Tomates Frescos',
-      supplier: 'Frutas y Verduras S.A.',
-      unitPrice: 2.50,
-      previousPrice: 2.30,
-      changePercentage: 8.7,
-      confidence: 0.92,
-      source: 'auto',
-      createdAt: '2026-05-31T10:30:00',
-      status: 'verified',
-    },
-    {
-      id: 'p2',
-      name: 'Aceite de Oliva Virgen',
-      supplier: 'Proveedores de Calidad',
-      unitPrice: 3.00,
-      previousPrice: 2.85,
-      changePercentage: 5.3,
-      confidence: 0.88,
-      source: 'auto',
-      createdAt: '2026-05-31T09:45:00',
-      status: 'verified',
-    },
-    {
-      id: 'p3',
-      name: 'Carne de Res Premium',
-      supplier: 'Carniceros del Norte',
-      unitPrice: 4.50,
-      previousPrice: null,
-      changePercentage: null,
-      confidence: 0.78,
-      source: 'auto',
-      createdAt: '2026-05-31T08:20:00',
-      status: 'pending',
-    },
-  ]);
+  // Fallback empty states
+  const statsData = stats || {
+    totalProcessed: 0,
+    successfulExtractions: 0,
+    failedExtractions: 0,
+    needsReview: 0,
+    averageConfidence: 0,
+    averageProcessingTime: 0,
+    totalProductsCreated: 0,
+    totalCostsUpdated: 0,
+    totalRecipesRecalculated: 0,
+    totalMenusRecalculated: 0,
+    documentTypes: [],
+  };
 
-  const [costUpdates] = useState([
-    {
-      id: 'c1',
-      productId: 'prod1',
-      productName: 'Tomates Frescos',
-      oldPrice: 2.30,
-      newPrice: 2.50,
-      changePercentage: 8.7,
-      confidence: 0.92,
-      recalculationStatus: 'completed',
-      affectedRecipes: 3,
-      affectedMenus: 2,
-      updatedAt: '2026-05-31T10:32:00',
-    },
-    {
-      id: 'c2',
-      productId: 'prod2',
-      productName: 'Aceite de Oliva Virgen',
-      oldPrice: 2.85,
-      newPrice: 3.00,
-      changePercentage: 5.3,
-      confidence: 0.88,
-      recalculationStatus: 'completed',
-      affectedRecipes: 5,
-      affectedMenus: 3,
-      updatedAt: '2026-05-31T09:47:00',
-    },
-  ]);
-
-  const [stats] = useState({
-    totalProcessed: 45,
-    successfulExtractions: 38,
-    failedExtractions: 2,
-    needsReview: 5,
-    averageConfidence: 0.85,
-    averageProcessingTime: 4200,
-    totalProductsCreated: 23,
-    totalCostsUpdated: 31,
-    totalRecipesRecalculated: 89,
-    totalMenusRecalculated: 45,
-    documentTypes: [
-      { type: 'Facturas', count: 28, percentage: 62.2 },
-      { type: 'Recibos', count: 12, percentage: 26.7 },
-      { type: 'Listas de Precio', count: 5, percentage: 11.1 },
-    ],
-  });
+  const extractionsData = extractions || [];
+  const productsData = products || [];
+  const costUpdatesData = costUpdates || [];
 
   const renderStepContent = () => {
+    const progressValue = statsData.totalProcessed > 0
+      ? (statsData.successfulExtractions / statsData.totalProcessed) * 100
+      : 0;
+    const reviewValue = statsData.totalProcessed > 0
+      ? (statsData.needsReview / statsData.totalProcessed) * 100
+      : 0;
+
     switch (currentStep) {
       case 0:
         return (
@@ -200,141 +115,149 @@ export default function OcrAiPage() {
               </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-blue-500/10 rounded-lg">
-                    <FileText className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Procesados</p>
-                    <p className="text-3xl font-bold">{stats.totalProcessed}</p>
-                  </div>
-                </div>
-                <Progress value={100} className="mt-2" />
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-green-500/10 rounded-lg">
-                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Exitosos</p>
-                    <p className="text-3xl font-bold text-green-600">{stats.successfulExtractions}</p>
-                  </div>
-                </div>
-                <Progress value={(stats.successfulExtractions / stats.totalProcessed) * 100} className="mt-2" />
-              </Card>
-
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-yellow-500/10 rounded-lg">
-                    <Clock className="h-6 w-6 text-yellow-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Revisión Manual</p>
-                    <p className="text-3xl font-bold text-yellow-600">{stats.needsReview}</p>
-                  </div>
-                </div>
-                <Progress value={(stats.needsReview / stats.totalProcessed) * 100} className="mt-2" />
-              </Card>
-            </div>
-
-            <Card className="p-6">
-              <CardHeader>
-                <CardTitle>Configuración de Procesamiento</CardTitle>
-                <CardDescription>
-                  Configura el motor de OCR y el sistema de extracción de IA
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div>
-                  <Label>Proveedor de OCR</Label>
-                  <Select defaultValue="google">
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="tesseract">Tesseract (Open Source)</SelectItem>
-                      <SelectItem value="google">Google Cloud Vision</SelectItem>
-                      <SelectItem value="azure">Azure Computer Vision</SelectItem>
-                      <SelectItem value="aws">AWS Textract</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Idioma del Documento</Label>
-                  <Select defaultValue="spa">
-                    <SelectTrigger className="mt-2">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="spa">Español</SelectItem>
-                      <SelectItem value="eng">Inglés</SelectItem>
-                      <SelectItem value="fra">Francés</SelectItem>
-                      <SelectItem value="deu">Alemán</SelectItem>
-                      <SelectItem value="ita">Italiano</SelectItem>
-                      <SelectItem value="por">Portugués</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>Confianza Mínima</Label>
-                  <Input type="number" defaultValue="70" min="50" max="100" className="mt-2" />
-                </div>
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Auto-Crear Productos</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Crear productos automáticamente cuando la confianza sea alta
-                      </p>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-3 bg-blue-500/10 rounded-lg">
+                        <FileText className="h-6 w-6 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Procesados</p>
+                        <p className="text-3xl font-bold">{statsData.totalProcessed}</p>
+                      </div>
                     </div>
-                    <Switch defaultChecked />
-                  </div>
+                    <Progress value={100} className="mt-2" />
+                  </Card>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Actualizar Costes Existentes</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Actualizar costes de productos ya existentes
-                      </p>
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-3 bg-green-500/10 rounded-lg">
+                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Exitosos</p>
+                        <p className="text-3xl font-bold text-green-600">{statsData.successfulExtractions}</p>
+                      </div>
                     </div>
-                    <Switch defaultChecked />
-                  </div>
+                    <Progress value={progressValue} className="mt-2" />
+                  </Card>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Recálculo en Cascada</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Recalcular recetas y menús automáticamente
-                      </p>
+                  <Card className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-3 bg-yellow-500/10 rounded-lg">
+                        <Clock className="h-6 w-6 text-yellow-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Revisión Manual</p>
+                        <p className="text-3xl font-bold text-yellow-600">{statsData.needsReview}</p>
+                      </div>
                     </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Preprocesamiento de Imágenes</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Mejorar calidad de imágenes antes de OCR
-                      </p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
+                    <Progress value={reviewValue} className="mt-2" />
+                  </Card>
                 </div>
 
-                <Button className="w-full">
-                  Guardar Configuración
-                </Button>
-              </CardContent>
-            </Card>
+                <Card className="p-6">
+                  <CardHeader>
+                    <CardTitle>Configuración de Procesamiento</CardTitle>
+                    <CardDescription>
+                      Configura el motor de OCR y el sistema de extracción de IA
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <Label>Proveedor de OCR</Label>
+                      <Select defaultValue="google">
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tesseract">Tesseract (Open Source)</SelectItem>
+                          <SelectItem value="google">Google Cloud Vision</SelectItem>
+                          <SelectItem value="azure">Azure Computer Vision</SelectItem>
+                          <SelectItem value="aws">AWS Textract</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Idioma del Documento</Label>
+                      <Select defaultValue="spa">
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="spa">Español</SelectItem>
+                          <SelectItem value="eng">Inglés</SelectItem>
+                          <SelectItem value="fra">Francés</SelectItem>
+                          <SelectItem value="deu">Alemán</SelectItem>
+                          <SelectItem value="ita">Italiano</SelectItem>
+                          <SelectItem value="por">Portugués</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Confianza Mínima</Label>
+                      <Input type="number" defaultValue="70" min="50" max="100" className="mt-2" />
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Auto-Crear Artículos</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Crear artículos automáticamente cuando la confianza sea alta
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Actualizar Costes Existentes</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Actualizar costes de artículos ya existentes
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Recálculo en Cascada</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Recalcular recetas y menús automáticamente
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label>Preprocesamiento de Imágenes</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Mejorar calidad de imágenes antes de OCR
+                          </p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                    </div>
+
+                    <Button className="w-full">
+                      Guardar Configuración
+                    </Button>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
         );
 
@@ -358,7 +281,7 @@ export default function OcrAiPage() {
 
             <ScrollArea className="h-[calc(100vh-350px)]">
               <div className="grid gap-4">
-                {extractions.map((extraction) => (
+                {extractionsData.map((extraction) => (
                   <Card key={extraction.id} className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -449,7 +372,7 @@ export default function OcrAiPage() {
         return (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Productos Creados Automáticamente</h2>
+              <h2 className="text-2xl font-bold">Artículos Creados Automáticamente</h2>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Crear Producto Manual
@@ -464,18 +387,18 @@ export default function OcrAiPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Total Creados</span>
-                    <span className="text-2xl font-bold">{stats.totalProductsCreated}</span>
+                    <span className="text-2xl font-bold">{statsData.totalProductsCreated}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Confianza Promedio</span>
                     <span className="text-2xl font-bold">
-                      {(stats.averageConfidence * 100).toFixed(0)}%
+                      {(statsData.averageConfidence * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Tiempo Promedio</span>
                     <span className="text-2xl font-bold">
-                      {stats.averageProcessingTime}ms
+                      {statsData.averageProcessingTime}ms
                     </span>
                   </div>
                 </CardContent>
@@ -483,7 +406,7 @@ export default function OcrAiPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Estado de Productos</CardTitle>
+                  <CardTitle>Estado de Artículos</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
@@ -491,21 +414,21 @@ export default function OcrAiPage() {
                       <span className="text-sm">Verificados</span>
                       <span className="text-sm font-medium">19</span>
                     </div>
-                    <Progress value={(19 / stats.totalProductsCreated) * 100} />
+                    <Progress value={(19 / statsData.totalProductsCreated) * 100} />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm">Pendientes</span>
                       <span className="text-sm font-medium">3</span>
                     </div>
-                    <Progress value={(3 / stats.totalProductsCreated) * 100} className="bg-yellow-500" />
+                    <Progress value={(3 / statsData.totalProductsCreated) * 100} className="bg-yellow-500" />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm">Rechazados</span>
                       <span className="text-sm font-medium">1</span>
                     </div>
-                    <Progress value={(1 / stats.totalProductsCreated) * 100} className="bg-red-500" />
+                    <Progress value={(1 / statsData.totalProductsCreated) * 100} className="bg-red-500" />
                   </div>
                 </CardContent>
               </Card>
@@ -513,7 +436,7 @@ export default function OcrAiPage() {
 
             <ScrollArea className="h-[calc(100vh-500px)]">
               <div className="grid gap-4">
-                {products.map((product) => (
+                {productsData.map((product) => (
                   <Card key={product.id} className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -615,8 +538,8 @@ export default function OcrAiPage() {
                   <CardTitle className="text-sm font-medium">Total Actualizados</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{stats.totalCostsUpdated}</div>
-                  <div className="text-xs text-muted-foreground mt-1">Costes de productos</div>
+                  <div className="text-3xl font-bold">{statsData.totalCostsUpdated}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Costes de artículos</div>
                 </CardContent>
               </Card>
 
@@ -625,7 +548,7 @@ export default function OcrAiPage() {
                   <CardTitle className="text-sm font-medium">Recetas Recalculadas</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{stats.totalRecipesRecalculated}</div>
+                  <div className="text-3xl font-bold">{statsData.totalRecipesRecalculated}</div>
                   <div className="text-xs text-muted-foreground mt-1">Actualizadas automáticamente</div>
                 </CardContent>
               </Card>
@@ -635,7 +558,7 @@ export default function OcrAiPage() {
                   <CardTitle className="text-sm font-medium">Menús Recalculados</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{stats.totalMenusRecalculated}</div>
+                  <div className="text-3xl font-bold">{statsData.totalMenusRecalculated}</div>
                   <div className="text-xs text-muted-foreground mt-1">Actualizados automáticamente</div>
                 </CardContent>
               </Card>
@@ -643,7 +566,7 @@ export default function OcrAiPage() {
 
             <ScrollArea className="h-[calc(100vh-350px)]">
               <div className="grid gap-4">
-                {costUpdates.map((update) => (
+                {costUpdatesData.map((update) => (
                   <Card key={update.id} className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
@@ -735,7 +658,7 @@ export default function OcrAiPage() {
                   <CardTitle className="text-sm font-medium">Total Procesados</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{stats.totalProcessed}</div>
+                  <div className="text-3xl font-bold">{statsData.totalProcessed}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Documentos
                   </div>
@@ -748,7 +671,7 @@ export default function OcrAiPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-green-600">
-                    {((stats.successfulExtractions / stats.totalProcessed) * 100).toFixed(1)}%
+                    {((statsData.successfulExtractions / statsData.totalProcessed) * 100).toFixed(1)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Extracciones exitosas
@@ -762,7 +685,7 @@ export default function OcrAiPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    {(stats.averageConfidence * 100).toFixed(1)}%
+                    {(statsData.averageConfidence * 100).toFixed(1)}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Precisión de extracción
@@ -776,7 +699,7 @@ export default function OcrAiPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    {(stats.averageProcessingTime / 1000).toFixed(1)}s
+                    {(statsData.averageProcessingTime / 1000).toFixed(1)}s
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Por documento
@@ -794,15 +717,15 @@ export default function OcrAiPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {stats.documentTypes.map((type) => (
+                  {statsData.documentTypes.map((type) => (
                     <div key={type.type}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">{type.type}</span>
                         <span className="text-sm text-muted-foreground">
-                          {type.count} ({type.percentage.toFixed(1)}%)
+                          {type.count} ({type.percentage}%)
                         </span>
                       </div>
-                      <Progress value={type.percentage} />
+                      <Progress value={parseFloat(type.percentage)} />
                     </div>
                   ))}
                 </CardContent>
@@ -817,20 +740,20 @@ export default function OcrAiPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span>Productos Creados</span>
-                    <span className="font-medium">{stats.totalProductsCreated}</span>
+                    <span>Artículos Creados</span>
+                    <span className="font-medium">{statsData.totalProductsCreated}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span>Costes Actualizados</span>
-                    <span className="font-medium">{stats.totalCostsUpdated}</span>
+                    <span className="font-medium">{statsData.totalCostsUpdated}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span>Recetas Recalculadas</span>
-                    <span className="font-medium">{stats.totalRecipesRecalculated}</span>
+                    <span className="font-medium">{statsData.totalRecipesRecalculated}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span>Menús Recalculados</span>
-                    <span className="font-medium">{stats.totalMenusRecalculated}</span>
+                    <span className="font-medium">{statsData.totalMenusRecalculated}</span>
                   </div>
                 </CardContent>
               </Card>

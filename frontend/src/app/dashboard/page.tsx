@@ -21,7 +21,7 @@ export default function DashboardPage() {
   // WebSocket hooks
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useWebSocketNotifications();
   const { productionUpdates, alerts: productionAlerts } = useRealTimeProduction();
-  const { stockAlerts, stockCriticalAlerts } = useRealTimeStock();
+  const { stockAlerts } = useRealTimeStock();
   const { joinKitchen, joinDashboard } = useWebSocketRooms();
 
   // Estados interactivos para las tareas de preparación

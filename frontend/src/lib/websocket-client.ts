@@ -314,7 +314,7 @@ export class WebSocketClient {
   }
 
   // Remove specific listener
-  off(event: keyof ServerToClientEvents, callback?: Function): void {
+  off(event: keyof ServerToClientEvents, callback?: (...args: any[]) => void): void {
     this.socket?.off(event, callback);
   }
 

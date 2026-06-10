@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AuthResponse['user'] | null;
   tenantId: string | null;
   tenantSlug: string | null;

@@ -63,7 +63,6 @@ export class IngestaController {
   }
 
   @Post("telegram/bot")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Asociar bot Telegram con tenant" })
   @ApiResponse({ status: 201, description: "Bot asociado exitosamente" })
   async associateBot(@Body() dto: AssociateTelegramBotDto) {
@@ -71,7 +70,6 @@ export class IngestaController {
   }
 
   @Put("telegram/bot/:tenantId")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Activar/desactivar bot Telegram" })
   @ApiParam({ name: "tenantId", description: "ID del tenant" })
   @ApiResponse({ status: 200, description: "Estado del bot actualizado" })
@@ -83,7 +81,6 @@ export class IngestaController {
   }
 
   @Get("telegram/bots")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Listar bots activos" })
   @ApiResponse({ status: 200, description: "Lista de bots activos" })
   async getActiveBots() {
@@ -91,7 +88,6 @@ export class IngestaController {
   }
 
   @Post("telegram/authorize")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Autorizar usuario de Telegram" })
   @ApiResponse({ status: 201, description: "Usuario autorizado" })
   async authorizeUser(@Body() dto: AuthorizeTelegramUserDto) {
@@ -99,7 +95,6 @@ export class IngestaController {
   }
 
   @Get("telegram/users/:tenantId")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Listar usuarios autorizados de Telegram" })
   @ApiParam({ name: "tenantId", description: "ID del tenant" })
   @ApiResponse({ status: 200, description: "Lista de usuarios autorizados" })
@@ -108,7 +103,6 @@ export class IngestaController {
   }
 
   @Delete("telegram/users/:userId")
-  @ApiBearerAuth("JWT-auth")
   @ApiOperation({ summary: "Desautorizar usuario de Telegram" })
   @ApiParam({ name: "userId", description: "ID del usuario de Telegram" })
   @ApiResponse({ status: 200, description: "Usuario desautorizado" })
@@ -162,5 +156,26 @@ export class IngestaController {
     @Query("tenantId") tenantId: string,
   ) {
     return await this.ingestaService.processDocument(id);
+  }
+
+  @Get("extractions")
+  @ApiOperation({ summary: "Historial de extracciones OCR" })
+  @ApiResponse({ status: 200, description: "Historial de extracciones" })
+  async getExtractionHistory(@Query("tenantId") tenantId: string) {
+    return await this.ingestaService.getExtractionHistory(tenantId);
+  }
+
+  @Get("products-extracted")
+  @ApiOperation({ summary: "Productos extraídos de OCR" })
+  @ApiResponse({ status: 200, description: "Productos extraídos" })
+  async getExtractedProducts(@Query("tenantId") tenantId: string) {
+    return await this.ingestaService.getExtractedProducts(tenantId);
+  }
+
+  @Get("cost-updates")
+  @ApiOperation({ summary: "Historial de actualizaciones de coste" })
+  @ApiResponse({ status: 200, description: "Historial de actualizaciones" })
+  async getCostUpdates(@Query("tenantId") tenantId: string) {
+    return await this.ingestaService.getCostUpdates(tenantId);
   }
 }

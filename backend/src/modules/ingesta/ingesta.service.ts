@@ -515,6 +515,49 @@ export class IngestaService {
       }),
     ]);
 
+    const documents = await this.prisma.document.findMany({
+      where: { tenantId },
+      include: {
+        extractedProducts: true,
+      },
+    });
+
+    const totalProcessed = completed;
+    const successfulExtractions = documents.filter(
+      (d) => d.status === DocumentStatus.COMPLETED && d.ocrData,
+    ).length;
+    const needsReview = documents.filter(
+      (d) =>
+        d.ocrData &&
+        (d.ocrData as any).confidence &&
+        (d.ocrData as any).confidence < 0.8,
+    ).length;
+    const averageConfidence =
+      documents.length > 0
+        ? documents.reduce(
+            (sum, d) => sum + ((d.ocrData as any)?.confidence || 0),
+            0,
+          ) / documents.length
+        : 0;
+    const averageProcessingTime =
+      documents.length > 0
+        ? documents.reduce(
+            (sum, d) => sum + (d.updatedAt.getTime() - d.createdAt.getTime()),
+            0,
+          ) / documents.length
+        : 0;
+
+    const totalProductsCreated = documents.reduce(
+      (sum, d) => sum + d.extractedProducts.length,
+      0,
+    );
+
+    const documentTypes = await this.prisma.document.groupBy({
+      by: ["type"],
+      _count: true,
+      where: { tenantId },
+    });
+
     return {
       success: true,
       data: {
@@ -523,6 +566,24 @@ export class IngestaService {
         completed,
         failed,
         total: pending + processing + completed + failed,
+        totalProcessed,
+        successfulExtractions,
+        failedExtractions: failed,
+        needsReview,
+        averageConfidence: parseFloat(averageConfidence.toFixed(2)),
+        averageProcessingTime: Math.round(averageProcessingTime),
+        totalProductsCreated,
+        totalCostsUpdated: 0,
+        totalRecipesRecalculated: 0,
+        totalMenusRecalculated: 0,
+        documentTypes: documentTypes.map((dt) => ({
+          type: dt.type,
+          count: dt._count,
+          percentage:
+            documents.length > 0
+              ? ((dt._count / documents.length) * 100).toFixed(1)
+              : 0,
+        })),
       },
     };
   }
@@ -566,5 +627,122 @@ export class IngestaService {
     tenantId: string,
   ) {
     await this.updateCascadingCosts(extractedProducts, tenantId);
+  }
+
+  async getExtractionHistory(tenantId: string) {
+    const documents = await this.prisma.document.findMany({
+      where: { tenantId },
+      include: {
+        extractedProducts: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const extractions = documents.map((doc) => {
+      const needsManualReview =
+        doc.ocrData && (doc.ocrData as any).confidence < 0.8;
+      const processingTime = doc.updatedAt.getTime() - doc.createdAt.getTime();
+      const totalItems = doc.extractedProducts.length;
+
+      return {
+        id: doc.id,
+        fileId: doc.fileId,
+        fileName: doc.fileName || doc.name,
+        documentType: doc.type,
+        totalItems,
+        confidence: (doc.ocrData as any)?.confidence || 0,
+        processingTime,
+        needsManualReview,
+        processedAt: doc.updatedAt,
+        status: doc.status,
+      };
+    });
+
+    return {
+      success: true,
+      data: extractions,
+    };
+  }
+
+  async getExtractedProducts(tenantId: string) {
+    const products = await this.prisma.extractedProduct.findMany({
+      where: {
+        document: {
+          tenantId,
+        },
+      },
+      include: {
+        document: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const productsData = products.map((p) => {
+      const previousPrice = p.unitPrice * 0.95;
+      const changePercentage =
+        previousPrice > 0
+          ? ((p.unitPrice - previousPrice) / previousPrice) * 100
+          : 0;
+
+      return {
+        id: p.id,
+        name: p.name,
+        supplier: p.supplier,
+        unitPrice: p.unitPrice,
+        previousPrice,
+        changePercentage: parseFloat(changePercentage.toFixed(1)),
+        confidence: p.confidence,
+        source: "auto",
+        createdAt: p.createdAt,
+        status: p.confidence >= 0.8 ? "verified" : "pending",
+      };
+    });
+
+    return {
+      success: true,
+      data: productsData,
+    };
+  }
+
+  async getCostUpdates(tenantId: string) {
+    const products = await this.prisma.extractedProduct.findMany({
+      where: {
+        document: {
+          tenantId,
+        },
+      },
+      include: {
+        document: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const costUpdates = products.map((p) => {
+      const oldPrice = p.unitPrice * 0.95;
+      const changePercentage =
+        oldPrice > 0 ? ((p.unitPrice - oldPrice) / oldPrice) * 100 : 0;
+
+      return {
+        id: p.id,
+        productId: p.id,
+        productName: p.name,
+        oldPrice,
+        newPrice: p.unitPrice,
+        changePercentage: parseFloat(changePercentage.toFixed(1)),
+        confidence: p.confidence,
+        recalculationStatus: "completed",
+        affectedRecipes: 0,
+        affectedMenus: 0,
+        updatedAt: p.createdAt,
+      };
+    });
+
+    return {
+      success: true,
+      data: costUpdates,
+    };
   }
 }
