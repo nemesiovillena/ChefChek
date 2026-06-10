@@ -5,18 +5,58 @@ import { ValidationPipe } from "@nestjs/common";
 import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
+import { AppLogger } from "./common/logger/logger.service";
+import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
+import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
+import { NestExpressApplication } from "@nestjs/platform-express";
+import { join } from "path";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
 
-  // Security headers
-  app.use(helmet());
+  const logger = app.get(AppLogger);
+
+  // Security headers with Content-Security-Policy
+  app.use(
+    helmet.contentSecurityPolicy({
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://cdn.jsdelivr.net",
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
+    }),
+  );
 
   // Response compression
   app.use(compression());
 
   // Cookie parser for Lucia Auth sessions
   app.use(cookieParser());
+
+  // Serve uploaded files statically
+  app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads/" });
+
+  // Request ID middleware
+  app.use(
+    new RequestIdMiddleware(logger).use.bind(new RequestIdMiddleware(logger)),
+  );
+
+  // Global exception filter
+  app.useGlobalFilters(new GlobalExceptionFilter(logger));
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -37,8 +77,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // API prefix
-  app.setGlobalPrefix("api");
+  // API prefix included in controllers
+  // app.setGlobalPrefix('api');
 
   // Health check (before prefix)
   app.use("/health", (req, res) => {
@@ -57,12 +97,12 @@ async function bootstrap() {
         {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "JWT",
-          name: "JWT",
-          description: "Enter JWT token",
+          bearerFormat: "Lucía Session ID",
+          name: "Lucía Auth",
+          description: "Enter Lucía session ID",
           in: "header",
         },
-        "JWT-auth",
+        "Lucía-auth",
       )
       .addTag("Tenants", "Gestión de tenants multi-tenant")
       .addTag("Auth", "Autenticación y gestión de sesiones")
@@ -93,6 +133,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`Backend ChefChek corriendo en http://localhost:${port}`);
+  logger.log(`Backend ChefChek corriendo en http://localhost:${port}`);
 }
 bootstrap();

@@ -4,6 +4,15 @@ import { PrismaAdapter } from "@lucia-auth/adapter-prisma";
 import { PrismaService } from "../../common/services/prisma.service";
 import { User, Session } from "@prisma/client";
 
+interface LuciaUserAttributes {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  tenantId: string;
+  isActive: boolean;
+}
+
 @Injectable()
 export class LuciaAuthService implements OnModuleInit {
   private lucia: Lucia;
@@ -20,11 +29,10 @@ export class LuciaAuthService implements OnModuleInit {
       sessionCookie: {
         attributes: {
           secure: process.env.NODE_ENV === "production",
-          httpOnly: true,
-          sameSite: "lax",
+          sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
         },
       },
-      getUserAttributes: (attributes: any) => {
+      getUserAttributes: (attributes: LuciaUserAttributes) => {
         return {
           id: attributes.id,
           email: attributes.email,
@@ -35,7 +43,7 @@ export class LuciaAuthService implements OnModuleInit {
         };
       },
       sessionExpiresIn: new TimeSpan(24, "h"), // 24 horas
-    } as any);
+    });
   }
 
   getLucia(): Lucia {

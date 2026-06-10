@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
   DashboardQueryDto,
@@ -10,6 +10,8 @@ import {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   // Métricas del Dashboard
@@ -82,15 +84,17 @@ export class DashboardService {
     });
 
     const avgMargin =
-      menus.reduce((sum, m) => sum + m.totalMargin, 0) / (menus.length || 1);
+      menus.reduce((sum, m) => sum + (m.totalMargin || 0), 0) /
+      (menus.length || 1);
 
     // Stock bajo - productos con quantity <= minimumStock
-    const lowStockCount = await this.prisma.stock.count({
-      where: {
-        tenantId,
-        quantity: { lte: this.prisma.stock.fields.minimumStock },
-      },
+    const stocks = await this.prisma.stock.findMany({
+      where: { tenantId },
+      select: { quantity: true, minimumStock: true },
     });
+    const lowStockCount = stocks.filter(
+      (s) => s.quantity <= s.minimumStock,
+    ).length;
 
     // Escaneos de menú digital
     const menuScans = await this.prisma.menuScan.groupBy({
@@ -114,17 +118,97 @@ export class DashboardService {
       },
     });
 
-    // KPIs calculados
+    // Total de productos activos
+    const totalProducts = await this.prisma.product.count({
+      where: { tenantId, isActive: true },
+    });
+
+    // Total de recetas activas
+    const totalRecipes = await this.prisma.recipe.count({
+      where: { tenantId },
+    });
+
+    // Total de menús activos
+    const totalMenus = await this.prisma.menu.count({
+      where: { tenantId, isActive: true },
+    });
+
+    // Usuarios activos (últimos 30 días)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const activeUsers = await this.prisma.session.groupBy({
+      by: ["userId"],
+      where: {
+        user: { tenantId },
+        expiresAt: { gt: new Date() },
+        createdAt: { gte: thirtyDaysAgo },
+      },
+    });
+
+    // Productos con stock bajo
+    const lowStockItems = lowStockCount;
+
+    // Pedidos pendientes
+    const pendingOrders = await this.prisma.order.count({
+      where: {
+        tenantId,
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+      },
+    });
+
+    // Ingresos de hoy
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayRevenue = await this.prisma.order.aggregate({
+      where: {
+        tenantId,
+        orderedAt: { gte: todayStart },
+        status: "COMPLETED",
+      },
+      _sum: { totalAmount: true },
+    });
+
+    // Ingresos del mes
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const monthlyRevenue = await this.prisma.order.aggregate({
+      where: {
+        tenantId,
+        orderedAt: { gte: monthStart },
+        status: "COMPLETED",
+      },
+      _sum: { totalAmount: true },
+    });
+
+    // KPIs calculados - formato completo para frontend
+    this.logger.debug(
+      `Calculating KPIs for tenant ${tenantId}: ${totalProducts} products, ${totalRecipes} recipes, ${totalMenus} menus`,
+    );
+
     const kpis = {
+      // Campos principales esperados por el frontend
+      totalProducts,
+      totalRecipes,
+      totalMenus,
+      activeUsers: activeUsers.length,
+      lowStockItems,
+      pendingOrders,
+      todayRevenue: todayRevenue._sum.totalAmount || 0,
+      monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
+      // Campos compatibles con formato existente
       averageCost: {
         current: avgCost,
-        target: avgCost * 0.95, // 5% reduction target
-        changePercent: 0, // Se puede calcular con histórico
+        target: avgCost * 0.95,
+        changePercent: 0,
         status: avgCost > avgCost * 1.05 ? "WARNING" : "OK",
       },
       averageMargin: {
         current: avgMargin,
-        target: avgMargin * 1.1, // 10% increase target
+        target: avgMargin * 1.1,
         changePercent: 0,
         status: avgMargin < 25 ? "WARNING" : "OK",
       },
@@ -135,7 +219,7 @@ export class DashboardService {
       },
       digitalMenuScans: {
         current: totalScans,
-        target: totalScans * 1.2, // 20% increase target
+        target: totalScans * 1.2,
         changePercent: 0,
         status: "OK",
       },

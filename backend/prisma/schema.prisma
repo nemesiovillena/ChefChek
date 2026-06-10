@@ -17,40 +17,42 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users         User[]
-  products      Product[]
-  recipes       Recipe[]
-  menus         Menu[]
-  invoices      Invoice[]
+  users               User[]
+  products            Product[]
+  recipes             Recipe[]
+  menus               Menu[]
+  invoices            Invoice[]
   temperatureControls TemperatureControl[]
-  cleaningPlans CleaningPlan[]
-  pestControls   PestControl[]
-  goodsReceptions GoodsReception[]
-  alerts        Alert[]
-  staffMembers   StaffMember[]
-  workBatches   WorkBatch[]
-  taskAssignments TaskAssignment[]
-  productionAlerts ProductionAlert[]
-  productionOrders ProductionOrder[]
-  miseEnPlaceSheets MiseEnPlaceSheet[]
-  warehouses    Warehouse[]
-  orders        Order[]
-  appccControls AppccControl[]
-  documents     Document[]
-  telegramBots  TelegramBot[]
-  telegramUsers TelegramUser[]
-  suppliers     Supplier[]
-  configurations Configuration[]
-  categories    Category[]
-  stocks        Stock[]
-  documentTemplates DocumentTemplate[]
-  inventories   Inventory[]
+  cleaningPlans       CleaningPlan[]
+  pestControls        PestControl[]
+  goodsReceptions     GoodsReception[]
+  alerts              Alert[]
+  staffMembers        StaffMember[]
+  workBatches         WorkBatch[]
+  taskAssignments     TaskAssignment[]
+  productionAlerts    ProductionAlert[]
+  productionOrders    ProductionOrder[]
+  miseEnPlaceSheets   MiseEnPlaceSheet[]
+  warehouses          Warehouse[]
+  orders              Order[]
+  appccControls       AppccControl[]
+  documents           Document[]
+  telegramBots        TelegramBot[]
+  telegramUsers       TelegramUser[]
+  suppliers           Supplier[]
+  configurations      Configuration[]
+  categories          Category[]
+  stocks              Stock[]
+  documentTemplates   DocumentTemplate[]
+  inventories         Inventory[]
   knowledgeCategories KnowledgeCategory[]
-  knowledgeArticles KnowledgeArticle[]
-  knowledgeTags KnowledgeTag[]
-  digitalMenuConfigs DigitalMenuConfig[]
-  dashboardMetrics DashboardMetric[]
-  dashboardAlerts DashboardAlert[]
+  knowledgeArticles   KnowledgeArticle[]
+  knowledgeTags       KnowledgeTag[]
+  auditLogs           AuditLog[]
+  digitalMenuConfigs  DigitalMenuConfig[]
+  dashboardMetrics    DashboardMetric[]
+  dashboardAlerts     DashboardAlert[]
+  qrcodes             QRCode[]
 
   @@map("tenants")
 }
@@ -66,12 +68,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions         Session[]
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions          Session[]
   knowledgeArticles KnowledgeArticle[]
-  articleVersions  KnowledgeVersion[]
-  updatedArticles  KnowledgeArticle[] @relation("ArticleUpdater")
-  telegramUsers    TelegramUser[]
+  articleVersions   KnowledgeVersion[]
+  updatedArticles   KnowledgeArticle[] @relation("ArticleUpdater")
+  telegramUsers     TelegramUser[]
+  AuditLog          AuditLog[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -118,6 +121,14 @@ model Product {
   // Alérgenos (array de IDs)
   allergens Int[]
 
+  // Campos extendidos
+  iva           Float   @default(10)
+  qr            String?
+  barcode       String?
+  brand         String?
+  hideAllergens Boolean @default(false)
+  imageUrl      String?
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -129,11 +140,50 @@ model Product {
   stockMovements    StockMovement[]
   stocks            Stock[]
   unitConversions   UnitConversion[]
+  purchaseFormats   PurchaseFormat[]
+  nutritionalInfo   NutritionalInfo?
 
   @@index([tenantId])
   @@index([name])
   @@index([categoryId])
+  @@index([barcode])
   @@map("products")
+}
+
+model PurchaseFormat {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  format    String
+  price     Float
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("purchase_formats")
+}
+
+model NutritionalInfo {
+  id                 String @id @default(cuid())
+  productId          String @unique
+  energyKj           Float?
+  energyKcal         Float?
+  fat                Float?
+  saturatedFat       Float?
+  transFat           Float?
+  monounsaturatedFat Float?
+  polyunsaturatedFat Float?
+  omega3             Float?
+  cholesterol        Float?
+  carbohydrates      Float?
+  sugars             Float?
+  protein            Float?
+  salt               Float?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("nutritional_info")
 }
 
 model Recipe {
@@ -160,14 +210,15 @@ model Recipe {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ingredients        RecipeIngredient[]
-  subRecipes         RecipeSubRecipe[]  @relation("ParentRecipe")
-  subRecipesAsChild  RecipeSubRecipe[]  @relation("SubRecipe")
-  menuItems          MenuItem[]
-  menuSectionItems   MenuSectionItem[]
-  allergens          Int[] @default([])
-  translations       RecipeTranslation[]
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients       RecipeIngredient[]
+  subRecipes        RecipeSubRecipe[]   @relation("ParentRecipe")
+  subRecipesAsChild RecipeSubRecipe[]   @relation("SubRecipe")
+  menuItems         MenuItem[]
+  menuSectionItems  MenuSectionItem[]
+  allergens         Int[]               @default([])
+  categories        RecipeCategory[]
+  translations      RecipeTranslation[]
 
   @@index([tenantId])
   @@index([name])
@@ -203,18 +254,32 @@ model RecipeSubRecipe {
 }
 
 model RecipeTranslation {
-  id           String  @id @default(cuid())
-  recipeId     String
-  language     String
-  name         String
-  description  String?
-  elaboration  String?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  recipeId    String
+  language    String
+  name        String
+  description String?
+  elaboration String?
+  createdAt   DateTime @default(now())
 
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@unique([recipeId, language])
   @@map("recipe_translations")
+}
+
+// Múltiples Categorías por Receta (Muchos-a-Muchos)
+model RecipeCategory {
+  id         String   @id @default(cuid())
+  recipeId   String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  recipe   Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, categoryId])
+  @@map("recipe_categories")
 }
 
 enum UserRole {
@@ -269,9 +334,9 @@ model Task {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  sprint         Sprint         @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  assignedMember TeamMember?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
-  notifications  Notification[]
+  sprint          Sprint           @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  assignedMember  TeamMember?      @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  notifications   Notification[]
   taskAssignments TaskAssignment[]
 
   @@map("tasks")
@@ -316,7 +381,7 @@ model Notification {
 
 // Menú y Cartas
 model Menu {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
   name        String
   description String?
@@ -324,20 +389,20 @@ model Menu {
   qrCodeId    String?
   startDate   DateTime?
   endDate     DateTime?
-  portions    Int      @default(1)
-  totalCost   Float    @default(0)
-  totalPrice  Float    @default(0)
-  totalMargin Float    @default(0)
-  isActive    Boolean  @default(true)
-  allergens   Int[] @default([])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  portions    Int       @default(1)
+  totalCost   Float     @default(0)
+  totalPrice  Float     @default(0)
+  totalMargin Float     @default(0)
+  isActive    Boolean   @default(true)
+  allergens   Int[]     @default([])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  items        MenuItem[]
-  translations MenuTranslation[]
-  analytics    MenuAnalytics[]
-  sections     MenuSection[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items              MenuItem[]
+  translations       MenuTranslation[]
+  analytics          MenuAnalytics[]
+  sections           MenuSection[]
   digitalMenuConfigs DigitalMenuConfig[]
 
   @@index([tenantId])
@@ -346,74 +411,74 @@ model Menu {
 }
 
 model MenuTranslation {
-  id                  String  @id @default(cuid())
-  menuId              String
-  language            String
-  title               String
-  name                String?
-  description         String?
-  branding            Json?
+  id                   String   @id @default(cuid())
+  menuId               String
+  language             String
+  title                String
+  name                 String?
+  description          String?
+  branding             Json?
   sectionsTranslations Json?
-  createdAt           DateTime @default(now())
+  createdAt            DateTime @default(now())
 
-  menu         Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menu_translations")
 }
 
 model MenuAnalytics {
-  id             String    @id @default(cuid())
-  menuId         String
-  type           String // view, interaction
-  viewedAt       DateTime
-  metadata       Json?
+  id       String   @id @default(cuid())
+  menuId   String
+  type     String // view, interaction
+  viewedAt DateTime
+  metadata Json?
 
-  menu           Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
 
   @@map("menu_analytics")
 }
 
 model MenuSection {
-  id             String    @id @default(cuid())
-  menuId         String
-  name           String
-  description    String?
-  sortOrder      Int       @default(0)
-  isActive       Boolean   @default(true)
+  id          String  @id @default(cuid())
+  menuId      String
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
 
-  menu           Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  items          MenuSectionItem[]
+  menu  Menu              @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  items MenuSectionItem[]
 
   @@map("menu_sections")
 }
 
 model MenuSectionItem {
-  id             String    @id @default(cuid())
-  sectionId      String
-  recipeId       String
-  order          Int       @default(0)
-  price          Float     @default(0)
-  cost           Float     @default(0)
-  margin         Float     @default(0)
-  isAvailable    Boolean   @default(true)
+  id          String  @id @default(cuid())
+  sectionId   String
+  recipeId    String
+  order       Int     @default(0)
+  price       Float   @default(0)
+  cost        Float   @default(0)
+  margin      Float   @default(0)
+  isAvailable Boolean @default(true)
 
-  section        MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  recipe         Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  section MenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  recipe  Recipe      @relation(fields: [recipeId], references: [id], onDelete: Cascade)
 
   @@map("menu_section_items")
 }
 
 model MenuItem {
-  id        String  @id @default(cuid())
-  menuId    String
-  recipeId  String
-  category  String
-  sortOrder Int     @default(0)
-  price     Float   @default(0)
-  cost      Float   @default(0)
-  margin    Float   @default(0)
+  id          String  @id @default(cuid())
+  menuId      String
+  recipeId    String
+  category    String
+  sortOrder   Int     @default(0)
+  price       Float   @default(0)
+  cost        Float   @default(0)
+  margin      Float   @default(0)
   isAvailable Boolean @default(true)
-  isActive  Boolean @default(true)
+  isActive    Boolean @default(true)
 
   menu   Menu   @relation(fields: [menuId], references: [id], onDelete: Cascade)
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
@@ -451,9 +516,9 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  movements StockMovement[]
-  stocks    Stock[]
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  movements   StockMovement[]
+  stocks      Stock[]
   inventories Inventory[]
 
   @@map("warehouses")
@@ -496,156 +561,156 @@ model Order {
 
 // APPCC - Temperature Control
 model TemperatureControl {
-  id             String    @id @default(cuid())
-  tenantId       String
-  type           String // FRIDGE, FREEZER, STORAGE, etc.
-  location       String
+  id                String   @id @default(cuid())
+  tenantId          String
+  type              String // FRIDGE, FREEZER, STORAGE, etc.
+  location          String
   targetTemperature Float?
-  tolerance      Float
-  unit           String // CELSIUS, FAHRENHEIT
-  description    String?
-  responsible    String?
-  isActive       Boolean  @default(true)
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  tolerance         Float
+  unit              String // CELSIUS, FAHRENHEIT
+  description       String?
+  responsible       String?
+  isActive          Boolean  @default(true)
+  createdBy         String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  measurements   TemperatureMeasurement[]
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  measurements TemperatureMeasurement[]
 
   @@map("temperature_controls")
 }
 
 model TemperatureMeasurement {
-  id             String    @id @default(cuid())
-  controlId      String
-  temperature    Float
-  status         String // OK, WARNING, CRITICAL
-  notes          String?
-  withinRange    Boolean  @default(true)
-  measuredBy     String
-  recordedBy     String?
-  measuredAt     DateTime @default(now())
-  recordedAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  controlId   String
+  temperature Float
+  status      String // OK, WARNING, CRITICAL
+  notes       String?
+  withinRange Boolean  @default(true)
+  measuredBy  String
+  recordedBy  String?
+  measuredAt  DateTime @default(now())
+  recordedAt  DateTime @default(now())
 
-  control        TemperatureControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  control TemperatureControl @relation(fields: [controlId], references: [id], onDelete: Cascade)
 
   @@map("temperature_measurements")
 }
 
 // APPCC - Cleaning Plan
 model CleaningPlan {
-  id             String    @id @default(cuid())
-  tenantId       String
-  name           String
-  description    String?
-  area           String
-  planType       String // DAILY, WEEKLY, MONTHLY
-  frequency      String
-  responsible    String[]
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  description     String?
+  area            String
+  planType        String // DAILY, WEEKLY, MONTHLY
+  frequency       String
+  responsible     String[]
   durationMinutes Int?
-  isActive       Boolean  @default(true)
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive        Boolean  @default(true)
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tasks          CleaningTask[]
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tasks  CleaningTask[]
 
   @@map("cleaning_plans")
 }
 
 model CleaningTask {
-  id             String    @id @default(cuid())
-  planId         String
-  taskName       String
-  taskType       String?
-  description    String?
-  area           String?
-  products       String[]
-  estimatedTime  Int?
-  responsible    String[]
-  completed      Boolean  @default(false)
-  completedBy    String?
-  verifiedBy     String?
-  completedAt    DateTime?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String    @id @default(cuid())
+  planId        String
+  taskName      String
+  taskType      String?
+  description   String?
+  area          String?
+  products      String[]
+  estimatedTime Int?
+  responsible   String[]
+  completed     Boolean   @default(false)
+  completedBy   String?
+  verifiedBy    String?
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  plan           CleaningPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan CleaningPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@map("cleaning_tasks")
 }
 
 // APPCC - Pest Control
 model PestControl {
-  id             String    @id @default(cuid())
-  tenantId       String
-  controlDate    DateTime
-  date           DateTime
-  nextDate       DateTime?
-  controlType    String // PREVENTIVE, CURATIVE
-  type           String?
-  area           String
-  empresa        String?
-  company        String?
-  technician     String
-  products       Json?
-  notes          String?
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          String    @id @default(cuid())
+  tenantId    String
+  controlDate DateTime
+  date        DateTime
+  nextDate    DateTime?
+  controlType String // PREVENTIVE, CURATIVE
+  type        String?
+  area        String
+  empresa     String?
+  company     String?
+  technician  String
+  products    Json?
+  notes       String?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("pest_controls")
 }
 
 // APPCC - Goods Reception
 model GoodsReception {
-  id             String    @id @default(cuid())
-  tenantId       String
-  receptionDate  DateTime
-  supplier       String
-  orderNumber    String?
-  proveedorId    String?
+  id            String    @id @default(cuid())
+  tenantId      String
+  receptionDate DateTime
+  supplier      String
+  orderNumber   String?
+  proveedorId   String?
   albaran       String?
   fecha         DateTime?
-  items          Json?
-  notes          String?
-  receivedBy     String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  items         Json?
+  notes         String?
+  receivedBy    String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("goods_receptions")
 }
 
 // APPCC - Alerts
 model Alert {
-  id             String    @id @default(cuid())
-  tenantId       String
-  type           String
-  alertType      String
-  severity       String // INFO, WARNING, ERROR, CRITICAL
-  message        String
-  isResolved     Boolean  @default(false)
-  resolvedBy     String?
-  resolvedAt     DateTime?
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id         String    @id @default(cuid())
+  tenantId   String
+  type       String
+  alertType  String
+  severity   String // INFO, WARNING, ERROR, CRITICAL
+  message    String
+  isResolved Boolean   @default(false)
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("alerts")
 }
 
 // Production - Staff Member
 model StaffMember {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   tenantId       String
   name           String
   role           String
@@ -658,7 +723,7 @@ model StaffMember {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   taskAssignments TaskAssignment[]
 
   @@map("staff_members")
@@ -666,40 +731,40 @@ model StaffMember {
 
 // Production - Task Assignment
 model TaskAssignment {
-  id             String    @id @default(cuid())
-  tenantId       String
-  taskId         String
-  staffMemberId  String
-  batchId        String?
-  status         String // ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
-  assignedAt     DateTime @default(now())
-  completedAt    DateTime?
-  notes          String?
+  id            String    @id @default(cuid())
+  tenantId      String
+  taskId        String
+  staffMemberId String
+  batchId       String?
+  status        String // ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
+  assignedAt    DateTime  @default(now())
+  completedAt   DateTime?
+  notes         String?
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  task           Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  staffMember    StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
 
   @@map("task_assignments")
 }
 
 // Production - Work Batch
 model WorkBatch {
-  id             String    @id @default(cuid())
-  tenantId       String
-  orderId        String?
-  batchNumber    String
-  batchType      String // PREPARATION, COOKING, PLATING
-  status         String // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
-  scheduledFor   DateTime
-  startedAt      DateTime?
-  completedAt    DateTime?
-  notes          String?
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String    @id @default(cuid())
+  tenantId     String
+  orderId      String?
+  batchNumber  String
+  batchType    String // PREPARATION, COOKING, PLATING
+  status       String // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor DateTime
+  startedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   progressTrackings ProgressTracking[]
 
   @@map("work_batches")
@@ -707,97 +772,97 @@ model WorkBatch {
 
 // Production - Progress Tracking
 model ProgressTracking {
-  id             String    @id @default(cuid())
-  workBatchId    String
-  taskId         String?
-  progress       Float @default(0)
-  status         String
-  notes          String?
-  trackedBy      String
-  trackedAt      DateTime @default(now())
+  id          String   @id @default(cuid())
+  workBatchId String
+  taskId      String?
+  progress    Float    @default(0)
+  status      String
+  notes       String?
+  trackedBy   String
+  trackedAt   DateTime @default(now())
 
-  workBatch      WorkBatch @relation(fields: [workBatchId], references: [id], onDelete: Cascade)
+  workBatch WorkBatch @relation(fields: [workBatchId], references: [id], onDelete: Cascade)
 
   @@map("progress_trackings")
 }
 
 // Production - Production Order
 model ProductionOrder {
-  id             String    @id @default(cuid())
-  tenantId       String
-  orderNumber    String
-  orderType      String // PREPARATION, COOKING, PLATING
-  status         String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  scheduledFor   DateTime
-  startedAt      DateTime?
-  completedAt    DateTime?
-  items          Json?
+  id               String    @id @default(cuid())
+  tenantId         String
+  orderNumber      String
+  orderType        String // PREPARATION, COOKING, PLATING
+  status           String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor     DateTime
+  startedAt        DateTime?
+  completedAt      DateTime?
+  items            Json?
   miseEnPlaceItems Json?
-  actualTime     Float?
-  notes          String?
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  actualTime       Float?
+  notes            String?
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("production_orders")
 }
 
 // Production - Production Alert
 model ProductionAlert {
-  id             String    @id @default(cuid())
-  tenantId       String
-  alertType      String // DELAY, QUALITY, STOCK, STAFF
-  severity       String // INFO, WARNING, ERROR, CRITICAL
-  message        String
-  isResolved     Boolean @default(false)
-  resolvedBy     String?
-  resolvedAt     DateTime?
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id         String    @id @default(cuid())
+  tenantId   String
+  alertType  String // DELAY, QUALITY, STOCK, STAFF
+  severity   String // INFO, WARNING, ERROR, CRITICAL
+  message    String
+  isResolved Boolean   @default(false)
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("production_alerts")
 }
 
 // Production - Mise en Place Sheet
 model MiseEnPlaceSheet {
-  id             String    @id @default(cuid())
-  tenantId       String
-  batchId        String
-  orderId        String
-  zone           String
-  checklists     Json?
-  completedAt    DateTime?
-  verifiedBy     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          String    @id @default(cuid())
+  tenantId    String
+  batchId     String
+  orderId     String
+  zone        String
+  checklists  Json?
+  completedAt DateTime?
+  verifiedBy  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  items          MiseEnPlaceItem[]
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  MiseEnPlaceItem[]
 
   @@map("mise_en_place_sheets")
 }
 
 // Production - Mise en Place Item
 model MiseEnPlaceItem {
-  id             String    @id @default(cuid())
-  orderId        String
-  sheetId        String?
-  description    String
-  quantity       Float
-  unit           String
-  status         String // PENDING, IN_PROGRESS, READY, VERIFIED
-  notes          String?
-  completedAt    DateTime?
-  verifiedBy     String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          String    @id @default(cuid())
+  orderId     String
+  sheetId     String?
+  description String
+  quantity    Float
+  unit        String
+  status      String // PENDING, IN_PROGRESS, READY, VERIFIED
+  notes       String?
+  completedAt DateTime?
+  verifiedBy  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  sheet          MiseEnPlaceSheet? @relation(fields: [sheetId], references: [id], onDelete: SetNull)
+  sheet MiseEnPlaceSheet? @relation(fields: [sheetId], references: [id], onDelete: SetNull)
 
   @@map("mise_en_place_items")
 }
@@ -821,50 +886,50 @@ model AppccControl {
 
 // Fichas Técnicas - Templates
 model TechnicalSheetTemplate {
-  id           String   @id @default(cuid())
-  tenantId     String
-  name         String
-  type         String // STANDARD, MINIMAL, DETAILED, CUSTOM
-  description  String?
-  layout       Json?
-  fields       Json?
-  styles       Json?
-  isActive     Boolean  @default(true)
-  createdBy    String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        String // STANDARD, MINIMAL, DETAILED, CUSTOM
+  description String?
+  layout      Json?
+  fields      Json?
+  styles      Json?
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("technical_sheet_templates")
 }
 
 // Documentos
 model Document {
-  id             String   @id @default(cuid())
-  tenantId       String
-  name           String
-  type           String // TECHNICAL_SHEET, RECIPE_CARD, INSTRUCTION, OTHER, RECEIPT, INVOICE, ORDER_CONFIRMATION, PRODUCT_CATALOG, DELIVERY_NOTE
-  category       String
-  recipeId       String?
-  templateId     String?
-  version        Int      @default(1)
-  createdBy      String
-  fileSize       Int
-  fileFormat     String // PDF, DOCX
-  url            String
-  fileUrl        String?  // URL para OCR/AI
-  fileName       String?  // Nombre del archivo original
-  fileId         String?  // ID del archivo en Telegram/S3
-  source         String?  // telegram, upload, api
-  sourceUserId   String?  // ID del usuario que subió
-  status         String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
-  ocrData        Json?    // Texto extraído por OCR
-  aiData         Json?    // Datos estructurados extraídos por AI
-  errorMessage   String?  // Error si el procesamiento falló
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  type         String // TECHNICAL_SHEET, RECIPE_CARD, INSTRUCTION, OTHER, RECEIPT, INVOICE, ORDER_CONFIRMATION, PRODUCT_CATALOG, DELIVERY_NOTE
+  category     String
+  recipeId     String?
+  templateId   String?
+  version      Int      @default(1)
+  createdBy    String
+  fileSize     Int
+  fileFormat   String // PDF, DOCX
+  url          String
+  fileUrl      String? // URL para OCR/AI
+  fileName     String? // Nombre del archivo original
+  fileId       String? // ID del archivo en Telegram/S3
+  source       String? // telegram, upload, api
+  sourceUserId String? // ID del usuario que subió
+  status       String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  ocrData      Json? // Texto extraído por OCR
+  aiData       Json? // Datos estructurados extraídos por AI
+  errorMessage String? // Error si el procesamiento falló
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  telegramBot    TelegramBot?            @relation(fields: [telegramBotId], references: [id], onDelete: SetNull)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telegramBot       TelegramBot?       @relation(fields: [telegramBotId], references: [id], onDelete: SetNull)
   extractedProducts ExtractedProduct[]
 
   telegramBotId String?
@@ -894,8 +959,8 @@ model Supplier {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products          Product[]
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
 
   @@index([tenantId])
   @@index([name])
@@ -904,45 +969,45 @@ model Supplier {
 
 // Stock Management
 model Stock {
-  id             String  @id @default(cuid())
-  tenantId       String
-  productId      String
-  warehouseId    String?
-  quantity       Float   @default(0)      // Stock actual
-  reservedStock  Float   @default(0)      // Stock reservado para pedidos
-  minimumStock   Float   @default(0)      // Stock mínimo
-  maximumStock   Float?                  // Stock máximo
-  reorderLevel   Float   @default(0)      // Nivel de reposición
-  lastUpdated    DateTime @default(now())
-  notes          String?
+  id            String   @id @default(cuid())
+  tenantId      String
+  productId     String
+  warehouseId   String?
+  quantity      Float    @default(0) // Stock actual
+  reservedStock Float    @default(0) // Stock reservado para pedidos
+  minimumStock  Float    @default(0) // Stock mínimo
+  maximumStock  Float? // Stock máximo
+  reorderLevel  Float    @default(0) // Nivel de reposición
+  lastUpdated   DateTime @default(now())
+  notes         String?
 
-  product        Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  warehouse      Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([productId, warehouseId])
   @@index([tenantId])
   @@index([productId])
   @@index([warehouseId])
   @@index([quantity])
-  @@unique([productId, warehouseId])
   @@map("stocks")
 }
 
 // Inventarios Físicos
 model Inventory {
-  id         String   @id @default(cuid())
-  tenantId   String
+  id          String    @id @default(cuid())
+  tenantId    String
   warehouseId String
-  name       String
-  notes      String?
-  status     String   @default("PENDING") // PENDING, COMPLETED
-  createdAt  DateTime @default(now())
+  name        String
+  notes       String?
+  status      String    @default("PENDING") // PENDING, COMPLETED
+  createdAt   DateTime  @default(now())
   completedAt DateTime?
-  createdBy  String
+  createdBy   String
 
-  warehouse   Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  items       InventoryItem[]
+  warehouse Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items     InventoryItem[]
 
   @@index([tenantId])
   @@index([warehouseId])
@@ -954,9 +1019,9 @@ model InventoryItem {
   id                  String   @id @default(cuid())
   inventoryId         String
   productId           String
-  quantity            Float    // Cantidad reportada
+  quantity            Float // Cantidad reportada
   unit                String
-  theoreticalQuantity Float?   // Stock teórico esperado
+  theoreticalQuantity Float? // Stock teórico esperado
   actualQuantity      Float    @default(0)
   difference          Float    @default(0)
   condition           String   @default("GOOD") // GOOD, DAMAGED, EXPIRED
@@ -972,20 +1037,20 @@ model InventoryItem {
 
 // Configuration por Tenant
 model Configuration {
-  id              String   @id @default(cuid())
-  tenantId        String
-  key             String   @unique
-  value           String
-  description     String?
-  category        String?  // GENERAL, CURRENCY, DATE_FORMAT, etc.
-  updatedAt       DateTime @updatedAt
-  updatedBy       String
+  id          String   @id @default(cuid())
+  tenantId    String
+  key         String   @unique
+  value       String
+  description String?
+  category    String? // GENERAL, CURRENCY, DATE_FORMAT, etc.
+  updatedAt   DateTime @updatedAt
+  updatedBy   String
 
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, key])
   @@index([tenantId])
   @@index([key])
-  @@unique([tenantId, key])
   @@map("configurations")
 }
 
@@ -997,36 +1062,37 @@ model Category {
   slug        String
   description String?
   icon        String?
-  color       String?  // Para UI
+  color       String? // Para UI
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   parentId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Category[] @relation("CategoryHierarchy")
-  products    Product[]
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   Category?        @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[]       @relation("CategoryHierarchy")
+  products Product[]
+  recipes  RecipeCategory[]
 
+  @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([name])
-  @@unique([tenantId, slug])
   @@map("categories")
 }
 
 // Factores de Conversión de Unidades (UC → UA → UR)
 model UnitConversion {
-  id               String  @id @default(cuid())
-  productId        String
-  fromUnit         String  // UC: purchaseUnit
-  toUnit           String  // UA: storageUnit
-  factor           Float   // Multiplicador para convertir de→a
-  description      String?
-  isDefault        Boolean @default(false)
-  createdAt        DateTime @default(now())
+  id          String   @id @default(cuid())
+  productId   String
+  fromUnit    String // UC: purchaseUnit
+  toUnit      String // UA: storageUnit
+  factor      Float // Multiplicador para convertir de→a
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
-  product          Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, fromUnit, toUnit])
   @@map("unit_conversions")
@@ -1039,12 +1105,12 @@ model DocumentTemplate {
   name        String
   type        String // INVOICE, RECEIPT, REPORT, CERTIFICATE, etc.
   description String?
-  content     Json?    // Template content
+  content     Json? // Template content
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("document_templates")
 }
@@ -1057,67 +1123,67 @@ model KnowledgeCategory {
   slug        String
   description String?
   parentId    String?
-  color       String?  // Hex color for UI
-  icon        String?  // Icon name
+  color       String? // Hex color for UI
+  icon        String? // Icon name
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent     KnowledgeCategory?    @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children   KnowledgeCategory[]   @relation("CategoryHierarchy")
-  articles   KnowledgeArticle[]
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   KnowledgeCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children KnowledgeCategory[] @relation("CategoryHierarchy")
+  articles KnowledgeArticle[]
 
+  @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([slug])
   @@index([parentId])
-  @@unique([tenantId, slug])
   @@map("knowledge_categories")
 }
 
 model KnowledgeArticle {
-  id          String   @id @default(cuid())
-  tenantId    String
-  categoryId  String?
-  title       String
-  slug        String
-  content     Json     // TipTap JSON content
-  summary     String?  // Plain text summary for search
-  status      String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
-  isPublic    Boolean  @default(false) // Can be accessed without auth
-  viewCount   Int      @default(0)
-  createdBy   String
-  updatedBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  tenantId   String
+  categoryId String?
+  title      String
+  slug       String
+  content    Json // TipTap JSON content
+  summary    String? // Plain text summary for search
+  status     String   @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  isPublic   Boolean  @default(false) // Can be accessed without auth
+  viewCount  Int      @default(0)
+  createdBy  String
+  updatedBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category    KnowledgeCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  author      User                @relation(fields: [createdBy], references: [id], onDelete: Restrict)
-  updater     User                @relation("ArticleUpdater", fields: [updatedBy], references: [id], onDelete: Restrict)
-  versions    KnowledgeVersion[]
-  tags        KnowledgeArticleTag[]
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category KnowledgeCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author   User                  @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  updater  User                  @relation("ArticleUpdater", fields: [updatedBy], references: [id], onDelete: Restrict)
+  versions KnowledgeVersion[]
+  tags     KnowledgeArticleTag[]
 
+  @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([slug])
   @@index([status])
   @@index([categoryId])
-  @@unique([tenantId, slug])
   @@map("knowledge_articles")
 }
 
 model KnowledgeVersion {
-  id          String   @id @default(cuid())
-  articleId   String
-  version     Int
-  content     Json
-  changeNote  String?
-  createdBy   String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  articleId  String
+  version    Int
+  content    Json
+  changeNote String?
+  createdBy  String
+  createdAt  DateTime @default(now())
 
-  article     KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  author      User             @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  author  User             @relation(fields: [createdBy], references: [id], onDelete: Restrict)
 
   @@index([articleId])
   @@index([version])
@@ -1129,15 +1195,15 @@ model KnowledgeTag {
   tenantId  String
   name      String
   slug      String
-  color     String?  // Hex color
+  color     String? // Hex color
   createdAt DateTime @default(now())
 
-  tenant    Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  articles  KnowledgeArticleTag[]
+  tenant   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  articles KnowledgeArticleTag[]
 
+  @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([slug])
-  @@unique([tenantId, slug])
   @@map("knowledge_tags")
 }
 
@@ -1146,8 +1212,8 @@ model KnowledgeArticleTag {
   tagId     String
   createdAt DateTime @default(now())
 
-  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  tag       KnowledgeTag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag     KnowledgeTag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([articleId, tagId])
   @@map("knowledge_article_tags")
@@ -1155,39 +1221,39 @@ model KnowledgeArticleTag {
 
 // Digital Menu QR System
 model DigitalMenuConfig {
-  id                  String   @id @default(cuid())
-  tenantId            String
-  name                String
-  menuId              String   // Menu base para mostrar
-  isActive            Boolean  @default(true)
-  qrCodeUrl           String?  // URL del QR code generado
+  id        String  @id @default(cuid())
+  tenantId  String
+  name      String
+  menuId    String // Menu base para mostrar
+  isActive  Boolean @default(true)
+  qrCodeUrl String? // URL del QR code generado
 
   // Branding
-  primaryColor        String?  // Hex color
-  secondaryColor      String?  // Hex color
-  fontFamily          String?  // Font family para UI
-  logoUrl             String?  // Logo del restaurante
+  primaryColor   String? // Hex color
+  secondaryColor String? // Hex color
+  fontFamily     String? // Font family para UI
+  logoUrl        String? // Logo del restaurante
 
   // Horarios
-  isOpen              Boolean  @default(true)
-  openingHours        Json?    // JSON con horarios por día
+  isOpen       Boolean @default(true)
+  openingHours Json? // JSON con horarios por día
 
   // Configuración de UI
-  showPrices          Boolean  @default(true)
-  showAllergens       Boolean  @default(true)
-  showDescriptions    Boolean  @default(true)
+  showPrices           Boolean @default(true)
+  showAllergens        Boolean @default(true)
+  showDescriptions     Boolean @default(true)
   enableAllergenFilter Boolean @default(true)
 
   // Analytics
-  scanCount           Int      @default(0)
-  lastScannedAt       DateTime?
+  scanCount     Int       @default(0)
+  lastScannedAt DateTime?
 
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  menu                Menu      @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  scans               MenuScan[]
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menu   Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  scans  MenuScan[]
 
   @@index([tenantId])
   @@index([menuId])
@@ -1195,18 +1261,18 @@ model DigitalMenuConfig {
 }
 
 model MenuScan {
-  id              String   @id @default(cuid())
-  digitalMenuId   String
-  ipAddress       String?
-  userAgent       String?
-  referrer        String?
-  language        String?  // Idioma detectado o seleccionado
+  id                  String   @id @default(cuid())
+  digitalMenuId       String
+  ipAddress           String?
+  userAgent           String?
+  referrer            String?
+  language            String? // Idioma detectado o seleccionado
   filteredByAllergens Json? // Qué alérgenos filtró el usuario
-  interactionType String?  // scan, filter, view_item, contact
-  metadata        Json?
-  scannedAt       DateTime @default(now())
+  interactionType     String? // scan, filter, view_item, contact
+  metadata            Json?
+  scannedAt           DateTime @default(now())
 
-  digitalMenu     DigitalMenuConfig @relation(fields: [digitalMenuId], references: [id], onDelete: Cascade)
+  digitalMenu DigitalMenuConfig @relation(fields: [digitalMenuId], references: [id], onDelete: Cascade)
 
   @@index([digitalMenuId])
   @@index([scannedAt])
@@ -1215,45 +1281,45 @@ model MenuScan {
 
 // Dashboard Analytics
 model DashboardMetric {
-  id          String   @id @default(cuid())
-  tenantId    String
-  metricType  String   // COST_TREND, MARGIN_ANALYSIS, MENU_ENGINEERING, STOCK_ALERT, APPCC_ALERT
-  metricName  String
-  period      String   // DAY, WEEK, MONTH, QUARTER, YEAR
-  date        DateTime
-  value       Float
-  target      Float?
-  change      Float?   // Change from previous period
+  id            String   @id @default(cuid())
+  tenantId      String
+  metricType    String // COST_TREND, MARGIN_ANALYSIS, MENU_ENGINEERING, STOCK_ALERT, APPCC_ALERT
+  metricName    String
+  period        String // DAY, WEEK, MONTH, QUARTER, YEAR
+  date          DateTime
+  value         Float
+  target        Float?
+  change        Float? // Change from previous period
   changePercent Float?
-  metadata    Json?    // Additional data for visualization
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  metadata      Json? // Additional data for visualization
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, metricType, metricName, date])
   @@index([tenantId])
   @@index([metricType])
   @@index([date])
-  @@unique([tenantId, metricType, metricName, date])
   @@map("dashboard_metrics")
 }
 
 model DashboardAlert {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   tenantId    String
-  alertType   String   // LOW_MARGIN, HIGH_COST, STOCK_OUT, APPCC_CRITICAL
-  severity    String   // LOW, MEDIUM, HIGH, CRITICAL
+  alertType   String // LOW_MARGIN, HIGH_COST, STOCK_OUT, APPCC_CRITICAL
+  severity    String // LOW, MEDIUM, HIGH, CRITICAL
   title       String
   description String
-  entityId    String?  // ID de la entidad relacionada
-  entityType  String?  // MENU, PRODUCT, WAREHOUSE, etc.
-  isResolved  Boolean  @default(false)
+  entityId    String? // ID de la entidad relacionada
+  entityType  String? // MENU, PRODUCT, WAREHOUSE, etc.
+  isResolved  Boolean   @default(false)
   resolvedAt  DateTime?
   resolvedBy  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tenant      Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([isResolved])
@@ -1264,18 +1330,18 @@ model DashboardAlert {
 
 // Sistema de Ingesta (Telegram + OCR)
 model TelegramBot {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   tenantId    String
-  botToken    String        @unique
+  botToken    String   @unique
   webhookUrl  String?
-  environment String        @default("development") // development, staging, production
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  environment String   @default("development") // development, staging, production
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  documents   Document[]
-  users       TelegramUser[]
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documents Document[]
+  users     TelegramUser[]
 
   @@index([tenantId])
   @@index([isActive])
@@ -1283,22 +1349,22 @@ model TelegramBot {
 }
 
 model TelegramUser {
-  id              String   @id @default(cuid())
-  tenantId        String
-  telegramBotId   String
-  telegramUserId  BigInt   // ID del usuario en Telegram
-  username        String?  // Username de Telegram (@username)
-  firstName       String?
-  lastName        String?
-  isActive        Boolean  @default(true)
-  authorizedAt    DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  tenantId       String
+  telegramBotId  String
+  telegramUserId BigInt // ID del usuario en Telegram
+  username       String? // Username de Telegram (@username)
+  firstName      String?
+  lastName       String?
+  isActive       Boolean  @default(true)
+  authorizedAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  telegramBot   TelegramBot @relation(fields: [telegramBotId], references: [id], onDelete: Cascade)
-  user         User?        @relation(fields: [userId], references: [id])
-  userId       String?      @unique
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telegramBot TelegramBot @relation(fields: [telegramBotId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id])
+  userId      String?     @unique
 
   @@index([tenantId])
   @@index([telegramBotId])
@@ -1308,22 +1374,75 @@ model TelegramUser {
 }
 
 model ExtractedProduct {
-  id            String   @id @default(cuid())
-  documentId    String
-  name          String
-  description   String?
-  quantity      Float    @default(0)
-  unit          String   @default("ud")
-  unitPrice     Float    @default(0)
-  supplier      String?
-  category      String?
-  allergens     String[] @default([])
-  confidence    Float    @default(0) // 0-1: confidencia del OCR/AI
-  metadata      Json?
-  createdAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  documentId  String
+  name        String
+  description String?
+  quantity    Float    @default(0)
+  unit        String   @default("ud")
+  unitPrice   Float    @default(0)
+  supplier    String?
+  category    String?
+  allergens   String[] @default([])
+  confidence  Float    @default(0) // 0-1: confidencia del OCR/AI
+  metadata    Json?
+  createdAt   DateTime @default(now())
 
-  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@map("extracted_products")
+}
+
+model QRCode {
+  id             String    @id @default(cuid())
+  qrCodeId       String    @unique
+  tenantId       String
+  entityType     String
+  entityId       String
+  qrCodeData     String    @db.Text
+  config         Json?
+  format         String    @default("png")
+  size           Int       @default(300)
+  publicUrl      String
+  publicFilePath String?
+  scanCount      Int       @default(0)
+  lastScannedAt  DateTime?
+  lastDeviceId   String?
+  lastUserAgent  String?
+  expiresAt      DateTime?
+  generatedAt    DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([qrCodeId])
+  @@index([expiresAt])
+  @@map("qrcodes")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  action     String // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entityType String // User, Product, Recipe, etc.
+  entityId   String
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
