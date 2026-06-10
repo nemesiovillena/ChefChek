@@ -55,6 +55,13 @@ export default function DashboardPage() {
     }
   }, [isLoading, isAuthenticated]);
 
+  // Unirse a rooms de WebSocket
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      joinDashboard();
+    }
+  }, [isLoading, isAuthenticated, joinDashboard]);
+
   // Efecto para variar sutilmente la temperatura simulando telemetría real
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -166,7 +173,7 @@ export default function DashboardPage() {
               <span className="font-label-md text-label-md text-primary">94.2%</span>
             </div>
             <div className="h-1 bg-surface-variant rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-secondary-container transition-all duration-1000"
                 style={{ width: efficiencyWidth }}
               ></div>
@@ -174,6 +181,45 @@ export default function DashboardPage() {
             <p className="mt-stack-md font-body-md text-label-sm text-on-surface-variant italic">
               Rendimiento 4% sobre la media del turno
             </p>
+          </div>
+
+          {/* Real-time Alerts */}
+          <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
+            <div className="flex justify-between items-center mb-stack-md">
+              <p className="font-label-md text-label-md text-on-surface-variant uppercase">Alertas en Tiempo Real</p>
+              <span className="material-symbols-outlined text-secondary">notifications_active</span>
+            </div>
+            <div className="space-y-stack-sm">
+              {productionAlerts && productionAlerts.length > 0 ? (
+                productionAlerts.slice(0, 3).map((alert, idx) => (
+                  <div key={idx} className="flex items-start gap-stack-sm p-2 bg-error/10 rounded border border-error/20">
+                    <span className="material-symbols-outlined text-error text-[18px]">warning</span>
+                    <div>
+                      <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.title || 'Alerta de Producción'}</p>
+                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">{alert.message || 'Orden de producción requiere atención'}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
+                  <span className="material-symbols-outlined text-secondary text-[18px]">check_circle</span>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">No hay alertas de producción</p>
+                </div>
+              )}
+              {stockAlerts && stockAlerts.length > 0 ? (
+                stockAlerts.slice(0, 2).map((alert, idx) => (
+                  <div key={idx} className="flex items-start gap-stack-sm p-2 bg-warning/10 rounded border border-warning/20">
+                    <span className="material-symbols-outlined text-warning text-[18px]">inventory_2</span>
+                    <div>
+                      <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.productName || 'Stock Bajo'}</p>
+                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">
+                        {alert.quantity || 0} unidades restantes (mínimo: {alert.minimum || 0})
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : null}
+            </div>
           </div>
         </div>
 

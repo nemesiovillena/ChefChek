@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product } from '@/hooks/use-products';
-import { useCategoryTree, useCategories, CategoryTreeNode } from '@/hooks/use-categories';
+import { CategoryTreeNode } from '@/hooks/use-categories';
 import TabPesoPrecio from './tab-peso-precio';
 import TabFormatoCompra from './tab-formato-compra';
 import TabAlergenos from './tab-alergenos';

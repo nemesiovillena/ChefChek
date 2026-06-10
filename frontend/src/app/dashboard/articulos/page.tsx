@@ -24,9 +24,9 @@ export default function ArticulosPage() {
   const { data: productsData, isLoading: productsLoading, error: productsError, refetch } = useProducts();
   const products: Product[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
 
-  const { data: categoryTree } = useCategoryTree();
-  const { data: categoriesData } = useCategories();
-  const allCategories = Array.isArray(categoriesData?.data) ? categoriesData.data : Array.isArray(categoriesData) ? categoriesData : [];
+  const { data: categoryTree } = useCategoryTree("articles");
+  const { data: categoriesData } = useCategories("articles");
+  const allCategories = Array.isArray(categoriesData) ? categoriesData : [];
   const tree: CategoryTreeNode[] = Array.isArray(categoryTree) ? categoryTree : [];
 
   const { data: suppliersResponse } = useApiQuery<any>(['suppliers'], '/v1/products/suppliers');
@@ -374,7 +374,9 @@ export default function ArticulosPage() {
                           <button
                             onClick={() => handleToggleStatus(product)}
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
-                              product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              product.isActive
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                             }`}
                           >
                             {product.isActive ? 'Activo' : 'Desactivado'}
@@ -385,7 +387,7 @@ export default function ArticulosPage() {
                             onClick={() => handleEdit(product)}
                             title="Editar artículo"
                             aria-label="Editar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -396,7 +398,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Descargar código QR"
                                 aria-label="Descargar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
                               >
                                 <Download className="h-4 w-4" />
                               </button>
@@ -405,7 +407,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Eliminar código QR"
                                 aria-label="Eliminar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -416,7 +418,7 @@ export default function ArticulosPage() {
                               disabled={qrLoading}
                               title="Generar código QR"
                               aria-label="Generar código QR"
-                              className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                              className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
                             >
                               <QrCode className="h-4 w-4" />
                             </button>
@@ -425,7 +427,7 @@ export default function ArticulosPage() {
                             onClick={() => handleDelete(product.id, product.name)}
                             title="Eliminar artículo"
                             aria-label="Eliminar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>

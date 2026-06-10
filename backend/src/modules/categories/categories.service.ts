@@ -5,8 +5,10 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
-import { CreateCategoryDto } from "./dto/category.dto";
-import { UpdateCategoryDto } from "./dto/category.dto";
+import { CreateCategoryDto, UpdateCategoryDto } from "./dto/category.dto";
+import { CategoryContext } from "@prisma/client";
+
+type ContextFilter = CategoryContext | undefined;
 
 @Injectable()
 export class CategoriesService {
@@ -19,11 +21,12 @@ export class CategoriesService {
       `Creating category "${createCategoryDto.name}" for tenant ${tenantId}`,
     );
 
-    // Check if slug already exists for this tenant
+    // Check if slug already exists for this tenant+context
     const existing = await this.prisma.category.findUnique({
       where: {
-        tenantId_slug: {
+        tenantId_context_slug: {
           tenantId,
+          context: createCategoryDto.context,
           slug: createCategoryDto.slug,
         },
       },
@@ -31,7 +34,7 @@ export class CategoriesService {
 
     if (existing) {
       throw new ConflictException(
-        `Category with slug "${createCategoryDto.slug}" already exists`,
+        `Category with slug "${createCategoryDto.slug}" already exists in context "${createCategoryDto.context}"`,
       );
     }
 
@@ -46,11 +49,18 @@ export class CategoriesService {
     return category;
   }
 
-  async findAll(tenantId: string) {
-    this.logger.log(`Fetching all categories for tenant ${tenantId}`);
+  async findAll(tenantId: string, context?: ContextFilter) {
+    this.logger.log(
+      `Fetching categories for tenant ${tenantId}${context ? ` (context: ${context})` : ""}`,
+    );
+
+    const where: any = { tenantId };
+    if (context) {
+      where.context = context;
+    }
 
     const categories = (await this.prisma.category.findMany({
-      where: { tenantId },
+      where,
       include: {
         _count: {
           select: {
@@ -127,12 +137,14 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    // If updating slug, check for conflicts
+    // If updating slug, check for conflicts (scoped to tenant+context)
     if (updateCategoryDto.slug && updateCategoryDto.slug !== existing.slug) {
+      const targetContext = updateCategoryDto.context || existing.context;
       const slugConflict = await this.prisma.category.findUnique({
         where: {
-          tenantId_slug: {
+          tenantId_context_slug: {
             tenantId,
+            context: targetContext,
             slug: updateCategoryDto.slug,
           },
         },
@@ -140,7 +152,7 @@ export class CategoriesService {
 
       if (slugConflict) {
         throw new ConflictException(
-          `Category with slug "${updateCategoryDto.slug}" already exists`,
+          `Category with slug "${updateCategoryDto.slug}" already exists in context "${targetContext}"`,
         );
       }
     }
@@ -188,14 +200,18 @@ export class CategoriesService {
     this.logger.log(`Category ${id} deleted successfully`);
   }
 
-  async getTree(tenantId: string) {
-    this.logger.log(`Fetching category tree for tenant ${tenantId}`);
+  async getTree(tenantId: string, context?: ContextFilter) {
+    this.logger.log(
+      `Fetching category tree for tenant ${tenantId}${context ? ` (context: ${context})` : ""}`,
+    );
+
+    const where: any = { tenantId, parentId: null };
+    if (context) {
+      where.context = context;
+    }
 
     const categories = (await this.prisma.category.findMany({
-      where: {
-        tenantId,
-        parentId: null, // Only root categories
-      },
+      where,
       include: {
         children: {
           include: {

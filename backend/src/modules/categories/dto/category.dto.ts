@@ -4,8 +4,12 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
+  IsIn,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+
+const CATEGORY_CONTEXTS = ["articles", "recipes"] as const;
+type CategoryContext = (typeof CATEGORY_CONTEXTS)[number];
 
 export class CreateCategoryDto {
   @IsString()
@@ -17,6 +21,14 @@ export class CreateCategoryDto {
   @IsNotEmpty()
   @ApiProperty({ description: "Slug único para URLs" })
   slug: string;
+
+  @IsString()
+  @IsIn(CATEGORY_CONTEXTS)
+  @ApiProperty({
+    enum: CATEGORY_CONTEXTS,
+    description: "Contexto: articles (inventario) o recipes (platos)",
+  })
+  context: CategoryContext;
 
   @IsString()
   @IsOptional()
@@ -54,6 +66,15 @@ export class UpdateCategoryDto {
   @IsOptional()
   @ApiPropertyOptional({ description: "Slug único para URLs" })
   slug?: string;
+
+  @IsString()
+  @IsIn(CATEGORY_CONTEXTS)
+  @IsOptional()
+  @ApiPropertyOptional({
+    enum: CATEGORY_CONTEXTS,
+    description: "Contexto: articles o recipes",
+  })
+  context?: CategoryContext;
 
   @IsString()
   @IsOptional()
@@ -113,6 +134,12 @@ export class CategoryDto {
 
   @ApiProperty({ description: "Está activa?" })
   isActive: boolean;
+
+  @ApiProperty({
+    enum: CATEGORY_CONTEXTS,
+    description: "Contexto: articles o recipes",
+  })
+  context: CategoryContext;
 
   @ApiPropertyOptional({ description: "Categoría padre para jerarquía" })
   parentId?: string;

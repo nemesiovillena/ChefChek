@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useWebSocketNotifications } from '@/hooks/use-websocket';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -11,6 +12,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
   const [isDark, setIsDark] = useState(true);
+  const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -79,12 +82,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="font-body-md text-body-md text-primary">{user?.name || 'Marcus V.'}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer" onClick={() => router.push('/dashboard/settings')}>
-            <img 
-              alt="Chef Profile" 
+            <img
+              alt="Chef Profile"
               className="object-cover w-full h-full"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyjEviJPItAjkIVE069AOakDc9BxNwOWm9b28J4CyXeWz8GsiEoqfmGJvcojI_ljpYcNv6Ns3Sbhp_39eMXgV6AEF6iwWkH4_3fnwSUX5aV1WRd4GSdBc1hswyFlMBNg1QxZ3ibN7ZoMxA7tpasgN8OuninUUnkyb-esrf2U97m4ENXRPvf1u_3-Uup0A2UXwbPmQmJxxJPKISeMhP8nRk1OsyGBbOFHt0RgD2sqs2V3igDz42dSP8kRMAeHI0se30xtIGpJToJ2c"
             />
           </div>
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 flex items-center justify-center"
+            title="Notificaciones"
+          >
+            <span className="material-symbols-outlined text-[24px]">notifications</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-error text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          {showNotifications && (
+            <div className="absolute right-16 top-14 w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
+              <div className="p-4 border-b border-border flex justify-between items-center">
+                <h3 className="font-label-md text-label-md text-primary">Notificaciones</h3>
+                <button
+                  onClick={markAllAsRead}
+                  className="text-secondary text-xs hover:underline cursor-pointer"
+                >
+                  Marcar todas como leídas
+                </button>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <p className="p-4 text-center text-on-surface-variant font-label-sm text-label-sm">
+                    No hay notificaciones
+                  </p>
+                ) : (
+                  notifications.slice(0, 5).map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`p-3 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
+                    >
+                      <p className="font-label-sm text-label-sm text-primary font-semibold">{notif.title}</p>
+                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm mt-1">{notif.message}</p>
+                      <p className="font-label-sm text-label-sm text-on-surface-variant text-xs mt-1">
+                        {new Date(notif.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
           <button 
             onClick={toggleTheme}
             className="text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 ml-1 p-1 flex items-center justify-center" 

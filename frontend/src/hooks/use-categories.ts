@@ -1,10 +1,13 @@
 import { useCrud, useApiQuery } from './use-api';
 
+export type CategoryContext = 'articles' | 'recipes';
+
 export interface Category {
   id: string;
   tenantId: string;
   name: string;
   slug: string;
+  context: CategoryContext;
   description?: string;
   icon?: string;
   color?: string;
@@ -38,6 +41,7 @@ export interface CategoryTreeNode extends Category {
 export interface CreateCategoryData {
   name: string;
   slug: string;
+  context: CategoryContext;
   description?: string;
   icon?: string;
   color?: string;
@@ -50,28 +54,30 @@ export interface UpdateCategoryData extends Partial<CreateCategoryData> {
   id: string;
 }
 
-// Categories CRUD hooks
+// Keep useCrud for mutations (create, update, delete) — they don't need context
 const {
-  useList,
   useGet,
   useCreate,
   useUpdate,
   useDelete,
 } = useCrud<Category, CreateCategoryData, UpdateCategoryData>('/v1/categories', ['categories']);
 
-export function useCategories() {
-  return useList(1, 100);
+// Context-aware list hook — replaces useCrud's useList which doesn't support query params
+export function useCategories(context?: CategoryContext) {
+  const url = `/v1/categories${context ? `?context=${context}` : ''}`;
+  const key = ['categories', context ?? 'all'];
+  return useApiQuery<Category[]>(key, url);
 }
 
 export function useCategory(id: string) {
   return useGet(id);
 }
 
-export function useCategoryTree() {
-  return useApiQuery<CategoryTreeNode[]>(
-    ['categories', 'tree'],
-    '/v1/categories/tree'
-  );
+// Context-aware tree hook — includes context in cache key to avoid cross-contamination
+export function useCategoryTree(context?: CategoryContext) {
+  const url = `/v1/categories/tree${context ? `?context=${context}` : ''}`;
+  const key = ['categories', 'tree', context ?? 'all'];
+  return useApiQuery<CategoryTreeNode[]>(key, url);
 }
 
 export function useCreateCategory() {

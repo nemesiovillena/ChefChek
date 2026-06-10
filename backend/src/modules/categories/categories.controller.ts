@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Req,
+  Query,
 } from "@nestjs/common";
 import { CategoriesService } from "./categories.service";
 import { CreateCategoryDto } from "./dto/category.dto";
@@ -52,9 +53,11 @@ export class CategoriesController {
     status: 200,
     description: "Categories retrieved successfully",
   })
-  findAll(@Req() req: any) {
+  findAll(@Req() req: any, @Query("context") context?: string) {
     const tenantId = req.tenantId;
-    return this.categoriesService.findAll(tenantId);
+    const validContext =
+      context === "articles" || context === "recipes" ? context : undefined;
+    return this.categoriesService.findAll(tenantId, validContext);
   }
 
   @Get("tree")
@@ -64,9 +67,11 @@ export class CategoriesController {
     status: 200,
     description: "Category tree retrieved successfully",
   })
-  getTree(@Req() req: any) {
+  getTree(@Req() req: any, @Query("context") context?: string) {
     const tenantId = req.tenantId;
-    return this.categoriesService.getTree(tenantId);
+    const validContext =
+      context === "articles" || context === "recipes" ? context : undefined;
+    return this.categoriesService.getTree(tenantId, validContext);
   }
 
   @Get(":id")

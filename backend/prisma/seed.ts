@@ -42,36 +42,57 @@ async function main() {
 
   // Crear categorías padre (artículos)
   const alimentacion = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "alimentacion" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "alimentacion",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Alimentación",
       slug: "alimentacion",
+      context: "articles",
       description: "Productos alimentarios no congelados",
       isActive: true,
       sortOrder: 1,
     },
   });
   const congelados = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "congelados" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "congelados",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Congelados",
       slug: "congelados",
+      context: "articles",
       description: "Productos congelados",
       isActive: true,
       sortOrder: 2,
     },
   });
   const alcoholes = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "alcoholes" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "alcoholes",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Alcoholes",
       slug: "alcoholes",
+      context: "articles",
       description: "Bebidas alcohólicas",
       isActive: true,
       sortOrder: 3,
@@ -79,49 +100,75 @@ async function main() {
   });
   const bebidasNoAlc = await prisma.category.upsert({
     where: {
-      tenantId_slug: { tenantId: tenant.id, slug: "bebidas-no-alcoholicas" },
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "bebidas-no-alcoholicas",
+      },
     },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Bebidas no alcohólicas",
       slug: "bebidas-no-alcoholicas",
+      context: "articles",
       description: "Refrescos, zumos, aguas e infusiones",
       isActive: true,
       sortOrder: 4,
     },
   });
   const limpieza = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "limpieza" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "limpieza",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Limpieza",
       slug: "limpieza",
+      context: "articles",
       description: "Productos de limpieza y desinfección",
       isActive: true,
       sortOrder: 5,
     },
   });
   const desechables = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "desechables" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "desechables",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Desechables",
       slug: "desechables",
+      context: "articles",
       description: "Material desechable y embalaje",
       isActive: true,
       sortOrder: 6,
     },
   });
   const utensilios = await prisma.category.upsert({
-    where: { tenantId_slug: { tenantId: tenant.id, slug: "utensilios" } },
+    where: {
+      tenantId_context_slug: {
+        tenantId: tenant.id,
+        context: "articles",
+        slug: "utensilios",
+      },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Utensilios",
       slug: "utensilios",
+      context: "articles",
       description: "Utensilios de cocina y sala",
       isActive: true,
       sortOrder: 7,
@@ -386,12 +433,19 @@ async function main() {
   const subcategories = await Promise.all(
     subcatData.map((sc) =>
       prisma.category.upsert({
-        where: { tenantId_slug: { tenantId: tenant.id, slug: sc.slug } },
+        where: {
+          tenantId_context_slug: {
+            tenantId: tenant.id,
+            context: "articles",
+            slug: sc.slug,
+          },
+        },
         update: {},
         create: {
           tenantId: tenant.id,
           name: sc.name,
           slug: sc.slug,
+          context: "articles",
           description: sc.description,
           parentId: sc.parentId,
           isActive: true,
@@ -409,11 +463,20 @@ async function main() {
 
   // Crear categorías de recetas
   const recipeCategories = await Promise.all([
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "aperitivos",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Aperitivos",
         slug: "aperitivos",
+        context: "recipes",
         description: "Entrantes y tapas",
         icon: "🍤",
         color: "#FF9800",
@@ -421,11 +484,20 @@ async function main() {
         sortOrder: 10,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "arroces",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Arroces",
         slug: "arroces",
+        context: "recipes",
         description: "Paellas, risottos y otros arroces",
         icon: "🍚",
         color: "#8BC34A",
@@ -433,11 +505,20 @@ async function main() {
         sortOrder: 11,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "pescados",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Pescados",
         slug: "pescados",
+        context: "recipes",
         description: "Pescados y mariscos",
         icon: "🐟",
         color: "#2196F3",
@@ -445,11 +526,20 @@ async function main() {
         sortOrder: 12,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "carnes-recetas",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Carnes",
         slug: "carnes-recetas",
+        context: "recipes",
         description: "Platos de carne",
         icon: "🥩",
         color: "#F44336",
@@ -457,11 +547,20 @@ async function main() {
         sortOrder: 13,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "pasta",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Pasta",
         slug: "pasta",
+        context: "recipes",
         description: "Pizzas, pastas y otras masas",
         icon: "🍝",
         color: "#FF5722",
@@ -469,11 +568,20 @@ async function main() {
         sortOrder: 14,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "postres",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Postres",
         slug: "postres",
+        context: "recipes",
         description: "Dulces y postres",
         icon: "🍰",
         color: "#E91E63",
@@ -481,11 +589,20 @@ async function main() {
         sortOrder: 15,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "sopas",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Sopas",
         slug: "sopas",
+        context: "recipes",
         description: "Sopas, cremas y caldos",
         icon: "🍲",
         color: "#9C27B0",
@@ -493,11 +610,20 @@ async function main() {
         sortOrder: 16,
       },
     }),
-    prisma.category.create({
-      data: {
+    prisma.category.upsert({
+      where: {
+        tenantId_context_slug: {
+          tenantId: tenant.id,
+          context: "recipes",
+          slug: "ensaladas",
+        },
+      },
+      update: {},
+      create: {
         tenantId: tenant.id,
         name: "Ensaladas",
         slug: "ensaladas",
+        context: "recipes",
         description: "Ensaladas frescas",
         icon: "🥗",
         color: "#4CAF50",

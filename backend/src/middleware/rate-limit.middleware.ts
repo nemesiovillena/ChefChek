@@ -1,4 +1,9 @@
-import { Injectable, NestMiddleware, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  NestMiddleware,
+  OnModuleDestroy,
+  Logger,
+} from "@nestjs/common";
 import { Request, Response, NextFunction } from "express";
 import { createClient, RedisClientType } from "redis";
 
@@ -13,6 +18,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
   private readonly WINDOW_MS = 60 * 1000; // 1 minute
   private readonly MAX_REQUESTS = 100;
   private readonly REDIS_PREFIX = "ratelimit:";
+  private readonly logger = new Logger(RateLimitMiddleware.name);
 
   async onModuleDestroy() {
     if (this.redis) {
@@ -30,7 +36,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
       });
 
       this.redis.on("error", (err) =>
-        console.error("Redis Client Error:", err),
+        this.logger.error("Redis Client Error:", err),
       );
       await this.redis.connect();
     }
@@ -103,7 +109,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
       next();
     } catch (error) {
       // If Redis fails, fallback to allowing request (fail-open)
-      console.error("Rate limit error:", error);
+      this.logger.error("Rate limit error:", error);
       next();
     }
   }
@@ -136,7 +142,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
 
       return parsed.count >= this.MAX_REQUESTS;
     } catch (error) {
-      console.error("Rate limit check error:", error);
+      this.logger.error("Rate limit check error:", error);
       return false;
     }
   }
@@ -168,7 +174,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
         resetTime: parsed.resetTime,
       };
     } catch (error) {
-      console.error("Rate limit info error:", error);
+      this.logger.error("Rate limit info error:", error);
       return null;
     }
   }

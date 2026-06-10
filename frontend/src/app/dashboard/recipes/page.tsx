@@ -29,8 +29,8 @@ export default function RecipesPage() {
   const { data: productsData } = useProducts();
   const products: any[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
 
-  const { data: categoriesData } = useCategories();
-  const categories: Category[] = Array.isArray(categoriesData?.data) ? categoriesData.data : Array.isArray(categoriesData) ? categoriesData : [];
+  const { data: categoriesData } = useCategories("recipes");
+  const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
 
   const createRecipeMutation = useCreateRecipe();
   const updateRecipeMutation = useUpdateRecipe();

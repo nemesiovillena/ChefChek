@@ -166,6 +166,8 @@ export interface NotificationEvent {
   message: string;
   data?: Record<string, any>;
   actionUrl?: string;
+  read?: boolean;
+  timestamp: Date;
   createdAt: Date;
   expiresAt?: Date;
   tenantId: string;
