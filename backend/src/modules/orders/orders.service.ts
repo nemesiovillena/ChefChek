@@ -25,10 +25,14 @@ import {
   CreateOrderItemDto,
   CalculationOptionsDto,
 } from "./dto/orders.dto";
+import { WebSocketService } from "../../websocket/websocket.service";
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly webSocketService: WebSocketService,
+  ) {}
 
   // Safety factors configuration
   private safetyFactors: SafetyFactorConfigDto[] = [
@@ -120,16 +124,27 @@ export class OrdersService {
     const { tenantId, historicalPeriod = 7, lookaheadDays = 7 } = dto;
     const requirements: OrderRequirementDto[] = [];
 
+    // OPTIMIZED: Batch fetch all products with their stocks in a single query
     const products = await this.prisma.product.findMany({
       where: { tenantId },
+      include: {
+        stocks: {
+          where: {
+            quantity: { gt: 0 },
+          },
+          take: 1,
+        },
+      },
     });
 
+    // OPTIMIZED: Batch calculate requirements for all products
     for (const product of products) {
       const requirement = await this.calculateProductRequirement(
         product,
         tenantId,
         historicalPeriod,
         lookaheadDays,
+        product.stocks || [],
       );
 
       if (requirement.requiredQuantity > 0) {
@@ -145,10 +160,12 @@ export class OrdersService {
     tenantId: string,
     historicalPeriod: number,
     lookaheadDays: number,
+    stocks: any[],
   ): Promise<OrderRequirementDto> {
     const productId = product.id;
 
-    const currentStock = await this.getCurrentStock(productId);
+    const currentStock =
+      stocks?.reduce((sum: number, s: any) => sum + (s.quantity || 0), 0) || 0;
     const minStock = product.minimumStock || 0;
     const avgDailyConsumption = await this.calculateAverageConsumption(
       productId,
@@ -196,13 +213,6 @@ export class OrdersService {
     };
   }
 
-  private async getCurrentStock(productId: string): Promise<number> {
-    const stock = await (this.prisma as any).stock?.findUnique({
-      where: { productId },
-    });
-    return stock?.quantity || 0;
-  }
-
   private async calculateAverageConsumption(
     productId: string,
     period: number,
@@ -211,6 +221,7 @@ export class OrdersService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - period);
 
+    // OPTIMIZED: Include ingredients in single query and calculate consumption inline
     const recipes = await this.prisma.recipe.findMany({
       where: {
         ingredients: {
@@ -223,17 +234,23 @@ export class OrdersService {
           lte: endDate,
         },
       },
+      include: {
+        ingredients: {
+          where: {
+            productId,
+          },
+        },
+      },
     });
 
-    let totalConsumption = 0;
-    for (const recipe of recipes as any[]) {
-      const ingredient = recipe.ingredients?.find(
-        (i: any) => i.productId === productId,
+    const totalConsumption = recipes.reduce((sum: number, recipe: any) => {
+      const recipeConsumption = recipe.ingredients?.reduce(
+        (ingredSum: number, ingredient: any) =>
+          ingredSum + (ingredient?.quantity || 0),
+        0,
       );
-      if (ingredient) {
-        totalConsumption += ingredient.quantity;
-      }
-    }
+      return sum + recipeConsumption;
+    }, 0);
 
     return totalConsumption / period;
   }
@@ -446,6 +463,25 @@ export class OrdersService {
       },
     });
 
+    // Broadcast WebSocket event
+    this.webSocketService.broadcastOrderCreated({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      supplierId: order.supplierId,
+      supplierName: order.supplier?.name || "Unknown",
+      status: order.status,
+      totalAmount: order.totalAmount || 0,
+      items:
+        order.items?.map((item: any) => ({
+          productId: item.productId,
+          productName: item.productId,
+          quantity: item.adjustedQuantity || item.requestedQuantity,
+          unit: "units",
+        })) || [],
+      createdAt: order.createdAt,
+      tenantId,
+    });
+
     return this.formatOrder(order);
   }
 
@@ -464,6 +500,25 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException(`Order ${orderId} not found`);
     }
+
+    // Broadcast WebSocket event
+    this.webSocketService.broadcastOrderCreated({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      supplierId: order.supplierId,
+      supplierName: order.supplier?.name || "Unknown",
+      status: order.status,
+      totalAmount: order.totalAmount || 0,
+      items:
+        order.items?.map((item: any) => ({
+          productId: item.productId,
+          productName: item.productId,
+          quantity: item.adjustedQuantity || item.requestedQuantity,
+          unit: "units",
+        })) || [],
+      createdAt: order.createdAt,
+      tenantId,
+    });
 
     return this.formatOrder(order);
   }
@@ -593,6 +648,25 @@ export class OrdersService {
         supplier: true,
         items: true,
       },
+    });
+
+    // Broadcast WebSocket event
+    this.webSocketService.broadcastOrderApproved({
+      id: updated.id,
+      orderNumber: updated.orderNumber,
+      supplierId: updated.supplierId,
+      supplierName: updated.supplier?.name || "Unknown",
+      status: updated.status,
+      totalAmount: updated.totalAmount || 0,
+      items:
+        updated.items?.map((item: any) => ({
+          productId: item.productId,
+          productName: item.productId, // Will be fetched if needed
+          quantity: item.adjustedQuantity || item.requestedQuantity,
+          unit: "units",
+        })) || [],
+      createdAt: updated.createdAt,
+      tenantId,
     });
 
     return this.formatOrder(updated);
