@@ -91,14 +91,18 @@ export class ProductionService {
       },
     });
 
-    // Initialize progress tracking for each order
+    // OPTIMIZED: Fetch orders with estimatedTime in one query
     const orders = await (this.prisma as any).productionOrder.findMany({
       where: { batchId },
+      select: { id: true, estimatedTime: true },
     });
 
-    for (const order of orders) {
-      await this.initializeProgressTracking(order.id);
-    }
+    // OPTIMIZED: Batch create progress tracking and milestones
+    await Promise.all(
+      orders.map((order: { id: string; estimatedTime: number }) =>
+        this.initializeProgressTrackingBatch(order.id, order.estimatedTime),
+      ),
+    );
 
     return {
       success: true,
@@ -363,25 +367,22 @@ export class ProductionService {
   ): Promise<any> {
     // Check staff availability and capacity
     const staff = await this.getStaffMember(dto.assignedTo);
-    if (!staff || !staff.availability) {
+    if (!staff || !staff.isActive) {
       throw new BadRequestException("Staff member not available");
     }
 
-    if (staff.currentTasks >= staff.maxTasks) {
+    if (staff.assignedTasks >= staff.maxTasks) {
       throw new BadRequestException("Staff member at maximum capacity");
     }
 
     const assignment = await (this.prisma as any).taskAssignment.create({
       data: {
+        tenantId,
         batchId: dto.batchId,
-        orderId: dto.orderId,
         taskId: dto.taskId,
-        assignedTo: dto.assignedTo,
-        taskType: dto.taskType,
-        estimatedTime: dto.estimatedTime,
+        staffMemberId: dto.assignedTo,
         status: "ASSIGNED",
         assignedAt: new Date(),
-        dependencies: dto.dependencies || [],
       },
     });
 
@@ -397,9 +398,7 @@ export class ProductionService {
   async getTaskAssignments(tenantId: string): Promise<any[]> {
     return await (this.prisma as any).taskAssignment.findMany({
       where: {
-        batch: {
-          tenantId,
-        },
+        tenantId,
       },
       orderBy: { assignedAt: "desc" },
     });
@@ -433,7 +432,7 @@ export class ProductionService {
 
     // If completed, decrement staff tasks
     if (dto.status === "COMPLETED") {
-      await this.decrementStaffTasks(assignment.assignedTo);
+      await this.decrementStaffTasks(assignment.staffMemberId);
     }
 
     return {
@@ -445,27 +444,23 @@ export class ProductionService {
   async getStaffAvailable(tenantId: string, zone?: string): Promise<any[]> {
     const where: any = {
       tenantId,
-      availability: true,
-      currentTasks: {
-        lt: this.prisma.staffMember.fields.maxTasks,
-      },
+      isActive: true,
     };
 
-    if (zone) {
-      where.kitchenZone = zone;
-    }
-
-    return await (this.prisma as any).staffMember.findMany({
+    const staffMembers = await (this.prisma as any).staffMember.findMany({
       where,
-      orderBy: { currentTasks: "asc" },
+      orderBy: { assignedTasks: "asc" },
     });
+
+    // Filtrar en memoria por capacidad (assignedTasks < maxTasks)
+    return staffMembers.filter((m: any) => m.assignedTasks < m.maxTasks);
   }
 
   async getStaffMemberTasks(tenantId: string, staffId: string): Promise<any[]> {
     return await (this.prisma as any).taskAssignment.findMany({
       where: {
-        assignedTo: staffId,
-        batch: { tenantId },
+        staffMemberId: staffId,
+        tenantId,
         status: {
           in: ["ASSIGNED", "IN_PROGRESS"],
         },
@@ -580,26 +575,25 @@ export class ProductionService {
     });
   }
 
-  private async initializeProgressTracking(orderId: string): Promise<void> {
-    const order = await (this.prisma as any).productionOrder.findUnique({
-      where: { id: orderId },
-    });
-
+  private async initializeProgressTrackingBatch(
+    orderId: string,
+    estimatedTime: number,
+  ): Promise<void> {
     await (this.prisma as any).progressTracking.create({
       data: {
         orderId,
         overallProgress: 0,
         timeElapsed: 0,
-        timeRemaining: order.estimatedTime,
+        timeRemaining: estimatedTime,
         status: "ON_SCHEDULE",
       },
     });
 
-    // Create initial milestones
-    await this.createMilestones(orderId, order.estimatedTime);
+    // OPTIMIZED: Batch create milestones with createMany
+    await this.createMilestonesBatch(orderId, estimatedTime);
   }
 
-  private async createMilestones(
+  private async createMilestonesBatch(
     orderId: string,
     totalTime: number,
   ): Promise<void> {
@@ -613,21 +607,18 @@ export class ProductionService {
 
     const startTime = new Date();
 
-    for (const milestone of milestones) {
-      const scheduledTime = new Date(
-        startTime.getTime() +
-          ((totalTime * milestone.percentage) / 100) * 60 * 1000,
-      );
-
-      await (this.prisma as any).milestone?.create({
-        data: {
-          orderId,
-          name: milestone.name,
-          scheduledTime,
-          status: "PENDING",
-        },
-      });
-    }
+    // OPTIMIZED: Batch create milestones with createMany
+    await (this.prisma as any).milestone?.createMany({
+      data: milestones.map((milestone) => ({
+        orderId,
+        name: milestone.name,
+        scheduledTime: new Date(
+          startTime.getTime() +
+            ((totalTime * milestone.percentage) / 100) * 60 * 1000,
+        ),
+        status: "PENDING",
+      })),
+    });
   }
 
   private async updateProgressTracking(
@@ -746,7 +737,7 @@ export class ProductionService {
     await (this.prisma as any).staffMember.update({
       where: { id: staffId },
       data: {
-        currentTasks: {
+        assignedTasks: {
           increment: 1,
         },
       },
@@ -757,7 +748,7 @@ export class ProductionService {
     await (this.prisma as any).staffMember.update({
       where: { id: staffId },
       data: {
-        currentTasks: {
+        assignedTasks: {
           decrement: 1,
         },
       },
@@ -842,24 +833,29 @@ export class ProductionService {
 
     const data: any = {};
 
-    data.batches = await (this.prisma as any).workBatch.findMany({
-      where,
-      include: {
-        productionOrders: true,
-      },
-    });
+    // OPTIMIZED: Run queries in parallel instead of sequentially
+    const [batches, orders, tasks, alerts] = await Promise.all([
+      (this.prisma as any).workBatch.findMany({
+        where,
+        include: {
+          productionOrders: true,
+        },
+      }),
+      (this.prisma as any).productionOrder.findMany({
+        where,
+      }),
+      (this.prisma as any).taskAssignment.findMany({
+        where,
+      }),
+      (this.prisma as any).productionAlert.findMany({
+        where,
+      }),
+    ]);
 
-    data.orders = await (this.prisma as any).productionOrder.findMany({
-      where,
-    });
-
-    data.tasks = await (this.prisma as any).taskAssignment.findMany({
-      where,
-    });
-
-    data.alerts = await (this.prisma as any).productionAlert.findMany({
-      where,
-    });
+    data.batches = batches;
+    data.orders = orders;
+    data.tasks = tasks;
+    data.alerts = alerts;
 
     return data;
   }

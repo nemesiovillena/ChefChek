@@ -17,6 +17,13 @@ export interface SubRecipeResponse {
   costPerUnit: number;
 }
 
+export interface RecipeCategoryResponse {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+}
+
 export interface RecipeCostBreakdown {
   ingredientsCost: number;
   subRecipesCost: number;
@@ -42,6 +49,7 @@ export interface RecipeResponse {
   updatedAt: Date;
   ingredients?: IngredientResponse[];
   subRecipes?: SubRecipeResponse[];
+  categories?: RecipeCategoryResponse[];
   costBreakdown?: RecipeCostBreakdown;
   allergens?: number[];
 }

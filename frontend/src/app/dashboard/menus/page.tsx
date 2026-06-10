@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
 
@@ -16,7 +16,7 @@ interface Menu {
 }
 
 export default function MenusPage() {
-  const { user, session, loading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -29,23 +29,42 @@ export default function MenusPage() {
     description: '',
   });
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
-  }
+  // Handle authentication redirect in useEffect, not in render
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    if (session?.id) {
+    if (isAuthenticated) {
       fetchMenus();
     }
-  }, [session]);
+  }, []);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Cargando...</div>
+      </div>
+    );
+  }
 
   const fetchMenus = async () => {
     try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        setPageLoading(false);
+        return;
+      }
+
       const response = await fetch('http://localhost:3001/api/v1/menus', {
         headers: {
-          'Authorization': `Bearer ${session?.id}`,
-          'X-Tenant-Slug': 'default',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
         },
       });
 
@@ -78,7 +97,7 @@ export default function MenusPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.id}`,
+          'Authorization': `Bearer ${user?.id}`,
           'X-Tenant-Slug': 'default',
         },
         body: JSON.stringify(menuData),
@@ -108,7 +127,7 @@ export default function MenusPage() {
     try {
       const response = await fetch(`http://localhost:3001/api/v1/menus/${menuId}`, {
         headers: {
-          'Authorization': `Bearer ${session?.id}`,
+          'Authorization': `Bearer ${user?.id}`,
           'X-Tenant-Slug': 'default',
         },
       });
@@ -126,7 +145,55 @@ export default function MenusPage() {
     }
   };
 
-  if (loading || pageLoading) {
+  const handleToggleStatus = async (menu: Menu) => {
+    try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          message: 'No se encontró una sesión activa.',
+        });
+        return;
+      }
+
+      const response = await fetch(`http://localhost:3001/api/v1/menus/${menu.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
+        },
+        body: JSON.stringify({ isActive: !menu.isActive }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        addNotification({
+          type: 'success',
+          title: 'Estado actualizado',
+          message: `El menú "${menu.name}" ha sido ${!menu.isActive ? 'activado' : 'desactivado'}`,
+        });
+        fetchMenus();
+      } else {
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          message: data.message || 'Error al cambiar el estado del menú',
+        });
+      }
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Error al cambiar el estado del menú',
+      });
+    }
+  };
+
+  if (isLoading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg">Loading...</div>
@@ -204,7 +271,7 @@ export default function MenusPage() {
                   Description
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
@@ -231,13 +298,16 @@ export default function MenusPage() {
                       {menu.description || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        menu.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {menu.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      <button
+                        onClick={() => handleToggleStatus(menu)}
+                        className={`px-2 py-1 rounded-full text-xs font-semibold cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                          menu.isActive
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}
+                      >
+                        {menu.isActive ? 'Activo' : 'Desactivado'}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(menu.createdAt).toLocaleDateString()}
@@ -270,13 +340,13 @@ export default function MenusPage() {
                   </div>
                 )}
                 <div>
-                  <span className="text-gray-600">Status:</span>
+                  <span className="text-gray-600">Estado:</span>
                   <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${
                     selectedMenu.isActive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                   }`}>
-                    {selectedMenu.isActive ? 'Active' : 'Inactive'}
+                    {selectedMenu.isActive ? 'Activo' : 'Desactivado'}
                   </span>
                 </div>
                 <div>

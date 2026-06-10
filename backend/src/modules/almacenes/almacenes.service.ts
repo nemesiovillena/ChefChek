@@ -152,10 +152,6 @@ export class WarehousesService {
       where.productId = query.productId;
     }
 
-    if (query.includeLowStock) {
-      where.quantity = { lte: this.prisma.stock.fields.minimumStock };
-    }
-
     const stocks = await this.prisma.stock.findMany({
       where,
       include: {
@@ -165,11 +161,16 @@ export class WarehousesService {
       orderBy: { quantity: "asc" },
     });
 
+    // Filtrar por stock bajo si se solicita
+    const baseStocks = query.includeLowStock
+      ? stocks.filter((s) => s.quantity <= s.minimumStock)
+      : stocks;
+
     // Filtrar reservados si se solicita
     const result =
       query.includeReserved !== false
-        ? stocks
-        : stocks.filter((s) => s.quantity > s.reservedStock);
+        ? baseStocks
+        : baseStocks.filter((s) => s.quantity > s.reservedStock);
 
     // Calcular stock disponible
     const stocksWithAvailability = result.map((stock) => ({

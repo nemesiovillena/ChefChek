@@ -25,7 +25,11 @@ describe("SessionService", () => {
       session: {
         deleteMany: jest.fn(),
         findMany: jest.fn(),
+        delete: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
       },
+      $transaction: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -217,10 +221,16 @@ describe("SessionService", () => {
       const oldSession = {
         id: "session-1",
         userId: "user-1",
+        ipAddress: "192.168.1.1",
+        userAgent: "Chrome",
       };
       const newSession = {
         id: "session-2",
         userId: "user-1",
+        ipAddress: "127.0.0.1",
+        userAgent: "Mozilla",
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
       };
       const mockCookie = {
         serialize: jest.fn().mockReturnValue("new-cookie"),
@@ -230,8 +240,12 @@ describe("SessionService", () => {
         session: oldSession,
         user: { id: "user-1" },
       });
-      mockLucia.invalidateSession.mockResolvedValue(undefined);
-      mockLucia.createSession.mockResolvedValue(newSession);
+      prismaService.session.findUnique.mockResolvedValue(oldSession);
+      prismaService.session.delete.mockResolvedValue(undefined);
+      prismaService.session.create.mockResolvedValue(newSession);
+      prismaService.$transaction.mockImplementation(async (callback) => {
+        return callback(prismaService);
+      });
       mockLucia.createSessionCookie.mockReturnValue(mockCookie);
 
       const result = await service.refreshSession(
@@ -242,11 +256,7 @@ describe("SessionService", () => {
 
       expect(result.session.id).toBe("session-2");
       expect(result.cookie).toBe("new-cookie");
-      expect(mockLucia.invalidateSession).toHaveBeenCalledWith("session-1");
-      expect(mockLucia.createSession).toHaveBeenCalledWith("user-1", {
-        ipAddress: "127.0.0.1",
-        userAgent: "Mozilla",
-      });
+      expect(prismaService.$transaction).toHaveBeenCalled();
     });
 
     it("should throw error for invalid session", async () => {
@@ -257,6 +267,21 @@ describe("SessionService", () => {
 
       await expect(service.refreshSession("invalid")).rejects.toThrow(
         "Invalid session",
+      );
+    });
+
+    it("should throw error if session already invalidated", async () => {
+      mockLucia.validateSession.mockResolvedValue({
+        session: { id: "session-1", userId: "user-1" },
+        user: { id: "user-1" },
+      });
+      prismaService.session.findUnique.mockResolvedValue(null);
+      prismaService.$transaction.mockImplementation(async (callback) => {
+        return callback(prismaService);
+      });
+
+      await expect(service.refreshSession("session-1")).rejects.toThrow(
+        "Session already invalidated",
       );
     });
   });

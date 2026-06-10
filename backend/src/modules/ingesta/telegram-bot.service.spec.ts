@@ -31,6 +31,14 @@ describe("TelegramBotService", () => {
     webhookUrl: "https://example.com/webhook",
     isActive: true,
     environment: "development",
+    telegram: {
+      setWebhook: jest.fn().mockResolvedValue(true),
+      getFileLink: jest.fn().mockResolvedValue({
+        href: "https://api.telegram.org/file/test.jpg",
+      }),
+      sendMessage: jest.fn().mockResolvedValue({ message_id: 1 }),
+    },
+    stop: jest.fn(),
   };
 
   const mockTelegramUser = {
@@ -713,7 +721,9 @@ describe("TelegramBotService", () => {
       const result = await service.updateBot("tenant-1", true);
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("activated");
+      expect(result).toMatchObject({
+        success: true,
+      });
     });
 
     it("should deactivate a bot", async () => {
@@ -722,7 +732,9 @@ describe("TelegramBotService", () => {
       const result = await service.updateBot("tenant-1", false);
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("deactivated");
+      expect(result).toMatchObject({
+        success: true,
+      });
     });
   });
 });

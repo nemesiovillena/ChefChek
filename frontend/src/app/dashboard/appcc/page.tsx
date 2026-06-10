@@ -2,897 +2,484 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/auth.context';
+import { useAppcc } from '@/hooks/use-appcc';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Thermometer,
   ClipboardCheck,
-  Bug,
-  Package,
-  AlertTriangle,
-  TrendingUp,
-  Calendar,
-  Users,
-  Download,
-  Search,
-  Filter,
   Plus,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Info,
+  Loader2,
+  TrendingUp,
 } from 'lucide-react';
 
-interface TemperatureControl {
-  id: string;
-  type: string;
-  location: string;
-  targetTemperature: number;
-  tolerance: number;
-  unit: string;
-}
-
-interface TemperatureMeasurement {
-  id: string;
-  temperature: number;
-  withinRange: boolean;
-  recordedAt: Date;
-  notes?: string;
-}
-
-interface CleaningPlan {
-  id: string;
-  name: string;
-  frequency: string;
-  description?: string;
-  responsible: string[];
-  tasks: CleaningTask[];
-}
-
-interface CleaningTask {
-  id: string;
-  area: string;
-  description: string;
-  completed: boolean;
-  completedAt?: Date;
-}
-
-interface PestControl {
-  id: string;
-  company: string;
-  type: string;
-  date: Date;
-  nextDate: Date;
-  products: string[];
-  areasAfectadas: string[];
-  responsable: string;
-}
-
-interface GoodsReception {
-  id: string;
-  proveedorId: string;
-  temperaturaAlRecepcion: number;
-  temperaturaAceptable: number;
-  lote: string;
-  caducidad: Date;
-  albaran: string;
-  productos: Array<{
-    productId: string;
-    quantity: number;
-    unit: string;
-    temperature: number;
-  }>;
-}
-
-interface Alert {
-  id: string;
-  severity: string;
-  type: string;
-  title: string;
-  message: string;
-  status: string;
-  createdAt: Date;
-}
-
-interface ComplianceKPI {
-  temperatureCompliance: number;
-  cleaningCompliance: number;
-  pestControlCoverage: number;
-  goodsAcceptanceRate: number;
-  alertResponseTime: number;
-  overallCompliance: number;
-}
-
 export const dynamic = 'force-dynamic';
+
 export default function AppccPage() {
-  const [activeTab, setActiveTab] = useState('temperature');
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { controls, measurements, isLoading, error, refetch, createControl, recordMeasurement, isCreating } = useAppcc();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isRecordMeasurementModalOpen, setIsRecordMeasurementModalOpen] = useState(false);
+  const [selectedControlId, setSelectedControlId] = useState('');
+  const [newControlName, setNewControlName] = useState('');
+  const [newControlDescription, setNewControlDescription] = useState('');
+  const [newControlType, setNewControlType] = useState('');
+  const [newControlCriticalLimit, setNewControlCriticalLimit] = useState('');
+  const [newControlFrequency, setNewControlFrequency] = useState('');
+  const [measurementValue, setMeasurementValue] = useState('');
+  const [measurementUnit, setMeasurementUnit] = useState('');
+  const [measurementNotes, setMeasurementNotes] = useState('');
+  const [currentStep, setCurrentStep] = useState(0);
 
-  // Temperature Controls State
-  const [temperatureControls, setTemperatureControls] = useState<TemperatureControl[]>([]);
-  const [selectedControl, setSelectedControl] = useState<TemperatureControl | null>(null);
-  const [measurements, setMeasurements] = useState<TemperatureMeasurement[]>([]);
-  const [newTemp, setNewTemp] = useState('');
-  const [tempNotes, setTempNotes] = useState('');
-
-  // Cleaning Plans State
-  const [cleaningPlans, setCleaningPlans] = useState<CleaningPlan[]>([]);
-  const [newCleaningPlan, setNewCleaningPlan] = useState({
-    name: '',
-    frequency: 'DAILY',
-    description: '',
-  });
-
-  // Pest Controls State
-  const [pestControls, setPestControls] = useState<PestControl[]>([]);
-
-  // Goods Reception State
-  const [goodsReceptions, setGoodsReceptions] = useState<GoodsReception[]>([]);
-
-  // Alerts State
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [alertFilter, setAlertFilter] = useState('');
-
-  // Compliance State
-  const [complianceKPIs, setComplianceKPIs] = useState<ComplianceKPI | null>(null);
-  const [reportPeriod, setReportPeriod] = useState('MONTHLY');
-
+  // Auth redirect
   useEffect(() => {
-    loadTemperatureControls();
-    loadCleaningPlans();
-    loadPestControls();
-    loadGoodsReceptions();
-    loadAlerts();
-  }, []);
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
-  const loadTemperatureControls = async () => {
-    // Mock data - replace with API call
-    setTemperatureControls([
-      {
-        id: '1',
-        type: 'CAMERA',
-        location: 'Cámara de Congelación',
-        targetTemperature: -18,
-        tolerance: 2,
-        unit: 'CELSIUS',
-      },
-      {
-        id: '2',
-        type: 'CAMERA',
-        location: 'Cámara de Refrigeración',
-        targetTemperature: 4,
-        tolerance: 2,
-        unit: 'CELSIUS',
-      },
-    ]);
-  };
+  // Prevent isLoading if not authenticated
+  if (authLoading || !isAuthenticated) {
+    return null;
+  }
 
-  const loadMeasurements = async (controlId: string) => {
-    // Mock data - replace with API call
-    setMeasurements([
-      {
-        id: '1',
-        temperature: -17.5,
-        withinRange: true,
-        recordedAt: new Date(),
-        notes: 'Todo en orden',
-      },
-      {
-        id: '2',
-        temperature: -16.8,
-        withinRange: true,
-        recordedAt: new Date(Date.now() - 3600000),
-        notes: '',
-      },
-    ]);
-  };
+  const steps = [
+    { title: 'Controles', icon: Thermometer },
+    { title: 'Mediciones', icon: TrendingUp },
+  ];
 
-  const handleRecordTemperature = async () => {
-    if (!newTemp || !selectedControl) return;
+  const handleCreateControl = async () => {
+    if (!newControlName.trim() || !newControlType.trim()) return;
 
-    const temperature = parseFloat(newTemp);
-    const isWithinRange =
-      temperature >= selectedControl.targetTemperature - selectedControl.tolerance &&
-      temperature <= selectedControl.targetTemperature + selectedControl.tolerance;
-
-    const newMeasurement: TemperatureMeasurement = {
-      id: Date.now().toString(),
-      temperature,
-      withinRange: isWithinRange,
-      recordedAt: new Date(),
-      notes: tempNotes,
-    };
-
-    setMeasurements([newMeasurement, ...measurements]);
-    setNewTemp('');
-    setTempNotes('');
-  };
-
-  const loadCleaningPlans = async () => {
-    // Mock data - replace with API call
-    setCleaningPlans([
-      {
-        id: '1',
-        name: 'Limpieza Diaria Cocina',
-        frequency: 'DAILY',
-        description: 'Limpieza diaria de todas las zonas de cocina',
-        responsible: ['Juan', 'María'],
-        tasks: [
-          { id: '1', area: 'Parrilla', description: 'Limpiar parrilla', completed: true },
-          { id: '2', area: 'Frigorífico', description: 'Limpiar frigorífico', completed: false },
-        ],
-      },
-    ]);
-  };
-
-  const loadPestControls = async () => {
-    // Mock data - replace with API call
-    setPestControls([
-      {
-        id: '1',
-        company: 'PestControl S.L.',
-        type: 'RATS',
-        date: new Date('2026-05-15'),
-        nextDate: new Date('2026-08-15'),
-        products: ['Raticida X', 'Trampa especial'],
-        areasAfectadas: ['Cocina', 'Almacén'],
-        responsable: 'Juan Pérez',
-      },
-    ]);
-  };
-
-  const loadGoodsReceptions = async () => {
-    // Mock data - replace with API call
-    setGoodsReceptions([
-      {
-        id: '1',
-        proveedorId: '1',
-        temperaturaAlRecepcion: 5,
-        temperaturaAceptable: 7,
-        lote: 'L001',
-        caducidad: new Date('2026-12-01'),
-        albaran: 'A-2026-001',
-        productos: [
-          {
-            productId: '1',
-            quantity: 10,
-            unit: 'kg',
-            temperature: 5,
-          },
-        ],
-      },
-    ]);
-  };
-
-  const loadAlerts = async () => {
-    // Mock data - replace with API call
-    setAlerts([
-      {
-        id: '1',
-        severity: 'HIGH',
-        type: 'TEMPERATURE',
-        title: 'Alerta de Temperatura - Cámara de Congelación',
-        message: 'Temperatura -15°C fuera de rango (-18°C ± 2°C)',
-        status: 'OPEN',
-        createdAt: new Date(),
-      },
-      {
-        id: '2',
-        severity: 'MEDIUM',
-        type: 'CLEANING',
-        title: 'Recordatorio de Limpieza - Limpieza Diaria Cocina',
-        message: '1 tarea pendiente del plan "Limpieza Diaria Cocina"',
-        status: 'OPEN',
-        createdAt: new Date(),
-      },
-    ]);
-  };
-
-  const handleGenerateComplianceReport = async () => {
-    // Mock data - replace with API call
-    setComplianceKPIs({
-      temperatureCompliance: 95,
-      cleaningCompliance: 88,
-      pestControlCoverage: 100,
-      goodsAcceptanceRate: 92,
-      alertResponseTime: 45,
-      overallCompliance: 91.67,
-    });
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'CRITICAL':
-        return 'bg-red-500';
-      case 'HIGH':
-        return 'bg-orange-500';
-      case 'MEDIUM':
-        return 'bg-yellow-500';
-      case 'LOW':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-500';
+    try {
+      await createControl({
+        name: newControlName,
+        description: newControlDescription || undefined,
+        type: newControlType,
+        criticalLimit: newControlCriticalLimit || undefined,
+        frequency: newControlFrequency || undefined,
+      });
+      setIsCreateModalOpen(false);
+      setNewControlName('');
+      setNewControlDescription('');
+      setNewControlType('');
+      setNewControlCriticalLimit('');
+      setNewControlFrequency('');
+      refetch();
+    } catch (error) {
+      console.error('Error creating control:', error);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'OPEN':
-        return 'bg-blue-500';
-      case 'IN_PROGRESS':
-        return 'bg-yellow-500';
-      case 'RESOLVED':
-        return 'bg-green-500';
-      case 'CLOSED':
-        return 'bg-gray-500';
+  const handleRecordMeasurement = async () => {
+    if (!selectedControlId || !measurementValue.trim() || !measurementUnit.trim()) return;
+
+    try {
+      await recordMeasurement({
+        controlId: selectedControlId,
+        value: parseFloat(measurementValue),
+        unit: measurementUnit,
+        notes: measurementNotes || undefined,
+      });
+      setIsRecordMeasurementModalOpen(false);
+      setSelectedControlId('');
+      setMeasurementValue('');
+      setMeasurementUnit('');
+      setMeasurementNotes('');
+      refetch();
+    } catch (error) {
+      console.error('Error recording measurement:', error);
+    }
+  };
+
+  const getControlStatusBadge = (status: string) => {
+    const statusConfig: any = {
+      pending: { label: 'Pendiente', variant: 'secondary' },
+      in_progress: { label: 'En Progreso', variant: 'default' },
+      completed: { label: 'Completado', variant: 'default' },
+      failed: { label: 'Fallido', variant: 'destructive' },
+    };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    return (
+      <Badge variant={config.variant}>
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Controles APPCC</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => refetch()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Actualizar
+                </Button>
+                <Button onClick={() => setIsCreateModalOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo Control
+                </Button>
+              </div>
+            </div>
+
+            {isCreateModalOpen && (
+              <Card className="p-6">
+                <CardHeader>
+                  <CardTitle>Crear Nuevo Control</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Nombre del Control</Label>
+                    <Input
+                      value={newControlName}
+                      onChange={(e) => setNewControlName(e.target.value)}
+                      placeholder="Temperatura de congelación"
+                    />
+                  </div>
+                  <div>
+                    <Label>Descripción (opcional)</Label>
+                    <Textarea
+                      value={newControlDescription}
+                      onChange={(e) => setNewControlDescription(e.target.value)}
+                      placeholder="Descripción del control"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <Input
+                      value={newControlType}
+                      onChange={(e) => setNewControlType(e.target.value)}
+                      placeholder="TEMPERATURE, CLEANING, etc."
+                    />
+                  </div>
+                  <div>
+                    <Label>Límite Crítico (opcional)</Label>
+                    <Input
+                      value={newControlCriticalLimit}
+                      onChange={(e) => setNewControlCriticalLimit(e.target.value)}
+                      placeholder="-18°C"
+                    />
+                  </div>
+                  <div>
+                    <Label>Frecuencia (opcional)</Label>
+                    <Input
+                      value={newControlFrequency}
+                      onChange={(e) => setNewControlFrequency(e.target.value)}
+                      placeholder="Diario, Semanal, etc."
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => setIsCreateModalOpen(false)} variant="outline">
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleCreateControl} disabled={isCreating}>
+                      {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Crear Control
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  No se pudieron cargar los controles APPCC. Por favor intenta nuevamente.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <ScrollArea className="h-[calc(100vh-350px)]">
+                <div className="grid gap-4">
+                  {controls.length === 0 ? (
+                    <Card className="p-12 flex flex-col items-center justify-center">
+                      <Thermometer className="h-16 w-16 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Sin controles APPCC</h3>
+                      <p className="text-sm text-muted-foreground text-center mb-4">
+                        Crea tu primer control para empezar a gestionar la seguridad alimentaria
+                      </p>
+                      <Button onClick={() => setIsCreateModalOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Crear Primer Control
+                      </Button>
+                    </Card>
+                  ) : (
+                    controls.map((control) => (
+                      <Card key={control.id} className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-semibold">{control.name}</h3>
+                              <Badge variant="outline">{control.type}</Badge>
+                              {getControlStatusBadge(control.status)}
+                            </div>
+                            {control.description && (
+                              <p className="text-sm text-muted-foreground mb-2">{control.description}</p>
+                            )}
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              {control.criticalLimit && (
+                                <div className="flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span>Límite: {control.criticalLimit}</span>
+                                </div>
+                              )}
+                              {control.frequency && (
+                                <div className="flex items-center gap-2">
+                                  <ClipboardCheck className="h-4 w-4" />
+                                  <span>Frecuencia: {control.frequency}</span>
+                                </div>
+                              )}
+                              {control.nextDueDate && (
+                                <div className="flex items-center gap-2">
+                                  <Info className="h-4 w-4" />
+                                  <span>Próximo: {new Date(control.nextDueDate).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <span>Creado: {new Date(control.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            {control.lastMeasurement && control.lastMeasurementValue && (
+                              <div className="mt-3 p-3 bg-muted rounded">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm">
+                                    Última medición: <strong>{control.lastMeasurementValue}</strong>
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(control.lastMeasurement).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        );
+
+      case 1:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Mediciones</h2>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => refetch()}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Actualizar
+                </Button>
+                <Button onClick={() => setIsRecordMeasurementModalOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva Medición
+                </Button>
+              </div>
+            </div>
+
+            {isRecordMeasurementModalOpen && (
+              <Card className="p-6">
+                <CardHeader>
+                  <CardTitle>Registrar Nueva Medición</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Control</Label>
+                    <Select value={selectedControlId} onValueChange={(value) => setSelectedControlId(value || '')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un control" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {controls.map((control) => (
+                          <SelectItem key={control.id} value={control.id}>
+                            {control.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Valor</Label>
+                    <Input
+                      value={measurementValue}
+                      onChange={(e) => setMeasurementValue(e.target.value)}
+                      type="number"
+                      step="0.1"
+                      placeholder="-18.5"
+                    />
+                  </div>
+                  <div>
+                    <Label>Unidad</Label>
+                    <Input
+                      value={measurementUnit}
+                      onChange={(e) => setMeasurementUnit(e.target.value)}
+                      placeholder="°C, %, etc."
+                    />
+                  </div>
+                  <div>
+                    <Label>Notas (opcional)</Label>
+                    <Textarea
+                      value={measurementNotes}
+                      onChange={(e) => setMeasurementNotes(e.target.value)}
+                      placeholder="Observaciones sobre la medición"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => setIsRecordMeasurementModalOpen(false)} variant="outline">
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleRecordMeasurement} disabled={isCreating}>
+                      {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Registrar Medición
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  No se pudieron cargar las mediciones. Por favor intenta nuevamente.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <ScrollArea className="h-[calc(100vh-350px)]">
+                <div className="grid gap-4">
+                  {measurements.length === 0 ? (
+                    <Card className="p-12 flex flex-col items-center justify-center">
+                      <TrendingUp className="h-16 w-16 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Sin mediciones</h3>
+                      <p className="text-sm text-muted-foreground text-center mb-4">
+                        Registra mediciones para los controles APPCC
+                      </p>
+                      <Button onClick={() => setIsRecordMeasurementModalOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Registrar Primera Medición
+                      </Button>
+                    </Card>
+                  ) : (
+                    measurements.map((measurement) => (
+                      <Card key={measurement.id} className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-semibold">
+                                {controls.find(c => c.id === measurement.controlId)?.name || 'Control desconocido'}
+                              </h3>
+                              <Badge variant="outline">
+                                {measurement.value} {measurement.unit}
+                              </Badge>
+                            </div>
+                            {measurement.notes && (
+                              <p className="text-sm text-muted-foreground mb-2">{measurement.notes}</p>
+                            )}
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Registrado: {new Date(measurement.measuredAt).toLocaleString()}</span>
+                              </div>
+                              {measurement.measuredBy && (
+                                <div className="flex items-center gap-2">
+                                  <Info className="h-4 w-4" />
+                                  <span>Por: {measurement.measuredBy}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        );
+
       default:
-        return 'bg-gray-500';
+        return null;
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Control Sanitario APPCC</h1>
-          <p className="text-muted-foreground">
-            Sistema de registro y seguimiento de controles sanitarios
-          </p>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Control Sanitario APPCC</h1>
+        <p className="text-muted-foreground mt-1">
+          Sistema de registro y seguimiento de controles sanitarios
+        </p>
+      </div>
+
+      <div className="mb-8">
+        <div className="flex items-center gap-2">
+          {steps.map((step, index) => (
+            <div key={step.title} className="flex items-center">
+              <button
+                onClick={() => setCurrentStep(index)}
+                className={`flex flex-col items-center gap-1 transition-all ${
+                  currentStep === index
+                    ? 'scale-110'
+                    : 'hover:scale-105'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    currentStep >= index
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  <step.icon className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-medium">{step.title}</span>
+              </button>
+              {index < steps.length - 1 && (
+                <div
+                  className={`w-16 h-1 ${
+                    currentStep > index ? 'bg-primary' : 'bg-muted'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="temperature">
-            <Thermometer className="mr-2 h-4 w-4" />
-            Temperatura
-          </TabsTrigger>
-          <TabsTrigger value="cleaning">
-            <ClipboardCheck className="mr-2 h-4 w-4" />
-            Limpieza
-          </TabsTrigger>
-          <TabsTrigger value="pest">
-            <Bug className="mr-2 h-4 w-4" />
-            Plagas
-          </TabsTrigger>
-          <TabsTrigger value="reception">
-            <Package className="mr-2 h-4 w-4" />
-            Recepciones
-          </TabsTrigger>
-          <TabsTrigger value="alerts">
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Alertas
-          </TabsTrigger>
-          <TabsTrigger value="compliance">
-            <TrendingUp className="mr-2 h-4 w-4" />
-            Cumplimiento
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Temperature Controls */}
-        <TabsContent value="temperature" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Thermometer className="h-5 w-5" />
-                  Controles de Temperatura
-                </CardTitle>
-                <CardDescription>
-                  Selecciona un control para registrar temperaturas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {temperatureControls.map((control) => (
-                    <div
-                      key={control.id}
-                      onClick={() => {
-                        setSelectedControl(control);
-                        loadMeasurements(control.id);
-                      }}
-                      className={`p-4 rounded-lg border cursor-pointer transition-colors ${
-                        selectedControl?.id === control.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium">{control.location}</p>
-                          <p className="text-sm opacity-80">
-                            Target: {control.targetTemperature}°C ± {control.tolerance}°C
-                          </p>
-                        </div>
-                        <Badge variant="outline">{control.type}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Registro de Temperatura</CardTitle>
-                <CardDescription>
-                  {selectedControl
-                    ? `Registrando para: ${selectedControl.location}`
-                    : 'Selecciona un control para registrar'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {!selectedControl ? (
-                  <p className="text-sm text-muted-foreground">
-                    Selecciona un control de temperatura para comenzar
-                  </p>
-                ) : (
-                  <>
-                    <div>
-                      <Label htmlFor="temperature">Temperatura (°C)</Label>
-                      <Input
-                        id="temperature"
-                        type="number"
-                        step="0.1"
-                        placeholder="Ej: -18.5"
-                        value={newTemp}
-                        onChange={(e) => setNewTemp(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="notes">Notas (opcional)</Label>
-                      <Textarea
-                        id="notes"
-                        placeholder="Observaciones sobre el registro"
-                        value={tempNotes}
-                        onChange={(e) => setTempNotes(e.target.value)}
-                      />
-                    </div>
-                    <Button onClick={handleRecordTemperature} className="w-full">
-                      <Thermometer className="mr-2 h-4 w-4" />
-                      Registrar Temperatura
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {selectedControl && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de Mediciones</CardTitle>
-                <CardDescription>Últimos registros de temperatura</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {measurements.map((measurement) => (
-                    <div
-                      key={measurement.id}
-                      className={`p-4 rounded-lg border ${
-                        measurement.withinRange
-                          ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
-                          : 'bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-lg">
-                            {measurement.temperature}°{selectedControl.unit}
-                          </p>
-                          <p className="text-sm opacity-80">
-                            {new Date(measurement.recordedAt).toLocaleString('es-ES')}
-                          </p>
-                          {measurement.notes && (
-                            <p className="text-sm mt-2">{measurement.notes}</p>
-                          )}
-                        </div>
-                        <Badge
-                          variant={measurement.withinRange ? 'default' : 'destructive'}
-                        >
-                          {measurement.withinRange ? 'En rango' : 'Fuera de rango'}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Cleaning Plans */}
-        <TabsContent value="cleaning" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5" />
-                Planes de Limpieza
-              </CardTitle>
-              <CardDescription>
-                Gestiona los planes de limpieza y tareas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {cleaningPlans.map((plan) => (
-                  <div key={plan.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium text-lg">{plan.name}</h3>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge variant="outline">{plan.frequency}</Badge>
-                          {plan.responsible.map((resp) => (
-                            <Badge key={resp} variant="secondary">
-                              {resp}
-                            </Badge>
-                          ))}
-                        </div>
-                        {plan.description && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {plan.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Tareas:</p>
-                      {plan.tasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`p-3 rounded border ${
-                            task.completed
-                              ? 'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
-                              : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800'
-                          }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium">{task.description}</p>
-                              <p className="text-sm text-muted-foreground">{task.area}</p>
-                              {task.completedAt && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Completado: {new Date(task.completedAt).toLocaleString('es-ES')}
-                                </p>
-                              )}
-                            </div>
-                            <Badge variant={task.completed ? 'default' : 'secondary'}>
-                              {task.completed ? 'Completado' : 'Pendiente'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Pest Controls */}
-        <TabsContent value="pest" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bug className="h-5 w-5" />
-                Control de Plagas
-              </CardTitle>
-              <CardDescription>
-                Registro de tratamientos de control de plagas
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {pestControls.map((pest) => (
-                  <div key={pest.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-medium text-lg">{pest.company}</h3>
-                        <Badge variant="outline" className="mt-2">
-                          {pest.type}
-                        </Badge>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">
-                          Fecha: {new Date(pest.date).toLocaleDateString('es-ES')}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Próximo: {new Date(pest.nextDate).toLocaleDateString('es-ES')}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <p className="text-sm font-medium mb-2">Productos:</p>
-                        <div className="space-y-1">
-                          {pest.products.map((product, idx) => (
-                            <Badge key={idx} variant="secondary">
-                              {product}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium mb-2">Áreas Afectadas:</p>
-                        <div className="space-y-1">
-                          {pest.areasAfectadas.map((area, idx) => (
-                            <Badge key={idx} variant="outline">
-                              {area}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        Responsable: {pest.responsable}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Goods Reception */}
-        <TabsContent value="reception" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Recepción de Mercancías
-              </CardTitle>
-              <CardDescription>
-                Control de recepción y validación de productos
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {goodsReceptions.map((reception) => (
-                  <div key={reception.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-medium text-lg">
-                          Albarán: {reception.albaran}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          Lote: {reception.lote}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          reception.temperaturaAlRecepcion <= reception.temperaturaAceptable
-                            ? 'default'
-                            : 'destructive'
-                        }
-                      >
-                        {reception.temperaturaAlRecepcion <= reception.temperaturaAceptable
-                          ? 'Aceptado'
-                          : 'Rechazado'}
-                      </Badge>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Temperatura Recepción</p>
-                        <p className="font-medium">{reception.temperaturaAlRecepcion}°C</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Temperatura Aceptable</p>
-                        <p className="font-medium">{reception.temperaturaAceptable}°C</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Caducidad</p>
-                        <p className="font-medium">
-                          {new Date(reception.caducidad).toLocaleDateString('es-ES')}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-sm font-medium mb-2">Productos:</p>
-                      <div className="space-y-2">
-                        {reception.productos.map((product, idx) => (
-                          <div
-                            key={idx}
-                            className="flex justify-between items-center p-2 bg-muted rounded"
-                          >
-                            <span className="text-sm">
-                              Producto {idx + 1}: {product.quantity} {product.unit}
-                            </span>
-                            <Badge variant="outline">{product.temperature}°C</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Alerts */}
-        <TabsContent value="alerts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
-                Sistema de Alertas
-              </CardTitle>
-              <CardDescription>
-                Gestiona y monitorea alertas y recordatorios
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {alerts
-                  .filter((alert) => {
-                    if (!alertFilter) return true;
-                    return alert.type.toLowerCase().includes(alertFilter.toLowerCase());
-                  })
-                  .map((alert) => (
-                    <div key={alert.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge className={getSeverityColor(alert.severity)}>
-                              {alert.severity}
-                            </Badge>
-                            <Badge className={getStatusColor(alert.status)}>
-                              {alert.status}
-                            </Badge>
-                            <Badge variant="outline">{alert.type}</Badge>
-                          </div>
-                          <h3 className="font-medium text-lg">{alert.title}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {alert.message}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Creado: {new Date(alert.createdAt).toLocaleString('es-ES')}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Compliance Reports */}
-        <TabsContent value="compliance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Reporte de Cumplimiento APPCC
-              </CardTitle>
-              <CardDescription>
-                Genera reportes de cumplimiento y KPIs sanitarios
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="period">Periodo</Label>
-                  <Select value={reportPeriod} onValueChange={(v) => setReportPeriod(v || 'MONTHLY')}>
-                    <SelectTrigger id="period">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DAILY">Diario</SelectItem>
-                      <SelectItem value="WEEKLY">Semanal</SelectItem>
-                      <SelectItem value="MONTHLY">Mensual</SelectItem>
-                      <SelectItem value="QUARTERLY">Trimestral</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end">
-                  <Button onClick={handleGenerateComplianceReport}>
-                    <TrendingUp className="mr-2 h-4 w-4" />
-                    Generar Reporte
-                  </Button>
-                </div>
-              </div>
-
-              {complianceKPIs && (
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Cumplimiento General
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.overallCompliance.toFixed(1)}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Cumplimiento Temperaturas
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.temperatureCompliance.toFixed(1)}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Cumplimiento Limpieza
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.cleaningCompliance.toFixed(1)}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Tasa Aceptación Mercancías
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.goodsAcceptanceRate.toFixed(1)}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Cobertura Control Plagas
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.pestControlCoverage.toFixed(1)}%
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium">
-                          Tiempo Respuesta Alertas
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-3xl font-bold">
-                          {complianceKPIs.alertResponseTime.toFixed(1)} min
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <div className="border-t pt-6">{renderStepContent()}</div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { AppLogger } from "../../common/logger/logger.service";
 
 interface EmailTemplate {
   subject: string;
@@ -9,12 +10,18 @@ interface EmailTemplate {
 @Injectable()
 export class EmailService {
   private readonly fromEmail = process.env.EMAIL_FROM || "noreply@chefchek.com";
+  private readonly logger = new AppLogger();
+
+  constructor() {
+    this.logger.setContext("EmailService");
+  }
 
   async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     // En producción, esto usaría un servicio real como SendGrid, SES, etc.
-    console.log(`[Email Mock] Sending to: ${to}`);
-    console.log(`[Email Mock] Subject: ${template.subject}`);
-    console.log(`[Email Mock] Body length: ${template.html.length}`);
+    this.logger.info(`Email sent to: ${to}`, {
+      subject: template.subject,
+      bodyLength: template.html.length,
+    });
 
     return true;
   }

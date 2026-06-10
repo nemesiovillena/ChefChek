@@ -10,8 +10,39 @@ import {
   MaxLength,
   IsPositive,
   IsBoolean,
-  IsIn,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
+
+export class PurchaseFormatDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  format: string;
+
+  @IsNumber()
+  @IsPositive()
+  price: number;
+}
+
+export class NutritionalInfoDto {
+  @IsOptional() @IsNumber() @Min(0) energyKj?: number;
+  @IsOptional() @IsNumber() @Min(0) energyKcal?: number;
+  @IsOptional() @IsNumber() @Min(0) fat?: number;
+  @IsOptional() @IsNumber() @Min(0) saturatedFat?: number;
+  @IsOptional() @IsNumber() @Min(0) transFat?: number;
+  @IsOptional() @IsNumber() @Min(0) monounsaturatedFat?: number;
+  @IsOptional() @IsNumber() @Min(0) polyunsaturatedFat?: number;
+  @IsOptional() @IsNumber() @Min(0) omega3?: number;
+  @IsOptional() @IsNumber() @Min(0) cholesterol?: number;
+  @IsOptional() @IsNumber() @Min(0) carbohydrates?: number;
+  @IsOptional() @IsNumber() @Min(0) sugars?: number;
+  @IsOptional() @IsNumber() @Min(0) protein?: number;
+  @IsOptional() @IsNumber() @Min(0) salt?: number;
+}
 
 export class CreateProductDto {
   @IsString()
@@ -34,15 +65,15 @@ export class CreateProductDto {
   // Multi-unidad
   @IsString()
   @IsNotEmpty()
-  purchaseUnit: string; // UC: Caja 10kg, Bote 300uds
+  purchaseUnit: string;
 
   @IsString()
   @IsNotEmpty()
-  storageUnit: string; // UA: Kilogramos, Litros
+  storageUnit: string;
 
   @IsString()
   @IsNotEmpty()
-  recipeUnit: string; // UR: Gramos, Mililitros
+  recipeUnit: string;
 
   // Precios
   @IsNumber()
@@ -74,9 +105,61 @@ export class CreateProductDto {
   yieldFactor?: number;
 
   // Alérgenos
+  @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
   allergens?: number[];
+
+  // Campos extendidos
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  iva?: number;
+
+  @IsOptional()
+  @IsString()
+  qr?: string;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hideAllergens?: boolean;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  // Formatos de compra
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseFormatDto)
+  purchaseFormats?: PurchaseFormatDto[];
+
+  // Información nutricional
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NutritionalInfoDto)
+  nutritionalInfo?: NutritionalInfoDto;
+
+  // Stock
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minimumStock?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  maximumStock?: number;
 }
 
 export class UpdateProductDto {
@@ -146,6 +229,57 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // Campos extendidos
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  iva?: number;
+
+  @IsOptional()
+  @IsString()
+  qr?: string;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string;
+
+  @IsOptional()
+  @IsString()
+  brand?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hideAllergens?: boolean;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
+
+  // Formatos de compra
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseFormatDto)
+  purchaseFormats?: PurchaseFormatDto[];
+
+  // Información nutricional
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NutritionalInfoDto)
+  nutritionalInfo?: NutritionalInfoDto;
+
+  // Stock
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minimumStock?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  maximumStock?: number;
 }
 
 export class ProductsQueryDto {

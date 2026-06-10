@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -17,8 +16,7 @@ interface TenantConfig {
 }
 
 export default function SettingsPage() {
-  const t = useTranslations('nav');
-  const { user, session, loading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [config, setConfig] = useState<TenantConfig | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -28,23 +26,42 @@ export default function SettingsPage() {
     domain: '',
   });
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
+  // Handle authentication redirect in useEffect, not in render
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   useEffect(() => {
-    if (session?.id && user?.tenantId) {
-      fetchTenantConfig(session?.id, user?.tenantId);
+    if (isAuthenticated && user?.tenantId) {
+      fetchTenantConfig(user?.tenantId);
     }
-  }, [session, user]);
+  }, [isAuthenticated, user?.tenantId]);
 
-  const fetchTenantConfig = async (sessionId: string, tenantId: string) => {
+  const fetchTenantConfig = async (tenantId: string) => {
     try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        setPageLoading(false);
+        return;
+      }
+
       const response = await fetch(`http://localhost:3001/api/v1/tenants/${tenantId}`, {
         headers: {
           'Authorization': `Bearer ${sessionId}`,
-          'X-Tenant-Slug': 'default',
+          'X-Tenant-Slug': tenantSlug,
         },
       });
 
@@ -65,15 +82,23 @@ export default function SettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!config || !session?.id) return;
+    if (!config) return;
 
     try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        alert('No session found. Please log in again.');
+        return;
+      }
+
       const response = await fetch(`http://localhost:3001/api/v1/tenants/${config.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.id}`,
-          'X-Tenant-Slug': 'default',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
         },
         body: JSON.stringify(formData),
       });
@@ -98,7 +123,7 @@ export default function SettingsPage() {
     console.log('Currency changed to:', currency);
   };
 
-  if (loading || pageLoading) {
+  if (isLoading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg">Loading...</div>
@@ -109,7 +134,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('settings')}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Configuración</h1>
 
         {/* Tenant Information */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">

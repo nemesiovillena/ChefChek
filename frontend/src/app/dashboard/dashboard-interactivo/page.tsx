@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth.context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,9 +89,9 @@ export const dynamic = 'force-dynamic';
 
 export default function DashboardInteractivoPage() {
   const router = useRouter();
-  const { session, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(DashboardStep.KPI_METRICS);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Auth redirect
@@ -101,7 +101,7 @@ export default function DashboardInteractivoPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Prevent loading if not authenticated
+  // Prevent isLoading if not authenticated
   if (authLoading || !isAuthenticated) {
     return null;
   }
@@ -121,15 +121,15 @@ export default function DashboardInteractivoPage() {
   }, [period]);
 
   const loadDashboardData = async () => {
-    if (!session?.id) {
-      console.error('No session available');
+    if (!user?.id) {
+      console.error('No user available');
       return;
     }
 
     setLoading(true);
     try {
       const headers = {
-        'Authorization': `Bearer ${session.id}`,
+        'Authorization': `Bearer ${user.id}`,
         'Content-Type': 'application/json',
       };
 
@@ -157,7 +157,7 @@ export default function DashboardInteractivoPage() {
       setAlerts(alertsData);
       setMenuEngineering(menuData);
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Error isLoading dashboard data:', error);
     } finally {
       setLoading(false);
     }
@@ -542,7 +542,7 @@ export default function DashboardInteractivoPage() {
           </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="w-8 h-8 animate-spin" />
           </div>

@@ -49,7 +49,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
       const cached = await redis.get(redisKey);
       let limitInfo: RateLimitInfo;
 
-      if (!cached) {
+      if (!cached || cached === "{}") {
         // Create new window
         limitInfo = {
           count: 1,
@@ -122,7 +122,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
       const redisKey = `${this.REDIS_PREFIX}${key}`;
       const cached = await redis.get(redisKey);
 
-      if (!cached) {
+      if (!cached || cached === "{}") {
         return false;
       }
 
@@ -150,7 +150,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
       const redisKey = `${this.REDIS_PREFIX}${key}`;
       const cached = await redis.get(redisKey);
 
-      if (!cached) {
+      if (!cached || cached === "{}") {
         return null;
       }
 

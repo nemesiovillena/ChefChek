@@ -82,7 +82,7 @@ export class WebSocketGateway
 
       if (!sessionId) {
         this.logger.warn(`Connection rejected: No session token provided`);
-        client.emit("error", {
+        client.emit("error" as keyof ServerToClientEvents, {
           message: "Authentication required",
           code: "NO_TOKEN",
         });
@@ -94,7 +94,7 @@ export class WebSocketGateway
 
       if (!validation.valid || !validation.user) {
         this.logger.warn(`Connection rejected: Invalid session`);
-        client.emit("error", {
+        client.emit("error" as keyof ServerToClientEvents, {
           message: "Invalid session",
           code: "INVALID_SESSION",
         });
@@ -106,7 +106,7 @@ export class WebSocketGateway
       (client as any).data = {
         userId: validation.user.id,
         tenantId: validation.user.tenantId,
-        role: validation.user.role,
+        role: (validation.user as any).role,
         sessionId,
       } as AuthenticatedSocket;
 
@@ -119,16 +119,18 @@ export class WebSocketGateway
       );
 
       // Notify others
-      client.to(`tenant:${tenantId}`).emit("userJoined", {
-        id: validation.user.id,
-        name: validation.user.name,
-        email: validation.user.email,
-        role: validation.user.role,
-        tenantId,
-      });
+      client
+        .to(`tenant:${tenantId}`)
+        .emit("userJoined" as keyof ServerToClientEvents, {
+          id: validation.user.id,
+          name: (validation.user as any).name,
+          email: (validation.user as any).email,
+          role: (validation.user as any).role,
+          tenantId,
+        });
     } catch (error) {
       this.logger.error("Connection error:", error);
-      client.emit("error", {
+      client.emit("error" as keyof ServerToClientEvents, {
         message: "Connection failed",
         code: "CONNECTION_ERROR",
       });
@@ -145,13 +147,15 @@ export class WebSocketGateway
       );
 
       // Notify others
-      client.to(`tenant:${data.tenantId}`).emit("userLeft", {
-        id: data.userId,
-        name: data.userId, // We don't have name in socket data
-        email: data.userId,
-        role: data.role,
-        tenantId: data.tenantId,
-      });
+      client
+        .to(`tenant:${data.tenantId}`)
+        .emit("userLeft" as keyof ServerToClientEvents, {
+          id: data.userId,
+          name: data.userId, // We don't have name in socket data
+          email: data.userId,
+          role: data.role,
+          tenantId: data.tenantId,
+        });
     }
   }
 
@@ -160,7 +164,10 @@ export class WebSocketGateway
     const data = (client as any).data as AuthenticatedSocket;
 
     if (data.tenantId !== tenantId) {
-      client.emit("error", { message: "Unauthorized", code: "UNAUTHORIZED" });
+      client.emit("error" as keyof ServerToClientEvents, {
+        message: "Unauthorized",
+        code: "UNAUTHORIZED",
+      });
       return;
     }
 
@@ -191,22 +198,34 @@ export class WebSocketGateway
   }
 
   // Utility methods to broadcast events
-  broadcastToTenant(tenantId: string, event: string, data: any) {
+  broadcastToTenant(
+    tenantId: string,
+    event: keyof ServerToClientEvents,
+    data: any,
+  ) {
     this.server.to(`tenant:${tenantId}`).emit(event, data);
     this.logger.debug(`Broadcast to tenant ${tenantId}: ${event}`);
   }
 
-  broadcastToKitchen(tenantId: string, event: string, data: any) {
+  broadcastToKitchen(
+    tenantId: string,
+    event: keyof ServerToClientEvents,
+    data: any,
+  ) {
     this.server.to(`tenant:${tenantId}:kitchen`).emit(event, data);
     this.logger.debug(`Broadcast to kitchen ${tenantId}: ${event}`);
   }
 
-  broadcastToDashboard(tenantId: string, event: string, data: any) {
+  broadcastToDashboard(
+    tenantId: string,
+    event: keyof ServerToClientEvents,
+    data: any,
+  ) {
     this.server.to(`tenant:${tenantId}:dashboard`).emit(event, data);
     this.logger.debug(`Broadcast to dashboard ${tenantId}: ${event}`);
   }
 
-  sendToUser(userId: string, event: string, data: any) {
+  sendToUser(userId: string, event: keyof ServerToClientEvents, data: any) {
     this.server.to(`user:${userId}`).emit(event, data);
     this.logger.debug(`Send to user ${userId}: ${event}`);
   }

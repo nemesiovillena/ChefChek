@@ -30,7 +30,6 @@ import {
 } from "./dto/digital-menu.dto";
 
 @ApiTags("DigitalMenu")
-@ApiBearerAuth("JWT-auth")
 @Controller("digital-menu")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class DigitalMenuController {

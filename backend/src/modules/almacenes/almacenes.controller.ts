@@ -34,7 +34,6 @@ import {
 } from "./dto/almacenes.dto";
 
 @ApiTags("Almacenes")
-@ApiBearerAuth("JWT-auth")
 @Controller("almacenes")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class AlmacenesController {

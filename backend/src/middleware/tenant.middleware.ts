@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestMiddleware,
-  ForbiddenException,
-  NotFoundException,
-} from "@nestjs/common";
+import { Injectable, NestMiddleware, NotFoundException } from "@nestjs/common";
 import { Request, Response, NextFunction } from "express";
 import { TenantsService } from "../modules/tenants/tenants.service";
 
@@ -31,37 +26,37 @@ declare global {
 export class TenantMiddleware implements NestMiddleware {
   constructor(private readonly tenantsService: TenantsService) {}
 
+  private readonly publicRoutes = [
+    "/",
+    "/health",
+    "/api/docs",
+    "/api/v1/auth/login",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/validate",
+    "/api/v1/auth/register",
+    "/api/v1/auth/sessions",
+    "/api/v1/tenants",
+  ];
+
   async use(req: Request, res: Response, next: NextFunction) {
-    const tenantSlug = req.headers["x-tenant-slug"] as string;
+    // Skip tenant validation for public routes
+    const isPublicRoute = this.publicRoutes.some((route) =>
+      req.path.startsWith(route),
+    );
 
-    if (!tenantSlug) {
-      throw new ForbiddenException("X-Tenant-Slug header is required");
+    if (isPublicRoute) {
+      return next();
     }
 
-    try {
-      const tenant = await this.tenantsService.findBySlug(tenantSlug);
-
-      if (!tenant) {
-        throw new NotFoundException("Tenant not found");
-      }
-
-      if (!tenant.isActive) {
-        throw new ForbiddenException("Tenant is not active");
-      }
-
-      // Adjuntar tenant al contexto de la request
-      req.tenantId = tenant.id;
-      req.tenantSlug = tenant.slug;
-
-      next();
-    } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof ForbiddenException
-      ) {
-        throw error;
-      }
-      throw new ForbiddenException("Invalid tenant");
+    // Get tenant from authenticated user (AuthGuard will have verified this by now)
+    const authReq = req as any;
+    if (authReq.user?.tenantId) {
+      req.tenantId = authReq.user.tenantId;
+      req.tenantSlug = authReq.user.slug || authReq.user.tenant?.slug;
     }
+
+    // Don't block here - let TenantGuard handle validation if needed
+    next();
   }
 }

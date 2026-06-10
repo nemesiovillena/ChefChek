@@ -143,6 +143,11 @@ export class GenerateQRCodeDto {
   @IsOptional()
   @IsNumber()
   size?: number; // Tamaño en pixels
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  customColor?: string; // Color personalizado en hex
 }
 
 // DTO para query de menú público

@@ -28,7 +28,6 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Users")
-@ApiBearerAuth("JWT-auth")
 @Controller("api/v1/users")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class UsersController {

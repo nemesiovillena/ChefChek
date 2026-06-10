@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -46,6 +47,53 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Stitch Soft Dark Colors & Utilities */
+  --color-tonal-1: var(--tonal-1);
+  --color-tonal-2: var(--tonal-2);
+  --color-tonal-3: var(--tonal-3);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-on-error: var(--on-error);
+  --color-on-error-container: var(--on-error-container);
+
+  /* Spacing */
+  --spacing-stack-xl: 64px;
+  --spacing-stack-lg: 32px;
+  --spacing-stack-md: 16px;
+  --spacing-stack-sm: 8px;
+  --spacing-stack-xs: 4px;
+  --spacing-margin-mobile: 16px;
+  --spacing-margin-desktop: 40px;
+  --spacing-gutter: 24px;
+  --spacing-container-max-width: 1280px;
+
+  /* Stitch Typography Fonts */
+  --font-display: var(--font-geist-sans), sans-serif;
+  --font-headline-lg: var(--font-geist-sans), sans-serif;
+  --font-headline-md: var(--font-geist-sans), sans-serif;
+  --font-body-lg: var(--font-geist-sans), sans-serif;
+  --font-body-md: var(--font-geist-sans), sans-serif;
+  --font-label-md: var(--font-geist-mono), monospace;
+  --font-label-sm: var(--font-geist-mono), monospace;
+
+  /* Stitch Typography Sizes */
+  --text-display: 24px;
+  --text-headline-lg: 32px;
+  --text-headline-md: 20px;
+  --text-body-lg: 16px;
+  --text-body-md: 14px;
+  --text-label-md: 12px;
+  --text-label-sm: 11px;
 }
 
 :root {
@@ -84,47 +132,164 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #1A1A1A;
+  --foreground: #e5e2e1;
+  --tonal-1: #262626;
+  --tonal-2: #333333;
+  --tonal-3: #404040;
+  --surface-container-lowest: #121212;
+  --surface-container-low: #1e1e1e;
+  --surface-container: #262626;
+  --surface-container-high: #333333;
+  --surface-container-highest: #3e3e3e;
+
+  --card: #262626;
+  --card-foreground: #e5e2e1;
+  --popover: #262626;
+  --popover-foreground: #e5e2e1;
+  
+  --primary: #ffffff;
+  --primary-foreground: #2d3133;
+  
+  --secondary: #a4c9ff;
+  --secondary-foreground: #001c39;
+  --secondary-container: #0267b8;
+  
+  --muted: #333333;
+  --muted-foreground: #8e9193;
+  
+  --accent: #333333;
+  --accent-foreground: #e5e2e1;
+  
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: #383838;
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: #8e9193;
+
+  --on-surface: #e5e2e1;
+  --on-surface-variant: #c4c7c9;
+  --outline: #8e9193;
+  --outline-variant: #555555;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  
+  --sidebar: #262626;
+  --sidebar-foreground: #e5e2e1;
+  --sidebar-primary: #0267b8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #333333;
+  --sidebar-accent-foreground: #e5e2e1;
+  --sidebar-border: #383838;
+  --sidebar-ring: #8e9193;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
+
   html {
     @apply font-sans;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+  }
+
+  /* Minimalist scrollbars */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1A1A1A;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 10px;
+  }
+
+  /* Unificación de diseño Soft Dark de Stitch para componentes heredados */
+  .dark {
+    /* Sobreescritura de fondos claros clásicos */
+    .bg-white {
+      background-color: var(--tonal-2) !important;
+    }
+
+    .bg-gray-50 {
+      background-color: var(--background) !important;
+    }
+
+    .bg-gray-100 {
+      background-color: var(--tonal-1) !important;
+    }
+
+    /* Sobreescritura de hovers claros heredados de Tailwind */
+    .hover\:bg-gray-50:hover,
+    .hover\:bg-gray-100:hover,
+    .hover\:bg-slate-50:hover,
+    .hover\:bg-slate-100:hover,
+    .hover\:bg-neutral-50:hover,
+    .hover\:bg-neutral-100:hover {
+      background-color: var(--tonal-3) !important;
+    }
+
+    /* Sobreescritura de textos claros */
+    .text-gray-900 {
+      color: var(--primary) !important;
+    }
+
+    .text-gray-800 {
+      color: var(--primary) !important;
+    }
+
+    .text-gray-700 {
+      color: var(--on-surface) !important;
+    }
+
+    .text-gray-600, .text-gray-500 {
+      color: var(--on-surface-variant) !important;
+    }
+
+    /* Sobreescritura de bordes y divisiones */
+    .border-gray-200, .border-gray-300, .divide-gray-200 {
+      border-color: var(--border) !important;
+    }
+
+    /* Adaptar formularios nativos */
+    input, select, textarea {
+      background-color: var(--tonal-1) !important;
+      color: var(--primary) !important;
+      border-color: var(--border) !important;
+    }
+
+  }
+
+  /* Ocultar menús de navegación y headers antiguos duplicados globalmente */
+  header:not(.fixed),
+  nav:not(.fixed) {
+    display: none !important;
   }
 }

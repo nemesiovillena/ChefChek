@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
@@ -11,14 +12,17 @@ import {
   PublicMenuQueryDto,
   RegisterScanDto,
 } from "./dto/digital-menu.dto";
+import QRCode from "qrcode";
+import * as fs from "fs";
+import * as path from "path";
 
 @Injectable()
 export class DigitalMenuService {
+  private readonly logger = new Logger(DigitalMenuService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
-  // Gestión de Configuraciones de Digital Menu
   async createConfig(tenantId: string, dto: CreateDigitalMenuConfigDto) {
-    // Verificar que el menú existe y pertenece al tenant
     const menu = await this.prisma.menu.findFirst({
       where: { id: dto.menuId, tenantId },
     });
@@ -198,8 +202,14 @@ export class DigitalMenuService {
 
     const format = dto?.format || "png";
     const size = dto?.size || 300;
+    const customColor = dto?.customColor || "#000000";
 
-    const qrCodeUrl = await this.generateQRCodeUrl(configId, format, size);
+    const qrCodeUrl = await this.generateQRCodeUrl(
+      configId,
+      format,
+      size,
+      customColor,
+    );
 
     const updated = await this.prisma.digitalMenuConfig.update({
       where: { id: configId },
@@ -212,6 +222,7 @@ export class DigitalMenuService {
         qrCodeUrl: updated.qrCodeUrl,
         format,
         size,
+        customColor,
       },
       message: "QR code generated successfully",
     };
@@ -221,11 +232,53 @@ export class DigitalMenuService {
     configId: string,
     format: string = "png",
     size: number = 300,
+    customColor: string = "#000000",
   ): Promise<string> {
-    // En producción, esto generaría un QR code real usando una librería como qrcode
-    // Por ahora, generamos una URL mock
+    // Generar URL pública del menú
     const baseUrl = process.env.APP_URL || "http://localhost:3000";
-    return `${baseUrl}/api/v1/digital-menu/public/${configId}?format=${format}&size=${size}`;
+    const publicUrl = `${baseUrl}/api/v1/digital-menu/public/${configId}`;
+
+    try {
+      // Directorio para almacenar QR codes
+      const qrDir = path.join(
+        process.cwd(),
+        "public",
+        "qrcodes",
+        "digital-menu",
+      );
+      if (!fs.existsSync(qrDir)) {
+        fs.mkdirSync(qrDir, { recursive: true });
+      }
+
+      // Ruta del archivo QR
+      const qrFileName = `${configId}.${format}`;
+      const qrFilePath = path.join(qrDir, qrFileName);
+
+      // Generar QR code real con opciones personalizadas
+      const qrOptions: any = {
+        width: size,
+        margin: 2,
+        color: {
+          dark: customColor,
+          light: "#FFFFFF",
+        },
+      };
+
+      if (format === "png") {
+        await QRCode.toFile(qrFilePath, publicUrl, qrOptions);
+      } else {
+        // Generar SVG para otros formatos
+        const svgString = await QRCode.toString(publicUrl, qrOptions);
+        fs.writeFileSync(qrFilePath, svgString);
+      }
+
+      // Retornar URL pública del QR
+      return `${baseUrl}/qrcodes/digital-menu/${qrFileName}`;
+    } catch (error) {
+      this.logger.error("Error generating QR code:", error);
+      // Fallback a URL mock si falla la generación
+      return `${baseUrl}/api/v1/digital-menu/public/${configId}`;
+    }
   }
 
   // Vista Pública del Menú

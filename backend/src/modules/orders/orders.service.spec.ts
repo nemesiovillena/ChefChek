@@ -93,8 +93,9 @@ describe("OrdersService", () => {
         },
       ];
 
-      mockPrismaService.product.findMany.mockResolvedValue(mockProducts);
-      mockPrismaService.stock.findUnique.mockResolvedValue({ quantity: 20 });
+      mockPrismaService.product.findMany.mockResolvedValue(
+        mockProducts.map((p) => ({ ...p, stocks: [{ quantity: 20 }] })),
+      );
       mockPrismaService.recipe.findMany.mockResolvedValue([
         {
           ingredients: [{ productId: "product-1", quantity: 10 }],
@@ -109,6 +110,14 @@ describe("OrdersService", () => {
 
       expect(mockPrismaService.product.findMany).toHaveBeenCalledWith({
         where: { tenantId },
+        include: {
+          stocks: {
+            where: {
+              quantity: { gt: 0 },
+            },
+            take: 1,
+          },
+        },
       });
       expect(Array.isArray(result)).toBe(true);
     });
@@ -121,7 +130,6 @@ describe("OrdersService", () => {
       };
 
       mockPrismaService.product.findMany.mockResolvedValue([]);
-      mockPrismaService.stock.findUnique.mockResolvedValue(null);
 
       const result = await service.calculateOrderRequirements(dto);
 
@@ -844,8 +852,9 @@ describe("OrdersService", () => {
         name: "Product 1",
         currentStock: 1000000,
       };
-      mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
-      mockPrismaService.stock.findUnique.mockResolvedValue({ quantity: 20 });
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { ...mockProduct, stocks: [{ quantity: 20 }] },
+      ]);
       mockPrismaService.recipe.findMany.mockResolvedValue([]);
 
       const requirements = await service.calculateOrderRequirements({

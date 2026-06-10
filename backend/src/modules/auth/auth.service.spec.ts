@@ -447,7 +447,9 @@ describe("AuthService", () => {
         id: "new-session-123",
         userId: "user-123",
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        fresh: true,
+        ipAddress: "127.0.0.1",
+        userAgent: "Mozilla/5.0",
+        createdAt: new Date(),
       };
 
       sessionService.refreshSession.mockResolvedValue({

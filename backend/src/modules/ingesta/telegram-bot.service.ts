@@ -265,8 +265,16 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
     switch (command) {
       case "/start":
         message =
-          "¡Hola! 👋 Bienvenido al bot de ingesta de ChefChek.\n" +
-          "Envía facturas, pedidos o documentos para procesarlos automáticamente.";
+          "¡Hola! 👋 Bienvenido al bot de ChefChek.\n" +
+          "Comandos disponibles:\n" +
+          "/orders - Ver órdenes de cocina\n" +
+          "/status - Estado del sistema\n" +
+          "/ingest - Procesar documentos\n" +
+          "/help - Ayuda";
+        break;
+
+      case "/orders":
+        message = await this.handleOrdersCommand(tenantId);
         break;
 
       case "/ingest":
@@ -276,14 +284,14 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
         break;
 
       case "/status":
-        message =
-          "📊 Consulta el dashboard para ver el estado de procesamiento de documentos.";
+        message = await this.handleStatusCommand(tenantId);
         break;
 
       case "/help":
         message =
           "📖 Comandos disponibles:\n" +
           "/start - Iniciar sesión\n" +
+          "/orders - Ver órdenes de cocina activas\n" +
           "/ingest - Información sobre ingesta de documentos\n" +
           "/status - Estado de procesamiento\n" +
           "/help - Esta ayuda";
@@ -481,6 +489,141 @@ export class TelegramBotService implements OnModuleInit, OnModuleDestroy {
       success: true,
       data: bots,
       count: bots.length,
+    };
+  }
+
+  private async handleOrdersCommand(tenantId: string): Promise<string> {
+    try {
+      const workBatches = await (this.prisma as any).workBatch.findMany({
+        where: {
+          tenantId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        orderBy: { scheduledDate: "asc" },
+        take: 10,
+      });
+
+      if (workBatches.length === 0) {
+        return "📋 No hay órdenes de cocina activas.";
+      }
+
+      let message = "📋 Órdenes de cocina activas:\n\n";
+      workBatches.forEach((batch: any, index: number) => {
+        message += `${index + 1}. ${batch.batchNumber} - ${batch.status}\n`;
+        message += `   Programado: ${new Date(batch.scheduledDate).toLocaleString()}\n`;
+        message += `   Órdenes: ${batch.productionOrders?.length || 0}\n\n`;
+      });
+
+      return message;
+    } catch (error) {
+      this.logger.error(`Error handling orders command: ${error.message}`);
+      return "❌ Error al obtener órdenes de cocina.";
+    }
+  }
+
+  private async handleStatusCommand(tenantId: string): Promise<string> {
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const stats = {
+        documentsToday: 0,
+        batchesToday: 0,
+        activeOrders: 0,
+      };
+
+      const documents = await this.prisma.document.findMany({
+        where: {
+          tenantId,
+          createdAt: { gte: today },
+        },
+      });
+
+      stats.documentsToday = documents.length;
+
+      const batches = await (this.prisma as any).workBatch.findMany({
+        where: {
+          tenantId,
+          scheduledDate: { gte: today },
+        },
+      });
+
+      stats.batchesToday = batches.length;
+
+      const activeBatches = await (this.prisma as any).workBatch.findMany({
+        where: {
+          tenantId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+      });
+
+      stats.activeOrders = activeBatches.reduce((total: number, batch: any) => {
+        return total + (batch.productionOrders?.length || 0);
+      }, 0);
+
+      return (
+        `📊 Estado del sistema - ${now.toLocaleString()}\n\n` +
+        `📄 Documentos hoy: ${stats.documentsToday}\n` +
+        `🔥 Batches hoy: ${stats.batchesToday}\n` +
+        `👨‍🍳 Órdenes activas: ${stats.activeOrders}`
+      );
+    } catch (error) {
+      this.logger.error(`Error handling status command: ${error.message}`);
+      return "❌ Error al obtener estado del sistema.";
+    }
+  }
+
+  async notifyNewOrder(tenantId: string, orderData: any) {
+    const bot = this.bots.get(tenantId);
+    if (!bot) {
+      this.logger.warn(`No active bot for tenant: ${tenantId}`);
+      return { success: false, error: "No bot configured" };
+    }
+
+    const authorizedUsers = await this.prisma.telegramUser.findMany({
+      where: {
+        telegramBot: {
+          tenantId,
+          isActive: true,
+        },
+        isActive: true,
+      },
+    });
+
+    const message =
+      `🔔 Nueva orden de cocina\n\n` +
+      `Orden: ${orderData.orderNumber || "Sin número"}\n` +
+      `Receta: ${orderData.recipeName || "Sin receta"}\n` +
+      `Cantidad: ${orderData.quantity || 1}\n` +
+      `Prioridad: ${orderData.priority || "NORMAL"}\n` +
+      `Estado: ${orderData.status || "PENDING"}`;
+
+    const results = [];
+
+    for (const user of authorizedUsers) {
+      try {
+        await bot.telegram.sendMessage(user.telegramUserId.toString(), message);
+        results.push({
+          userId: user.telegramUserId.toString(),
+          success: true,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Error notifying user ${user.telegramUserId}: ${error.message}`,
+        );
+        results.push({
+          userId: user.telegramUserId.toString(),
+          success: false,
+          error: error.message,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: results,
+      notified: results.filter((r) => r.success).length,
+      total: results.length,
     };
   }
 

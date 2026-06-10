@@ -27,7 +27,6 @@ import {
 } from "./dto/sala.dto";
 
 @ApiTags("Sala")
-@ApiBearerAuth("JWT-auth")
 @Controller("api/v1/sala")
 export class SalaController {
   constructor(private readonly salaService: SalaService) {}

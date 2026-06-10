@@ -36,7 +36,6 @@ import {
 } from "./dto/production.dto";
 
 @ApiTags("Production")
-@ApiBearerAuth("JWT-auth")
 @Controller("api/v1/production")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class ProductionController {

@@ -25,7 +25,6 @@ import { RolesGuard } from "../../guards/roles.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Menus")
-@ApiBearerAuth("JWT-auth")
 @Controller("api/v1/menus")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class MenusController {

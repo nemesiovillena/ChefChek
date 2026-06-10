@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
   CreateProductDto,
@@ -21,23 +17,25 @@ export class ProductsService {
       profitMargin = 0,
       yieldFactor = 1.0,
       allergens = [],
+      category,
+      supplier,
+      purchaseFormats,
+      nutritionalInfo,
+      minimumStock,
+      maximumStock,
       ...productData
     } = createProductDto;
 
-    // Calcular precio neto si no se proporciona
     const netPrice = this.calculateNetPrice(
       purchasePrice,
       wastePercentage,
       profitMargin,
     );
-
-    // Validar yield factor si wastePercentage > 0
     const finalYieldFactor =
       wastePercentage > 0
         ? this.calculateYieldFactor(wastePercentage)
         : yieldFactor;
 
-    // Mapear campos del DTO al schema
     const createData: any = {
       tenantId: requestTenantId,
       purchasePrice,
@@ -46,36 +44,57 @@ export class ProductsService {
       wastePercentage,
       yieldFactor: finalYieldFactor,
       allergens,
+      ...productData,
     };
 
-    if (productData.category) {
-      createData.categoryId = productData.category;
+    if (category) {
+      createData.categoryId = category;
+    }
+    if (supplier) {
+      createData.supplierId = supplier;
     }
 
-    if (productData.supplier) {
-      createData.supplierId = productData.supplier;
+    // Nested create: formatos de compra
+    if (purchaseFormats && purchaseFormats.length > 0) {
+      createData.purchaseFormats = {
+        create: purchaseFormats.map((pf) => ({
+          name: pf.name,
+          format: pf.format,
+          price: pf.price,
+        })),
+      };
     }
 
-    // Agregar campos restantes que no requieren mapeo especial
-    if (productData.name) {
-      createData.name = productData.name;
-    }
-    if (productData.description) {
-      createData.description = productData.description;
-    }
-    if (productData.purchaseUnit) {
-      createData.purchaseUnit = productData.purchaseUnit;
-    }
-    if (productData.storageUnit) {
-      createData.storageUnit = productData.storageUnit;
-    }
-    if (productData.recipeUnit) {
-      createData.recipeUnit = productData.recipeUnit;
+    // Nested create: información nutricional
+    if (nutritionalInfo) {
+      createData.nutritionalInfo = {
+        create: nutritionalInfo,
+      };
     }
 
     const product = await this.prisma.product.create({
       data: createData,
+      include: {
+        purchaseFormats: true,
+        nutritionalInfo: true,
+        category: true,
+        supplier: true,
+        stocks: true,
+      },
     });
+
+    // Create stock record with min/max if provided
+    if (minimumStock !== undefined || maximumStock !== undefined) {
+      await this.prisma.stock.create({
+        data: {
+          tenantId: requestTenantId,
+          productId: product.id,
+          minimumStock: minimumStock || 0,
+          maximumStock: maximumStock || null,
+          quantity: 0,
+        },
+      });
+    }
 
     return {
       success: true,
@@ -97,24 +116,23 @@ export class ProductsService {
     } = query;
 
     const skip = (page - 1) * limit;
-    const where: any = { tenantId: requestTenantId };
+    const where: Record<string, unknown> = { tenantId: requestTenantId };
 
-    // Filtros
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+      (where as any).OR = [
+        { name: { contains: search, mode: "insensitive" as const } },
+        { description: { contains: search, mode: "insensitive" as const } },
+        { barcode: { contains: search, mode: "insensitive" as const } },
+        { brand: { contains: search, mode: "insensitive" as const } },
       ];
     }
 
     if (category) {
       where.categoryId = category;
     }
-
     if (supplier) {
       where.supplierId = supplier;
     }
-
     if (isActive !== undefined) {
       where.isActive = isActive;
     }
@@ -125,16 +143,26 @@ export class ProductsService {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        select: {
-          id: true,
-          name: true,
-          categoryId: true,
-          supplierId: true,
-          purchaseUnit: true,
-          purchasePrice: true,
-          netPrice: true,
-          isActive: true,
-          allergens: true,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              parentId: true,
+              parent: { select: { id: true, name: true } },
+            },
+          },
+          supplier: { select: { id: true, name: true } },
+          purchaseFormats: true,
+          nutritionalInfo: true,
+          stocks: {
+            select: {
+              id: true,
+              quantity: true,
+              minimumStock: true,
+              maximumStock: true,
+            },
+          },
         },
       }),
       this.prisma.product.count({ where }),
@@ -143,21 +171,20 @@ export class ProductsService {
     return {
       success: true,
       data: products,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       message: "Products retrieved successfully",
     };
   }
 
   async findOne(id: string, requestTenantId: string) {
     const product = await this.prisma.product.findFirst({
-      where: {
-        id,
-        tenantId: requestTenantId,
+      where: { id, tenantId: requestTenantId },
+      include: {
+        category: { include: { parent: true } },
+        supplier: true,
+        purchaseFormats: true,
+        nutritionalInfo: true,
+        stocks: true,
       },
     });
 
@@ -178,61 +205,118 @@ export class ProductsService {
     requestTenantId: string,
   ) {
     const existingProduct = await this.prisma.product.findFirst({
-      where: {
-        id,
-        tenantId: requestTenantId,
-      },
+      where: { id, tenantId: requestTenantId },
+      include: { stocks: true },
     });
 
     if (!existingProduct) {
       throw new NotFoundException("Product not found");
     }
 
-    const updateData: any = { ...updateProductDto };
+    const {
+      category,
+      supplier,
+      purchaseFormats,
+      nutritionalInfo,
+      minimumStock,
+      maximumStock,
+      ...updateData
+    } = updateProductDto as any;
 
-    // Mapear category → categoryId si se proporciona
-    if (updateData.category) {
-      updateData.categoryId = updateData.category;
-      delete updateData.category;
+    const data: any = { ...updateData };
+
+    if (category) {
+      data.categoryId = category;
+      delete data.category;
     }
-
-    // Mapear supplier → supplierId si se proporciona
-    if (updateData.supplier) {
-      updateData.supplierId = updateData.supplier;
-      delete updateData.supplier;
+    if (supplier) {
+      data.supplierId = supplier;
+      delete data.supplier;
     }
 
     // Recalcular precios si se modifican
     if (
-      updateProductDto.purchasePrice !== undefined ||
-      updateProductDto.wastePercentage !== undefined ||
-      updateProductDto.profitMargin !== undefined
+      updateData.purchasePrice !== undefined ||
+      updateData.wastePercentage !== undefined ||
+      updateData.profitMargin !== undefined
     ) {
       const purchasePrice =
-        updateProductDto.purchasePrice ?? existingProduct.purchasePrice;
+        updateData.purchasePrice ?? existingProduct.purchasePrice;
       const wastePercentage =
-        updateProductDto.wastePercentage ?? existingProduct.wastePercentage;
+        updateData.wastePercentage ?? existingProduct.wastePercentage;
       const profitMargin =
-        updateProductDto.profitMargin ?? existingProduct.profitMargin;
+        updateData.profitMargin ?? existingProduct.profitMargin;
 
-      updateData.netPrice = this.calculateNetPrice(
+      data.netPrice = this.calculateNetPrice(
         purchasePrice,
         wastePercentage,
         profitMargin,
       );
-
-      if (wastePercentage !== undefined) {
-        updateData.yieldFactor =
+      if (updateData.wastePercentage !== undefined) {
+        data.yieldFactor =
           wastePercentage > 0
             ? this.calculateYieldFactor(wastePercentage)
             : 1.0;
       }
     }
 
+    // Replace all purchase formats
+    if (purchaseFormats) {
+      data.purchaseFormats = {
+        deleteMany: {},
+        create: purchaseFormats.map((pf: any) => ({
+          name: pf.name,
+          format: pf.format,
+          price: pf.price,
+        })),
+      };
+    }
+
+    // Upsert nutritional info
+    if (nutritionalInfo) {
+      data.nutritionalInfo = {
+        upsert: {
+          create: nutritionalInfo,
+          update: nutritionalInfo,
+        },
+      };
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
-      data: updateData,
+      data,
+      include: {
+        purchaseFormats: true,
+        nutritionalInfo: true,
+        category: { include: { parent: true } },
+        supplier: true,
+        stocks: true,
+      },
     });
+
+    // Update stock min/max if provided
+    if (minimumStock !== undefined || maximumStock !== undefined) {
+      const stock = existingProduct.stocks[0];
+      if (stock) {
+        await this.prisma.stock.update({
+          where: { id: stock.id },
+          data: {
+            ...(minimumStock !== undefined && { minimumStock }),
+            ...(maximumStock !== undefined && { maximumStock }),
+          },
+        });
+      } else {
+        await this.prisma.stock.create({
+          data: {
+            tenantId: requestTenantId,
+            productId: id,
+            minimumStock: minimumStock || 0,
+            maximumStock: maximumStock || null,
+            quantity: 0,
+          },
+        });
+      }
+    }
 
     return {
       success: true,
@@ -243,19 +327,14 @@ export class ProductsService {
 
   async remove(id: string, requestTenantId: string) {
     const existingProduct = await this.prisma.product.findFirst({
-      where: {
-        id,
-        tenantId: requestTenantId,
-      },
+      where: { id, tenantId: requestTenantId },
     });
 
     if (!existingProduct) {
       throw new NotFoundException("Product not found");
     }
 
-    await this.prisma.product.delete({
-      where: { id },
-    });
+    await this.prisma.product.delete({ where: { id } });
 
     return {
       success: true,
@@ -266,18 +345,13 @@ export class ProductsService {
 
   async calculateProductCost(id: string, requestTenantId: string) {
     const product = await this.prisma.product.findFirst({
-      where: {
-        id,
-        tenantId: requestTenantId,
-      },
+      where: { id, tenantId: requestTenantId },
     });
 
     if (!product) {
       throw new NotFoundException("Product not found");
     }
 
-    // Sistema multi-unidad: factores de conversión
-    // Estos factores se pueden configurar por producto en el futuro
     const ucToUaFactor = this.getUcToUaFactor(
       product.purchaseUnit,
       product.storageUnit,
@@ -288,7 +362,6 @@ export class ProductsService {
     );
     const ucToUrFactor = ucToUaFactor * uaToUrFactor;
 
-    // Cálculo de costeo por unidad
     const costPerPurchaseUnit = product.purchasePrice;
     const costPerStorageUnit = costPerPurchaseUnit / ucToUaFactor;
     const costPerRecipeUnit = costPerStorageUnit / uaToUrFactor;
@@ -298,18 +371,12 @@ export class ProductsService {
       data: {
         productId: product.id,
         productName: product.name,
-
-        // Costeo por unidad
         costPerPurchaseUnit,
         costPerStorageUnit,
         costPerRecipeUnit,
-
-        // Factores de conversión
         ucToUaFactor,
         uaToUrFactor,
         ucToUrFactor,
-
-        // Información de precio
         purchasePrice: product.purchasePrice,
         netPrice: product.netPrice,
         wastePercentage: product.wastePercentage,
@@ -317,53 +384,6 @@ export class ProductsService {
       },
       message: "Product cost calculated successfully",
     };
-  }
-
-  // Helper methods para cálculos
-
-  private calculateNetPrice(
-    purchasePrice: number,
-    wastePercentage: number,
-    profitMargin: number,
-  ): number {
-    // Precio neto = Precio bruto - (Precio bruto * wastePercentage / 100)
-    // Luego se aplica margen de beneficio
-    const priceAfterWaste =
-      purchasePrice - (purchasePrice * wastePercentage) / 100;
-    const netPrice = priceAfterWaste * (1 + profitMargin / 100);
-
-    return Math.round(netPrice * 100) / 100; // Redondear a 2 decimales
-  }
-
-  private calculateYieldFactor(wastePercentage: number): number {
-    // Factor de rendimiento = (100 - wastePercentage) / 100
-    return (100 - wastePercentage) / 100;
-  }
-
-  private getUcToUaFactor(purchaseUnit: string, storageUnit: string): number {
-    // Sistema de conversión UC → UA
-    // En producción esto sería configurable por producto
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      "Caja 10kg": { Kilogramos: 10, Gramos: 10000 },
-      "Bote 300uds": { Unidades: 300 },
-      "Saco 25kg": { Kilogramos: 25, Gramos: 25000 },
-      Litro: { Litros: 1, Mililitros: 1000 },
-      Kilogramo: { Kilogramos: 1, Gramos: 1000 },
-    };
-
-    return conversionMap[purchaseUnit]?.[storageUnit] || 1;
-  }
-
-  private getUaToUrFactor(storageUnit: string, recipeUnit: string): number {
-    // Sistema de conversión UA → UR
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      Kilogramos: { Gramos: 1000, Miligramos: 1000000 },
-      Litros: { Mililitros: 1000 },
-      Unidades: { Unidades: 1 },
-      Gramos: { Miligramos: 1000 },
-    };
-
-    return conversionMap[storageUnit]?.[recipeUnit] || 1;
   }
 
   async getCategories(requestTenantId: string) {
@@ -381,19 +401,52 @@ export class ProductsService {
   }
 
   async getSuppliers(requestTenantId: string) {
-    const suppliers = await this.prisma.product.findMany({
-      where: {
-        tenantId: requestTenantId,
-        supplierId: { not: null },
-      },
-      select: { supplierId: true },
-      distinct: ["supplierId"],
+    const suppliers = await this.prisma.supplier.findMany({
+      where: { tenantId: requestTenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
     });
 
     return {
       success: true,
-      data: suppliers.map((s) => s.supplierId).filter(Boolean),
+      data: suppliers,
       message: "Suppliers retrieved successfully",
     };
+  }
+
+  private calculateNetPrice(
+    purchasePrice: number,
+    wastePercentage: number,
+    profitMargin: number,
+  ): number {
+    const priceAfterWaste =
+      purchasePrice - (purchasePrice * wastePercentage) / 100;
+    const netPrice = priceAfterWaste * (1 + profitMargin / 100);
+    return Math.round(netPrice * 100) / 100;
+  }
+
+  private calculateYieldFactor(wastePercentage: number): number {
+    return (100 - wastePercentage) / 100;
+  }
+
+  private getUcToUaFactor(purchaseUnit: string, storageUnit: string): number {
+    const conversionMap: { [key: string]: { [key: string]: number } } = {
+      "Caja 10kg": { Kilogramos: 10, Gramos: 10000 },
+      "Bote 300uds": { Unidades: 300 },
+      "Saco 25kg": { Kilogramos: 25, Gramos: 25000 },
+      Litro: { Litros: 1, Mililitros: 1000 },
+      Kilogramo: { Kilogramos: 1, Gramos: 1000 },
+    };
+    return conversionMap[purchaseUnit]?.[storageUnit] || 1;
+  }
+
+  private getUaToUrFactor(storageUnit: string, recipeUnit: string): number {
+    const conversionMap: { [key: string]: { [key: string]: number } } = {
+      Kilogramos: { Gramos: 1000, Miligramos: 1000000 },
+      Litros: { Mililitros: 1000 },
+      Unidades: { Unidades: 1 },
+      Gramos: { Miligramos: 1000 },
+    };
+    return conversionMap[storageUnit]?.[recipeUnit] || 1;
   }
 }

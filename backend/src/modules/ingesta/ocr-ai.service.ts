@@ -1,8 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ProductRecognitionService } from "./product-recognition.service";
 import { ExtractedProductDto } from "./dto/ingesta.dto";
-import Tesseract from "tesseract.js";
+import { IOcrService } from "./services/ocr-service.interface";
 
 @Injectable()
 export class OcrAiService {
@@ -12,42 +12,78 @@ export class OcrAiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productRecognitionService: ProductRecognitionService,
+    @Inject("PRIMARY_OCR_SERVICE")
+    private readonly primaryOcrService: IOcrService,
+    @Inject("FALLBACK_OCR_SERVICE")
+    private readonly fallbackOcrService?: IOcrService,
   ) {}
 
+  /**
+   * Extrae texto de un documento usando el proveedor OCR configurado
+   * @param fileUrl - URL del archivo o base64
+   * @returns Promesa con texto extraído y confianza
+   */
   async extractText(
     fileUrl: string,
   ): Promise<{ text: string; confidence: number }> {
-    this.logger.log(`Extracting text from: ${fileUrl}`);
+    const providerInfo = this.primaryOcrService.getProviderInfo();
+
+    this.logger.log(
+      `Extracting text from: ${fileUrl} using ${providerInfo.name}`,
+    );
 
     try {
-      // Real Tesseract.js implementation
-      const worker = await Tesseract.createWorker("spa");
-
-      const { data } = await worker.recognize(fileUrl);
-
-      await worker.terminate();
+      // Intentar con proveedor primario
+      const result = await this.primaryOcrService.extractText(fileUrl);
 
       this.logger.log(
-        `Extracted ${data.text.length} characters with confidence ${data.confidence}`,
+        `Extracted ${result.text.length} characters with confidence ${result.confidence} using ${result.provider}`,
       );
 
       return {
-        text: data.text,
-        confidence: data.confidence / 100, // Convert to 0-1 range
+        text: result.text,
+        confidence: result.confidence,
       };
-    } catch (error) {
-      this.logger.error(`Error extracting text: ${error.message}`);
+    } catch (error: any) {
+      this.logger.error(
+        `Primary OCR failed (${providerInfo.name}): ${error.message}`,
+      );
 
-      // Fallback to mock on error
-      const mockText = this.generateMockText();
+      // Intentar con fallback si está disponible
+      if (this.fallbackOcrService) {
+        const fallbackInfo = this.fallbackOcrService.getProviderInfo();
+        this.logger.log(`Attempting fallback OCR: ${fallbackInfo.name}`);
 
-      return {
-        text: mockText,
-        confidence: 0.0,
-      };
+        try {
+          const fallbackResult =
+            await this.fallbackOcrService.extractText(fileUrl);
+
+          this.logger.log(
+            `Fallback OCR succeeded with ${fallbackResult.text.length} characters and confidence ${fallbackResult.confidence}`,
+          );
+
+          return {
+            text: fallbackResult.text,
+            confidence: fallbackResult.confidence,
+          };
+        } catch (fallbackError: any) {
+          this.logger.error(
+            `Fallback OCR also failed (${fallbackInfo.name}): ${fallbackError.message}`,
+          );
+        }
+      }
+
+      // No hay fallback o ambos fallaron
+      throw new Error(`OCR processing failed: ${error.message}`);
     }
   }
 
+  /**
+   * Procesa los datos extraídos del documento para obtener productos estructurados
+   * @param text - Texto extraído por OCR
+   * @param tenantId - ID del tenant
+   * @returns Promesa con productos extraídos y metadatos
+   */
   async processDocumentData(
     text: string,
     tenantId: string,
@@ -60,7 +96,7 @@ export class OcrAiService {
     try {
       const extractedProducts = this.parseExtractedProducts(text, tenantId);
 
-      // Validate and enhance products
+      // Validar y mejorar productos
       const validProducts = [];
       for (const product of extractedProducts) {
         if (await this.validateExtraction(product)) {
@@ -75,49 +111,20 @@ export class OcrAiService {
       const metadata = {
         totalProducts: validProducts.length,
         documentDate: new Date().toISOString(),
-        processingMethod: "tesseract-ocr-ai",
+        processingMethod: this.primaryOcrService.getProviderInfo().name,
       };
 
       return {
         extractedProducts: validProducts,
         metadata,
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`Error processing document data: ${error.message}`);
       throw error;
     }
   }
 
-  private generateMockText(): string {
-    return `
-FACTURA #F2024001
-Proveedor: Frescos del Norte S.L.
-Fecha: 01/04/2024
-
-PRODUCTO 1
-Nombre: Tomate
-Cantidad: 50 kg
-Precio unitario: 2,50 €
-Categoría: Vegetales
-Alérgenos: Ninguno
-
-PRODUCTO 2
-Nombre: Filete de Ternera
-Cantidad: 20 kg
-Precio unitario: 12,00 €
-Categoría: Carnes
-Alérgenos: Ninguno
-
-PRODUCTO 3
-Nombre: Leche Entera
-Cantidad: 25 L
-Precio unitario: 1,20 €
-Categoría: Lácteos
-Alérgenos: Lacteos
-
-TOTAL: 235,00 €
-`;
-  }
+  // ========== Métodos Privados ==========
 
   private parseExtractedProducts(
     text: string,
@@ -179,7 +186,7 @@ TOTAL: 235,00 €
   private sanitizeProduct(product: ExtractedProductDto): ExtractedProductDto {
     return {
       name: product.name || "",
-      description: `Producto importado automáticamente desde documento`,
+      description: "Producto importado automáticamente desde documento",
       quantity: product.quantity || 0,
       unit: product.unit || "ud",
       unitPrice: product.unitPrice || 0,
@@ -190,7 +197,7 @@ TOTAL: 235,00 €
     };
   }
 
-  async enhanceProductRecognition(
+  public async enhanceProductRecognition(
     product: Partial<ExtractedProductDto>,
     tenantId: string,
   ) {
@@ -200,7 +207,7 @@ TOTAL: 235,00 €
       return product;
     }
 
-    // Use ProductRecognitionService for enhanced matching
+    // Use ProductRecognitionService para matching mejorado
     const result = await this.productRecognitionService.recognizeProduct(
       product.name,
       tenantId,
@@ -211,7 +218,7 @@ TOTAL: 235,00 €
         `Product "${product.name}" recognized with confidence ${result.confidence}`,
       );
 
-      // Merge recognized product with original data
+      // Combinar producto reconocido con datos originales
       return {
         ...product,
         name: result.recognizedProduct.name,
@@ -238,5 +245,15 @@ TOTAL: 235,00 €
       product.unitPrice !== undefined &&
       product.unitPrice >= 0
     );
+  }
+
+  /**
+   * Obtiene información del proveedor OCR actual
+   */
+  getOcrProviderInfo() {
+    return {
+      primary: this.primaryOcrService.getProviderInfo(),
+      fallback: this.fallbackOcrService?.getProviderInfo() || null,
+    };
   }
 }

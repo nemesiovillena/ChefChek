@@ -28,13 +28,17 @@ export class AuthController {
 
   @Post("login")
   @ApiOperation({ summary: "Iniciar sesión con email y contraseña" })
-  @ApiResponse({ status: 200, description: "Login exitoso, retorna JWT token" })
+  @ApiResponse({
+    status: 200,
+    description: "Login exitoso, retorna sesión Lucía",
+  })
   @ApiResponse({ status: 401, description: "Credenciales inválidas" })
   @ApiResponse({ status: 404, description: "Usuario no encontrado" })
   async login(@Body() loginDto: LoginDto, @Req() req: AuthenticatedRequest) {
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers["user-agent"];
-    const tenantSlug = req.tenantSlug || req.headers["x-tenant-slug"] as string;
+    const tenantSlug =
+      req.tenantSlug || (req.headers["x-tenant-slug"] as string);
 
     if (!tenantSlug) {
       return {
@@ -42,6 +46,31 @@ export class AuthController {
         error: {
           code: "TENANT_REQUIRED",
           message: "X-Tenant-Slug header is required",
+        },
+      };
+    }
+
+    // Validar formato de tenantSlug: alfanumérico con guiones bajos, minúsculas
+    // Previne SQL injection y valores inválidos
+    const tenantSlugRegex = /^[a-z0-9_-]+$/;
+    if (!tenantSlugRegex.test(tenantSlug)) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_TENANT_SLUG",
+          message:
+            "Tenant slug must contain only lowercase letters, numbers, hyphens and underscores",
+        },
+      };
+    }
+
+    // Validar longitud (mínimo 3, máximo 50 caracteres)
+    if (tenantSlug.length < 3 || tenantSlug.length > 50) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_TENANT_SLUG_LENGTH",
+          message: "Tenant slug must be between 3 and 50 characters",
         },
       };
     }
@@ -67,11 +96,11 @@ export class AuthController {
   }
 
   @Post("refresh")
-  @ApiOperation({ summary: "Refrescar token JWT" })
+  @ApiOperation({ summary: "Refrescar sesión Lucía" })
   @ApiBody({
     schema: { type: "object", properties: { sessionId: { type: "string" } } },
   })
-  @ApiResponse({ status: 200, description: "Token refrescado exitosamente" })
+  @ApiResponse({ status: 200, description: "Sesión refrescada exitosamente" })
   @ApiResponse({ status: 401, description: "Sesión inválida o expirada" })
   async refresh(
     @Body() body: { sessionId: string },
@@ -89,7 +118,6 @@ export class AuthController {
 
   @Get("validate")
   @ApiOperation({ summary: "Validar sesión actual" })
-  @ApiBearerAuth("JWT-auth")
   @ApiResponse({ status: 200, description: "Sesión válida" })
   @ApiResponse({ status: 401, description: "Sesión inválida o expirada" })
   async validate(@Req() req: AuthenticatedRequest) {
@@ -129,7 +157,6 @@ export class AuthController {
 
   @Get("sessions")
   @ApiOperation({ summary: "Obtener sesiones activas del usuario" })
-  @ApiBearerAuth("JWT-auth")
   @ApiResponse({ status: 200, description: "Lista de sesiones activas" })
   @ApiResponse({ status: 401, description: "No autenticado" })
   async getUserSessions(@Req() req: AuthenticatedRequest) {
@@ -151,7 +178,6 @@ export class AuthController {
 
   @Delete("sessions/:sessionId")
   @ApiOperation({ summary: "Invalidar sesión específica" })
-  @ApiBearerAuth("JWT-auth")
   @ApiParam({ name: "sessionId", description: "ID de la sesión a invalidar" })
   @ApiResponse({ status: 200, description: "Sesión invalidada exitosamente" })
   async invalidateSession(
@@ -163,7 +189,6 @@ export class AuthController {
 
   @Delete("sessions")
   @ApiOperation({ summary: "Invalidar todas las sesiones del usuario" })
-  @ApiBearerAuth("JWT-auth")
   @ApiResponse({
     status: 200,
     description: "Todas las sesiones invalidadas exitosamente",

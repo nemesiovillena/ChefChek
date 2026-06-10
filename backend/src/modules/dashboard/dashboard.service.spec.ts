@@ -30,14 +30,12 @@ describe("DashboardService", () => {
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    production: {
+    menu: {
       findMany: jest.fn(),
       count: jest.fn(),
+      update: jest.fn(),
     },
     recipe: {
-      count: jest.fn(),
-    },
-    menu: {
       findMany: jest.fn(),
       count: jest.fn(),
     },
@@ -45,17 +43,18 @@ describe("DashboardService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
-      fields: {
-        minimumStock: "minimumStock",
-      },
-    },
-    inventoryItem: {
-      findMany: jest.fn(),
     },
     menuScan: {
       groupBy: jest.fn(),
     },
     digitalMenu: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    session: {
+      groupBy: jest.fn(),
+    },
+    production: {
       findMany: jest.fn(),
       count: jest.fn(),
     },
@@ -145,20 +144,37 @@ describe("DashboardService", () => {
         { purchasePrice: 30 },
       ];
       const mockMenus = [{ totalMargin: 100 }, { totalMargin: 200 }];
+      const mockStocks = [
+        { quantity: 10, minimumStock: 5 },
+        { quantity: 3, minimumStock: 5 },
+        { quantity: 8, minimumStock: 10 },
+      ];
+      const mockSessions = [{ userId: "user-1" }];
+      const mockTodayRevenue = { _sum: { totalAmount: 500 } };
+      const mockMonthlyRevenue = { _sum: { totalAmount: 1500 } };
 
       prismaService.product.findMany.mockResolvedValue(mockProducts);
+      prismaService.product.count.mockResolvedValue(3);
       prismaService.menu.findMany.mockResolvedValue(mockMenus);
+      prismaService.stock.findMany.mockResolvedValue(mockStocks);
       prismaService.stock.count.mockResolvedValue(5);
       prismaService.menuScan.groupBy.mockResolvedValue([]);
       prismaService.digitalMenu.findMany.mockResolvedValue([]);
       prismaService.digitalMenu.count.mockResolvedValue(3);
       prismaService.dashboardAlert.count.mockResolvedValue(2);
+      prismaService.session.groupBy.mockResolvedValue(mockSessions);
+      prismaService.order.count.mockResolvedValue(7);
+      prismaService.order.aggregate.mockResolvedValueOnce(mockTodayRevenue);
+      prismaService.order.aggregate.mockResolvedValueOnce(mockMonthlyRevenue);
+      prismaService.recipe.count.mockResolvedValue(12);
+      prismaService.menu.count.mockResolvedValue(5);
 
       const result = await service.calculateKPIs("tenant-1");
 
       expect(result.success).toBe(true);
-      expect(result.data.averageCost).toBeDefined();
-      expect(result.data.averageMargin).toBeDefined();
+      expect(result.data.totalProducts).toBeDefined();
+      expect(result.data.totalRecipes).toBeDefined();
+      expect(result.data.totalMenus).toBeDefined();
     });
   });
 

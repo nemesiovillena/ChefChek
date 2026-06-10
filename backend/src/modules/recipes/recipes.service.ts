@@ -29,6 +29,7 @@ export class RecipesService {
       ingredients = [],
       subRecipes = [],
       isPublic = false,
+      categoryIds = [],
     } = createRecipeDto;
 
     // Validar que elaboration sea JSON válido (TipTap)
@@ -76,6 +77,14 @@ export class RecipesService {
                 })),
               }
             : undefined,
+        categories:
+          categoryIds.length > 0
+            ? {
+                create: categoryIds.map((categoryId) => ({
+                  categoryId,
+                })),
+              }
+            : undefined,
       },
       include: {
         ingredients: {
@@ -88,6 +97,11 @@ export class RecipesService {
             subRecipe: true,
           },
         },
+        categories: {
+          include: {
+            category: true,
+          },
+        },
       },
     });
 
@@ -98,9 +112,8 @@ export class RecipesService {
     tenantId: string,
     query?: { search?: string; category?: string },
   ): Promise<RecipeResponse[]> {
-    const where = {
+    const where: any = {
       tenantId,
-      isActive: true,
       ...(query?.search && {
         OR: [
           { name: { contains: query.search, mode: "insensitive" as const } },
@@ -113,6 +126,14 @@ export class RecipesService {
         ],
       }),
     };
+
+    if (query?.category) {
+      where.categories = {
+        some: {
+          categoryId: query.category,
+        },
+      };
+    }
 
     const recipes = await this.prisma.recipe.findMany({
       where,
@@ -127,6 +148,11 @@ export class RecipesService {
             subRecipe: true,
           },
         },
+        categories: {
+          include: {
+            category: true,
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -136,7 +162,7 @@ export class RecipesService {
 
   async findOne(tenantId: string, id: string): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
-      where: { id, tenantId, isActive: true },
+      where: { id, tenantId },
       include: {
         ingredients: {
           include: {
@@ -157,8 +183,18 @@ export class RecipesService {
                     subRecipe: true,
                   },
                 },
+                categories: {
+                  include: {
+                    category: true,
+                  },
+                },
               },
             },
+          },
+        },
+        categories: {
+          include: {
+            category: true,
           },
         },
       },
@@ -177,7 +213,7 @@ export class RecipesService {
     updateRecipeDto: Partial<CreateRecipeDto>,
   ): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
-      where: { id, tenantId, isActive: true },
+      where: { id, tenantId },
     });
 
     if (!recipe) {
@@ -209,6 +245,8 @@ export class RecipesService {
       ingredients,
       subRecipes,
       isPublic = recipe.isPublic,
+      categoryIds,
+      isActive = recipe.isActive,
     } = updateRecipeDto;
 
     // Validar y parsear elaboration si se actualiza
@@ -247,6 +285,7 @@ export class RecipesService {
         version,
         parentVersion,
         isPublic,
+        isActive,
       },
       include: {
         ingredients: {
@@ -291,6 +330,20 @@ export class RecipesService {
       });
     }
 
+    if (categoryIds) {
+      await this.prisma.recipeCategory.deleteMany({
+        where: { recipeId: id },
+      });
+      if (categoryIds.length > 0) {
+        await this.prisma.recipeCategory.createMany({
+          data: categoryIds.map((categoryId) => ({
+            recipeId: id,
+            categoryId,
+          })),
+        });
+      }
+    }
+
     // Recargar con relaciones actualizadas
     const finalRecipe = await this.prisma.recipe.findUnique({
       where: { id },
@@ -303,6 +356,11 @@ export class RecipesService {
         subRecipes: {
           include: {
             subRecipe: true,
+          },
+        },
+        categories: {
+          include: {
+            category: true,
           },
         },
       },
@@ -349,6 +407,7 @@ export class RecipesService {
         quantity: sub.quantity,
         unit: sub.unit,
       })),
+      categoryIds: originalRecipe.categories?.map((cat) => cat.categoryId),
       isPublic: false,
     });
 
@@ -371,11 +430,16 @@ export class RecipesService {
     let ingredientsCost = 0;
     let subRecipesCost = 0;
 
+    // OPTIMIZED: Fetch all products in a single query
+    const productIds = ingredients.map((ing) => ing.productId);
+    const products = await (this.prisma as any).product.findMany({
+      where: { id: { in: productIds }, tenantId, isActive: true },
+    });
+    const productMap = new Map(products.map((p: any) => [p.id, p]));
+
     // Calcular costos de ingredientes base
     for (const ingredient of ingredients) {
-      const product = await this.prisma.product.findFirst({
-        where: { id: ingredient.productId, tenantId, isActive: true },
-      });
+      const product = productMap.get(ingredient.productId);
 
       if (!product) {
         throw new NotFoundException(
@@ -389,11 +453,19 @@ export class RecipesService {
       ingredientsCost += ingredientCost;
     }
 
+    // OPTIMIZED: Fetch all sub-recipes in a single query
+    const subRecipeIds = subRecipes.map((sub) => sub.subRecipeId);
+    const subRecipeDataList =
+      subRecipeIds.length > 0
+        ? await this.prisma.recipe.findMany({
+            where: { id: { in: subRecipeIds }, tenantId, isActive: true },
+          })
+        : [];
+    const subRecipeMap = new Map(subRecipeDataList.map((r: any) => [r.id, r]));
+
     // Calcular costos de sub-recetas (recursivo)
     for (const subRecipe of subRecipes) {
-      const subRecipeData = await this.prisma.recipe.findFirst({
-        where: { id: subRecipe.subRecipeId, tenantId, isActive: true },
-      });
+      const subRecipeData = subRecipeMap.get(subRecipe.subRecipeId);
 
       if (!subRecipeData) {
         throw new NotFoundException(
@@ -495,6 +567,14 @@ export class RecipesService {
         costPerUnit: sub.subRecipe.totalCostPerUnit,
       })) || [];
 
+    const categories =
+      recipe.categories?.map((cat: any) => ({
+        id: cat.id,
+        categoryId: cat.categoryId,
+        categoryName: cat.category.name,
+        categorySlug: cat.category.slug,
+      })) || [];
+
     const costBreakdown: RecipeCostBreakdown = {
       ingredientsCost: ingredients.reduce((sum, ing) => sum + ing.cost, 0),
       subRecipesCost: subRecipes.reduce(
@@ -546,6 +626,7 @@ export class RecipesService {
       updatedAt: recipe.updatedAt,
       ingredients,
       subRecipes,
+      categories,
       costBreakdown,
       allergens: Array.from(allergens),
     };

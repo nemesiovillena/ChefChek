@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -17,29 +16,44 @@ interface User {
 }
 
 export default function UsersPage() {
-  const t = useTranslations('auth');
-  const { user, session, loading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  if (!isAuthenticated) {
-    router.push('/login');
-    return null;
+  // Handle authentication redirect in useEffect, not in render
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
   useEffect(() => {
-    if (session?.id) {
-      fetchUsers();
-    }
-  }, [session]);
+    fetchUsers();
+  }, []);
 
   const fetchUsers = async () => {
     try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        return;
+      }
+
       const response = await fetch('http://localhost:3001/api/v1/users', {
         headers: {
-          'Authorization': `Bearer ${session?.id}`,
-          'X-Tenant-Slug': 'default',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
         },
       });
 
@@ -63,12 +77,20 @@ export default function UsersPage() {
     };
 
     try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        alert('No session found. Please log in again.');
+        return;
+      }
+
       const response = await fetch('http://localhost:3001/api/v1/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.id}`,
-          'X-Tenant-Slug': 'default',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
         },
         body: JSON.stringify(userData),
       });
@@ -78,13 +100,53 @@ export default function UsersPage() {
         setShowCreateForm(false);
         fetchUsers();
         e.currentTarget.reset();
+      } else {
+        alert('Error creating user: ' + (data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error creating user:', error);
+      alert('Error creating user: ' + (error as Error).message);
     }
   };
 
-  if (loading) {
+  const handleToggleStatus = async (targetUser: User) => {
+    if (targetUser.id === user?.id) {
+      alert('No puedes desactivar tu propio usuario.');
+      return;
+    }
+
+    try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        alert('No se encontró una sesión activa. Por favor, inicia sesión de nuevo.');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:3001/api/v1/users/${targetUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionId}`,
+          'X-Tenant-Slug': tenantSlug,
+        },
+        body: JSON.stringify({ isActive: !targetUser.isActive }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        fetchUsers();
+      } else {
+        alert('Error al actualizar el estado del usuario: ' + (data.message || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Error al actualizar el estado del usuario: ' + (error as Error).message);
+    }
+  };
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-lg">Loading...</div>
@@ -111,7 +173,7 @@ export default function UsersPage() {
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('email')}
+                  Email
                 </label>
                 <input
                   name="email"
@@ -133,7 +195,7 @@ export default function UsersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t('password')}
+                  Password
                 </label>
                 <input
                   name="password"
@@ -183,13 +245,13 @@ export default function UsersPage() {
                   Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('email')}
+                  Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created At
@@ -218,13 +280,16 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      <button
+                        onClick={() => handleToggleStatus(user)}
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                          user.isActive
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                        }`}
+                      >
+                        {user.isActive ? 'Activo' : 'Desactivado'}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(user.createdAt).toLocaleDateString()}

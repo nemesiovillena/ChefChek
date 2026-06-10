@@ -570,6 +570,7 @@ describe("ProductionService", () => {
         availability: true,
         currentTasks: 2,
         maxTasks: 5,
+        isActive: true,
       };
       const mockAssignment = {
         id: "assignment1",

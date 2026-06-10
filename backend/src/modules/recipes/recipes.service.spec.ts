@@ -27,6 +27,7 @@ describe("RecipesService", () => {
     },
     product: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
   };
 
@@ -100,6 +101,9 @@ describe("RecipesService", () => {
     }).compile();
 
     service = module.get<RecipesService>(RecipesService);
+
+    // Default mocks for optimized queries
+    mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
   });
 
   afterEach(() => {
@@ -148,6 +152,7 @@ describe("RecipesService", () => {
 
     it("should throw NotFoundException if product not found", async () => {
       mockPrismaService.product.findFirst.mockResolvedValue(null);
+      mockPrismaService.product.findMany.mockResolvedValue([]);
 
       await expect(service.create(tenantId, createRecipeDto)).rejects.toThrow(
         NotFoundException,
@@ -167,7 +172,6 @@ describe("RecipesService", () => {
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith({
         where: {
           tenantId,
-          isActive: true,
         },
         include: {
           ingredients: {
@@ -178,6 +182,11 @@ describe("RecipesService", () => {
           subRecipes: {
             include: {
               subRecipe: true,
+            },
+          },
+          categories: {
+            include: {
+              category: true,
             },
           },
         },
@@ -212,7 +221,7 @@ describe("RecipesService", () => {
       expect(result).toBeDefined();
       expect(result.id).toBe(recipeId);
       expect(mockPrismaService.recipe.findFirst).toHaveBeenCalledWith({
-        where: { id: recipeId, tenantId, isActive: true },
+        where: { id: recipeId, tenantId },
         include: {
           ingredients: {
             include: {
@@ -233,8 +242,18 @@ describe("RecipesService", () => {
                       subRecipe: true,
                     },
                   },
+                  categories: {
+                    include: {
+                      category: true,
+                    },
+                  },
                 },
               },
+            },
+          },
+          categories: {
+            include: {
+              category: true,
             },
           },
         },
@@ -665,6 +684,7 @@ describe("RecipesService", () => {
       });
       mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
       mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+      mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
 
       await service.update(tenantId, recipeId, { ingredients: [] });
 

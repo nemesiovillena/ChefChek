@@ -8,6 +8,8 @@ import { DocumentQueueProcessor } from "./document-queue.processor";
 import { IngestaController } from "./ingesta.controller";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { CoreModule } from "../core/core.module";
+import { GoogleVisionService } from "./services/google-vision.service";
+import { TesseractService } from "./services/tesseract.service";
 
 @Module({
   imports: [
@@ -38,6 +40,33 @@ import { CoreModule } from "../core/core.module";
     OcrAiService,
     ProductRecognitionService,
     DocumentQueueProcessor,
+    GoogleVisionService,
+    TesseractService,
+    {
+      provide: "PRIMARY_OCR_SERVICE",
+      useFactory: (
+        googleVision: GoogleVisionService,
+        tesseract: TesseractService,
+      ) => {
+        // Usar Google Vision si está configurado, sino Tesseract
+        const useGoogleVision = googleVision.isConfigured();
+        const selected = useGoogleVision ? googleVision : tesseract;
+        return selected;
+      },
+      inject: [GoogleVisionService, TesseractService],
+    },
+    {
+      provide: "FALLBACK_OCR_SERVICE",
+      useFactory: (
+        googleVision: GoogleVisionService,
+        tesseract: TesseractService,
+      ) => {
+        // Si Google Vision es primario, Tesseract es fallback
+        // Si Tesseract es primario, no hay fallback (retorno null)
+        return googleVision.isConfigured() ? tesseract : null;
+      },
+      inject: [GoogleVisionService, TesseractService],
+    },
   ],
   exports: [
     IngestaService,

@@ -2,50 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/auth-context';
-
-interface Template {
-  id: string;
-  name: string;
-  type: 'STANDARD' | 'MINIMAL' | 'DETAILED' | 'CUSTOM';
-  description?: string;
-  createdAt: string;
-  createdBy: string;
-}
-
-interface Document {
-  id: string;
-  name: string;
-  type: 'TECHNICAL_SHEET' | 'RECIPE_CARD' | 'INSTRUCTION' | 'OTHER';
-  category: string;
-  recipeId?: string;
-  templateId?: string;
-  version: number;
-  createdAt: string;
-  fileSize: number;
-  fileFormat: 'PDF' | 'DOCX';
-}
-
-interface Recipe {
-  id: string;
-  name: string;
-  description?: string;
-  ingredients?: Array<{
-    product: {
-      name: string;
-      allergens?: number[];
-      cost?: number;
-    };
-    quantity: number;
-    unit?: string;
-  }>;
-}
+import { useAuth } from '@/contexts/auth.context';
+import { useTechnicalSheets } from '@/hooks/use-technical-sheets';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  FileText,
+  Plus,
+  RefreshCw,
+  Edit,
+  Loader2,
+  Info,
+  Package,
+  Thermometer,
+  AlertTriangle,
+} from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function TechnicalSheetsPage() {
   const router = useRouter();
-  const { session, isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { sheets, isLoading, error, refetch, createSheet, updateSheet, isCreating } = useTechnicalSheets();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSheetId, setEditingSheetId] = useState('');
+  const [newSheetName, setNewSheetName] = useState('');
+  const [newSheetDescription, setNewSheetDescription] = useState('');
+  const [newSheetNumber, setNewSheetNumber] = useState('');
+  const [selectedRecipeId, setSelectedRecipeId] = useState('');
 
   // Auth redirect
   useEffect(() => {
@@ -54,474 +46,259 @@ export default function TechnicalSheetsPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Prevent loading if not authenticated
+  // Prevent isLoading if not authenticated
   if (authLoading || !isAuthenticated) {
     return null;
   }
 
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
-  const [previewData, setPreviewData] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'templates' | 'generator' | 'documents' | 'preview'>('templates');
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [templatesRes, documentsRes, recipesRes] = await Promise.all([
-        fetch('/api/v1/technical-sheets/templates'),
-        fetch('/api/v1/technical-sheets/documents'),
-        fetch('/api/v1/recipes'),
-      ]);
-
-      const templatesData = await templatesRes.json();
-      const documentsData = await documentsRes.json();
-      const recipesData = await recipesRes.json();
-
-      setTemplates(templatesData.data || []);
-      setDocuments(documentsData.data || []);
-      setRecipes(recipesData.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateTemplate = async () => {
-    const name = prompt('Nombre de la plantilla:');
-    if (!name) return;
-
-    const type = prompt('Tipo de plantilla (STANDARD, MINIMAL, DETAILED, CUSTOM):') || 'STANDARD';
+  const handleCreateSheet = async () => {
+    if (!newSheetName.trim()) return;
 
     try {
-      const response = await fetch('/api/v1/technical-sheets/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type }),
+      await createSheet({
+        name: newSheetName,
+        description: newSheetDescription || undefined,
+        sheetNumber: newSheetNumber || undefined,
+        recipeId: selectedRecipeId || undefined,
       });
-
-      if (response.ok) {
-        await fetchData();
-      }
+      setIsCreateModalOpen(false);
+      setNewSheetName('');
+      setNewSheetDescription('');
+      setNewSheetNumber('');
+      setSelectedRecipeId('');
+      refetch();
     } catch (error) {
-      console.error('Error creating template:', error);
+      console.error('Error creating sheet:', error);
     }
   };
 
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (!confirm('¿Estás seguro de eliminar esta plantilla?')) return;
+  const handleUpdateSheet = async (id: string) => {
+    if (!newSheetName.trim()) return;
 
     try {
-      const response = await fetch(`/api/v1/technical-sheets/templates/${templateId}`, {
-        method: 'DELETE',
+      await updateSheet({
+        id,
+        data: {
+          name: newSheetName,
+          description: newSheetDescription || undefined,
+          sheetNumber: newSheetNumber || undefined,
+          recipeId: selectedRecipeId || undefined,
+        },
       });
-
-      if (response.ok) {
-        await fetchData();
-      }
+      setIsEditMode(false);
+      setEditingSheetId('');
+      setNewSheetName('');
+      setNewSheetDescription('');
+      setNewSheetNumber('');
+      setSelectedRecipeId('');
+      setIsCreateModalOpen(false);
+      refetch();
     } catch (error) {
-      console.error('Error deleting template:', error);
+      console.error('Error updating sheet:', error);
     }
   };
 
-  const handleGenerateSheet = async (recipeId: string, templateId: string, preview: boolean = false) => {
-    if (!templateId) {
-      alert('Selecciona una plantilla');
-      return;
-    }
-
-    try {
-      const endpoint = preview
-        ? '/api/v1/technical-sheets/preview'
-        : '/api/v1/technical-sheets/generate';
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipeId,
-          templateId,
-          format: 'A4',
-          orientation: 'PORTRAIT',
-          quality: 'HIGH',
-          includeNutrition: true,
-          includeAllergens: true,
-          includeCosts: true,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-
-        if (preview) {
-          setPreviewData(data.data.base64);
-          setActiveTab('preview');
-        } else {
-          alert('Ficha técnica generada correctamente');
-          await fetchData();
-        }
-      }
-    } catch (error) {
-      console.error('Error generating sheet:', error);
-    }
+  const startEditSheet = (sheet: any) => {
+    setEditingSheetId(sheet.id);
+    setNewSheetName(sheet.name);
+    setNewSheetDescription(sheet.description || '');
+    setNewSheetNumber(sheet.sheetNumber || '');
+    setSelectedRecipeId(sheet.recipeId || '');
+    setIsEditMode(true);
+    setIsCreateModalOpen(true);
   };
 
-  const handleGenerateBatch = async () => {
-    if (selectedRecipes.length === 0) {
-      alert('Selecciona al menos una receta');
-      return;
-    }
-
-    if (!selectedTemplate) {
-      alert('Selecciona una plantilla');
-      return;
-    }
-
-    if (!confirm(`Generar ${selectedRecipes.length} fichas técnicas`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/v1/technical-sheets/generate-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipeIds: selectedRecipes,
-          templateId: selectedTemplate,
-          format: 'A4',
-          orientation: 'PORTRAIT',
-          quality: 'HIGH',
-          mergeIntoOne: true,
-        }),
-      });
-
-      if (response.ok) {
-        alert('Fichas técnicas generadas correctamente');
-        await fetchData();
-        setSelectedRecipes([]);
-      }
-    } catch (error) {
-      console.error('Error generating batch:', error);
-    }
+  const handleEditClose = () => {
+    setIsEditMode(false);
+    setEditingSheetId('');
+    setNewSheetName('');
+    setNewSheetDescription('');
+    setNewSheetNumber('');
+    setSelectedRecipeId('');
+    setIsCreateModalOpen(false);
   };
 
-  const handleDeleteDocument = async (documentId: string) => {
-    if (!confirm('¿Estás seguro de eliminar este documento?')) return;
-
-    try {
-      const response = await fetch(`/api/v1/technical-sheets/documents/${documentId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        await fetchData();
-      }
-    } catch (error) {
-      console.error('Error deleting document:', error);
-    }
-  };
-
-  const handleDownloadDocument = async (documentId: string) => {
-    try {
-      const response = await fetch(`/api/v1/technical-sheets/documents/${documentId}`);
-      const data = await response.json();
-
-      if (data.success && data.data.url) {
-        window.open(data.data.url, '_blank');
-      }
-    } catch (error) {
-      console.error('Error downloading document:', error);
-    }
-  };
-
-  const toggleRecipeSelection = (recipeId: string) => {
-    setSelectedRecipes((prev) =>
-      prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
+  const getStatusBadge = (status: string) => {
+    const statusConfig: any = {
+      pending: { label: 'Pendiente', variant: 'secondary' },
+      draft: { label: 'Borrador', variant: 'default' },
+      published: { label: 'Publicado', variant: 'default' },
+      archived: { label: 'Archivado', variant: 'secondary' },
+    };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    return (
+      <Badge variant={config.variant}>
+        {config.label}
+      </Badge>
     );
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Fichas Técnicas</h1>
-          <p className="text-gray-600">
-            Sistema de generación de fichas técnicas parametrizadas con exportación PDF
-          </p>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">Fichas Técnicas</h1>
+        <p className="text-muted-foreground mt-1">
+          Sistema de gestión de fichas técnicas para artículos
+        </p>
+      </div>
 
-        <div className="bg-white shadow-md rounded-lg mb-8">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('templates')}
-              className={`flex-1 py-4 px-6 text-sm font-medium ${
-                activeTab === 'templates'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Plantillas
-            </button>
-            <button
-              onClick={() => setActiveTab('generator')}
-              className={`flex-1 py-4 px-6 text-sm font-medium ${
-                activeTab === 'generator'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Generador
-            </button>
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`flex-1 py-4 px-6 text-sm font-medium ${
-                activeTab === 'documents'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Documentos
-            </button>
-            {previewData && (
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`flex-1 py-4 px-6 text-sm font-medium ${
-                  activeTab === 'preview'
-                    ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Vista Previa
-              </button>
-            )}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Lista de Fichas Técnicas</h2>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Actualizar
+            </Button>
+            <Button onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Ficha
+            </Button>
           </div>
         </div>
 
-        {activeTab === 'templates' && (
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Plantillas Disponibles</h3>
-              <button
-                onClick={handleCreateTemplate}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                + Nueva Plantilla
-              </button>
-            </div>
-
-            {loading ? (
-              <p className="text-gray-500">Cargando plantillas...</p>
-            ) : templates.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">No hay plantillas creadas</p>
-                <button
-                  onClick={handleCreateTemplate}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        {isCreateModalOpen && (
+          <Card className="p-6">
+            <CardHeader>
+              <CardTitle>{isEditMode ? 'Editar Ficha Técnica' : 'Crear Nueva Ficha Técnica'}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Nombre</Label>
+                <Input
+                  value={newSheetName}
+                  onChange={(e) => setNewSheetName(e.target.value)}
+                  placeholder="Ej: Ficha técnica de producto XYZ"
+                />
+              </div>
+              <div>
+                <Label>Descripción (opcional)</Label>
+                <Textarea
+                  value={newSheetDescription}
+                  onChange={(e) => setNewSheetDescription(e.target.value)}
+                  placeholder="Descripción de la ficha técnica"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label>Número de Ficha (opcional)</Label>
+                <Input
+                  value={newSheetNumber}
+                  onChange={(e) => setNewSheetNumber(e.target.value)}
+                  placeholder="Ej: FT-001"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => handleEditClose()} variant="outline">
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => isEditMode ? handleUpdateSheet(editingSheetId) : handleCreateSheet()}
+                  disabled={isCreating}
                 >
-                  Crear Primera Plantilla
-                </button>
+                  {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isEditMode ? 'Guardar Cambios' : 'Crear Ficha'}
+                </Button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {templates.map((template) => (
-                  <div key={template.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium text-gray-900">{template.name}</h4>
-                      <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded">
-                        {template.type}
-                      </span>
-                    </div>
-                    {template.description && (
-                      <p className="text-sm text-gray-600 mb-4">{template.description}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSelectedTemplate(template.id)}
-                        className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
-                      >
-                        Seleccionar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTemplate(template.id)}
-                        className="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Creado: {new Date(template.createdAt).toLocaleDateString('es-ES')}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         )}
 
-        {activeTab === 'generator' && (
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Generador de Fichas Técnicas</h3>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Plantilla Seleccionada
-              </label>
-              <select
-                value={selectedTemplate}
-                onChange={(e) => setSelectedTemplate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Seleccionar plantilla...</option>
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} ({template.type})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-medium text-gray-900">Recetas</h4>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setSelectedRecipes(recipes.map((r) => r.id))}
-                    className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                  >
-                    Seleccionar Todo
-                  </button>
-                  <button
-                    onClick={() => setSelectedRecipes([])}
-                    className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                  >
-                    Limpiar
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {recipes.map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                      selectedRecipes.includes(recipe.id)
-                        ? 'border-indigo-500 bg-indigo-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => toggleRecipeSelection(recipe.id)}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h5 className="font-medium text-gray-900">{recipe.name}</h5>
-                        {recipe.description && (
-                          <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : error ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              No se pudieron cargar las fichas técnicas. Por favor intenta nuevamente.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <ScrollArea className="h-[calc(100vh-250px)]">
+            <div className="grid gap-4">
+              {sheets.length === 0 ? (
+                <Card className="p-12 flex flex-col items-center justify-center">
+                  <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Sin fichas técnicas</h3>
+                  <p className="text-sm text-muted-foreground text-center mb-4">
+                    Crea tu primera ficha técnica para documentar artículos
+                  </p>
+                  <Button onClick={() => setIsCreateModalOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear Primera Ficha
+                  </Button>
+                </Card>
+              ) : (
+                sheets.map((sheet) => (
+                  <Card key={sheet.id} className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-semibold">{sheet.name}</h3>
+                          <Badge variant="outline">
+                            <Info className="mr-1 h-3 w-3" />
+                            {sheet.sheetNumber || 'Sin número'}
+                          </Badge>
+                          {getStatusBadge(sheet.status)}
+                        </div>
+                        {sheet.description && (
+                          <p className="text-sm text-muted-foreground mb-2">{sheet.description}</p>
+                        )}
+                        {sheet.recipeName && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              Receta: {sheet.recipeName}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                          <div className="flex items-center gap-2">
+                            <Info className="h-4 w-4" />
+                            <span>Creado: {new Date(sheet.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          {sheet.ingredients && sheet.ingredients.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4" />
+                              <span>{sheet.ingredients.length} ingredientes</span>
+                            </div>
+                          )}
+                          {sheet.temperatures && sheet.temperatures.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <Thermometer className="h-4 w-4" />
+                              <span>{sheet.temperatures.length} temperaturas</span>
+                            </div>
+                          )}
+                        </div>
+                        {sheet.ingredients && sheet.ingredients.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {sheet.ingredients.slice(0, 3).map((ingredient) => (
+                              <Badge key={ingredient.id} variant="secondary" className="text-xs">
+                                {ingredient.ingredientName}
+                              </Badge>
+                            ))}
+                            {sheet.ingredients.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{sheet.ingredients.length - 3}
+                              </Badge>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <input
-                        type="checkbox"
-                        checked={selectedRecipes.includes(recipe.id)}
-                        onChange={() => toggleRecipeSelection(recipe.id)}
-                        className="h-4 w-4 text-indigo-600"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={handleGenerateBatch}
-                disabled={!selectedTemplate || selectedRecipes.length === 0}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                Generar Batch ({selectedRecipes.length} fichas)
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'documents' && (
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Documentos Generados</h3>
-
-            {loading ? (
-              <p className="text-gray-500">Cargando documentos...</p>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">No hay documentos generados</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {documents.map((document) => (
-                  <div key={document.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{document.name}</h4>
-                        <div className="flex gap-4 mt-2 text-sm text-gray-600">
-                          <span>Tipo: {document.type}</span>
-                          <span>Versión: {document.version}</span>
-                          <span>Tamaño: {formatFileSize(document.fileSize)}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">
-                          Creado: {new Date(document.createdAt).toLocaleString('es-ES')}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleDownloadDocument(document.id)}
-                          className="px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-                        >
-                          Descargar
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDocument(document.id)}
-                          className="px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700"
-                        >
-                          Eliminar
-                        </button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => startEditSheet(sheet)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'preview' && previewData && (
-          <div className="bg-white shadow-md rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Vista Previa</h3>
-              <button
-                onClick={() => setPreviewData(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-              >
-                Cerrar
-              </button>
+                  </Card>
+                ))
+              )}
             </div>
-            <div className="border border-gray-300 rounded-lg">
-              <iframe
-                src={`data:application/pdf;base64,${previewData}`}
-                className="w-full h-96"
-                title="Vista previa PDF"
-              />
-            </div>
-          </div>
+          </ScrollArea>
         )}
       </div>
     </div>

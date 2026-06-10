@@ -288,6 +288,11 @@ enum UserRole {
   VIEWER
 }
 
+enum CategoryContext {
+  articles
+  recipes
+}
+
 // Sprint Tracker - Sprint 16
 model Sprint {
   id             String   @id @default(cuid())

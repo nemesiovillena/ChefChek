@@ -28,8 +28,7 @@ import {
 } from "./dto/dashboard.dto";
 
 @ApiTags("Dashboard")
-@ApiBearerAuth("JWT-auth")
-@Controller("dashboard")
+@Controller("api/v1/dashboard")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}

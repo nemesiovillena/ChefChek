@@ -68,4 +68,13 @@ export class CreateRecipeDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

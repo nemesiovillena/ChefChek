@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  SetMetadata,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import {
@@ -88,10 +89,3 @@ export const CanManageSettings = () =>
     PERMISSIONS.settings.update,
     PERMISSIONS.settings.manage_categories,
   );
-
-function SetMetadata(key: string, value: any) {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-    Reflect.defineMetadata(key, value, descriptor.value);
-    return descriptor;
-  };
-}
