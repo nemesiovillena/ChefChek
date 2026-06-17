@@ -67,9 +67,10 @@ export function useApiMutation<TData, TVariables>(
         throw new Error(apiError.message);
       }
     },
-    onSuccess: () => {
-      // Invalidate all queries on success
-      queryClient.invalidateQueries();
+    onSuccess: (data, error, variables, context) => {
+      // Let specific hooks handle invalidation
+      // This hook is generic and doesn't know the query structure
+      options?.onSuccess?.(data, error, variables, context);
     },
     ...options,
   });

@@ -9,9 +9,25 @@ const nextConfig: NextConfig = {
     domains: [],
   },
 
-  // Experimental: disable ISR for now
+  // Fix workspace detection
   experimental: {
-    // Optimize package imports
+    turbo: {
+      root: __dirname,
+    },
+  },
+
+  // Proxy API requests and uploads to backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:3001/api/v1/:path*',
+      },
+      {
+        source: '/uploads/:path*',
+        destination: 'http://localhost:3001/uploads/:path*',
+      },
+    ];
   },
 };
 

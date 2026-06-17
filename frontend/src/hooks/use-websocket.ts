@@ -20,9 +20,13 @@ export function useWebSocketNotifications() {
     } as any);
 
     // Listen for new notifications
-    wsClient.onNotification((notification) => {
-      setNotifications((prev) => [notification, ...prev]);
-      setUnreadCount((prev) => prev + 1);
+    const notificationHandler = (notification: any) => {
+      setNotifications((prev) => {
+        // Limit to last 50 notifications to prevent memory leaks
+        const updated = [notification, ...prev];
+        return updated.slice(0, 50);
+      });
+      setUnreadCount((prev) => Math.min(prev + 1, 99)); // Limit to 99
 
       // Show browser notification if permission granted
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -33,11 +37,15 @@ export function useWebSocketNotifications() {
           data: notification.actionUrl,
         });
       }
-    });
+    };
+
+    wsClient.onNotification(notificationHandler);
 
     // Clean up listeners on unmount
     return () => {
-      wsClient.off('notification');
+      wsClient.off('notification', notificationHandler);
+      setNotifications([]); // Clear notifications on unmount
+      setUnreadCount(0);
     };
   }, [isAuthenticated, sessionId]);
 
@@ -86,23 +94,27 @@ export function useRealTimeOrders() {
       sessionId,
     } as any);
 
-    wsClient.onOrderCreated((order) => {
+    const orderCreatedHandler = (order: any) => {
       setLastOrder(order);
-      setOrderUpdates((prev) => [{ type: 'created', order, timestamp: new Date() }, ...prev]);
-    });
+      setOrderUpdates((prev) => [{ type: 'created', order, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onOrderApproved((order) => {
-      setOrderUpdates((prev) => [{ type: 'approved', order, timestamp: new Date() }, ...prev]);
-    });
+    const orderApprovedHandler = (order: any) => {
+      setOrderUpdates((prev) => [{ type: 'approved', order, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onOrderRejected((order) => {
-      setOrderUpdates((prev) => [{ type: 'rejected', order, timestamp: new Date() }, ...prev]);
-    });
+    const orderRejectedHandler = (order: any) => {
+      setOrderUpdates((prev) => [{ type: 'rejected', order, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
+
+    wsClient.onOrderCreated(orderCreatedHandler);
+    wsClient.onOrderApproved(orderApprovedHandler);
+    wsClient.onOrderRejected(orderRejectedHandler);
 
     return () => {
-      wsClient.off('orderCreated');
-      wsClient.off('orderApproved');
-      wsClient.off('orderRejected');
+      wsClient.off('orderCreated', orderCreatedHandler);
+      wsClient.off('orderApproved', orderApprovedHandler);
+      wsClient.off('orderRejected', orderRejectedHandler);
     };
   }, [isAuthenticated, sessionId]);
 
@@ -130,20 +142,25 @@ export function useRealTimeProduction() {
       sessionId,
     } as any);
 
-    wsClient.onProductionTaskCompleted((task) => {
-      setProductionUpdates((prev) => [{ type: 'task_completed', task, timestamp: new Date() }, ...prev]);
-    });
+    const taskCompletedHandler = (task: any) => {
+      setProductionUpdates((prev) => [{ type: 'task_completed', task, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onProductionAlert((alert) => {
+    const alertHandler = (alert: any) => {
       if (alert.severity === 'CRITICAL') {
-        setAlerts((prev) => [alert, ...prev]);
+        setAlerts((prev) => [alert, ...prev].slice(0, 50));
       }
-      setProductionUpdates((prev) => [{ type: 'alert', alert, timestamp: new Date() }, ...prev]);
-    });
+      setProductionUpdates((prev) => [{ type: 'alert', alert, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
+
+    wsClient.onProductionTaskCompleted(taskCompletedHandler);
+    wsClient.onProductionAlert(alertHandler);
 
     return () => {
-      wsClient.off('productionTaskCompleted');
-      wsClient.off('productionAlert');
+      wsClient.off('productionTaskCompleted', taskCompletedHandler);
+      wsClient.off('productionAlert', alertHandler);
+      setAlerts([]);
+      setProductionUpdates([]);
     };
   }, [isAuthenticated, sessionId]);
 
@@ -174,23 +191,29 @@ export function useRealTimeStock() {
       sessionId,
     } as any);
 
-    wsClient.onStockLow((alert) => {
-      setStockAlerts((prev) => [alert, ...prev]);
-    });
+    const stockLowHandler = (alert: any) => {
+      setStockAlerts((prev) => [alert, ...prev].slice(0, 50));
+    };
 
-    wsClient.onStockCritical((alert) => {
-      setStockAlerts((prev) => [alert, ...prev]);
-      setStockUpdates((prev) => [{ type: 'critical', alert, timestamp: new Date() }, ...prev]);
-    });
+    const stockCriticalHandler = (alert: any) => {
+      setStockAlerts((prev) => [alert, ...prev].slice(0, 50));
+      setStockUpdates((prev) => [{ type: 'critical', alert, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onStockUpdated((stock) => {
-      setStockUpdates((prev) => [{ type: 'updated', stock, timestamp: new Date() }, ...prev]);
-    });
+    const stockUpdatedHandler = (stock: any) => {
+      setStockUpdates((prev) => [{ type: 'updated', stock, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
+
+    wsClient.onStockLow(stockLowHandler);
+    wsClient.onStockCritical(stockCriticalHandler);
+    wsClient.onStockUpdated(stockUpdatedHandler);
 
     return () => {
-      wsClient.off('stockLow');
-      wsClient.off('stockCritical');
-      wsClient.off('stockUpdated');
+      wsClient.off('stockLow', stockLowHandler);
+      wsClient.off('stockCritical', stockCriticalHandler);
+      wsClient.off('stockUpdated', stockUpdatedHandler);
+      setStockAlerts([]);
+      setStockUpdates([]);
     };
   }, [isAuthenticated, sessionId]);
 
@@ -221,22 +244,28 @@ export function useRealTimeDigitalMenu() {
       sessionId,
     } as any);
 
-    wsClient.onMenuPublished((menu) => {
-      setMenuUpdates((prev) => [{ type: 'published', menu, timestamp: new Date() }, ...prev]);
-    });
+    const menuPublishedHandler = (menu: any) => {
+      setMenuUpdates((prev) => [{ type: 'published', menu, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onMenuUpdated((menu) => {
-      setMenuUpdates((prev) => [{ type: 'updated', menu, timestamp: new Date() }, ...prev]);
-    });
+    const menuUpdatedHandler = (menu: any) => {
+      setMenuUpdates((prev) => [{ type: 'updated', menu, timestamp: new Date() }, ...prev].slice(0, 50));
+    };
 
-    wsClient.onQRScan((scan) => {
-      setQrScans((prev) => [scan, ...prev]);
-    });
+    const qrScanHandler = (scan: any) => {
+      setQrScans((prev) => [scan, ...prev].slice(0, 50));
+    };
+
+    wsClient.onMenuPublished(menuPublishedHandler);
+    wsClient.onMenuUpdated(menuUpdatedHandler);
+    wsClient.onQRScan(qrScanHandler);
 
     return () => {
-      wsClient.off('menuPublished');
-      wsClient.off('menuUpdated');
-      wsClient.off('qrScan');
+      wsClient.off('menuPublished', menuPublishedHandler);
+      wsClient.off('menuUpdated', menuUpdatedHandler);
+      wsClient.off('qrScan', qrScanHandler);
+      setMenuUpdates([]);
+      setQrScans([]);
     };
   }, [isAuthenticated, sessionId]);
 
