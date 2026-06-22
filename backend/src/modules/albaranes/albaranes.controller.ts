@@ -45,7 +45,7 @@ export class AlbaranesController {
 
   @Post("from-upload")
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FilesInterceptor("files", 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FilesInterceptor("file", 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
   @ApiOperation({ summary: "Crear albarán desde upload + OCR" })
   @ApiResponse({ status: 201, description: "Albarán creado desde OCR" })
   async createFromUpload(
@@ -57,7 +57,24 @@ export class AlbaranesController {
       throw new BadRequestException("No files uploaded");
     }
 
-    return this.albaranesService.createFromUpload(files, tenantId);
+    const albaran = await this.albaranesService.createFromUpload(files, tenantId);
+
+    // Return format compatible with frontend upload hook: { products, albaran }
+    return {
+      albaran,
+      products: (albaran.lines || []).map((line: any) => ({
+        name: line.description,
+        description: line.description,
+        quantity: line.quantity,
+        unit: line.unit,
+        unit_price: line.unitPrice,
+        total_price: (line.quantity || 0) * (line.unitPrice || 0),
+        supplier: (albaran as any).supplier?.name || "IMPORTADO",
+        category: "",
+        allergens: [],
+        confidence: line.confidence || 0.7,
+      })),
+    };
   }
 
   @Get()
