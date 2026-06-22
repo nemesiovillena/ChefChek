@@ -1,0 +1,180 @@
+import apiClient from '@/lib/api-client';
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+  tenantSlug: string;
+}
+
+export interface RegisterData {
+  tenantName: string;
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    tenantId: string;
+  };
+  session: {
+    id: string;
+    expiresAt: string;
+  };
+  cookie: string;
+}
+
+export interface ErrorResponse {
+  message: string;
+  statusCode: number;
+  error?: string;
+}
+
+class AuthService {
+  async loginWithEmail(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      // Store tenant slug temporarily for the request
+      sessionStorage.setItem('tenant_slug', credentials.tenantSlug);
+
+      // Send only email and password, tenantSlug goes via header
+      const { email, password } = credentials;
+      const response = await apiClient.post<AuthResponse>('/v1/auth/login', { email, password });
+
+      // Store session ID in sessionStorage (memory only, cleared on tab close)
+      sessionStorage.setItem('session_id', response.data.session.id);
+      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+
+      return response.data;
+    } catch (error: any) {
+      const errorResponse = error.response?.data as ErrorResponse;
+      throw new Error(errorResponse?.message || 'Error al iniciar sesión');
+    }
+  }
+
+  async register(data: RegisterData): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.post<AuthResponse>('/v1/auth/register', data);
+
+      // Store session ID and tenant slug
+      const tenantSlug = this.slugify(data.tenantName);
+      sessionStorage.setItem('session_id', response.data.session.id);
+      sessionStorage.setItem('tenant_slug', tenantSlug);
+      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+
+      return response.data;
+    } catch (error: any) {
+      const errorResponse = error.response?.data as ErrorResponse;
+      throw new Error(errorResponse?.message || 'Error al registrarse');
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      const sessionId = sessionStorage.getItem('session_id');
+      if (sessionId) {
+        await apiClient.post('/v1/auth/logout', { sessionId });
+      }
+    } catch (error) {
+      // Continue with logout even if API call fails
+      console.error('Error during logout:', error);
+    } finally {
+      // Clear session data
+      sessionStorage.removeItem('session_id');
+      sessionStorage.removeItem('tenant_slug');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('tenant_id');
+    }
+  }
+
+  async getCurrentSession(): Promise<AuthResponse | null> {
+    try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+      const savedUser = sessionStorage.getItem('user');
+
+      if (!sessionId || !tenantSlug || !savedUser) return null;
+
+      // Validate session with backend
+      const response = await apiClient.get<{ user: any; isValid: boolean }>('/v1/auth/validate');
+
+      if (response.data.isValid && response.data.user) {
+        // Reconstruct AuthResponse from saved data + validated user
+        return {
+          user: response.data.user,
+          session: {
+            id: sessionId,
+            expiresAt: new Date(Date.now() + 86400000).toISOString()
+          },
+          cookie: ''
+        };
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async refreshToken(): Promise<AuthResponse | null> {
+    try {
+      const sessionId = sessionStorage.getItem('session_id');
+      const savedUser = sessionStorage.getItem('user');
+
+      if (!sessionId || !savedUser) return null;
+
+      const response = await apiClient.post<{ id: string; expiresAt: string; cookie: string }>('/v1/auth/refresh', { sessionId });
+
+      // Update session ID in storage
+      if (response.data.id) {
+        sessionStorage.setItem('session_id', response.data.id);
+      }
+
+      // Reconstruct AuthResponse from saved user
+      return {
+        user: JSON.parse(savedUser),
+        session: {
+          id: response.data.id,
+          expiresAt: response.data.expiresAt
+        },
+        cookie: response.data.cookie
+      };
+    } catch (error) {
+      // Refresh failed - session is invalid
+      sessionStorage.removeItem('session_id');
+      sessionStorage.removeItem('tenant_slug');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('tenant_id');
+      return null;
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return !!sessionStorage.getItem('session_id');
+  }
+
+  getCurrentToken(): string | null {
+    return sessionStorage.getItem('session_id');
+  }
+
+  getCurrentTenantSlug(): string | null {
+    return sessionStorage.getItem('tenant_slug');
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+}
+
+export default new AuthService();

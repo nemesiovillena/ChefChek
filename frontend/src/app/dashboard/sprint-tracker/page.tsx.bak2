@@ -1,0 +1,863 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface Sprint {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  status: string;
+  startDate: Date;
+  endDate: Date;
+  progress: number;
+  totalTasks: number;
+  completedTasks: number;
+  objectives?: string[];
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  sprintId: string;
+  status: string;
+  priority: string;
+  dueDate?: Date;
+  tags?: string[];
+  estimatedHours?: number;
+  assignedTo?: string;
+  assignedToName?: string;
+  dependsOn?: string[];
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  isActive: boolean;
+  availableHours: number;
+  assignedTasks: number;
+  completedTasks: number;
+}
+
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  taskId?: string;
+  sprintId?: string;
+  read: boolean;
+  createdAt: Date;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+}
+
+export default function SprintTrackerPage() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const steps = ['Sprints', 'Tareas', 'Asignaciones', 'Progreso', 'Notificaciones'];
+
+  // Sprints state
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null);
+  const [showCreateSprint, setShowCreateSprint] = useState(false);
+  const [newSprint, setNewSprint] = useState({
+    name: '',
+    description: '',
+    type: 'DEVELOPMENT',
+    startDate: '',
+    endDate: '',
+    objectives: [] as string[],
+  });
+
+  // Tasks state
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    sprintId: '',
+    priority: 'MEDIUM',
+    dueDate: '',
+    estimatedHours: 0,
+    assignedTo: '',
+    tags: [] as string[],
+  });
+
+  // Team state
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState({ name: '', email: '', role: 'DEVELOPER' });
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Progress state
+  const [sprintProgress, setSprintProgress] = useState<any>(null);
+
+  const statusColors: Record<string, string> = {
+    NOT_STARTED: 'bg-gray-500',
+    IN_PROGRESS: 'bg-blue-500',
+    COMPLETED: 'bg-green-500',
+    BLOCKED: 'bg-red-500',
+    CANCELLED: 'bg-gray-400',
+  };
+
+  const priorityColors: Record<string, string> = {
+    CRITICAL: 'bg-red-600',
+    HIGH: 'bg-orange-500',
+    MEDIUM: 'bg-yellow-500',
+    LOW: 'bg-green-500',
+  };
+
+  useEffect(() => {
+    loadSprints();
+    loadTeamMembers();
+    loadNotifications();
+  }, []);
+
+  const loadSprints = async () => {
+    // Mock data - replace with API call
+    const mockSprints: Sprint[] = [
+      {
+        id: '1',
+        name: 'Sprint 16: Roadmap/Sprint Tracker',
+        description: 'Sistema de seguimiento de desarrollo',
+        type: 'DEVELOPMENT',
+        status: 'IN_PROGRESS',
+        startDate: new Date('2026-05-31'),
+        endDate: new Date('2026-06-07'),
+        progress: 45,
+        totalTasks: 8,
+        completedTasks: 4,
+        objectives: ['Modelo de sprints', 'Gestión de tareas', 'Notificaciones'],
+      },
+      {
+        id: '2',
+        name: 'Sprint 15: Wiki de Procedimientos',
+        description: 'Sistema de conocimiento interno',
+        type: 'DOCUMENTATION',
+        status: 'COMPLETED',
+        startDate: new Date('2026-05-24'),
+        endDate: new Date('2026-05-31'),
+        progress: 100,
+        totalTasks: 6,
+        completedTasks: 6,
+      },
+    ];
+    setSprints(mockSprints);
+  };
+
+  const loadTasks = async (sprintId: string) => {
+    // Mock data - replace with API call
+    const mockTasks: Task[] = [
+      {
+        id: 't1',
+        title: 'Crear DTOs de Sprint Tracker',
+        description: 'Definir enums y DTOs para sprints y tareas',
+        sprintId,
+        status: 'COMPLETED',
+        priority: 'HIGH',
+        estimatedHours: 4,
+        assignedToName: 'Dev 1',
+        tags: ['backend', 'dto'],
+      },
+      {
+        id: 't2',
+        title: 'Implementar servicio de Sprint Tracker',
+        description: 'Crear métodos de gestión de sprints y tareas',
+        sprintId,
+        status: 'COMPLETED',
+        priority: 'HIGH',
+        estimatedHours: 8,
+        assignedToName: 'Dev 1',
+        tags: ['backend', 'service'],
+      },
+      {
+        id: 't3',
+        title: 'Crear controlador de Sprint Tracker',
+        description: 'Implementar endpoints REST para sprints y tareas',
+        sprintId,
+        status: 'IN_PROGRESS',
+        priority: 'HIGH',
+        estimatedHours: 6,
+        assignedToName: 'Dev 2',
+        tags: ['backend', 'controller'],
+      },
+      {
+        id: 't4',
+        title: 'Implementar frontend de Sprint Tracker',
+        description: 'Crear dashboard con 5 módulos interactivos',
+        sprintId,
+        status: 'TODO',
+        priority: 'HIGH',
+        estimatedHours: 12,
+        tags: ['frontend', 'dashboard'],
+      },
+    ];
+    setTasks(mockTasks);
+  };
+
+  const loadTeamMembers = async () => {
+    // Mock data - replace with API call
+    const mockMembers: TeamMember[] = [
+      {
+        id: 'm1',
+        name: 'Developer 1',
+        role: 'SENIOR_DEV',
+        email: 'dev1@example.com',
+        isActive: true,
+        availableHours: 40,
+        assignedTasks: 2,
+        completedTasks: 15,
+      },
+      {
+        id: 'm2',
+        name: 'Developer 2',
+        role: 'JUNIOR_DEV',
+        email: 'dev2@example.com',
+        isActive: true,
+        availableHours: 40,
+        assignedTasks: 1,
+        completedTasks: 8,
+      },
+    ];
+    setTeamMembers(mockMembers);
+  };
+
+  const loadNotifications = async () => {
+    // Mock data - replace with API call
+    const mockNotifications: Notification[] = [
+      {
+        id: 'n1',
+        type: 'TASK_ASSIGNED',
+        title: 'Nueva tarea asignada',
+        message: 'Has sido asignado a la tarea: Implementar frontend de Sprint Tracker',
+        taskId: 't4',
+        sprintId: '1',
+        read: false,
+        createdAt: new Date(),
+        priority: 'HIGH',
+      },
+      {
+        id: 'n2',
+        type: 'TASK_COMPLETED',
+        title: 'Tarea completada',
+        message: 'La tarea "Crear DTOs de Sprint Tracker" ha sido completada',
+        taskId: 't1',
+        sprintId: '1',
+        read: true,
+        createdAt: new Date(Date.now() - 3600000),
+        priority: 'MEDIUM',
+      },
+    ];
+    setNotifications(mockNotifications);
+  };
+
+  const handleCreateSprint = async () => {
+    // Mock create - replace with API call
+    const newSprintData: Sprint = {
+      id: Date.now().toString(),
+      ...newSprint,
+      status: 'NOT_STARTED',
+      startDate: new Date(newSprint.startDate),
+      endDate: new Date(newSprint.endDate),
+      progress: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+    };
+    setSprints([...sprints, newSprintData]);
+    setShowCreateSprint(false);
+    setNewSprint({ name: '', description: '', type: 'DEVELOPMENT', startDate: '', endDate: '', objectives: [] });
+  };
+
+  const handleCreateTask = async () => {
+    if (!selectedSprint) return;
+
+    // Mock create - replace with API call
+    const newTaskData: Task = {
+      id: `t${Date.now()}`,
+      ...newTask,
+      sprintId: selectedSprint.id,
+      status: 'TODO',
+      dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
+    };
+    setTasks([...tasks, newTaskData]);
+    setShowCreateTask(false);
+    setNewTask({ title: '', description: '', sprintId: '', priority: 'MEDIUM', dueDate: '', estimatedHours: 0, assignedTo: '', tags: [] });
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, status: string) => {
+    setTasks(tasks.map(t => t.id === taskId ? { ...t, status } : t));
+  };
+
+  const handleAddMember = async () => {
+    // Mock add - replace with API call
+    const newMemberData: TeamMember = {
+      id: `m${Date.now()}`,
+      ...newMember,
+      isActive: true,
+      availableHours: 40,
+      assignedTasks: 0,
+      completedTasks: 0,
+    };
+    setTeamMembers([...teamMembers, newMemberData]);
+    setShowAddMember(false);
+    setNewMember({ name: '', email: '', role: 'DEVELOPER' });
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    setNotifications(notifications.map(n => n.id === notificationId ? { ...n, read: true } : n));
+  };
+
+  const handleMarkAllAsRead = async () => {
+    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sprint Tracker</h1>
+            <p className="text-muted-foreground">Sistema de seguimiento de desarrollo</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge variant={unreadCount > 0 ? 'default' : 'secondary'}>
+              {unreadCount} notificaciones
+            </Badge>
+          </div>
+        </div>
+
+        {/* Step Indicator */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              {steps.map((step, index) => (
+                <div key={step} className="flex items-center flex-1">
+                  <button
+                    onClick={() => setCurrentStep(index)}
+                    className={`
+                      flex items-center justify-center w-12 h-12 rounded-full font-semibold transition-all
+                      ${index === currentStep
+                        ? 'bg-primary text-primary-foreground scale-110 shadow-lg'
+                        : index < currentStep
+                          ? 'bg-green-500 text-white'
+                          : 'bg-muted text-muted-foreground'
+                      }
+                    `}
+                  >
+                    {index + 1}
+                  </button>
+                  <span
+                    className={`
+                      ml-3 text-sm font-medium transition-colors
+                      ${index === currentStep ? 'text-foreground' : 'text-muted-foreground'}
+                    `}
+                  >
+                    {step}
+                  </span>
+                  {index < steps.length - 1 && (
+                    <div className={`flex-1 h-1 mx-4 rounded ${index < currentStep ? 'bg-green-500' : 'bg-muted'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Step Content */}
+        {currentStep === 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Gestión de Sprints</CardTitle>
+                <CardDescription>Crea y gestiona sprints de desarrollo</CardDescription>
+              </div>
+              <Dialog open={showCreateSprint} onOpenChange={setShowCreateSprint}>
+                <DialogTrigger>
+                  <Button>Nuevo Sprint</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Crear Nuevo Sprint</DialogTitle>
+                    <DialogDescription>Define los objetivos del sprint</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Nombre</Label>
+                      <Input
+                        value={newSprint.name}
+                        onChange={(e) => setNewSprint({ ...newSprint, name: e.target.value })}
+                        placeholder="Sprint 17: Nueva Feature"
+                      />
+                    </div>
+                    <div>
+                      <Label>Descripción</Label>
+                      <Textarea
+                        value={newSprint.description}
+                        onChange={(e) => setNewSprint({ ...newSprint, description: e.target.value })}
+                        placeholder="Describe el objetivo del sprint"
+                      />
+                    </div>
+                    <div>
+                      <Label>Tipo</Label>
+                      <Select value={newSprint.type} onValueChange={(value) => setNewSprint({ ...newSprint, type: value || 'FEATURE' })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DEVELOPMENT">Desarrollo</SelectItem>
+                          <SelectItem value="REFACTORING">Refactorización</SelectItem>
+                          <SelectItem value="DOCUMENTATION">Documentación</SelectItem>
+                          <SelectItem value="TESTING">Testing</SelectItem>
+                          <SelectItem value="INFRASTRUCTURE">Infraestructura</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Fecha Inicio</Label>
+                        <Input
+                          type="date"
+                          value={newSprint.startDate}
+                          onChange={(e) => setNewSprint({ ...newSprint, startDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Fecha Fin</Label>
+                        <Input
+                          type="date"
+                          value={newSprint.endDate}
+                          onChange={(e) => setNewSprint({ ...newSprint, endDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <Button onClick={handleCreateSprint} className="w-full">Crear Sprint</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {sprints.map(sprint => (
+                  <Card key={sprint.id} className="cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() => { setSelectedSprint(sprint); loadTasks(sprint.id); }}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <Badge className={statusColors[sprint.status]}>{sprint.status}</Badge>
+                          <h3 className="text-lg font-semibold">{sprint.name}</h3>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">{sprint.progress}%</p>
+                          <p className="text-sm text-muted-foreground">{sprint.completedTasks}/{sprint.totalTasks} tareas</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">{sprint.description}</p>
+                      <Progress value={sprint.progress} className="h-2" />
+                      <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
+                        <span>{new Date(sprint.startDate).toLocaleDateString()}</span>
+                        <span>{new Date(sprint.endDate).toLocaleDateString()}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 1 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Gestión de Tareas</CardTitle>
+                <CardDescription>{selectedSprint ? `Sprint: ${selectedSprint.name}` : 'Selecciona un sprint'}</CardDescription>
+              </div>
+              {selectedSprint && (
+                <Dialog open={showCreateTask} onOpenChange={setShowCreateTask}>
+                  <DialogTrigger>
+                    <Button>Nueva Tarea</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Crear Nueva Tarea</DialogTitle>
+                      <DialogDescription>Define los detalles de la tarea</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Título</Label>
+                        <Input
+                          value={newTask.title}
+                          onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                          placeholder="Implementar feature X"
+                        />
+                      </div>
+                      <div>
+                        <Label>Descripción</Label>
+                        <Textarea
+                          value={newTask.description}
+                          onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                          placeholder="Describe la tarea"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Prioridad</Label>
+                          <Select value={newTask.priority} onValueChange={(value) => setNewTask({ ...newTask, priority: value || 'MEDIUM' })}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CRITICAL">Crítica</SelectItem>
+                              <SelectItem value="HIGH">Alta</SelectItem>
+                              <SelectItem value="MEDIUM">Media</SelectItem>
+                              <SelectItem value="LOW">Baja</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Horas Estimadas</Label>
+                          <Input
+                            type="number"
+                            value={newTask.estimatedHours}
+                            onChange={(e) => setNewTask({ ...newTask, estimatedHours: parseInt(e.target.value) || 0 })}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Fecha Límite</Label>
+                        <Input
+                          type="date"
+                          value={newTask.dueDate}
+                          onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Asignar a</Label>
+                        <Select value={newTask.assignedTo} onValueChange={(value) => setNewTask({ ...newTask, assignedTo: value || '' })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {teamMembers.map(member => (
+                              <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button onClick={handleCreateTask} className="w-full">Crear Tarea</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </CardHeader>
+            <CardContent>
+              {selectedSprint ? (
+                <div className="grid gap-4">
+                  {tasks.map(task => (
+                    <Card key={task.id}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <Badge className={priorityColors[task.priority]}>{task.priority}</Badge>
+                            <Badge className={statusColors[task.status]}>{task.status}</Badge>
+                            <h3 className="text-lg font-semibold">{task.title}</h3>
+                          </div>
+                          <Select value={task.status} onValueChange={(value) => value && handleUpdateTaskStatus(task.id, value)}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="TODO">Por hacer</SelectItem>
+                              <SelectItem value="IN_PROGRESS">En progreso</SelectItem>
+                              <SelectItem value="IN_REVIEW">En revisión</SelectItem>
+                              <SelectItem value="COMPLETED">Completada</SelectItem>
+                              <SelectItem value="BLOCKED">Bloqueada</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">{task.description}</p>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          {task.assignedToName && <span>Asignado: {task.assignedToName}</span>}
+                          {(task.estimatedHours ?? 0) > 0 && <span>Estimado: {task.estimatedHours}h</span>}
+                          {task.dueDate && <span>Límite: {new Date(task.dueDate).toLocaleDateString()}</span>}
+                        </div>
+                        {task.tags && task.tags.length > 0 && (
+                          <div className="flex gap-2 mt-4">
+                            {task.tags.map(tag => (
+                              <Badge key={tag} variant="outline">{tag}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Alert>
+                  <AlertTitle>Sprint no seleccionado</AlertTitle>
+                  <AlertDescription>Ve a la sección de Sprints para seleccionar un sprint activo.</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 2 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Asignaciones</CardTitle>
+                <CardDescription>Gestiona el equipo y asignaciones</CardDescription>
+              </div>
+              <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
+                <DialogTrigger>
+                  <Button>Agregar Miembro</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Agregar Miembro al Equipo</DialogTitle>
+                    <DialogDescription>Define los datos del miembro</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Nombre</Label>
+                      <Input
+                        value={newMember.name}
+                        onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                        placeholder="Nombre completo"
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newMember.email}
+                        onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div>
+                      <Label>Rol</Label>
+                      <Select value={newMember.role} onValueChange={(value) => setNewMember({ ...newMember, role: value || 'DEVELOPER' })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SENIOR_DEV">Senior Developer</SelectItem>
+                          <SelectItem value="JUNIOR_DEV">Junior Developer</SelectItem>
+                          <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
+                          <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleAddMember} className="w-full">Agregar Miembro</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {teamMembers.map(member => (
+                  <Card key={member.id}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold">{member.name}</h3>
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{member.email}</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant={member.isActive ? 'default' : 'secondary'}>
+                            {member.isActive ? 'Activo' : 'Inactivo'}
+                          </Badge>
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            <p>Tareas: {member.assignedTasks}</p>
+                            <p>Completadas: {member.completedTasks}</p>
+                            <p>Disponible: {member.availableHours}h</p>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 3 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Progreso</CardTitle>
+              <CardDescription>Visualiza el progreso de los sprints</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {selectedSprint && sprintProgress ? (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Progreso del Sprint</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Progreso</p>
+                          <p className="text-3xl font-bold">{sprintProgress.progress.toFixed(1)}%</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Completado</p>
+                          <p className="text-3xl font-bold">{sprintProgress.completedPercentage}%</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Tareas Totales</p>
+                          <p className="text-3xl font-bold">{sprintProgress.totalTasks}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Restantes</p>
+                          <p className="text-3xl font-bold">{sprintProgress.remainingTasks}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Estado del Sprint</h3>
+                    <div className="flex gap-4">
+                      <Badge variant={sprintProgress.onTrack ? 'default' : 'secondary'}>
+                        {sprintProgress.onTrack ? '✓ En línea' : '⚠ Requiere atención'}
+                      </Badge>
+                      {sprintProgress.atRisk && (
+                        <Badge variant="destructive">⚠ Riesgo de retraso</Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Desglose de Tareas</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Completadas</p>
+                          <p className="text-2xl font-bold text-green-600">{sprintProgress.completedTasks}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">En Progreso</p>
+                          <p className="text-2xl font-bold text-blue-600">{sprintProgress.inProgressTasks}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Bloqueadas</p>
+                          <p className="text-2xl font-bold text-red-600">{sprintProgress.blockedTasks}</p>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Pendientes</p>
+                          <p className="text-2xl font-bold text-gray-600">{sprintProgress.remainingTasks - sprintProgress.inProgressTasks - sprintProgress.blockedTasks}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+
+                  {sprintProgress.estimatedCompletionDate && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Estimación</h3>
+                      <Card>
+                        <CardContent className="pt-6">
+                          <p className="text-sm text-muted-foreground">Fecha estimada de completación</p>
+                          <p className="text-xl font-semibold">{new Date(sprintProgress.estimatedCompletionDate).toLocaleDateString()}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Alert>
+                  <AlertTitle>Sprint no seleccionado</AlertTitle>
+                  <AlertDescription>Selecciona un sprint para ver su progreso.</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 4 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Notificaciones</CardTitle>
+                <CardDescription>{unreadCount} notificaciones sin leer</CardDescription>
+              </div>
+              <Button onClick={handleMarkAllAsRead} variant="outline">Marcar todas como leídas</Button>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[600px]">
+                <div className="space-y-4">
+                  {notifications.map(notif => (
+                    <Card key={notif.id} className={!notif.read ? 'bg-accent/50' : ''}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant={notif.priority === 'URGENT' ? 'destructive' : notif.priority === 'HIGH' ? 'default' : 'secondary'}>
+                                {notif.priority}
+                              </Badge>
+                              <Badge variant={notif.read ? 'secondary' : 'default'}>
+                                {notif.read ? 'Leída' : 'Nueva'}
+                              </Badge>
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">{notif.title}</h3>
+                            <p className="text-sm text-muted-foreground">{notif.message}</p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(notif.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          {!notif.read && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleMarkAsRead(notif.id)}
+                            >
+                              Marcar como leída
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}

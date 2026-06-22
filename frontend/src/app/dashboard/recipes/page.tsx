@@ -1,0 +1,792 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/auth.context';
+import { useRouter } from 'next/navigation';
+import { useNotification } from '@/components/notification-system';
+import {
+  useRecipes,
+  Recipe,
+  useCreateRecipe,
+  useUpdateRecipe,
+  useDeleteRecipe,
+  RecipeIngredient,
+  useRecipeCost,
+} from '@/hooks/use-recipes';
+import { useProducts } from '@/hooks/use-products';
+import { useCategories, Category } from '@/hooks/use-categories';
+
+export const dynamic = 'force-dynamic';
+
+export default function RecipesPage() {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const addNotification = useNotification();
+
+  const { data: recipesData, isLoading: recipesLoading, error: recipesError, refetch } = useRecipes();
+  const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
+
+  const { data: productsData } = useProducts();
+  const products: any[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
+
+  const { data: categoriesData } = useCategories("recipes");
+  const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
+
+  const createRecipeMutation = useCreateRecipe();
+  const updateRecipeMutation = useUpdateRecipe();
+  const deleteRecipeMutation = useDeleteRecipe();
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [showCostModal, setShowCostModal] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    elaboration: '',
+    portions: '1',
+    portionSize: '250',
+  });
+
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([
+    { productId: '', productName: '', quantity: 0, unit: 'kg' },
+  ]);
+
+  // Handle authentication redirect in useEffect, not in render
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Cargando recetas...</div>
+      </div>
+    );
+  }
+
+  if (recipesError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-red-600">Error al cargar recetas: {recipesError.message}</div>
+      </div>
+    );
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`¿Estás seguro de eliminar la receta "${name}"?`)) {
+      try {
+        await deleteRecipeMutation.mutateAsync(id);
+        addNotification({
+          type: 'success',
+          title: 'Receta eliminada',
+          message: 'Receta eliminada correctamente',
+        });
+        refetch();
+      } catch (error: any) {
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          message: error.message || 'Error al eliminar receta',
+        });
+      }
+    }
+  };
+
+  const handleToggleStatus = async (recipe: Recipe) => {
+    try {
+      await updateRecipeMutation.mutateAsync({ id: recipe.id, isActive: !recipe.isActive });
+      addNotification({
+        type: 'success',
+        title: 'Estado actualizado',
+        message: `La receta "${recipe.name}" ha sido ${!recipe.isActive ? 'activada' : 'desactivada'}`,
+      });
+      refetch();
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Error al cambiar el estado de la receta',
+      });
+    }
+  };
+
+  const handleViewCost = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setShowCostModal(true);
+  };
+
+  const handleAddIngredient = () => {
+    setIngredients([...ingredients, { productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
+
+  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: any) => {
+    const newIngredients = [...ingredients];
+    if (field === 'productId') {
+      const product = products.find((p) => p.id === value);
+      newIngredients[index] = {
+        ...newIngredients[index],
+        productId: value,
+        productName: product?.name,
+      };
+    } else {
+      newIngredients[index] = { ...newIngredients[index], [field]: value };
+    }
+    setIngredients(newIngredients);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const recipeData = {
+      name: formData.name,
+      description: formData.description || undefined,
+      elaboration: formData.elaboration || undefined,
+      portions: parseInt(formData.portions, 10) || 1,
+      portionSize: parseInt(formData.portionSize, 10) || 250,
+      ingredients: ingredients.filter((ing) => ing.productId && ing.quantity > 0),
+      categoryIds: selectedCategoryIds,
+      allergens: [],
+    };
+
+    try {
+      if (selectedRecipe) {
+        await updateRecipeMutation.mutateAsync({ id: selectedRecipe.id, ...recipeData });
+        addNotification({
+          type: 'success',
+          title: 'Receta actualizada',
+          message: 'Receta actualizada correctamente',
+        });
+      } else {
+        await createRecipeMutation.mutateAsync(recipeData);
+        addNotification({
+          type: 'success',
+          title: 'Receta creada',
+          message: 'Receta creada correctamente',
+        });
+      }
+      setShowCreateForm(false);
+      setSelectedRecipe(null);
+      setFormData({
+        name: '',
+        description: '',
+        elaboration: '',
+        portions: '1',
+        portionSize: '250',
+      });
+      setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+      setSelectedCategoryIds([]);
+      refetch();
+    } catch (error: any) {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Error al guardar receta',
+      });
+    }
+  };
+
+  const handleEdit = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setFormData({
+      name: recipe.name,
+      description: recipe.description || '',
+      elaboration: recipe.elaboration || '',
+      portions: recipe.portions.toString(),
+      portionSize: recipe.portionSize?.toString() || '250',
+    });
+    setIngredients(recipe.ingredients);
+    setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
+    setShowCreateForm(true);
+  };
+
+  const filteredRecipes = recipes.filter((recipe: Recipe) => {
+    const matchesSearch = recipe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (recipe.description?.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = !selectedCategory ||
+      recipe.categories?.some(cat => cat.categoryId === selectedCategory);
+    return matchesSearch && matchesCategory;
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">ChefChek</h1>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              {user?.name} ({user?.role})
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            <a href="/dashboard" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+              Dashboard
+            </a>
+            <a href="/dashboard/articulos" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+              Artículos
+            </a>
+            <a href="/dashboard/recipes" className="border-b-2 border-indigo-500 py-4 px-1 text-sm font-medium text-indigo-600">
+              Recetas
+            </a>
+            <a href="/dashboard/menus" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
+              Menús
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-900">Recetas</h2>
+            <p className="mt-2 text-gray-600">
+              Gestión de recetas y escandallos
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Crear Receta
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white shadow rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Buscar
+              </label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Nombre o descripción"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Categoría
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">Todas</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.icon} {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Recipes Table */}
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nombre
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Categorías
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Porciones
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Costo Total
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Costo/Unidad
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredRecipes.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                      No hay recetas
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecipes.map((recipe: Recipe) => (
+                    <tr key={recipe.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {recipe.name}
+                        </div>
+                        {recipe.description && (
+                          <div className="text-sm text-gray-500">
+                            {recipe.description}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {recipe.categories && recipe.categories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {recipe.categories.map((cat) => (
+                              <span
+                                key={cat.categoryId}
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800"
+                              >
+                                {categories.find((c) => c.id === cat.categoryId)?.icon} {cat.categoryName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">Sin categorías</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {recipe.portions} ({recipe.portionSize}g)
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        €{recipe.totalCost.toFixed(2)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        €{recipe.totalCostPerUnit?.toFixed(2) || recipe.costBreakdown?.costPerUnit.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleStatus(recipe)}
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                            recipe.isActive
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          }`}
+                        >
+                          {recipe.isActive ? 'Activo' : 'Desactivado'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => handleViewCost(recipe)}
+                          className="inline-flex items-center justify-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                        >
+                          Costo
+                        </button>
+                        <button
+                          onClick={() => handleEdit(recipe)}
+                          className="inline-flex items-center justify-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(recipe.id, recipe.name)}
+                          className="inline-flex items-center justify-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                        >
+                          Eliminar
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Create/Edit Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    {selectedRecipe ? 'Editar Receta' : 'Crear Receta'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setSelectedRecipe(null);
+                      setFormData({
+                        name: '',
+                        description: '',
+                        elaboration: '',
+                        portions: '1',
+                        portionSize: '250',
+                      });
+                      setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+                    }}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <span className="sr-only">Cerrar</span>
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Descripción
+                    </label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({ ...formData, description: e.target.value })
+                      }
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Categorías
+                    </label>
+                    <div className="space-y-2">
+                      {categories.map((category) => (
+                        <label key={category.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategoryIds.includes(category.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                              } else {
+                                setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {category.icon} {category.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Porciones *
+                      </label>
+                      <input
+                        type="number"
+                        name="portions"
+                        min="1"
+                        required
+                        value={formData.portions}
+                        onChange={(e) =>
+                          setFormData({ ...formData, portions: e.target.value })
+                        }
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Tamaño Porción (g)
+                      </label>
+                      <input
+                        type="number"
+                        name="portionSize"
+                        min="1"
+                        value={formData.portionSize}
+                        onChange={(e) =>
+                          setFormData({ ...formData, portionSize: e.target.value })
+                        }
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Elaboración (JSON)
+                    </label>
+                    <textarea
+                      name="elaboration"
+                      value={formData.elaboration}
+                      onChange={(e) =>
+                        setFormData({ ...formData, elaboration: e.target.value })
+                      }
+                      placeholder='{"type":"doc","content":[...]}'
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                      rows={6}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Ingredientes
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAddIngredient}
+                        className="text-sm text-indigo-600 hover:text-indigo-900"
+                      >
+                        + Agregar ingrediente
+                      </button>
+                    </div>
+                    {ingredients.map((ingredient, index) => (
+                      <div key={index} className="flex gap-2 mb-2">
+                        <select
+                          value={ingredient.productId}
+                          onChange={(e) =>
+                            handleIngredientChange(index, 'productId', e.target.value)
+                          }
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="">Seleccionar producto</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Cantidad"
+                          value={ingredient.quantity}
+                          onChange={(e) =>
+                            handleIngredientChange(index, 'quantity', parseFloat(e.target.value))
+                          }
+                          className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                        <select
+                          value={ingredient.unit}
+                          onChange={(e) =>
+                            handleIngredientChange(index, 'unit', e.target.value)
+                          }
+                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                          <option value="kg">kg</option>
+                          <option value="g">g</option>
+                          <option value="l">l</option>
+                          <option value="ml">ml</option>
+                          <option value="units">u</option>
+                        </select>
+                        {ingredients.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveIngredient(index)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end space-x-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateForm(false);
+                        setSelectedRecipe(null);
+                        setFormData({
+                          name: '',
+                          description: '',
+                          elaboration: '',
+                          portions: '1',
+                          portionSize: '250',
+                        });
+                        setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={
+                        createRecipeMutation.isPending ||
+                        updateRecipeMutation.isPending
+                      }
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {createRecipeMutation.isPending ||
+                      updateRecipeMutation.isPending
+                        ? 'Guardando...'
+                        : selectedRecipe
+                        ? 'Actualizar'
+                        : 'Crear'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cost Modal */}
+        {showCostModal && selectedRecipe && (
+          <RecipeCostModal
+            recipe={selectedRecipe}
+            onClose={() => {
+              setShowCostModal(false);
+              setSelectedRecipe(null);
+            }}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
+  const { data: costData, isLoading: costLoading } = useRecipeCost(recipe.id);
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Costo: {recipe.name}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        {costLoading ? (
+          <div className="text-center py-8">Calculando costo...</div>
+        ) : costData ? (
+          <div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="text-sm text-gray-600">Costo Total</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  €{costData.totalCost.toFixed(2)}
+                </div>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="text-sm text-gray-600">Costo por Porción</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  €{costData.costPerPortion.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <h4 className="text-lg font-medium mb-4">Ingredientes</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Producto
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Cantidad
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Unidad
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                      Costo
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {costData.ingredients.map((ingredient, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {ingredient.productName}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {ingredient.quantity}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {ingredient.unit}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500 text-right">
+                        €{ingredient.cost.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

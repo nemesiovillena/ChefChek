@@ -1,0 +1,16 @@
+{
+  "nav": {
+    "dashboard": "Panel de Control",
+    "products": "Productos",
+    "recipes": "Recetas",
+    "menus": "Menús",
+    "warehouse": "Almacén",
+    "settings": "Configuración"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "email": "Correo Electrónico",
+    "password": "Contraseña"
+  }
+}

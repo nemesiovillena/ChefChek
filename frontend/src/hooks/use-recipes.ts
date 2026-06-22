@@ -1,0 +1,118 @@
+import { useCrud } from './use-api';
+import { useApiQuery } from './use-api';
+
+export interface RecipeIngredient {
+  productId: string;
+  productName?: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  description?: string;
+  elaboration?: string;
+  notes?: string;
+  imageUrl?: string;
+  sourceUrl?: string;
+  portions: number;
+  portionSize?: number;
+  totalCost: number;
+  totalCostPerUnit?: number;
+  version?: number;
+  parentVersion?: string | null;
+  isActive: boolean;
+  isPublic: boolean;
+  ingredients: RecipeIngredient[];
+  subRecipes?: any[];
+  categories?: RecipeCategory[];
+  costBreakdown?: {
+    ingredientsCost: number;
+    subRecipesCost: number;
+    totalCost: number;
+    costPerPortion: number;
+    costPerUnit: number;
+  };
+  allergens: number[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecipeCategory {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+}
+
+export interface CreateRecipeData {
+  name: string;
+  description?: string;
+  elaboration?: string;
+  notes?: string;
+  imageUrl?: string;
+  sourceUrl?: string;
+  portions: number;
+  portionSize?: number;
+  ingredients: RecipeIngredient[];
+  categoryIds?: string[];
+  allergens?: number[];
+}
+
+export interface UpdateRecipeData extends Partial<CreateRecipeData> {
+  id: string;
+  isActive?: boolean;
+}
+
+export interface RecipeCost {
+  recipeId: string;
+  totalCost: number;
+  costPerPortion: number;
+  ingredients: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unit: string;
+    cost: number;
+  }[];
+}
+
+// Recipes CRUD hooks
+const {
+  useList,
+  useGet,
+  useCreate,
+  useUpdate,
+  useDelete,
+} = useCrud<Recipe, CreateRecipeData, UpdateRecipeData>('/v1/recipes', ['recipes']);
+
+export function useRecipes(query?: { search?: string; category?: string }, page: number = 1, pageSize: number = 50) {
+  return useList(page, pageSize);
+}
+
+export function useRecipe(id: string) {
+  return useGet(id);
+}
+
+export function useCreateRecipe() {
+  return useCreate();
+}
+
+export function useUpdateRecipe() {
+  return useUpdate();
+}
+
+export function useDeleteRecipe() {
+  return useDelete();
+}
+
+export function useRecipeCost(id: string) {
+  return useApiQuery<RecipeCost>(
+    ['recipe-cost', id],
+    `/v1/recipes/${id}/calculate`,
+    {
+      enabled: !!id,
+    },
+  );
+}
