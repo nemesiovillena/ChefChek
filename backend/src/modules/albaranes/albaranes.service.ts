@@ -2,6 +2,9 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from "@nes
 import { PrismaService } from "../../common/services/prisma.service";
 import { AlbaranStatusService } from "./services/albaran-status.service";
 import { AlbaranNumberService } from "./services/albaran-number.service";
+import { SupplierMatchingService } from "./services/supplier-matching.service";
+import { LineMatchingService } from "./services/line-matching.service";
+import { OcrAiService } from "../ingesta/ocr-ai.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
 import { UpdateAlbaranDto, UpdateAlbaranLineDto } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
@@ -15,6 +18,9 @@ export class AlbaranesService {
     private readonly prisma: PrismaService,
     private readonly statusService: AlbaranStatusService,
     private readonly numberService: AlbaranNumberService,
+    private readonly supplierMatching: SupplierMatchingService,
+    private readonly lineMatching: LineMatchingService,
+    private readonly ocrAiService: OcrAiService,
   ) {}
 
   /** Create albaran with lines from manual entry */
@@ -214,5 +220,108 @@ export class AlbaranesService {
     }
 
     return this.prisma.albaran.delete({ where: { id } });
+  }
+
+  /** Create albaran from OCR upload */
+  async createFromUpload(files: Express.Multer.File[], tenantId: string) {
+    this.logger.log(`Creating albaran from upload for tenant ${tenantId} (${files.length} files)`);
+
+    const file = files[0];
+    if (!file) throw new BadRequestException("No file provided");
+
+    try {
+      // 1. Process file via OCR
+      const fileUrl = this.saveUploadedFile(file);
+      const ocrResult = await this.ocrAiService.extractText(fileUrl);
+
+      // 2. Extract structured data
+      const aiResult = await this.ocrAiService.processDocumentData(
+        ocrResult.text,
+        tenantId,
+        ocrResult,
+      );
+
+      // 3. Match supplier
+      const supplierMatch = await this.supplierMatching.matchSupplier({
+        cifNif: aiResult.metadata.cifCode,
+        name: aiResult.metadata.supplierName,
+        tenantId,
+      });
+
+      // 4. Create albaran with lines
+      const internalNumber = await this.numberService.generateInternalNumber(tenantId);
+      const albaran = await this.prisma.albaran.create({
+        data: {
+          tenantId,
+          internalNumber,
+          supplierId: supplierMatch.supplierId,
+          albaranNumber: aiResult.metadata.documentNumber || `OCR-${Date.now()}`,
+          date: aiResult.metadata.documentDate ? new Date(aiResult.metadata.documentDate) : new Date(),
+          base: aiResult.metadata.totalAmount || 0,
+          vatTotal: 0,
+          total: aiResult.metadata.totalAmount || 0,
+          notes: `Importado desde OCR (confianza: ${(ocrResult.confidence * 100).toFixed(0)}%)`,
+          lines: {
+            create: aiResult.extractedProducts.map((product) => ({
+              description: product.name,
+              quantity: product.quantity,
+              unit: product.unit || "ud",
+              unitPrice: product.unitPrice || 0,
+              vatPercent: 10,
+              lineAmount: (product.quantity || 0) * (product.unitPrice || 0),
+            })),
+          },
+        },
+        include: { lines: true, supplier: true },
+      });
+
+      // 5. Run line matching in background (non-blocking)
+      this.lineMatching.matchAllLines(albaran.id, tenantId).catch((err) => {
+        this.logger.error(`Line matching failed for albaran ${albaran.id}: ${err.message}`);
+      });
+
+      this.logger.log(`Albaran created from upload: ${albaran.id} with ${albaran.lines.length} lines`);
+
+      return albaran;
+    } catch (error) {
+      this.logger.error(`Failed to create albaran from upload: ${error.message}`);
+
+      // Create a pending albaran with minimal data as fallback
+      const internalNumber = await this.numberService.generateInternalNumber(tenantId);
+      const albaran = await this.prisma.albaran.create({
+        data: {
+          tenantId,
+          internalNumber,
+          albaranNumber: `FALLBACK-${Date.now()}`,
+          date: new Date(),
+          base: 0,
+          vatTotal: 0,
+          total: 0,
+          notes: `Error en OCR: ${error.message}. Requiere revisión manual.`,
+          status: AlbaranStatus.PENDIENTE,
+        },
+        include: { lines: true },
+      });
+
+      this.logger.warn(`Created fallback albaran ${albaran.id} due to OCR failure`);
+      return albaran;
+    }
+  }
+
+  /** Save uploaded file to temporary storage */
+  private saveUploadedFile(file: Express.Multer.File): string {
+    const fs = require("fs");
+    const path = require("path");
+    const uploadDir = path.join(process.cwd(), "uploads", "temp");
+
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const filePath = path.join(uploadDir, fileName);
+    fs.writeFileSync(filePath, file.buffer);
+
+    return filePath;
   }
 }

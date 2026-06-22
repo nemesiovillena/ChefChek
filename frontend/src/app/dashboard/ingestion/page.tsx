@@ -1,6 +1,7 @@
 'use client';
 
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -201,7 +202,13 @@ export default function IngestionPage() {
               <Button onClick={handleImport} disabled={isUploading} className="flex-1">
                 Importar {results.products.filter((p) => p.confidence >= 0.5).length} productos
               </Button>
-              <Button variant="outline" onClick={reset}>
+              <Link href="/dashboard/albaranes">
+                <Button variant="outline" className="w-full">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Ver en Albaranes
+                </Button>
+              </Link>
+              <Button variant="ghost" onClick={reset}>
                 Cerrar
               </Button>
             </div>

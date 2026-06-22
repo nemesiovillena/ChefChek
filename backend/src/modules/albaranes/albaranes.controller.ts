@@ -45,13 +45,19 @@ export class AlbaranesController {
 
   @Post("from-upload")
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FilesInterceptor("file", 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FilesInterceptor("files", 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
   @ApiOperation({ summary: "Crear albarán desde upload + OCR" })
   @ApiResponse({ status: 201, description: "Albarán creado desde OCR" })
-  async createFromUpload(@Req() req: any) {
-    // OCR upload will be implemented in Phase 4 integration
-    // For now, this endpoint validates and delegates
-    throw new BadRequestException("Upload + OCR integration pending — use POST /albaranes for manual creation");
+  async createFromUpload(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    if (!files || files.length === 0) {
+      throw new BadRequestException("No files uploaded");
+    }
+
+    return this.albaranesService.createFromUpload(files, tenantId);
   }
 
   @Get()
