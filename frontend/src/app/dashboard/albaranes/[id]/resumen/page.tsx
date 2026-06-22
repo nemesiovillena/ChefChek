@@ -6,10 +6,10 @@ import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
+import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeft, Building2, Calendar, Euro, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2 } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
 export default function AlbaranResumenPage() {
@@ -19,6 +19,7 @@ export default function AlbaranResumenPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState(false);
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -81,6 +82,7 @@ export default function AlbaranResumenPage() {
   };
 
   const canDelete = albaran?.status === 'PENDIENTE' || albaran?.status === 'REVISADO';
+  const canChangeSupplier = albaran?.status === 'PENDIENTE' || albaran?.status === 'REVISADO';
 
   if (authLoading || !isAuthenticated || loading) {
     return (
@@ -131,9 +133,21 @@ export default function AlbaranResumenPage() {
                   <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-indigo-600" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm text-gray-500">Proveedor</p>
-                    <p className="font-semibold">{albaran.supplier?.name || '-'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{albaran.supplier?.name || '-'}</p>
+                      {canChangeSupplier && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSupplierPickerOpen(true)}
+                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                     {albaran.supplier?.cifNif && (
                       <p className="text-xs text-gray-400">CIF: {albaran.supplier.cifNif}</p>
                     )}
@@ -236,6 +250,15 @@ export default function AlbaranResumenPage() {
           </Card>
         </div>
       </div>
+
+      {/* Supplier Picker Dialog */}
+      <SupplierPickerDialog
+        open={supplierPickerOpen}
+        onOpenChange={setSupplierPickerOpen}
+        albaranId={id}
+        currentSupplierId={albaran.supplier?.id}
+        onSuccess={refetch}
+      />
     </div>
   );
 }

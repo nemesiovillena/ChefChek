@@ -7,12 +7,15 @@ import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { confirmLine, rejectLine } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
+import { LineActionsToolbar } from '@/components/albaranes/line-actions-toolbar';
+import { ProductPickerDialog } from '@/components/albaranes/product-picker-dialog';
+import { CreateProductInline } from '@/components/albaranes/create-product-inline';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package } from 'lucide-react';
-import type { AlbaranLine, LineStatus } from '@/lib/api-albaran';
+import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check } from 'lucide-react';
+import type { AlbaranLine, LineStatus, MatchStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
   const router = useRouter();
@@ -21,6 +24,13 @@ export default function AlbaranLineasPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState<string | null>(null);
+
+  // Product picker dialog state
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedLine, setSelectedLine] = useState<AlbaranLine | null>(null);
+
+  // Inline product creation state
+  const [creatingLine, setCreatingLine] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -54,6 +64,20 @@ export default function AlbaranLineasPage() {
     }
   };
 
+  const handleOpenPicker = (line: AlbaranLine) => {
+    setSelectedLine(line);
+    setPickerOpen(true);
+  };
+
+  const handleOpenCreate = (line: AlbaranLine) => {
+    setCreatingLine(line.id);
+  };
+
+  const handleCreateSuccess = () => {
+    setCreatingLine(null);
+    refetch();
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
@@ -68,6 +92,96 @@ export default function AlbaranLineasPage() {
       <Badge variant="secondary" className={config[status].className}>
         {config[status].label}
       </Badge>
+    );
+  };
+
+  const renderLineActions = (line: AlbaranLine) => {
+    if (line.lineStatus === 'CONFIRMADO') {
+      return (
+        <div className="flex items-center gap-1 text-green-600">
+          <Check className="h-4 w-4" />
+          <span className="text-xs">Confirmado</span>
+        </div>
+      );
+    }
+
+    if (line.lineStatus === 'RECHAZADO') {
+      return (
+        <span className="text-xs text-gray-400 line-through">Rechazado</span>
+      );
+    }
+
+    // PENDIENTE lines - show actions based on matchStatus
+    return (
+      <div className="flex items-center gap-2">
+        {line.matchStatus === 'MATCH_DUDOSO' && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenPicker(line)}
+            className="text-yellow-700 border-yellow-300 hover:bg-yellow-50"
+          >
+            <Search className="h-3 w-3 mr-1" />
+            Elegir
+          </Button>
+        )}
+
+        {line.matchStatus === 'NUEVO' && (
+          creatingLine === line.id ? (
+            <CreateProductInline
+              albaranId={id}
+              line={line}
+              onSuccess={handleCreateSuccess}
+              onCancel={() => setCreatingLine(null)}
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenCreate(line)}
+              className="text-red-700 border-red-300 hover:bg-red-50"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Crear
+            </Button>
+          )
+        )}
+
+        {line.matchStatus === 'MATCH_ALTO' && line.matchedProduct && (
+          <div className="flex items-center gap-1 text-green-600">
+            <Check className="h-4 w-4" />
+            <span className="text-xs">Auto-match</span>
+          </div>
+        )}
+
+        {/* Confirm/Reject buttons for all PENDIENTE lines */}
+        {creatingLine !== line.id && (
+          <div className="flex gap-1 ml-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleConfirmLine(line.id)}
+              disabled={updating === line.id}
+              className="text-green-600 hover:bg-green-50"
+            >
+              {updating === line.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleRejectLine(line.id)}
+              disabled={updating === line.id}
+              className="text-red-600 hover:bg-red-50"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -141,84 +255,78 @@ export default function AlbaranLineasPage() {
           <p className="text-gray-600">Este albarán no tiene líneas registradas</p>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Cantidad</TableHead>
-                    <TableHead>Precio</TableHead>
-                    <TableHead>IVA</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Match</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.map((line) => (
-                    <TableRow key={line.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{line.description}</p>
-                          {line.articleNumber && (
-                            <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
-                          )}
-                          {line.matchedProduct && (
-                            <p className="text-xs text-indigo-600 mt-1">
-                              → {line.matchedProduct.name}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{line.quantity}</span>
-                        <span className="text-gray-500 ml-1">{line.unit}</span>
-                      </TableCell>
-                      <TableCell>{formatCurrency(line.unitPrice)}</TableCell>
-                      <TableCell>{line.vatPercent}%</TableCell>
-                      <TableCell className="font-semibold">{formatCurrency(line.lineAmount)}</TableCell>
-                      <TableCell>
-                        <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />
-                      </TableCell>
-                      <TableCell>{getLineStatusBadge(line.lineStatus)}</TableCell>
-                      <TableCell>
-                        {line.lineStatus === 'PENDIENTE' && (
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleConfirmLine(line.id)}
-                              disabled={updating === line.id}
-                              className="text-green-600 hover:bg-green-50"
-                            >
-                              {updating === line.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleRejectLine(line.id)}
-                              disabled={updating === line.id}
-                              className="text-red-600 hover:bg-red-50"
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
+        <>
+          <LineActionsToolbar
+            albaranId={id}
+            lines={lines}
+            onRefresh={refetch}
+          />
+
+          <Card className="mt-4">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Cantidad</TableHead>
+                      <TableHead>Precio</TableHead>
+                      <TableHead>IVA</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Match</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {lines.map((line) => (
+                      <TableRow key={line.id} className={line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}>
+                        <TableCell>
+                          <div>
+                            <p className={`font-medium ${line.lineStatus === 'RECHAZADO' ? 'line-through' : ''}`}>
+                              {line.description}
+                            </p>
+                            {line.articleNumber && (
+                              <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
+                            )}
+                            {line.matchedProduct && (
+                              <p className="text-xs text-indigo-600 mt-1">
+                                → {line.matchedProduct.name}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium">{line.quantity}</span>
+                          <span className="text-gray-500 ml-1">{line.unit}</span>
+                        </TableCell>
+                        <TableCell>{formatCurrency(line.unitPrice)}</TableCell>
+                        <TableCell>{line.vatPercent}%</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency(line.lineAmount)}</TableCell>
+                        <TableCell>
+                          <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />
+                        </TableCell>
+                        <TableCell>{getLineStatusBadge(line.lineStatus)}</TableCell>
+                        <TableCell>{renderLineActions(line)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* Product Picker Dialog */}
+      {selectedLine && (
+        <ProductPickerDialog
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          albaranId={id}
+          line={selectedLine}
+          onSuccess={refetch}
+        />
       )}
     </div>
   );
