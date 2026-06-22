@@ -9,7 +9,13 @@ import {
   UseGuards,
   Req,
   Query,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import * as fs from "fs";
+import * as path from "path";
 import {
   ApiTags,
   ApiOperation,
@@ -162,5 +168,32 @@ export class RecipesController {
       data: costBreakdown,
       message: "Recipe cost calculated successfully",
     };
+  }
+
+  @Post("upload-image")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Subir imagen de receta" })
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("No file provided");
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException("Only jpg, png, and webp images are allowed");
+    }
+
+    const uploadsDir = path.join(process.cwd(), "uploads", "recipes");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const filePath = path.join(uploadsDir, fileName);
+    fs.writeFileSync(filePath, file.buffer);
+
+    const imageUrl = `/uploads/recipes/${fileName}`;
+    return { success: true, data: { imageUrl }, message: "Image uploaded successfully" };
   }
 }

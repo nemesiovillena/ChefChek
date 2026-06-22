@@ -2,6 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { IngestaController } from "./ingesta.controller";
 import { IngestaService } from "./ingesta.service";
 import { TelegramBotService } from "./telegram-bot.service";
+import { PythonOcrService } from "./python-ocr.service";
+import { ProductRecognitionService } from "./product-recognition.service";
 import {
   CreateDocumentDto,
   DocumentQueryDto,
@@ -37,12 +39,32 @@ describe("IngestaController", () => {
     revokeUser: jest.fn(),
   };
 
+  const mockPythonOcrService = {
+    processImage: jest.fn(),
+    isConfigured: jest.fn().mockReturnValue(true),
+    getProviderInfo: jest.fn().mockReturnValue({
+      name: "PaddleOCR Microservice",
+      version: "1.0.0",
+      configured: true,
+      features: [],
+    }),
+  };
+
+  const mockProductRecognitionService = {
+    recognizeProduct: jest.fn(),
+    trainModel: jest.fn(),
+    handleUnknownProduct: jest.fn(),
+    validateProductForReview: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [IngestaController],
       providers: [
         { provide: IngestaService, useValue: mockIngestaService },
         { provide: TelegramBotService, useValue: mockTelegramBotService },
+        { provide: PythonOcrService, useValue: mockPythonOcrService },
+        { provide: ProductRecognitionService, useValue: mockProductRecognitionService },
       ],
     })
       .overrideGuard(AuthGuard)

@@ -8,8 +8,9 @@ import { useProducts, Product, useDeleteProduct, useUpdateProduct } from '@/hook
 import { useCategoryTree, useCategories, CategoryTreeNode } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes } from '@/hooks/use-qr-codes';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, FileUp } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
+import AlbaranUploadDrawer from './components/albaran-upload-drawer';
 
 interface Supplier {
   id: string;
@@ -39,6 +40,7 @@ export default function ArticulosPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isAlbaranDrawerOpen, setIsAlbaranDrawerOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentCategory, setSelectedParentCategory] = useState('');
@@ -301,9 +303,25 @@ export default function ArticulosPage() {
             <h2 className="text-3xl font-bold text-gray-900">Artículos</h2>
             <p className="mt-2 text-gray-600">Gestión de artículos e inventario</p>
           </div>
-          <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-            Crear Artículo
-          </button>
+          <div className="flex gap-2">
+            <a
+              href="/dashboard/ocr-ai"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              Añadir Albarán (AI)
+            </a>
+            <a
+              href="/dashboard/ingestion"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              Ingestión Simple
+            </a>
+            <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+              Crear Artículo
+            </button>
+          </div>
         </div>
 
         {/* Chained Filters */}
@@ -447,6 +465,16 @@ export default function ArticulosPage() {
         onClose={handleCloseModal}
         article={selectedProduct}
         tree={tree}
+        suppliers={suppliers}
+      />
+
+      <AlbaranUploadDrawer
+        isOpen={isAlbaranDrawerOpen}
+        onClose={() => setIsAlbaranDrawerOpen(false)}
+        onImportComplete={() => {
+          setIsAlbaranDrawerOpen(false);
+          refetch();
+        }}
         suppliers={suppliers}
       />
     </div>

@@ -49,6 +49,7 @@ import { SalaModule } from "./modules/sala/sala.module";
 import { EscandallosModule } from "./modules/escandallos/escandallos.module";
 import { SprintModule } from "./modules/sprint/sprint.module";
 import { QRModule } from "./modules/qr/qr.module";
+import { AlbaranesModule } from "./modules/albaranes/albaranes.module";
 import { WebSocketModule } from "./websocket/websocket.module";
 
 @Module({
@@ -80,6 +81,7 @@ import { WebSocketModule } from "./websocket/websocket.module";
     EscandallosModule,
     SprintModule,
     QRModule,
+    AlbaranesModule,
     GuardsModule,
     WebSocketModule,
   ],

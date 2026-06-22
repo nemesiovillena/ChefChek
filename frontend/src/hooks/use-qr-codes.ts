@@ -60,9 +60,9 @@ export function useQRCodes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post<{ data: QRCodeResponse }>('/v1/qr/generate', dto);
+      const response = await apiClient.post<QRCodeResponse>('/v1/qr/generate', dto);
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -74,9 +74,9 @@ export function useQRCodes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get<{ data: QRCodeResponse }>(`/v1/qr/${qrCodeId}`);
+      const response = await apiClient.get<QRCodeResponse>(`/v1/qr/${qrCodeId}`);
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -91,9 +91,9 @@ export function useQRCodes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.get<{ data: QRCodeResponse[] }>(`/v1/qr/entity/${entityType}/${entityId}`);
+      const response = await apiClient.get<QRCodeResponse[]>(`/v1/qr/entity/${entityType}/${entityId}`);
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -105,13 +105,13 @@ export function useQRCodes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post<{ data: QRScanResponse }>('/v1/qr/scan', {
+      const response = await apiClient.post<QRScanResponse>('/v1/qr/scan', {
         qrCodeId,
         deviceId,
         userAgent,
       });
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -123,9 +123,9 @@ export function useQRCodes() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.post<{ data: QRCodeResponse }>(`/v1/qr/regenerate/${qrCodeId}`, { config });
+      const response = await apiClient.post<QRCodeResponse>(`/v1/qr/regenerate/${qrCodeId}`, { config });
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -154,9 +154,26 @@ export function useQRCodes() {
       if (entityType) params.append('entityType', entityType);
       if (entityId) params.append('entityId', entityId);
 
-      const response = await apiClient.get<{ data: QRStats }>(`/v1/qr/stats?${params.toString()}`);
+      const response = await apiClient.get<QRStats>(`/v1/qr/stats?${params.toString()}`);
       setIsLoading(false);
-      return response.data.data;
+      return response.data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setIsLoading(false);
+      throw err;
+    }
+  };
+
+  const getTenantQRCodes = async (entityType?: string): Promise<QRCodeResponse[]> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (entityType) params.append('entityType', entityType);
+
+      const response = await apiClient.get<QRCodeResponse[]>(`/v1/qr?${params.toString()}`);
+      setIsLoading(false);
+      return response.data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
       setIsLoading(false);
@@ -172,6 +189,7 @@ export function useQRCodes() {
     regenerateQRCode,
     deleteQRCode,
     getQRStats,
+    getTenantQRCodes,
     isLoading,
     error,
   };

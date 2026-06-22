@@ -8,15 +8,19 @@ export class ProductResponseDto {
     category: string;
     supplier?: string;
 
-    // Multi-unidad
-    purchaseUnit: string;
-    storageUnit: string;
-    recipeUnit: string;
+    // Unidad de referencia
+    purchaseFormat: string;
+    referenceUnit: string;
+    unitsPerFormat: number;
+    referenceUnitSize: number;
+    unitSize: number; // auto-calculated: unitsPerFormat * referenceUnitSize
 
     // Precios
     purchasePrice: number;
+    previousPurchasePrice: number;
     netPrice: number;
     profitMargin: number;
+    referencePrice: number; // purchasePrice / unitSize
 
     // Rendimiento
     wastePercentage: number;
@@ -39,9 +43,15 @@ export class ProductsListResponseDto {
     name: string;
     category: string;
     supplier?: string;
-    purchaseUnit: string;
+    purchaseFormat: string;
+    referenceUnit: string;
+    unitsPerFormat: number;
+    referenceUnitSize: number;
+    unitSize: number;
     purchasePrice: number;
+    previousPurchasePrice: number;
     netPrice: number;
+    referencePrice: number;
     isActive: boolean;
     allergens: number[];
   }>;
@@ -60,15 +70,16 @@ export class ProductCostCalculationDto {
     productId: string;
     productName: string;
 
-    // Costeo por unidad
+    // Costeo por unidad de referencia
     costPerPurchaseUnit: number;
-    costPerStorageUnit: number;
-    costPerRecipeUnit: number;
+    referencePrice: number; // price per kg/L/und
 
-    // Factores de conversión
-    ucToUaFactor: number;
-    uaToUrFactor: number;
-    ucToUrFactor: number;
+    // Info de conversión
+    purchaseFormat: string;
+    referenceUnit: string;
+    unitsPerFormat: number;
+    referenceUnitSize: number;
+    unitSize: number;
 
     // Información de precio
     purchasePrice: number;

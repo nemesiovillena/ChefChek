@@ -13,6 +13,9 @@ export interface Recipe {
   name: string;
   description?: string;
   elaboration?: string;
+  notes?: string;
+  imageUrl?: string;
+  sourceUrl?: string;
   portions: number;
   portionSize?: number;
   totalCost: number;
@@ -47,6 +50,9 @@ export interface CreateRecipeData {
   name: string;
   description?: string;
   elaboration?: string;
+  notes?: string;
+  imageUrl?: string;
+  sourceUrl?: string;
   portions: number;
   portionSize?: number;
   ingredients: RecipeIngredient[];

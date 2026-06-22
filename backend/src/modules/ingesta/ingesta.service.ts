@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bull";
 import { Queue } from "bull";
 import { PrismaService } from "../../common/services/prisma.service";
@@ -13,6 +13,7 @@ import {
   DocumentStatus,
   ExtractedProductDto,
 } from "./dto/ingesta.dto";
+import { ManualAlbaranDto } from "./dto/manual-albaran.dto";
 
 @Injectable()
 export class IngestaService {
@@ -232,6 +233,7 @@ export class IngestaService {
       const aiResult = await this.ocrAiService.processDocumentData(
         ocrResult.text,
         document.tenantId,
+        ocrResult,
       );
 
       // Paso 3: Actualizar documento con resultados
@@ -409,9 +411,11 @@ export class IngestaService {
                 tenantId,
                 name: product.name,
                 description: product.description || "",
-                purchaseUnit: product.unit || "ud",
-                storageUnit: product.unit || "ud",
-                recipeUnit: product.unit || "ud",
+                purchaseFormat: product.unit || "ud",
+                referenceUnit: product.unit === "kg" ? "kg" : (product.unit === "L" || product.unit === "l") ? "L" : "und",
+                unitsPerFormat: 1,
+                referenceUnitSize: 1,
+                unitSize: 1,
                 purchasePrice: product.unitPrice,
                 netPrice: product.unitPrice,
                 categoryId: category?.id || null,
@@ -743,6 +747,183 @@ export class IngestaService {
     return {
       success: true,
       data: costUpdates,
+    };
+  }
+
+  /** Process a manually-entered albarán: create/update products + stock movements */
+  async processManualAlbaran(dto: ManualAlbaranDto, requestTenantId?: string) {
+    const tenantId = dto.tenantId || requestTenantId || "";
+    if (!tenantId) {
+      throw new BadRequestException("tenantId is required");
+    }
+
+    const dateStr = dto.date || new Date().toISOString();
+
+    // Find or create supplier
+    let supplierId: string | null = dto.supplierId || null;
+    const supplierName = dto.supplierName || "IMPORTADO";
+    if (!supplierId && supplierName && supplierName !== "IMPORTADO") {
+      const supplier = await this.findOrCreateSupplier(supplierName, tenantId);
+      supplierId = supplier?.id || null;
+    }
+
+    // Create Document record for traceability
+    const document = await this.prisma.document.create({
+      data: {
+        tenantId,
+        type: "DELIVERY_NOTE",
+        name: `Albarán manual${dto.reference ? ` - ${dto.reference}` : ""}`,
+        category: "INGESTA",
+        status: DocumentStatus.COMPLETED,
+        source: "manual",
+        ocrData: { supplierName, date: dateStr, reference: dto.reference },
+        extractedProducts: {
+          create: dto.lines.map((line) => ({
+            name: line.name,
+            quantity: line.quantity,
+            unit: line.unit,
+            unitPrice: line.price,
+            supplier: supplierName,
+            category: line.category || "",
+            confidence: 1.0, // Manual entry = 100% confidence
+          })),
+        },
+      } as any,
+    });
+
+    // Process each line: create/update product + stock movement
+    const results = { created: 0, updated: 0, movements: 0 };
+
+    for (const line of dto.lines) {
+      let productId = line.productId || null;
+
+      // Normalize unit for referenceUnit
+      const normalizedUnit =
+        line.unit === "kg"
+          ? "kg"
+          : line.unit === "L" || line.unit === "l"
+            ? "L"
+            : "und";
+
+      if (productId) {
+        // Update existing product price
+        const existing = await this.prisma.product.findFirst({
+          where: { id: productId, tenantId },
+        });
+        if (existing && line.price > 0) {
+          const priceChangePercentage =
+            existing.netPrice > 0
+              ? Math.abs(
+                  ((line.price - existing.netPrice) / existing.netPrice) * 100,
+                )
+              : 0;
+
+          await this.prisma.product.update({
+            where: { id: existing.id },
+            data: { purchasePrice: line.price, netPrice: line.price },
+          });
+
+          if (priceChangePercentage > 10) {
+            await this.notifyPriceChange(
+              tenantId,
+              existing,
+              line.price,
+              priceChangePercentage,
+            );
+          }
+          results.updated++;
+        }
+      } else {
+        // Check if product with same name already exists
+        const existingByName = await this.prisma.product.findFirst({
+          where: { tenantId, name: line.name },
+        });
+
+        if (existingByName) {
+          productId = existingByName.id;
+          if (line.price > 0) {
+            await this.prisma.product.update({
+              where: { id: existingByName.id },
+              data: { purchasePrice: line.price, netPrice: line.price },
+            });
+          }
+          results.updated++;
+        } else {
+          // Create new product
+          const category = line.category
+            ? await this.findOrCreateCategory(line.category, tenantId)
+            : null;
+
+          const product = await this.prisma.product.create({
+            data: {
+              tenantId,
+              name: line.name,
+              description: "",
+              purchaseFormat: line.unit || "ud",
+              referenceUnit: normalizedUnit,
+              unitsPerFormat: 1,
+              referenceUnitSize: 1,
+              unitSize: 1,
+              purchasePrice: line.price,
+              netPrice: line.price,
+              categoryId: category?.id || null,
+              supplierId: supplierId,
+              wastePercentage: 0,
+              yieldFactor: 1.0,
+              allergens: [],
+            },
+          });
+          productId = product.id;
+          results.created++;
+        }
+      }
+
+      // Create stock movement + update stock
+      if (productId && line.quantity > 0) {
+        await this.prisma.stockMovement.create({
+          data: {
+            productId,
+            type: "ENTRANCE",
+            quantity: line.quantity,
+            unit: line.unit,
+            reason: `Entrada desde albarán manual${dto.reference ? ` (${dto.reference})` : ""}`,
+          },
+        });
+
+        // Update stock quantity
+        const stock = await this.prisma.stock.findFirst({
+          where: { productId, tenantId },
+        });
+        if (stock) {
+          await this.prisma.stock.update({
+            where: { id: stock.id },
+            data: { quantity: stock.quantity + line.quantity },
+          });
+        } else {
+          await this.prisma.stock.create({
+            data: {
+              tenantId,
+              productId,
+              quantity: line.quantity,
+              minimumStock: 0,
+              reorderLevel: 0,
+            },
+          });
+        }
+        results.movements++;
+      }
+    }
+
+    this.logger.log(
+      `Manual albarán processed: ${results.created} created, ${results.updated} updated, ${results.movements} stock movements`,
+    );
+
+    return {
+      success: true,
+      data: {
+        documentId: document.id,
+        ...results,
+      },
     };
   }
 }

@@ -46,7 +46,11 @@ export interface Tenant {
 export interface Product {
   id: string;
   name: string;
-  purchaseUnit: string;
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: number;
+  referenceUnitSize: number;
+  unitSize: number;
   purchasePrice: number;
   netPrice: number;
   categoryId?: string;

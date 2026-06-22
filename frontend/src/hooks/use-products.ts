@@ -48,10 +48,13 @@ export interface Product {
   id: string;
   name: string;
   description?: string;
-  purchaseUnit: string;
-  storageUnit: string;
-  recipeUnit: string;
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: number;
+  referenceUnitSize: number;
+  unitSize: number; // auto-calculated: unitsPerFormat * referenceUnitSize
   purchasePrice: number;
+  previousPurchasePrice: number;
   netPrice: number;
   profitMargin: number;
   wastePercentage: number;
@@ -76,12 +79,6 @@ export interface Product {
   updatedAt: string;
 }
 
-export interface PurchaseFormatInput {
-  name: string;
-  format: string;
-  price: number;
-}
-
 export interface NutritionalInfoInput {
   energyKj?: number;
   energyKcal?: number;
@@ -103,10 +100,11 @@ export interface CreateProductData {
   description?: string;
   category?: string;
   supplier?: string;
-  purchaseUnit: string;
-  storageUnit: string;
-  recipeUnit: string;
-  purchasePrice: number;
+  purchaseFormat?: string;
+  referenceUnit?: string;
+  unitsPerFormat?: number;
+  referenceUnitSize?: number;
+  purchasePrice?: number;
   wastePercentage?: number;
   profitMargin?: number;
   yieldFactor?: number;
@@ -117,7 +115,6 @@ export interface CreateProductData {
   brand?: string;
   hideAllergens?: boolean;
   imageUrl?: string;
-  purchaseFormats?: PurchaseFormatInput[];
   nutritionalInfo?: NutritionalInfoInput;
   minimumStock?: number;
   maximumStock?: number;
@@ -170,4 +167,15 @@ export function useUploadProductImage() {
     '/v1/products/upload-image',
     'POST'
   );
+}
+
+/** Calculate reference price: price per kg/L/und */
+export function getReferencePrice(product: Product): number {
+  const size = product.unitSize || 1;
+  return product.purchasePrice / size;
+}
+
+/** Format reference price for display: "€5.00/kg" */
+export function formatRefPrice(price: number, unit: string): string {
+  return `€${price.toFixed(2)}/${unit}`;
 }

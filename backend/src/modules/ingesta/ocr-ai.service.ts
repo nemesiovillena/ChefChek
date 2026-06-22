@@ -80,13 +80,14 @@ export class OcrAiService {
 
   /**
    * Procesa los datos extraídos del documento para obtener productos estructurados
-   * @param text - Texto extraído por OCR
+   * @param text - Texto extraído por OCR (no usado, se usan productos del rawResult)
    * @param tenantId - ID del tenant
    * @returns Promesa con productos extraídos y metadatos
    */
   async processDocumentData(
     text: string,
     tenantId: string,
+    rawResult?: any,
   ): Promise<{
     extractedProducts: ExtractedProductDto[];
     metadata: Record<string, any>;
@@ -94,9 +95,62 @@ export class OcrAiService {
     this.logger.log(`Processing document data for tenant: ${tenantId}`);
 
     try {
+      // Usar productos extraídos por el microservicio si están disponibles
+      const microserviceProducts =
+        rawResult?.rawResult?.document?.products || [];
+
+      // Si el microservicio devolvió productos estructurados, usarlos
+      if (microserviceProducts.length > 0) {
+        this.logger.log(
+          `Using ${microserviceProducts.length} products from microservice`,
+        );
+
+        const validProducts = [];
+        for (const product of microserviceProducts) {
+          // Convertir formato del microservicio a DTO del backend
+          const dto: ExtractedProductDto = {
+            name: product.name || "",
+            description: `Producto importado desde albarán`,
+            quantity: product.quantity || 0,
+            unit: product.unit || "ud",
+            unitPrice: product.unit_price || 0,
+            supplier: rawResult.rawResult?.document?.supplier_name || "IMPORTADO",
+            category: "", // Se completará con ProductRecognitionService
+            allergens: [],
+            confidence: product.confidence || 0.85,
+          };
+
+          if (await this.validateExtraction(dto)) {
+            const enhanced = await this.enhanceProductRecognition(
+              dto,
+              tenantId,
+            );
+            validProducts.push(enhanced);
+          }
+        }
+
+        const metadata = {
+          totalProducts: validProducts.length,
+          documentDate: rawResult.rawResult?.document?.document_date,
+          documentNumber: rawResult.rawResult?.document?.document_number,
+          supplierName: rawResult.rawResult?.document?.supplier_name,
+          cifCode: rawResult.rawResult?.document?.cif_code,
+          totalAmount: rawResult.rawResult?.document?.total_amount,
+          processingMethod: "paddleocr-microservice-structured",
+        };
+
+        return {
+          extractedProducts: validProducts,
+          metadata,
+        };
+      }
+
+      // Fallback: intentar parsing del texto crudo (método original)
+      this.logger.warn(
+        "No structured products from microservice, using text parsing fallback",
+      );
       const extractedProducts = this.parseExtractedProducts(text, tenantId);
 
-      // Validar y mejorar productos
       const validProducts = [];
       for (const product of extractedProducts) {
         if (await this.validateExtraction(product)) {
@@ -111,7 +165,7 @@ export class OcrAiService {
       const metadata = {
         totalProducts: validProducts.length,
         documentDate: new Date().toISOString(),
-        processingMethod: this.primaryOcrService.getProviderInfo().name,
+        processingMethod: "text-parsing-fallback",
       };
 
       return {

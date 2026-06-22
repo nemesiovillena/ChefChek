@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { getReferencePrice } from "../../common/utils/unit-conversions";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -19,15 +20,22 @@ export class ProductsService {
       allergens = [],
       category,
       supplier,
-      purchaseFormats,
+      unitsPerFormat = 1,
+      referenceUnitSize,
+      unitSize,
       nutritionalInfo,
       minimumStock,
       maximumStock,
       ...productData
     } = createProductDto;
 
+    // Calculate unitSize from unitsPerFormat * referenceUnitSize
+    const effectiveRefUnitSize = referenceUnitSize ?? unitSize ?? 1;
+    const calculatedUnitSize = unitsPerFormat * effectiveRefUnitSize;
+
+    const effectivePrice = purchasePrice ?? 0;
     const netPrice = this.calculateNetPrice(
-      purchasePrice,
+      effectivePrice,
       wastePercentage,
       profitMargin,
     );
@@ -38,12 +46,15 @@ export class ProductsService {
 
     const createData: any = {
       tenantId: requestTenantId,
-      purchasePrice,
+      purchasePrice: effectivePrice,
       netPrice,
       profitMargin,
       wastePercentage,
       yieldFactor: finalYieldFactor,
       allergens,
+      unitsPerFormat,
+      referenceUnitSize: effectiveRefUnitSize,
+      unitSize: calculatedUnitSize,
       ...productData,
     };
 
@@ -52,17 +63,6 @@ export class ProductsService {
     }
     if (supplier) {
       createData.supplierId = supplier;
-    }
-
-    // Nested create: formatos de compra
-    if (purchaseFormats && purchaseFormats.length > 0) {
-      createData.purchaseFormats = {
-        create: purchaseFormats.map((pf) => ({
-          name: pf.name,
-          format: pf.format,
-          price: pf.price,
-        })),
-      };
     }
 
     // Nested create: información nutricional
@@ -113,6 +113,7 @@ export class ProductsService {
       sortOrder = "asc",
       page = 1,
       limit = 20,
+      stockStatus,
     } = query;
 
     const skip = (page - 1) * limit;
@@ -135,6 +136,24 @@ export class ProductsService {
     }
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (stockStatus) {
+      where.stocks = {
+        some: stockStatus === "empty"
+          ? { quantity: { lte: 0 } }
+          : {
+              OR: [
+                { quantity: { lte: 0 } },
+                {
+                  AND: [
+                    { quantity: { gt: 0 } },
+                    { quantity: { lte: this.prisma.$queryRaw`"minimumStock"` } }
+                  ]
+                }
+              ]
+          }
+      };
     }
 
     const [products, total] = await Promise.all([
@@ -216,7 +235,6 @@ export class ProductsService {
     const {
       category,
       supplier,
-      purchaseFormats,
       nutritionalInfo,
       minimumStock,
       maximumStock,
@@ -234,12 +252,28 @@ export class ProductsService {
       delete data.supplier;
     }
 
+    // Recalculate unitSize if unitsPerFormat or referenceUnitSize changed
+    if (data.unitsPerFormat !== undefined || data.referenceUnitSize !== undefined) {
+      const upf = data.unitsPerFormat ?? existingProduct.unitsPerFormat ?? 1;
+      const rus = data.referenceUnitSize ?? existingProduct.referenceUnitSize ?? existingProduct.unitSize ?? 1;
+      data.unitsPerFormat = upf;
+      data.referenceUnitSize = rus;
+      data.unitSize = upf * rus;
+    }
+    // Remove unitSize from updateData if sent directly (it's auto-calculated)
+    delete data.unitSize;
+
     // Recalcular precios si se modifican
     if (
       updateData.purchasePrice !== undefined ||
       updateData.wastePercentage !== undefined ||
       updateData.profitMargin !== undefined
     ) {
+      // Save previous price before updating
+      if (updateData.purchasePrice !== undefined && updateData.purchasePrice !== existingProduct.purchasePrice) {
+        data.previousPurchasePrice = existingProduct.purchasePrice;
+      }
+
       const purchasePrice =
         updateData.purchasePrice ?? existingProduct.purchasePrice;
       const wastePercentage =
@@ -258,18 +292,6 @@ export class ProductsService {
             ? this.calculateYieldFactor(wastePercentage)
             : 1.0;
       }
-    }
-
-    // Replace all purchase formats
-    if (purchaseFormats) {
-      data.purchaseFormats = {
-        deleteMany: {},
-        create: purchaseFormats.map((pf: any) => ({
-          name: pf.name,
-          format: pf.format,
-          price: pf.price,
-        })),
-      };
     }
 
     // Upsert nutritional info
@@ -352,31 +374,20 @@ export class ProductsService {
       throw new NotFoundException("Product not found");
     }
 
-    const ucToUaFactor = this.getUcToUaFactor(
-      product.purchaseUnit,
-      product.storageUnit,
-    );
-    const uaToUrFactor = this.getUaToUrFactor(
-      product.storageUnit,
-      product.recipeUnit,
-    );
-    const ucToUrFactor = ucToUaFactor * uaToUrFactor;
-
-    const costPerPurchaseUnit = product.purchasePrice;
-    const costPerStorageUnit = costPerPurchaseUnit / ucToUaFactor;
-    const costPerRecipeUnit = costPerStorageUnit / uaToUrFactor;
+    const refPrice = getReferencePrice(product.purchasePrice, product.unitSize);
 
     return {
       success: true,
       data: {
         productId: product.id,
         productName: product.name,
-        costPerPurchaseUnit,
-        costPerStorageUnit,
-        costPerRecipeUnit,
-        ucToUaFactor,
-        uaToUrFactor,
-        ucToUrFactor,
+        costPerPurchaseUnit: product.purchasePrice,
+        referencePrice: refPrice,
+        purchaseFormat: product.purchaseFormat,
+        referenceUnit: product.referenceUnit,
+        unitsPerFormat: product.unitsPerFormat,
+        referenceUnitSize: product.referenceUnitSize,
+        unitSize: product.unitSize,
         purchasePrice: product.purchasePrice,
         netPrice: product.netPrice,
         wastePercentage: product.wastePercentage,
@@ -414,6 +425,439 @@ export class ProductsService {
     };
   }
 
+  async createSupplier(
+    tenantId: string,
+    data: {
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      whatsapp?: string;
+      website?: string;
+      averageDeliveryTime?: number;
+      reliabilityScore?: number;
+      priceTier?: string;
+      preferredStatus?: string;
+      orderMethods?: string[];
+      isActive?: boolean;
+    },
+  ) {
+    // Avoid duplicates
+    const existing = await this.prisma.supplier.findFirst({
+      where: { tenantId, name: data.name.trim() },
+    });
+    if (existing) {
+      return {
+        success: true,
+        data: existing,
+        message: "Proveedor ya existente",
+      };
+    }
+
+    const supplier = await this.prisma.supplier.create({
+      data: {
+        tenantId,
+        name: data.name.trim(),
+        contactPerson: data.contactPerson || null,
+        email: data.email || null,
+        phone: data.phone || null,
+        whatsapp: data.whatsapp || null,
+        website: data.website || null,
+        averageDeliveryTime: data.averageDeliveryTime ?? 3,
+        reliabilityScore: data.reliabilityScore ?? 85,
+        priceTier: data.priceTier || "MEDIUM",
+        preferredStatus: data.preferredStatus || "ALTERNATIVE",
+        orderMethods: data.orderMethods?.length ? data.orderMethods : ["EMAIL"],
+        isActive: data.isActive ?? true,
+      },
+    });
+
+    return {
+      success: true,
+      data: supplier,
+      message: "Proveedor creado correctamente",
+    };
+  }
+
+  async getSuppliersStats(tenantId: string) {
+    const count = await this.prisma.supplier.count({
+      where: { tenantId, isActive: true },
+    });
+
+    return { count };
+  }
+
+  async getSupplierById(supplierId: string, tenantId: string) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    return {
+      success: true,
+      data: supplier,
+      message: "Proveedor encontrado",
+    };
+  }
+
+  async updateSupplier(supplierId: string, data: any, tenantId: string) {
+    // Verificar que el proveedor existe y pertenece al tenant
+    const existing = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    const supplier = await this.prisma.supplier.update({
+      where: { id: supplierId },
+      data,
+    });
+
+    return {
+      success: true,
+      data: supplier,
+      message: "Proveedor actualizado correctamente",
+    };
+  }
+
+  async deleteSupplier(supplierId: string, tenantId: string) {
+    // Verificar que el proveedor existe y pertenece al tenant
+    const existing = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    // Verificar que NO tenga productos asociados
+    const productCount = await this.prisma.product.count({
+      where: { supplierId },
+    });
+
+    if (productCount > 0) {
+      throw new Error(
+        `No se puede eliminar el proveedor porque tiene ${productCount} productos asociados.`
+      );
+    }
+
+    await this.prisma.supplier.delete({
+      where: { id: supplierId },
+    });
+
+    return {
+      success: true,
+      message: "Proveedor eliminado correctamente",
+    };
+  }
+
+  async getSupplierProducts(
+    supplierId: string,
+    tenantId: string,
+    page: number,
+    limit: number,
+  ) {
+    // Verificar que el proveedor existe y pertenece al tenant
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { supplierId, tenantId, isActive: true },
+        skip,
+        take: limit,
+        orderBy: { name: "asc" },
+        include: {
+          category: true,
+          stocks: { take: 1 },
+        },
+      }),
+      this.prisma.product.count({
+        where: { supplierId, tenantId, isActive: true },
+      }),
+    ]);
+
+    return {
+      success: true,
+      data: products,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getSupplierPriceTrend(supplierId: string, tenantId: string) {
+    // Verificar que el proveedor existe y pertenece al tenant
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    // Obtener productos del proveedor
+    const products = await this.prisma.product.findMany({
+      where: { supplierId, tenantId },
+      select: { purchasePrice: true },
+    });
+
+    if (products.length === 0) {
+      return {
+        status: "stable",
+        percentage: 0,
+        lastPrice: 0,
+        currentPrice: 0,
+      };
+    }
+
+    // Calcular precio promedio actual
+    const currentAvg = products.reduce((sum, p) => sum + p.purchasePrice, 0) / products.length;
+
+    // Obtener último registro de histórico
+    const lastHistory = await this.prisma.supplierPriceHistory.findFirst({
+      where: { supplierId },
+      orderBy: { recordDate: "desc" },
+    });
+
+    if (!lastHistory) {
+      // Crear primer registro histórico
+      await this.prisma.supplierPriceHistory.create({
+        data: { tenantId, supplierId, averagePrice: currentAvg },
+      });
+
+      return {
+        status: "stable",
+        percentage: 0,
+        lastPrice: currentAvg,
+        currentPrice: currentAvg,
+      };
+    }
+
+    // Calcular diferencia
+    const diff = ((currentAvg - lastHistory.averagePrice) / lastHistory.averagePrice) * 100;
+
+    // Crear nuevo registro histórico si es significativo (cada 24h o > 5% cambio)
+    const shouldRecord =
+      Date.now() - lastHistory.recordDate.getTime() > 86400000 ||
+      Math.abs(diff) > 5;
+
+    if (shouldRecord) {
+      await this.prisma.supplierPriceHistory.create({
+        data: { tenantId, supplierId, averagePrice: currentAvg },
+      });
+    }
+
+    return {
+      status: diff > 0 ? "increased" : diff < 0 ? "decreased" : "stable",
+      percentage: Math.abs(diff),
+      lastPrice: lastHistory.averagePrice,
+      currentPrice: currentAvg,
+    };
+  }
+
+  async getSupplierPriceHistory(
+    supplierId: string,
+    tenantId: string,
+    limit: number = 30,
+  ) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    const history = await this.prisma.supplierPriceHistory.findMany({
+      where: { supplierId, tenantId },
+      orderBy: { recordDate: "desc" },
+      take: limit,
+    });
+
+    return history.map((h) => ({
+      id: h.id,
+      averagePrice: h.averagePrice,
+      recordDate: h.recordDate,
+    }));
+  }
+
+  async getStockAlertsCount(tenantId: string) {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, isActive: true },
+      include: { stocks: { take: 1 } },
+    });
+
+    let low = 0,
+      empty = 0;
+
+    products.forEach((p) => {
+      const qty = p.stocks[0]?.quantity ?? 0;
+      const min = p.stocks[0]?.minimumStock ?? 0;
+
+      if (qty <= 0) {
+        empty++;
+      } else if (qty <= min) {
+        low++;
+      }
+    });
+
+    return {
+      total: products.length,
+      low,
+      empty,
+    };
+  }
+
+  async getCategoryProductCount(categoryId: string, tenantId: string) {
+    // Obtener categoría y verificar pertenece al tenant
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, tenantId },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Categoría no encontrada`);
+    }
+
+    // Obtener todos los descendientes recursivamente
+    const allCategoryIds = await this.getAllCategoryDescendants(categoryId, tenantId);
+
+    // Contar productos en la categoría y sus descendientes
+    const count = await this.prisma.product.count({
+      where: {
+        categoryId: { in: allCategoryIds },
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    return { count };
+  }
+
+  async reorderCategories(
+    updates: Array<{ id: string; sortOrder: number; parentId?: string }>,
+    tenantId: string,
+  ) {
+    // Verificar que todas las categorías pertenecen al tenant
+    const categoryIds = updates.map((u) => u.id);
+    const categories = await this.prisma.category.findMany({
+      where: { id: { in: categoryIds }, tenantId },
+    });
+
+    if (categories.length !== categoryIds.length) {
+      throw new Error(`Algunas categorías no existen o no pertenecen al tenant`);
+    }
+
+    // Validar que no se crean ciclos en jerarquía
+    for (const update of updates) {
+      if (update.parentId) {
+        const hasCycle = await this.checkCategoryCycle(update.id, update.parentId, tenantId);
+        if (hasCycle) {
+          throw new Error(`Se crearía un ciclo en la jerarquía de categorías`);
+        }
+      }
+    }
+
+    // Actualizar en transaction
+    const results = await Promise.all(
+      updates.map((update) =>
+        this.prisma.category.update({
+          where: { id: update.id },
+          data: {
+            sortOrder: update.sortOrder,
+            parentId: update.parentId || null,
+          },
+        })
+      )
+    );
+
+    return {
+      success: true,
+      data: results,
+      message: "Categorías reordenadas correctamente",
+    };
+  }
+
+  async toggleCategoryActive(categoryId: string, tenantId: string) {
+    // Obtener categoría
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, tenantId },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Categoría no encontrada`);
+    }
+
+    // Toggle isActive
+    const updated = await this.prisma.category.update({
+      where: { id: categoryId },
+      data: { isActive: !category.isActive },
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: `Categoría ${updated.isActive ? 'activada' : 'desactivada'}`,
+    };
+  }
+
+  // Helper: obtener todos los descendientes de una categoría recursivamente
+  private async getAllCategoryDescendants(
+    categoryId: string,
+    tenantId: string,
+    descendants: string[] = [],
+  ): Promise<string[]> {
+    descendants.push(categoryId);
+
+    const children = await this.prisma.category.findMany({
+      where: { parentId: categoryId, tenantId },
+      select: { id: true },
+    });
+
+    for (const child of children) {
+      await this.getAllCategoryDescendants(child.id, tenantId, descendants);
+    }
+
+    return descendants;
+  }
+
+  // Helper: detectar ciclos en jerarquía de categorías (DFS)
+  private async checkCategoryCycle(
+    categoryId: string,
+    newParentId: string,
+    tenantId: string,
+    visited: Set<string> = new Set(),
+  ): Promise<boolean> {
+    if (categoryId === newParentId) return true; // Ciclo directo
+    if (visited.has(newParentId)) return false; // Ya visitado, no ciclo
+
+    visited.add(newParentId);
+
+    const parent = await this.prisma.category.findFirst({
+      where: { id: newParentId, tenantId },
+      select: { parentId: true },
+    });
+
+    if (!parent || !parent.parentId) return false; // No más ancestros
+
+    return this.checkCategoryCycle(categoryId, parent.parentId, tenantId, visited);
+  }
+
   private calculateNetPrice(
     purchasePrice: number,
     wastePercentage: number,
@@ -429,24 +873,60 @@ export class ProductsService {
     return (100 - wastePercentage) / 100;
   }
 
-  private getUcToUaFactor(purchaseUnit: string, storageUnit: string): number {
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      "Caja 10kg": { Kilogramos: 10, Gramos: 10000 },
-      "Bote 300uds": { Unidades: 300 },
-      "Saco 25kg": { Kilogramos: 25, Gramos: 25000 },
-      Litro: { Litros: 1, Mililitros: 1000 },
-      Kilogramo: { Kilogramos: 1, Gramos: 1000 },
+  async getSupplierProductCount(supplierId: string, tenantId: string) {
+    // Verificar que el proveedor existe y pertenece al tenant
+    const existing = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    // Contar productos activos del proveedor
+    const productCount = await this.prisma.product.count({
+      where: { supplierId, tenantId },
+    });
+
+    return {
+      count: productCount,
+      supplierName: existing.name,
     };
-    return conversionMap[purchaseUnit]?.[storageUnit] || 1;
   }
 
-  private getUaToUrFactor(storageUnit: string, recipeUnit: string): number {
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      Kilogramos: { Gramos: 1000, Miligramos: 1000000 },
-      Litros: { Mililitros: 1000 },
-      Unidades: { Unidades: 1 },
-      Gramos: { Miligramos: 1000 },
+  async reassignSupplierProducts(supplierId: string, targetSupplierId: string, tenantId: string) {
+    // Verificar que ambos proveedores existen y pertenecen al tenant
+    const [existingSource, existingTarget] = await Promise.all([
+      this.prisma.supplier.findFirst({
+        where: { id: supplierId, tenantId },
+      }),
+      this.prisma.supplier.findFirst({
+        where: { id: targetSupplierId, tenantId },
+      }),
+    ]);
+
+    if (!existingSource) {
+      throw new NotFoundException(`Proveedor origen no encontrado`);
+    }
+
+    if (!existingTarget) {
+      throw new NotFoundException(`Proveedor destino no encontrado`);
+    }
+
+    if (supplierId === targetSupplierId) {
+      throw new BadRequestException('No se puede reasignar productos al mismo proveedor');
+    }
+
+    // Reasignar todos los productos
+    const result = await this.prisma.product.updateMany({
+      where: { supplierId, tenantId },
+      data: { supplierId: targetSupplierId },
+    });
+
+    return {
+      success: true,
+      message: `${result.count} producto${result.count > 1 ? 's' : ''} reasignados de "${existingSource.name}" a "${existingTarget.name}"`,
+      reassignedCount: result.count,
     };
-    return conversionMap[storageUnit]?.[recipeUnit] || 1;
   }
 }

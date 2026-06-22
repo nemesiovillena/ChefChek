@@ -4,15 +4,13 @@ import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
-import TabPesoPrecio from './tab-peso-precio';
-import TabFormatoCompra from './tab-formato-compra';
+import PesoPrecioFields from './peso-precio-fields';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
 
 const TABS = [
-  { id: 'peso-precio', label: 'Peso/Precio' },
-  { id: 'formato-compra', label: 'Formato Compra' },
+  { id: 'formato-precio', label: 'Formato y Precio' },
   { id: 'alergenos', label: 'Alérgenos' },
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'nutricion', label: 'Nutrición' },
@@ -33,9 +31,10 @@ interface ArticuloModalProps {
 
 const emptyFormData = {
   name: '',
-  purchaseUnit: 'kg',
-  storageUnit: 'kg',
-  recipeUnit: 'g',
+  purchaseFormat: '',
+  referenceUnit: 'kg',
+  unitsPerFormat: '1',
+  referenceUnitSize: '1',
   wastePercentage: '',
   purchasePrice: '',
   iva: '10',
@@ -43,8 +42,7 @@ const emptyFormData = {
   brand: '',
   barcode: '',
   supplierId: '',
-  familyId: '',
-  subfamilyId: '',
+  categoryId: '',
   minimumStock: '',
   maximumStock: '',
 };
@@ -61,23 +59,22 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
 
-  const [activeTab, setActiveTab] = useState('peso-precio');
+  const [activeTab, setActiveTab] = useState('formato-precio');
   const [formData, setFormData] = useState(emptyFormData);
   const [allergens, setAllergens] = useState<number[]>([]);
   const [hideAllergens, setHideAllergens] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
-  const [purchaseFormats, setPurchaseFormats] = useState<any[]>([]);
   const [nutritionalData, setNutritionalData] = useState(emptyNutrition);
 
   // Load article data when editing
   useMemo(() => {
     if (article) {
-      const parentCat = tree.find((p) => p.children?.some((c) => c.id === article.categoryId));
       setFormData({
         name: article.name,
-        purchaseUnit: article.purchaseUnit || 'kg',
-        storageUnit: article.storageUnit || 'kg',
-        recipeUnit: article.recipeUnit || 'g',
+        purchaseFormat: article.purchaseFormat || '',
+        referenceUnit: article.referenceUnit || 'kg',
+        unitsPerFormat: String(article.unitsPerFormat || 1),
+        referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
         wastePercentage: article.wastePercentage?.toString() || '',
         purchasePrice: article.purchasePrice?.toString() || '',
         iva: article.iva?.toString() || '10',
@@ -85,15 +82,13 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
         brand: article.brand || '',
         barcode: article.barcode || '',
         supplierId: article.supplierId || '',
-        familyId: parentCat?.id || '',
-        subfamilyId: article.categoryId || '',
+        categoryId: article.categoryId || '',
         minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
         maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
       });
       setAllergens(article.allergens || []);
       setHideAllergens(article.hideAllergens || false);
       setImageUrl(article.imageUrl || '');
-      setPurchaseFormats(article.purchaseFormats?.map((pf) => ({ name: pf.name, format: pf.format, price: pf.price })) || []);
       if (article.nutritionalInfo) {
         const ni = article.nutritionalInfo;
         setNutritionalData({
@@ -117,10 +112,9 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
       setAllergens([]);
       setHideAllergens(false);
       setImageUrl('');
-      setPurchaseFormats([]);
       setNutritionalData(emptyNutrition);
     }
-    setActiveTab('peso-precio');
+    setActiveTab('formato-precio');
   }, [article, tree]);
 
   const handleImageUpload = async (file: File) => {
@@ -144,23 +138,24 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
       ? Object.fromEntries(Object.entries(nutritionalData).filter(([, v]) => v).map(([k, v]) => [k, parseFloat(v)]))
       : undefined;
 
+    const parsedPrice = parseFloat(formData.purchasePrice);
     const productData: any = {
       name: formData.name,
-      category: formData.subfamilyId || formData.familyId || undefined,
+      category: formData.categoryId || undefined,
       supplier: formData.supplierId || undefined,
-      purchaseUnit: formData.purchaseUnit,
-      storageUnit: formData.storageUnit,
-      recipeUnit: formData.recipeUnit,
-      purchasePrice: parseFloat(formData.purchasePrice) || 0,
-      wastePercentage: parseFloat(formData.wastePercentage) || 0,
-      iva: parseFloat(formData.iva) || 10,
+      purchaseFormat: formData.purchaseFormat || undefined,
+      referenceUnit: formData.referenceUnit || undefined,
+      unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
+      referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
+      purchasePrice: isNaN(parsedPrice) ? undefined : parsedPrice,
+      wastePercentage: parseFloat(formData.wastePercentage) || undefined,
+      iva: parseFloat(formData.iva) || undefined,
       qr: formData.qr || undefined,
       barcode: formData.barcode || undefined,
       brand: formData.brand || undefined,
       allergens,
       hideAllergens,
       imageUrl: imageUrl || undefined,
-      purchaseFormats: purchaseFormats.filter((pf) => pf.name && pf.format),
       nutritionalInfo,
       minimumStock: parseFloat(formData.minimumStock) || undefined,
       maximumStock: parseFloat(formData.maximumStock) || undefined,
@@ -197,7 +192,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
           </button>
         </div>
 
-        {/* Name field - always visible */}
+        {/* Name field */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
           <input
@@ -230,12 +225,9 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
         </div>
 
         {/* Tab Content */}
-        <div className="min-h-[300px]">
-          {activeTab === 'peso-precio' && (
-            <TabPesoPrecio formData={formData} setFormData={setFormData} />
-          )}
-          {activeTab === 'formato-compra' && (
-            <TabFormatoCompra purchaseFormats={purchaseFormats} setPurchaseFormats={setPurchaseFormats} />
+        <div className="min-h-[200px]">
+          {activeTab === 'formato-precio' && (
+            <PesoPrecioFields formData={formData} setFormData={setFormData} />
           )}
           {activeTab === 'alergenos' && (
             <TabAlergenos

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductRecognitionService } from "./product-recognition.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { calculateSimilarity } from "../../common/utils/string-similarity";
 
 describe("ProductRecognitionService", () => {
   let service: ProductRecognitionService;
@@ -11,9 +12,10 @@ describe("ProductRecognitionService", () => {
     tenantId: "tenant-1",
     name: "Tomate Raf",
     description: "Tomate Raf de primera calidad",
-    purchaseUnit: "kg",
-    storageUnit: "kg",
-    recipeUnit: "kg",
+    purchaseFormat: "kg",
+    referenceUnit: "kg",
+    unitsPerFormat: 1,
+    unitSize: 1,
     netPrice: 3.5,
     category: { id: "cat-1", name: "Vegetales" },
     supplier: { id: "supplier-1", name: "Frescos del Norte" },
@@ -26,9 +28,10 @@ describe("ProductRecognitionService", () => {
       tenantId: "tenant-1",
       name: "Tomate Cherry",
       description: "Tomate cherry dulce",
-      purchaseUnit: "kg",
-      storageUnit: "kg",
-      recipeUnit: "kg",
+      purchaseFormat: "kg",
+      referenceUnit: "kg",
+      unitsPerFormat: 1,
+      unitSize: 1,
       netPrice: 4.5,
       category: { id: "cat-1", name: "Vegetales" },
       supplier: { id: "supplier-1", name: "Frescos del Norte" },
@@ -38,9 +41,10 @@ describe("ProductRecognitionService", () => {
       tenantId: "tenant-1",
       name: "Pepino",
       description: "Pepino fresco",
-      purchaseUnit: "kg",
-      storageUnit: "kg",
-      recipeUnit: "kg",
+      purchaseFormat: "kg",
+      referenceUnit: "kg",
+      unitsPerFormat: 1,
+      unitSize: 1,
       netPrice: 2.0,
       category: { id: "cat-1", name: "Vegetales" },
       supplier: { id: "supplier-1", name: "Frescos del Norte" },
@@ -201,11 +205,11 @@ describe("ProductRecognitionService", () => {
 
       // If there are multiple suggestions, they should be sorted
       if (result.suggestions.length > 1) {
-        const firstSimilarity = service["calculateSimilarity"](
+        const firstSimilarity = calculateSimilarity(
           "Tomate Raf",
           result.suggestions[0].name || "",
         );
-        const secondSimilarity = service["calculateSimilarity"](
+        const secondSimilarity = calculateSimilarity(
           "Tomate Raf",
           result.suggestions[1].name || "",
         );
@@ -312,9 +316,10 @@ describe("ProductRecognitionService", () => {
       await service.handleUnknownProduct("Test Product", "tenant-1", "user-1");
 
       const createCall = mockPrismaService.product.create.mock.calls[0][0];
-      expect(createCall.data.purchaseUnit).toBe("ud");
-      expect(createCall.data.storageUnit).toBe("ud");
-      expect(createCall.data.recipeUnit).toBe("ud");
+      expect(createCall.data.purchaseFormat).toBe("ud");
+      expect(createCall.data.referenceUnit).toBe("ud");
+      expect(createCall.data.unitsPerFormat).toBe(1);
+      expect(createCall.data.unitSize).toBe(1);
       expect(createCall.data.purchasePrice).toBe(0);
       expect(createCall.data.netPrice).toBe(0);
     });
@@ -528,7 +533,7 @@ describe("ProductRecognitionService", () => {
       expect(result.recognizedProduct).toMatchObject({
         name: mockProduct.name,
         description: mockProduct.description,
-        unit: mockProduct.purchaseUnit,
+        unit: mockProduct.referenceUnit,
         unitPrice: mockProduct.netPrice,
         supplier: mockProduct.supplier?.name,
         category: mockProduct.category?.name,

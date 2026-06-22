@@ -5,28 +5,14 @@ import {
   IsArray,
   Min,
   Max,
-  IsNotEmpty,
   MinLength,
   MaxLength,
   IsPositive,
   IsBoolean,
   ValidateNested,
+  IsIn,
 } from "class-validator";
 import { Type } from "class-transformer";
-
-export class PurchaseFormatDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  format: string;
-
-  @IsNumber()
-  @IsPositive()
-  price: number;
-}
 
 export class NutritionalInfoDto {
   @IsOptional() @IsNumber() @Min(0) energyKj?: number;
@@ -54,31 +40,48 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  category: string;
+  category?: string;
 
   @IsOptional()
   @IsString()
   supplier?: string;
 
-  // Multi-unidad
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  purchaseUnit: string;
+  lot?: string;
 
+  // Unidad de referencia
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  storageUnit: string;
+  purchaseFormat?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  recipeUnit: string;
+  @IsIn(["kg", "L", "und"])
+  referenceUnit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  unitsPerFormat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.001)
+  referenceUnitSize?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.001)
+  unitSize?: number; // Backward compat — auto-calculated from unitsPerFormat * referenceUnitSize
 
   // Precios
+  @IsOptional()
   @IsNumber()
-  @IsPositive()
-  purchasePrice: number;
+  @Min(0)
+  purchasePrice?: number;
 
   @IsOptional()
   @IsNumber()
@@ -137,13 +140,6 @@ export class CreateProductDto {
   @IsString()
   imageUrl?: string;
 
-  // Formatos de compra
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PurchaseFormatDto)
-  purchaseFormats?: PurchaseFormatDto[];
-
   // Información nutricional
   @IsOptional()
   @ValidateNested()
@@ -183,19 +179,35 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
-  purchaseUnit?: string;
+  lot?: string;
 
   @IsOptional()
   @IsString()
-  storageUnit?: string;
+  purchaseFormat?: string;
 
   @IsOptional()
   @IsString()
-  recipeUnit?: string;
+  @IsIn(["kg", "L", "und"])
+  referenceUnit?: string;
 
   @IsOptional()
   @IsNumber()
-  @IsPositive()
+  @Min(1)
+  unitsPerFormat?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.001)
+  referenceUnitSize?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.001)
+  unitSize?: number; // Backward compat — auto-calculated from unitsPerFormat * referenceUnitSize
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   purchasePrice?: number;
 
   @IsOptional()
@@ -257,13 +269,6 @@ export class UpdateProductDto {
   @IsString()
   imageUrl?: string;
 
-  // Formatos de compra
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => PurchaseFormatDto)
-  purchaseFormats?: PurchaseFormatDto[];
-
   // Información nutricional
   @IsOptional()
   @ValidateNested()
@@ -298,6 +303,11 @@ export class ProductsQueryDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(["low", "empty"])
+  stockStatus?: "low" | "empty";
 
   @IsOptional()
   @IsString()

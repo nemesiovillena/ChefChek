@@ -73,7 +73,12 @@ describe("OcrAiService", () => {
       confidence: 0.85,
       provider: "tesseract",
       processingTime: 1000,
-      rawResult: {},
+      rawResult: {
+        document: {
+          products: [],
+          supplier_name: "Mock Supplier",
+        },
+      },
     });
     mockOcrService.isConfigured.mockReturnValue(true);
     mockOcrService.getProviderInfo.mockReturnValue({
@@ -216,7 +221,8 @@ Alérgenos: Ninguno
 
       expect(result.extractedProducts).toBeDefined();
       expect(result.metadata).toBeDefined();
-      expect(result.metadata.processingMethod).toBe("tesseract");
+      // When no structured products from microservice, uses text-parsing-fallback
+      expect(result.metadata.processingMethod).toBe("text-parsing-fallback");
     });
 
     it("should return metadata with total products count", async () => {

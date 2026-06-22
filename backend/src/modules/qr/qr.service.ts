@@ -189,6 +189,32 @@ export class QRService {
   }
 
   /**
+   * Obtiene todos los QR codes del tenant actual filtrados opcionalmente por tipo de entidad
+   */
+  async getQRCodesByTenant(
+    tenantId: string,
+    entityType?: QREntityType,
+  ): Promise<QRCodeResponseDto[]> {
+    const where: any = {
+      tenantId,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+    };
+
+    if (entityType) {
+      where.entityType = entityType;
+    }
+
+    const qrCodes = await this.prisma.qRCode.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return qrCodes.map((qr) =>
+      this.mapToResponseDto(qr, qr.config as QRCodeConfigDto),
+    );
+  }
+
+  /**
    * Elimina QR code
    */
   async deleteQRCode(qrCodeId: string): Promise<void> {
@@ -200,10 +226,12 @@ export class QRService {
       throw new NotFoundException("QR code not found");
     }
 
-    // Eliminar archivo físico
-    const filePath = path.join(process.cwd(), qrCode.publicFilePath);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    // Eliminar archivo físico si existe
+    if (qrCode.publicFilePath) {
+      const filePath = path.join(process.cwd(), qrCode.publicFilePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
 
     // Eliminar de base de datos
@@ -578,7 +606,7 @@ export class QRService {
       qrCodeId: qrCode.qrCodeId,
       entityType: qrCode.entityType as QREntityType,
       entityId: qrCode.entityId,
-      qrCodeUrl: `${process.env.APP_URL || ""}${qrCode.publicFilePath}`,
+      qrCodeUrl: qrCode.qrCodeData || `${process.env.APP_URL || ""}${qrCode.publicFilePath || ""}`,
       publicUrl: qrCode.publicUrl,
       format: qrCode.format as QRCodeFormat,
       size: qrCode.size,

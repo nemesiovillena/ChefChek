@@ -9,9 +9,11 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
 } from "@nestjs/common";
 import { QRService } from "./qr.service";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { AuthGuard } from "../../guards/auth.guard";
 import {
   GenerateQRCodeDto,
   QRCodeResponseDto,
@@ -21,7 +23,7 @@ import {
 } from "./dto/qr.dto";
 
 @Controller("api/v1/qr")
-@UseGuards(TenantGuard)
+@UseGuards(AuthGuard, TenantGuard)
 export class QRController {
   constructor(private readonly qrService: QRService) {}
 
@@ -32,8 +34,22 @@ export class QRController {
   @HttpCode(HttpStatus.CREATED)
   async generateQRCode(
     @Body() dto: GenerateQRCodeDto,
-  ): Promise<QRCodeResponseDto> {
-    return this.qrService.generateQRCode(dto);
+  ): Promise<{ success: true; data: QRCodeResponseDto }> {
+    const qrCode = await this.qrService.generateQRCode(dto);
+    return { success: true, data: qrCode };
+  }
+
+  /**
+   * Obtiene todos los QR codes del tenant actual, opcionalmente filtrados por tipo de entidad
+   */
+  @Get()
+  async getQRCodes(
+    @Req() req: any,
+    @Query("entityType") entityType?: QREntityType,
+  ): Promise<{ success: true; data: QRCodeResponseDto[] }> {
+    const tenantId = req.tenantId;
+    const qrCodes = await this.qrService.getQRCodesByTenant(tenantId, entityType);
+    return { success: true, data: qrCodes };
   }
 
   /**
@@ -42,8 +58,9 @@ export class QRController {
   @Get(":qrCodeId")
   async getQRCode(
     @Param("qrCodeId") qrCodeId: string,
-  ): Promise<QRCodeResponseDto> {
-    return this.qrService.getQRCode(qrCodeId);
+  ): Promise<{ success: true; data: QRCodeResponseDto }> {
+    const qrCode = await this.qrService.getQRCode(qrCodeId);
+    return { success: true, data: qrCode };
   }
 
   /**
@@ -53,8 +70,9 @@ export class QRController {
   async getQRCodesByEntity(
     @Param("entityType") entityType: QREntityType,
     @Param("entityId") entityId: string,
-  ): Promise<QRCodeResponseDto[]> {
-    return this.qrService.getQRCodesByEntity(entityType, entityId);
+  ): Promise<{ success: true; data: QRCodeResponseDto[] }> {
+    const qrCodes = await this.qrService.getQRCodesByEntity(entityType, entityId);
+    return { success: true, data: qrCodes };
   }
 
   /**
@@ -64,8 +82,9 @@ export class QRController {
   @HttpCode(HttpStatus.OK)
   async registerScan(
     @Body() dto: RegisterQRScanDto,
-  ): Promise<QRScanResponseDto> {
-    return this.qrService.registerScan(dto);
+  ): Promise<{ success: true; data: QRScanResponseDto }> {
+    const scan = await this.qrService.registerScan(dto);
+    return { success: true, data: scan };
   }
 
   /**
@@ -76,8 +95,9 @@ export class QRController {
   async regenerateQRCode(
     @Param("qrCodeId") qrCodeId: string,
     @Body("config") config?: any,
-  ): Promise<QRCodeResponseDto> {
-    return this.qrService.regenerateQRCode(qrCodeId, config);
+  ): Promise<{ success: true; data: QRCodeResponseDto }> {
+    const qrCode = await this.qrService.regenerateQRCode(qrCodeId, config);
+    return { success: true, data: qrCode };
   }
 
   /**
@@ -87,8 +107,9 @@ export class QRController {
   @HttpCode(HttpStatus.CREATED)
   async generateQRCodeWithLogo(
     @Body() dto: GenerateQRCodeDto,
-  ): Promise<QRCodeResponseDto> {
-    return this.qrService.generateQRCodeWithLogo(dto);
+  ): Promise<{ success: true; data: QRCodeResponseDto }> {
+    const qrCode = await this.qrService.generateQRCodeWithLogo(dto);
+    return { success: true, data: qrCode };
   }
 
   /**
@@ -98,18 +119,9 @@ export class QRController {
   async getQRStats(
     @Query("entityType") entityType?: QREntityType,
     @Query("entityId") entityId?: string,
-  ): Promise<{
-    total: number;
-    active: number;
-    expired: number;
-    totalScans: number;
-    topScanned: Array<{
-      qrCodeId: string;
-      scanCount: number;
-      entityId: string;
-    }>;
-  }> {
-    return this.qrService.getQRStats(entityType, entityId);
+  ): Promise<{ success: true; data: { total: number; active: number; expired: number; totalScans: number; topScanned: Array<{ qrCodeId: string; scanCount: number; entityId: string }> } }> {
+    const stats = await this.qrService.getQRStats(entityType, entityId);
+    return { success: true, data: stats };
   }
 
   /**

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ExtractedProductDto } from "./dto/ingesta.dto";
+import { calculateSimilarity } from "../../common/utils/string-similarity";
 
 @Injectable()
 export class ProductRecognitionService {
@@ -57,7 +58,7 @@ export class ProductRecognitionService {
       const matchesWithScore = fuzzyMatches
         .map((product) => ({
           product: this.mapToExtractedProduct(product),
-          similarity: this.calculateSimilarity(productName, product.name),
+          similarity: calculateSimilarity(productName, product.name),
         }))
         .sort((a, b) => b.similarity - a.similarity);
 
@@ -165,9 +166,11 @@ export class ProductRecognitionService {
         tenantId,
         name: productName,
         description: "Producto pendiente de revisión - ingesta automática",
-        purchaseUnit: "ud",
-        storageUnit: "ud",
-        recipeUnit: "ud",
+        purchaseFormat: "ud",
+        referenceUnit: "ud",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 0,
         netPrice: 0,
         profitMargin: 0,
@@ -237,47 +240,6 @@ export class ProductRecognitionService {
     }
   }
 
-  private calculateSimilarity(str1: string, str2: string): number {
-    // Simple Levenshtein distance-based similarity
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-
-    if (longer.length === 0) {
-      return 1.0;
-    }
-
-    const distance = this.levenshteinDistance(longer, shorter);
-    return 1 - distance / longer.length;
-  }
-
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = [];
-
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1,
-          );
-        }
-      }
-    }
-
-    return matrix[str2.length][str1.length];
-  }
-
   private async classifyWithAI(
     productName: string,
     tenantId: string,
@@ -324,7 +286,7 @@ export class ProductRecognitionService {
       name: product.name,
       description: product.description,
       quantity: 0,
-      unit: product.purchaseUnit,
+      unit: product.referenceUnit,
       unitPrice: product.netPrice,
       supplier: product.supplier?.name,
       category: product.category?.name,

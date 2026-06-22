@@ -61,9 +61,11 @@ describe("ProductsService", () => {
         description: "Tomate fresco",
         category: "cat-1",
         supplier: "supp-1",
-        purchaseUnit: "Caja 10kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Caja 10kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
         purchasePrice: 15.5,
         netPrice: 18.0,
         profitMargin: 10,
@@ -79,9 +81,11 @@ describe("ProductsService", () => {
         description: "Tomate fresco",
         categoryId: "cat-1",
         supplierId: "supp-1",
-        purchaseUnit: "Caja 10kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Caja 10kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
         purchasePrice: 15.5,
         netPrice: 18.14,
         profitMargin: 10,
@@ -122,9 +126,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Cebolla",
         category: "cat-2",
-        purchaseUnit: "Saco 25kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Saco 25kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 25,
+        unitSize: 25,
         purchasePrice: 20.0,
       };
 
@@ -133,9 +139,11 @@ describe("ProductsService", () => {
         tenantId,
         name: "Cebolla",
         categoryId: "cat-2",
-        purchaseUnit: "Saco 25kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Saco 25kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 25,
+        unitSize: 25,
         purchasePrice: 20.0,
         netPrice: 20.0,
         profitMargin: 0,
@@ -158,15 +166,16 @@ describe("ProductsService", () => {
       expect(result.data.name).toBe("Cebolla");
     });
 
-    it("should create product with purchaseFormats and nutritionalInfo", async () => {
+    it("should create product with nutritionalInfo", async () => {
       const createDto = {
         name: "Aceite",
         category: "cat-1",
-        purchaseUnit: "l",
-        storageUnit: "l",
-        recipeUnit: "ml",
+        purchaseFormat: "l",
+        referenceUnit: "L",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 5.0,
-        purchaseFormats: [{ name: "Botella 1L", format: "1L", price: 5.0 }],
         nutritionalInfo: { fat: 100, saturatedFat: 14, energyKcal: 884 },
       };
 
@@ -175,9 +184,7 @@ describe("ProductsService", () => {
         tenantId,
         name: "Aceite",
         purchasePrice: 5.0,
-        purchaseFormats: [
-          { id: "pf-1", name: "Botella 1L", format: "1L", price: 5.0 },
-        ],
+        purchaseFormats: [],
         nutritionalInfo: {
           id: "ni-1",
           fat: 100,
@@ -195,9 +202,6 @@ describe("ProductsService", () => {
       expect(prismaService.product.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            purchaseFormats: {
-              create: [{ name: "Botella 1L", format: "1L", price: 5.0 }],
-            },
             nutritionalInfo: {
               create: { fat: 100, saturatedFat: 14, energyKcal: 884 },
             },
@@ -210,9 +214,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Harina",
         category: "cat-1",
-        purchaseUnit: "kg",
-        storageUnit: "kg",
-        recipeUnit: "g",
+        purchaseFormat: "kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 2.0,
         minimumStock: 5,
         maximumStock: 50,
@@ -245,6 +251,55 @@ describe("ProductsService", () => {
         }),
       });
     });
+
+    it("should calculate unitSize from unitsPerFormat and referenceUnitSize on create", async () => {
+      const createDto = {
+        name: "Test Product",
+        category: "cat-1",
+        purchaseFormat: "Pack",
+        referenceUnit: "kg",
+        unitsPerFormat: 6,
+        referenceUnitSize: 1.5,
+        purchasePrice: 20.0,
+      };
+
+      const mockProduct = {
+        id: "prod-5",
+        tenantId,
+        name: "Test Product",
+        unitsPerFormat: 6,
+        referenceUnitSize: 1.5,
+        unitSize: 9,
+        purchasePrice: 20.0,
+        netPrice: 20.0,
+        profitMargin: 0,
+        wastePercentage: 0,
+        yieldFactor: 1.0,
+        allergens: [],
+        isActive: true,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      };
+
+      prismaService.product.create.mockResolvedValue(mockProduct);
+
+      const result = await service.create(createDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.unitSize).toBe(9);
+      expect(prismaService.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            unitsPerFormat: 6,
+            referenceUnitSize: 1.5,
+            unitSize: 9,
+          }),
+        }),
+      );
+    });
   });
 
   describe("findAll", () => {
@@ -255,7 +310,11 @@ describe("ProductsService", () => {
           name: "Tomate",
           categoryId: "cat-1",
           supplierId: "supp-1",
-          purchaseUnit: "Caja 10kg",
+          purchaseFormat: "Caja 10kg",
+          referenceUnit: "kg",
+          unitsPerFormat: 1,
+          referenceUnitSize: 10,
+          unitSize: 10,
           purchasePrice: 15.5,
           netPrice: 18.14,
           isActive: true,
@@ -266,7 +325,11 @@ describe("ProductsService", () => {
           name: "Cebolla",
           categoryId: "cat-2",
           supplierId: null,
-          purchaseUnit: "Saco 25kg",
+          purchaseFormat: "Saco 25kg",
+          referenceUnit: "kg",
+          unitsPerFormat: 1,
+          referenceUnitSize: 25,
+          unitSize: 25,
           purchasePrice: 20.0,
           netPrice: 20.0,
           isActive: true,
@@ -381,9 +444,11 @@ describe("ProductsService", () => {
         description: "Tomate fresco",
         categoryId: "cat-1",
         supplierId: "supp-1",
-        purchaseUnit: "Caja 10kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Caja 10kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
         purchasePrice: 15.5,
         netPrice: 18.14,
         profitMargin: 10,
@@ -543,43 +608,6 @@ describe("ProductsService", () => {
       );
     });
 
-    it("should replace purchaseFormats on update", async () => {
-      const existingProduct = {
-        id: "prod-1",
-        tenantId,
-        purchasePrice: 10,
-        wastePercentage: 0,
-        profitMargin: 0,
-        stocks: [],
-      };
-
-      const updateDto = {
-        purchaseFormats: [{ name: "Caja", format: "5kg", price: 25 }],
-      };
-
-      prismaService.product.findFirst.mockResolvedValue(existingProduct);
-      prismaService.product.update.mockResolvedValue({
-        purchaseFormats: [],
-        nutritionalInfo: null,
-        category: null,
-        supplier: null,
-        stocks: [],
-      });
-
-      await service.update("prod-1", updateDto, tenantId);
-
-      expect(prismaService.product.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            purchaseFormats: {
-              deleteMany: {},
-              create: [{ name: "Caja", format: "5kg", price: 25 }],
-            },
-          }),
-        }),
-      );
-    });
-
     it("should upsert nutritionalInfo on update", async () => {
       const existingProduct = {
         id: "prod-1",
@@ -612,6 +640,48 @@ describe("ProductsService", () => {
                 update: { fat: 20, protein: 5 },
               },
             },
+          }),
+        }),
+      );
+    });
+
+    it("should recalculate unitSize when unitsPerFormat or referenceUnitSize changes on update", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        wastePercentage: 0,
+        profitMargin: 0,
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
+        stocks: [],
+      };
+
+      const updateDto = { unitsPerFormat: 4, referenceUnitSize: 2.5 };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        unitsPerFormat: 4,
+        referenceUnitSize: 2.5,
+        unitSize: 10,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      const result = await service.update("prod-1", updateDto, tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.data.unitSize).toBe(10);
+      expect(prismaService.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            unitsPerFormat: 4,
+            referenceUnitSize: 2.5,
           }),
         }),
       );
@@ -650,9 +720,11 @@ describe("ProductsService", () => {
         id: "prod-1",
         tenantId,
         name: "Tomate",
-        purchaseUnit: "Caja 10kg",
-        storageUnit: "Kilogramos",
-        recipeUnit: "Gramos",
+        purchaseFormat: "Caja 10kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
         purchasePrice: 15.5,
         netPrice: 18.14,
         wastePercentage: 5,
@@ -666,9 +738,10 @@ describe("ProductsService", () => {
       expect(result.success).toBe(true);
       expect(result.data.productId).toBe("prod-1");
       expect(result.data.productName).toBe("Tomate");
-      expect(result.data.costPerPurchaseUnit).toBe(15.5);
-      expect(result.data.ucToUaFactor).toBe(10);
-      expect(result.data.uaToUrFactor).toBe(1000);
+      expect(result.data.referencePrice).toBeDefined();
+      expect(result.data.purchaseFormat).toBe("Caja 10kg");
+      expect(result.data.referenceUnit).toBe("kg");
+      expect(result.data.unitSize).toBe(10);
     });
 
     it("should throw NotFoundException for nonexistent product", async () => {
@@ -772,9 +845,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: longName,
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
       };
 
@@ -783,9 +858,11 @@ describe("ProductsService", () => {
         tenantId,
         name: longName,
         categoryId: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         netPrice: 10.0,
         profitMargin: 0,
@@ -810,9 +887,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "g",
-        storageUnit: "Kg",
-        recipeUnit: "mg",
+        purchaseFormat: "g",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 0.001,
+        unitSize: 0.001,
         purchasePrice: 0.001,
       };
 
@@ -845,9 +924,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         profitMargin: 500,
       };
@@ -882,9 +963,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         profitMargin: 0,
       };
@@ -918,9 +1001,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         wastePercentage: 75,
       };
@@ -955,9 +1040,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         yieldFactor: 0.8,
       };
@@ -991,9 +1078,11 @@ describe("ProductsService", () => {
       const createDto = {
         name: "Product",
         category: "cat-1",
-        purchaseUnit: "Kg",
-        storageUnit: "Kg",
-        recipeUnit: "g",
+        purchaseFormat: "Kg",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
         purchasePrice: 10.0,
         allergens: [],
       };

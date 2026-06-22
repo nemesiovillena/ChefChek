@@ -40,6 +40,8 @@ model Tenant {
   telegramBots        TelegramBot[]
   telegramUsers       TelegramUser[]
   suppliers           Supplier[]
+  supplierPriceHistories SupplierPriceHistory[]
+  albaranes           Albaran[]
   configurations      Configuration[]
   categories          Category[]
   stocks              Stock[]
@@ -104,13 +106,16 @@ model Product {
   categoryId  String?
   supplierId  String?
 
-  // Multi-unidad
-  purchaseUnit String // UC: Caja 10kg, Bote 300uds
-  storageUnit  String // UA: Kilogramos, Litros
-  recipeUnit   String // UR: Gramos, Mililitros
+  // Unidad de referencia (simplificado: UC + referencia)
+  purchaseFormat    String @default("") // "Garrafa 5L", "Saco 25kg", "Caja 6und"
+  referenceUnit     String @default("kg") // "kg", "L", "und" — unidad base para precio y recetas
+  unitsPerFormat    Int    @default(1) // Unidades en el formato de compra (ej: 6 botellas por caja)
+  referenceUnitSize Float  @default(1) // Tamaño de cada unidad en referenceUnits (ej: 1.5L por botella)
+  unitSize          Float  @default(1) // Auto-calculado: unitsPerFormat × referenceUnitSize
 
   // Precios
-  purchasePrice Float
+  purchasePrice       Float
+  previousPurchasePrice Float @default(0)
   netPrice      Float
   profitMargin  Float @default(0)
 
@@ -128,6 +133,7 @@ model Product {
   brand         String?
   hideAllergens Boolean @default(false)
   imageUrl      String?
+  lot           String?
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -139,9 +145,9 @@ model Product {
   recipeIngredients RecipeIngredient[]
   stockMovements    StockMovement[]
   stocks            Stock[]
-  unitConversions   UnitConversion[]
   purchaseFormats   PurchaseFormat[]
   nutritionalInfo   NutritionalInfo?
+  albaranLines      AlbaranLine[]
 
   @@index([tenantId])
   @@index([name])
@@ -191,7 +197,10 @@ model Recipe {
   tenantId    String
   name        String
   description String?
-  elaboration String // TipTap JSON
+  elaboration String? // Structured steps JSON or TipTap JSON
+  notes       String? // Additional notes for the recipe
+  imageUrl    String? // Recipe image path
+  sourceUrl   String? // Original recipe URL
 
   // Costeo
   totalCost        Float @default(0)
@@ -291,6 +300,25 @@ enum UserRole {
 enum CategoryContext {
   articles
   recipes
+}
+
+enum AlbaranStatus {
+  PENDIENTE
+  REVISADO
+  CONFIRMADO
+  ARCHIVADO
+}
+
+enum LineMatchStatus {
+  NUEVO
+  MATCH_ALTO
+  MATCH_DUDOSO
+}
+
+enum LineStatus {
+  PENDIENTE
+  CONFIRMADO
+  RECHAZADO
 }
 
 // Sprint Tracker - Sprint 16
@@ -525,6 +553,7 @@ model Warehouse {
   movements   StockMovement[]
   stocks      Stock[]
   inventories Inventory[]
+  albaranes   Albaran[]
 
   @@map("warehouses")
 }
@@ -951,24 +980,29 @@ model Supplier {
   id                  String   @id @default(cuid())
   tenantId            String
   name                String
+  cifNif              String?  // CIF/NIF para auto-matching con OCR
   contactPerson       String?
   email               String?
   phone               String?
+  whatsapp            String?
   website             String?
   averageDeliveryTime Int      @default(3) // días
   reliabilityScore    Float    @default(85) // 0-100
   priceTier           String   @default("MEDIUM") // LOW, MEDIUM, HIGH
   preferredStatus     String   @default("ALTERNATIVE") // PREFERRED, ALTERNATIVE, EXCLUDED
-  orderMethods        String[] @default(["EMAIL"]) // EMAIL, PHONE, WEB
+  orderMethods        String[] @default(["EMAIL"]) // EMAIL, PHONE, WEB, WHATSAPP
   isActive            Boolean  @default(true)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products Product[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products     Product[]
+  priceHistory SupplierPriceHistory[]
+  albaranes    Albaran[]
 
   @@index([tenantId])
   @@index([name])
+  @@index([cifNif])
   @@map("suppliers")
 }
 
@@ -1086,23 +1120,6 @@ model Category {
   @@index([tenantId, context])
   @@index([name])
   @@map("categories")
-}
-
-// Factores de Conversión de Unidades (UC → UA → UR)
-model UnitConversion {
-  id          String   @id @default(cuid())
-  productId   String
-  fromUnit    String // UC: purchaseUnit
-  toUnit      String // UA: storageUnit
-  factor      Float // Multiplicador para convertir de→a
-  description String?
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@unique([productId, fromUnit, toUnit])
-  @@map("unit_conversions")
 }
 
 // Plantillas de Documentos Genéricas
@@ -1452,4 +1469,84 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// Supplier Price History - For tracking price trends
+model SupplierPriceHistory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  supplierId  String
+  averagePrice Float
+  recordDate  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([tenantId])
+  @@index([recordDate])
+  @@index([supplierId, recordDate])
+  @@map("supplier_price_histories")
+}
+
+// Albaranes — Documentos de entrada persistente
+model Albaran {
+  id              String        @id @default(cuid())
+  tenantId        String
+  supplierId      String?       // Proveedor asociado (null si no hay match)
+  internalNumber  String        // Número interno auto-generado por tenant
+  albaranNumber   String?       // Número del albarán del proveedor
+  date            DateTime      @default(now())
+  base            Float         @default(0)       // Base imponible
+  vatTotal        Float         @default(0)       // Total IVA
+  total           Float         @default(0)       // Total con IVA
+  status          AlbaranStatus @default(PENDIENTE)
+  originalFileUrl String?       // URL del archivo original subido
+  ocrConfidence   Float         @default(0)       // 0-1 confianza global OCR
+  ocrRawData      Json?         // Respuesta cruda del OCR para re-procesado
+  warehouseId     String?       // Almacén seleccionado para la entrada de stock
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier  Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  lines     AlbaranLine[]
+
+  @@unique([tenantId, internalNumber])
+  @@index([tenantId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([date])
+  @@index([warehouseId])
+  @@map("albaranes")
+}
+
+model AlbaranLine {
+  id               String          @id @default(cuid())
+  albaranId        String
+  articleNumber    String?         // Código de artículo del proveedor
+  lot              String?         // Lote (opcional)
+  description      String
+  quantity         Float
+  unit             String          @default("ud")
+  unitPrice        Float
+  vatPercent       Float           @default(10)
+  lineAmount       Float           // Cantidad × precio unidad (sin IVA)
+  matchStatus      LineMatchStatus @default(NUEVO)
+  lineStatus       LineStatus      @default(PENDIENTE)
+  matchedProductId String?         // FK a Product si hay match
+  confidence       Float           @default(0)    // 0-1 confianza del match
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  albaran        Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  matchedProduct Product? @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
+
+  @@index([albaranId])
+  @@index([matchedProductId])
+  @@index([matchStatus])
+  @@map("albaran_lines")
 }
