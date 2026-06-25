@@ -1,44 +1,53 @@
-# Stage 1: Build
-FROM node:20-bullseye-slim AS builder
+# Stage 1: Build (full deps, bun)
+# oven/bun:1 is Debian-based so the Prisma engine (glibc) matches the node runtime below.
+FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy manifest + lockfile for reproducible install
+COPY package.json bun.lock ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install all dependencies (dev needed for the build step)
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN bunx prisma generate
 
 # Build application
-RUN npm run build
+RUN bun run build
 
-# Stage 2: Production
+# Stage 2: Production dependencies (bun, prod-only)
+FROM oven/bun:1 AS prod-deps
+
+WORKDIR /app
+
+COPY package.json bun.lock ./
+
+# Production dependencies only (prisma + @prisma/client are prod deps)
+RUN bun install --frozen-lockfile --production
+
+# Copy schema and generate the Prisma client for the runtime platform
+COPY prisma ./prisma
+RUN bunx prisma generate
+
+# Stage 3: Production runtime (node, proven for NestJS)
 FROM node:20-bullseye-slim AS runner
 
 WORKDIR /app
 
-# Copy built application from builder
+# Built app + prod node_modules (with generated Prisma client)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package*.json ./
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=prod-deps /app/prisma ./prisma
+COPY package.json ./
 
-# Install dumb-init, OpenSSL, and wget
+# dumb-init for signal forwarding, libssl1.1 for Prisma engine, wget for healthcheck
 RUN apt-get update && \
     apt-get install -y dumb-init libssl1.1 wget && \
     rm -rf /var/lib/apt/lists/*
-
-# Generate Prisma client in production
-RUN npx prisma generate
-
-# Install Prisma CLI for migrations
-RUN npm install -g prisma
 
 # Create non-root user
 RUN groupadd -g 1001 -r nodejs && \
@@ -59,4 +68,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "run", "start:prod"]
+CMD ["node", "dist/main"]
