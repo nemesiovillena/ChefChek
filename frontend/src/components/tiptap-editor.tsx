@@ -15,7 +15,6 @@ interface TipTapEditorProps {
 export function TipTapEditor({ content, onChange, editable = true }: TipTapEditorProps) {
   const editor = useEditor({
     extensions: [
-      // @ts-expect-error: @tiptap/core is duplicated under starter-kit's node_modules, producing incompatible Extension types; runtime works.
       StarterKit,
       Underline,
       TextAlign.configure({
