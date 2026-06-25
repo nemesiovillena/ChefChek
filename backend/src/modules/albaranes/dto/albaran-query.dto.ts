@@ -9,7 +9,10 @@ export class AlbaranQueryDto {
   @IsString()
   supplierId?: string;
 
-  @ApiPropertyOptional({ description: "Filtrar por estado", enum: AlbaranStatus })
+  @ApiPropertyOptional({
+    description: "Filtrar por estado",
+    enum: AlbaranStatus,
+  })
   @IsOptional()
   @IsEnum(AlbaranStatus)
   status?: AlbaranStatus;

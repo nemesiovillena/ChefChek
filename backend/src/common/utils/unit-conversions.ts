@@ -5,7 +5,7 @@
  */
 
 /** Supported reference units */
-export const REFERENCE_UNITS = ['kg', 'L', 'und'] as const;
+export const REFERENCE_UNITS = ["kg", "L", "und"] as const;
 export type ReferenceUnit = (typeof REFERENCE_UNITS)[number];
 
 /**
@@ -43,24 +43,37 @@ const CONVERSION_MAP: Record<string, Record<string, number>> = {
  * Returns 1 if no conversion found (same unit or unknown).
  */
 export function standardConversion(fromUnit: string, toUnit: string): number {
-  if (!fromUnit || !toUnit) return 1;
+  if (!fromUnit || !toUnit) {
+    return 1;
+  }
   const from = fromUnit.trim().toLowerCase();
   const to = toUnit.trim().toLowerCase();
-  if (from === to) return 1;
+  if (from === to) {
+    return 1;
+  }
 
   const map = CONVERSION_MAP[from];
-  if (map && map[to] !== undefined) return map[to];
+  if (map && map[to] !== undefined) {
+    return map[to];
+  }
 
   // Fallback: try reverse (1/factor)
   const reverseMap = CONVERSION_MAP[to];
-  if (reverseMap && reverseMap[from] !== undefined) return 1 / reverseMap[from];
+  if (reverseMap && reverseMap[from] !== undefined) {
+    return 1 / reverseMap[from];
+  }
 
   return 1;
 }
 
 /** Calculate reference price: price per reference unit */
-export function getReferencePrice(purchasePrice: number, unitSize: number): number {
-  if (!unitSize || unitSize === 0) return purchasePrice;
+export function getReferencePrice(
+  purchasePrice: number,
+  unitSize: number,
+): number {
+  if (!unitSize || unitSize === 0) {
+    return purchasePrice;
+  }
   return purchasePrice / unitSize;
 }
 
@@ -71,9 +84,38 @@ export function formatRefPrice(price: number, unit: string): string {
 
 /** Infer reference unit from a unit string (for migration/import) */
 export function inferReferenceUnit(unit: string): ReferenceUnit {
-  if (!unit) return 'und';
+  if (!unit) {
+    return "und";
+  }
   const u = unit.toLowerCase().trim();
-  if (['kg', 'kilo', 'kilogramo', 'kilogramos', 'g', 'gramo', 'gramos', 'mg', 'miligramo'].includes(u)) return 'kg';
-  if (['l', 'litro', 'litros', 'ml', 'mililitro', 'mililitros', 'cl', 'centilitro'].includes(u)) return 'L';
-  return 'und';
+  if (
+    [
+      "kg",
+      "kilo",
+      "kilogramo",
+      "kilogramos",
+      "g",
+      "gramo",
+      "gramos",
+      "mg",
+      "miligramo",
+    ].includes(u)
+  ) {
+    return "kg";
+  }
+  if (
+    [
+      "l",
+      "litro",
+      "litros",
+      "ml",
+      "mililitro",
+      "mililitros",
+      "cl",
+      "centilitro",
+    ].includes(u)
+  ) {
+    return "L";
+  }
+  return "und";
 }

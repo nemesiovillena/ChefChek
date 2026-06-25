@@ -64,7 +64,10 @@ describe("IngestaController", () => {
         { provide: IngestaService, useValue: mockIngestaService },
         { provide: TelegramBotService, useValue: mockTelegramBotService },
         { provide: PythonOcrService, useValue: mockPythonOcrService },
-        { provide: ProductRecognitionService, useValue: mockProductRecognitionService },
+        {
+          provide: ProductRecognitionService,
+          useValue: mockProductRecognitionService,
+        },
       ],
     })
       .overrideGuard(AuthGuard)

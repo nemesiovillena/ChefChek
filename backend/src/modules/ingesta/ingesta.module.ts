@@ -40,11 +40,11 @@ import { AuthModule } from "../auth/auth.module";
     TesseractService,
     {
       provide: "PRIMARY_OCR_SERVICE",
-      useExisting: PythonOcrService,    // ✅ Microservicio Python como principal
+      useExisting: PythonOcrService, // ✅ Microservicio Python como principal
     },
     {
       provide: "FALLBACK_OCR_SERVICE",
-      useExisting: TesseractService,    // Fallback (si está disponible)
+      useExisting: TesseractService, // Fallback (si está disponible)
     },
     IngestaService,
     TelegramBotService,

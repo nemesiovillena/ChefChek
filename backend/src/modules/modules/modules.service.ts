@@ -3,14 +3,14 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from '../../common/services/prisma.service';
-import { ModuleDto, UpdateModuleDto } from './dto/module.dto';
+} from "@nestjs/common";
+import { PrismaService } from "../../common/services/prisma.service";
+import { ModuleDto, UpdateModuleDto } from "./dto/module.dto";
 import {
   MODULE_REGISTRY,
   findModule,
   getDependentModules,
-} from './constants/registry';
+} from "./constants/registry";
 
 @Injectable()
 export class ModulesService {
@@ -24,15 +24,17 @@ export class ModulesService {
     const configs = await this.prisma.configuration.findMany({
       where: {
         tenantId,
-        key: { startsWith: 'modules.' },
+        key: { startsWith: "modules." },
       },
     });
 
     // Build a map of current states
     const stateMap = new Map<string, boolean>();
     for (const config of configs) {
-      const moduleId = config.key.replace('modules.', '').replace('.enabled', '');
-      stateMap.set(moduleId, config.value === 'true');
+      const moduleId = config.key
+        .replace("modules.", "")
+        .replace(".enabled", "");
+      stateMap.set(moduleId, config.value === "true");
     }
 
     // Return all modules with their states
@@ -83,8 +85,8 @@ export class ModulesService {
 
       if (activeDependents.length > 0) {
         throw new BadRequestException({
-          error: 'DEPENDENCY_CONFLICT',
-          message: `Cannot disable '${module.name}' - the following modules depend on it: ${activeDependents.join(', ')}`,
+          error: "DEPENDENCY_CONFLICT",
+          message: `Cannot disable '${module.name}' - the following modules depend on it: ${activeDependents.join(", ")}`,
           conflicts: dependents.map((d) => d.id),
         });
       }
@@ -103,7 +105,7 @@ export class ModulesService {
         tenantId,
         key: configKey,
         value: String(dto.enabled),
-        category: 'MODULES',
+        category: "MODULES",
         description: `Activation state for ${module.name} module`,
         updatedBy: userId,
       },
@@ -131,7 +133,7 @@ export class ModulesService {
       },
     });
 
-    return config ? config.value === 'true' : null;
+    return config ? config.value === "true" : null;
   }
 
   /**
@@ -139,7 +141,14 @@ export class ModulesService {
    */
   private async getModuleDto(
     tenantId: string,
-    def: { id: string; name: string; description: string; dependencies: string[]; alwaysActive: boolean; defaultEnabled: boolean },
+    def: {
+      id: string;
+      name: string;
+      description: string;
+      dependencies: string[];
+      alwaysActive: boolean;
+      defaultEnabled: boolean;
+    },
   ): Promise<ModuleDto> {
     const state = await this.getModuleState(tenantId, def.id);
     return {

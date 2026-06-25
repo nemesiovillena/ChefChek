@@ -1,4 +1,11 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, Inject, forwardRef } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 // Note: PrismaService path resolves relative to dist/ after compilation
 import { AlbaranStatus, LineMatchStatus, LineStatus } from "@prisma/client";
@@ -69,7 +76,9 @@ export class AlbaranStatusService {
   ): Promise<void> {
     if (to === AlbaranStatus.REVISADO) {
       // All lines must be confirmed or rejected
-      const pending = lines.filter((l) => l.lineStatus === LineStatus.PENDIENTE);
+      const pending = lines.filter(
+        (l) => l.lineStatus === LineStatus.PENDIENTE,
+      );
       if (pending.length > 0) {
         throw new BadRequestException(
           `No se puede revisar: ${pending.length} línea(s) pendiente(s) de confirmar/rechazar`,

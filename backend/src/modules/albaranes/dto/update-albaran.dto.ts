@@ -1,9 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  ValidateIf,
-} from "class-validator";
+import { IsString, IsOptional, IsEnum, ValidateIf } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AlbaranStatus } from "@prisma/client";
 

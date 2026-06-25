@@ -21,31 +21,33 @@ describe("AlbaranStockService", () => {
         {
           provide: PrismaService,
           useValue: {
-            $transaction: jest.fn((fn) => fn({
-              stockMovement: {
-                findFirst: jest.fn(),
-                create: jest.fn(),
-              },
-              albaran: {
-                findFirst: jest.fn(),
-              },
-              product: {
-                findFirst: jest.fn(),
-                update: jest.fn(),
-                create: jest.fn(),
-              },
-              stock: {
-                findFirst: jest.fn(),
-                update: jest.fn(),
-                create: jest.fn(),
-              },
-              albaranLine: {
-                update: jest.fn(),
-              },
-              productPriceHistory: {
-                create: jest.fn(),
-              },
-            })),
+            $transaction: jest.fn((fn) =>
+              fn({
+                stockMovement: {
+                  findFirst: jest.fn(),
+                  create: jest.fn(),
+                },
+                albaran: {
+                  findFirst: jest.fn(),
+                },
+                product: {
+                  findFirst: jest.fn(),
+                  update: jest.fn(),
+                  create: jest.fn(),
+                },
+                stock: {
+                  findFirst: jest.fn(),
+                  update: jest.fn(),
+                  create: jest.fn(),
+                },
+                albaranLine: {
+                  update: jest.fn(),
+                },
+                productPriceHistory: {
+                  create: jest.fn(),
+                },
+              }),
+            ),
           },
         },
         {
@@ -69,7 +71,9 @@ describe("AlbaranStockService", () => {
   describe("processStockOnConfirmation", () => {
     it("should skip if stock movements already exist (idempotency)", async () => {
       const mockTx = {
-        stockMovement: { findFirst: jest.fn().mockResolvedValue({ id: "existing" }) },
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue({ id: "existing" }),
+        },
         albaran: { findFirst: jest.fn() },
         product: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
@@ -126,7 +130,10 @@ describe("AlbaranStockService", () => {
       };
 
       const mockTx = {
-        stockMovement: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+        },
         albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
         product: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
@@ -255,7 +262,9 @@ describe("AlbaranStockService", () => {
         },
         stock: {
           findFirst: jest.fn().mockResolvedValue(mockExistingStock),
-          update: jest.fn().mockResolvedValue({ ...mockExistingStock, quantity: 60 }),
+          update: jest
+            .fn()
+            .mockResolvedValue({ ...mockExistingStock, quantity: 60 }),
           create: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
@@ -570,7 +579,8 @@ describe("AlbaranStockService", () => {
         },
         albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
         product: {
-          findFirst: jest.fn()
+          findFirst: jest
+            .fn()
             .mockResolvedValueOnce(mockProduct1)
             .mockResolvedValueOnce(mockProduct2),
           update: jest.fn(),

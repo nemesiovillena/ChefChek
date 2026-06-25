@@ -1,4 +1,4 @@
-import { IsBoolean, IsString, IsOptional } from 'class-validator';
+import { IsBoolean, IsString, IsOptional } from "class-validator";
 
 /**
  * Module state as returned to the frontend.

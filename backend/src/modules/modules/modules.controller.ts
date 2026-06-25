@@ -1,10 +1,18 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Req } from '@nestjs/common';
-import { ModulesService } from './modules.service';
-import { UpdateModuleDto } from './dto/module.dto';
-import { AuthGuard } from '../../guards/auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+} from "@nestjs/common";
+import { ModulesService } from "./modules.service";
+import { UpdateModuleDto } from "./dto/module.dto";
+import { AuthGuard } from "../../guards/auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
 
-@Controller('api/v1/modules')
+@Controller("api/v1/modules")
 @UseGuards(AuthGuard, TenantGuard)
 export class ModulesController {
   constructor(private readonly modulesService: ModulesService) {}
@@ -21,9 +29,9 @@ export class ModulesController {
   /**
    * Toggle a module's activation state.
    */
-  @Patch(':id')
+  @Patch(":id")
   async toggleModule(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: UpdateModuleDto,
     @Req() req: any,
   ) {

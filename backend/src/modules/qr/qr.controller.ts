@@ -48,7 +48,10 @@ export class QRController {
     @Query("entityType") entityType?: QREntityType,
   ): Promise<{ success: true; data: QRCodeResponseDto[] }> {
     const tenantId = req.tenantId;
-    const qrCodes = await this.qrService.getQRCodesByTenant(tenantId, entityType);
+    const qrCodes = await this.qrService.getQRCodesByTenant(
+      tenantId,
+      entityType,
+    );
     return { success: true, data: qrCodes };
   }
 
@@ -71,7 +74,10 @@ export class QRController {
     @Param("entityType") entityType: QREntityType,
     @Param("entityId") entityId: string,
   ): Promise<{ success: true; data: QRCodeResponseDto[] }> {
-    const qrCodes = await this.qrService.getQRCodesByEntity(entityType, entityId);
+    const qrCodes = await this.qrService.getQRCodesByEntity(
+      entityType,
+      entityId,
+    );
     return { success: true, data: qrCodes };
   }
 
@@ -119,7 +125,20 @@ export class QRController {
   async getQRStats(
     @Query("entityType") entityType?: QREntityType,
     @Query("entityId") entityId?: string,
-  ): Promise<{ success: true; data: { total: number; active: number; expired: number; totalScans: number; topScanned: Array<{ qrCodeId: string; scanCount: number; entityId: string }> } }> {
+  ): Promise<{
+    success: true;
+    data: {
+      total: number;
+      active: number;
+      expired: number;
+      totalScans: number;
+      topScanned: Array<{
+        qrCodeId: string;
+        scanCount: number;
+        entityId: string;
+      }>;
+    };
+  }> {
     const stats = await this.qrService.getQRStats(entityType, entityId);
     return { success: true, data: stats };
   }

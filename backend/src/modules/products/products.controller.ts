@@ -31,7 +31,10 @@ import {
   ProductsQueryDto,
 } from "./dto/create-product.dto";
 import { CreateSupplierDto, UpdateSupplierDto } from "./dto/supplier.dto";
-import { CreateUnitOfMeasureDto, UpdateUnitOfMeasureDto } from "./dto/unit-of-measure.dto";
+import {
+  CreateUnitOfMeasureDto,
+  UpdateUnitOfMeasureDto,
+} from "./dto/unit-of-measure.dto";
 import { Roles } from "../../decorators/roles.decorator";
 import { UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
@@ -187,7 +190,11 @@ export class ProductsController {
     if (!productId) {
       throw new BadRequestException("productId es obligatorio");
     }
-    return this.productsService.getProductPriceHistory(productId, tenantId, supplierId);
+    return this.productsService.getProductPriceHistory(
+      productId,
+      tenantId,
+      supplierId,
+    );
   }
 
   @Get(":id/calculate")
@@ -308,7 +315,12 @@ export class ProductsController {
     const tenantId = req.tenantId;
     const pageNum = page ? parseInt(page) : 1;
     const limitNum = limit ? parseInt(limit) : 20;
-    return this.productsService.getSupplierProducts(id, tenantId, pageNum, limitNum);
+    return this.productsService.getSupplierProducts(
+      id,
+      tenantId,
+      pageNum,
+      limitNum,
+    );
   }
 
   @Get("suppliers/:id/price-trend")
@@ -351,7 +363,10 @@ export class ProductsController {
   @ApiOperation({ summary: "Contador de productos en categoría" })
   @ApiParam({ name: "id", description: "ID de la categoría" })
   @ApiResponse({ status: 200, description: "Contador de productos" })
-  async getCategoryProductCount(@Param("id") categoryId: string, @Req() req: any) {
+  async getCategoryProductCount(
+    @Param("id") categoryId: string,
+    @Req() req: any,
+  ) {
     const tenantId = req.tenantId;
     return this.productsService.getCategoryProductCount(categoryId, tenantId);
   }
@@ -361,7 +376,10 @@ export class ProductsController {
   @ApiOperation({ summary: "Reordenar categorías" })
   @ApiResponse({ status: 200, description: "Categorías reordenadas" })
   async reorderCategories(
-    @Body() body: { updates: Array<{ id: string; sortOrder: number; parentId?: string }> },
+    @Body()
+    body: {
+      updates: Array<{ id: string; sortOrder: number; parentId?: string }>;
+    },
     @Req() req: any,
   ) {
     const tenantId = req.tenantId;
@@ -383,7 +401,10 @@ export class ProductsController {
   @ApiOperation({ summary: "Contar productos de un proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Número de productos" })
-  async getSupplierProductCount(@Param("id") supplierId: string, @Req() req: any) {
+  async getSupplierProductCount(
+    @Param("id") supplierId: string,
+    @Req() req: any,
+  ) {
     const tenantId = req.tenantId;
     return this.productsService.getSupplierProductCount(supplierId, tenantId);
   }
@@ -396,9 +417,13 @@ export class ProductsController {
   async reassignSupplierProducts(
     @Param("id") supplierId: string,
     @Body() body: { targetSupplierId: string },
-    @Req() req: any
+    @Req() req: any,
   ) {
     const tenantId = req.tenantId;
-    return this.productsService.reassignSupplierProducts(supplierId, body.targetSupplierId, tenantId);
+    return this.productsService.reassignSupplierProducts(
+      supplierId,
+      body.targetSupplierId,
+      tenantId,
+    );
   }
 }

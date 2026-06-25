@@ -606,7 +606,9 @@ export class QRService {
       qrCodeId: qrCode.qrCodeId,
       entityType: qrCode.entityType as QREntityType,
       entityId: qrCode.entityId,
-      qrCodeUrl: qrCode.qrCodeData || `${process.env.APP_URL || ""}${qrCode.publicFilePath || ""}`,
+      qrCodeUrl:
+        qrCode.qrCodeData ||
+        `${process.env.APP_URL || ""}${qrCode.publicFilePath || ""}`,
       publicUrl: qrCode.publicUrl,
       format: qrCode.format as QRCodeFormat,
       size: qrCode.size,

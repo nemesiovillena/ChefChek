@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { AlbaranStatusService } from "./services/albaran-status.service";
 import { AlbaranNumberService } from "./services/albaran-number.service";
@@ -6,7 +11,10 @@ import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ingesta/python-ocr.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
-import { UpdateAlbaranDto, UpdateAlbaranLineDto } from "./dto/update-albaran.dto";
+import {
+  UpdateAlbaranDto,
+  UpdateAlbaranLineDto,
+} from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 import { AlbaranStatus } from "@prisma/client";
 
@@ -25,7 +33,8 @@ export class AlbaranesService {
 
   /** Create albaran with lines from manual entry */
   async create(dto: CreateAlbaranDto, tenantId: string) {
-    const internalNumber = await this.numberService.generateInternalNumber(tenantId);
+    const internalNumber =
+      await this.numberService.generateInternalNumber(tenantId);
 
     return this.prisma.albaran.create({
       data: {
@@ -63,12 +72,20 @@ export class AlbaranesService {
   async findAll(query: AlbaranQueryDto, tenantId: string) {
     const where: any = { tenantId };
 
-    if (query.supplierId) where.supplierId = query.supplierId;
-    if (query.status) where.status = query.status;
+    if (query.supplierId) {
+      where.supplierId = query.supplierId;
+    }
+    if (query.status) {
+      where.status = query.status;
+    }
     if (query.dateFrom || query.dateTo) {
       where.date = {};
-      if (query.dateFrom) where.date.gte = new Date(query.dateFrom);
-      if (query.dateTo) where.date.lte = new Date(query.dateTo);
+      if (query.dateFrom) {
+        where.date.gte = new Date(query.dateFrom);
+      }
+      if (query.dateTo) {
+        where.date.lte = new Date(query.dateTo);
+      }
     }
     if (query.search) {
       where.OR = [
@@ -111,11 +128,16 @@ export class AlbaranesService {
       include: {
         supplier: true,
         warehouse: true,
-        lines: { include: { matchedProduct: true }, orderBy: { createdAt: "asc" } },
+        lines: {
+          include: { matchedProduct: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     });
 
-    if (!albaran) throw new NotFoundException("Albarán no encontrado");
+    if (!albaran) {
+      throw new NotFoundException("Albarán no encontrado");
+    }
     return albaran;
   }
 
@@ -123,8 +145,13 @@ export class AlbaranesService {
   async update(id: string, dto: UpdateAlbaranDto, tenantId: string) {
     const albaran = await this.findOne(id, tenantId);
 
-    if (albaran.status === AlbaranStatus.CONFIRMADO || albaran.status === AlbaranStatus.ARCHIVADO) {
-      throw new BadRequestException("No se puede editar un albarán confirmado o archivado");
+    if (
+      albaran.status === AlbaranStatus.CONFIRMADO ||
+      albaran.status === AlbaranStatus.ARCHIVADO
+    ) {
+      throw new BadRequestException(
+        "No se puede editar un albarán confirmado o archivado",
+      );
     }
 
     return this.prisma.albaran.update({
@@ -140,25 +167,43 @@ export class AlbaranesService {
   }
 
   /** Update a single line */
-  async updateLine(albaranId: string, lineId: string, dto: UpdateAlbaranLineDto, tenantId: string) {
+  async updateLine(
+    albaranId: string,
+    lineId: string,
+    dto: UpdateAlbaranLineDto,
+    tenantId: string,
+  ) {
     await this.findOne(albaranId, tenantId);
 
     const line = await this.prisma.albaranLine.findFirst({
       where: { id: lineId, albaranId },
     });
-    if (!line) throw new NotFoundException("Línea no encontrada");
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
 
     const updateData: any = {};
-    if (dto.articleNumber !== undefined) updateData.articleNumber = dto.articleNumber;
-    if (dto.lot !== undefined) updateData.lot = dto.lot;
-    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.articleNumber !== undefined) {
+      updateData.articleNumber = dto.articleNumber;
+    }
+    if (dto.lot !== undefined) {
+      updateData.lot = dto.lot;
+    }
+    if (dto.description !== undefined) {
+      updateData.description = dto.description;
+    }
     if (dto.quantity !== undefined) {
       updateData.quantity = parseFloat(dto.quantity);
       // Recalculate lineAmount when quantity changes
-      const price = dto.unitPrice !== undefined ? parseFloat(dto.unitPrice) : line.unitPrice;
+      const price =
+        dto.unitPrice !== undefined
+          ? parseFloat(dto.unitPrice)
+          : line.unitPrice;
       updateData.lineAmount = updateData.quantity * price;
     }
-    if (dto.unit !== undefined) updateData.unit = dto.unit;
+    if (dto.unit !== undefined) {
+      updateData.unit = dto.unit;
+    }
     if (dto.unitPrice !== undefined) {
       const price = parseFloat(dto.unitPrice);
       updateData.unitPrice = price;
@@ -170,7 +215,10 @@ export class AlbaranesService {
     if (dto.vatPercent !== undefined) {
       updateData.vatPercent = parseFloat(dto.vatPercent);
       // Recalculate priceWithVat if not explicitly provided
-      const unitPrice = dto.unitPrice !== undefined ? parseFloat(dto.unitPrice) : line.unitPrice;
+      const unitPrice =
+        dto.unitPrice !== undefined
+          ? parseFloat(dto.unitPrice)
+          : line.unitPrice;
       updateData.priceWithVat = unitPrice * (1 + updateData.vatPercent / 100);
     }
     if (dto.priceWithVat !== undefined) {
@@ -187,14 +235,21 @@ export class AlbaranesService {
   }
 
   /** Assign a product match to a line (user override) */
-  async matchLine(albaranId: string, lineId: string, productId: string, tenantId: string) {
+  async matchLine(
+    albaranId: string,
+    lineId: string,
+    productId: string,
+    tenantId: string,
+  ) {
     await this.findOne(albaranId, tenantId);
 
     // Verify product exists and belongs to tenant
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId },
     });
-    if (!product) throw new NotFoundException("Producto no encontrado");
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado");
+    }
 
     return this.prisma.albaranLine.update({
       where: { id: lineId },
@@ -207,16 +262,25 @@ export class AlbaranesService {
   }
 
   /** Confirm or reject a line */
-  async setLineStatus(albaranId: string, lineId: string, status: "CONFIRMADO" | "RECHAZADO", tenantId: string) {
+  async setLineStatus(
+    albaranId: string,
+    lineId: string,
+    status: "CONFIRMADO" | "RECHAZADO",
+    tenantId: string,
+  ) {
     await this.findOne(albaranId, tenantId);
 
     const line = await this.prisma.albaranLine.findFirst({
       where: { id: lineId, albaranId },
     });
-    if (!line) throw new NotFoundException("Línea no encontrada");
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
 
     if (status === "CONFIRMADO" && !line.matchedProductId) {
-      throw new BadRequestException("No se puede confirmar una línea sin producto asignado");
+      throw new BadRequestException(
+        "No se puede confirmar una línea sin producto asignado",
+      );
     }
 
     return this.prisma.albaranLine.update({
@@ -235,19 +299,33 @@ export class AlbaranesService {
   async remove(id: string, tenantId: string) {
     const albaran = await this.findOne(id, tenantId);
 
-    if (albaran.status === AlbaranStatus.CONFIRMADO || albaran.status === AlbaranStatus.ARCHIVADO) {
-      throw new BadRequestException("No se puede eliminar un albarán confirmado o archivado");
+    if (
+      albaran.status === AlbaranStatus.CONFIRMADO ||
+      albaran.status === AlbaranStatus.ARCHIVADO
+    ) {
+      throw new BadRequestException(
+        "No se puede eliminar un albarán confirmado o archivado",
+      );
     }
 
     return this.prisma.albaran.delete({ where: { id } });
   }
 
   /** Create albaran from OCR upload */
-  async createFromUpload(files: Express.Multer.File[], tenantId: string, aiModel?: string, aiApiKey?: string) {
-    this.logger.log(`Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || 'regex'})`);
+  async createFromUpload(
+    files: Express.Multer.File[],
+    tenantId: string,
+    aiModel?: string,
+    aiApiKey?: string,
+  ) {
+    this.logger.log(
+      `Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || "regex"})`,
+    );
 
     const file = files[0];
-    if (!file) throw new BadRequestException("No file provided");
+    if (!file) {
+      throw new BadRequestException("No file provided");
+    }
 
     try {
       // 1. Process file via Python OCR microservice (buffer directly, no disk save needed)
@@ -260,15 +338,17 @@ export class AlbaranesService {
       );
 
       if (!ocrResult.success || !ocrResult.document) {
-        throw new Error(`OCR processing returned no results: ${ocrResult.error || 'unknown error'}`);
+        throw new Error(
+          `OCR processing returned no results: ${ocrResult.error || "unknown error"}`,
+        );
       }
 
       const document = ocrResult.document;
       const extractedProducts = document.products || [];
 
       this.logger.log(
-        `OCR result: supplier="${document.supplier_name || 'N/A'}", ` +
-        `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`,
+        `OCR result: supplier="${document.supplier_name || "N/A"}", ` +
+          `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`,
       );
 
       // 2. Match supplier from OCR-detected data
@@ -280,12 +360,15 @@ export class AlbaranesService {
 
       // 2a. Auto-fill supplier data from OCR (address, phone, email, sanitary registry)
       if (supplierMatch.supplierId) {
-        await this.supplierMatching.enrichSupplierFromOcr(supplierMatch.supplierId, {
-          address: document.supplier_address,
-          phone: document.supplier_phone,
-          email: document.supplier_email,
-          sanitaryRegistry: document.supplier_sanitary_registry,
-        });
+        await this.supplierMatching.enrichSupplierFromOcr(
+          supplierMatch.supplierId,
+          {
+            address: document.supplier_address,
+            phone: document.supplier_phone,
+            email: document.supplier_email,
+            sanitaryRegistry: document.supplier_sanitary_registry,
+          },
+        );
       }
 
       // 2b. If supplier has OCR layout hints, refine extraction
@@ -295,7 +378,9 @@ export class AlbaranesService {
           select: { ocrLayoutHints: true },
         });
         if (supplier?.ocrLayoutHints && document.raw_text) {
-          this.logger.log(`Refinando OCR con hints de proveedor (obs: ${(supplier.ocrLayoutHints as any)?.observationCount})`);
+          this.logger.log(
+            `Refinando OCR con hints de proveedor (obs: ${(supplier.ocrLayoutHints as any)?.observationCount})`,
+          );
           const refinedResult = await this.pythonOcrService.refineExtraction(
             document.raw_text,
             supplier.ocrLayoutHints,
@@ -313,14 +398,17 @@ export class AlbaranesService {
       }
 
       // 3. Create albaran with lines
-      const internalNumber = await this.numberService.generateInternalNumber(tenantId);
+      const internalNumber =
+        await this.numberService.generateInternalNumber(tenantId);
       const albaran = await this.prisma.albaran.create({
         data: {
           tenantId,
           internalNumber,
           supplierId: supplierMatch.supplierId,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
-          date: document.document_date ? new Date(document.document_date) : new Date(),
+          date: document.document_date
+            ? new Date(document.document_date)
+            : new Date(),
           grossAmount: document.gross_amount ?? 0,
           base: document.tax_base ?? document.gross_amount ?? 0,
           vatTotal: document.vat_total ?? 0,
@@ -347,17 +435,24 @@ export class AlbaranesService {
 
       // 4. Run line matching in background (non-blocking)
       this.lineMatching.matchAllLines(albaran.id, tenantId).catch((err) => {
-        this.logger.error(`Line matching failed for albaran ${albaran.id}: ${err.message}`);
+        this.logger.error(
+          `Line matching failed for albaran ${albaran.id}: ${err.message}`,
+        );
       });
 
-      this.logger.log(`Albaran created from upload: ${albaran.id} with ${albaran.lines.length} lines`);
+      this.logger.log(
+        `Albaran created from upload: ${albaran.id} with ${albaran.lines.length} lines`,
+      );
 
       return albaran;
     } catch (error) {
-      this.logger.error(`Failed to create albaran from upload: ${error.message}`);
+      this.logger.error(
+        `Failed to create albaran from upload: ${error.message}`,
+      );
 
       // Create a pending albaran with minimal data as fallback
-      const internalNumber = await this.numberService.generateInternalNumber(tenantId);
+      const internalNumber =
+        await this.numberService.generateInternalNumber(tenantId);
       const albaran = await this.prisma.albaran.create({
         data: {
           tenantId,
@@ -373,7 +468,9 @@ export class AlbaranesService {
         include: { lines: true },
       });
 
-      this.logger.warn(`Created fallback albaran ${albaran.id} due to OCR failure`);
+      this.logger.warn(
+        `Created fallback albaran ${albaran.id} due to OCR failure`,
+      );
       return albaran;
     }
   }
@@ -393,7 +490,9 @@ export class AlbaranesService {
     }
 
     if (albaran.status !== "PENDIENTE" && albaran.status !== "REVISADO") {
-      throw new BadRequestException("No se pueden añadir líneas a un albarán confirmado o archivado");
+      throw new BadRequestException(
+        "No se pueden añadir líneas a un albarán confirmado o archivado",
+      );
     }
 
     const quantity = Number(dto.quantity) || 0;

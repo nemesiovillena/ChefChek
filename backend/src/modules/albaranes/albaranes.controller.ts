@@ -24,8 +24,16 @@ import {
 import { AlbaranesService } from "./albaranes.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
-import { CreateAlbaranDto, CreateAlbaranLineDto } from "./dto/create-albaran.dto";
-import { UpdateAlbaranDto, UpdateAlbaranStatusDto, UpdateAlbaranLineDto, MatchLineDto } from "./dto/update-albaran.dto";
+import {
+  CreateAlbaranDto,
+  CreateAlbaranLineDto,
+} from "./dto/create-albaran.dto";
+import {
+  UpdateAlbaranDto,
+  UpdateAlbaranStatusDto,
+  UpdateAlbaranLineDto,
+  MatchLineDto,
+} from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 
 @ApiTags("Albaranes")
@@ -45,7 +53,9 @@ export class AlbaranesController {
 
   @Post("from-upload")
   @ApiConsumes("multipart/form-data")
-  @UseInterceptors(FilesInterceptor("file", 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FilesInterceptor("file", 10, { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
   @ApiOperation({ summary: "Crear albarán desde upload + OCR" })
   @ApiResponse({ status: 201, description: "Albarán creado desde OCR" })
   async createFromUpload(
@@ -61,7 +71,12 @@ export class AlbaranesController {
     const aiModel = req.body?.ai_model || undefined;
     const aiApiKey = req.body?.ai_api_key || undefined;
 
-    const albaran = await this.albaranesService.createFromUpload(files, tenantId, aiModel, aiApiKey);
+    const albaran = await this.albaranesService.createFromUpload(
+      files,
+      tenantId,
+      aiModel,
+      aiApiKey,
+    );
 
     // Return format compatible with frontend upload hook: { products, albaran }
     return {
@@ -112,7 +127,11 @@ export class AlbaranesController {
   @Put(":id")
   @ApiOperation({ summary: "Actualizar cabecera del albarán" })
   @ApiResponse({ status: 200, description: "Albarán actualizado" })
-  async update(@Param("id") id: string, @Body() dto: UpdateAlbaranDto, @Req() req: any) {
+  async update(
+    @Param("id") id: string,
+    @Body() dto: UpdateAlbaranDto,
+    @Req() req: any,
+  ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.update(id, dto, tenantId);
   }
@@ -120,7 +139,11 @@ export class AlbaranesController {
   @Put(":id/status")
   @ApiOperation({ summary: "Transicionar estado del albarán" })
   @ApiResponse({ status: 200, description: "Estado actualizado" })
-  async updateStatus(@Param("id") id: string, @Body() dto: UpdateAlbaranStatusDto, @Req() req: any) {
+  async updateStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdateAlbaranStatusDto,
+    @Req() req: any,
+  ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.updateStatus(id, dto.status, tenantId);
   }
@@ -154,17 +177,35 @@ export class AlbaranesController {
   @Put(":id/lines/:lineId/confirm")
   @ApiOperation({ summary: "Confirmar línea del albarán" })
   @ApiResponse({ status: 200, description: "Línea confirmada" })
-  async confirmLine(@Param("id") id: string, @Param("lineId") lineId: string, @Req() req: any) {
+  async confirmLine(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Req() req: any,
+  ) {
     const tenantId = req.user?.tenantId;
-    return this.albaranesService.setLineStatus(id, lineId, "CONFIRMADO", tenantId);
+    return this.albaranesService.setLineStatus(
+      id,
+      lineId,
+      "CONFIRMADO",
+      tenantId,
+    );
   }
 
   @Put(":id/lines/:lineId/reject")
   @ApiOperation({ summary: "Rechazar línea del albarán" })
   @ApiResponse({ status: 200, description: "Línea rechazada" })
-  async rejectLine(@Param("id") id: string, @Param("lineId") lineId: string, @Req() req: any) {
+  async rejectLine(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Req() req: any,
+  ) {
     const tenantId = req.user?.tenantId;
-    return this.albaranesService.setLineStatus(id, lineId, "RECHAZADO", tenantId);
+    return this.albaranesService.setLineStatus(
+      id,
+      lineId,
+      "RECHAZADO",
+      tenantId,
+    );
   }
 
   @Delete(":id")

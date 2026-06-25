@@ -66,7 +66,10 @@ export class IngestaController {
 
   @Post("manual")
   @ApiOperation({ summary: "Crear albarán manual con líneas de producto" })
-  @ApiResponse({ status: 201, description: "Albarán manual procesado exitosamente" })
+  @ApiResponse({
+    status: 201,
+    description: "Albarán manual procesado exitosamente",
+  })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
   async createManualAlbaran(@Body() dto: ManualAlbaranDto, @Req() req: any) {
     const tenantId = req.user?.tenantId || dto.tenantId;
@@ -205,27 +208,45 @@ export class IngestaController {
   @Post("process-for-stock")
   @ApiConsumes("multipart/form-data")
   @UseGuards(AuthGuard, TenantGuard)
-  @UseInterceptors(FilesInterceptor('file', 10, { limits: { fileSize: 10 * 1024 * 1024 } }))
-  @ApiOperation({ summary: "Procesar documento para obtener productos de stock usando Python OCR" })
-  @ApiResponse({ status: 200, description: "Productos detectados del documento" })
+  @UseInterceptors(
+    FilesInterceptor("file", 10, { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  @ApiOperation({
+    summary:
+      "Procesar documento para obtener productos de stock usando Python OCR",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Productos detectados del documento",
+  })
   async processForStock(@Req() req: any) {
     const tenantId = req.user?.tenantId;
     if (!tenantId) {
-      throw new UnauthorizedException('Se requiere contexto de tenant para procesar albaranes');
+      throw new UnauthorizedException(
+        "Se requiere contexto de tenant para procesar albaranes",
+      );
     }
 
     this.logger.log(`processForStock called, tenantId: ${tenantId}`);
 
     const files = req.files;
     if (!files || !Array.isArray(files) || files.length === 0) {
-      throw new BadRequestException('No se proporcionaron archivos');
+      throw new BadRequestException("No se proporcionaron archivos");
     }
 
     // Validate MIME types
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'];
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "application/pdf",
+    ];
     for (const file of files) {
       if (!allowedMimeTypes.includes(file.mimetype)) {
-        throw new BadRequestException(`Tipo de archivo no soportado: ${file.mimetype}`);
+        throw new BadRequestException(
+          `Tipo de archivo no soportado: ${file.mimetype}`,
+        );
       }
     }
 
@@ -235,43 +256,54 @@ export class IngestaController {
 
     for (const file of files) {
       try {
-        this.logger.debug(`Processing file: ${file.originalname} (${file.mimetype})`);
+        this.logger.debug(
+          `Processing file: ${file.originalname} (${file.mimetype})`,
+        );
 
         const ocrResult = await this.pythonOcrService.processImage(
           file.buffer,
           file.originalname,
-          file.mimetype
+          file.mimetype,
         );
 
-        this.logger.debug(`OCR result: success=${ocrResult.success}, time=${ocrResult.processingTime}ms`);
+        this.logger.debug(
+          `OCR result: success=${ocrResult.success}, time=${ocrResult.processingTime}ms`,
+        );
 
         if (ocrResult.success && ocrResult.document) {
           const document = ocrResult.document;
           const extractedProducts = document.products || [];
 
-          this.logger.log(`File ${file.originalname}: supplier="${document.supplier_name || 'N/A'}", products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`);
+          this.logger.log(
+            `File ${file.originalname}: supplier="${document.supplier_name || "N/A"}", products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`,
+          );
 
           for (const product of extractedProducts) {
-            const recognition = await this.productRecognitionService.recognizeProduct(
-              product.name,
-              tenantId,
-            );
+            const recognition =
+              await this.productRecognitionService.recognizeProduct(
+                product.name,
+                tenantId,
+              );
 
             allProducts.push({
               ...product,
               confidence: recognition.confidence || product.confidence,
-              matchedProductId: (recognition.recognizedProduct as any)?.id || null,
+              matchedProductId:
+                (recognition.recognizedProduct as any)?.id || null,
               matchedProductName: recognition.recognizedProduct?.name || null,
             });
           }
         }
 
         if (ocrResult.validation) {
-          this.logger.debug(`Validation: valid=${ocrResult.validation.is_valid}, action=${ocrResult.validation.recommended_action}`);
+          this.logger.debug(
+            `Validation: valid=${ocrResult.validation.is_valid}, action=${ocrResult.validation.recommended_action}`,
+          );
         }
-
       } catch (error) {
-        this.logger.error(`Error processing file ${file.originalname}: ${error.message}`);
+        this.logger.error(
+          `Error processing file ${file.originalname}: ${error.message}`,
+        );
       }
     }
 
@@ -280,10 +312,14 @@ export class IngestaController {
   }
 
   /** Parse a single line from OCR into a product-like structure */
-  private parseProductLine(line: string): { name: string; price?: number; quantity?: number; unit?: string } | null {
+  private parseProductLine(
+    line: string,
+  ): { name: string; price?: number; quantity?: number; unit?: string } | null {
     const trimmedLine = line.trim();
 
-    console.log(`[PARSER] Analizando línea: "${trimmedLine}" (longitud: ${trimmedLine.length})`);
+    console.log(
+      `[PARSER] Analizando línea: "${trimmedLine}" (longitud: ${trimmedLine.length})`,
+    );
 
     if (trimmedLine.length < 3) {
       console.log(`[PARSER] ❌ Rechazado: longitud < 3`);
@@ -297,7 +333,7 @@ export class IngestaController {
       /^\s*$/,
       /^\d+\.\d+\s*€?$/, // Solo precio sin producto
       /^(iva|subtotal|base|imponible)/i, // Líneas de totales e IVA
-      /^\s*\d+\s*$/ // Solo número
+      /^\s*\d+\s*$/, // Solo número
     ];
 
     for (let i = 0; i < skipPatterns.length; i++) {
@@ -308,59 +344,68 @@ export class IngestaController {
     }
 
     // Normalizar espacios múltiples a espacios simples
-    const normalizedLine = trimmedLine.replace(/\s+/g, ' ');
+    const normalizedLine = trimmedLine.replace(/\s+/g, " ");
     console.log(`[PARSER] Línea normalizada: "${normalizedLine}"`);
 
     // Pattern 1: Formato específico del albarán detectado
     // "CODIGO DESCRIPCION REF CANTIDAD PRECIO TOTAL"
     // Ejemplo: "1000022 PATATA AGRIA p24iooe26 50,00 0,880 4,900"
-    const specificAlbaranPattern = /^(\d+)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(\w+)\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s*$/i;
+    const specificAlbaranPattern =
+      /^(\d+)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(\w+)\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s*$/i;
     let match = normalizedLine.match(specificAlbaranPattern);
 
     if (match) {
       const result = {
         name: match[2].trim(), // Descripción del producto
-        price: parseFloat(match[6].replace(',', '.')), // Total (columna 6)
-        quantity: parseFloat(match[4].replace(',', '.')), // Cantidad (columna 4)
-        unit: 'kg' // Detección simple de unidad para productos de peso
+        price: parseFloat(match[6].replace(",", ".")), // Total (columna 6)
+        quantity: parseFloat(match[4].replace(",", ".")), // Cantidad (columna 4)
+        unit: "kg", // Detección simple de unidad para productos de peso
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 1 (Albarán específico): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 1 (Albarán específico): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 1 falló');
+    console.log("[PARSER] ❌ Pattern 1 falló");
 
     // Pattern 2: Tabla simplificada - "CODIGO DESCRIPCION CANTIDAD PRECIO TOTAL"
-    const simplifiedTablePattern = /^(\d+)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s*$/i;
+    const simplifiedTablePattern =
+      /^(\d+)\s+([A-ZÁÉÍÓÚÑ\s]+?)\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s+(\d+[,.]\d{2,3})\s*$/i;
     match = normalizedLine.match(simplifiedTablePattern);
 
     if (match) {
       const result = {
         name: match[2].trim(),
-        price: parseFloat(match[5].replace(',', '.')),
-        quantity: parseFloat(match[3].replace(',', '.')),
-        unit: 'ud'
+        price: parseFloat(match[5].replace(",", ".")),
+        quantity: parseFloat(match[3].replace(",", ".")),
+        unit: "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 2 (Tabla simplificada): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 2 (Tabla simplificada): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 2 falló');
+    console.log("[PARSER] ❌ Pattern 2 falló");
 
     // Pattern 3: Formato con pipes - "Producto | Cantidad | Precio | Total"
-    const pipeTablePattern = /^(.+?)\|\s*(\d+\.?\d*)\s*\|\s*(\d+[,.]?\d*)\s*(?:€)?/i;
+    const pipeTablePattern =
+      /^(.+?)\|\s*(\d+\.?\d*)\s*\|\s*(\d+[,.]?\d*)\s*(?:€)?/i;
     match = trimmedLine.match(pipeTablePattern);
 
     if (match) {
       const unitMatch = match[1].match(/\b(\d+\s*[lLkKgGmM]+)\b/i);
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[3].replace(',', '.')),
+        price: parseFloat(match[3].replace(",", ".")),
         quantity: parseFloat(match[2]),
-        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, '') : 'ud'
+        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, "") : "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 3 (Pipes): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 3 (Pipes): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 3 falló');
+    console.log("[PARSER] ❌ Pattern 3 falló");
 
     // Pattern 4: Tabla separada por espacios múltiples
     const spaceTablePattern = /^(.+?)\s+(\d+\.?\d*)\s+(\d+[,.]?\d*)\s*(?:€)?/i;
@@ -370,62 +415,73 @@ export class IngestaController {
       const unitMatch = match[1].match(/\b(\d+\s*[lLkKgGmM]+)\b/i);
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[3].replace(',', '.')),
+        price: parseFloat(match[3].replace(",", ".")),
         quantity: parseFloat(match[2]),
-        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, '') : 'ud'
+        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, "") : "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 4 (Espacios): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 4 (Espacios): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 4 falló');
+    console.log("[PARSER] ❌ Pattern 4 falló");
 
     // Pattern 5: Tabla con peso
-    const weightTablePattern = /^(.+?)\s+(\d+\.?\d*)\s*(\d+\.?\d*)\s*([lLkKgGmM]+)?\s+(\d+[,.]?\d*)\s*(?:€)?/i;
+    const weightTablePattern =
+      /^(.+?)\s+(\d+\.?\d*)\s*(\d+\.?\d*)\s*([lLkKgGmM]+)?\s+(\d+[,.]?\d*)\s*(?:€)?/i;
     match = trimmedLine.match(weightTablePattern);
 
     if (match) {
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[5].replace(',', '.')),
+        price: parseFloat(match[5].replace(",", ".")),
         quantity: parseFloat(match[2]),
-        unit: match[4] ? match[4].toLowerCase().replace(/\s+/, '') : 'ud'
+        unit: match[4] ? match[4].toLowerCase().replace(/\s+/, "") : "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 5 (Peso): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 5 (Peso): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 5 falló');
+    console.log("[PARSER] ❌ Pattern 5 falló");
 
     // Pattern 6: "Cantidad x Producto precio €"
-    const qtyProductPricePattern = /^(\d+)\s*[xX]\s*(.+?)\s+(\d+[,.]?\d*)\s*€?\s*$/i;
+    const qtyProductPricePattern =
+      /^(\d+)\s*[xX]\s*(.+?)\s+(\d+[,.]?\d*)\s*€?\s*$/i;
     match = trimmedLine.match(qtyProductPricePattern);
 
     if (match) {
       const result = {
         name: match[2].trim(),
-        price: parseFloat(match[3].replace(',', '.')),
+        price: parseFloat(match[3].replace(",", ".")),
         quantity: parseInt(match[1]),
-        unit: 'ud'
+        unit: "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 6 (Qty x Producto): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 6 (Qty x Producto): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 6 falló');
+    console.log("[PARSER] ❌ Pattern 6 falló");
 
     // Pattern 7: "Producto (5L) 28,50 €"
-    const productWithUnitPricePattern = /(.+?)\s*\((\d+\s*[lLkKgGmM]+)\)\s*(\d+[,.]?\d*)\s*€?\s*$/i;
+    const productWithUnitPricePattern =
+      /(.+?)\s*\((\d+\s*[lLkKgGmM]+)\)\s*(\d+[,.]?\d*)\s*€?\s*$/i;
     match = trimmedLine.match(productWithUnitPricePattern);
 
     if (match) {
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[3].replace(',', '.')),
+        price: parseFloat(match[3].replace(",", ".")),
         quantity: 1,
-        unit: match[2].toLowerCase().replace(/\s+/, '')
+        unit: match[2].toLowerCase().replace(/\s+/, ""),
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 7 (Con unidad): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 7 (Con unidad): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 7 falló');
+    console.log("[PARSER] ❌ Pattern 7 falló");
 
     // Pattern 8: Solo "Producto precio €"
     const simplePricePattern = /(.+?)\s+(\d+[,.]?\d*)\s*€?\s*$/i;
@@ -434,33 +490,38 @@ export class IngestaController {
     if (match) {
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[2].replace(',', '.')),
+        price: parseFloat(match[2].replace(",", ".")),
         quantity: 1,
-        unit: 'ud'
+        unit: "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 8 (Simple): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 8 (Simple): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 8 falló');
+    console.log("[PARSER] ❌ Pattern 8 falló");
 
     // Pattern 9: Tabla larga con múltiples columnas (captura todo al final como precio)
-    const multiColumnPattern = /^(.+?)\s+(\d+\.?\d*)\s+\d+\.?\d*\s+\d+[,.]?\d*\s*(\d+[,.]?\d*)/i;
+    const multiColumnPattern =
+      /^(.+?)\s+(\d+\.?\d*)\s+\d+\.?\d*\s+\d+[,.]?\d*\s*(\d+[,.]?\d*)/i;
     match = trimmedLine.match(multiColumnPattern);
 
     if (match) {
       const unitMatch = match[1].match(/\b(\d+\s*[lLkKgGmM]+)\b/i);
       const result = {
         name: match[1].trim(),
-        price: parseFloat(match[2].replace(',', '.')),
+        price: parseFloat(match[2].replace(",", ".")),
         quantity: 1,
-        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, '') : 'ud'
+        unit: unitMatch ? unitMatch[1].toLowerCase().replace(/\s+/, "") : "ud",
       };
-      console.log(`[PARSER] ✅ MATCH Pattern 9 (Multi-columna): ${JSON.stringify(result)}`);
+      console.log(
+        `[PARSER] ✅ MATCH Pattern 9 (Multi-columna): ${JSON.stringify(result)}`,
+      );
       return result;
     }
-    console.log('[PARSER] ❌ Pattern 9 falló');
+    console.log("[PARSER] ❌ Pattern 9 falló");
 
-    console.log('[PARSER] ❌ TODOS LOS PATRONES FALLARON - rechazando línea');
+    console.log("[PARSER] ❌ TODOS LOS PATRONES FALLARON - rechazando línea");
     return null;
   }
 }

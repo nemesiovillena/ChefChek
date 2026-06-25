@@ -33,8 +33,8 @@ export function levenshteinDistance(str1: string, str2: string): number {
       } else {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
-          matrix[i][j - 1] + 1,     // insertion
-          matrix[i - 1][j] + 1      // deletion
+          matrix[i][j - 1] + 1, // insertion
+          matrix[i - 1][j] + 1, // deletion
         );
       }
     }
@@ -71,8 +71,5 @@ export function calculateSimilarity(str1: string, str2: string): number {
  * @returns Normalized CIF/NIF
  */
 export function normalizeCifNif(cifNif: string): string {
-  return cifNif
-    .toUpperCase()
-    .replace(/[-\s]/g, '')
-    .trim();
+  return cifNif.toUpperCase().replace(/[-\s]/g, "").trim();
 }

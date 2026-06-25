@@ -52,7 +52,9 @@ export class PythonOcrService implements IOcrService {
         const { fileBuffer, filename, mimetype } = options;
         formData.append(
           "file",
-          new Blob([new Uint8Array(fileBuffer)], { type: mimetype || "image/jpeg" }),
+          new Blob([new Uint8Array(fileBuffer)], {
+            type: mimetype || "image/jpeg",
+          }),
           filename,
         );
         endpoint = mimetype === "application/pdf" ? "/ocr/pdf" : "/ocr/image";
@@ -99,9 +101,9 @@ export class PythonOcrService implements IOcrService {
       }
 
       this.logger.log(
-        `✅ OCR completado: ${result.document?.products?.length || 0} productos, confianza=${
-          result.document?.confidence?.toFixed(2)
-        }`,
+        `✅ OCR completado: ${result.document?.products?.length || 0} productos, confianza=${result.document?.confidence?.toFixed(
+          2,
+        )}`,
       );
 
       return {
@@ -181,7 +183,9 @@ export class PythonOcrService implements IOcrService {
     const formData = new FormData();
     formData.append(
       "file",
-      new Blob([new Uint8Array(fileBuffer)], { type: mimetype || "image/jpeg" }),
+      new Blob([new Uint8Array(fileBuffer)], {
+        type: mimetype || "image/jpeg",
+      }),
       filename,
     );
     formData.append("enable_preprocessing", "true");
@@ -202,7 +206,8 @@ export class PythonOcrService implements IOcrService {
       );
 
       // Usar endpoint correcto según el tipo de archivo
-      const endpoint = mimetype === "application/pdf" ? "/ocr/pdf" : "/ocr/image";
+      const endpoint =
+        mimetype === "application/pdf" ? "/ocr/pdf" : "/ocr/image";
 
       const response = await this.axiosInstance.post(endpoint, formData, {
         headers: {},
@@ -257,17 +262,20 @@ export class PythonOcrService implements IOcrService {
    * @param filename Nombre del archivo
    * @returns Resultado del OCR
    */
-  async processPdf(
-    fileBuffer: Buffer,
-    filename: string,
-  ): Promise<any> {
+  async processPdf(fileBuffer: Buffer, filename: string): Promise<any> {
     const formData = new FormData();
-    formData.append("file", new Blob([new Uint8Array(fileBuffer)], { type: "application/pdf" }), filename);
+    formData.append(
+      "file",
+      new Blob([new Uint8Array(fileBuffer)], { type: "application/pdf" }),
+      filename,
+    );
     formData.append("enable_preprocessing", "true");
     formData.append("enable_validation", "true");
 
     try {
-      this.logger.log(`Procesando PDF: ${filename} (${fileBuffer.length} bytes)`);
+      this.logger.log(
+        `Procesando PDF: ${filename} (${fileBuffer.length} bytes)`,
+      );
 
       const response = await this.axiosInstance.post("/ocr/pdf", formData, {
         headers: {

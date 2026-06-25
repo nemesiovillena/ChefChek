@@ -27,6 +27,11 @@ import { CoreModule } from "../core/core.module";
     LineMatchingService,
     AlbaranStockService,
   ],
-  exports: [AlbaranesService, SupplierMatchingService, LineMatchingService, AlbaranStockService],
+  exports: [
+    AlbaranesService,
+    SupplierMatchingService,
+    LineMatchingService,
+    AlbaranStockService,
+  ],
 })
 export class AlbaranesModule {}

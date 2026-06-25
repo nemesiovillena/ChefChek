@@ -34,7 +34,10 @@ describe("LineMatchingService", () => {
       providers: [
         LineMatchingService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: ProductRecognitionService, useValue: mockProductRecognition },
+        {
+          provide: ProductRecognitionService,
+          useValue: mockProductRecognition,
+        },
       ],
     }).compile();
 

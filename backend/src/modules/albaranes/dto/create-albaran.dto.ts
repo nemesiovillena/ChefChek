@@ -94,7 +94,9 @@ export class CreateAlbaranDto {
   @Min(0)
   vatTotal?: number;
 
-  @ApiPropertyOptional({ description: "Desglose de IVA por tipo: [{rate, base, amount}]" })
+  @ApiPropertyOptional({
+    description: "Desglose de IVA por tipo: [{rate, base, amount}]",
+  })
   @IsOptional()
   vatBreakdown?: Array<{ rate: number; base: number; amount: number }>;
 
@@ -114,7 +116,10 @@ export class CreateAlbaranDto {
   @IsString()
   notes?: string;
 
-  @ApiProperty({ description: "Líneas del albarán", type: [CreateAlbaranLineDto] })
+  @ApiProperty({
+    description: "Líneas del albarán",
+    type: [CreateAlbaranLineDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateAlbaranLineDto)
