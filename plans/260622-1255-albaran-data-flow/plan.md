@@ -125,6 +125,6 @@ Phase 1 (Schema) ✅
 
 ## Context Links
 
-- Full plan: `plans/260622-1255-albaran-data-flow/plan.md` (in backend/plans/)
+- Full plan: `plans/260622-1255-albaran-data-flow/implementation-plan.md`
 - OCR enhancement: `plans/260619-ocr-enhancement/`
 - Schema: `backend/prisma/schema.prisma` (lines 305-318 enums, 1493+ models)
