@@ -6,10 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "overrides": {
-      "@tiptap/core": "3.23.6"
-    },
     "lint": "eslint"
+  },
+  "overrides": {
+    "@tiptap/core": "3.23.6"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
