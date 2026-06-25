@@ -7,7 +7,6 @@ import { OcrAiService } from "./ocr-ai.service";
 import { ProductRecognitionService } from "./product-recognition.service";
 import { DocumentQueueProcessor } from "./document-queue.processor";
 import { IngestaController } from "./ingesta.controller";
-import { TesseractService } from "./services/tesseract.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { CoreModule } from "../core/core.module";
 import { AuthModule } from "../auth/auth.module";
@@ -37,14 +36,13 @@ import { AuthModule } from "../auth/auth.module";
   ],
   controllers: [IngestaController],
   providers: [
-    TesseractService,
     {
       provide: "PRIMARY_OCR_SERVICE",
       useExisting: PythonOcrService, // ✅ Microservicio Python como principal
     },
     {
       provide: "FALLBACK_OCR_SERVICE",
-      useExisting: TesseractService, // Fallback (si está disponible)
+      useExisting: PythonOcrService, // Fallback = mismo Python OCR (tesseract eliminado)
     },
     IngestaService,
     TelegramBotService,
