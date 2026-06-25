@@ -8,5 +8,16 @@ coverage/
 *.log
 .DS_Store
 .claude/
-bun.lock
 package-lock.json
+
+# Runtime data (user uploads, DB backups)
+backend/uploads/
+backend/backups/
+
+# Dev artifacts
+repomix-output.xml
+*.traineddata
+invoice*.jpg
+invoice*.txt
+invoice*.hocr
+user_albaran*.jpg
