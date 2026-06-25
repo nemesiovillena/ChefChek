@@ -31,34 +31,50 @@ interface PersistedSession {
   sessionId: string | null;
 }
 
-const readPersistedSession = (): PersistedSession => {
-  if (typeof window === 'undefined') {
-    return { user: null, tenantSlug: null, sessionId: null };
-  }
-  const savedUser = sessionStorage.getItem('user');
-  const savedTenantSlug = sessionStorage.getItem('tenant_slug');
-  const savedSessionId = sessionStorage.getItem('session_id');
-  let parsedUser: AuthResponse['user'] | null = null;
-  if (savedUser) {
-    try {
-      parsedUser = JSON.parse(savedUser);
-    } catch {
-      parsedUser = null;
-    }
-  }
-  return {
-    user: parsedUser,
-    tenantSlug: savedTenantSlug,
-    sessionId: savedSessionId,
-  };
-};
-
-const subscribePersistedSession = () => () => {};
-const getServerPersistedSession = (): PersistedSession => ({
+// Stable empty snapshot reused on the server and as the initial client value.
+// useSyncExternalStore requires getSnapshot/getServerSnapshot to return a
+// stable reference when the store hasn't changed — returning a fresh object
+// literal each call makes React re-render in an infinite loop.
+const EMPTY_PERSISTED_SESSION: PersistedSession = {
   user: null,
   tenantSlug: null,
   sessionId: null,
-});
+};
+
+// The store never emits (subscribe is a no-op), so the client snapshot only
+// matters for initial hydration. Compute it once per page load and reuse it
+// to keep the reference stable across renders.
+let clientSnapshot: PersistedSession = EMPTY_PERSISTED_SESSION;
+let clientSnapshotInitialized = false;
+
+const readPersistedSession = (): PersistedSession => {
+  if (typeof window === 'undefined') {
+    return EMPTY_PERSISTED_SESSION;
+  }
+  if (!clientSnapshotInitialized) {
+    const savedUser = sessionStorage.getItem('user');
+    const savedTenantSlug = sessionStorage.getItem('tenant_slug');
+    const savedSessionId = sessionStorage.getItem('session_id');
+    let parsedUser: AuthResponse['user'] | null = null;
+    if (savedUser) {
+      try {
+        parsedUser = JSON.parse(savedUser);
+      } catch {
+        parsedUser = null;
+      }
+    }
+    clientSnapshot = {
+      user: parsedUser,
+      tenantSlug: savedTenantSlug,
+      sessionId: savedSessionId,
+    };
+    clientSnapshotInitialized = true;
+  }
+  return clientSnapshot;
+};
+
+const subscribePersistedSession = () => () => {};
+const getServerPersistedSession = (): PersistedSession => EMPTY_PERSISTED_SESSION;
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // Hydrate from sessionStorage synchronously on the client to avoid the

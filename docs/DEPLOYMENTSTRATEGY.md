@@ -15,10 +15,16 @@ Documento que detalla la estrategia completa de pruebas y despliegue para ChefCh
 
 ### Scripts reales disponibles
 
-- **Backend**: `build`, `lint`, `test` (jest, 1110 tests), `test:cov`, `test:e2e`, `prisma:*`.
-- **Frontend**: `dev`, `build`, `start`, `lint`. (Sin script de tests todavía.)
+- **Backend**: `build`, `lint`, `test`/`test:unit` (jest, 1110 tests), `test:cov`, `test:e2e` (jest-e2e contra Postgres), `prisma:*`.
+- **Frontend**: `dev`, `build`, `start`, `lint`, `test:e2e` (Playwright, smoke).
 
-Las secciones siguientes que mencionan `test:unit`, `test:integration`, `test:performance`, `test:stress`, `test:migration`, `test:coverage:check`, `analyze` o E2E de Playwright describen **objetivos planeados**, no scripts existentes. Migrar esos comandos a scripts reales es trabajo pendiente.
+Las secciones siguientes que mencionan `test:integration`, `test:performance`, `test:stress`, `test:migration`, `test:coverage:check` o `analyze` describen **objetivos planeados**, no scripts existentes. Los dirs `backend/test/{integration,load}` están vacíos; migrar esos comandos a scripts reales es trabajo pendiente (issue aparte). `test:unit` y `test:e2e` (backend y frontend) ya existen.
+
+### Cobertura y E2E en CI
+
+- **Cobertura (backend)**: el umbral 70% global en `jest.config.js` es **advisory** (solo aplica en local con `test:cov`). CI reporta cobertura sin bloquear.
+- **Backend E2E**: job `e2e` en `backend-ci.yml` con servicio Postgres + `prisma migrate deploy`, `continue-on-error` (no bloqueante mientras se estabilizan los specs).
+- **Frontend E2E**: job `e2e` en `frontend-ci.yml` con Playwright (chromium), `continue-on-error`. Suite smoke: render de `/login` y redirect `/dashboard` → `/login` (sin backend).
 
 ---
 
@@ -328,6 +334,8 @@ jobs:
 
 Estado verificado: lint (0 errores), build OK, 1110 tests pasan.
 
+Adicionalmente, el job `e2e` (no-bloqueante, `continue-on-error`) levanta un servicio Postgres, aplica `prisma migrate deploy` y corre `bun run test:e2e`. El YAML embebido arriba es ilustrativo; el fuente de verdad es `.github/workflows/backend-ci.yml`.
+
 ### 2. Frontend CI (`frontend-ci.yml`)
 
 Dispara en push/PR a `main` y `develop`.
@@ -361,7 +369,7 @@ jobs:
         run: bun run build
 ```
 
-Estado verificado: build OK. Lint no bloqueante mientras existan ~200 errores preexistentes.
+Estado verificado: build OK. Lint pasa (0 errores, ~125 warnings de deuda no bloqueante). Adicionalmente, el job `e2e` (no-bloqueante) instala Playwright/chromium y corre `bun run test:e2e` (smoke). El YAML embebido arriba es ilustrativo; el fuente de verdad es `.github/workflows/frontend-ci.yml`.
 
 ### 3. Release (`deploy.yml`)
 
