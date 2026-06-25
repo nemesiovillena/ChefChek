@@ -114,7 +114,8 @@ export class OcrAiService {
             quantity: product.quantity || 0,
             unit: product.unit || "ud",
             unitPrice: product.unit_price || 0,
-            supplier: rawResult.rawResult?.document?.supplier_name || "IMPORTADO",
+            supplier:
+              rawResult.rawResult?.document?.supplier_name || "IMPORTADO",
             category: "", // Se completará con ProductRecognitionService
             allergens: [],
             confidence: product.confidence || 0.85,

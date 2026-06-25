@@ -60,7 +60,10 @@ export class WebSocketGateway
         this.subClient.connect(),
       ]);
 
-      const redisAdapter = new (RedisAdapter as any)(this.pubClient, this.subClient);
+      const redisAdapter = new (RedisAdapter as any)(
+        this.pubClient,
+        this.subClient,
+      );
 
       server.adapter(redisAdapter as any);
       this.logger.log("Redis adapter configured for WebSocket");

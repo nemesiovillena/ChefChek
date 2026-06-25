@@ -412,7 +412,12 @@ export class IngestaService {
                 name: product.name,
                 description: product.description || "",
                 purchaseFormat: product.unit || "ud",
-                referenceUnit: product.unit === "kg" ? "kg" : (product.unit === "L" || product.unit === "l") ? "L" : "und",
+                referenceUnit:
+                  product.unit === "kg"
+                    ? "kg"
+                    : product.unit === "L" || product.unit === "l"
+                      ? "L"
+                      : "und",
                 unitsPerFormat: 1,
                 referenceUnitSize: 1,
                 unitSize: 1,

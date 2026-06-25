@@ -173,7 +173,9 @@ export class RecipesController {
   @Post("upload-image")
   @Roles("ADMIN", "USER")
   @ApiOperation({ summary: "Subir imagen de receta" })
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("No file provided");
@@ -181,7 +183,9 @@ export class RecipesController {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException("Only jpg, png, and webp images are allowed");
+      throw new BadRequestException(
+        "Only jpg, png, and webp images are allowed",
+      );
     }
 
     const uploadsDir = path.join(process.cwd(), "uploads", "recipes");
@@ -194,6 +198,10 @@ export class RecipesController {
     fs.writeFileSync(filePath, file.buffer);
 
     const imageUrl = `/uploads/recipes/${fileName}`;
-    return { success: true, data: { imageUrl }, message: "Image uploaded successfully" };
+    return {
+      success: true,
+      data: { imageUrl },
+      message: "Image uploaded successfully",
+    };
   }
 }

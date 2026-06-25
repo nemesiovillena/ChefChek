@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { getReferencePrice } from "../../common/utils/unit-conversions";
 import {
@@ -140,19 +144,24 @@ export class ProductsService {
 
     if (stockStatus) {
       where.stocks = {
-        some: stockStatus === "empty"
-          ? { quantity: { lte: 0 } }
-          : {
-              OR: [
-                { quantity: { lte: 0 } },
-                {
-                  AND: [
-                    { quantity: { gt: 0 } },
-                    { quantity: { lte: this.prisma.$queryRaw`"minimumStock"` } }
-                  ]
-                }
-              ]
-          }
+        some:
+          stockStatus === "empty"
+            ? { quantity: { lte: 0 } }
+            : {
+                OR: [
+                  { quantity: { lte: 0 } },
+                  {
+                    AND: [
+                      { quantity: { gt: 0 } },
+                      {
+                        quantity: {
+                          lte: this.prisma.$queryRaw`"minimumStock"`,
+                        },
+                      },
+                    ],
+                  },
+                ],
+              },
       };
     }
 
@@ -269,9 +278,16 @@ export class ProductsService {
     }
 
     // Recalculate unitSize if unitsPerFormat or referenceUnitSize changed
-    if (data.unitsPerFormat !== undefined || data.referenceUnitSize !== undefined) {
+    if (
+      data.unitsPerFormat !== undefined ||
+      data.referenceUnitSize !== undefined
+    ) {
       const upf = data.unitsPerFormat ?? existingProduct.unitsPerFormat ?? 1;
-      const rus = data.referenceUnitSize ?? existingProduct.referenceUnitSize ?? existingProduct.unitSize ?? 1;
+      const rus =
+        data.referenceUnitSize ??
+        existingProduct.referenceUnitSize ??
+        existingProduct.unitSize ??
+        1;
       data.unitsPerFormat = upf;
       data.referenceUnitSize = rus;
       data.unitSize = upf * rus;
@@ -286,7 +302,10 @@ export class ProductsService {
       updateData.profitMargin !== undefined
     ) {
       // Save previous price before updating
-      if (updateData.purchasePrice !== undefined && updateData.purchasePrice !== existingProduct.purchasePrice) {
+      if (
+        updateData.purchasePrice !== undefined &&
+        updateData.purchasePrice !== existingProduct.purchasePrice
+      ) {
         data.previousPurchasePrice = existingProduct.purchasePrice;
       }
 
@@ -560,7 +579,7 @@ export class ProductsService {
 
     if (productCount > 0) {
       throw new Error(
-        `No se puede eliminar el proveedor porque tiene ${productCount} productos asociados.`
+        `No se puede eliminar el proveedor porque tiene ${productCount} productos asociados.`,
       );
     }
 
@@ -645,7 +664,8 @@ export class ProductsService {
     }
 
     // Calcular precio promedio actual
-    const currentAvg = products.reduce((sum, p) => sum + p.purchasePrice, 0) / products.length;
+    const currentAvg =
+      products.reduce((sum, p) => sum + p.purchasePrice, 0) / products.length;
 
     // Obtener último registro de histórico
     const lastHistory = await this.prisma.supplierPriceHistory.findFirst({
@@ -668,7 +688,9 @@ export class ProductsService {
     }
 
     // Calcular diferencia
-    const diff = ((currentAvg - lastHistory.averagePrice) / lastHistory.averagePrice) * 100;
+    const diff =
+      ((currentAvg - lastHistory.averagePrice) / lastHistory.averagePrice) *
+      100;
 
     // Crear nuevo registro histórico si es significativo (cada 24h o > 5% cambio)
     const shouldRecord =
@@ -753,7 +775,10 @@ export class ProductsService {
     }
 
     // Obtener todos los descendientes recursivamente
-    const allCategoryIds = await this.getAllCategoryDescendants(categoryId, tenantId);
+    const allCategoryIds = await this.getAllCategoryDescendants(
+      categoryId,
+      tenantId,
+    );
 
     // Contar productos en la categoría y sus descendientes
     const count = await this.prisma.product.count({
@@ -778,13 +803,19 @@ export class ProductsService {
     });
 
     if (categories.length !== categoryIds.length) {
-      throw new Error(`Algunas categorías no existen o no pertenecen al tenant`);
+      throw new Error(
+        `Algunas categorías no existen o no pertenecen al tenant`,
+      );
     }
 
     // Validar que no se crean ciclos en jerarquía
     for (const update of updates) {
       if (update.parentId) {
-        const hasCycle = await this.checkCategoryCycle(update.id, update.parentId, tenantId);
+        const hasCycle = await this.checkCategoryCycle(
+          update.id,
+          update.parentId,
+          tenantId,
+        );
         if (hasCycle) {
           throw new Error(`Se crearía un ciclo en la jerarquía de categorías`);
         }
@@ -800,8 +831,8 @@ export class ProductsService {
             sortOrder: update.sortOrder,
             parentId: update.parentId || null,
           },
-        })
-      )
+        }),
+      ),
     );
 
     return {
@@ -830,7 +861,7 @@ export class ProductsService {
     return {
       success: true,
       data: updated,
-      message: `Categoría ${updated.isActive ? 'activada' : 'desactivada'}`,
+      message: `Categoría ${updated.isActive ? "activada" : "desactivada"}`,
     };
   }
 
@@ -861,8 +892,12 @@ export class ProductsService {
     tenantId: string,
     visited: Set<string> = new Set(),
   ): Promise<boolean> {
-    if (categoryId === newParentId) return true; // Ciclo directo
-    if (visited.has(newParentId)) return false; // Ya visitado, no ciclo
+    if (categoryId === newParentId) {
+      return true;
+    } // Ciclo directo
+    if (visited.has(newParentId)) {
+      return false;
+    } // Ya visitado, no ciclo
 
     visited.add(newParentId);
 
@@ -871,9 +906,16 @@ export class ProductsService {
       select: { parentId: true },
     });
 
-    if (!parent || !parent.parentId) return false; // No más ancestros
+    if (!parent || !parent.parentId) {
+      return false;
+    } // No más ancestros
 
-    return this.checkCategoryCycle(categoryId, parent.parentId, tenantId, visited);
+    return this.checkCategoryCycle(
+      categoryId,
+      parent.parentId,
+      tenantId,
+      visited,
+    );
   }
 
   private calculateNetPrice(
@@ -912,7 +954,11 @@ export class ProductsService {
     };
   }
 
-  async reassignSupplierProducts(supplierId: string, targetSupplierId: string, tenantId: string) {
+  async reassignSupplierProducts(
+    supplierId: string,
+    targetSupplierId: string,
+    tenantId: string,
+  ) {
     // Verificar que ambos proveedores existen y pertenecen al tenant
     const [existingSource, existingTarget] = await Promise.all([
       this.prisma.supplier.findFirst({
@@ -932,7 +978,9 @@ export class ProductsService {
     }
 
     if (supplierId === targetSupplierId) {
-      throw new BadRequestException('No se puede reasignar productos al mismo proveedor');
+      throw new BadRequestException(
+        "No se puede reasignar productos al mismo proveedor",
+      );
     }
 
     // Reasignar todos los productos
@@ -943,7 +991,7 @@ export class ProductsService {
 
     return {
       success: true,
-      message: `${result.count} producto${result.count > 1 ? 's' : ''} reasignados de "${existingSource.name}" a "${existingTarget.name}"`,
+      message: `${result.count} producto${result.count > 1 ? "s" : ""} reasignados de "${existingSource.name}" a "${existingTarget.name}"`,
       reassignedCount: result.count,
     };
   }
@@ -962,15 +1010,23 @@ export class ProductsService {
       where: { tenantId, symbol: dto.symbol },
     });
     if (existing) {
-      throw new BadRequestException(`Ya existe una unidad con símbolo "${dto.symbol}"`);
+      throw new BadRequestException(
+        `Ya existe una unidad con símbolo "${dto.symbol}"`,
+      );
     }
     return this.prisma.unitOfMeasure.create({
       data: { tenantId, name: dto.name, symbol: dto.symbol },
     });
   }
 
-  async updateUnit(id: string, dto: { name?: string; symbol?: string; isActive?: boolean }, tenantId: string) {
-    const unit = await this.prisma.unitOfMeasure.findFirst({ where: { id, tenantId } });
+  async updateUnit(
+    id: string,
+    dto: { name?: string; symbol?: string; isActive?: boolean },
+    tenantId: string,
+  ) {
+    const unit = await this.prisma.unitOfMeasure.findFirst({
+      where: { id, tenantId },
+    });
     if (!unit) {
       throw new NotFoundException("Unidad no encontrada");
     }
@@ -979,7 +1035,9 @@ export class ProductsService {
         where: { tenantId, symbol: dto.symbol, id: { not: id } },
       });
       if (duplicate) {
-        throw new BadRequestException(`Ya existe una unidad con símbolo "${dto.symbol}"`);
+        throw new BadRequestException(
+          `Ya existe una unidad con símbolo "${dto.symbol}"`,
+        );
       }
     }
     return this.prisma.unitOfMeasure.update({
@@ -989,7 +1047,9 @@ export class ProductsService {
   }
 
   async deleteUnit(id: string, tenantId: string) {
-    const unit = await this.prisma.unitOfMeasure.findFirst({ where: { id, tenantId } });
+    const unit = await this.prisma.unitOfMeasure.findFirst({
+      where: { id, tenantId },
+    });
     if (!unit) {
       throw new NotFoundException("Unidad no encontrada");
     }
@@ -1010,7 +1070,11 @@ export class ProductsService {
 
   // ─── Product Price History ──────────────────────────────────────
 
-  async getProductPriceHistory(productId: string, tenantId: string, supplierId?: string) {
+  async getProductPriceHistory(
+    productId: string,
+    tenantId: string,
+    supplierId?: string,
+  ) {
     const where: any = { productId, tenantId };
     if (supplierId) {
       where.supplierId = supplierId;
@@ -1021,7 +1085,9 @@ export class ProductsService {
       take: 50,
       include: {
         supplier: { select: { id: true, name: true } },
-        albaran: { select: { id: true, internalNumber: true, albaranNumber: true } },
+        albaran: {
+          select: { id: true, internalNumber: true, albaranNumber: true },
+        },
       },
     });
   }

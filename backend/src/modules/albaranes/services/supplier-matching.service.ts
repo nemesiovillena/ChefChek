@@ -1,10 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../../common/services/prisma.service';
-import { calculateSimilarity, normalizeCifNif } from '../../../common/utils/string-similarity';
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../../common/services/prisma.service";
+import {
+  calculateSimilarity,
+  normalizeCifNif,
+} from "../../../common/utils/string-similarity";
 
 export interface SupplierMatchResult {
   supplierId: string | null;
-  matchType: 'CIF_EXACT' | 'NAME_FUZZY' | 'NONE';
+  matchType: "CIF_EXACT" | "NAME_FUZZY" | "NONE";
   confidence: number;
   suggestions: Array<{
     id: string;
@@ -35,7 +38,7 @@ export class SupplierMatchingService {
     tenantId: string;
   }): Promise<SupplierMatchResult> {
     this.logger.log(
-      `Matching supplier for tenant ${input.tenantId}: CIF=${input.cifNif || 'none'}, Name=${input.name || 'none'}`
+      `Matching supplier for tenant ${input.tenantId}: CIF=${input.cifNif || "none"}, Name=${input.name || "none"}`,
     );
 
     // 1. Try exact CIF match if provided
@@ -45,7 +48,7 @@ export class SupplierMatchingService {
         this.logger.log(`CIF exact match found: ${cifMatch.id}`);
         return {
           supplierId: cifMatch.id,
-          matchType: 'CIF_EXACT',
+          matchType: "CIF_EXACT",
           confidence: 1.0,
           suggestions: [],
         };
@@ -61,10 +64,10 @@ export class SupplierMatchingService {
     }
 
     // 3. No match found
-    this.logger.log('No supplier match found');
+    this.logger.log("No supplier match found");
     return {
       supplierId: null,
-      matchType: 'NONE',
+      matchType: "NONE",
       confidence: 0,
       suggestions: [],
     };
@@ -111,7 +114,7 @@ export class SupplierMatchingService {
    */
   private async matchByName(
     name: string,
-    tenantId: string
+    tenantId: string,
   ): Promise<SupplierMatchResult | null> {
     // Get suppliers where name contains the search term
     const suppliers = await this.prisma.supplier.findMany({
@@ -119,7 +122,7 @@ export class SupplierMatchingService {
         tenantId,
         isActive: true,
         name: {
-          mode: 'insensitive',
+          mode: "insensitive",
           contains: name,
         },
       },
@@ -135,7 +138,10 @@ export class SupplierMatchingService {
     const matchesWithScore = suppliers
       .map((supplier) => ({
         ...supplier,
-        similarity: calculateSimilarity(name.toLowerCase(), supplier.name.toLowerCase()),
+        similarity: calculateSimilarity(
+          name.toLowerCase(),
+          supplier.name.toLowerCase(),
+        ),
       }))
       .sort((a, b) => b.similarity - a.similarity);
 
@@ -144,11 +150,11 @@ export class SupplierMatchingService {
     // High confidence: auto-match
     if (bestMatch.similarity >= this.HIGH_CONFIDENCE_THRESHOLD) {
       this.logger.log(
-        `Name fuzzy match found: ${bestMatch.id} (similarity: ${bestMatch.similarity.toFixed(2)})`
+        `Name fuzzy match found: ${bestMatch.id} (similarity: ${bestMatch.similarity.toFixed(2)})`,
       );
       return {
         supplierId: bestMatch.id,
-        matchType: 'NAME_FUZZY',
+        matchType: "NAME_FUZZY",
         confidence: bestMatch.similarity,
         suggestions: matchesWithScore.slice(1, 4).map((s) => ({
           id: s.id,
@@ -162,11 +168,11 @@ export class SupplierMatchingService {
     // Low confidence: return suggestions without auto-matching
     if (bestMatch.similarity >= this.LOW_CONFIDENCE_THRESHOLD) {
       this.logger.log(
-        `Low confidence match (similarity: ${bestMatch.similarity.toFixed(2)}), returning suggestions`
+        `Low confidence match (similarity: ${bestMatch.similarity.toFixed(2)}), returning suggestions`,
       );
       return {
         supplierId: null,
-        matchType: 'NONE',
+        matchType: "NONE",
         confidence: bestMatch.similarity,
         suggestions: matchesWithScore.slice(0, 5).map((s) => ({
           id: s.id,
@@ -196,23 +202,40 @@ export class SupplierMatchingService {
   ): Promise<void> {
     const supplier = await this.prisma.supplier.findUnique({
       where: { id: supplierId },
-      select: { address: true, phone: true, email: true, sanitaryRegistry: true },
+      select: {
+        address: true,
+        phone: true,
+        email: true,
+        sanitaryRegistry: true,
+      },
     });
 
-    if (!supplier) return;
+    if (!supplier) {
+      return;
+    }
 
     const updates: Record<string, string> = {};
-    if (ocrData.address && !supplier.address) updates.address = ocrData.address;
-    if (ocrData.phone && !supplier.phone) updates.phone = ocrData.phone;
-    if (ocrData.email && !supplier.email) updates.email = ocrData.email;
-    if (ocrData.sanitaryRegistry && !supplier.sanitaryRegistry) updates.sanitaryRegistry = ocrData.sanitaryRegistry;
+    if (ocrData.address && !supplier.address) {
+      updates.address = ocrData.address;
+    }
+    if (ocrData.phone && !supplier.phone) {
+      updates.phone = ocrData.phone;
+    }
+    if (ocrData.email && !supplier.email) {
+      updates.email = ocrData.email;
+    }
+    if (ocrData.sanitaryRegistry && !supplier.sanitaryRegistry) {
+      updates.sanitaryRegistry = ocrData.sanitaryRegistry;
+    }
 
     if (Object.keys(updates).length > 0) {
       await this.prisma.supplier.update({
         where: { id: supplierId },
         data: updates,
       });
-      this.logger.log(`Enriched supplier ${supplierId} with OCR data: ${Object.keys(updates).join(', ')}`);
+      this.logger.log(
+        `Enriched supplier ${supplierId} with OCR data: ${Object.keys(updates).join(", ")}`,
+      );
     }
   }
 }

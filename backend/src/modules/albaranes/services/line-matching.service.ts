@@ -185,10 +185,7 @@ export class LineMatchingService {
   /**
    * Match by article number (barcode)
    */
-  private async matchByArticleNumber(
-    articleNumber: string,
-    tenantId: string,
-  ) {
+  private async matchByArticleNumber(articleNumber: string, tenantId: string) {
     const product = await this.prisma.product.findFirst({
       where: {
         tenantId,
@@ -210,7 +207,9 @@ export class LineMatchingService {
     productName: string | undefined,
     tenantId: string,
   ): Promise<string | null> {
-    if (!productName) return null;
+    if (!productName) {
+      return null;
+    }
 
     const product = await this.prisma.product.findFirst({
       where: {
@@ -230,9 +229,13 @@ export class LineMatchingService {
    * Map ProductRecognitionService suggestions to our format
    */
   private mapSuggestions(
-    suggestions: Array<{ name: string; unitPrice?: number; unit?: string }> | undefined,
+    suggestions:
+      | Array<{ name: string; unitPrice?: number; unit?: string }>
+      | undefined,
   ): MatchSuggestion[] {
-    if (!suggestions || suggestions.length === 0) return [];
+    if (!suggestions || suggestions.length === 0) {
+      return [];
+    }
 
     return suggestions
       .filter((s) => s.name)

@@ -25,7 +25,9 @@ export class AlbaranNumberService {
     }
 
     const internalNumber = `ALB-${String(nextSeq).padStart(4, "0")}`;
-    this.logger.debug(`Generated internal number: ${internalNumber} for tenant ${tenantId}`);
+    this.logger.debug(
+      `Generated internal number: ${internalNumber} for tenant ${tenantId}`,
+    );
     return internalNumber;
   }
 }

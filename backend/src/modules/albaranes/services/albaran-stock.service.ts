@@ -4,10 +4,16 @@ import { NotificationsService } from "../../core/notifications.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
 function normalizeUnit(unit: string): string {
-  if (!unit) return "und";
+  if (!unit) {
+    return "und";
+  }
   const u = unit.toLowerCase().trim();
-  if (u === "kg") return "kg";
-  if (u === "l" || u === "litro" || u === "litros") return "L";
+  if (u === "kg") {
+    return "kg";
+  }
+  if (u === "l" || u === "litro" || u === "litros") {
+    return "L";
+  }
   return "und";
 }
 
@@ -24,7 +30,10 @@ export class AlbaranStockService {
    * Process stock entry when albaran transitions to CONFIRMADO.
    * Idempotent: skips if stock movements already exist for this albaran.
    */
-  async processStockOnConfirmation(albaranId: string, tenantId: string): Promise<void> {
+  async processStockOnConfirmation(
+    albaranId: string,
+    tenantId: string,
+  ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       // Idempotency check
       const existingMovements = await tx.stockMovement.findFirst({
@@ -77,7 +86,9 @@ export class AlbaranStockService {
           if (lineUnitPrice !== currentPrice) {
             const percentageChange =
               currentPrice > 0
-                ? Math.abs(((lineUnitPrice - currentPrice) / currentPrice) * 100)
+                ? Math.abs(
+                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                  )
                 : 100;
 
             // Save previous price before overwriting
@@ -236,16 +247,22 @@ export class AlbaranStockService {
       const supplier = await tx.supplier.findFirst({
         where: { id: albaran.supplierId, tenantId },
       });
-      if (!supplier) return;
+      if (!supplier) {
+        return;
+      }
 
       // Build column order from confirmed lines
       const hasArticleNumber = confirmedLines.some((l: any) => l.articleNumber);
       const columnOrder: string[] = [];
-      if (hasArticleNumber) columnOrder.push("codigo");
+      if (hasArticleNumber) {
+        columnOrder.push("codigo");
+      }
       columnOrder.push("descripcion", "cantidad", "unidad", "precio", "total");
 
       // Collect typical units
-      const units = [...new Set(confirmedLines.map((l: any) => l.unit || "und"))];
+      const units = [
+        ...new Set(confirmedLines.map((l: any) => l.unit || "und")),
+      ];
 
       // Most frequent VAT
       const vatCounts: Record<number, number> = {};
@@ -253,7 +270,9 @@ export class AlbaranStockService {
         const vat = Number(l.vatPercent) || 10;
         vatCounts[vat] = (vatCounts[vat] || 0) + 1;
       });
-      const typicalVat = Object.entries(vatCounts).sort((a, b) => b[1] - a[1])[0];
+      const typicalVat = Object.entries(vatCounts).sort(
+        (a, b) => b[1] - a[1],
+      )[0];
 
       // Build example lines from confirmed data
       const exampleLines = confirmedLines.slice(0, 3).map((l: any) => ({
@@ -277,8 +296,12 @@ export class AlbaranStockService {
         observationCount: (existingHints.observationCount || 0) + 1,
         lastUpdated: new Date().toISOString(),
         // Preserve existing fields if not overwritten
-        ...(existingHints.tableMarker ? { tableMarker: existingHints.tableMarker } : {}),
-        ...(existingHints.priceDecimalSeparator ? { priceDecimalSeparator: existingHints.priceDecimalSeparator } : {}),
+        ...(existingHints.tableMarker
+          ? { tableMarker: existingHints.tableMarker }
+          : {}),
+        ...(existingHints.priceDecimalSeparator
+          ? { priceDecimalSeparator: existingHints.priceDecimalSeparator }
+          : {}),
       };
 
       await tx.supplier.update({

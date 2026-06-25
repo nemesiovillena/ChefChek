@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ModulesController } from './modules.controller';
-import { ModulesService } from './modules.service';
-import { AuthGuard } from '../../guards/auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ModulesController } from "./modules.controller";
+import { ModulesService } from "./modules.service";
+import { AuthGuard } from "../../guards/auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
 
-describe('ModulesController', () => {
+describe("ModulesController", () => {
   let controller: ModulesController;
   let service: ModulesService;
 
@@ -14,8 +14,8 @@ describe('ModulesController', () => {
   };
 
   const mockReq = {
-    tenantId: 'tenant-test-123',
-    user: { id: 'user-1', role: 'ADMIN' },
+    tenantId: "tenant-test-123",
+    user: { id: "user-1", role: "ADMIN" },
   };
 
   beforeEach(async () => {
@@ -37,13 +37,13 @@ describe('ModulesController', () => {
     jest.clearAllMocks();
   });
 
-  describe('getModules', () => {
-    it('should return all modules for a tenant', async () => {
+  describe("getModules", () => {
+    it("should return all modules for a tenant", async () => {
       const mockResult = [
         {
-          id: 'core',
-          name: 'Core',
-          description: 'Core functionality',
+          id: "core",
+          name: "Core",
+          description: "Core functionality",
           dependencies: [],
           alwaysActive: true,
           enabled: true,
@@ -53,19 +53,21 @@ describe('ModulesController', () => {
 
       const result = await controller.getModules(mockReq);
 
-      expect(mockModulesService.getModules).toHaveBeenCalledWith(mockReq.tenantId);
+      expect(mockModulesService.getModules).toHaveBeenCalledWith(
+        mockReq.tenantId,
+      );
       expect(result).toEqual(mockResult);
     });
   });
 
-  describe('toggleModule', () => {
-    it('should toggle module activation state', async () => {
-      const moduleId = 'almacenes';
+  describe("toggleModule", () => {
+    it("should toggle module activation state", async () => {
+      const moduleId = "almacenes";
       const dto = { enabled: false };
       const mockResult = {
-        id: 'almacenes',
-        name: 'Almacenes',
-        description: 'Warehouse module',
+        id: "almacenes",
+        name: "Almacenes",
+        description: "Warehouse module",
         dependencies: [],
         alwaysActive: false,
         enabled: false,
