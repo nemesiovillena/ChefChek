@@ -42,8 +42,9 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
         vatPercent: parseFloat(vatPercent) || 10,
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || 'Error al añadir línea');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al añadir línea';
+      setError(message);
       setLoading(false);
     }
   };

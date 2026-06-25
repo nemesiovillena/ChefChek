@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useConocimiento } from '@/hooks/use-conocimiento';
+import { useConocimiento, type ArticleResponse } from '@/hooks/use-conocimiento';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -101,7 +101,7 @@ export default function WikiProcedimientosPage() {
     }
   };
 
-  const startEditArticle = (article: any) => {
+  const startEditArticle = (article: ArticleResponse) => {
     setEditingArticleId(article.id);
     setNewArticleTitle(article.title);
     setNewArticleContent(article.content);

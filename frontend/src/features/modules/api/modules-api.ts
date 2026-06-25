@@ -40,6 +40,6 @@ export function isModuleConflictError(
     typeof error === 'object' &&
     error !== null &&
     'error' in error &&
-    (error as any).error === 'DEPENDENCY_CONFLICT'
+    (error as { error: unknown }).error === 'DEPENDENCY_CONFLICT'
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Notification {
   id: string;
@@ -10,13 +10,26 @@ interface Notification {
   timestamp: Date;
 }
 
+interface WindowWithNotification extends Window {
+  addNotification?: (notification: Omit<Notification, 'id' | 'timestamp'>) => void;
+}
+
+// Module-level counter for stable notification IDs without calling impure
+// functions (e.g. Date.now) during render.
+let notificationCounter = 0;
+
 export function NotificationSystem() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp'>) => {
+  const removeNotification = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp'>) => {
+    notificationCounter += 1;
     const newNotification: Notification = {
       ...notification,
-      id: Date.now().toString(),
+      id: `notification-${notificationCounter}`,
       timestamp: new Date(),
     };
 
@@ -26,16 +39,12 @@ export function NotificationSystem() {
     setTimeout(() => {
       removeNotification(newNotification.id);
     }, 5000);
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
+  }, [removeNotification]);
 
   // Expose function globally for use in other components
   useEffect(() => {
-    (window as any).addNotification = addNotification;
-  }, []);
+    (window as WindowWithNotification).addNotification = addNotification;
+  }, [addNotification]);
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2">
@@ -73,5 +82,5 @@ export function NotificationSystem() {
 
 // Hook for using notifications in components
 export function useNotification() {
-  return (window as any).addNotification || (() => {});
+  return (window as WindowWithNotification).addNotification || (() => {});
 }

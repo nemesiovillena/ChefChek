@@ -13,7 +13,7 @@ interface EditableLineCellProps {
   step?: string;
   suffix?: string;
   className?: string;
-  format?: (v: any) => string;
+  format?: (v: string | number) => string;
   onSave?: () => void;
 }
 
@@ -60,9 +60,9 @@ export function EditableLineCell({
 
     setSaving(true);
     try {
-      const payload: Record<string, any> = {};
+      const payload: Record<string, string | number> = {};
       payload[field] = type === 'number' ? parseFloat(cleanDraft) || 0 : cleanDraft;
-      await updateLine(albaranId, lineId, payload);
+      await updateLine(albaranId, lineId, payload as Parameters<typeof updateLine>[2]);
       onSave?.();
     } catch (err) {
       console.error('Error saving:', err);

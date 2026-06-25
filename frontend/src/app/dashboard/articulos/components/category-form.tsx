@@ -3,10 +3,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Category, CategoryTreeNode } from '@/hooks/use-categories';
 
+/** Shape of the data emitted by CategoryForm on submit. */
+export interface CategoryFormData {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  parentId?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
 interface Props {
   category?: Category | null;
   tree: CategoryTreeNode[];
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: CategoryFormData) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
 }
@@ -15,7 +26,7 @@ interface Props {
 const ICONS = ['🍎', '🥬', '🥩', '🐟', '🥛', '🧀', '🥚', '🥖', '🍝', '🍕', '🥗', '🍲', '☕', '🍵', '🍬', '🧂'];
 
 export function CategoryForm({ category, tree, onSubmit, onCancel, isSubmitting }: Props) {
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<CategoryFormData>({
     defaultValues: category || {
       name: '',
       description: '',

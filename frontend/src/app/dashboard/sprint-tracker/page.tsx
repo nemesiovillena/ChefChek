@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,13 +66,103 @@ interface Notification {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 }
 
+interface SprintProgress {
+  progress: number;
+  completedPercentage: number;
+  totalTasks: number;
+  remainingTasks: number;
+  onTrack: boolean;
+  atRisk: boolean;
+  completedTasks: number;
+  inProgressTasks: number;
+  blockedTasks: number;
+  estimatedCompletionDate?: string;
+}
+
 export const dynamic = 'force-dynamic';
+
+const INITIAL_SPRINTS: Sprint[] = [
+  {
+    id: '1',
+    name: 'Sprint 16: Roadmap/Sprint Tracker',
+    description: 'Sistema de seguimiento de desarrollo',
+    type: 'DEVELOPMENT',
+    status: 'IN_PROGRESS',
+    startDate: new Date('2026-05-31'),
+    endDate: new Date('2026-06-07'),
+    progress: 45,
+    totalTasks: 8,
+    completedTasks: 4,
+    objectives: ['Modelo de sprints', 'Gestión de tareas', 'Notificaciones'],
+  },
+  {
+    id: '2',
+    name: 'Sprint 15: Wiki de Procedimientos',
+    description: 'Sistema de conocimiento interno',
+    type: 'DOCUMENTATION',
+    status: 'COMPLETED',
+    startDate: new Date('2026-05-24'),
+    endDate: new Date('2026-05-31'),
+    progress: 100,
+    totalTasks: 6,
+    completedTasks: 6,
+  },
+];
+
+const INITIAL_TEAM_MEMBERS: TeamMember[] = [
+  {
+    id: 'm1',
+    name: 'Developer 1',
+    role: 'SENIOR_DEV',
+    email: 'dev1@example.com',
+    isActive: true,
+    availableHours: 40,
+    assignedTasks: 2,
+    completedTasks: 15,
+  },
+  {
+    id: 'm2',
+    name: 'Developer 2',
+    role: 'JUNIOR_DEV',
+    email: 'dev2@example.com',
+    isActive: true,
+    availableHours: 40,
+    assignedTasks: 1,
+    completedTasks: 8,
+  },
+];
+
+const INITIAL_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'n1',
+    type: 'TASK_ASSIGNED',
+    title: 'Nueva tarea asignada',
+    message: 'Has sido asignado a la tarea: Implementar frontend de Sprint Tracker',
+    taskId: 't4',
+    sprintId: '1',
+    read: false,
+    createdAt: new Date(),
+    priority: 'HIGH',
+  },
+  {
+    id: 'n2',
+    type: 'TASK_COMPLETED',
+    title: 'Tarea completada',
+    message: 'La tarea "Crear DTOs de Sprint Tracker" ha sido completada',
+    taskId: 't1',
+    sprintId: '1',
+    read: true,
+    createdAt: new Date(Date.now() - 3600000),
+    priority: 'MEDIUM',
+  },
+];
+
 export default function SprintTrackerPage() {
   const [currentStep, setCurrentStep] = useState(0);
   const steps = ['Sprints', 'Tareas', 'Asignaciones', 'Progreso', 'Notificaciones'];
 
   // Sprints state
-  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>(INITIAL_SPRINTS);
   const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null);
   const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [newSprint, setNewSprint] = useState({
@@ -100,15 +190,15 @@ export default function SprintTrackerPage() {
   });
 
   // Team state
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
   const [showAddMember, setShowAddMember] = useState(false);
   const [newMember, setNewMember] = useState({ name: '', email: '', role: 'DEVELOPER' });
 
   // Notifications state
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
 
   // Progress state
-  const [sprintProgress, setSprintProgress] = useState<any>(null);
+  const [sprintProgress, setSprintProgress] = useState<SprintProgress | null>(null);
 
   const statusColors: Record<string, string> = {
     NOT_STARTED: 'bg-gray-500',
@@ -123,44 +213,6 @@ export default function SprintTrackerPage() {
     HIGH: 'bg-orange-500',
     MEDIUM: 'bg-yellow-500',
     LOW: 'bg-green-500',
-  };
-
-  useEffect(() => {
-    loadSprints();
-    loadTeamMembers();
-    loadNotifications();
-  }, []);
-
-  const loadSprints = async () => {
-    // Mock data - replace with API call
-    const mockSprints: Sprint[] = [
-      {
-        id: '1',
-        name: 'Sprint 16: Roadmap/Sprint Tracker',
-        description: 'Sistema de seguimiento de desarrollo',
-        type: 'DEVELOPMENT',
-        status: 'IN_PROGRESS',
-        startDate: new Date('2026-05-31'),
-        endDate: new Date('2026-06-07'),
-        progress: 45,
-        totalTasks: 8,
-        completedTasks: 4,
-        objectives: ['Modelo de sprints', 'Gestión de tareas', 'Notificaciones'],
-      },
-      {
-        id: '2',
-        name: 'Sprint 15: Wiki de Procedimientos',
-        description: 'Sistema de conocimiento interno',
-        type: 'DOCUMENTATION',
-        status: 'COMPLETED',
-        startDate: new Date('2026-05-24'),
-        endDate: new Date('2026-05-31'),
-        progress: 100,
-        totalTasks: 6,
-        completedTasks: 6,
-      },
-    ];
-    setSprints(mockSprints);
   };
 
   const loadTasks = async (sprintId: string) => {
@@ -211,62 +263,6 @@ export default function SprintTrackerPage() {
       },
     ];
     setTasks(mockTasks);
-  };
-
-  const loadTeamMembers = async () => {
-    // Mock data - replace with API call
-    const mockMembers: TeamMember[] = [
-      {
-        id: 'm1',
-        name: 'Developer 1',
-        role: 'SENIOR_DEV',
-        email: 'dev1@example.com',
-        isActive: true,
-        availableHours: 40,
-        assignedTasks: 2,
-        completedTasks: 15,
-      },
-      {
-        id: 'm2',
-        name: 'Developer 2',
-        role: 'JUNIOR_DEV',
-        email: 'dev2@example.com',
-        isActive: true,
-        availableHours: 40,
-        assignedTasks: 1,
-        completedTasks: 8,
-      },
-    ];
-    setTeamMembers(mockMembers);
-  };
-
-  const loadNotifications = async () => {
-    // Mock data - replace with API call
-    const mockNotifications: Notification[] = [
-      {
-        id: 'n1',
-        type: 'TASK_ASSIGNED',
-        title: 'Nueva tarea asignada',
-        message: 'Has sido asignado a la tarea: Implementar frontend de Sprint Tracker',
-        taskId: 't4',
-        sprintId: '1',
-        read: false,
-        createdAt: new Date(),
-        priority: 'HIGH',
-      },
-      {
-        id: 'n2',
-        type: 'TASK_COMPLETED',
-        title: 'Tarea completada',
-        message: 'La tarea "Crear DTOs de Sprint Tracker" ha sido completada',
-        taskId: 't1',
-        sprintId: '1',
-        read: true,
-        createdAt: new Date(Date.now() - 3600000),
-        priority: 'MEDIUM',
-      },
-    ];
-    setNotifications(mockNotifications);
   };
 
   const handleCreateSprint = async () => {

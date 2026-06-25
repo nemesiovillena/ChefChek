@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
+import type { Supplier } from './use-suppliers';
 
 interface CreateSupplierDto {
   name: string;
@@ -85,9 +86,7 @@ export function useDeleteSupplier() {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers', 'stats'] });
     },
-    onError: (error: any) => {
-      // El error se maneja en el UI, no devolvemos nada aquí
-    }
+    // El error se maneja en el UI, no devolvemos nada aquí
   });
 }
 
@@ -103,11 +102,11 @@ export function useToggleSupplierActive() {
       // Actualización optimista: actualizar el estado local inmediatamente
       await queryClient.cancelQueries({ queryKey: ['suppliers'] });
 
-      const previousData = queryClient.getQueryData(['suppliers']);
+      const previousData = queryClient.getQueryData<Supplier[]>(['suppliers']);
 
-      queryClient.setQueryData(['suppliers'], (old: any) => {
+      queryClient.setQueryData<Supplier[]>(['suppliers'], (old) => {
         if (!old) return old;
-        return old.map((supplier: any) =>
+        return old.map((supplier) =>
           supplier.id === id ? { ...supplier, isActive } : supplier
         );
       });

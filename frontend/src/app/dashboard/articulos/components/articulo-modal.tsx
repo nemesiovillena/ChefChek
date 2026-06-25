@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product } from '@/hooks/use-products';
+import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product, CreateProductData } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
 import TabAlergenos from './tab-alergenos';
@@ -53,69 +53,84 @@ const emptyNutrition = {
   carbohydrates: '', sugars: '', protein: '', salt: '',
 };
 
+/** Derive initial form values from the article prop (pure derivation, no setState). */
+function deriveFormData(article: Product | null | undefined) {
+  if (!article) return emptyFormData;
+  return {
+    name: article.name,
+    purchaseFormat: article.purchaseFormat || '',
+    referenceUnit: article.referenceUnit || 'kg',
+    unitsPerFormat: String(article.unitsPerFormat || 1),
+    referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
+    wastePercentage: article.wastePercentage?.toString() || '',
+    purchasePrice: article.purchasePrice?.toString() || '',
+    iva: article.iva?.toString() || '10',
+    qr: article.qr || '',
+    brand: article.brand || '',
+    barcode: article.barcode || '',
+    supplierId: article.supplierId || '',
+    categoryId: article.categoryId || '',
+    minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
+    maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
+  };
+}
+
+/** Derive initial nutrition values from the article prop (pure derivation, no setState). */
+function deriveNutrition(article: Product | null | undefined): typeof emptyNutrition {
+  const ni = article?.nutritionalInfo;
+  if (!ni) return emptyNutrition;
+  return {
+    energyKj: ni.energyKj?.toString() || '',
+    energyKcal: ni.energyKcal?.toString() || '',
+    fat: ni.fat?.toString() || '',
+    saturatedFat: ni.saturatedFat?.toString() || '',
+    transFat: ni.transFat?.toString() || '',
+    monounsaturatedFat: ni.monounsaturatedFat?.toString() || '',
+    polyunsaturatedFat: ni.polyunsaturatedFat?.toString() || '',
+    omega3: ni.omega3?.toString() || '',
+    cholesterol: ni.cholesterol?.toString() || '',
+    carbohydrates: ni.carbohydrates?.toString() || '',
+    sugars: ni.sugars?.toString() || '',
+    protein: ni.protein?.toString() || '',
+    salt: ni.salt?.toString() || '',
+  };
+}
+
+/** Outer component: keeps hooks stable and mounts the form keyed by the edited entity. */
 export default function ArticuloModal({ isOpen, onClose, article, tree, suppliers = [] }: ArticuloModalProps) {
+  if (!isOpen) return null;
+  // Keyed remount resets all internal state when switching between create/edit targets.
+  return (
+    <ArticuloModalForm
+      key={article?.id ?? 'new'}
+      article={article}
+      tree={tree}
+      suppliers={suppliers}
+      onClose={onClose}
+    />
+  );
+}
+
+interface ArticuloModalFormProps {
+  article?: Product | null;
+  tree: CategoryTreeNode[];
+  suppliers: SupplierOption[];
+  onClose: () => void;
+}
+
+function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalFormProps) {
   const addNotification = useNotification();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
 
+  // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
   const [activeTab, setActiveTab] = useState('formato-precio');
-  const [formData, setFormData] = useState(emptyFormData);
-  const [allergens, setAllergens] = useState<number[]>([]);
-  const [hideAllergens, setHideAllergens] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [nutritionalData, setNutritionalData] = useState(emptyNutrition);
-
-  // Load article data when editing
-  useMemo(() => {
-    if (article) {
-      setFormData({
-        name: article.name,
-        purchaseFormat: article.purchaseFormat || '',
-        referenceUnit: article.referenceUnit || 'kg',
-        unitsPerFormat: String(article.unitsPerFormat || 1),
-        referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
-        wastePercentage: article.wastePercentage?.toString() || '',
-        purchasePrice: article.purchasePrice?.toString() || '',
-        iva: article.iva?.toString() || '10',
-        qr: article.qr || '',
-        brand: article.brand || '',
-        barcode: article.barcode || '',
-        supplierId: article.supplierId || '',
-        categoryId: article.categoryId || '',
-        minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
-        maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
-      });
-      setAllergens(article.allergens || []);
-      setHideAllergens(article.hideAllergens || false);
-      setImageUrl(article.imageUrl || '');
-      if (article.nutritionalInfo) {
-        const ni = article.nutritionalInfo;
-        setNutritionalData({
-          energyKj: ni.energyKj?.toString() || '',
-          energyKcal: ni.energyKcal?.toString() || '',
-          fat: ni.fat?.toString() || '',
-          saturatedFat: ni.saturatedFat?.toString() || '',
-          transFat: ni.transFat?.toString() || '',
-          monounsaturatedFat: ni.monounsaturatedFat?.toString() || '',
-          polyunsaturatedFat: ni.polyunsaturatedFat?.toString() || '',
-          omega3: ni.omega3?.toString() || '',
-          cholesterol: ni.cholesterol?.toString() || '',
-          carbohydrates: ni.carbohydrates?.toString() || '',
-          sugars: ni.sugars?.toString() || '',
-          protein: ni.protein?.toString() || '',
-          salt: ni.salt?.toString() || '',
-        });
-      }
-    } else {
-      setFormData(emptyFormData);
-      setAllergens([]);
-      setHideAllergens(false);
-      setImageUrl('');
-      setNutritionalData(emptyNutrition);
-    }
-    setActiveTab('formato-precio');
-  }, [article, tree]);
+  const [formData, setFormData] = useState(() => deriveFormData(article));
+  const [allergens, setAllergens] = useState<number[]>(() => article?.allergens ?? []);
+  const [hideAllergens, setHideAllergens] = useState(() => article?.hideAllergens ?? false);
+  const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
+  const [nutritionalData, setNutritionalData] = useState(() => deriveNutrition(article));
 
   const handleImageUpload = async (file: File) => {
     const form = new FormData();
@@ -123,7 +138,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
     try {
       const result = await uploadImageMutation.mutateAsync(form);
       setImageUrl(result.url);
-    } catch (error: any) {
+    } catch {
       addNotification({ type: 'error', title: 'Error', message: 'Error al subir imagen' });
     }
   };
@@ -139,7 +154,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
       : undefined;
 
     const parsedPrice = parseFloat(formData.purchasePrice);
-    const productData: any = {
+    const productData: CreateProductData = {
       name: formData.name,
       category: formData.categoryId || undefined,
       supplier: formData.supplierId || undefined,
@@ -170,12 +185,11 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
         addNotification({ type: 'success', title: 'Artículo creado', message: 'Artículo creado correctamente' });
       }
       onClose();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al guardar artículo' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al guardar artículo';
+      addNotification({ type: 'error', title: 'Error', message });
     }
   };
-
-  if (!isOpen) return null;
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -227,7 +241,10 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
         {/* Tab Content */}
         <div className="min-h-[200px]">
           {activeTab === 'formato-precio' && (
-            <PesoPrecioFields formData={formData} setFormData={setFormData} />
+            <PesoPrecioFields
+              formData={formData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
+            />
           )}
           {activeTab === 'alergenos' && (
             <TabAlergenos
@@ -245,7 +262,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
               suppliers={suppliers}
               tree={tree}
               formData={formData}
-              setFormData={setFormData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
             />
           )}

@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/auth.context';
 import { useProduction } from '@/hooks/use-production';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,13 +72,14 @@ export default function ProductionPage() {
   };
 
   const getBatchStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
+    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
       pending: { label: 'Pendiente', variant: 'secondary' },
       in_progress: { label: 'En Progreso', variant: 'default' },
       completed: { label: 'Completado', variant: 'default' },
       cancelled: { label: 'Cancelado', variant: 'destructive' },
     };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
     return (
       <Badge variant={config.variant}>
         {config.label}
@@ -86,14 +88,15 @@ export default function ProductionPage() {
   };
 
   const getWorkOrderStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
+    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
       pending: { label: 'Pendiente', variant: 'secondary' },
       preparing: { label: 'Preparando', variant: 'default' },
       cooking: { label: 'Cocinando', variant: 'default' },
       ready: { label: 'Listo', variant: 'default' },
       served: { label: 'Servido', variant: 'outline' },
     };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
     return (
       <Badge variant={config.variant}>
         {config.label}

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useSyncExternalStore, ReactNode } from 'react';
 
 interface User {
   id: string;
@@ -32,49 +32,57 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// SSR-safe localStorage getter
+const getAuthData = (): AuthData | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const sessionData = localStorage.getItem('session');
+    if (!sessionData) return null;
+
+    return JSON.parse(sessionData);
+  } catch (error) {
+    console.error('Error parsing auth data:', error);
+    return null;
+  }
+};
+
+// SSR-safe localStorage setter
+const setAuthData = (data: AuthData | null) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    if (data) {
+      localStorage.setItem('session', JSON.stringify(data));
+    } else {
+      localStorage.removeItem('session');
+    }
+  } catch (error) {
+    console.error('Error setting auth data:', error);
+  }
+};
+
+// useSyncExternalStore subscribe + snapshots for reading persisted auth data
+// without setState-in-effect. The server snapshot returns null; the client
+// snapshot reads localStorage once on mount.
+const subscribeAuthData = () => () => {};
+const getAuthDataSnapshot = () => getAuthData();
+const getAuthDataServerSnapshot = (): AuthData | null => null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // On the client this resolves to the persisted data (or null) before the
+  // first paint, so there is no flash of unauthenticated state and no effect.
+  const persistedAuthData = useSyncExternalStore(
+    subscribeAuthData,
+    getAuthDataSnapshot,
+    getAuthDataServerSnapshot,
+  );
 
-  // SSR-safe localStorage getter
-  const getAuthData = (): AuthData | null => {
-    if (typeof window === 'undefined') return null;
-
-    try {
-      const sessionData = localStorage.getItem('session');
-      if (!sessionData) return null;
-
-      return JSON.parse(sessionData);
-    } catch (error) {
-      console.error('Error parsing auth data:', error);
-      return null;
-    }
-  };
-
-  // SSR-safe localStorage setter
-  const setAuthData = (data: AuthData | null) => {
-    if (typeof window === 'undefined') return;
-
-    try {
-      if (data) {
-        localStorage.setItem('session', JSON.stringify(data));
-      } else {
-        localStorage.removeItem('session');
-      }
-    } catch (error) {
-      console.error('Error setting auth data:', error);
-    }
-  };
-
-  useEffect(() => {
-    const authData = getAuthData();
-    if (authData) {
-      setUser(authData.user);
-      setSession(authData.session);
-    }
-    setLoading(false);
-  }, []);
+  const [user, setUser] = useState<User | null>(persistedAuthData?.user ?? null);
+  const [session, setSession] = useState<Session | null>(persistedAuthData?.session ?? null);
+  // Loading is always false: auth data is hydrated synchronously from
+  // localStorage via useSyncExternalStore, so there is no async init phase.
+  const loading = false;
 
   const login = async (email: string, password: string, tenantId: string) => {
     const response = await fetch('http://localhost:3001/api/v1/auth/login', {

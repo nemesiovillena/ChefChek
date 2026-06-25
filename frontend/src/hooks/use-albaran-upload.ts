@@ -163,11 +163,11 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
         throw new Error(errorMessage);
       }
 
-      const data: AlbaranUploadResult & { albaran?: { id: string } } = await response.json();
+      const data: AlbaranUploadResult & { albaran?: { id: string }; albaranId?: string } = await response.json();
 
       // If the response includes an albaran (new flow), store the ID for redirect
       if (data.albaran?.id) {
-        (data as any).albaranId = data.albaran.id;
+        data.albaranId = data.albaran.id;
       }
 
       if (!data.products || data.products.length === 0) {

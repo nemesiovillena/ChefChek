@@ -22,9 +22,10 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Upload failed';
     return NextResponse.json(
-      { success: false, error: { message: error.message || 'Upload failed' } },
+      { success: false, error: { message } },
       { status: 500 },
     );
   }

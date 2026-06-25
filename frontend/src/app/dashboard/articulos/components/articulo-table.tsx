@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pencil, QrCode, Trash2, Download, ChevronDown, ArrowUp, ArrowDown, X, Eye } from 'lucide-react';
 import { Product, getReferencePrice, formatRefPrice } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
+import { QRCodeResponse } from '@/hooks/use-qr-codes';
 import { cn } from '@/lib/utils';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
@@ -21,11 +22,23 @@ interface ArticuloTableProps {
   onDownloadQR: (productId: string) => void;
   onDeleteQR: (productId: string, qrCodeId: string) => void;
   onViewQR: (productId: string) => void;
-  qrCodes: Map<string, any>;
+  qrCodes: Map<string, QRCodeResponse>;
   qrLoading?: boolean;
   sortField: string;
   sortDirection: 'asc' | 'desc';
   onSort: (field: string) => void;
+}
+
+/** Sort direction indicator for a column header. */
+function SortIcon({ field, sortField, sortDirection }: { field: string; sortField: string; sortDirection: 'asc' | 'desc' }) {
+  const active = sortField === field;
+  const dir = active ? sortDirection : 'asc';
+  return (
+    <span className={cn('ml-1 inline-flex flex-col', !active && 'opacity-30')}>
+      <span className={cn('text-[8px] leading-none', dir === 'asc' && active && 'text-indigo-600')}>▲</span>
+      <span className={cn('text-[8px] leading-none', dir === 'desc' && active && 'text-indigo-600')}>▼</span>
+    </span>
+  );
 }
 
 export default function ArticuloTable({
@@ -46,17 +59,6 @@ export default function ArticuloTable({
   sortDirection,
   onSort,
 }: ArticuloTableProps) {
-  const SortIcon = ({ field }: { field: string }) => {
-    const active = sortField === field;
-    const dir = active ? sortDirection : 'asc';
-    return (
-      <span className={cn('ml-1 inline-flex flex-col', !active && 'opacity-30')}>
-        <span className={cn('text-[8px] leading-none', dir === 'asc' && active && 'text-indigo-600')}>▲</span>
-        <span className={cn('text-[8px] leading-none', dir === 'desc' && active && 'text-indigo-600')}>▼</span>
-      </span>
-    );
-  };
-
   const getParentCategory = (categoryId: string | undefined) => {
     if (!categoryId) return null;
     return tree.find((p) => p.children?.some((c) => c.id === categoryId)) || null;
@@ -103,15 +105,15 @@ export default function ArticuloTable({
       {/* Table header */}
       <div className="grid grid-cols-[1fr_130px_120px_60px_100px_130px_80px_80px_90px_90px] gap-3 px-4 py-2.5 bg-gray-50 border-b text-xs font-medium text-gray-500 uppercase tracking-wider select-none">
         <button onClick={() => onSort('name')} className="flex items-center hover:text-gray-700 text-left">
-          Nombre <SortIcon field="name" />
+          Nombre <SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
         </button>
         <button onClick={() => onSort('category')} className="flex items-center hover:text-gray-700 text-left">
-          Categoría <SortIcon field="category" />
+          Categoría <SortIcon field="category" sortField={sortField} sortDirection={sortDirection} />
         </button>
         <span>Proveedor</span>
         <span>Formatos</span>
         <button onClick={() => onSort('purchasePrice')} className="flex items-center justify-end hover:text-gray-700 text-right">
-          Precio <SortIcon field="purchasePrice" />
+          Precio <SortIcon field="purchasePrice" sortField={sortField} sortDirection={sortDirection} />
         </button>
         <span className="text-right">Precio Ref.</span>
         <span className="text-right">Stock</span>

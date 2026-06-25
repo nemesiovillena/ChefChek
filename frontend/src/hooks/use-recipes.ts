@@ -1,4 +1,4 @@
-import { useCrud } from './use-api';
+import { useCrud as createCrudHooks } from './use-api';
 import { useApiQuery } from './use-api';
 
 export interface RecipeIngredient {
@@ -25,7 +25,7 @@ export interface Recipe {
   isActive: boolean;
   isPublic: boolean;
   ingredients: RecipeIngredient[];
-  subRecipes?: any[];
+  subRecipes?: Recipe[];
   categories?: RecipeCategory[];
   costBreakdown?: {
     ingredientsCost: number;
@@ -78,14 +78,16 @@ export interface RecipeCost {
   }[];
 }
 
-// Recipes CRUD hooks
+// Recipes CRUD hooks.
+// useCrud is a hook factory (builds hooks, does not itself call React hooks);
+// aliased to a non-hook name so it can run at module scope.
 const {
   useList,
   useGet,
   useCreate,
   useUpdate,
   useDelete,
-} = useCrud<Recipe, CreateRecipeData, UpdateRecipeData>('/v1/recipes', ['recipes']);
+} = createCrudHooks<Recipe, CreateRecipeData, UpdateRecipeData>('/v1/recipes', ['recipes']);
 
 export function useRecipes(query?: { search?: string; category?: string }, page: number = 1, pageSize: number = 50) {
   return useList(page, pageSize);

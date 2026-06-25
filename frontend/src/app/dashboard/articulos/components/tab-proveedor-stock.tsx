@@ -12,16 +12,19 @@ interface SupplierOption {
   name: string;
 }
 
+/** Form fields managed by TabProveedorStock. */
+export interface ProveedorStockFormData {
+  supplierId: string;
+  categoryId: string;
+  minimumStock: string;
+  maximumStock: string;
+}
+
 interface TabProveedorStockProps {
   suppliers: SupplierOption[];
   tree: CategoryTreeNode[];
-  formData: {
-    supplierId: string;
-    categoryId: string;
-    minimumStock: string;
-    maximumStock: string;
-  };
-  setFormData: (data: any) => void;
+  formData: ProveedorStockFormData;
+  setFormData: (data: ProveedorStockFormData) => void;
   currentStock?: number;
   onSupplierCreated?: (supplier: SupplierOption) => void;
 }

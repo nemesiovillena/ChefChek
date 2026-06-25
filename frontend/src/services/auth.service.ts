@@ -1,3 +1,4 @@
+import { AxiosError } from 'axios';
 import apiClient from '@/lib/api-client';
 
 export interface LoginCredentials {
@@ -50,8 +51,10 @@ class AuthService {
       sessionStorage.setItem('tenant_id', response.data.user.tenantId);
 
       return response.data;
-    } catch (error: any) {
-      const errorResponse = error.response?.data as ErrorResponse;
+    } catch (error: unknown) {
+      const errorResponse = error instanceof AxiosError
+        ? (error.response?.data as ErrorResponse | undefined)
+        : undefined;
       throw new Error(errorResponse?.message || 'Error al iniciar sesión');
     }
   }
@@ -68,8 +71,10 @@ class AuthService {
       sessionStorage.setItem('tenant_id', response.data.user.tenantId);
 
       return response.data;
-    } catch (error: any) {
-      const errorResponse = error.response?.data as ErrorResponse;
+    } catch (error: unknown) {
+      const errorResponse = error instanceof AxiosError
+        ? (error.response?.data as ErrorResponse | undefined)
+        : undefined;
       throw new Error(errorResponse?.message || 'Error al registrarse');
     }
   }
@@ -101,7 +106,7 @@ class AuthService {
       if (!sessionId || !tenantSlug || !savedUser) return null;
 
       // Validate session with backend
-      const response = await apiClient.get<{ user: any; isValid: boolean }>('/v1/auth/validate');
+      const response = await apiClient.get<{ user: AuthResponse['user']; isValid: boolean }>('/v1/auth/validate');
 
       if (response.data.isValid && response.data.user) {
         // Reconstruct AuthResponse from saved data + validated user

@@ -1,5 +1,12 @@
 import { io, Socket } from 'socket.io-client';
-import { AuthContextType } from '../contexts/auth.context';
+
+// Minimal auth context shape required by the WebSocket client.
+// Avoids importing the full AuthContextType (which carries React-bound
+// methods) so this module stays decoupled from the auth provider.
+export interface WebSocketAuthContext {
+  sessionId: string | null;
+  user: { tenantId: string } | null;
+}
 
 // Event types (sync with backend)
 export interface ServerToClientEvents {
@@ -164,7 +171,7 @@ export interface NotificationEvent {
   type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   actionUrl?: string;
   read?: boolean;
   timestamp: Date;
@@ -179,7 +186,7 @@ export class WebSocketClient {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
 
-  constructor(private authContext: AuthContextType) {}
+  constructor(private authContext: WebSocketAuthContext) {}
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -316,7 +323,7 @@ export class WebSocketClient {
   }
 
   // Remove specific listener
-  off(event: keyof ServerToClientEvents, callback?: (...args: any[]) => void): void {
+  off(event: keyof ServerToClientEvents, callback?: (...args: unknown[]) => void): void {
     this.socket?.off(event, callback);
   }
 
@@ -335,7 +342,7 @@ export class WebSocketClient {
 // Singleton instance
 let wsClient: WebSocketClient | null = null;
 
-export function getWebSocketClient(authContext: AuthContextType): WebSocketClient {
+export function getWebSocketClient(authContext: WebSocketAuthContext): WebSocketClient {
   if (!wsClient) {
     wsClient = new WebSocketClient(authContext);
   }

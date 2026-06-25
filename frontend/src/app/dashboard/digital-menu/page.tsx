@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useDigitalMenus } from '@/hooks/use-digital-menu';
 import { useMenus } from '@/hooks/use-menus';
-import { useQRCodes } from '@/hooks/use-qr-codes';
+import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,7 +51,14 @@ export default function DigitalMenuPage() {
   const { digitalMenus, isLoading, error, refetch, createDigitalMenu, isCreating } = useDigitalMenus();
   const { data: menus } = useMenus();
   const { generateQRCode, getQRCodesByEntity, deleteQRCode, isLoading: qrLoading } = useQRCodes();
-  const [qrCodes, setQRCodes] = useState<Map<string, any>>(new Map());
+  const [qrCodes, setQRCodes] = useState<Map<string, QRCodeResponse>>(new Map());
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newMenuDescription, setNewMenuDescription] = useState('');
+  const [selectedMenuId, setSelectedMenuId] = useState('');
+  const [newMenuIsActive, setNewMenuIsActive] = useState(true);
 
   // Auth redirect
   useEffect(() => {
@@ -64,13 +71,6 @@ export default function DigitalMenuPage() {
   if (authLoading || !isAuthenticated) {
     return null;
   }
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newMenuName, setNewMenuName] = useState('');
-  const [newMenuDescription, setNewMenuDescription] = useState('');
-  const [selectedMenuId, setSelectedMenuId] = useState('');
-  const [newMenuIsActive, setNewMenuIsActive] = useState(true);
 
   const handleCreateDigitalMenu = async () => {
     if (!newMenuName.trim()) return;
@@ -123,7 +123,8 @@ export default function DigitalMenuPage() {
     }
   };
 
-  const handleDeleteQR = async (menuId: string, qrCodeId: string) => {
+  const handleDeleteQR = async (menuId: string, qrCodeId: string | undefined) => {
+    if (!qrCodeId) return;
     try {
       await deleteQRCode(qrCodeId);
       setQRCodes(prev => {

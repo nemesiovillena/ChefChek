@@ -114,8 +114,9 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
       await createMutation.mutateAsync(payload);
       addNotification({ type: 'success', title: 'Albarán registrado', message: 'Entrada de stock procesada correctamente' });
       onComplete();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al registrar albarán' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al registrar albarán';
+      addNotification({ type: 'error', title: 'Error', message });
     }
   };
 

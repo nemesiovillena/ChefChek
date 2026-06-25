@@ -13,7 +13,7 @@ import {
   RecipeIngredient,
   useRecipeCost,
 } from '@/hooks/use-recipes';
-import { useProducts } from '@/hooks/use-products';
+import { useProducts, Product } from '@/hooks/use-products';
 import { useCategories, Category } from '@/hooks/use-categories';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ export default function RecipesPage() {
   const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
 
   const { data: productsData } = useProducts();
-  const products: any[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
+  const products: Product[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
 
   const { data: categoriesData } = useCategories("recipes");
   const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
@@ -90,11 +90,11 @@ export default function RecipesPage() {
           message: 'Receta eliminada correctamente',
         });
         refetch();
-      } catch (error: any) {
+      } catch (error: unknown) {
         addNotification({
           type: 'error',
           title: 'Error',
-          message: error.message || 'Error al eliminar receta',
+          message: error instanceof Error ? error.message : 'Error al eliminar receta',
         });
       }
     }
@@ -109,11 +109,11 @@ export default function RecipesPage() {
         message: `La receta "${recipe.name}" ha sido ${!recipe.isActive ? 'activada' : 'desactivada'}`,
       });
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       addNotification({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Error al cambiar el estado de la receta',
+        message: error instanceof Error ? error.message : 'Error al cambiar el estado de la receta',
       });
     }
   };
@@ -131,13 +131,14 @@ export default function RecipesPage() {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
-  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: any) => {
+  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number) => {
     const newIngredients = [...ingredients];
     if (field === 'productId') {
-      const product = products.find((p) => p.id === value);
+      const productId = String(value);
+      const product = products.find((p) => p.id === productId);
       newIngredients[index] = {
         ...newIngredients[index],
-        productId: value,
+        productId,
         productName: product?.name,
       };
     } else {
@@ -188,11 +189,11 @@ export default function RecipesPage() {
       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
       setSelectedCategoryIds([]);
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       addNotification({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Error al guardar receta',
+        message: error instanceof Error ? error.message : 'Error al guardar receta',
       });
     }
   };

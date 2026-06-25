@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCategories, useCategoryTree, Category, CategoryTreeNode } from '@/hooks/use-categories';
 import { useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/use-category-mutations';
 import { CategoryTreeView } from './category-tree-view';
-import { CategoryForm } from './category-form';
+import { CategoryForm, CategoryFormData } from './category-form';
 
 interface Props {
   isOpen: boolean;
@@ -27,8 +27,9 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
     if (confirm(`¿Eliminar categoría "${name}"? Los artículos en esta categoría quedarán sin categoría.`)) {
       try {
         await deleteMutation.mutateAsync(id);
-      } catch (error: any) {
-        alert(error.message || 'Error al eliminar categoría');
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Error al eliminar categoría';
+        alert(message);
       }
     }
   };
@@ -43,7 +44,7 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
     setActiveTab('form');
   };
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: CategoryFormData) => {
     try {
       if (editingCategory) {
         await updateMutation.mutateAsync({ id: editingCategory.id, data });
@@ -52,8 +53,9 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
       }
       setActiveTab('list');
       setEditingCategory(null);
-    } catch (error: any) {
-      alert(error.message || 'Error al guardar categoría');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al guardar categoría';
+      alert(message);
     }
   };
 

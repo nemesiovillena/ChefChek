@@ -44,8 +44,9 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
       setCategoryId('');
       setExpanded(false);
       onCreated();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al crear artículo' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al crear artículo';
+      addNotification({ type: 'error', title: 'Error', message });
     } finally {
       setSaving(false);
     }

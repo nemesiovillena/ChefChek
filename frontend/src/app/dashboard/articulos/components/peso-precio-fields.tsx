@@ -2,20 +2,23 @@
 
 import { UnitSelector } from '@/components/shared/unit-selector';
 
+/** Form fields managed by PesoPrecioFields. */
+export interface PesoPrecioFormData {
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: string;
+  referenceUnitSize: string;
+  wastePercentage: string;
+  purchasePrice: string;
+  iva: string;
+  qr: string;
+  brand: string;
+  barcode: string;
+}
+
 interface PesoPrecioFieldsProps {
-  formData: {
-    purchaseFormat: string;
-    referenceUnit: string;
-    unitsPerFormat: string;
-    referenceUnitSize: string;
-    wastePercentage: string;
-    purchasePrice: string;
-    iva: string;
-    qr: string;
-    brand: string;
-    barcode: string;
-  };
-  setFormData: (data: any) => void;
+  formData: PesoPrecioFormData;
+  setFormData: (data: PesoPrecioFormData) => void;
 }
 
 // Dynamic labels based on reference unit

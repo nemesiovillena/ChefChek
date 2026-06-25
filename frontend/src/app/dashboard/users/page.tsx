@@ -28,19 +28,6 @@ export default function UsersPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Don't render anything if not authenticated or loading
-  if (!isAuthenticated || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
     try {
       const sessionId = sessionStorage.getItem('session_id');
@@ -65,6 +52,21 @@ export default function UsersPage() {
       console.error('Error fetching users:', error);
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.resolve().then(fetchUsers);
+    }
+  }, [isAuthenticated]);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

@@ -37,8 +37,15 @@ export function useSuppliersStats() {
   );
 }
 
+export interface SupplierPriceTrend {
+  status: 'increased' | 'decreased' | 'stable';
+  percentage: number;
+  lastPrice: number;
+  currentPrice: number;
+}
+
 export function useSupplierPriceTrend(supplierId: string) {
-  return useApiQuery<any>(
+  return useApiQuery<SupplierPriceTrend>(
     ['supplier-price-trend', supplierId],
     `/v1/products/suppliers/${supplierId}/price-trend`,
     { enabled: !!supplierId },

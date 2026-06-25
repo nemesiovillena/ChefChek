@@ -11,18 +11,21 @@ function parseElaborationSteps(elaboration: string | null | undefined) {
   if (!elaboration) return [];
 
   try {
-    const parsed = JSON.parse(elaboration);
-    if (parsed.steps && Array.isArray(parsed.steps)) {
-      return parsed.steps;
+    const parsed = JSON.parse(elaboration) as unknown;
+    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { steps?: unknown }).steps)) {
+      return (parsed as { steps: Array<Record<string, unknown>> }).steps;
     }
     // Legacy TipTap: extract text
-    if (parsed.type === 'doc' && parsed.content) {
+    if (parsed && typeof parsed === 'object' && (parsed as { type?: string }).type === 'doc' && Array.isArray((parsed as { content?: unknown[] }).content)) {
       const texts: string[] = [];
-      const extractText = (node: any) => {
-        if (node.text) texts.push(node.text);
-        if (node.content) node.content.forEach(extractText);
+      const extractText = (node: unknown) => {
+        if (node && typeof node === 'object') {
+          const n = node as { text?: unknown; content?: unknown[] };
+          if (typeof n.text === 'string') texts.push(n.text);
+          if (Array.isArray(n.content)) n.content.forEach(extractText);
+        }
       };
-      parsed.content.forEach(extractText);
+      (parsed as { content: unknown[] }).content.forEach(extractText);
       return texts.map((t) => ({ description: t }));
     }
   } catch {
@@ -65,11 +68,11 @@ export default function RecipePrintView({ recipe }: RecipePrintViewProps) {
         <div className="mb-6">
           <h2 className="text-lg font-bold mb-3">ELABORACIÓN</h2>
           <div className="space-y-2">
-            {steps.map((step: any, index: number) => {
+            {steps.map((step: Record<string, unknown>, index: number) => {
               // Build description with inline time/temperature
-              let desc = step.description || '';
-              if (step.temperature) desc += ` a ${step.temperature}`;
-              if (step.time) desc += ` ${step.time}`;
+              let desc = typeof step.description === 'string' ? step.description : '';
+              if (typeof step.temperature === 'string') desc += ` a ${step.temperature}`;
+              if (typeof step.time === 'string') desc += ` ${step.time}`;
 
               return (
                 <div key={index} className="flex justify-between items-start">
@@ -77,7 +80,7 @@ export default function RecipePrintView({ recipe }: RecipePrintViewProps) {
                     <span className="font-bold text-indigo-500 shrink-0">{index + 1}.</span>
                     <span>{desc}</span>
                   </div>
-                  {step.equipment && (
+                  {typeof step.equipment === 'string' && step.equipment && (
                     <span className="ml-4 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium whitespace-nowrap shrink-0">
                       {step.equipment}
                     </span>

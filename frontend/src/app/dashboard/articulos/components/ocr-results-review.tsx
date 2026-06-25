@@ -30,7 +30,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
     onProductsChange(updated);
   };
 
-  const updateField = (index: number, field: string, value: any) => {
+  const updateField = (index: number, field: string, value: string | number) => {
     const updated = [...products];
     updated[index] = { ...updated[index], [field]: value };
     onProductsChange(updated);

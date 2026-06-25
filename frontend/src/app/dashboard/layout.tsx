@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
 
 export const dynamic = 'force-dynamic';
@@ -11,18 +12,13 @@ export const fetchCache = 'force-no-store';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const savedTheme = localStorage.getItem('theme');
+    return savedTheme ? savedTheme === 'dark' : true;
+  });
   const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      setIsDark(savedTheme === 'dark');
-    } else {
-      setIsDark(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (isDark) {
@@ -71,7 +67,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <a href="/dashboard" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">DASHBOARD</a>
           <a href="/dashboard/recipes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">RECETAS</a>
           <a href="/dashboard/articulos" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ARTÍCULOS</a>
-          <a href="/dashboard/albaranes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ALBARANES</a>
+          <Link href="/dashboard/albaranes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ALBARANES</Link>
           <a href="/dashboard/menus" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">MENÚS</a>
           <a href="/dashboard/production" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">PRODUCCIÓN</a>
           <a href="/dashboard/users" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">EQUIPO</a>

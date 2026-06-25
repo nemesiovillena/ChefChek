@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useOrders } from '@/hooks/use-orders';
+import { useOrders, type OrderResponse } from '@/hooks/use-orders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -93,7 +94,7 @@ export default function OrdersPage() {
     }
   };
 
-  const startEditOrder = (order: any) => {
+  const startEditOrder = (order: OrderResponse) => {
     setEditingOrderId(order.id);
     setNewOrderNumber(order.orderNumber);
     setNewOrderCover(order.cover || '');
@@ -116,14 +117,15 @@ export default function OrdersPage() {
   );
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
+    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
       pending: { label: 'Pendiente', variant: 'secondary' },
       preparing: { label: 'Preparando', variant: 'default' },
       ready: { label: 'Listo', variant: 'default' },
       served: { label: 'Servido', variant: 'outline' },
       cancelled: { label: 'Cancelado', variant: 'destructive' },
     };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
     return (
       <Badge variant={config.variant}>
         {config.label}
