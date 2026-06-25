@@ -42,6 +42,8 @@ model Tenant {
   suppliers           Supplier[]
   supplierPriceHistories SupplierPriceHistory[]
   albaranes           Albaran[]
+  unitsOfMeasure      UnitOfMeasure[]
+  productPriceHistories ProductPriceHistory[]
   configurations      Configuration[]
   categories          Category[]
   stocks              Stock[]
@@ -148,6 +150,7 @@ model Product {
   purchaseFormats   PurchaseFormat[]
   nutritionalInfo   NutritionalInfo?
   albaranLines      AlbaranLine[]
+  priceHistory      ProductPriceHistory[]
 
   @@index([tenantId])
   @@index([name])
@@ -981,11 +984,13 @@ model Supplier {
   tenantId            String
   name                String
   cifNif              String?  // CIF/NIF para auto-matching con OCR
+  address             String?  // Dirección del proveedor
   contactPerson       String?
   email               String?
   phone               String?
   whatsapp            String?
   website             String?
+  sanitaryRegistry    String?  // Nº registro sanitario RGSA
   averageDeliveryTime Int      @default(3) // días
   reliabilityScore    Float    @default(85) // 0-100
   priceTier           String   @default("MEDIUM") // LOW, MEDIUM, HIGH
@@ -995,9 +1000,12 @@ model Supplier {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  ocrLayoutHints      Json?    // Patrones de layout del proveedor para mejorar OCR
+
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products     Product[]
   priceHistory SupplierPriceHistory[]
+  productPriceHistories ProductPriceHistory[]
   albaranes    Albaran[]
 
   @@index([tenantId])
@@ -1078,7 +1086,7 @@ model InventoryItem {
 model Configuration {
   id          String   @id @default(cuid())
   tenantId    String
-  key         String   @unique
+  key         String
   value       String
   description String?
   category    String? // GENERAL, CURRENCY, DATE_FORMAT, etc.
@@ -1500,6 +1508,8 @@ model Albaran {
   base            Float         @default(0)       // Base imponible
   vatTotal        Float         @default(0)       // Total IVA
   total           Float         @default(0)       // Total con IVA
+  grossAmount     Float         @default(0)       // Total bruto (antes de IVA)
+  vatBreakdown    Json?         // Desglose de IVA por tipo: [{rate, base, amount}]
   status          AlbaranStatus @default(PENDIENTE)
   originalFileUrl String?       // URL del archivo original subido
   ocrConfidence   Float         @default(0)       // 0-1 confianza global OCR
@@ -1510,10 +1520,11 @@ model Albaran {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier  Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  warehouse Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  lines     AlbaranLine[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse    Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  lines        AlbaranLine[]
+  priceHistory ProductPriceHistory[]
 
   @@unique([tenantId, internalNumber])
   @@index([tenantId])
@@ -1534,6 +1545,7 @@ model AlbaranLine {
   unit             String          @default("ud")
   unitPrice        Float
   vatPercent       Float           @default(10)
+  priceWithVat     Float?          // Precio unidad con IVA (unit_price × (1 + vat%))
   lineAmount       Float           // Cantidad × precio unidad (sin IVA)
   matchStatus      LineMatchStatus @default(NUEVO)
   lineStatus       LineStatus      @default(PENDIENTE)
@@ -1549,4 +1561,45 @@ model AlbaranLine {
   @@index([matchedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
+}
+
+// Unidades de medida configurables por tenant
+model UnitOfMeasure {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String   // "Kilogramo", "Litro", "Unidad", "Docena", "Caja"
+  symbol    String   // "kg", "L", "und", "doc", "caja"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, symbol])
+  @@index([tenantId])
+  @@map("units_of_measure")
+}
+
+// Historial de precios por producto (con/sin proveedor)
+model ProductPriceHistory {
+  id            String   @id @default(cuid())
+  tenantId      String
+  productId     String
+  supplierId    String?  // Proveedor asociado al cambio de precio
+  albaranId     String?  // Albarán que originó el cambio
+  previousPrice Float    // Precio anterior
+  newPrice      Float    // Precio nuevo
+  recordedAt    DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  albaran  Albaran?  @relation(fields: [albaranId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([supplierId])
+  @@index([recordedAt])
+  @@index([productId, recordedAt])
+  @@map("product_price_histories")
 }

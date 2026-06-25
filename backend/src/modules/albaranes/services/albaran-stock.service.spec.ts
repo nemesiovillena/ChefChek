@@ -42,6 +42,9 @@ describe("AlbaranStockService", () => {
               albaranLine: {
                 update: jest.fn(),
               },
+              productPriceHistory: {
+                create: jest.fn(),
+              },
             })),
           },
         },
@@ -182,6 +185,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -191,7 +195,7 @@ describe("AlbaranStockService", () => {
       expect(mockTx.product.findFirst).toHaveBeenCalled();
       expect(mockTx.product.update).toHaveBeenCalledWith({
         where: { id: mockProductId },
-        data: { purchasePrice: 5, netPrice: 5 },
+        data: { purchasePrice: 5, netPrice: 5, previousPurchasePrice: 4.5 },
       });
       expect(mockTx.stockMovement.create).toHaveBeenCalled();
       expect(mockTx.stock.create).toHaveBeenCalledWith({
@@ -255,6 +259,7 @@ describe("AlbaranStockService", () => {
           create: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -392,6 +397,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -451,6 +457,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -575,6 +582,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -629,6 +637,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));

@@ -26,7 +26,7 @@ describe("DashboardService", () => {
       count: jest.fn(),
     },
     order: {
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn(),
       aggregate: jest.fn(),
     },

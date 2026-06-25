@@ -24,6 +24,7 @@ describe("IngestaService", () => {
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+      groupBy: jest.fn().mockResolvedValue([]),
     },
     product: {
       findFirst: jest.fn(),
@@ -578,6 +579,7 @@ describe("IngestaService", () => {
       expect(ocrAiService.processDocumentData).toHaveBeenCalledWith(
         ocrResult.text,
         tenantId,
+        ocrResult,
       );
     });
 
@@ -675,13 +677,13 @@ describe("IngestaService", () => {
       const result = await service.getProcessingStats(tenantId);
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual({
+      expect(result.data).toEqual(expect.objectContaining({
         pending: 5,
         processing: 2,
         completed: 20,
         failed: 3,
         total: 30,
-      });
+      }));
     });
 
     it("should return zero stats when no documents", async () => {

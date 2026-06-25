@@ -180,32 +180,32 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto z-50">
-      <div className="relative top-8 mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white mb-8">
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
+      <div className="relative top-8 mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-900">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             {article ? 'Editar Artículo' : 'Crear Artículo'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
         {/* Name field */}
         <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="Nombre del artículo"
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+            className="w-full px-4 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg"
           />
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 mb-4">
+        <div className="border-b border-gray-200 dark:border-zinc-800 mb-4">
           <nav className="flex -mb-px space-x-4 overflow-x-auto">
             {TABS.map((tab) => (
               <button
@@ -214,8 +214,8 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
                 onClick={() => setActiveTab(tab.id)}
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-700'
                 }`}
               >
                 {tab.label}
@@ -255,11 +255,11 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
         </div>
 
         {/* Footer buttons */}
-        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-zinc-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+            className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
           >
             Cerrar
           </button>

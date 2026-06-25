@@ -268,7 +268,7 @@ export class DigitalMenuService {
         await QRCode.toFile(qrFilePath, publicUrl, qrOptions);
       } else {
         // Generar SVG para otros formatos
-        const svgString = await QRCode.toString(publicUrl, qrOptions);
+        const svgString = (await QRCode.toString(publicUrl, qrOptions)) as unknown as string;
         fs.writeFileSync(qrFilePath, svgString);
       }
 

@@ -10,12 +10,22 @@ import {
   OrderRequirementDto,
 } from "./dto/orders.dto";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
+import { WebSocketService } from "../../websocket/websocket.service";
 
 describe("OrdersService", () => {
   let service: OrdersService;
   let mockPrismaService: any;
+  let mockWebSocketService: any;
 
   beforeEach(async () => {
+    mockWebSocketService = {
+      emit: jest.fn(),
+      sendToTenant: jest.fn(),
+      broadcastOrderCreated: jest.fn(),
+      broadcastOrderApproved: jest.fn(),
+      broadcastOrderSent: jest.fn(),
+    };
+
     mockPrismaService = {
       product: {
         findMany: jest.fn(),
@@ -48,6 +58,10 @@ describe("OrdersService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: WebSocketService,
+          useValue: mockWebSocketService,
         },
       ],
     }).compile();

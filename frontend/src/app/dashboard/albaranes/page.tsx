@@ -1,5 +1,8 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
@@ -15,6 +18,10 @@ export default function AlbaranesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaranes, meta, loading, error, refetch, setPage, setFilters } = useAlbaranes();
+
+  const handleAlbaranDelete = (id: string) => {
+    refetch();
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<AlbaranStatus | ''>('');
@@ -52,7 +59,7 @@ export default function AlbaranesPage() {
               <FileUp className="mr-2 h-4 w-4" />
               Subir Albarán
             </Button>
-            <Button onClick={() => router.push('/dashboard/albaranes/nuevo')}>
+            <Button onClick={() => router.push('/dashboard/ingestion')}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Albarán
             </Button>
@@ -137,7 +144,7 @@ export default function AlbaranesPage() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {albaranes.map((albaran) => (
-              <AlbaranCard key={albaran.id} albaran={albaran} />
+              <AlbaranCard key={albaran.id} albaran={albaran} onDelete={handleAlbaranDelete} />
             ))}
           </div>
 

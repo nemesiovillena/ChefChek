@@ -31,6 +31,7 @@ import {
   ProductsQueryDto,
 } from "./dto/create-product.dto";
 import { CreateSupplierDto, UpdateSupplierDto } from "./dto/supplier.dto";
+import { CreateUnitOfMeasureDto, UpdateUnitOfMeasureDto } from "./dto/unit-of-measure.dto";
 import { Roles } from "../../decorators/roles.decorator";
 import { UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
@@ -83,6 +84,48 @@ export class ProductsController {
     return this.productsService.getSuppliers(tenantId);
   }
 
+  // ─── Units of Measure ─────────────────────────────────────────
+
+  @Get("units")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar unidades de medida del tenant" })
+  @ApiResponse({ status: 200, description: "Lista de unidades" })
+  async getUnits(@Req() req: any) {
+    const tenantId = req.tenantId;
+    return this.productsService.getUnits(tenantId);
+  }
+
+  @Post("units")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear unidad de medida" })
+  @ApiResponse({ status: 201, description: "Unidad creada" })
+  async createUnit(@Body() dto: CreateUnitOfMeasureDto, @Req() req: any) {
+    const tenantId = req.tenantId;
+    return this.productsService.createUnit(dto, tenantId);
+  }
+
+  @Patch("units/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar unidad de medida" })
+  @ApiParam({ name: "id", description: "ID de la unidad" })
+  async updateUnit(
+    @Param("id") id: string,
+    @Body() dto: UpdateUnitOfMeasureDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    return this.productsService.updateUnit(id, dto, tenantId);
+  }
+
+  @Delete("units/:id")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Eliminar (desactivar) unidad de medida" })
+  @ApiParam({ name: "id", description: "ID de la unidad" })
+  async deleteUnit(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    return this.productsService.deleteUnit(id, tenantId);
+  }
+
   @Post("suppliers")
   @Roles("ADMIN", "USER")
   @ApiOperation({ summary: "Crear un nuevo proveedor" })
@@ -128,6 +171,23 @@ export class ProductsController {
       data: { url },
       message: "Imagen subida correctamente",
     };
+  }
+
+  // ─── Product Price History ─────────────────────────────────────
+
+  @Get("price-history")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Consultar historial de precios de un producto" })
+  async getProductPriceHistory(
+    @Query("productId") productId: string,
+    @Query("supplierId") supplierId: string | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    if (!productId) {
+      throw new BadRequestException("productId es obligatorio");
+    }
+    return this.productsService.getProductPriceHistory(productId, tenantId, supplierId);
   }
 
   @Get(":id/calculate")

@@ -1,0 +1,77 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+python_env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Archivos temporales
+*.tmp
+*.temp
+uploads/
+temp/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Datos de prueba
+test_images/
+test_pdfs/
+sample_data/
+test_results/
+user_albaran*.jpg
+user_albaran*.png
+test_albaran*.jpg
+test_albaran*.pdf
+test_albaran*.png
+
+# Artifacts de debug
+debug_ocr_output.txt
+ocr_accuracy_report.json
+
+# Docker
+.dockerignore

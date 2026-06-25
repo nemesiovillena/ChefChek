@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { AlbaranStatusBadge } from './albaran-status-badge';
-import type { Albaran } from '@/lib/api-albaran';
-import { FileText, Building2, Calendar, Euro, Layers } from 'lucide-react';
+import { deleteAlbaran, type Albaran } from '@/lib/api-albaran';
+import { FileText, Building2, Calendar, Euro, Layers, Trash2 } from 'lucide-react';
 
 interface AlbaranCardProps {
   albaran: Albaran;
+  onDelete?: (id: string) => void;
 }
 
-export function AlbaranCard({ albaran }: AlbaranCardProps) {
+export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -22,9 +23,20 @@ export function AlbaranCard({ albaran }: AlbaranCardProps) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation from Link
+    e.stopPropagation();
+    try {
+      await deleteAlbaran(albaran.id);
+      onDelete?.(albaran.id);
+    } catch {
+      // Silently fail — user can retry
+    }
+  };
+
   return (
     <Link href={`/dashboard/albaranes/${albaran.id}`}>
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-5 cursor-pointer">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-5 cursor-pointer group relative">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -39,7 +51,16 @@ export function AlbaranCard({ albaran }: AlbaranCardProps) {
               )}
             </div>
           </div>
-          <AlbaranStatusBadge status={albaran.status} />
+          <div className="flex items-center gap-2">
+            <AlbaranStatusBadge status={albaran.status} />
+            <button
+              onClick={handleDelete}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
+              title="Eliminar albarán"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-2 text-sm text-gray-600">

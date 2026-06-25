@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
+import { AI_PROVIDERS, getApiKey, setApiKey } from '@/lib/ai-api-keys';
+import { Key, Eye, EyeOff, Check, AlertTriangle } from 'lucide-react';
+import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +29,11 @@ export default function SettingsPage() {
     domain: '',
   });
 
+  // API keys state: provider id → key value
+  const [apiKeys, setApiKeysState] = useState<Record<string, string>>({});
+  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+  const [savedKeys, setSavedKeys] = useState<Record<string, boolean>>({});
+
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -46,7 +54,38 @@ export default function SettingsPage() {
     if (isAuthenticated && user?.tenantId) {
       fetchTenantConfig(user?.tenantId);
     }
+    // Load API keys from localStorage
+    const loaded: Record<string, string> = {};
+    AI_PROVIDERS.forEach(p => {
+      loaded[p.id] = getApiKey(p.id);
+    });
+    setApiKeysState(loaded);
   }, [isAuthenticated, user?.tenantId]);
+
+  const handleApiKeyChange = (providerId: string, key: string) => {
+    setApiKeysState(prev => ({ ...prev, [providerId]: key }));
+    setSavedKeys(prev => ({ ...prev, [providerId]: false }));
+  };
+
+  const handleApiKeySave = (providerId: string) => {
+    setApiKey(providerId, apiKeys[providerId] || '');
+    setSavedKeys(prev => ({ ...prev, [providerId]: true }));
+    setTimeout(() => {
+      setSavedKeys(prev => ({ ...prev, [providerId]: false }));
+    }, 2000);
+  };
+
+  const toggleShowKey = (providerId: string) => {
+    setShowKeys(prev => ({ ...prev, [providerId]: !prev[providerId] }));
+  };
+
+  /** Simple validation: key starts with expected prefix */
+  const isKeyValid = (providerId: string): boolean | null => {
+    const key = apiKeys[providerId];
+    if (!key) return null;
+    const provider = AI_PROVIDERS.find(p => p.id === providerId);
+    return provider ? key.startsWith(provider.keyPrefix) : true;
+  };
 
   const fetchTenantConfig = async (tenantId: string) => {
     try {
@@ -80,7 +119,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!config) return;
 
@@ -271,17 +310,98 @@ export default function SettingsPage() {
         </div>
 
         {/* Module Configuration */}
+        <ModuleListWidget />
+
+        {/* API Keys */}
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Active Modules</h2>
-          <div className="space-y-3">
-            {['Core', 'Escandallos', 'Seguridad', 'Producción', 'Almacenes'].map((module) => (
-              <div key={module} className="flex items-center justify-between">
-                <span className="text-gray-700">{module}</span>
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                  Active
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center gap-2 mb-4">
+            <Key className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-xl font-semibold">APIs</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            Configura las claves API de los proveedores de IA para la extracción de datos de albaranes.
+            Las claves se guardan solo en tu navegador y nunca se envían al servidor.
+          </p>
+          <div className="space-y-6">
+            {AI_PROVIDERS.map((provider) => {
+              const hasKey = !!apiKeys[provider.id];
+              const validity = isKeyValid(provider.id);
+              const isSaved = savedKeys[provider.id];
+              const isShown = showKeys[provider.id];
+
+              return (
+                <div key={provider.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{provider.name}</span>
+                      {hasKey && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <Check className="h-3 w-3" /> Configurada
+                        </span>
+                      )}
+                    </div>
+                    {validity === false && (
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        Formato inesperado
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Available models for this provider */}
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {provider.models.map(m => (
+                      <span key={m.id} className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                        {m.name}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* API Key Input */}
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={isShown ? 'text' : 'password'}
+                        value={apiKeys[provider.id] || ''}
+                        onChange={(e) => handleApiKeyChange(provider.id, e.target.value)}
+                        placeholder={provider.keyPlaceholder}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleShowKey(provider.id)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {isShown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleApiKeySave(provider.id)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isSaved
+                          ? 'bg-green-600 text-white'
+                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      }`}
+                    >
+                      {isSaved ? '✓ Guardada' : 'Guardar'}
+                    </button>
+                    {hasKey && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleApiKeyChange(provider.id, '');
+                          handleApiKeySave(provider.id);
+                        }}
+                        className="px-3 py-2 border border-red-300 text-red-600 rounded-md text-sm hover:bg-red-50"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

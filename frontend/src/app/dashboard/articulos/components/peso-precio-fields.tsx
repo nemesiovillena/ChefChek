@@ -1,5 +1,7 @@
 'use client';
 
+import { UnitSelector } from '@/components/shared/unit-selector';
+
 interface PesoPrecioFieldsProps {
   formData: {
     purchaseFormat: string;
@@ -15,12 +17,6 @@ interface PesoPrecioFieldsProps {
   };
   setFormData: (data: any) => void;
 }
-
-const REF_UNITS = [
-  { value: 'kg', label: 'Kilogramo (kg)' },
-  { value: 'L', label: 'Litro (L)' },
-  { value: 'und', label: 'Unidad (und)' },
-];
 
 // Dynamic labels based on reference unit
 const UNIT_LABELS: Record<string, { size: string; sizePlaceholder: string; total: string }> = {
@@ -47,7 +43,11 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
   const calculatedUnitSize = unitsPerFormat * referenceUnitSize;
   const refPrice = calculatedUnitSize > 0 ? price / calculatedUnitSize : 0;
 
-  const unitLabels = UNIT_LABELS[formData.referenceUnit] || UNIT_LABELS.kg;
+  const unitLabels = UNIT_LABELS[formData.referenceUnit] || {
+    size: 'Cantidad por unidad',
+    sizePlaceholder: 'Ej: 1',
+    total: formData.referenceUnit || 'unidad',
+  };
   const isUnd = formData.referenceUnit === 'und';
 
   return (
@@ -65,13 +65,12 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Unidad de referencia</label>
-          <select
+          <UnitSelector
             value={formData.referenceUnit}
-            onChange={(e) => update('referenceUnit', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            {REF_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-          </select>
+            onChange={(symbol) => update('referenceUnit', symbol)}
+            className="w-full"
+            placeholder="Seleccionar unidad"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Unidades por formato</label>

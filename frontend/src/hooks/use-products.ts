@@ -75,6 +75,7 @@ export interface Product {
   purchaseFormats: PurchaseFormat[];
   nutritionalInfo?: NutritionalInfo;
   stocks: ProductStock[];
+  lastPurchaseDate?: string | null;
   createdAt: string;
   updatedAt: string;
 }

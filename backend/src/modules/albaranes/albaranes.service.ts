@@ -34,8 +34,10 @@ export class AlbaranesService {
         supplierId: dto.supplierId,
         albaranNumber: dto.albaranNumber,
         date: dto.date ? new Date(dto.date) : new Date(),
+        grossAmount: dto.grossAmount ?? 0,
         base: dto.base ?? 0,
         vatTotal: dto.vatTotal ?? 0,
+        vatBreakdown: dto.vatBreakdown ?? undefined,
         total: dto.total ?? 0,
         warehouseId: dto.warehouseId,
         notes: dto.notes,
@@ -48,6 +50,7 @@ export class AlbaranesService {
             unit: line.unit ?? "ud",
             unitPrice: line.unitPrice,
             vatPercent: line.vatPercent ?? 10,
+            priceWithVat: line.priceWithVat,
             lineAmount: line.lineAmount ?? line.quantity * line.unitPrice,
           })),
         },
@@ -149,12 +152,29 @@ export class AlbaranesService {
     if (dto.articleNumber !== undefined) updateData.articleNumber = dto.articleNumber;
     if (dto.lot !== undefined) updateData.lot = dto.lot;
     if (dto.description !== undefined) updateData.description = dto.description;
-    if (dto.quantity !== undefined) updateData.quantity = parseFloat(dto.quantity);
+    if (dto.quantity !== undefined) {
+      updateData.quantity = parseFloat(dto.quantity);
+      // Recalculate lineAmount when quantity changes
+      const price = dto.unitPrice !== undefined ? parseFloat(dto.unitPrice) : line.unitPrice;
+      updateData.lineAmount = updateData.quantity * price;
+    }
     if (dto.unit !== undefined) updateData.unit = dto.unit;
     if (dto.unitPrice !== undefined) {
       const price = parseFloat(dto.unitPrice);
       updateData.unitPrice = price;
-      updateData.lineAmount = (updateData.quantity ?? line.quantity) * price;
+      // Recalculate lineAmount when price changes (unless quantity already updated it)
+      if (dto.quantity === undefined) {
+        updateData.lineAmount = line.quantity * price;
+      }
+    }
+    if (dto.vatPercent !== undefined) {
+      updateData.vatPercent = parseFloat(dto.vatPercent);
+      // Recalculate priceWithVat if not explicitly provided
+      const unitPrice = dto.unitPrice !== undefined ? parseFloat(dto.unitPrice) : line.unitPrice;
+      updateData.priceWithVat = unitPrice * (1 + updateData.vatPercent / 100);
+    }
+    if (dto.priceWithVat !== undefined) {
+      updateData.priceWithVat = parseFloat(dto.priceWithVat);
     }
     if (dto.matchedProductId !== undefined) {
       updateData.matchedProductId = dto.matchedProductId;
@@ -223,8 +243,8 @@ export class AlbaranesService {
   }
 
   /** Create albaran from OCR upload */
-  async createFromUpload(files: Express.Multer.File[], tenantId: string) {
-    this.logger.log(`Creating albaran from upload for tenant ${tenantId} (${files.length} files)`);
+  async createFromUpload(files: Express.Multer.File[], tenantId: string, aiModel?: string, aiApiKey?: string) {
+    this.logger.log(`Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || 'regex'})`);
 
     const file = files[0];
     if (!file) throw new BadRequestException("No file provided");
@@ -235,6 +255,8 @@ export class AlbaranesService {
         file.buffer,
         file.originalname,
         file.mimetype,
+        aiModel,
+        aiApiKey,
       );
 
       if (!ocrResult.success || !ocrResult.document) {
@@ -251,10 +273,44 @@ export class AlbaranesService {
 
       // 2. Match supplier from OCR-detected data
       const supplierMatch = await this.supplierMatching.matchSupplier({
-        cifNif: document.cif_code,
+        cifNif: document.supplier_cif || document.cif_code,
         name: document.supplier_name,
         tenantId,
       });
+
+      // 2a. Auto-fill supplier data from OCR (address, phone, email, sanitary registry)
+      if (supplierMatch.supplierId) {
+        await this.supplierMatching.enrichSupplierFromOcr(supplierMatch.supplierId, {
+          address: document.supplier_address,
+          phone: document.supplier_phone,
+          email: document.supplier_email,
+          sanitaryRegistry: document.supplier_sanitary_registry,
+        });
+      }
+
+      // 2b. If supplier has OCR layout hints, refine extraction
+      if (supplierMatch.supplierId) {
+        const supplier = await this.prisma.supplier.findFirst({
+          where: { id: supplierMatch.supplierId, tenantId },
+          select: { ocrLayoutHints: true },
+        });
+        if (supplier?.ocrLayoutHints && document.raw_text) {
+          this.logger.log(`Refinando OCR con hints de proveedor (obs: ${(supplier.ocrLayoutHints as any)?.observationCount})`);
+          const refinedResult = await this.pythonOcrService.refineExtraction(
+            document.raw_text,
+            supplier.ocrLayoutHints,
+            aiModel,
+            aiApiKey,
+          );
+          if (refinedResult.success && refinedResult.document) {
+            // Override initial extraction with refined data
+            Object.assign(document, refinedResult.document);
+            this.logger.log(
+              `OCR refinado: ${refinedResult.document.products?.length || 0} productos`,
+            );
+          }
+        }
+      }
 
       // 3. Create albaran with lines
       const internalNumber = await this.numberService.generateInternalNumber(tenantId);
@@ -265,17 +321,23 @@ export class AlbaranesService {
           supplierId: supplierMatch.supplierId,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
           date: document.document_date ? new Date(document.document_date) : new Date(),
-          base: document.total_amount || 0,
-          vatTotal: 0,
+          grossAmount: document.gross_amount ?? 0,
+          base: document.tax_base ?? document.gross_amount ?? 0,
+          vatTotal: document.vat_total ?? 0,
+          vatBreakdown: document.vat_breakdown ?? undefined,
           total: document.total_amount || 0,
+          ocrRawData: document as any,
           notes: `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`,
           lines: {
             create: extractedProducts.map((product: any) => ({
+              articleNumber: product.article_number || null,
+              lot: product.lot || null,
               description: product.name || product.description || "",
               quantity: product.quantity || 0,
               unit: product.unit || "ud",
               unitPrice: product.unit_price || 0,
-              vatPercent: 10,
+              vatPercent: product.vat_percent ?? 10,
+              priceWithVat: product.price_with_vat ?? null,
               lineAmount: (product.quantity || 0) * (product.unit_price || 0),
             })),
           },
@@ -314,5 +376,59 @@ export class AlbaranesService {
       this.logger.warn(`Created fallback albaran ${albaran.id} due to OCR failure`);
       return albaran;
     }
+  }
+
+  /**
+   * Add a manual line to an existing albarán.
+   * Only allowed when albarán is PENDIENTE or REVISADO.
+   */
+  async addLine(albaranId: string, dto: any, tenantId: string) {
+    const albaran = await this.prisma.albaran.findFirst({
+      where: { id: albaranId, tenantId },
+      include: { lines: true },
+    });
+
+    if (!albaran) {
+      throw new NotFoundException("Albarán no encontrado");
+    }
+
+    if (albaran.status !== "PENDIENTE" && albaran.status !== "REVISADO") {
+      throw new BadRequestException("No se pueden añadir líneas a un albarán confirmado o archivado");
+    }
+
+    const quantity = Number(dto.quantity) || 0;
+    const unitPrice = Number(dto.unitPrice) || 0;
+    const vatPercent = Number(dto.vatPercent) || 10;
+    const lineAmount = quantity * unitPrice;
+
+    const line = await this.prisma.albaranLine.create({
+      data: {
+        albaranId,
+        description: dto.description,
+        quantity,
+        unit: dto.unit || "und",
+        unitPrice,
+        vatPercent,
+        lineAmount,
+        articleNumber: dto.articleNumber || null,
+        lot: dto.lot || null,
+      },
+    });
+
+    // Recalculate albaran totals from all lines
+    const allLines = [...albaran.lines, line];
+    const base = allLines.reduce((sum, l) => sum + Number(l.lineAmount), 0);
+    const vatTotal = allLines.reduce(
+      (sum, l) => sum + Number(l.lineAmount) * (Number(l.vatPercent) / 100),
+      0,
+    );
+    const total = base + vatTotal;
+
+    await this.prisma.albaran.update({
+      where: { id: albaranId },
+      data: { base, vatTotal, total },
+    });
+
+    return { success: true, data: line };
   }
 }

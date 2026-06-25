@@ -18,6 +18,7 @@ export interface AlbaranLine {
   unit: string;
   unitPrice: number;
   vatPercent: number;
+  priceWithVat: number | null;
   lineAmount: number;
   matchStatus: MatchStatus;
   lineStatus: LineStatus;
@@ -215,4 +216,21 @@ export async function deleteAlbaran(id: string): Promise<void> {
     const error = await response.json().catch(() => ({ message: 'Error deleting albaran' }));
     throw new Error(error.message || 'Error deleting albaran');
   }
+}
+
+/** Add a manual line to an existing albarán */
+export async function addAlbaranLine(
+  albaranId: string,
+  data: { description: string; quantity: number; unit: string; unitPrice: number; vatPercent?: number },
+): Promise<{ success: boolean; data: AlbaranLine }> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error adding line' }));
+    throw new Error(error.message || 'Error adding line');
+  }
+  return response.json();
 }

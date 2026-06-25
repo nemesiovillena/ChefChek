@@ -36,7 +36,7 @@ export class CreateAlbaranLineDto {
   @IsString()
   unit?: string;
 
-  @ApiProperty({ description: "Precio por unidad" })
+  @ApiProperty({ description: "Precio por unidad (sin IVA)" })
   @IsNumber()
   @Min(0)
   unitPrice: number;
@@ -46,6 +46,12 @@ export class CreateAlbaranLineDto {
   @IsNumber()
   @Min(0)
   vatPercent?: number;
+
+  @ApiPropertyOptional({ description: "Precio por unidad con IVA" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  priceWithVat?: number;
 
   @ApiPropertyOptional({ description: "Importe de línea (sin IVA)" })
   @IsOptional()
@@ -70,6 +76,12 @@ export class CreateAlbaranDto {
   @IsDateString()
   date?: string;
 
+  @ApiPropertyOptional({ description: "Total bruto (antes de IVA)" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  grossAmount?: number;
+
   @ApiPropertyOptional({ description: "Base imponible" })
   @IsOptional()
   @IsNumber()
@@ -81,6 +93,10 @@ export class CreateAlbaranDto {
   @IsNumber()
   @Min(0)
   vatTotal?: number;
+
+  @ApiPropertyOptional({ description: "Desglose de IVA por tipo: [{rate, base, amount}]" })
+  @IsOptional()
+  vatBreakdown?: Array<{ rate: number; base: number; amount: number }>;
 
   @ApiPropertyOptional({ description: "Total con IVA" })
   @IsOptional()

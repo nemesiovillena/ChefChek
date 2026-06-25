@@ -8,9 +8,8 @@ import { useProducts, Product, useDeleteProduct, useUpdateProduct } from '@/hook
 import { useCategoryTree, useCategories, CategoryTreeNode } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes } from '@/hooks/use-qr-codes';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, FileUp } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
-import AlbaranUploadDrawer from './components/albaran-upload-drawer';
 
 interface Supplier {
   id: string;
@@ -40,7 +39,6 @@ export default function ArticulosPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isAlbaranDrawerOpen, setIsAlbaranDrawerOpen] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentCategory, setSelectedParentCategory] = useState('');
@@ -191,6 +189,12 @@ export default function ArticulosPage() {
     return catId;
   };
 
+  const formatLastPurchaseDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts];
     sorted.sort((a, b) => {
@@ -223,6 +227,10 @@ export default function ArticulosPage() {
         case 'status':
           valA = a.isActive ? 1 : 0;
           valB = b.isActive ? 1 : 0;
+          break;
+        case 'lastPurchaseDate':
+          valA = a.lastPurchaseDate ? new Date(a.lastPurchaseDate).getTime() : 0;
+          valB = b.lastPurchaseDate ? new Date(b.lastPurchaseDate).getTime() : 0;
           break;
         default:
           return 0;
@@ -276,78 +284,44 @@ export default function ArticulosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">ChefChek</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">{user?.name} ({user?.role})</span>
-          </div>
-        </div>
-      </header>
-
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <a href="/dashboard" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">Dashboard</a>
-            <a href="/dashboard/articulos" className="border-b-2 border-indigo-500 py-4 px-1 text-sm font-medium text-indigo-600">Artículos</a>
-            <a href="/dashboard/recipes" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">Recetas</a>
-            <a href="/dashboard/menus" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">Menús</a>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+    <div className="w-full">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900">Artículos</h2>
-            <p className="mt-2 text-gray-600">Gestión de artículos e inventario</p>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Artículos</h2>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">Gestión de artículos e inventario</p>
           </div>
           <div className="flex gap-2">
-            <a
-              href="/dashboard/ocr-ai"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-            >
-              <FileUp className="h-4 w-4" />
-              Añadir Albarán (AI)
-            </a>
-            <a
-              href="/dashboard/ingestion"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center gap-2"
-            >
-              <FileUp className="h-4 w-4" />
-              Ingestión Simple
-            </a>
-            <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+            <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
               Crear Artículo
             </button>
           </div>
         </div>
 
         {/* Chained Filters */}
-        <div className="bg-white shadow rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); }} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
+              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="">Todas</option>
                 {tree.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subcategoría</label>
-              <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} disabled={!selectedParentCategory} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcategoría</label>
+              <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} disabled={!selectedParentCategory} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600">
                 <option value="">Todas</option>
                 {availableSubcategories.map((sub) => (<option key={sub.id} value={sub.id}>{sub.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-              <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
+              <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="">Todos</option>
                 {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
                 {supplierIds.filter((id) => !suppliers.some((s) => s.id === id)).map((id) => (
@@ -359,35 +333,47 @@ export default function ArticulosPage() {
         </div>
 
         {/* Articles Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
+              <thead className="bg-gray-50 dark:bg-zinc-800/50">
                 <tr>
                   {renderSortableHeader('Nombre', 'name')}
                   {renderSortableHeader('Categoría', 'category')}
                   {renderSortableHeader('Subcategoría', 'subcategory')}
+                  {renderSortableHeader('Proveedor', 'supplier')}
                   {renderSortableHeader('Precio Compra', 'purchasePrice')}
                   {renderSortableHeader('Precio Neto', 'netPrice')}
+                  {renderSortableHeader('Última Compra', 'lastPurchaseDate')}
                   {renderSortableHeader('Estado', 'status')}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider select-none">Acciones</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {productsLoading ? (
-                  <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">Cargando...</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
                 ) : sortedProducts.length === 0 ? (
-                  <tr><td colSpan={7} className="px-6 py-4 text-center text-gray-500">No hay artículos</td></tr>
+                  <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
                 ) : (
                   sortedProducts.map((product: Product) => {
                     const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
                     return (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{product.name}</div></td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{parentCat?.name || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategoryDisplay(product.categoryId)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">&euro;{product.purchasePrice.toFixed(2)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">&euro;{product.netPrice.toFixed(2)}</td>
+                      <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                        <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div></td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{parentCat?.name || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getCategoryDisplay(product.categoryId)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.purchasePrice.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.netPrice.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {product.lastPurchaseDate ? (
+                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
+                              {formatLastPurchaseDate(product.lastPurchaseDate)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 dark:text-gray-600">-</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleStatus(product)}
@@ -465,16 +451,6 @@ export default function ArticulosPage() {
         onClose={handleCloseModal}
         article={selectedProduct}
         tree={tree}
-        suppliers={suppliers}
-      />
-
-      <AlbaranUploadDrawer
-        isOpen={isAlbaranDrawerOpen}
-        onClose={() => setIsAlbaranDrawerOpen(false)}
-        onImportComplete={() => {
-          setIsAlbaranDrawerOpen(false);
-          refetch();
-        }}
         suppliers={suppliers}
       />
     </div>

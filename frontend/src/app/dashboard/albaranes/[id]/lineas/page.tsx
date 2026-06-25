@@ -10,6 +10,8 @@ import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge'
 import { LineActionsToolbar } from '@/components/albaranes/line-actions-toolbar';
 import { ProductPickerDialog } from '@/components/albaranes/product-picker-dialog';
 import { CreateProductInline } from '@/components/albaranes/create-product-inline';
+import { AddLineForm } from '@/components/albaranes/add-line-form';
+import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,9 @@ export default function AlbaranLineasPage() {
 
   // Inline product creation state
   const [creatingLine, setCreatingLine] = useState<string | null>(null);
+
+  // Add manual line state
+  const [showAddLine, setShowAddLine] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -81,6 +86,9 @@ export default function AlbaranLineasPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(amount);
   };
+
+  /** Whether a line can be edited (only PENDIENTE lines) */
+  const isEditable = (line: AlbaranLine) => line.lineStatus === 'PENDIENTE';
 
   const getLineStatusBadge = (status: LineStatus) => {
     const config: Record<LineStatus, { label: string; className: string }> = {
@@ -262,6 +270,29 @@ export default function AlbaranLineasPage() {
             onRefresh={refetch}
           />
 
+          {/* Add manual line button + form */}
+          {(albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO') && (
+            <div className="mt-4">
+              {showAddLine ? (
+                <AddLineForm
+                  albaranId={id}
+                  onSuccess={() => { setShowAddLine(false); refetch(); }}
+                  onCancel={() => setShowAddLine(false)}
+                />
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddLine(true)}
+                  className="text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Añadir línea
+                </Button>
+              )}
+            </div>
+          )}
+
           <Card className="mt-4">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -283,12 +314,35 @@ export default function AlbaranLineasPage() {
                       <TableRow key={line.id} className={line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}>
                         <TableCell>
                           <div>
-                            <p className={`font-medium ${line.lineStatus === 'RECHAZADO' ? 'line-through' : ''}`}>
-                              {line.description}
-                            </p>
-                            {line.articleNumber && (
-                              <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
+                            {isEditable(line) ? (
+                              <EditableLineCell
+                                albaranId={id}
+                                lineId={line.id}
+                                field="description"
+                                value={line.description}
+                                className={`font-medium ${line.lineStatus === 'RECHAZADO' ? 'line-through' : ''}`}
+                                onSave={refetch}
+                              />
+                            ) : (
+                              <p className={`font-medium ${line.lineStatus === 'RECHAZADO' ? 'line-through' : ''}`}>
+                                {line.description}
+                              </p>
                             )}
+                            {isEditable(line) && line.articleNumber ? (
+                              <p className="text-xs text-gray-500">
+                                Art:{' '}
+                                <EditableLineCell
+                                  albaranId={id}
+                                  lineId={line.id}
+                                  field="articleNumber"
+                                  value={line.articleNumber}
+                                  className="text-xs text-gray-500"
+                                  onSave={refetch}
+                                />
+                              </p>
+                            ) : line.articleNumber ? (
+                              <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
+                            ) : null}
                             {line.matchedProduct && (
                               <p className="text-xs text-indigo-600 mt-1">
                                 → {line.matchedProduct.name}
@@ -297,11 +351,67 @@ export default function AlbaranLineasPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium">{line.quantity}</span>
-                          <span className="text-gray-500 ml-1">{line.unit}</span>
+                          {isEditable(line) ? (
+                            <div className="flex items-center gap-1">
+                              <EditableLineCell
+                                albaranId={id}
+                                lineId={line.id}
+                                field="quantity"
+                                value={line.quantity}
+                                type="number"
+                                step="0.01"
+                                className="font-medium"
+                                onSave={refetch}
+                              />
+                              <EditableLineCell
+                                albaranId={id}
+                                lineId={line.id}
+                                field="unit"
+                                value={line.unit}
+                                suffix=""
+                                className="text-gray-500"
+                                onSave={refetch}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <span className="font-medium">{line.quantity}</span>
+                              <span className="text-gray-500 ml-1">{line.unit}</span>
+                            </>
+                          )}
                         </TableCell>
-                        <TableCell>{formatCurrency(line.unitPrice)}</TableCell>
-                        <TableCell>{line.vatPercent}%</TableCell>
+                        <TableCell>
+                          {isEditable(line) ? (
+                            <EditableLineCell
+                              albaranId={id}
+                              lineId={line.id}
+                              field="unitPrice"
+                              value={line.unitPrice}
+                              type="number"
+                              step="0.01"
+                              format={(v) => formatCurrency(Number(v))}
+                              onSave={refetch}
+                            />
+                          ) : (
+                            formatCurrency(line.unitPrice)
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditable(line) ? (
+                            <EditableLineCell
+                              albaranId={id}
+                              lineId={line.id}
+                              field="vatPercent"
+                              value={line.vatPercent}
+                              type="number"
+                              step="1"
+                              suffix="%"
+                              onSave={refetch}
+                            />
+                          ) : (
+                            `${line.vatPercent}%`
+                          )}
+                        </TableCell>
                         <TableCell className="font-semibold">{formatCurrency(line.lineAmount)}</TableCell>
                         <TableCell>
                           <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />

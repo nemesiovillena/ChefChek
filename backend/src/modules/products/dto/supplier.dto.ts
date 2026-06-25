@@ -17,6 +17,14 @@ export class CreateSupplierDto {
 
   @IsOptional()
   @IsString()
+  cifNif?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
   contactPerson?: string;
 
   @IsOptional()
@@ -34,6 +42,10 @@ export class CreateSupplierDto {
   @IsOptional()
   @IsString()
   website?: string;
+
+  @IsOptional()
+  @IsString()
+  sanitaryRegistry?: string;
 
   @IsOptional()
   @IsNumber()
@@ -75,6 +87,14 @@ export class UpdateSupplierDto {
 
   @IsOptional()
   @IsString()
+  cifNif?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @IsOptional()
+  @IsString()
   contactPerson?: string;
 
   @IsOptional()
@@ -92,6 +112,10 @@ export class UpdateSupplierDto {
   @IsOptional()
   @IsString()
   website?: string;
+
+  @IsOptional()
+  @IsString()
+  sanitaryRegistry?: string;
 
   @IsOptional()
   @IsNumber()
@@ -130,11 +154,14 @@ export class SupplierResponseDto {
   id: string;
   tenantId: string;
   name: string;
+  cifNif?: string;
+  address?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
   whatsapp?: string;
   website?: string;
+  sanitaryRegistry?: string;
   averageDeliveryTime: number;
   reliabilityScore: number;
   priceTier: string;

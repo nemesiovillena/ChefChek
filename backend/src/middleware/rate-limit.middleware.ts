@@ -62,7 +62,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
           resetTime: now + this.WINDOW_MS,
         };
       } else {
-        const parsed: RateLimitInfo = JSON.parse(cached);
+        const parsed: RateLimitInfo = JSON.parse(cached as string);
 
         // Check if window expired
         if (now > parsed.resetTime) {
@@ -132,7 +132,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
         return false;
       }
 
-      const parsed: RateLimitInfo = JSON.parse(cached);
+      const parsed: RateLimitInfo = JSON.parse(cached as string);
       const now = Date.now();
 
       if (now > parsed.resetTime) {
@@ -160,7 +160,7 @@ export class RateLimitMiddleware implements NestMiddleware, OnModuleDestroy {
         return null;
       }
 
-      const parsed: RateLimitInfo = JSON.parse(cached);
+      const parsed: RateLimitInfo = JSON.parse(cached as string);
       const now = Date.now();
 
       if (now > parsed.resetTime) {

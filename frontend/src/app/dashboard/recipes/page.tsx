@@ -220,61 +220,29 @@ export default function RecipesPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">ChefChek</h1>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              {user?.name} ({user?.role})
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <a href="/dashboard" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Dashboard
-            </a>
-            <a href="/dashboard/articulos" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Artículos
-            </a>
-            <a href="/dashboard/recipes" className="border-b-2 border-indigo-500 py-4 px-1 text-sm font-medium text-indigo-600">
-              Recetas
-            </a>
-            <a href="/dashboard/menus" className="border-b-2 border-transparent py-4 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300">
-              Menús
-            </a>
-          </div>
-        </div>
-      </nav>
-
+    <div className="w-full">
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900">Recetas</h2>
-            <p className="mt-2 text-gray-600">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Recetas</h2>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
               Gestión de recetas y escandallos
             </p>
           </div>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
           >
             Crear Receta
           </button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white shadow rounded-lg p-4 mb-6">
+        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Buscar
               </label>
               <input
@@ -282,17 +250,17 @@ export default function RecipesPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Nombre o descripción"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Categoría
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">Todas</option>
                 {categories.map((category) => (
@@ -306,77 +274,77 @@ export default function RecipesPage() {
         </div>
 
         {/* Recipes Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
+              <thead className="bg-gray-50 dark:bg-zinc-800/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Nombre
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Categorías
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Porciones
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Costo Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Costo/Unidad
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {filteredRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       No hay recetas
                     </td>
                   </tr>
                 ) : (
                   filteredRecipes.map((recipe: Recipe) => (
-                    <tr key={recipe.id} className="hover:bg-gray-50">
+                    <tr key={recipe.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {recipe.name}
                         </div>
                         {recipe.description && (
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
                             {recipe.description}
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {recipe.categories && recipe.categories.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {recipe.categories.map((cat) => (
                               <span
                                 key={cat.categoryId}
-                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800"
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
                               >
                                 {categories.find((c) => c.id === cat.categoryId)?.icon} {cat.categoryName}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-gray-400">Sin categorías</span>
+                          <span className="text-gray-400 dark:text-gray-600">Sin categorías</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {recipe.portions} ({recipe.portionSize}g)
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         €{recipe.totalCost.toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         €{recipe.totalCostPerUnit?.toFixed(2) || recipe.costBreakdown?.costPerUnit.toFixed(2) || '0.00'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -421,11 +389,11 @@ export default function RecipesPage() {
 
         {/* Create/Edit Modal */}
         {showCreateForm && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+            <div className="relative mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-805">
               <div className="mt-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl leading-6 font-semibold text-gray-900 dark:text-white">
                     {selectedRecipe ? 'Editar Receta' : 'Crear Receta'}
                   </h3>
                   <button
@@ -441,7 +409,7 @@ export default function RecipesPage() {
                       });
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                     }}
-                    className="text-gray-400 hover:text-gray-500"
+                    className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
                   >
                     <span className="sr-only">Cerrar</span>
                     <svg
@@ -460,7 +428,7 @@ export default function RecipesPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Nombre *
                     </label>
                     <input
@@ -471,12 +439,12 @@ export default function RecipesPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Descripción
                     </label>
                     <textarea
@@ -485,18 +453,18 @@ export default function RecipesPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, description: e.target.value })
                       }
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                       rows={3}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Categorías
                     </label>
-                    <div className="space-y-2">
+                    <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
                       {categories.map((category) => (
-                        <label key={category.id} className="flex items-center space-x-2">
+                        <label key={category.id} className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selectedCategoryIds.includes(category.id)}
@@ -507,9 +475,9 @@ export default function RecipesPage() {
                                 setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
                               }
                             }}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
                           />
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
                             {category.icon} {category.name}
                           </span>
                         </label>
@@ -519,7 +487,7 @@ export default function RecipesPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Porciones *
                       </label>
                       <input
@@ -531,11 +499,11 @@ export default function RecipesPage() {
                         onChange={(e) =>
                           setFormData({ ...formData, portions: e.target.value })
                         }
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Tamaño Porción (g)
                       </label>
                       <input
@@ -546,13 +514,13 @@ export default function RecipesPage() {
                         onChange={(e) =>
                           setFormData({ ...formData, portionSize: e.target.value })
                         }
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Elaboración (JSON)
                     </label>
                     <textarea
@@ -562,78 +530,80 @@ export default function RecipesPage() {
                         setFormData({ ...formData, elaboration: e.target.value })
                       }
                       placeholder='{"type":"doc","content":[...]}'
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono"
-                      rows={6}
+                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                      rows={4}
                     />
                   </div>
 
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Ingredientes
                       </label>
                       <button
                         type="button"
                         onClick={handleAddIngredient}
-                        className="text-sm text-indigo-600 hover:text-indigo-900"
+                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
                       >
                         + Agregar ingrediente
                       </button>
                     </div>
-                    {ingredients.map((ingredient, index) => (
-                      <div key={index} className="flex gap-2 mb-2">
-                        <select
-                          value={ingredient.productId}
-                          onChange={(e) =>
-                            handleIngredientChange(index, 'productId', e.target.value)
-                          }
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="">Seleccionar producto</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Cantidad"
-                          value={ingredient.quantity}
-                          onChange={(e) =>
-                            handleIngredientChange(index, 'quantity', parseFloat(e.target.value))
-                          }
-                          className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <select
-                          value={ingredient.unit}
-                          onChange={(e) =>
-                            handleIngredientChange(index, 'unit', e.target.value)
-                          }
-                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="kg">kg</option>
-                          <option value="g">g</option>
-                          <option value="l">l</option>
-                          <option value="ml">ml</option>
-                          <option value="units">u</option>
-                        </select>
-                        {ingredients.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveIngredient(index)}
-                            className="text-red-600 hover:text-red-900"
+                    <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+                      {ingredients.map((ingredient, index) => (
+                        <div key={index} className="flex gap-2 items-center">
+                          <select
+                            value={ingredient.productId}
+                            onChange={(e) =>
+                              handleIngredientChange(index, 'productId', e.target.value)
+                            }
+                            className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                           >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                            <option value="">Seleccionar producto</option>
+                            {products.map((product) => (
+                              <option key={product.id} value={product.id}>
+                                {product.name}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Cantidad"
+                            value={ingredient.quantity}
+                            onChange={(e) =>
+                              handleIngredientChange(index, 'quantity', parseFloat(e.target.value))
+                            }
+                            className="w-24 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                          <select
+                            value={ingredient.unit}
+                            onChange={(e) =>
+                              handleIngredientChange(index, 'unit', e.target.value)
+                            }
+                            className="w-20 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          >
+                            <option value="kg">kg</option>
+                            <option value="g">g</option>
+                            <option value="l">l</option>
+                            <option value="ml">ml</option>
+                            <option value="units">u</option>
+                          </select>
+                          {ingredients.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveIngredient(index)}
+                              className="text-red-650 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-bold p-1"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="flex justify-end space-x-3 mt-6">
+                  <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-100 dark:border-zinc-800">
                     <button
                       type="button"
                       onClick={() => {
@@ -648,7 +618,7 @@ export default function RecipesPage() {
                         });
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                       }}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                      className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -658,7 +628,7 @@ export default function RecipesPage() {
                         createRecipeMutation.isPending ||
                         updateRecipeMutation.isPending
                       }
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                     >
                       {createRecipeMutation.isPending ||
                       updateRecipeMutation.isPending
