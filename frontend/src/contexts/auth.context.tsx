@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useSyncExternalStore, ReactNode } from 'react';
 import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
 
@@ -23,12 +23,60 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Snapshot of the persisted session data in sessionStorage. Used to hydrate
+// the initial state synchronously on the client without setState-in-effect.
+interface PersistedSession {
+  user: AuthResponse['user'] | null;
+  tenantSlug: string | null;
+  sessionId: string | null;
+}
+
+const readPersistedSession = (): PersistedSession => {
+  if (typeof window === 'undefined') {
+    return { user: null, tenantSlug: null, sessionId: null };
+  }
+  const savedUser = sessionStorage.getItem('user');
+  const savedTenantSlug = sessionStorage.getItem('tenant_slug');
+  const savedSessionId = sessionStorage.getItem('session_id');
+  let parsedUser: AuthResponse['user'] | null = null;
+  if (savedUser) {
+    try {
+      parsedUser = JSON.parse(savedUser);
+    } catch {
+      parsedUser = null;
+    }
+  }
+  return {
+    user: parsedUser,
+    tenantSlug: savedTenantSlug,
+    sessionId: savedSessionId,
+  };
+};
+
+const subscribePersistedSession = () => () => {};
+const getServerPersistedSession = (): PersistedSession => ({
+  user: null,
+  tenantSlug: null,
+  sessionId: null,
+});
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthResponse['user'] | null>(null);
+  // Hydrate from sessionStorage synchronously on the client to avoid the
+  // previous setState-in-effect pattern for the instant-load path.
+  const persisted = useSyncExternalStore(
+    subscribePersistedSession,
+    readPersistedSession,
+    getServerPersistedSession,
+  );
+
+  const [user, setUser] = useState<AuthResponse['user'] | null>(persisted.user);
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(persisted.tenantSlug);
+  const [sessionId, setSessionId] = useState<string | null>(persisted.sessionId);
+  // Only show a loading state when there is a persisted session that needs
+  // backend verification. When there is nothing persisted, the initial state
+  // is already final, so loading is false and no setState-in-effect is needed.
+  const [isLoading, setIsLoading] = useState<boolean>(!!persisted.user && !!persisted.sessionId);
 
   const isAuthenticated = !!user;
 
@@ -37,9 +85,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (isAuthenticated && sessionId) {
       const wsClient = getWebSocketClient({
         user,
-        tenantId,
         sessionId,
-      } as any);
+      });
 
       wsClient.connect().catch((error) => {
         console.error('Failed to connect WebSocket:', error);
@@ -53,36 +100,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, sessionId, user, tenantId]);
 
-  // Check session on mount
+  // Check session on mount. The backend verification is an external-system
+  // subscription: setState calls happen inside the resolved promise callback
+  // (after await), not synchronously in the effect body.
   useEffect(() => {
-    checkSession();
-  }, []);
-
-  const checkSession = async () => {
-    // First, try to load user from sessionStorage for instant load
     const savedUser = sessionStorage.getItem('user');
-    const savedTenantSlug = sessionStorage.getItem('tenant_slug');
     const savedSessionId = sessionStorage.getItem('session_id');
 
-    if (savedUser && savedSessionId) {
-      try {
-        setUser(JSON.parse(savedUser));
-        setTenantSlug(savedTenantSlug);
-        // Verify session with backend
-        const session = await authService.getCurrentSession();
+    if (!savedUser || !savedSessionId) {
+      return;
+    }
+
+    let cancelled = false;
+    authService
+      .getCurrentSession()
+      .then((session) => {
+        if (cancelled) return;
         if (session) {
           setTenantId(session.user.tenantId);
         }
-      } catch (error) {
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        if (cancelled) return;
         console.error('Error loading saved session:', error);
-        // Clear invalid session
         sessionStorage.removeItem('session_id');
         sessionStorage.removeItem('tenant_slug');
         sessionStorage.removeItem('user');
-      }
-    }
-    setIsLoading(false);
-  };
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);

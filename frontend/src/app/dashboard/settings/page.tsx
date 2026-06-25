@@ -30,7 +30,13 @@ export default function SettingsPage() {
   });
 
   // API keys state: provider id → key value
-  const [apiKeys, setApiKeysState] = useState<Record<string, string>>({});
+  const [apiKeys, setApiKeysState] = useState<Record<string, string>>(() => {
+    const loaded: Record<string, string> = {};
+    AI_PROVIDERS.forEach(p => {
+      loaded[p.id] = getApiKey(p.id);
+    });
+    return loaded;
+  });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, boolean>>({});
 
@@ -41,6 +47,46 @@ export default function SettingsPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !user?.tenantId) return;
+    const tenantId = user.tenantId;
+    let cancelled = false;
+    const fetchData = async () => {
+      const sessionId = sessionStorage.getItem('session_id');
+      const tenantSlug = sessionStorage.getItem('tenant_slug');
+
+      if (!sessionId || !tenantSlug) {
+        if (!cancelled) setPageLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:3001/api/v1/tenants/${tenantId}`, {
+          headers: {
+            'Authorization': `Bearer ${sessionId}`,
+            'X-Tenant-Slug': tenantSlug,
+          },
+        });
+
+        const data = await response.json();
+        if (cancelled) return;
+        if (data.success) {
+          setConfig(data.data);
+          setFormData({
+            name: data.data.name,
+            domain: data.data.domain || '',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching tenant config:', error);
+      } finally {
+        if (!cancelled) setPageLoading(false);
+      }
+    };
+    fetchData();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, user?.tenantId]);
+
   // Don't render anything if not authenticated or loading
   if (!isAuthenticated || isLoading) {
     return (
@@ -49,18 +95,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (isAuthenticated && user?.tenantId) {
-      fetchTenantConfig(user?.tenantId);
-    }
-    // Load API keys from localStorage
-    const loaded: Record<string, string> = {};
-    AI_PROVIDERS.forEach(p => {
-      loaded[p.id] = getApiKey(p.id);
-    });
-    setApiKeysState(loaded);
-  }, [isAuthenticated, user?.tenantId]);
 
   const handleApiKeyChange = (providerId: string, key: string) => {
     setApiKeysState(prev => ({ ...prev, [providerId]: key }));
@@ -85,38 +119,6 @@ export default function SettingsPage() {
     if (!key) return null;
     const provider = AI_PROVIDERS.find(p => p.id === providerId);
     return provider ? key.startsWith(provider.keyPrefix) : true;
-  };
-
-  const fetchTenantConfig = async (tenantId: string) => {
-    try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-
-      if (!sessionId || !tenantSlug) {
-        setPageLoading(false);
-        return;
-      }
-
-      const response = await fetch(`http://localhost:3001/api/v1/tenants/${tenantId}`, {
-        headers: {
-          'Authorization': `Bearer ${sessionId}`,
-          'X-Tenant-Slug': tenantSlug,
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setConfig(data.data);
-        setFormData({
-          name: data.data.name,
-          domain: data.data.domain || '',
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching tenant config:', error);
-    } finally {
-      setPageLoading(false);
-    }
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {

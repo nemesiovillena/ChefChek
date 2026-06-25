@@ -91,7 +91,7 @@ export function ProductPickerDialog({
             <div className="text-center py-8 text-red-600">{error}</div>
           ) : search && products.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              No se encontraron productos para "{search}"
+              No se encontraron productos para &ldquo;{search}&rdquo;
             </div>
           ) : !search ? (
             <div className="text-center py-8 text-gray-500">

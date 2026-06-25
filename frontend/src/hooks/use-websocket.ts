@@ -1,10 +1,53 @@
-import { useContext, useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
-import { getWebSocketClient, type NotificationEvent } from '@/lib/websocket-client';
+import {
+  getWebSocketClient,
+  type NotificationEvent,
+  type OrderEvent,
+  type ProductionTaskEvent,
+  type ProductionAlertEvent,
+  type StockAlertEvent,
+  type StockEvent,
+  type MenuEvent,
+  type QRScanEvent,
+} from '@/lib/websocket-client';
+
+/**
+ * Widen a typed event handler to the loose signature expected by
+ * `WebSocketClient.off`. The client's `off` callback is typed as
+ * `(...args: unknown[]) => void`, which is incompatible with specific
+ * handlers like `(order: OrderEvent) => void` due to parameter contravariance.
+ * This helper performs a safe reference-only widening so the same handler
+ * instance passed to `on*` can be removed by reference from `off`.
+ */
+type OffHandler = (...args: unknown[]) => void;
+function asOffHandler<T extends unknown[]>(handler: (...args: T) => void): OffHandler {
+  return handler as OffHandler;
+}
+
+/**
+ * Production alert as surfaced to consumers. The backend `ProductionAlertEvent`
+ * carries `message`/`severity`/`type`; some consumers also read a `title`
+ * field (falling back when absent), so it is modeled as optional here.
+ */
+interface ProductionAlertItem extends ProductionAlertEvent {
+  title?: string;
+}
+
+/**
+ * Stock alert as surfaced to consumers. The backend `StockAlertEvent` carries
+ * `currentQuantity`/`minimumStock`; some consumers read legacy `quantity`/
+ * `minimum` fields (falling back when absent), so they are modeled as optional.
+ */
+interface StockAlertItem extends StockAlertEvent {
+  quantity?: number;
+  minimum?: number;
+}
 
 // Hook for managing WebSocket notifications
 export function useWebSocketNotifications() {
-  const { isAuthenticated, sessionId } = useAuth();
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
   const [notifications, setNotifications] = useState<NotificationEvent[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -13,14 +56,10 @@ export function useWebSocketNotifications() {
       return;
     }
 
-    const wsClient = getWebSocketClient({
-      user: null,
-      tenantId: null,
-      sessionId,
-    } as any);
+    const wsClient = getWebSocketClient(auth);
 
     // Listen for new notifications
-    const notificationHandler = (notification: any) => {
+    const notificationHandler = (notification: NotificationEvent) => {
       setNotifications((prev) => {
         // Limit to last 50 notifications to prevent memory leaks
         const updated = [notification, ...prev];
@@ -43,11 +82,11 @@ export function useWebSocketNotifications() {
 
     // Clean up listeners on unmount
     return () => {
-      wsClient.off('notification', notificationHandler);
+      wsClient.off('notification', asOffHandler(notificationHandler));
       setNotifications([]); // Clear notifications on unmount
       setUnreadCount(0);
     };
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   const markAsRead = useCallback((notificationId: string) => {
     setNotifications((prev) =>
@@ -79,32 +118,29 @@ export function useWebSocketNotifications() {
 
 // Hook for real-time orders
 export function useRealTimeOrders() {
-  const { isAuthenticated, sessionId } = useAuth();
-  const [lastOrder, setLastOrder] = useState<any>(null);
-  const [orderUpdates, setOrderUpdates] = useState<any[]>([]);
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
+  const [lastOrder, setLastOrder] = useState<OrderEvent | null>(null);
+  const [orderUpdates, setOrderUpdates] = useState<Array<{ type: 'created' | 'approved' | 'rejected'; order: OrderEvent; timestamp: Date }>>([]);
 
   useEffect(() => {
     if (!isAuthenticated || !sessionId) {
       return;
     }
 
-    const wsClient = getWebSocketClient({
-      user: null,
-      tenantId: null,
-      sessionId,
-    } as any);
+    const wsClient = getWebSocketClient(auth);
 
-    const orderCreatedHandler = (order: any) => {
+    const orderCreatedHandler = (order: OrderEvent) => {
       setLastOrder(order);
-      setOrderUpdates((prev) => [{ type: 'created', order, timestamp: new Date() }, ...prev].slice(0, 50));
+      setOrderUpdates((prev) => [{ type: 'created' as const, order, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const orderApprovedHandler = (order: any) => {
-      setOrderUpdates((prev) => [{ type: 'approved', order, timestamp: new Date() }, ...prev].slice(0, 50));
+    const orderApprovedHandler = (order: OrderEvent) => {
+      setOrderUpdates((prev) => [{ type: 'approved' as const, order, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const orderRejectedHandler = (order: any) => {
-      setOrderUpdates((prev) => [{ type: 'rejected', order, timestamp: new Date() }, ...prev].slice(0, 50));
+    const orderRejectedHandler = (order: OrderEvent) => {
+      setOrderUpdates((prev) => [{ type: 'rejected' as const, order, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
     wsClient.onOrderCreated(orderCreatedHandler);
@@ -112,11 +148,11 @@ export function useRealTimeOrders() {
     wsClient.onOrderRejected(orderRejectedHandler);
 
     return () => {
-      wsClient.off('orderCreated', orderCreatedHandler);
-      wsClient.off('orderApproved', orderApprovedHandler);
-      wsClient.off('orderRejected', orderRejectedHandler);
+      wsClient.off('orderCreated', asOffHandler(orderCreatedHandler));
+      wsClient.off('orderApproved', asOffHandler(orderApprovedHandler));
+      wsClient.off('orderRejected', asOffHandler(orderRejectedHandler));
     };
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   return {
     lastOrder,
@@ -127,42 +163,39 @@ export function useRealTimeOrders() {
 
 // Hook for real-time production updates
 export function useRealTimeProduction() {
-  const { isAuthenticated, sessionId } = useAuth();
-  const [productionUpdates, setProductionUpdates] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
+  const [productionUpdates, setProductionUpdates] = useState<Array<{ type: 'task_completed' | 'alert'; task?: ProductionTaskEvent; alert?: ProductionAlertItem; timestamp: Date }>>([]);
+  const [alerts, setAlerts] = useState<ProductionAlertItem[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated || !sessionId) {
       return;
     }
 
-    const wsClient = getWebSocketClient({
-      user: null,
-      tenantId: null,
-      sessionId,
-    } as any);
+    const wsClient = getWebSocketClient(auth);
 
-    const taskCompletedHandler = (task: any) => {
-      setProductionUpdates((prev) => [{ type: 'task_completed', task, timestamp: new Date() }, ...prev].slice(0, 50));
+    const taskCompletedHandler = (task: ProductionTaskEvent) => {
+      setProductionUpdates((prev) => [{ type: 'task_completed' as const, task, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const alertHandler = (alert: any) => {
+    const alertHandler = (alert: ProductionAlertEvent) => {
       if (alert.severity === 'CRITICAL') {
         setAlerts((prev) => [alert, ...prev].slice(0, 50));
       }
-      setProductionUpdates((prev) => [{ type: 'alert', alert, timestamp: new Date() }, ...prev].slice(0, 50));
+      setProductionUpdates((prev) => [{ type: 'alert' as const, alert, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
     wsClient.onProductionTaskCompleted(taskCompletedHandler);
     wsClient.onProductionAlert(alertHandler);
 
     return () => {
-      wsClient.off('productionTaskCompleted', taskCompletedHandler);
-      wsClient.off('productionAlert', alertHandler);
+      wsClient.off('productionTaskCompleted', asOffHandler(taskCompletedHandler));
+      wsClient.off('productionAlert', asOffHandler(alertHandler));
       setAlerts([]);
       setProductionUpdates([]);
     };
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   return {
     productionUpdates,
@@ -176,32 +209,29 @@ export function useRealTimeProduction() {
 
 // Hook for real-time stock updates
 export function useRealTimeStock() {
-  const { isAuthenticated, sessionId } = useAuth();
-  const [stockAlerts, setStockAlerts] = useState<any[]>([]);
-  const [stockUpdates, setStockUpdates] = useState<any[]>([]);
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
+  const [stockAlerts, setStockAlerts] = useState<StockAlertItem[]>([]);
+  const [stockUpdates, setStockUpdates] = useState<Array<{ type: 'critical' | 'updated'; alert?: StockAlertItem; stock?: StockEvent; timestamp: Date }>>([]);
 
   useEffect(() => {
     if (!isAuthenticated || !sessionId) {
       return;
     }
 
-    const wsClient = getWebSocketClient({
-      user: null,
-      tenantId: null,
-      sessionId,
-    } as any);
+    const wsClient = getWebSocketClient(auth);
 
-    const stockLowHandler = (alert: any) => {
+    const stockLowHandler = (alert: StockAlertEvent) => {
       setStockAlerts((prev) => [alert, ...prev].slice(0, 50));
     };
 
-    const stockCriticalHandler = (alert: any) => {
+    const stockCriticalHandler = (alert: StockAlertEvent) => {
       setStockAlerts((prev) => [alert, ...prev].slice(0, 50));
-      setStockUpdates((prev) => [{ type: 'critical', alert, timestamp: new Date() }, ...prev].slice(0, 50));
+      setStockUpdates((prev) => [{ type: 'critical' as const, alert, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const stockUpdatedHandler = (stock: any) => {
-      setStockUpdates((prev) => [{ type: 'updated', stock, timestamp: new Date() }, ...prev].slice(0, 50));
+    const stockUpdatedHandler = (stock: StockEvent) => {
+      setStockUpdates((prev) => [{ type: 'updated' as const, stock, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
     wsClient.onStockLow(stockLowHandler);
@@ -209,13 +239,13 @@ export function useRealTimeStock() {
     wsClient.onStockUpdated(stockUpdatedHandler);
 
     return () => {
-      wsClient.off('stockLow', stockLowHandler);
-      wsClient.off('stockCritical', stockCriticalHandler);
-      wsClient.off('stockUpdated', stockUpdatedHandler);
+      wsClient.off('stockLow', asOffHandler(stockLowHandler));
+      wsClient.off('stockCritical', asOffHandler(stockCriticalHandler));
+      wsClient.off('stockUpdated', asOffHandler(stockUpdatedHandler));
       setStockAlerts([]);
       setStockUpdates([]);
     };
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   return {
     stockAlerts,
@@ -229,30 +259,27 @@ export function useRealTimeStock() {
 
 // Hook for real-time digital menu updates
 export function useRealTimeDigitalMenu() {
-  const { isAuthenticated, sessionId } = useAuth();
-  const [menuUpdates, setMenuUpdates] = useState<any[]>([]);
-  const [qrScans, setQrScans] = useState<any[]>([]);
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
+  const [menuUpdates, setMenuUpdates] = useState<Array<{ type: 'published' | 'updated'; menu: MenuEvent; timestamp: Date }>>([]);
+  const [qrScans, setQrScans] = useState<QRScanEvent[]>([]);
 
   useEffect(() => {
     if (!isAuthenticated || !sessionId) {
       return;
     }
 
-    const wsClient = getWebSocketClient({
-      user: null,
-      tenantId: null,
-      sessionId,
-    } as any);
+    const wsClient = getWebSocketClient(auth);
 
-    const menuPublishedHandler = (menu: any) => {
-      setMenuUpdates((prev) => [{ type: 'published', menu, timestamp: new Date() }, ...prev].slice(0, 50));
+    const menuPublishedHandler = (menu: MenuEvent) => {
+      setMenuUpdates((prev) => [{ type: 'published' as const, menu, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const menuUpdatedHandler = (menu: any) => {
-      setMenuUpdates((prev) => [{ type: 'updated', menu, timestamp: new Date() }, ...prev].slice(0, 50));
+    const menuUpdatedHandler = (menu: MenuEvent) => {
+      setMenuUpdates((prev) => [{ type: 'updated' as const, menu, timestamp: new Date() }, ...prev].slice(0, 50));
     };
 
-    const qrScanHandler = (scan: any) => {
+    const qrScanHandler = (scan: QRScanEvent) => {
       setQrScans((prev) => [scan, ...prev].slice(0, 50));
     };
 
@@ -261,13 +288,13 @@ export function useRealTimeDigitalMenu() {
     wsClient.onQRScan(qrScanHandler);
 
     return () => {
-      wsClient.off('menuPublished', menuPublishedHandler);
-      wsClient.off('menuUpdated', menuUpdatedHandler);
-      wsClient.off('qrScan', qrScanHandler);
+      wsClient.off('menuPublished', asOffHandler(menuPublishedHandler));
+      wsClient.off('menuUpdated', asOffHandler(menuUpdatedHandler));
+      wsClient.off('qrScan', asOffHandler(qrScanHandler));
       setMenuUpdates([]);
       setQrScans([]);
     };
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   return {
     menuUpdates,
@@ -281,42 +308,31 @@ export function useRealTimeDigitalMenu() {
 
 // Hook to control WebSocket rooms
 export function useWebSocketRooms() {
-  const { isAuthenticated, sessionId } = useAuth();
+  const auth = useAuth();
+  const { isAuthenticated, sessionId } = auth;
 
   const joinKitchen = useCallback(() => {
     if (isAuthenticated && sessionId) {
-      const wsClient = getWebSocketClient({
-        user: null,
-        tenantId: null,
-        sessionId,
-      } as any);
+      const wsClient = getWebSocketClient(auth);
       wsClient.joinKitchen();
     }
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   const joinDashboard = useCallback(() => {
     if (isAuthenticated && sessionId) {
-      const wsClient = getWebSocketClient({
-        user: null,
-        tenantId: null,
-        sessionId,
-      } as any);
+      const wsClient = getWebSocketClient(auth);
       wsClient.joinDashboard();
     }
-  }, [isAuthenticated, sessionId]);
+  }, [auth, isAuthenticated, sessionId]);
 
   const leaveRoom = useCallback(
     (room: string) => {
       if (isAuthenticated && sessionId) {
-        const wsClient = getWebSocketClient({
-          user: null,
-          tenantId: null,
-          sessionId,
-        } as any);
+        const wsClient = getWebSocketClient(auth);
         wsClient.leaveRoom(room);
       }
     },
-    [isAuthenticated, sessionId]
+    [auth, isAuthenticated, sessionId]
   );
 
   return {

@@ -38,8 +38,9 @@ export default function LoginPage() {
     try {
       await login(data);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(message);
     } finally {
       setLoading(false);
     }

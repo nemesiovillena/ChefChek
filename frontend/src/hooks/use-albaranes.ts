@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { listAlbaranes, type Albaran, type AlbaranFilters, type AlbaranListResponse } from '@/lib/api-albaran';
 
 interface UseAlbaranesReturn {
@@ -14,43 +15,30 @@ interface UseAlbaranesReturn {
 }
 
 export function useAlbaranes(initialFilters: AlbaranFilters = {}): UseAlbaranesReturn {
-  const [albaranes, setAlbaranes] = useState<Albaran[]>([]);
-  const [meta, setMeta] = useState<AlbaranListResponse['meta'] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [filters, setFiltersState] = useState<AlbaranFilters>({ ...initialFilters, page: 1, limit: 20 });
 
-  const fetchAlbaranes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await listAlbaranes(filters);
-      setAlbaranes(response.data);
-      setMeta(response.meta);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading albaranes');
-      setAlbaranes([]);
-      setMeta(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
+  const { data, isLoading, error, refetch } = useQuery<AlbaranListResponse, Error>({
+    queryKey: ['albaranes', filters],
+    queryFn: async () => listAlbaranes(filters),
+  });
 
-  useEffect(() => {
-    fetchAlbaranes();
-  }, [fetchAlbaranes]);
-
-  const refetch = useCallback(() => {
-    fetchAlbaranes();
-  }, [fetchAlbaranes]);
-
-  const setPage = useCallback((page: number) => {
+  const setPage = (page: number) => {
     setFiltersState((prev) => ({ ...prev, page }));
-  }, []);
+  };
 
-  const setFilters = useCallback((newFilters: Partial<AlbaranFilters>) => {
+  const setFilters = (newFilters: Partial<AlbaranFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...newFilters, page: 1 }));
-  }, []);
+  };
 
-  return { albaranes, meta, loading, error, refetch, setPage, setFilters };
+  return {
+    albaranes: data?.data ?? [],
+    meta: data?.meta ?? null,
+    loading: isLoading,
+    error: error ? (error instanceof Error ? error.message : 'Error loading albaranes') : null,
+    refetch: () => {
+      void refetch();
+    },
+    setPage,
+    setFilters,
+  };
 }

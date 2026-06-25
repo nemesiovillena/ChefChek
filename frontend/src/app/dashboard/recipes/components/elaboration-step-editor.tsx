@@ -96,24 +96,27 @@ export function parseSteps(elaboration: string | null | undefined): ElaborationS
   if (!elaboration) return [{ ...EMPTY_STEP }];
 
   try {
-    const parsed = JSON.parse(elaboration);
+    const parsed = JSON.parse(elaboration) as unknown;
     // Structured format: { steps: [...] }
-    if (parsed.steps && Array.isArray(parsed.steps)) {
-      return parsed.steps.map((s: any) => ({
-        description: s.description || '',
-        equipment: s.equipment || null,
-        time: s.time || null,
-        temperature: s.temperature || null,
+    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { steps?: unknown }).steps)) {
+      return (parsed as { steps: Array<Record<string, unknown>> }).steps.map((s) => ({
+        description: typeof s.description === 'string' ? s.description : '',
+        equipment: typeof s.equipment === 'string' ? s.equipment : null,
+        time: typeof s.time === 'string' ? s.time : null,
+        temperature: typeof s.temperature === 'string' ? s.temperature : null,
       }));
     }
     // Legacy TipTap format: extract text content from paragraphs
-    if (parsed.type === 'doc' && parsed.content) {
+    if (parsed && typeof parsed === 'object' && (parsed as { type?: string }).type === 'doc' && Array.isArray((parsed as { content?: unknown[] }).content)) {
       const texts: string[] = [];
-      const extractText = (node: any) => {
-        if (node.text) texts.push(node.text);
-        if (node.content) node.content.forEach(extractText);
+      const extractText = (node: unknown) => {
+        if (node && typeof node === 'object') {
+          const n = node as { text?: unknown; content?: unknown[] };
+          if (typeof n.text === 'string') texts.push(n.text);
+          if (Array.isArray(n.content)) n.content.forEach(extractText);
+        }
       };
-      parsed.content.forEach(extractText);
+      (parsed as { content: unknown[] }).content.forEach(extractText);
       if (texts.length > 0) {
         return texts.map((t) => ({ description: t, equipment: null, time: null, temperature: null }));
       }

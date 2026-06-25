@@ -36,21 +36,6 @@ export default function MenusPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchMenus();
-    }
-  }, []);
-
-  // Don't render anything if not authenticated or loading
-  if (!isAuthenticated || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Cargando...</div>
-      </div>
-    );
-  }
-
   const fetchMenus = async () => {
     try {
       const sessionId = sessionStorage.getItem('session_id');
@@ -82,6 +67,21 @@ export default function MenusPage() {
       setPageLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      Promise.resolve().then(fetchMenus);
+    }
+  }, [isAuthenticated]);
+
+  // Don't render anything if not authenticated or loading
+  if (!isAuthenticated || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Cargando...</div>
+      </div>
+    );
+  }
 
   const handleCreateMenu = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -184,11 +184,12 @@ export default function MenusPage() {
           message: data.message || 'Error al cambiar el estado del menú',
         });
       }
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al cambiar el estado del menú';
       addNotification({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Error al cambiar el estado del menú',
+        message,
       });
     }
   };

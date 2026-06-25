@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AxiosError } from 'axios';
 import apiClient from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,8 +36,16 @@ export function CreateSupplierInline({ onSuccess, onCancel }: CreateSupplierInli
       });
 
       onSuccess(response.data.data.id);
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Error al crear proveedor';
+    } catch (err: unknown) {
+      let message = 'Error al crear proveedor';
+      if (err instanceof AxiosError) {
+        const dataMessage = err.response?.data as { message?: unknown } | undefined;
+        if (typeof dataMessage?.message === 'string') {
+          message = dataMessage.message;
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       setError(message);
       setLoading(false);
     }

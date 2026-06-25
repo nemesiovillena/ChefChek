@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AxiosError } from 'axios';
 import apiClient from '@/lib/api-client';
 import { matchLine } from '@/lib/api-albaran';
 import { Button } from '@/components/ui/button';
@@ -52,8 +53,16 @@ export function CreateProductInline({
       await matchLine(albaranId, line.id, productId);
 
       onSuccess();
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Error al crear producto';
+    } catch (err: unknown) {
+      let message = 'Error al crear producto';
+      if (err instanceof AxiosError) {
+        const dataMessage = err.response?.data as { message?: unknown } | undefined;
+        if (typeof dataMessage?.message === 'string') {
+          message = dataMessage.message;
+        }
+      } else if (err instanceof Error) {
+        message = err.message;
+      }
       setError(message);
       setLoading(false);
     }

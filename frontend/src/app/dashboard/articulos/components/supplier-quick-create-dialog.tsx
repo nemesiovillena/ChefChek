@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
+import { ApiError } from '@/types/api.types';
 import apiClient from '@/lib/api-client';
 
 interface SupplierQuickCreateDialogProps {
@@ -50,8 +52,11 @@ export default function SupplierQuickCreateDialog({ isOpen, onClose, onCreated }
       setWhatsapp('');
       setEmail('');
       onClose();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.response?.data?.message || error.message || 'Error al crear proveedor' });
+    } catch (error: unknown) {
+      const message = axios.isAxiosError<ApiError>(error)
+        ? (error.response?.data?.message || error.message || 'Error al crear proveedor')
+        : (error instanceof Error ? error.message : 'Error al crear proveedor');
+      addNotification({ type: 'error', title: 'Error', message });
     } finally {
       setSaving(false);
     }

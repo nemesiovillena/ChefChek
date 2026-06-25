@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, X, Loader2, History, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmationDialog, ConfirmationDialogContent } from '@/components/ui/confirmation-dialog';
 import { useSuppliers, type Supplier as ApiSupplier } from '@/hooks/use-suppliers';
-import { useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useToggleSupplierActive } from '@/hooks/use-supplier-mutations';
+import { useCreateSupplier, useUpdateSupplier, useDeleteSupplier, useToggleSupplierActive, type CreateSupplierDto, type UpdateSupplierDto } from '@/hooks/use-supplier-mutations';
+import { ApiError } from '@/types/api.types';
 import { SupplierPriceTrendBadge } from './supplier-price-trend-badge';
 import { SupplierPriceHistory } from './supplier-price-history-chart';
 import { SupplierForm } from './supplier-form';
 import apiClient from '@/lib/api-client';
+
+/** Extract a human-readable message from a supplier API error. */
+function resolveSupplierErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<ApiError>(error)) {
+    return error.response?.data?.message || error.message || fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
 
 interface Props {
   isOpen: boolean;
@@ -27,7 +38,7 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [expandedSupplierId, setExpandedSupplierId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string; productCount?: number; products?: any[] } | null>(null);
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: string; name: string; productCount?: number } | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null);
   const [showReassignDialog, setShowReassignDialog] = useState(false);
   const [targetSupplierId, setTargetSupplierId] = useState<string | null>(null);
@@ -78,8 +89,8 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
       });
       setDeleteDialogOpen(false);
       setSupplierToDelete(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Error al eliminar proveedor';
+    } catch (error: unknown) {
+      const errorMessage = resolveSupplierErrorMessage(error, 'Error al eliminar proveedor');
       setNotification({
         type: 'error',
         title: 'Error al eliminar',
@@ -110,8 +121,8 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
       setDeleteDialogOpen(false);
       setSupplierToDelete(null);
       setTargetSupplierId(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Error al reasignar productos';
+    } catch (error: unknown) {
+      const errorMessage = resolveSupplierErrorMessage(error, 'Error al reasignar productos');
       setNotification({
         type: 'error',
         title: 'Error',
@@ -119,13 +130,6 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
       });
     }
   };
-
-  // Reset cuando se cierra el diálogo
-  useEffect(() => {
-    if (!deleteDialogOpen) {
-      setSupplierToDelete(null);
-    }
-  }, [deleteDialogOpen]);
 
   // Auto-ocultar notificaciones después de 5 segundos
   useEffect(() => {
@@ -145,8 +149,8 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
         title: 'Estado actualizado',
         message: `El proveedor "${supplier.name}" ha sido ${!supplier.isActive ? 'activado' : 'desactivado'}`
       });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Error al cambiar estado';
+    } catch (error: unknown) {
+      const errorMessage = resolveSupplierErrorMessage(error, 'Error al cambiar estado');
       setNotification({
         type: 'error',
         title: 'Error al cambiar estado',
@@ -170,16 +174,16 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
     setEditingSupplier(null);
   };
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: CreateSupplierDto | UpdateSupplierDto) => {
     try {
       if (editingSupplier) {
-        await updateMutation.mutateAsync({ id: editingSupplier.id, data });
+        await updateMutation.mutateAsync({ id: editingSupplier.id, data: data as UpdateSupplierDto });
       } else {
-        await createMutation.mutateAsync(data);
+        await createMutation.mutateAsync(data as CreateSupplierDto);
       }
       handleCancelForm();
-    } catch (error: any) {
-      alert(error.message || 'Error al guardar proveedor');
+    } catch (error: unknown) {
+      alert(resolveSupplierErrorMessage(error, 'Error al guardar proveedor'));
     }
   };
 
@@ -315,7 +319,10 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
 
       <DeleteConfirmationDialog
         isOpen={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setSupplierToDelete(null);
+        }}
         onConfirm={handleConfirmDelete}
         supplierName={supplierToDelete?.name || ''}
         productCount={supplierToDelete?.productCount}
@@ -591,7 +598,7 @@ function ReassignProductsDialog({
             </div>
             <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
               <p className="text-sm text-blue-800">
-                💡 Los productos serán movidos al proveedor seleccionado. Luego el proveedor "{supplierName}" será eliminado.
+                💡 Los productos serán movidos al proveedor seleccionado. Luego el proveedor &ldquo;{supplierName}&rdquo; será eliminado.
               </p>
             </div>
           </div>

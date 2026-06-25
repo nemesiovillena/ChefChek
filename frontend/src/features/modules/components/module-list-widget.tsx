@@ -77,8 +77,8 @@ function ModuleCard({ module, onToggle }: ModuleCardProps) {
     try {
       await onToggle(checked);
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'message' in err) {
-        setLocalError((err as any).message);
+      if (err instanceof Error) {
+        setLocalError(err.message);
       } else {
         setLocalError('Failed to update module');
       }

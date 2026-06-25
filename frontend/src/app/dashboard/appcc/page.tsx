@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/auth.context';
 import { useAppcc } from '@/hooks/use-appcc';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -107,13 +108,14 @@ export default function AppccPage() {
   };
 
   const getControlStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
+    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
       pending: { label: 'Pendiente', variant: 'secondary' },
       in_progress: { label: 'En Progreso', variant: 'default' },
       completed: { label: 'Completado', variant: 'default' },
       failed: { label: 'Fallido', variant: 'destructive' },
     };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
     return (
       <Badge variant={config.variant}>
         {config.label}

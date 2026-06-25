@@ -1,4 +1,4 @@
-import { useCrud, useApiMutation } from './use-api';
+import { useCrud as createCrudHooks, useApiMutation } from './use-api';
 
 export interface PurchaseFormat {
   id: string;
@@ -135,13 +135,15 @@ export interface ProductsQuery {
   pageSize?: number;
 }
 
+// useCrud is a hook factory (builds hooks, does not itself call React hooks);
+// aliased to a non-hook name so it can run at module scope.
 const {
   useList,
   useGet,
   useCreate,
   useUpdate,
   useDelete,
-} = useCrud<Product, CreateProductData, UpdateProductData>('/v1/products', ['products']);
+} = createCrudHooks<Product, CreateProductData, UpdateProductData>('/v1/products', ['products']);
 
 export function useProducts(query?: ProductsQuery, page: number = 1, pageSize: number = 50) {
   return useList(page, pageSize);

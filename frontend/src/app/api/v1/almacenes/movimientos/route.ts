@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(await response.json());
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error en stock-movements POST:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },

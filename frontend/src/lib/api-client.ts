@@ -71,6 +71,13 @@ apiClient.interceptors.request.use(
   }
 );
 
+// Extended config type carrying internal retry flags. These fields are not
+// part of axios's public types but are used by the interceptor below.
+interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _retryCount?: number;
+}
+
 // Response interceptor
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -105,7 +112,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as RetryableAxiosRequestConfig | undefined;
 
     // Handle 401 Unauthorized - try to refresh token
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
@@ -139,10 +146,10 @@ apiClient.interceptors.response.use(
     // Handle 5xx errors - retry up to 3 times
     if (error.response?.status && error.response.status >= 500 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
-      const retryCount = (originalRequest as any)._retryCount || 0;
+      const retryCount = originalRequest._retryCount || 0;
 
       if (retryCount < 3) {
-        (originalRequest as any)._retryCount = retryCount + 1;
+        originalRequest._retryCount = retryCount + 1;
         // Exponential backoff
         const delay = Math.pow(2, retryCount) * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import type { Product } from './use-products';
 
@@ -33,8 +34,13 @@ export function useProductSearch(debounceMs: number = 300): UseProductSearchRetu
         params: { search: query },
       });
       setProducts(response.data || []);
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Error buscando productos';
+    } catch (err: unknown) {
+      let message = 'Error buscando productos';
+      if (axios.isAxiosError<{ message?: string }>(err)) {
+        message = err.response?.data?.message || err.message || message;
+      } else if (err instanceof Error) {
+        message = err.message || message;
+      }
       setError(message);
       setProducts([]);
     } finally {

@@ -91,20 +91,7 @@ export default function DashboardInteractivoPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(DashboardStep.KPI_METRICS);
-  const [isLoading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Auth redirect
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, authLoading, router]);
-
-  // Prevent isLoading if not authenticated
-  if (authLoading || !isAuthenticated) {
-    return null;
-  }
 
   // Data states
   const [kpiMetrics, setKpiMetrics] = useState<KPIMetric[]>([]);
@@ -115,25 +102,82 @@ export default function DashboardInteractivoPage() {
 
   // Period filter
   const [period, setPeriod] = useState('MONTH');
+  // Track which period has been loaded; loading is true while period !== loadedPeriod
+  const [loadedPeriod, setLoadedPeriod] = useState<string | null>(null);
+  const isLoading = loadedPeriod !== period;
+
+  // Auth redirect
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, [period]);
+    let cancelled = false;
+    const fetchData = async () => {
+      if (!user?.id) {
+        console.error('No user available');
+        return;
+      }
 
-  const loadDashboardData = async () => {
+      try {
+        const headers = {
+          'Authorization': `Bearer ${user.id}`,
+          'Content-Type': 'application/json',
+        };
+
+        // Simulate API calls
+        const [kpiResponse, evolutionResponse, healthResponse, alertsResponse, menuResponse] =
+          await Promise.all([
+            fetch(`/api/v1/dashboard/kpi-metrics?period=${period}`, { headers }),
+            fetch(`/api/v1/dashboard/supplier-cost-evolution?period=${period}`, { headers }),
+            fetch('/api/v1/dashboard/financial-margin-health', { headers }),
+            fetch('/api/v1/dashboard/alerts', { headers }),
+            fetch('/api/v1/dashboard/menu-engineering', { headers }),
+          ]);
+
+        const [kpiData, evolutionData, healthData, alertsData, menuData] = await Promise.all([
+          kpiResponse.json(),
+          evolutionResponse.json(),
+          healthResponse.json(),
+          alertsResponse.json(),
+          menuResponse.json(),
+        ]);
+
+        if (cancelled) return;
+        setKpiMetrics(kpiData);
+        setSupplierCostEvolution(evolutionData);
+        setFinancialMarginHealth(healthData);
+        setAlerts(alertsData);
+        setMenuEngineering(menuData);
+      } catch (error) {
+        console.error('Error isLoading dashboard data:', error);
+      } finally {
+        if (!cancelled) setLoadedPeriod(period);
+      }
+    };
+    fetchData();
+    return () => { cancelled = true; };
+  }, [period, user?.id]);
+
+  // Prevent isLoading if not authenticated
+  if (authLoading || !isAuthenticated) {
+    return null;
+  }
+
+  const handleRefresh = async () => {
     if (!user?.id) {
       console.error('No user available');
       return;
     }
-
-    setLoading(true);
+    setRefreshing(true);
     try {
       const headers = {
         'Authorization': `Bearer ${user.id}`,
         'Content-Type': 'application/json',
       };
 
-      // Simulate API calls
       const [kpiResponse, evolutionResponse, healthResponse, alertsResponse, menuResponse] =
         await Promise.all([
           fetch(`/api/v1/dashboard/kpi-metrics?period=${period}`, { headers }),
@@ -157,16 +201,10 @@ export default function DashboardInteractivoPage() {
       setAlerts(alertsData);
       setMenuEngineering(menuData);
     } catch (error) {
-      console.error('Error isLoading dashboard data:', error);
+      console.error('Error refreshing dashboard data:', error);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
   };
 
   const getStepIndex = (step: DashboardStep) => dashboardSteps.findIndex((s) => s.id === step);

@@ -5,9 +5,9 @@ import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useProducts, Product, useDeleteProduct, useUpdateProduct } from '@/hooks/use-products';
-import { useCategoryTree, useCategories, CategoryTreeNode } from '@/hooks/use-categories';
+import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
-import { useQRCodes } from '@/hooks/use-qr-codes';
+import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 
@@ -29,13 +29,13 @@ export default function ArticulosPage() {
   const allCategories = Array.isArray(categoriesData) ? categoriesData : [];
   const tree: CategoryTreeNode[] = Array.isArray(categoryTree) ? categoryTree : [];
 
-  const { data: suppliersResponse } = useApiQuery<any>(['suppliers'], '/v1/products/suppliers');
+  const { data: suppliersResponse } = useApiQuery<Supplier[]>(['suppliers'], '/v1/products/suppliers');
   const suppliers: Supplier[] = Array.isArray(suppliersResponse) ? suppliersResponse : [];
 
   const updateProductMutation = useUpdateProduct();
   const deleteProductMutation = useDeleteProduct();
   const { generateQRCode, deleteQRCode, isLoading: qrLoading } = useQRCodes();
-  const [productQRCodes, setProductQRCodes] = useState<Map<string, any>>(new Map());
+  const [productQRCodes, setProductQRCodes] = useState<Map<string, QRCodeResponse>>(new Map());
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -64,7 +64,7 @@ export default function ArticulosPage() {
 
   const categoryNameMap = useMemo(() => {
     const map: Record<string, string> = {};
-    allCategories.forEach((c: any) => { map[c.id] = c.name; });
+    allCategories.forEach((c: Category) => { map[c.id] = c.name; });
     return map;
   }, [allCategories]);
 
@@ -80,8 +80,8 @@ export default function ArticulosPage() {
         await deleteProductMutation.mutateAsync(id);
         addNotification({ type: 'success', title: 'Artículo eliminado', message: 'Artículo eliminado correctamente' });
         refetch();
-      } catch (error: any) {
-        addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al eliminar artículo' });
+      } catch (error: unknown) {
+        addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'Error al eliminar artículo' });
       }
     }
   };
@@ -95,8 +95,8 @@ export default function ArticulosPage() {
         message: `El artículo "${product.name}" ha sido ${!product.isActive ? 'activado' : 'desactivado'}`
       });
       refetch();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al cambiar el estado del artículo' });
+    } catch (error: unknown) {
+      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'Error al cambiar el estado del artículo' });
     }
   };
 
@@ -126,8 +126,8 @@ export default function ArticulosPage() {
       });
       setProductQRCodes(prev => new Map(prev).set(product.id, qrCode));
       addNotification({ type: 'success', title: 'QR Generado', message: `Código QR generado para ${product.name}` });
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al generar código QR' });
+    } catch (error: unknown) {
+      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'Error al generar código QR' });
     }
   };
 
@@ -150,7 +150,8 @@ export default function ArticulosPage() {
     }
   };
 
-  const handleDeleteQR = async (productId: string, qrCodeId: string) => {
+  const handleDeleteQR = async (productId: string, qrCodeId: string | undefined) => {
+    if (!qrCodeId) return;
     try {
       await deleteQRCode(qrCodeId);
       setProductQRCodes(prev => {
@@ -159,8 +160,8 @@ export default function ArticulosPage() {
         return newMap;
       });
       addNotification({ type: 'success', title: 'QR Eliminado', message: 'Código QR eliminado correctamente' });
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al eliminar código QR' });
+    } catch (error: unknown) {
+      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'Error al eliminar código QR' });
     }
   };
 
@@ -198,8 +199,8 @@ export default function ArticulosPage() {
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts];
     sorted.sort((a, b) => {
-      let valA: any = '';
-      let valB: any = '';
+      let valA: string | number = '';
+      let valB: string | number = '';
 
       switch (sortField) {
         case 'name':

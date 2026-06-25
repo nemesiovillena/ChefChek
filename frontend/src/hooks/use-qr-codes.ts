@@ -4,7 +4,7 @@ import apiClient from '@/lib/api-client';
 export interface GenerateQRCodeDto {
   entityType: 'digital-menu' | 'product' | 'recipe' | 'category';
   entityId: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   config?: {
     qrType?: 'static' | 'dynamic' | 'temporary';
     format?: 'png' | 'svg' | 'jpeg' | 'webp';
@@ -41,7 +41,7 @@ export interface QRScanResponse {
   lastScannedAt: string;
   format: string;
   size: number;
-  entityData?: Record<string, any>;
+  entityData?: Record<string, unknown>;
 }
 
 export interface QRStats {

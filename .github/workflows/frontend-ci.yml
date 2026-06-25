@@ -30,10 +30,6 @@ jobs:
 
       - name: Lint
         run: bun run lint
-        # Frontend has pre-existing lint debt (~200 errors). Non-blocking until
-        # cleared; output is still visible in the run logs. Remove
-        # continue-on-error to make lint enforce the gate.
-        continue-on-error: true
 
       - name: Build
         run: bun run build

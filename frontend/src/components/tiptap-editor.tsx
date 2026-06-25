@@ -1,4 +1,3 @@
-// @ts-nocheck - TipTap version conflicts with @tiptap/core types
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -14,9 +13,9 @@ interface TipTapEditorProps {
 }
 
 export function TipTapEditor({ content, onChange, editable = true }: TipTapEditorProps) {
-  // @ts-ignore - TipTap version conflicts with @tiptap/core types
   const editor = useEditor({
     extensions: [
+      // @ts-expect-error: @tiptap/core is duplicated under starter-kit's node_modules, producing incompatible Extension types; runtime works.
       StarterKit,
       Underline,
       TextAlign.configure({

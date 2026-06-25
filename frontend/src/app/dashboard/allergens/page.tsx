@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useAllergens } from '@/hooks/use-allergens';
+import { useAllergens, type AllergenResponse } from '@/hooks/use-allergens';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -95,7 +95,7 @@ export default function AllergensPage() {
     }
   };
 
-  const startEditAllergen = (allergen: any) => {
+  const startEditAllergen = (allergen: AllergenResponse) => {
     setEditingAllergenId(allergen.id);
     setNewAllergenName(allergen.name);
     setNewAllergenNameEu1169(allergen.nameEu1169 || '');

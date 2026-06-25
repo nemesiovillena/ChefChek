@@ -7,8 +7,22 @@ import {
   UseQueryOptions,
   UseMutationOptions,
 } from '@tanstack/react-query';
+import axios, { AxiosResponse } from 'axios';
 import apiClient from '@/lib/api-client';
 import { ApiError, PaginatedResponse } from '@/types/api.types';
+
+/** Extract a human-readable message from an axios error, falling back to a default. */
+function resolveErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<ApiError>(error)) {
+    return (
+      error.response?.data?.message ||
+      error.message ||
+      fallback
+    );
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
 
 // Query hook factory
 export function useApiQuery<T>(
@@ -22,12 +36,8 @@ export function useApiQuery<T>(
       try {
         const response = await apiClient.get<T>(url);
         return response.data;
-      } catch (error: any) {
-        const apiError: ApiError = error.response?.data || {
-          message: error.message || 'Error desconocido',
-          statusCode: error.response?.status || 500,
-        };
-        throw new Error(apiError.message);
+      } catch (error: unknown) {
+        throw new Error(resolveErrorMessage(error, 'Error desconocido'));
       }
     },
     ...options,
@@ -48,29 +58,25 @@ export function useApiMutation<TData, TVariables>(
   return useMutation<TData, Error, TVariables>({
     mutationFn: async (variables): Promise<TData> => {
       try {
-        let response: any;
+        let response: AxiosResponse<TData>;
         if (method === 'DELETE') {
           response = await apiClient.delete<TData>(url);
         } else if (method === 'POST') {
           response = await apiClient.post<TData>(url, variables);
         } else if (method === 'PUT') {
           response = await apiClient.put<TData>(url, variables);
-        } else if (method === 'PATCH') {
+        } else {
           response = await apiClient.patch<TData>(url, variables);
         }
         return response.data;
-      } catch (error: any) {
-        const apiError: ApiError = error.response?.data || {
-          message: error.message || 'Error desconocido',
-          statusCode: error.response?.status || 500,
-        };
-        throw new Error(apiError.message);
+      } catch (error: unknown) {
+        throw new Error(resolveErrorMessage(error, 'Error desconocido'));
       }
     },
-    onSuccess: (data, error, variables, context) => {
+    onSuccess: (data, variables, onMutateResult, context) => {
       // Let specific hooks handle invalidation
       // This hook is generic and doesn't know the query structure
-      options?.onSuccess?.(data, error, variables, context);
+      options?.onSuccess?.(data, variables, onMutateResult, context);
     },
     ...options,
   });

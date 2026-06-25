@@ -1,4 +1,4 @@
-import { useCrud, useApiQuery } from './use-api';
+import { useCrud as createCrudHooks, useApiQuery } from './use-api';
 
 export type CategoryContext = 'articles' | 'recipes';
 
@@ -54,13 +54,15 @@ export interface UpdateCategoryData extends Partial<CreateCategoryData> {
   id: string;
 }
 
-// Keep useCrud for mutations (create, update, delete) — they don't need context
+// Keep useCrud for mutations (create, update, delete) — they don't need context.
+// Aliased to a non-hook name because useCrud is a hook factory (it builds hooks,
+// it does not itself call React hooks) and must run at module scope.
 const {
   useGet,
   useCreate,
   useUpdate,
   useDelete,
-} = useCrud<Category, CreateCategoryData, UpdateCategoryData>('/v1/categories', ['categories']);
+} = createCrudHooks<Category, CreateCategoryData, UpdateCategoryData>('/v1/categories', ['categories']);
 
 // Context-aware list hook — replaces useCrud's useList which doesn't support query params
 export function useCategories(context?: CategoryContext) {

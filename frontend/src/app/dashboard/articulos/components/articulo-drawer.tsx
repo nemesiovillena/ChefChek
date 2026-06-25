@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product } from '@/hooks/use-products';
+import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product, CreateProductData } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -90,76 +90,91 @@ const emptyNutrition: NutritionalData = {
   carbohydrates: '', sugars: '', protein: '', salt: '',
 };
 
-/** Centered modal for creating/editing articles */
+/** Derive initial form values from the article prop (pure derivation, no setState). */
+function deriveFormData(article: Product | null | undefined): FormData {
+  if (!article) return emptyFormData;
+  return {
+    name: article.name,
+    purchaseFormat: article.purchaseFormat || '',
+    referenceUnit: article.referenceUnit || 'kg',
+    unitsPerFormat: String(article.unitsPerFormat || 1),
+    referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
+    wastePercentage: article.wastePercentage?.toString() || '',
+    purchasePrice: article.purchasePrice?.toString() || '',
+    iva: article.iva?.toString() || '10',
+    qr: article.qr || '',
+    brand: article.brand || '',
+    barcode: article.barcode || '',
+    supplierId: article.supplierId || '',
+    categoryId: article.categoryId || '',
+    minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
+    maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
+  };
+}
+
+/** Derive initial nutrition values from the article prop (pure derivation, no setState). */
+function deriveNutrition(article: Product | null | undefined): NutritionalData {
+  const ni = article?.nutritionalInfo;
+  if (!ni) return emptyNutrition;
+  return {
+    energyKj: ni.energyKj?.toString() || '',
+    energyKcal: ni.energyKcal?.toString() || '',
+    fat: ni.fat?.toString() || '',
+    saturatedFat: ni.saturatedFat?.toString() || '',
+    transFat: ni.transFat?.toString() || '',
+    monounsaturatedFat: ni.monounsaturatedFat?.toString() || '',
+    polyunsaturatedFat: ni.polyunsaturatedFat?.toString() || '',
+    omega3: ni.omega3?.toString() || '',
+    cholesterol: ni.cholesterol?.toString() || '',
+    carbohydrates: ni.carbohydrates?.toString() || '',
+    sugars: ni.sugars?.toString() || '',
+    protein: ni.protein?.toString() || '',
+    salt: ni.salt?.toString() || '',
+  };
+}
+
+/** Outer component: keeps hooks stable and mounts the form keyed by the edited entity. */
 export default function ArticuloDrawer({ isOpen, onClose, article, tree, suppliers = [] }: ArticuloModalProps) {
+  if (!isOpen) return null;
+  // Keyed remount resets all internal state when switching between create/edit targets.
+  return (
+    <ArticuloDrawerForm
+      key={article?.id ?? 'new'}
+      article={article}
+      tree={tree}
+      suppliers={suppliers}
+      onClose={onClose}
+    />
+  );
+}
+
+interface ArticuloDrawerFormProps {
+  article?: Product | null;
+  tree: CategoryTreeNode[];
+  suppliers: SupplierOption[];
+  onClose: () => void;
+}
+
+function ArticuloDrawerForm({ article, tree, suppliers, onClose }: ArticuloDrawerFormProps) {
   const addNotification = useNotification();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
 
+  // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
   const [activeTab, setActiveTab] = useState('formato-precio');
-  const [formData, setFormData] = useState<FormData>(emptyFormData);
-  const [allergens, setAllergens] = useState<number[]>([]);
-  const [hideAllergens, setHideAllergens] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [nutritionalData, setNutritionalData] = useState<NutritionalData>(emptyNutrition);
+  const [formData, setFormData] = useState<FormData>(() => deriveFormData(article));
+  const [allergens, setAllergens] = useState<number[]>(() => article?.allergens ?? []);
+  const [hideAllergens, setHideAllergens] = useState(() => article?.hideAllergens ?? false);
+  const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
+  const [nutritionalData, setNutritionalData] = useState<NutritionalData>(() => deriveNutrition(article));
   const [saving, setSaving] = useState(false);
-  const [suppliersList, setSuppliersList] = useState<SupplierOption[]>(suppliers);
-
-  // Sync suppliers from props when drawer opens
-  useMemo(() => {
-    if (isOpen) setSuppliersList(suppliers);
-  }, [isOpen, suppliers]);
-
-  // Load article data when editing
-  useMemo(() => {
-    if (article) {
-      setFormData({
-        name: article.name,
-        purchaseFormat: article.purchaseFormat || '',
-        referenceUnit: article.referenceUnit || 'kg',
-        unitsPerFormat: String(article.unitsPerFormat || 1),
-        referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
-        wastePercentage: article.wastePercentage?.toString() || '',
-        purchasePrice: article.purchasePrice?.toString() || '',
-        iva: article.iva?.toString() || '10',
-        qr: article.qr || '',
-        brand: article.brand || '',
-        barcode: article.barcode || '',
-        supplierId: article.supplierId || '',
-        categoryId: article.categoryId || '',
-        minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
-        maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
-      });
-      setAllergens(article.allergens || []);
-      setHideAllergens(article.hideAllergens || false);
-      setImageUrl(article.imageUrl || '');
-      if (article.nutritionalInfo) {
-        setNutritionalData({
-          energyKj: article.nutritionalInfo.energyKj?.toString() || '',
-          energyKcal: article.nutritionalInfo.energyKcal?.toString() || '',
-          fat: article.nutritionalInfo.fat?.toString() || '',
-          saturatedFat: article.nutritionalInfo.saturatedFat?.toString() || '',
-          transFat: article.nutritionalInfo.transFat?.toString() || '',
-          monounsaturatedFat: article.nutritionalInfo.monounsaturatedFat?.toString() || '',
-          polyunsaturatedFat: article.nutritionalInfo.polyunsaturatedFat?.toString() || '',
-          omega3: article.nutritionalInfo.omega3?.toString() || '',
-          cholesterol: article.nutritionalInfo.cholesterol?.toString() || '',
-          carbohydrates: article.nutritionalInfo.carbohydrates?.toString() || '',
-          sugars: article.nutritionalInfo.sugars?.toString() || '',
-          protein: article.nutritionalInfo.protein?.toString() || '',
-          salt: article.nutritionalInfo.salt?.toString() || '',
-        });
-      }
-    } else {
-      setFormData(emptyFormData);
-      setAllergens([]);
-      setHideAllergens(false);
-      setImageUrl('');
-      setNutritionalData(emptyNutrition);
-      setActiveTab('formato-precio');
-    }
-  }, [article, tree]);
+  // Locally-created suppliers (added via the supplier tab) merged with the prop-supplied list.
+  const [addedSuppliers, setAddedSuppliers] = useState<SupplierOption[]>([]);
+  const suppliersList = useMemo(
+    () => [...suppliers, ...addedSuppliers],
+    [suppliers, addedSuppliers],
+  );
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
@@ -182,7 +197,7 @@ export default function ArticuloDrawer({ isOpen, onClose, article, tree, supplie
 
     setSaving(true);
     try {
-      const data: any = {
+      const data: CreateProductData = {
         name: formData.name,
         purchaseFormat: formData.purchaseFormat,
         referenceUnit: formData.referenceUnit,
@@ -213,8 +228,9 @@ export default function ArticuloDrawer({ isOpen, onClose, article, tree, supplie
         addNotification({ type: 'success', title: 'Artículo creado', message: `"${formData.name}" creado correctamente` });
       }
       onClose();
-    } catch (error: any) {
-      addNotification({ type: 'error', title: 'Error', message: error.message || 'Error al guardar artículo' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al guardar artículo';
+      addNotification({ type: 'error', title: 'Error', message });
     } finally {
       setSaving(false);
     }
@@ -226,14 +242,12 @@ export default function ArticuloDrawer({ isOpen, onClose, article, tree, supplie
       const uploadForm = new window.FormData();
       uploadForm.append('file', file);
       if (article?.id) uploadForm.append('productId', article.id);
-      const result = await uploadImageMutation.mutateAsync(uploadForm as any);
+      const result = await uploadImageMutation.mutateAsync(uploadForm);
       if (result?.url) setImageUrl(result.url);
     } catch {
       addNotification({ type: 'error', title: 'Error', message: 'Error al subir imagen' });
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-gray-600/50 overflow-y-auto h-full w-full z-50">
@@ -281,7 +295,10 @@ export default function ArticuloDrawer({ isOpen, onClose, article, tree, supplie
         {/* Tab content */}
         <div className="min-h-[200px]">
           {activeTab === 'formato-precio' && (
-            <PesoPrecioFields formData={formData} setFormData={(data: any) => setFormData(data)} />
+            <PesoPrecioFields
+              formData={formData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
+            />
           )}
           {activeTab === 'alergenos' && (
             <TabAlergenos
@@ -297,11 +314,11 @@ export default function ArticuloDrawer({ isOpen, onClose, article, tree, supplie
           {activeTab === 'proveedor-stock' && (
             <TabProveedorStock
               formData={formData}
-              setFormData={setFormData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
               tree={tree}
               suppliers={suppliersList}
               onSupplierCreated={(supplier) => {
-                setSuppliersList((prev) => [...prev, supplier]);
+                setAddedSuppliers((prev) => [...prev, supplier]);
               }}
             />
           )}

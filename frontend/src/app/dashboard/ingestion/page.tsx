@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink, Sparkles, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAlbaranUpload } from '@/hooks/use-albaran-upload';
+import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
 import { getApiKeyForModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
@@ -29,15 +29,18 @@ const AI_MODELS = [
 /** Storage key para persistir modelo seleccionado */
 const STORAGE_KEY_MODEL = 'ocr_ai_model';
 
-export default function IngestionPage() {
-  const [aiModel, setAiModel] = useState<string>('');
+/** Results may include an albaranId when the backend created an albaran record. */
+type ResultsWithAlbaran = AlbaranUploadResult & { albaranId?: string };
 
-  // Cargar modelo guardado
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedModel = localStorage.getItem(STORAGE_KEY_MODEL) || '';
-    setAiModel(savedModel);
-  }, []);
+function getAlbaranId(results: AlbaranUploadResult): string | undefined {
+  return (results as ResultsWithAlbaran).albaranId;
+}
+
+export default function IngestionPage() {
+  const [aiModel, setAiModel] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(STORAGE_KEY_MODEL) || '';
+  });
 
   const handleModelChange = (model: string) => {
     setAiModel(model);
@@ -294,10 +297,10 @@ export default function IngestionPage() {
               <Button onClick={handleImport} disabled={isUploading} className="flex-1">
                 Importar {results.products.filter((p) => p.confidence >= 0.5).length} productos
               </Button>
-              <Link href={(results as any)?.albaranId ? `/dashboard/albaranes/${(results as any).albaranId}` : '/dashboard/albaranes'}>
+              <Link href={getAlbaranId(results) ? `/dashboard/albaranes/${getAlbaranId(results)}` : '/dashboard/albaranes'}>
                 <Button variant="outline" className="w-full">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  {(results as any)?.albaranId ? 'Ver Albarán' : 'Ver en Albaranes'}
+                  {getAlbaranId(results) ? 'Ver Albarán' : 'Ver en Albaranes'}
                 </Button>
               </Link>
               <Button variant="ghost" onClick={reset}>

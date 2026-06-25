@@ -45,6 +45,17 @@ export default function WarehousePage() {
     isCreating,
   } = useWarehouse();
 
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isCreateWarehouseModalOpen, setIsCreateWarehouseModalOpen] = useState(false);
+  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
+  const [newWarehouseName, setNewWarehouseName] = useState('');
+  const [newWarehouseType, setNewWarehouseType] = useState<WarehouseType>('MAIN');
+  const [newWarehouseCapacity, setNewWarehouseCapacity] = useState('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+  const [movementType, setMovementType] = useState<'IN' | 'OUT'>('IN');
+  const [movementQuantity, setMovementQuantity] = useState('');
+  const [movementReason, setMovementReason] = useState('');
+
   // Auth redirect
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -56,17 +67,6 @@ export default function WarehousePage() {
   if (authLoading || !isAuthenticated) {
     return null;
   }
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isCreateWarehouseModalOpen, setIsCreateWarehouseModalOpen] = useState(false);
-  const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
-  const [newWarehouseName, setNewWarehouseName] = useState('');
-  const [newWarehouseType, setNewWarehouseType] = useState<WarehouseType>('MAIN');
-  const [newWarehouseCapacity, setNewWarehouseCapacity] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
-  const [movementType, setMovementType] = useState<'IN' | 'OUT'>('IN');
-  const [movementQuantity, setMovementQuantity] = useState('');
-  const [movementReason, setMovementReason] = useState('');
 
   const steps = [
     { title: 'Almacenes', icon: Warehouse },

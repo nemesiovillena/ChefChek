@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import apiClient from '@/lib/api-client';
 import type { Supplier } from './use-suppliers';
 
@@ -29,8 +30,13 @@ export function useSupplierSearch(debounceMs: number = 300): UseSupplierSearchRe
       }
       const response = await apiClient.get<Supplier[]>('/v1/products/suppliers', { params });
       setSuppliers(response.data || []);
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Error buscando proveedores';
+    } catch (err: unknown) {
+      let message = 'Error buscando proveedores';
+      if (axios.isAxiosError<{ message?: string }>(err)) {
+        message = err.response?.data?.message || err.message || message;
+      } else if (err instanceof Error) {
+        message = err.message || message;
+      }
       setError(message);
       setSuppliers([]);
     } finally {

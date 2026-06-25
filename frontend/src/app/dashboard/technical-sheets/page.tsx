@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useTechnicalSheets } from '@/hooks/use-technical-sheets';
+import { useTechnicalSheets, type TechnicalSheetResponse } from '@/hooks/use-technical-sheets';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -98,7 +99,7 @@ export default function TechnicalSheetsPage() {
     }
   };
 
-  const startEditSheet = (sheet: any) => {
+  const startEditSheet = (sheet: TechnicalSheetResponse) => {
     setEditingSheetId(sheet.id);
     setNewSheetName(sheet.name);
     setNewSheetDescription(sheet.description || '');
@@ -119,13 +120,14 @@ export default function TechnicalSheetsPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig: any = {
+    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
+    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
       pending: { label: 'Pendiente', variant: 'secondary' },
       draft: { label: 'Borrador', variant: 'default' },
       published: { label: 'Publicado', variant: 'default' },
       archived: { label: 'Archivado', variant: 'secondary' },
     };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' };
+    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
     return (
       <Badge variant={config.variant}>
         {config.label}
