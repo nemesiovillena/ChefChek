@@ -23,6 +23,10 @@ export interface UseAlbaranUploadOptions {
   supplierName?: string;
   /** Called after successful product import */
   onImportComplete?: () => void;
+  /** AI model for structured extraction */
+  aiModel?: string;
+  /** AI API key (stored in sessionStorage, never persisted in backend) */
+  aiApiKey?: string;
 }
 
 const MAX_FILES = 10;
@@ -131,6 +135,16 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       const formData = new FormData();
       files.forEach((file) => formData.append('file', file));
 
+      // Añadir modelo IA y API key si están configurados
+      const model = options.aiModel;
+      const apiKey = options.aiApiKey;
+      if (model && model !== 'regex') {
+        formData.append('ai_model', model);
+        if (apiKey) {
+          formData.append('ai_api_key', apiKey);
+        }
+      }
+
       progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90));
       }, 500);
@@ -149,9 +163,14 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
         throw new Error(errorMessage);
       }
 
-      const data: AlbaranUploadResult = await response.json();
+      const data: AlbaranUploadResult & { albaran?: { id: string } } = await response.json();
 
-      if (data.products.length === 0) {
+      // If the response includes an albaran (new flow), store the ID for redirect
+      if (data.albaran?.id) {
+        (data as any).albaranId = data.albaran.id;
+      }
+
+      if (!data.products || data.products.length === 0) {
         throw new Error('No se detectaron productos en el albarán');
       }
 

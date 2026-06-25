@@ -9,13 +9,6 @@ const nextConfig: NextConfig = {
     domains: [],
   },
 
-  // Fix workspace detection
-  experimental: {
-    turbo: {
-      root: __dirname,
-    },
-  },
-
   // Proxy API requests and uploads to backend
   async rewrites() {
     return [

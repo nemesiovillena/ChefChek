@@ -6,6 +6,7 @@ import { matchLine } from '@/lib/api-albaran';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { UnitSelector } from '@/components/shared/unit-selector';
 import { Loader2, Plus } from 'lucide-react';
 import type { AlbaranLine } from '@/lib/api-albaran';
 
@@ -85,12 +86,11 @@ export function CreateProductInline({
         </div>
         <div>
           <Label htmlFor="unit" className="text-xs">Unidad</Label>
-          <Input
-            id="unit"
+          <UnitSelector
             value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            required
+            onChange={setUnit}
             className="h-8 text-sm"
+            placeholder="Unidad"
           />
         </div>
       </div>

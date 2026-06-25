@@ -1,6 +1,7 @@
 'use client';
 
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink, Sparkles, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +9,44 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload } from '@/hooks/use-albaran-upload';
+import { getApiKeyForModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
 
+/** Modelos IA disponibles con info de coste */
+const AI_MODELS = [
+  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0€', desc: 'Regex básico, sin coste' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0.01€', desc: 'Rápido y barato, buena precisión' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0.005€', desc: 'El más barato, muy buena visión' },
+  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0.05€', desc: 'Máxima precisión, más caro' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0.01€', desc: 'Buen balance calidad/precio' },
+  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0.01€', desc: 'OpenRouter — GPT-4o Mini' },
+  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0.01€', desc: 'OpenRouter — Claude Haiku' },
+  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0.005€', desc: 'OpenRouter — Gemini Flash' },
+  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0.002€', desc: 'OpenRouter — Llama 4 Maverick' },
+];
+
+/** Storage key para persistir modelo seleccionado */
+const STORAGE_KEY_MODEL = 'ocr_ai_model';
+
 export default function IngestionPage() {
+  const [aiModel, setAiModel] = useState<string>('');
+
+  // Cargar modelo guardado
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedModel = localStorage.getItem(STORAGE_KEY_MODEL) || '';
+    setAiModel(savedModel);
+  }, []);
+
+  const handleModelChange = (model: string) => {
+    setAiModel(model);
+    localStorage.setItem(STORAGE_KEY_MODEL, model);
+  };
+
+  // API key se lee del store centralizado (configurado en /dashboard/settings)
+  const aiApiKey = aiModel && aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
+
   const {
     fileInputRef,
     files,
@@ -28,7 +63,13 @@ export default function IngestionPage() {
     processFiles,
     handleImport,
     reset,
-  } = useAlbaranUpload();
+  } = useAlbaranUpload({
+    aiModel: aiModel && aiModel !== 'regex' ? aiModel : undefined,
+    aiApiKey: aiModel && aiModel !== 'regex' ? aiApiKey : undefined,
+  });
+
+  const selectedModelInfo = AI_MODELS.find(m => m.id === aiModel);
+  const needsApiKey = aiModel && aiModel !== 'regex';
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -41,6 +82,51 @@ export default function IngestionPage() {
 
       <Card>
         <CardContent>
+          {/* AI Model Selector */}
+          <div className="mb-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-medium">Motor de extracción</h3>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {AI_MODELS.map((model) => (
+                <button
+                  key={model.id}
+                  onClick={() => handleModelChange(model.id)}
+                  className={`p-2 rounded-lg border text-left transition-colors ${
+                    aiModel === model.id
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-muted hover:border-primary/50'
+                  }`}
+                >
+                  <div className="text-xs font-medium truncate">{model.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{model.cost}/img</div>
+                </button>
+              ))}
+            </div>
+            {selectedModelInfo && (
+              <p className="text-xs text-muted-foreground">{selectedModelInfo.desc}</p>
+            )}
+
+            {/* API Key status — enlace a settings si no hay key */}
+            {needsApiKey && (
+              <div className="space-y-1">
+                {aiApiKey ? (
+                  <p className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    API Key configurada
+                  </p>
+                ) : (
+                  <Link href="/dashboard/settings" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                    <Settings className="h-3 w-3" />
+                    Configura la API Key en Ajustes
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragging
@@ -73,7 +159,7 @@ export default function IngestionPage() {
               className="hidden"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              JPG, PNG, PDF — máx 10MB por archivo
+              JPG, PNG, HEIC, PDF — máx 10MB por archivo
             </p>
           </div>
 
@@ -123,6 +209,12 @@ export default function IngestionPage() {
                 <span className="text-sm font-medium">
                   {results ? 'Importando productos...' : 'Procesando documento...'}
                 </span>
+                {needsApiKey && !results && (
+                  <Badge variant="outline" className="text-xs">
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    {selectedModelInfo?.name}
+                  </Badge>
+                )}
               </div>
               <Progress value={uploadProgress} />
             </div>
@@ -202,10 +294,10 @@ export default function IngestionPage() {
               <Button onClick={handleImport} disabled={isUploading} className="flex-1">
                 Importar {results.products.filter((p) => p.confidence >= 0.5).length} productos
               </Button>
-              <Link href="/dashboard/albaranes">
+              <Link href={(results as any)?.albaranId ? `/dashboard/albaranes/${(results as any).albaranId}` : '/dashboard/albaranes'}>
                 <Button variant="outline" className="w-full">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Ver en Albaranes
+                  {(results as any)?.albaranId ? 'Ver Albarán' : 'Ver en Albaranes'}
                 </Button>
               </Link>
               <Button variant="ghost" onClick={reset}>
