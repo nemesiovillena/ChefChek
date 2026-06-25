@@ -6,6 +6,22 @@ Documento que detalla la estrategia completa de pruebas y despliegue para ChefCh
 
 ---
 
+## Estado de implementación (2026-06)
+
+- **Gestor de paquetes**: bun (no npm). Todos los comandos y workflows usan `bun install --frozen-lockfile` y `bun run <script>`. Versión fijada en CI: `1.3.14`.
+- **Branching**: definido en `docs/git-branching-strategy.md` (feature → develop → main, tags en main).
+- **CI/CD**: workflows reales en `.github/workflows/` (`backend-ci.yml`, `frontend-ci.yml`, `deploy.yml`). Ver sección "Pipeline CI/CD".
+- **Despliegue a Dokploy**: diferido hasta que el proyecto esté más avanzado. El workflow `deploy.yml` solo corta release/tag en main; el despliegue real se añadirá cuando se active Dokploy.
+
+### Scripts reales disponibles
+
+- **Backend**: `build`, `lint`, `test` (jest, 1110 tests), `test:cov`, `test:e2e`, `prisma:*`.
+- **Frontend**: `dev`, `build`, `start`, `lint`. (Sin script de tests todavía.)
+
+Las secciones siguientes que mencionan `test:unit`, `test:integration`, `test:performance`, `test:stress`, `test:migration`, `test:coverage:check`, `analyze` o E2E de Playwright describen **objetivos planeados**, no scripts existentes. Migrar esos comandos a scripts reales es trabajo pendiente.
+
+---
+
 ## Estrategia de Pruebas
 
 ### 1. Tests Unitarios
@@ -19,9 +35,9 @@ Documento que detalla la estrategia completa de pruebas y despliegue para ChefCh
 #### Backend Tests
 ```bash
 cd backend
-npm run test:unit              # Unit tests only
-npm run test -- --coverage     # Con reporte de cobertura
-npm run test -- --verbose      # Detallado
+bun run test:unit              # Unit tests only
+bun run test -- --coverage     # Con reporte de cobertura
+bun run test -- --verbose      # Detallado
 ```
 
 **Categorías**:
@@ -33,9 +49,9 @@ npm run test -- --verbose      # Detallado
 #### Frontend Tests
 ```bash
 cd frontend
-npm run test                   # Unit tests
-npm run test -- --coverage     # Con reporte de cobertura
-npm run test:watch             # Watch mode
+bun run test                   # Unit tests
+bun run test -- --coverage     # Con reporte de cobertura
+bun run test:watch             # Watch mode
 ```
 
 **Categorías**:
@@ -49,7 +65,7 @@ npm run test:watch             # Watch mode
 #### Backend Integration Tests
 ```bash
 cd backend
-npm run test:integration
+bun run test:integration
 ```
 
 **Cobertura**:
@@ -62,7 +78,7 @@ npm run test:integration
 #### Frontend Integration Tests
 ```bash
 cd frontend
-npm run test:integration
+bun run test:integration
 ```
 
 **Cobertura**:
@@ -78,15 +94,15 @@ npm run test:integration
 **Setup**:
 ```bash
 cd frontend
-npm install -D @playwright/test
-npx playwright install
+bun add -D @playwright/test
+bunx playwright install
 ```
 
 **Ejecución**:
 ```bash
-npm run test:e2e                 # Todos los tests
-npm run test:e2e:headless        # Sin UI
-npm run test:e2e:ui              # Con UI
+bun run test:e2e                 # Todos los tests
+bun run test:e2e:headless        # Sin UI
+bun run test:e2e:ui              # Con UI
 ```
 
 **Flujos Críticos**:
@@ -129,7 +145,7 @@ npm run test:e2e:ui              # Con UI
 #### Backend Performance Tests
 ```bash
 cd backend
-npm run test:performance
+bun run test:performance
 ```
 
 **Objetivos**:
@@ -146,8 +162,8 @@ npm run test:performance
 #### Frontend Performance Tests
 ```bash
 cd frontend
-npm run build -- --profile production
-npm run analyze                 # Bundle analysis
+bun run build -- --profile production
+bun run analyze                 # Bundle analysis
 ```
 
 **Objetivos**:
@@ -161,7 +177,7 @@ npm run analyze                 # Bundle analysis
 #### Backend Stress Testing
 ```bash
 cd backend
-npm run test:stress
+bun run test:stress
 ```
 
 **Escenarios**:
@@ -173,7 +189,7 @@ npm run test:stress
 #### Frontend Stress Testing
 ```bash
 cd frontend
-npm run test:stress
+bun run test:stress
 ```
 
 **Escenarios**:
@@ -207,9 +223,9 @@ npm run test:stress
 #### Verificación
 ```bash
 cd backend
-npm run test:migration           # Tests de migración
-npx prisma migrate deploy       # Desplegar migraciones
-npx prisma migrate status       # Verificar estado
+bun run test:migration           # Tests de migración
+bunx prisma migrate deploy       # Desplegar migraciones
+bunx prisma migrate status       # Verificar estado
 ```
 
 **Consideraciones**:
@@ -273,246 +289,117 @@ lighthouse https://staging.chefchek.com --view
 
 ## Pipeline CI/CD
 
-### 1. Backend Pipeline (.github/workflows/backend-ci.yml)
+Workflows reales implementados en `.github/workflows/` con **bun** (versión `1.3.14`, `oven-sh/setup-bun@v2`). El despliegue a Dokploy está diferido; `deploy.yml` solo corta releases.
+
+### 1. Backend CI (`backend-ci.yml`)
+
+Dispara en push/PR a `main` y `develop`.
 
 ```yaml
 name: Backend CI
-
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
-
+    branches: [main, develop]
+defaults:
+  run:
+    working-directory: backend
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./backend
-      run: npm ci
-    
-    - name: Run unit tests
-      working-directory: ./backend
-      run: npm run test:unit
-    
-    - name: Run integration tests
-      working-directory: ./backend
-      run: npm run test:integration
-    
-    - name: Run tests with coverage
-      working-directory: ./backend
-      run: npm run test -- --coverage
-    
-    - name: Check coverage threshold
-      working-directory: ./backend
-      run: npm run test:coverage:check
-
-  security:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./backend
-      run: npm ci
-    
-    - name: Run security audit
-      working-directory: ./backend
-      run: npm audit --production
-    
-    - name: Run lint
-      working-directory: ./backend
-      run: npm run lint
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, security]
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./backend
-      run: npm ci
-    
-    - name: Build application
-      working-directory: ./backend
-      run: npm run build
-    
-    - name: Test production build
-      working-directory: ./backend
-      run: npm run start:prod &
-        sleep 10
-        curl http://localhost:3001/api/v1/health
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: '0'
+      - run: bunx prisma generate
+      - name: Lint
+        run: bun run lint
+      - name: Build
+        run: bun run build
+      - name: Unit tests
+        run: bun run test
 ```
 
-### 2. Frontend Pipeline (.github/workflows/frontend-ci.yml)
+Estado verificado: lint (0 errores), build OK, 1110 tests pasan.
+
+### 2. Frontend CI (`frontend-ci.yml`)
+
+Dispara en push/PR a `main` y `develop`.
 
 ```yaml
 name: Frontend CI
-
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
-
+    branches: [main, develop]
+defaults:
+  run:
+    working-directory: frontend
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./frontend
-      run: npm ci
-    
-    - name: Run unit tests
-      working-directory: ./frontend
-      run: npm run test
-    
-    - name: Run tests with coverage
-      working-directory: ./frontend
-      run: npm run test -- --coverage
-    
-    - name: Check coverage threshold
-      working-directory: ./frontend
-      run: npm run test:coverage:check
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./frontend
-      run: npm ci
-    
-    - name: Build application
-      working-directory: ./frontend
-      run: npm run build
-    
-    - name: Run Lighthouse CI
-      uses: treosh/lighthouse-ci-action@v9
-      with:
-        uploadArtifacts: true
-        temporaryPublicStorage: true
-    
-    - name: Check bundle size
-      working-directory: ./frontend
-      run: npm run analyze
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: '0'
+      - name: Lint
+        run: bun run lint
+        continue-on-error: true   # deuda de lint (~200 errores); endurecer cuando se salde
+      - name: Build
+        run: bun run build
 ```
 
-### 3. Deploy Pipeline (.github/workflows/deploy.yml)
+Estado verificado: build OK. Lint no bloqueante mientras existan ~200 errores preexistentes.
+
+### 3. Release (`deploy.yml`)
+
+Dispara en push a `main` (o manual). Crea un tag `vYYYYMMDD-<sha>` y una GitHub Release con notas autogeneradas. **No despliega** (Dokploy diferido).
 
 ```yaml
-name: Deploy
-
+name: Release
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
-
 jobs:
-  deploy-staging:
+  release:
     runs-on: ubuntu-latest
-    environment: staging
-    
+    permissions:
+      contents: write
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Deploy to staging
-      run: |
-        echo "Deploying to staging environment"
-        # Deploy commands here
-    
-    - name: Run tests on staging
-      run: npm run test:e2e:staging
-    
-    - name: Verify deployment
-      run: curl -f https://staging.chefchek.com/health
-
-  deploy-production:
-    runs-on: ubuntu-latest
-    environment: production
-    needs: deploy-staging
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Deploy to production (Blue-Green)
-      run: |
-        echo "Deploying to production environment"
-        # Deploy to green environment first
-    
-    - name: Verify production deployment
-      run: |
-        curl -f https://prod-green.chefchek.com/health
-        # Run smoke tests
-    
-    - name: Switch traffic
-      run: echo "Switching traffic to green"
-    
-    - name: Monitor deployment
-      run: |
-        # Monitor for 30 minutes
-        # Check logs, metrics, error rates
-    
-    - name: Notify success
-      if: success()
-      run: echo "Deployment successful!"
-    
-    - name: Rollback on failure
-      if: failure()
-      run: |
-        echo "Rolling back to previous version"
-        # Rollback commands
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compute tag
+        id: tag
+        run: echo "tag=v$(date +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
----
+### Pendiente
+
+- Endurecer lint del frontend (quitar `continue-on-error`) tras saldar la deuda.
+- Añadir job `deploy` a `deploy.yml` cuando se active Dokploy (webhook o SSH compose).
+- Migrar `backend/Dockerfile` de npm a bun para consistencia (actualmente usa `npm ci`).
+- Scripts de tests E2E/integración/rendimiento reales (los referenciados en "Estrategia de Pruebas" son planeados).
 
 ## Monitoreo y Alertas
 
