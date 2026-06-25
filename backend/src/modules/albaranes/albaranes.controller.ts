@@ -24,7 +24,7 @@ import {
 import { AlbaranesService } from "./albaranes.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
-import { CreateAlbaranDto } from "./dto/create-albaran.dto";
+import { CreateAlbaranDto, CreateAlbaranLineDto } from "./dto/create-albaran.dto";
 import { UpdateAlbaranDto, UpdateAlbaranStatusDto, UpdateAlbaranLineDto, MatchLineDto } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 
@@ -57,7 +57,11 @@ export class AlbaranesController {
       throw new BadRequestException("No files uploaded");
     }
 
-    const albaran = await this.albaranesService.createFromUpload(files, tenantId);
+    // Extraer modelo IA y API key del body (campos opcionales del FormData)
+    const aiModel = req.body?.ai_model || undefined;
+    const aiApiKey = req.body?.ai_api_key || undefined;
+
+    const albaran = await this.albaranesService.createFromUpload(files, tenantId, aiModel, aiApiKey);
 
     // Return format compatible with frontend upload hook: { products, albaran }
     return {
@@ -83,6 +87,18 @@ export class AlbaranesController {
   async findAll(@Query() query: AlbaranQueryDto, @Req() req: any) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.findAll(query, tenantId);
+  }
+
+  @Post(":id/lines")
+  @ApiOperation({ summary: "Añadir línea manual al albarán" })
+  @ApiResponse({ status: 201, description: "Línea añadida" })
+  async addLine(
+    @Param("id") id: string,
+    @Body() dto: CreateAlbaranLineDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.addLine(id, dto, tenantId);
   }
 
   @Get(":id")

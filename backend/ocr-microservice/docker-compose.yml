@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ocr-service:
+    build: .
+    container_name: chefchek-ocr-service
+    ports:
+      - "8000:8000"
+    environment:
+      - OCR_LANGUAGE=es
+      - OCR_USE_GPU=false
+      - OCR_CONFIDENCE_THRESHOLD=0.7
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: chefchek-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:

@@ -51,6 +51,7 @@ import { SprintModule } from "./modules/sprint/sprint.module";
 import { QRModule } from "./modules/qr/qr.module";
 import { AlbaranesModule } from "./modules/albaranes/albaranes.module";
 import { WebSocketModule } from "./websocket/websocket.module";
+import { ModulesModule } from "./modules/modules/modules.module";
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { WebSocketModule } from "./websocket/websocket.module";
     AlbaranesModule,
     GuardsModule,
     WebSocketModule,
+    ModulesModule,
   ],
   controllers: [
     TenantsController,

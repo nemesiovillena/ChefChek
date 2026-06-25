@@ -182,14 +182,30 @@ export class ProductsService {
               maximumStock: true,
             },
           },
+          albaranLines: {
+            select: {
+              albaran: {
+                select: { date: true },
+              },
+            },
+            orderBy: { albaran: { date: "desc" } },
+            take: 1,
+          },
         },
       }),
       this.prisma.product.count({ where }),
     ]);
 
+    // Mapear lastPurchaseDate desde la línea de albarán más reciente
+    const productsWithLastPurchase = products.map((p) => {
+      const { albaranLines, ...rest } = p as any;
+      const lastPurchaseDate = albaranLines?.[0]?.albaran?.date ?? null;
+      return { ...rest, lastPurchaseDate };
+    });
+
     return {
       success: true,
-      data: products,
+      data: productsWithLastPurchase,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
       message: "Products retrieved successfully",
     };
@@ -429,6 +445,7 @@ export class ProductsService {
     tenantId: string,
     data: {
       name: string;
+      cifNif?: string;
       contactPerson?: string;
       email?: string;
       phone?: string;
@@ -458,6 +475,7 @@ export class ProductsService {
       data: {
         tenantId,
         name: data.name.trim(),
+        cifNif: data.cifNif || null,
         contactPerson: data.contactPerson || null,
         email: data.email || null,
         phone: data.phone || null,
@@ -928,5 +946,83 @@ export class ProductsService {
       message: `${result.count} producto${result.count > 1 ? 's' : ''} reasignados de "${existingSource.name}" a "${existingTarget.name}"`,
       reassignedCount: result.count,
     };
+  }
+
+  // ─── UnitOfMeasure CRUD ─────────────────────────────────────────
+
+  async getUnits(tenantId: string) {
+    return this.prisma.unitOfMeasure.findMany({
+      where: { tenantId, isActive: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async createUnit(dto: { name: string; symbol: string }, tenantId: string) {
+    const existing = await this.prisma.unitOfMeasure.findFirst({
+      where: { tenantId, symbol: dto.symbol },
+    });
+    if (existing) {
+      throw new BadRequestException(`Ya existe una unidad con símbolo "${dto.symbol}"`);
+    }
+    return this.prisma.unitOfMeasure.create({
+      data: { tenantId, name: dto.name, symbol: dto.symbol },
+    });
+  }
+
+  async updateUnit(id: string, dto: { name?: string; symbol?: string; isActive?: boolean }, tenantId: string) {
+    const unit = await this.prisma.unitOfMeasure.findFirst({ where: { id, tenantId } });
+    if (!unit) {
+      throw new NotFoundException("Unidad no encontrada");
+    }
+    if (dto.symbol && dto.symbol !== unit.symbol) {
+      const duplicate = await this.prisma.unitOfMeasure.findFirst({
+        where: { tenantId, symbol: dto.symbol, id: { not: id } },
+      });
+      if (duplicate) {
+        throw new BadRequestException(`Ya existe una unidad con símbolo "${dto.symbol}"`);
+      }
+    }
+    return this.prisma.unitOfMeasure.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteUnit(id: string, tenantId: string) {
+    const unit = await this.prisma.unitOfMeasure.findFirst({ where: { id, tenantId } });
+    if (!unit) {
+      throw new NotFoundException("Unidad no encontrada");
+    }
+    // Soft-delete: marcar como inactiva en vez de eliminar
+    return this.prisma.unitOfMeasure.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  /** Validate that a symbol is a valid unit for the tenant */
+  async isValidUnit(symbol: string, tenantId: string): Promise<boolean> {
+    const unit = await this.prisma.unitOfMeasure.findFirst({
+      where: { tenantId, symbol, isActive: true },
+    });
+    return !!unit;
+  }
+
+  // ─── Product Price History ──────────────────────────────────────
+
+  async getProductPriceHistory(productId: string, tenantId: string, supplierId?: string) {
+    const where: any = { productId, tenantId };
+    if (supplierId) {
+      where.supplierId = supplierId;
+    }
+    return this.prisma.productPriceHistory.findMany({
+      where,
+      orderBy: { recordedAt: "desc" },
+      take: 50,
+      include: {
+        supplier: { select: { id: true, name: true } },
+        albaran: { select: { id: true, internalNumber: true, albaranNumber: true } },
+      },
+    });
   }
 }

@@ -1,5 +1,5 @@
 import {
-  WebSocketGateway,
+  WebSocketGateway as WSGateway,
   WebSocketServer,
   SubscribeMessage,
   OnGatewayConnection,
@@ -19,7 +19,7 @@ import {
 } from "./types/events";
 import { SessionService } from "../modules/auth/session.service";
 
-@WebSocketGateway({
+@WSGateway({
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
@@ -60,12 +60,9 @@ export class WebSocketGateway
         this.subClient.connect(),
       ]);
 
-      const redisAdapter = new RedisAdapter({
-        pubClient: this.pubClient as any,
-        subClient: this.subClient as any,
-      });
+      const redisAdapter = new (RedisAdapter as any)(this.pubClient, this.subClient);
 
-      server.adapter(redisAdapter);
+      server.adapter(redisAdapter as any);
       this.logger.log("Redis adapter configured for WebSocket");
     } catch (error) {
       this.logger.error("Failed to configure Redis adapter:", error);
@@ -105,13 +102,13 @@ export class WebSocketGateway
       // Attach user data to socket
       (client as any).data = {
         userId: validation.user.id,
-        tenantId: validation.user.tenantId,
+        tenantId: (validation.user as any).tenantId,
         role: (validation.user as any).role,
         sessionId,
       } as AuthenticatedSocket;
 
       // Join tenant room
-      const tenantId = validation.user.tenantId;
+      const tenantId = (validation.user as any).tenantId;
       await client.join(`tenant:${tenantId}`);
 
       this.logger.log(

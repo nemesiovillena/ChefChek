@@ -61,10 +61,20 @@ export class UpdateAlbaranLineDto {
   @IsString()
   unit?: string;
 
-  @ApiPropertyOptional({ description: "Precio por unidad" })
+  @ApiPropertyOptional({ description: "Precio por unidad (sin IVA)" })
   @IsOptional()
   @IsString()
   unitPrice?: string;
+
+  @ApiPropertyOptional({ description: "% IVA" })
+  @IsOptional()
+  @IsString()
+  vatPercent?: string;
+
+  @ApiPropertyOptional({ description: "Precio por unidad con IVA" })
+  @IsOptional()
+  @IsString()
+  priceWithVat?: string;
 
   @ApiPropertyOptional({ description: "ID del producto asignado" })
   @IsOptional()

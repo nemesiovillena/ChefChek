@@ -167,6 +167,8 @@ export class PythonOcrService implements IOcrService {
     fileBuffer: Buffer,
     filename: string,
     mimetype: string = "image/jpeg",
+    aiModel?: string,
+    aiApiKey?: string,
   ): Promise<{
     success: boolean;
     document: any;
@@ -184,6 +186,15 @@ export class PythonOcrService implements IOcrService {
     );
     formData.append("enable_preprocessing", "true");
     formData.append("enable_validation", "true");
+
+    // Pasar modelo IA y API key si están disponibles
+    if (aiModel) {
+      formData.append("ai_model", aiModel);
+      this.logger.log(`Usando modelo IA para extracción: ${aiModel}`);
+    }
+    if (aiApiKey) {
+      formData.append("ai_api_key", aiApiKey);
+    }
 
     try {
       this.logger.log(
@@ -284,6 +295,61 @@ export class PythonOcrService implements IOcrService {
           filename,
           fileSize: fileBuffer.length,
         },
+      };
+    }
+  }
+
+  /**
+   * Refina la extracción OCR usando hints de layout del proveedor.
+   * Llama al endpoint /ocr/refine del microservicio Python.
+   */
+  async refineExtraction(
+    ocrText: string,
+    supplierHints: any,
+    aiModel?: string,
+    aiApiKey?: string,
+  ): Promise<{
+    success: boolean;
+    document: any;
+    processingTime: number;
+    error?: string;
+  }> {
+    const startTime = Date.now();
+
+    try {
+      this.logger.log(
+        `Refinando OCR con hints de proveedor: ${supplierHints?.supplierName || "desconocido"}`,
+      );
+
+      const response = await this.axiosInstance.post("/ocr/refine", {
+        ocr_text: ocrText,
+        supplier_hints: supplierHints,
+        ai_model: aiModel || "gemini-2.0-flash",
+        ai_api_key: aiApiKey,
+      });
+
+      const result = response.data;
+      const processingTime = Date.now() - startTime;
+
+      if (result.success) {
+        this.logger.log(
+          `✅ Refinamiento OK: ${result.document?.products?.length || 0} productos en ${processingTime}ms`,
+        );
+      }
+
+      return {
+        success: result.success,
+        document: result.document,
+        processingTime,
+        error: result.error,
+      };
+    } catch (error: any) {
+      this.logger.warn(`⚠️ Refinamiento falló (no crítico): ${error.message}`);
+      return {
+        success: false,
+        document: null,
+        processingTime: Date.now() - startTime,
+        error: error.message,
       };
     }
   }

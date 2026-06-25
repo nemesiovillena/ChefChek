@@ -180,4 +180,39 @@ export class SupplierMatchingService {
     // No good matches
     return null;
   }
+
+  /**
+   * Auto-fills empty supplier fields from OCR-extracted data.
+   * Only overwrites fields that are currently null/empty in the DB.
+   */
+  async enrichSupplierFromOcr(
+    supplierId: string,
+    ocrData: {
+      address?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      sanitaryRegistry?: string | null;
+    },
+  ): Promise<void> {
+    const supplier = await this.prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: { address: true, phone: true, email: true, sanitaryRegistry: true },
+    });
+
+    if (!supplier) return;
+
+    const updates: Record<string, string> = {};
+    if (ocrData.address && !supplier.address) updates.address = ocrData.address;
+    if (ocrData.phone && !supplier.phone) updates.phone = ocrData.phone;
+    if (ocrData.email && !supplier.email) updates.email = ocrData.email;
+    if (ocrData.sanitaryRegistry && !supplier.sanitaryRegistry) updates.sanitaryRegistry = ocrData.sanitaryRegistry;
+
+    if (Object.keys(updates).length > 0) {
+      await this.prisma.supplier.update({
+        where: { id: supplierId },
+        data: updates,
+      });
+      this.logger.log(`Enriched supplier ${supplierId} with OCR data: ${Object.keys(updates).join(', ')}`);
+    }
+  }
 }

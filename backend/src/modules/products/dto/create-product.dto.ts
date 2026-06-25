@@ -59,8 +59,7 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(["kg", "L", "und"])
-  referenceUnit?: string;
+  referenceUnit?: string; // Validated against UnitOfMeasure table in service
 
   @IsOptional()
   @IsNumber()
@@ -187,8 +186,7 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(["kg", "L", "und"])
-  referenceUnit?: string;
+  referenceUnit?: string; // Validated against UnitOfMeasure table in service
 
   @IsOptional()
   @IsNumber()
