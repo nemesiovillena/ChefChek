@@ -33,7 +33,9 @@ jobs:
         run: bunx prisma generate
 
       - name: Lint
-        run: bun run lint
+        # Run eslint without --fix so CI reports issues without mutating files
+        # (the project's `lint` script includes --fix for local dev convenience).
+        run: bunx eslint "{src,apps,libs,test}/**/*.ts"
 
       - name: Build
         run: bun run build
