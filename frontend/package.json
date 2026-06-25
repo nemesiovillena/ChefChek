@@ -11,6 +11,9 @@
   "overrides": {
     "@tiptap/core": "3.23.6"
   },
+  "lint-staged": {
+    "*.{ts,tsx}": "bunx eslint --fix"
+  },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
     "@hookform/resolvers": "^5.4.0",
