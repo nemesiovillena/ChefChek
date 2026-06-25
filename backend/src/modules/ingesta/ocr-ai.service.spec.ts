@@ -4,40 +4,6 @@ import { PrismaService } from "../../common/services/prisma.service";
 import { ProductRecognitionService } from "./product-recognition.service";
 import type { IOcrService } from "./services/ocr-service.interface";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mockTesseract = require("tesseract.js");
-
-// Mock Tesseract
-jest.mock("tesseract.js", () => ({
-  createWorker: jest.fn().mockResolvedValue({
-    recognize: jest.fn().mockResolvedValue({
-      data: {
-        text: `
-FACTURA #F2024001
-Proveedor: Frescos del Norte S.L.
-Fecha: 01/04/2024
-
-PRODUCTO 1
-Nombre: Tomate
-Cantidad: 50 kg
-Precio unitario: 2,50 €
-Categoría: Vegetales
-Alérgenos: Ninguno
-
-PRODUCTO 2
-Nombre: Filete de Ternera
-Cantidad: 20 kg
-Precio unitario: 12,00 €
-Categoría: Carnes
-Alérgenos: Ninguno
-        `,
-        confidence: 85,
-      },
-    }),
-    terminate: jest.fn().mockResolvedValue(undefined),
-  }),
-}));
-
 // Mock OCR Services
 const mockOcrService: jest.Mocked<IOcrService> = {
   extractText: jest.fn(),
@@ -155,18 +121,18 @@ describe("OcrAiService", () => {
     });
 
     it("should handle OCR errors and return fallback mock text", async () => {
-      // Override mock to throw error
-      mockTesseract.createWorker.mockResolvedValue({
-        recognize: jest.fn().mockRejectedValue(new Error("OCR failed")),
-        terminate: jest.fn().mockResolvedValue(undefined),
-      });
+      // Primary OCR fails → service must fall back to FALLBACK_OCR_SERVICE
+      mockOcrService.extractText.mockRejectedValueOnce(new Error("OCR failed"));
 
       const result = await service.extractText(
         "https://example.com/bad-image.jpg",
       );
 
-      expect(result.text).toBeDefined();
-      expect(result.confidence).toBe(0.85);
+      expect(result.text).toBe("Fallback OCR text result");
+      expect(result.confidence).toBe(0.75);
+      expect(mockFallbackOcrService.extractText).toHaveBeenCalledWith(
+        "https://example.com/bad-image.jpg",
+      );
     });
 
     it("should process image with Spanish language", async () => {
