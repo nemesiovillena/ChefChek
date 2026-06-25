@@ -51,6 +51,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Backend hostname inside the docker network (baked into next rewrites at build time)
+        BACKEND_URL: http://backend:3001
     container_name: chefchek-frontend
     restart: unless-stopped
     ports:
