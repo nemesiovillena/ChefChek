@@ -76,10 +76,10 @@ describe("E2E - User Flow (Full)", () => {
       // Step 1: Login
       const loginRes = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: testEmail,
           password: "TestPass123!",
-          tenantId: tenantSlug,
         })
         .expect(201);
 
@@ -92,13 +92,9 @@ describe("E2E - User Flow (Full)", () => {
         .set(authHeaders())
         .send({
           name: "Harina E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 1.2,
           netPrice: 1.5,
-          category: "Panaderia",
-          allergens: [1],
+          allergens: [],
         })
         .expect(201);
 
@@ -112,7 +108,15 @@ describe("E2E - User Flow (Full)", () => {
         .send({
           name: "Pan E2E",
           description: "Receta de test",
-          elaboration: "Mezclar y hornear",
+          elaboration: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Mezclar y hornear" }],
+              },
+            ],
+          }),
           portions: 10,
           ingredients: [{ productId, quantity: 500, unit: "g" }],
         })
@@ -149,11 +153,15 @@ describe("E2E - User Flow (Full)", () => {
         .expect(401);
     });
 
-    it("should reject access without tenant header", async () => {
-      await request(app.getHttpServer())
+    it("should allow access with auth only (tenant from user)", async () => {
+      // Protected routes resolve tenantId from the session user; the
+      // X-Tenant-Slug header is not required when authenticated.
+      const res = await request(app.getHttpServer())
         .get("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
-        .expect(403);
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
     });
 
     it("should return 404 for non-existent product", async () => {

@@ -49,10 +49,10 @@ describe("E2E - Products CRUD", () => {
 
     const loginRes = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
+      .set("x-tenant-slug", tenantSlug)
       .send({
         email: testEmail,
         password: "TestPass123!",
-        tenantId: tenantSlug,
       });
 
     sessionId = loginRes.body.data.session.id;
@@ -81,12 +81,8 @@ describe("E2E - Products CRUD", () => {
         .send({
           name: "Tomate E2E",
           description: "Tomate para tests",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 2.5,
           netPrice: 3.0,
-          category: "Verduras",
           allergens: [],
         })
         .expect(201);
@@ -103,12 +99,22 @@ describe("E2E - Products CRUD", () => {
         .expect(401);
     });
 
-    it("should reject without tenant header", async () => {
-      await request(app.getHttpServer())
+    it("should resolve tenant from authenticated user (no tenant header)", async () => {
+      // Protected routes resolve tenantId from the session user; the
+      // X-Tenant-Slug header is not required when authenticated.
+      const res = await request(app.getHttpServer())
         .post("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
-        .send({ name: "No Tenant Product" })
-        .expect(403);
+        .send({
+          name: "No Header Product",
+          description: "Created without tenant header",
+          purchasePrice: 1.0,
+          netPrice: 1.5,
+          allergens: [],
+        })
+        .expect(201);
+
+      expect(res.body.success).toBe(true);
     });
 
     it("should reject invalid product data", async () => {
@@ -148,12 +154,8 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Cebolla E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 1.5,
           netPrice: 2.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;
@@ -186,12 +188,8 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Pimiento E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 3.0,
           netPrice: 4.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;
@@ -217,12 +215,8 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Ajo E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 5.0,
           netPrice: 6.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;
