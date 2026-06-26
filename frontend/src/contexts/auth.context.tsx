@@ -92,7 +92,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Only show a loading state when there is a persisted session that needs
   // backend verification. When there is nothing persisted, the initial state
   // is already final, so loading is false and no setState-in-effect is needed.
-  const [isLoading, setIsLoading] = useState<boolean>(!!persisted.user && !!persisted.sessionId);
+  // Start in loading state so auth guards wait for the mount-time session
+  // validation instead of redirecting during the SSR/hydration window where
+  // the persisted snapshot is still empty.
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const isAuthenticated = !!user;
 
@@ -116,23 +119,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, sessionId, user, tenantId]);
 
-  // Check session on mount. The backend verification is an external-system
-  // subscription: setState calls happen inside the resolved promise callback
-  // (after await), not synchronously in the effect body.
+  // Check session on mount. getCurrentSession() returns null when there is no
+  // persisted session, so all setState happens inside the resolved promise
+  // callback (no synchronous setState-in-effect). isLoading starts true so
+  // auth guards wait for this validation instead of redirecting during the
+  // SSR/hydration window where the persisted snapshot is still empty.
   useEffect(() => {
-    const savedUser = sessionStorage.getItem('user');
-    const savedSessionId = sessionStorage.getItem('session_id');
-
-    if (!savedUser || !savedSessionId) {
-      return;
-    }
-
     let cancelled = false;
     authService
       .getCurrentSession()
       .then((session) => {
         if (cancelled) return;
         if (session) {
+          // Restore the user from the validated session. Without this, a hard
+          // reload leaves `user` null (useState initializes during hydration
+          // from the empty server snapshot) and protected routes redirect to
+          // /login even with a valid persisted session.
+          setUser(session.user);
           setTenantId(session.user.tenantId);
         }
         setIsLoading(false);
