@@ -16,7 +16,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Factory,
   Clock,
-  CheckCircle,
   AlertTriangle,
   Plus,
   RefreshCw,

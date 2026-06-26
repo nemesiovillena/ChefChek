@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useAppcc } from '@/hooks/use-appcc';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
@@ -20,7 +20,6 @@ import {
   Plus,
   RefreshCw,
   CheckCircle,
-  XCircle,
   AlertTriangle,
   Info,
   Loader2,

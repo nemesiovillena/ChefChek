@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check } from 'lucide-react';
-import type { AlbaranLine, LineStatus, MatchStatus } from '@/lib/api-albaran';
+import type { AlbaranLine, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
   const router = useRouter();

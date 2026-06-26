@@ -14,8 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,15 +27,11 @@ import {
   Download,
   Eye,
   TrendingUp,
-  Globe,
-  Palette,
   Plus,
   Trash2,
   Edit3,
   Share2,
-  CheckCircle2,
   AlertCircle,
-  XCircle,
   Clock,
   Info,
   Loader2,

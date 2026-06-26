@@ -1,14 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Pencil, QrCode, Trash2, Download, ChevronDown, ArrowUp, ArrowDown, X, Eye } from 'lucide-react';
+import { Pencil, QrCode, Trash2, Download, ArrowUp, ArrowDown, X, Eye } from 'lucide-react';
 import { Product, getReferencePrice, formatRefPrice } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { QRCodeResponse } from '@/hooks/use-qr-codes';
 import { cn } from '@/lib/utils';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface ArticuloTableProps {
   products: Product[];

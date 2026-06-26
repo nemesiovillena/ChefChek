@@ -15,8 +15,6 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Clock,
-  CheckCircle,
-  XCircle,
   AlertTriangle,
   Plus,
   RefreshCw,

@@ -2,10 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateManualAlbaran, ManualAlbaranLineInput } from '@/hooks/use-manual-albaran';
+import { useCreateManualAlbaran } from '@/hooks/use-manual-albaran';
 import { Product } from '@/hooks/use-products';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Plus, Trash2, Package } from 'lucide-react';
 
 interface SupplierOption {

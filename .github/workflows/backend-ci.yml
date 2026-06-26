@@ -44,11 +44,9 @@ jobs:
         run: bun run test
 
   # End-to-end backend tests against a real Postgres.
-  # Non-blocking initially: e2e specs are being stabilized.
   e2e:
     name: E2E Tests (postgres)
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     services:
       postgres:

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCategories, useCategoryTree, Category, CategoryTreeNode } from '@/hooks/use-categories';
+import { useCategories, useCategoryTree, Category } from '@/hooks/use-categories';
 import { useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/use-category-mutations';
 import { CategoryTreeView } from './category-tree-view';
 import { CategoryForm, CategoryFormData } from './category-form';

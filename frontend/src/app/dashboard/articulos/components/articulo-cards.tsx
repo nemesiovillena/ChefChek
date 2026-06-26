@@ -3,7 +3,7 @@
 import { Product } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { cn } from '@/lib/utils';
-import { Pencil, QrCode, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
 

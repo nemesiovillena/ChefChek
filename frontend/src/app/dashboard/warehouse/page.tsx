@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useWarehouse } from '@/hooks/use-warehouse';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -21,11 +21,8 @@ import {
   Plus,
   RefreshCw,
   CheckCircle,
-  XCircle,
   AlertTriangle,
-  Info,
   Loader2,
-  Trash2,
 } from 'lucide-react';
 
 type WarehouseType = 'MAIN' | 'KITCHEN' | 'COLD_STORAGE' | 'DRY_STORAGE' | 'SPECIAL';

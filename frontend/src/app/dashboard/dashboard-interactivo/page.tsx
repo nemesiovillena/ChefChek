@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/auth.context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -16,9 +15,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
-  BarChart3,
   PieChart,
-  LayoutGrid,
   Activity,
   Settings,
   Download,

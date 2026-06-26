@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 
 const ALLERGENS = [
   { id: 1, name: 'Cereales con Gluten', image: '/images/allergens/gluten-derivados-300x300.webp' },
