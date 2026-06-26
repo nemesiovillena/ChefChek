@@ -12,7 +12,9 @@ const nextConfig: NextConfig = {
 
   // Configure image domains for optimized images
   images: {
-    domains: [],
+    remotePatterns: [
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+    ],
   },
 
   // Proxy same-origin /api/v1 and /uploads to the backend (avoids CORS for

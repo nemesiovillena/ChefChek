@@ -1,6 +1,7 @@
 'use client';
 
 import { Product } from '@/hooks/use-products';
+import Image from 'next/image';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { cn } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react';
@@ -88,9 +89,11 @@ export default function ArticuloCards({
 
             {/* Image */}
             {product.imageUrl && (
-              <img
+              <Image
                 src={product.imageUrl}
                 alt=""
+                width={48}
+                height={48}
                 className="h-12 w-12 rounded object-cover mb-2"
               />
             )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import Image from 'next/image';
 
 const ALLERGENS = [
   { id: 1, name: 'Cereales con Gluten', image: '/images/allergens/gluten-derivados-300x300.webp' },
@@ -66,7 +67,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
                 }`}
                 title={allergen.name}
               >
-                <img src={allergen.image} alt={allergen.name} className="w-10 h-10 object-contain" />
+                <Image src={allergen.image} alt={allergen.name} width={40} height={40} className="w-10 h-10 object-contain" />
                 <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-indigo-700' : 'text-gray-600'}`}>
                   {allergen.name}
                 </span>
@@ -111,7 +112,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
         </div>
         {imageUrl && (
           <div className="mt-3">
-            <img src={imageUrl} alt="Ficha técnica" className="w-32 h-32 object-cover rounded-lg border" />
+            <Image src={imageUrl} alt="Ficha técnica" width={128} height={128} className="w-32 h-32 object-cover rounded-lg border" />
           </div>
         )}
       </div>

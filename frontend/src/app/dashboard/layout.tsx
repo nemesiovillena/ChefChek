@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/contexts/auth.context';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -79,8 +80,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="font-body-md text-body-md text-primary">{user?.name || 'Marcus V.'}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer" onClick={() => router.push('/dashboard/settings')}>
-            <img
+            <Image
               alt="Chef Profile"
+              width={40}
+              height={40}
               className="object-cover w-full h-full"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyjEviJPItAjkIVE069AOakDc9BxNwOWm9b28J4CyXeWz8GsiEoqfmGJvcojI_ljpYcNv6Ns3Sbhp_39eMXgV6AEF6iwWkH4_3fnwSUX5aV1WRd4GSdBc1hswyFlMBNg1QxZ3ibN7ZoMxA7tpasgN8OuninUUnkyb-esrf2U97m4ENXRPvf1u_3-Uup0A2UXwbPmQmJxxJPKISeMhP8nRk1OsyGBbOFHt0RgD2sqs2V3igDz42dSP8kRMAeHI0se30xtIGpJToJ2c"
             />

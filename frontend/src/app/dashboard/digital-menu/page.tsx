@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useDigitalMenus } from '@/hooks/use-digital-menu';
@@ -369,9 +370,11 @@ export default function DigitalMenuPage() {
                           <div className="flex items-start gap-6">
                             <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
                               {qrCode?.qrCodeUrl ? (
-                                <img
+                                <Image
                                   src={qrCode.qrCodeUrl}
                                   alt={`QR para ${menu.name}`}
+                                  width={128}
+                                  height={128}
                                   className="w-full h-full object-contain"
                                 />
                               ) : (
