@@ -85,8 +85,8 @@ export function useApiMutation<TData, TVariables>(
 export function usePaginatedQuery<T>(
   key: string[],
   url: string,
-  page: number = 1,
-  pageSize: number = 50,
+  _page: number = 1,
+  _pageSize: number = 50,
   options?: Omit<
     UseQueryOptions<PaginatedResponse<T>, Error, PaginatedResponse<T>>,
     'queryKey' | 'queryFn'

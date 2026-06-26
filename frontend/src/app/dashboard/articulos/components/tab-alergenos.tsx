@@ -25,11 +25,10 @@ interface TabAlergenosProps {
   hideAllergens: boolean;
   setHideAllergens: (value: boolean) => void;
   imageUrl: string;
-  setImageUrl: (url: string) => void;
   onImageUpload: (file: File) => void;
 }
 
-export default function TabAlergenos({ allergens, setAllergens, hideAllergens, setHideAllergens, imageUrl, setImageUrl, onImageUpload }: TabAlergenosProps) {
+export default function TabAlergenos({ allergens, setAllergens, hideAllergens, setHideAllergens, imageUrl, onImageUpload }: TabAlergenosProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleAllergen = (id: number) => {

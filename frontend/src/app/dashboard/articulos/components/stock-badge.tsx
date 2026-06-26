@@ -3,12 +3,11 @@
 interface StockBadgeProps {
   current: number;
   minimum?: number;
-  maximum?: number;
   unit?: string;
 }
 
 /** Traffic-light stock badge: green > min, yellow between 0 and min, red = 0 */
-export default function StockBadge({ current, minimum, maximum, unit = '' }: StockBadgeProps) {
+export default function StockBadge({ current, minimum, unit = '' }: StockBadgeProps) {
   const min = minimum ?? 0;
   const isOk = current > min;
   const isLow = current > 0 && current <= min;

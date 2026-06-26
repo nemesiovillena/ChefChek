@@ -502,6 +502,7 @@ function DeleteConfirmationDialog({
     <ConfirmationDialog open={isOpen} onOpenChange={onClose}>
       <ConfirmationDialogContent
         title="Eliminar Proveedor"
+        onConfirm={onConfirm}
         description={hasProducts
           ? `Este proveedor tiene ${productCountNum} producto${productCountNum > 1 ? 's' : ''} asociados.`
           : `¿Estás seguro de eliminar "${supplierName}"?`}

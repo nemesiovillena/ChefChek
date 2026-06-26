@@ -70,6 +70,8 @@ const ConfirmationDialogContent = React.forwardRef<
               {details}
             </div>
           )}
+
+          {children}
         </div>
 
         <div className="flex justify-center gap-3 mt-6">

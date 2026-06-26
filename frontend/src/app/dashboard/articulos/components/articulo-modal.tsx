@@ -253,7 +253,6 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               hideAllergens={hideAllergens}
               setHideAllergens={setHideAllergens}
               imageUrl={imageUrl}
-              setImageUrl={setImageUrl}
               onImageUpload={handleImageUpload}
             />
           )}

@@ -44,8 +44,17 @@ export default function DigitalMenuPage() {
   const { isAuthenticated, isLoading: authLoading, tenantId } = useAuth();
   const { digitalMenus, isLoading, error, refetch, createDigitalMenu } = useDigitalMenus();
   const { data: menus } = useMenus();
-  const { generateQRCode, deleteQRCode, isLoading: qrLoading } = useQRCodes();
+  const { generateQRCode, deleteQRCode, getTenantQRCodes, isLoading: qrLoading } = useQRCodes();
   const [qrCodes, setQRCodes] = useState<Map<string, QRCodeResponse>>(new Map());
+
+  // Load existing QR codes so already-generated ones render and are not duplicated.
+  useEffect(() => {
+    getTenantQRCodes('digital-menu')
+      .then((codes) => setQRCodes(new Map(codes.map((c) => [c.entityId, c]))))
+      .catch((err) => console.error('Error loading existing QR codes:', err));
+    // getTenantQRCodes is not memoized in the hook; load once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);

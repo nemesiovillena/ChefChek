@@ -19,7 +19,7 @@ export default function AlbaranesPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaranes, meta, loading, error, refetch, setPage, setFilters } = useAlbaranes();
 
-  const handleAlbaranDelete = (id: string) => {
+  const handleAlbaranDelete = () => {
     refetch();
   };
 

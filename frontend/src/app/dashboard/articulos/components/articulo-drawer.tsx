@@ -307,7 +307,6 @@ function ArticuloDrawerForm({ article, tree, suppliers, onClose }: ArticuloDrawe
               hideAllergens={hideAllergens}
               setHideAllergens={setHideAllergens}
               imageUrl={imageUrl}
-              setImageUrl={setImageUrl}
               onImageUpload={handleImageUpload}
             />
           )}
