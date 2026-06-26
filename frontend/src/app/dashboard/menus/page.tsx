@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
@@ -31,7 +31,7 @@ export default function MenusPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  const fetchMenus = async () => {
+  const fetchMenus = useCallback(async () => {
     try {
       const sessionId = sessionStorage.getItem('session_id');
       const tenantSlug = sessionStorage.getItem('tenant_slug');
@@ -61,13 +61,13 @@ export default function MenusPage() {
     } finally {
       setPageLoading(false);
     }
-  };
+  }, [addNotification]);
 
   useEffect(() => {
     if (isAuthenticated) {
       Promise.resolve().then(fetchMenus);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchMenus]);
 
   // Don't render anything if not authenticated or loading
   if (!isAuthenticated || isLoading) {

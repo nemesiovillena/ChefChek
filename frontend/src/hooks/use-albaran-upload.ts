@@ -183,7 +183,7 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [files]);
+  }, [files, options.aiApiKey, options.aiModel]);
 
   /** Import detected products into the product catalog */
   const handleImport = useCallback(async () => {

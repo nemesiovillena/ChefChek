@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
@@ -26,8 +26,8 @@ export default function ArticulosPage() {
 
   const { data: categoryTree } = useCategoryTree("articles");
   const { data: categoriesData } = useCategories("articles");
-  const allCategories = Array.isArray(categoriesData) ? categoriesData : [];
-  const tree: CategoryTreeNode[] = Array.isArray(categoryTree) ? categoryTree : [];
+  const allCategories = useMemo(() => (Array.isArray(categoriesData) ? categoriesData : []), [categoriesData]);
+  const tree: CategoryTreeNode[] = useMemo(() => (Array.isArray(categoryTree) ? categoryTree : []), [categoryTree]);
 
   const { data: suppliersResponse } = useApiQuery<Supplier[]>(['suppliers'], '/v1/products/suppliers');
   const suppliers: Supplier[] = Array.isArray(suppliersResponse) ? suppliersResponse : [];
@@ -184,11 +184,11 @@ export default function ArticulosPage() {
 
   const supplierIds = [...new Set(products.map((p: Product) => p.supplierId).filter(Boolean))];
 
-  const getCategoryDisplay = (catId: string | undefined): string => {
+  const getCategoryDisplay = useCallback((catId: string | undefined): string => {
     if (!catId) return '-';
     if (categoryNameMap[catId]) return categoryNameMap[catId];
     return catId;
-  };
+  }, [categoryNameMap]);
 
   const formatLastPurchaseDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return '-';
@@ -242,7 +242,7 @@ export default function ArticulosPage() {
       return 0;
     });
     return sorted;
-  }, [filteredProducts, sortField, sortDirection, tree, categoryNameMap]);
+  }, [filteredProducts, sortField, sortDirection, tree, getCategoryDisplay]);
 
   const renderSortableHeader = (label: string, field: string) => {
     const isActive = sortField === field;
