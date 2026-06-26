@@ -14,15 +14,15 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default function DashboardPage() {
-  const { user, isLoading, logout, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { data: kpis, isLoading: kpisLoading, error: kpisError } = useDashboardKPIs();
+  const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
 
   // WebSocket hooks
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useWebSocketNotifications();
-  const { productionUpdates, alerts: productionAlerts } = useRealTimeProduction();
+  useWebSocketNotifications();
+  const { alerts: productionAlerts } = useRealTimeProduction();
   const { stockAlerts } = useRealTimeStock();
-  const { joinKitchen, joinDashboard } = useWebSocketRooms();
+  const { joinDashboard } = useWebSocketRooms();
 
   // Estados interactivos para las tareas de preparación
   const [tasks, setTasks] = useState([
