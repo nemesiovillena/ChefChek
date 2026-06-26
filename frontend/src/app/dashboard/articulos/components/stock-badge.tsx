@@ -12,7 +12,6 @@ export default function StockBadge({ current, minimum, maximum, unit = '' }: Sto
   const min = minimum ?? 0;
   const isOk = current > min;
   const isLow = current > 0 && current <= min;
-  const isEmpty = current <= 0;
 
   const colorClass = isOk
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'

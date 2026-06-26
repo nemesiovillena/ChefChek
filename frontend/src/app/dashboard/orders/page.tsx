@@ -32,7 +32,7 @@ export default function OrdersPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
   const [newOrderNumber, setNewOrderNumber] = useState('');
   const [newOrderCover, setNewOrderCover] = useState('');
   const [newOrderEstimatedTime, setNewOrderEstimatedTime] = useState('');

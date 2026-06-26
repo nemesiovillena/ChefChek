@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
 
 export default function WikiProcedimientosPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { articles, isLoading, error, refetch, createArticle, updateArticle, isCreating } = useConocimiento();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);

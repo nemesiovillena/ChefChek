@@ -41,7 +41,7 @@ export function useSala() {
     },
   });
 
-  const { data: miseEnPlaceData, isLoading: miseEnPlaceLoading, error: miseEnPlaceError, refetch: miseEnPlaceRefetch } = useQuery({
+  const { data: miseEnPlaceData, isLoading: miseEnPlaceLoading, error: miseEnPlaceError } = useQuery({
     queryKey: ['mise-en-place'],
     queryFn: async () => {
       const response = await apiClient.get<MiseEnPlaceResponse[]>('/v1/sala/mise-en-place');

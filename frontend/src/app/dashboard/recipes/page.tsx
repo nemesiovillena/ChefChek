@@ -19,11 +19,11 @@ import { useCategories, Category } from '@/hooks/use-categories';
 export const dynamic = 'force-dynamic';
 
 export default function RecipesPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
 
-  const { data: recipesData, isLoading: recipesLoading, error: recipesError, refetch } = useRecipes();
+  const { data: recipesData, error: recipesError, refetch } = useRecipes();
   const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
 
   const { data: productsData } = useProducts();

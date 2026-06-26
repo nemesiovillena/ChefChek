@@ -53,7 +53,6 @@ export function useApiMutation<TData, TVariables>(
     'mutationFn'
   >
 ) {
-  const queryClient = useQueryClient();
 
   return useMutation<TData, Error, TVariables>({
     mutationFn: async (variables): Promise<TData> => {

@@ -42,9 +42,9 @@ export const dynamic = 'force-dynamic';
 export default function DigitalMenuPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, tenantId } = useAuth();
-  const { digitalMenus, isLoading, error, refetch, createDigitalMenu, isCreating } = useDigitalMenus();
+  const { digitalMenus, isLoading, error, refetch, createDigitalMenu } = useDigitalMenus();
   const { data: menus } = useMenus();
-  const { generateQRCode, getQRCodesByEntity, deleteQRCode, isLoading: qrLoading } = useQRCodes();
+  const { generateQRCode, deleteQRCode, isLoading: qrLoading } = useQRCodes();
   const [qrCodes, setQRCodes] = useState<Map<string, QRCodeResponse>>(new Map());
 
   const [currentStep, setCurrentStep] = useState(0);

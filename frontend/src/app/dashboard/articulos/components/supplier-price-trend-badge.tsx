@@ -19,7 +19,7 @@ export function SupplierPriceTrendBadge({ supplierId }: Props) {
   if (isLoading) return <span className="text-gray-400 text-xs">Cargando...</span>;
   if (!data) return null;
 
-  const { status, percentage, lastPrice, currentPrice } = data;
+  const { status, percentage } = data;
 
   const configs = {
     increased: {

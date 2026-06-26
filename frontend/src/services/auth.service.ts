@@ -121,7 +121,7 @@ class AuthService {
       }
 
       return null;
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }
@@ -149,7 +149,7 @@ class AuthService {
         },
         cookie: response.data.cookie
       };
-    } catch (error) {
+    } catch (_error) {
       // Refresh failed - session is invalid
       sessionStorage.removeItem('session_id');
       sessionStorage.removeItem('tenant_slug');

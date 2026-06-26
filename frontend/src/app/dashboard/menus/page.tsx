@@ -24,11 +24,6 @@ export default function MenusPage() {
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-  });
-
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -57,7 +52,7 @@ export default function MenusPage() {
       if (data.success) {
         setMenus(data.data);
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -114,7 +109,7 @@ export default function MenusPage() {
         fetchMenus();
         e.currentTarget.reset();
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -136,7 +131,7 @@ export default function MenusPage() {
       if (data.success) {
         setSelectedMenu(data.data);
       }
-    } catch (error) {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',

@@ -175,7 +175,6 @@ export default function SprintTrackerPage() {
 
   // Tasks state
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
@@ -197,7 +196,7 @@ export default function SprintTrackerPage() {
   const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
 
   // Progress state
-  const [sprintProgress, setSprintProgress] = useState<SprintProgress | null>(null);
+  const [sprintProgress] = useState<SprintProgress | null>(null);
 
   const statusColors: Record<string, string> = {
     NOT_STARTED: 'bg-gray-500',

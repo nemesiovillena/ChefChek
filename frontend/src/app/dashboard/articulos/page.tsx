@@ -17,7 +17,7 @@ interface Supplier {
 }
 
 export default function ArticulosPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
 

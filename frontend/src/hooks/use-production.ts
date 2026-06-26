@@ -31,7 +31,7 @@ export function useProduction() {
     },
   });
 
-  const { data: ordersData, isLoading: ordersLoading, error: ordersError, refetch: ordersRefetch } = useQuery({
+  const { data: ordersData, isLoading: ordersLoading, error: ordersError } = useQuery({
     queryKey: ['production-orders'],
     queryFn: async () => {
       const response = await apiClient.get<WorkOrderResponse[]>('/v1/production/orders');

@@ -44,7 +44,7 @@ export function useAppcc() {
     },
   });
 
-  const { data: measurementsData, isLoading: measurementsLoading, error: measurementsError, refetch: measurementsRefetch } = useQuery({
+  const { data: measurementsData, isLoading: measurementsLoading, error: measurementsError } = useQuery({
     queryKey: ['appcc-measurements'],
     queryFn: async () => {
       const response = await apiClient.get<ControlMeasurementResponse[]>('/v1/appcc/measurements');

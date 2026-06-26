@@ -39,7 +39,7 @@ export function useWarehouse() {
     },
   });
 
-  const { data: movementsData, isLoading: movementsLoading, error: movementsError, refetch: movementsRefetch } = useQuery({
+  const { data: movementsData, isLoading: movementsLoading, error: movementsError } = useQuery({
     queryKey: ['stock-movements'],
     queryFn: async () => {
       const response = await apiClient.get<StockMovementResponse[]>('/v1/almacenes/stocks');

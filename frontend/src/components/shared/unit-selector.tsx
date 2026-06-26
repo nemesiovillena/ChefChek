@@ -63,7 +63,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
       setNewName('');
       setNewSymbol('');
       setIsSymbolManuallyEdited(false);
-    } catch (e) {
+    } catch (_e) {
       // Handled by React Query's error state
     }
   };
