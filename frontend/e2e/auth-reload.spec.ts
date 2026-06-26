@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Regression: after login, a hard reload (or full-reload navigation via the
- * menu's <a href> links) must restore the authenticated user instead of
- * redirecting back to /login.
+ * Regression: after login, a hard reload must restore the authenticated user
+ * instead of redirecting back to /login, and navigating between modules via
+ * the menu must not bounce back to /login either.
  *
  * The backend /auth/validate call is mocked with page.route so no real
  * backend is required. This isolates the frontend session-restoration logic.
@@ -62,14 +62,14 @@ test("hard reload to /dashboard keeps the session", async ({ page }) => {
   await expect(page).not.toHaveURL(/\/login/);
 });
 
-test("full-reload menu navigation keeps the session", async ({ page }) => {
+test("menu navigation keeps the session", async ({ page }) => {
   await page.goto("/login");
   await seedSession(page);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/);
 
-  // The menu uses <a href> (full reload). Navigating to a module must not
-  // bounce back to /login.
+  // The menu links are <Link> (client-side nav). Navigating to a module
+  // must not bounce back to /login.
   await page.click('a[href="/dashboard/recipes"]');
 
   await expect(page).toHaveURL(/\/dashboard\/recipes/);
