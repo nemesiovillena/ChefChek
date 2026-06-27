@@ -23,6 +23,9 @@ const eslintConfig = defineConfig([
           caughtErrorsIgnorePattern: "^_",
         },
       ],
+      // React Compiler is not enabled in this project, so this advisory
+      // (library incompatibility with the compiler) is irrelevant noise.
+      "react-hooks/incompatible-library": "off",
     },
   },
   // Override default ignores of eslint-config-next.
