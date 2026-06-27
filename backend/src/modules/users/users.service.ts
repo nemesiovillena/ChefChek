@@ -270,8 +270,9 @@ export class UsersService {
       return false;
     }
 
-    // Roles con mayor jerarquía: ADMIN > USER > VIEWER
+    // Roles con mayor jerarquía: OWNER > ADMIN > USER > VIEWER
     const roleHierarchy: { [key: string]: number } = {
+      OWNER: 4,
       ADMIN: 3,
       USER: 2,
       VIEWER: 1,

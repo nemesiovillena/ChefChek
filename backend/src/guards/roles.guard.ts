@@ -41,7 +41,9 @@ export class RolesGuard implements CanActivate {
     );
 
     if (!hasPermission) {
-      throw new ForbiddenException("Insufficient permissions");
+      throw new ForbiddenException(
+        "Permisos insuficientes. Solo el OWNER puede gestionar módulos.",
+      );
     }
 
     return true;

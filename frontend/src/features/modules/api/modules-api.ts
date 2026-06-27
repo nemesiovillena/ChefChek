@@ -43,3 +43,13 @@ export function isModuleConflictError(
     (error as { error: unknown }).error === 'DEPENDENCY_CONFLICT'
   );
 }
+/**
+ * Check if an error is a 403 Forbidden error (no permissions).
+ */
+export function isPermissionError(error: unknown): boolean {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const err = error as { response?: { status?: number } };
+    return err.response?.status === 403;
+  }
+  return false;
+}

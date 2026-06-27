@@ -295,6 +295,7 @@ model RecipeCategory {
 }
 
 enum UserRole {
+  OWNER
   ADMIN
   USER
   VIEWER
