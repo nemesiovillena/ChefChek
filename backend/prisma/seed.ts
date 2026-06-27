@@ -593,6 +593,137 @@ async function main() {
   });
   console.log("✅ production order + work batch + progress + alert");
 
+  // ── L7: APPCC (temperature, cleaning, pest, controls) ─────────────────
+  const fridge = await prisma.temperatureControl.create({
+    data: { tenantId: tenant.id, type: "FRIDGE", location: "Cámara fría 1", targetTemperature: 4, tolerance: 2, unit: "CELSIUS", responsible: admin.id, isActive: true, createdBy: admin.id },
+  });
+  const freezer = await prisma.temperatureControl.create({
+    data: { tenantId: tenant.id, type: "FREEZER", location: "Congelador", targetTemperature: -18, tolerance: 3, unit: "CELSIUS", responsible: admin.id, isActive: true, createdBy: admin.id },
+  });
+  for (const [ctrl, temps] of [[fridge.id, [4.1, 3.8, 5.2]], [freezer.id, [-18.5, -19.0, -17.2]]] as [string, number[]][]) {
+    for (let d = 0; d < 3; d++) {
+      const t = temps[d];
+      const within = Math.abs(t - (ctrl === fridge.id ? 4 : -18)) <= (ctrl === fridge.id ? 2 : 3);
+      await prisma.temperatureMeasurement.create({
+        data: { controlId: ctrl, temperature: t, status: within ? "OK" : "WARNING", withinRange: within, measuredBy: admin.id, recordedBy: admin.id, measuredAt: iso(-2 + d) },
+      });
+    }
+  }
+  const cleaningPlan = await prisma.cleaningPlan.create({
+    data: { tenantId: tenant.id, name: "Limpieza diaria cocina", description: "Rutina de limpieza al cierre", area: "Cocina", planType: "DAILY", frequency: "Diaria", responsible: [admin.name], durationMinutes: 45, isActive: true, createdBy: admin.id },
+  });
+  for (const tn of ["Limpiar campana extractora", "Desinfectar superficies de corte", "Vaciar y limpiar freidora"]) {
+    await prisma.cleaningTask.create({
+      data: { planId: cleaningPlan.id, taskName: tn, taskType: "CLEANING", area: "Cocina", products: ["Desinfectante multiusos"], estimatedTime: 15, responsible: [admin.name], completed: tn !== "Vaciar y limpiar freidora", completedBy: tn !== "Vaciar y limpiar freidora" ? admin.id : null, completedAt: tn !== "Vaciar y limpiar freidora" ? iso(-1) : null },
+    });
+  }
+  await prisma.pestControl.create({
+    data: { tenantId: tenant.id, controlDate: iso(-5), date: iso(-5), nextDate: iso(23), controlType: "PREVENTIVE", area: "Almacén seco", empresa: "Desinsecta S.L.", company: "Desinsecta S.L.", technician: "Externo", products: { products: ["Cebos roedores"] }, notes: "Sin incidencias", createdBy: admin.id },
+  });
+  await prisma.appccControl.create({
+    data: { tenantId: tenant.id, controlType: "RECEPTION", value: 1, unit: "check", status: "OK", notes: "Recepción de mercancía conforme", controlledBy: admin.id },
+  });
+  console.log("✅ APPCC: 2 temp controls + 6 mediciones + cleaning plan + 3 tasks + pest control + appcc control");
+
+  // ── L8: staff + wiki + digital-menu + QR + config + templates + alerts + audit ─
+  const staff = await prisma.staffMember.create({
+    data: { tenantId: tenant.id, name: "Lucía Fernández", role: "COCINERA", email: "lucia@chefchek.local", isActive: true, availableHours: 40, maxTasks: 10 },
+  });
+
+  // Wiki / procedimientos
+  const wikiCat = await prisma.knowledgeCategory.create({
+    data: { tenantId: tenant.id, name: "Procedimientos de cocina", slug: "procedimientos-cocina", description: "Manuales y SOPs", color: "#2196F3", icon: "book", sortOrder: 1, isActive: true },
+  });
+  const tag1 = await prisma.knowledgeTag.create({ data: { tenantId: tenant.id, name: "Higiene", slug: "higiene", color: "#4CAF50" } });
+  const tag2 = await prisma.knowledgeTag.create({ data: { tenantId: tenant.id, name: "Recetas", slug: "recetas", color: "#FF9800" } });
+  const article = await prisma.knowledgeArticle.create({
+    data: {
+      tenantId: tenant.id,
+      categoryId: wikiCat.id,
+      title: "Protocolo de recepción de mercancía",
+      slug: "protocolo-recepcion-mercancia",
+      content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Verificar temperatura, integridad del embalaje y fecha de caducidad." }] }] },
+      summary: "Pasos a seguir al recibir mercancía de proveedores.",
+      status: "PUBLISHED",
+      isPublic: false,
+      viewCount: 12,
+      createdBy: admin.id,
+      updatedBy: admin.id,
+    },
+  });
+  await prisma.knowledgeVersion.create({ data: { articleId: article.id, version: 1, content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Versión inicial." }] }] }, changeNote: "Creación", createdBy: admin.id } });
+  await prisma.knowledgeArticleTag.create({ data: { articleId: article.id, tagId: tag1.id } });
+  await prisma.knowledgeArticleTag.create({ data: { articleId: article.id, tagId: tag2.id } });
+
+  // Digital menu + QR + scans
+  const digitalMenu = await prisma.digitalMenuConfig.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Carta QR Bistró",
+      menuId: menu.id,
+      isActive: true,
+      qrCodeUrl: "/uploads/qr/menu-temporada.png",
+      primaryColor: "#1a1a1a",
+      secondaryColor: "#d4af37",
+      fontFamily: "Inter",
+      logoUrl: "/uploads/logo.png",
+      isOpen: true,
+      openingHours: { mon: "12-16,20-23", tue: "12-16,20-23", wed: "12-16,20-23" },
+      showPrices: true,
+      showAllergens: true,
+      showDescriptions: true,
+      enableAllergenFilter: true,
+      scanCount: 18,
+      lastScannedAt: iso(0),
+    },
+  });
+  await prisma.qRCode.create({
+    data: {
+      qrCodeId: "qr-menu-temporada-001",
+      tenantId: tenant.id,
+      entityType: "digital-menu",
+      entityId: digitalMenu.id,
+      qrCodeData: "https://demo.chefchek.local/menu/menu-temporada",
+      config: { size: 300, format: "png" },
+      format: "png",
+      size: 300,
+      publicUrl: "/uploads/qr/menu-temporada.png",
+      scanCount: 18,
+      lastScannedAt: iso(0),
+    },
+  });
+  for (let d = 0; d < 3; d++) {
+    await prisma.menuScan.create({ data: { digitalMenuId: digitalMenu.id, language: "es", interactionType: "scan", scannedAt: iso(-d), metadata: {} } });
+  }
+
+  // Configuration + document/technical-sheet templates
+  const configs: { key: string; value: string; category: string; description: string }[] = [
+    { key: "currency", value: "EUR", category: "CURRENCY", description: "Moneda del tenant" },
+    { key: "timezone", value: "Europe/Madrid", category: "GENERAL", description: "Zona horaria" },
+    { key: "iva_default", value: "10", category: "TAX", description: "IVA por defecto (%)" },
+  ];
+  for (const c of configs) {
+    await prisma.configuration.create({ data: { tenantId: tenant.id, key: c.key, value: c.value, category: c.category, description: c.description, updatedBy: admin.id } });
+  }
+  await prisma.documentTemplate.create({ data: { tenantId: tenant.id, name: "Plantilla albarán", type: "RECEIPT", description: "Plantilla base para albaranes", content: { sections: ["header", "lines", "totals"] }, isActive: true } });
+  await prisma.technicalSheetTemplate.create({ data: { tenantId: tenant.id, name: "Ficha técnica estándar", type: "STANDARD", description: "Ficha técnica de producto", layout: {}, fields: ["nombre", "alergenos", "proveedor"], isActive: true, createdBy: admin.id } });
+
+  // Alerts + dashboard metrics + dashboard alert + audit log
+  await prisma.alert.create({ data: { tenantId: tenant.id, type: "STOCK", alertType: "LOW_STOCK", severity: "WARNING", message: "Pollo de Corral bajo mínimo (6 < 8)", createdBy: admin.id } });
+  await prisma.alert.create({ data: { tenantId: tenant.id, type: "STOCK", alertType: "LOW_STOCK", severity: "WARNING", message: "Pasta Spaghetti bajo mínimo (6 < 4)", createdBy: admin.id } });
+  const metrics: { metricType: string; metricName: string; period: string; offset: number; value: number; target?: number }[] = [
+    { metricType: "COST_TREND", metricName: "food_cost", period: "WEEK", offset: 0, value: 32.5, target: 30 },
+    { metricType: "MARGIN_ANALYSIS", metricName: "gross_margin", period: "WEEK", offset: 0, value: 68.0, target: 65 },
+    { metricType: "STOCK_ALERT", metricName: "low_stock_count", period: "DAY", offset: 0, value: 2 },
+  ];
+  for (const m of metrics) {
+    await prisma.dashboardMetric.create({ data: { tenantId: tenant.id, metricType: m.metricType, metricName: m.metricName, period: m.period, date: iso(m.offset), value: m.value, target: m.target, metadata: {} } });
+  }
+  await prisma.dashboardAlert.create({ data: { tenantId: tenant.id, alertType: "STOCK_OUT", severity: "HIGH", title: "Stock crítico", description: "2 productos bajo mínimo", entityId: productByName["Pollo de Corral"], entityType: "PRODUCT", isResolved: false } });
+  await prisma.auditLog.create({ data: { tenantId: tenant.id, userId: admin.id, action: "LOGIN", entityType: "User", entityId: admin.id, ipAddress: "127.0.0.1", userAgent: "seed", details: { source: "seed" } } });
+  await prisma.auditLog.create({ data: { tenantId: tenant.id, userId: admin.id, action: "CREATE", entityType: "Albaran", entityId: albaran1.id, details: { internalNumber: albaran1.internalNumber } } });
+  console.log("✅ staff + wiki (cat+article+version+2tags) + digital-menu + QR + 3 scans + config + 2 templates + alerts + metrics + audit");
+
   // ── L9: sprint + teamMember + tasks + notifications ───────────────────
   const teamMember = await prisma.teamMember.create({
     data: { tenantId: tenant.id, name: admin.name, role: "DEVELOPER", email: admin.email, isActive: true, availableHours: 40 },
@@ -640,9 +771,9 @@ async function main() {
   }
   console.log("✅ sprint + teamMember + 3 tasks + notifications");
 
-  console.log("\n🎉 Seed completed (L0-L6 + L9).");
+  console.log("\n🎉 Seed completed (L0-L9, todos los módulos).");
   console.log("📝 Login: admin@chefchek.local / admin123 (tenant: chefchek-demo)");
-  console.log("⚠️  Módulos pendientes: APPCC, wiki, digital-menu, QR, staff, alerts/dashboard, audit, config.");
+  console.log("📝 2.º tenant vacío para aislamiento: otro-restaurante");
 }
 
 main()
