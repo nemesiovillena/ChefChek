@@ -11,6 +11,8 @@ import { ModulesService } from "./modules.service";
 import { UpdateModuleDto } from "./dto/module.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { RolesGuard } from "../../guards/roles.guard";
+import { Roles } from "../../decorators/roles.decorator";
 
 @Controller("api/v1/modules")
 @UseGuards(AuthGuard, TenantGuard)
@@ -28,8 +30,11 @@ export class ModulesController {
 
   /**
    * Toggle a module's activation state.
+   * Only OWNER can activate/deactivate modules.
    */
   @Patch(":id")
+  @UseGuards(RolesGuard)
+  @Roles("OWNER")
   async toggleModule(
     @Param("id") id: string,
     @Body() dto: UpdateModuleDto,

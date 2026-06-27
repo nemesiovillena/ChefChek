@@ -23,7 +23,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'USER' | 'VIEWER';
+  role: 'OWNER' | 'ADMIN' | 'USER' | 'VIEWER';
   tenantId: string;
   isActive: boolean;
   createdAt: string;
