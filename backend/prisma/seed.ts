@@ -374,6 +374,225 @@ async function main() {
   }
   console.log("✅ menu (+sections +items +translation +analytics)");
 
+  // ── L4: albaranes (+lines, goods reception, invoice, purchase order) ──
+  // Albaran 1: CONFIRMADO — Proveedor Local, lines matched (Tomate + Cebolla)
+  const alb1Lines = [
+    { desc: "Tomate Pera 10kg", product: "Tomate Pera", qty: 2, unit: "Caja 10kg", price: 18.0, vat: 10 },
+    { desc: "Cebolla 25kg", product: "Cebolla", qty: 1, unit: "Saco 25kg", price: 17.5, vat: 10 },
+  ];
+  const base1 = alb1Lines.reduce((s, l) => s + l.qty * l.price, 0);
+  const albaran1 = await prisma.albaran.create({
+    data: {
+      tenantId: tenant.id,
+      supplierId: supplierByName["Proveedor Local S.L."],
+      internalNumber: "ALB-2026-001",
+      albaranNumber: "PL-9871",
+      date: iso(-2),
+      base: base1,
+      vatTotal: base1 * 0.1,
+      total: base1 * 1.1,
+      grossAmount: base1,
+      vatBreakdown: [{ rate: 10, base: base1, amount: base1 * 0.1 }],
+      status: "CONFIRMADO",
+      originalFileUrl: "/uploads/albaranes/alb-001.pdf",
+      ocrConfidence: 0.96,
+      warehouseId: warehouse.id,
+      createdBy: admin.id,
+    },
+  });
+  for (const l of alb1Lines) {
+    const lineAmount = l.qty * l.price;
+    await prisma.albaranLine.create({
+      data: {
+        albaranId: albaran1.id,
+        description: l.desc,
+        quantity: l.qty,
+        unit: l.unit,
+        unitPrice: l.price,
+        vatPercent: l.vat,
+        priceWithVat: l.price * (1 + l.vat / 100),
+        lineAmount,
+        matchStatus: "MATCH_ALTO",
+        lineStatus: "CONFIRMADO",
+        matchedProductId: productByName[l.product],
+        confidence: 0.95,
+      },
+    });
+    // Stock entrance from confirmed albaran
+    await prisma.stockMovement.create({
+      data: { productId: productByName[l.product], warehouseId: warehouse.id, type: "ENTRANCE", quantity: l.qty, unit: l.unit, reason: `Albarán ${albaran1.internalNumber}` },
+    });
+  }
+
+  // Albaran 2: CONFIRMADO — Carnicería, line matched (Pollo)
+  const base2 = 1 * 65.0;
+  const albaran2 = await prisma.albaran.create({
+    data: {
+      tenantId: tenant.id,
+      supplierId: supplierByName["Carnicerías Premium"],
+      internalNumber: "ALB-2026-002",
+      albaranNumber: "CP-3321",
+      date: iso(-1),
+      base: base2,
+      vatTotal: base2 * 0.1,
+      total: base2 * 1.1,
+      grossAmount: base2,
+      vatBreakdown: [{ rate: 10, base: base2, amount: base2 * 0.1 }],
+      status: "CONFIRMADO",
+      originalFileUrl: "/uploads/albaranes/alb-002.pdf",
+      ocrConfidence: 0.93,
+      warehouseId: warehouse.id,
+      createdBy: admin.id,
+    },
+  });
+  await prisma.albaranLine.create({
+    data: {
+      albaranId: albaran2.id,
+      description: "Pollo de Corral 20kg",
+      quantity: 1,
+      unit: "Caja 20kg",
+      unitPrice: 65.0,
+      vatPercent: 10,
+      priceWithVat: 71.5,
+      lineAmount: 65.0,
+      matchStatus: "MATCH_ALTO",
+      lineStatus: "CONFIRMADO",
+      matchedProductId: productByName["Pollo de Corral"],
+      confidence: 0.91,
+    },
+  });
+  await prisma.stockMovement.create({
+    data: { productId: productByName["Pollo de Corral"], warehouseId: warehouse.id, type: "ENTRANCE", quantity: 20, unit: "kg", reason: `Albarán ${albaran2.internalNumber}` },
+  });
+
+  // Albaran 3: PENDIENTE OCR — supplier unknown, unmatched lines + Document + ExtractedProduct
+  const ocrDoc = await prisma.document.create({
+    data: {
+      tenantId: tenant.id,
+      name: "Albarán OCR pendiente",
+      type: "DELIVERY_NOTE",
+      category: "albaran",
+      createdBy: admin.id,
+      fileSize: 248000,
+      fileFormat: "PDF",
+      url: "/uploads/albaranes/alb-003.pdf",
+      fileUrl: "/uploads/albaranes/alb-003.pdf",
+      fileName: "alb-003.pdf",
+      source: "upload",
+      sourceUserId: admin.id,
+      status: "COMPLETED",
+    },
+  });
+  await Promise.all([
+    prisma.extractedProduct.create({
+      data: { documentId: ocrDoc.id, name: "Harina de trigo especial", quantity: 5, unit: "kg", unitPrice: 0.9, supplier: "Molino desconocido", confidence: 0.62, allergens: ["gluten"] },
+    }),
+    prisma.extractedProduct.create({
+      data: { documentId: ocrDoc.id, name: "Levadura fresca", quantity: 1, unit: "kg", unitPrice: 3.2, supplier: "Molino desconocido", confidence: 0.55 },
+    }),
+  ]);
+  const albaran3 = await prisma.albaran.create({
+    data: {
+      tenantId: tenant.id,
+      internalNumber: "ALB-2026-003",
+      date: iso(0),
+      base: 7.7,
+      vatTotal: 0.77,
+      total: 8.47,
+      grossAmount: 7.7,
+      status: "PENDIENTE",
+      originalFileUrl: "/uploads/albaranes/alb-003.pdf",
+      ocrConfidence: 0.58,
+      ocrRawData: { raw_text: "Factura ... Molino desconocido ... harina ... levadura" },
+      warehouseId: warehouse.id,
+      createdBy: admin.id,
+    },
+  });
+  await Promise.all([
+    prisma.albaranLine.create({
+      data: { albaranId: albaran3.id, description: "Harina de trigo especial", quantity: 5, unit: "kg", unitPrice: 0.9, vatPercent: 10, lineAmount: 4.5, matchStatus: "NUEVO", lineStatus: "PENDIENTE", confidence: 0.3 },
+    }),
+    prisma.albaranLine.create({
+      data: { albaranId: albaran3.id, description: "Levadura fresca", quantity: 1, unit: "kg", unitPrice: 3.2, vatPercent: 10, lineAmount: 3.2, matchStatus: "NUEVO", lineStatus: "PENDIENTE", confidence: 0.25 },
+    }),
+  ]);
+
+  // Goods reception + invoice + purchase order tied to the procurement flow
+  await prisma.goodsReception.create({
+    data: {
+      tenantId: tenant.id,
+      receptionDate: iso(-2),
+      supplier: "Proveedor Local S.L.",
+      proveedorId: supplierByName["Proveedor Local S.L."],
+      orderNumber: "PO-001",
+      albaran: albaran1.internalNumber,
+      fecha: iso(-2),
+      items: [{ product: "Tomate Pera", quantity: 2, unit: "Caja 10kg" }, { product: "Cebolla", quantity: 1, unit: "Saco 25kg" }],
+      notes: "Recepción correcta, sin incidencias",
+      receivedBy: admin.id,
+    },
+  });
+  await prisma.invoice.create({
+    data: { tenantId: tenant.id, invoiceNumber: "FAC-2026-001", supplier: "Proveedor Local S.L.", totalAmount: base1 * 1.1, status: "PAID", issuedAt: iso(-2), dueDate: iso(12) },
+  });
+  await prisma.order.create({
+    data: { tenantId: tenant.id, orderNumber: "PO-001", supplier: "Proveedor Local S.L.", totalAmount: base1 * 1.1, status: "RECEIVED", orderedAt: iso(-4), receivedAt: iso(-2) },
+  });
+  console.log("✅ 3 albaranes (2 confirmados + 1 OCR pendiente) + goods reception + invoice + purchase order");
+
+  // ── L5: inventory (warehouse count with discrepancies) ────────────────
+  const inventory = await prisma.inventory.create({
+    data: { tenantId: tenant.id, warehouseId: warehouse.id, name: "Recuento semanal", status: "COMPLETED", completedAt: iso(-1), createdBy: admin.id },
+  });
+  const invItems: { product: string; theoretical: number; actual: number; unit: string }[] = [
+    { product: "Tomate Pera", theoretical: 18, actual: 17, unit: "kg" },
+    { product: "Arroz Bomba", theoretical: 40, actual: 40, unit: "kg" },
+    { product: "Pollo de Corral", theoretical: 6, actual: 5.5, unit: "kg" }, // merma
+    { product: "Aceite de Oliva Virgen Extra", theoretical: 12, actual: 11.8, unit: "L" },
+  ];
+  for (const it of invItems) {
+    await prisma.inventoryItem.create({
+      data: { inventoryId: inventory.id, productId: productByName[it.product], quantity: it.actual, unit: it.unit, theoreticalQuantity: it.theoretical, actualQuantity: it.actual, difference: it.actual - it.theoretical, condition: "GOOD" },
+    });
+  }
+  console.log(`✅ inventory + ${invItems.length} items (con discrepancias)`);
+
+  // ── L6: production (orders, work batches, progress, alerts) ───────────
+  const productionOrder = await prisma.productionOrder.create({
+    data: {
+      tenantId: tenant.id,
+      orderNumber: "PROD-2026-001",
+      orderType: "COOKING",
+      status: "IN_PROGRESS",
+      scheduledFor: iso(1),
+      startedAt: iso(0),
+      items: [{ recipe: "Paella Valenciana", portions: 8 }, { recipe: "Salmón a la Plancha", portions: 4 }],
+      miseEnPlaceItems: [{ product: "Arroz Bomba", quantity: 500 }],
+      notes: "Producción para servicio de mediodía",
+      createdBy: admin.id,
+    },
+  });
+  const workBatch = await prisma.workBatch.create({
+    data: {
+      tenantId: tenant.id,
+      orderId: productionOrder.id,
+      batchNumber: "LOTE-001",
+      batchType: "COOKING",
+      status: "IN_PROGRESS",
+      scheduledFor: iso(1),
+      startedAt: iso(0),
+      notes: "Lote de paellas",
+      createdBy: admin.id,
+    },
+  });
+  await prisma.progressTracking.create({
+    data: { workBatchId: workBatch.id, progress: 65, status: "IN_PROGRESS", notes: "Cocción en curso", trackedBy: admin.id },
+  });
+  await prisma.productionAlert.create({
+    data: { tenantId: tenant.id, alertType: "STOCK", severity: "WARNING", message: "Stock de Pollo de Corral por debajo del mínimo", createdBy: admin.id },
+  });
+  console.log("✅ production order + work batch + progress + alert");
+
   // ── L9: sprint + teamMember + tasks + notifications ───────────────────
   const teamMember = await prisma.teamMember.create({
     data: { tenantId: tenant.id, name: admin.name, role: "DEVELOPER", email: admin.email, isActive: true, availableHours: 40 },
@@ -421,9 +640,9 @@ async function main() {
   }
   console.log("✅ sprint + teamMember + 3 tasks + notifications");
 
-  console.log("\n🎉 Seed completed (L0-L3 + L9).");
+  console.log("\n🎉 Seed completed (L0-L6 + L9).");
   console.log("📝 Login: admin@chefchek.local / admin123 (tenant: chefchek-demo)");
-  console.log("⚠️  Módulos pendientes: albaranes, movimientos stock, producción, APPCC, wiki, digital-menu, QR.");
+  console.log("⚠️  Módulos pendientes: APPCC, wiki, digital-menu, QR, staff, alerts/dashboard, audit, config.");
 }
 
 main()
