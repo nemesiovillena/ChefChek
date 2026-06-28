@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ModulesController } from "./modules.controller";
 import { ModulesService } from "./modules.service";
-import { RolesGuard } from "../../guards/roles.guard";
+import { RolesGuard, ROLES_KEY } from "../../guards/roles.guard";
 import { UsersService } from "../../modules/users/users.service";
 import { Reflector } from "@nestjs/core";
 import { AuthGuard } from "../../guards/auth.guard";
@@ -104,47 +104,15 @@ describe("ModulesController", () => {
       expect(result).toEqual(mockResult);
     });
 
-    it("should fail when non-OWNER user tries to toggle module", async () => {
-      const moduleId = "almacenes";
-      const dto = { enabled: false };
-
-      // Test with an ADMIN user (should fail)
-      const mockAdminReq = {
-        tenantId: "tenant-test-123",
-        user: { id: "user-admin-1", role: "ADMIN" },
-      };
-
-      const mockUsersService = {
-        validateUserPermissions: jest.fn(),
-      };
-
-      const module: TestingModule = await Test.createTestingModule({
-        controllers: [ModulesController],
-        providers: [
-          { provide: ModulesService, useValue: mockModulesService },
-          { provide: UsersService, useValue: mockUsersService },
-          { provide: Reflector, useValue: {} },
-        ],
-      })
-        .overrideGuard(AuthGuard)
-        .useValue({ canActivate: () => true })
-        .overrideGuard(TenantGuard)
-        .useValue({ canActivate: () => true })
-        .overrideGuard(RolesGuard)
-        .useValue({
-          canActivate: jest.fn().mockReturnValueOnce(false), // This should cause the controller to throw
-        })
-        .compile();
-
-      const testController = module.get<ModulesController>(ModulesController);
-
-      // Mock UsersService to return false for non-OWNER permissions
-      mockUsersService.validateUserPermissions.mockReturnValue(false);
-
-      // The RolesGuard should return false, and the controller should throw
-      await expect(
-        testController.toggleModule(moduleId, dto, mockAdminReq),
-      ).rejects.toThrow();
+    it("should require OWNER role for toggleModule", () => {
+      // Guards run at the HTTP layer, not on direct method calls. Verify the
+      // @Roles("OWNER") metadata is applied to the handler — RolesGuard
+      // enforces it when the request goes through Nest's guard pipeline.
+      const roles = Reflect.getMetadata(
+        ROLES_KEY,
+        ModulesController.prototype.toggleModule,
+      );
+      expect(roles).toEqual(["OWNER"]);
     });
   });
 });
