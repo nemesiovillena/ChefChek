@@ -4,9 +4,27 @@
 SaaS multi-tenant modular para gestión de cocinas profesionales con API-first architecture.
 
 **Version:** 0.2.0
-**Status:** Development (92% Complete - 11 of 12 phases)
-**Backend:** NestJS + Prisma + PostgreSQL
-**Frontend:** Next.js (pending development)
+**Status:** Development
+**Backend:** NestJS + Prisma + PostgreSQL (69 modelos, 26 módulos)
+**Frontend:** Next.js 16.2.6 + React 19.2.4 (implementado, compila)
+
+---
+
+## Estado real — 2026-06-28 (verificación contra `develop`)
+
+Corrección de cifras desfasadas que aparecían en versiones previas de este
+changelog y de `codebase-summary.md`:
+
+- **Modelos Prisma**: 69 (no 33 ni 61 como decían versiones anteriores).
+- **Módulos backend**: 26 directorios bajo `src/modules/`.
+- **Frontend**: implementado y compilando (`next build` OK, 24+ rutas, 0 errores de tipo). No está "pending".
+- **Auth**: Lucia Auth 3.2 session-based + RBAC operativo (migración JWT→Lucia completada en Fase 5).
+- **CI**: verde en `develop` y `main` (Backend CI, Frontend CI, Release).
+- **E2E backend**: 29/29 (Supertest).
+
+La cifra "1003 tests / 85.15% coverage" corresponde a la medición del
+2026-06-04; revalidar antes de citarla. Detalle actualizado en
+`docs/codebase-summary.md`.
 
 ---
 
@@ -379,7 +397,7 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 - **Tests:** 1003/1003 passing (47 suites)
 
 ### Database Status
-- **Total Models:** 61 models
+- **Total Models:** 69 models (verificado 2026-06-28)
 - **Multi-tenant:** All models isolated by tenantId
 - **Seeded Data:** ✅ Complete (tenant, users, categories, suppliers, products, recipes, menus, sprints, tasks)
 - **Performance:** Indexes on tenantId and frequently queried fields
@@ -425,6 +443,6 @@ MIT
 
 ---
 
-**Last Updated:** 2026-06-01
-**Backend Version:** 0.1.0
-**Documentation Version:** 0.1.0
+**Last Updated:** 2026-06-28
+**Backend Version:** 0.2.0
+**Documentation Version:** 0.2.0
