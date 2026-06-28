@@ -1,6 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ModulesController } from "./modules.controller";
 import { ModulesService } from "./modules.service";
+import { RolesGuard } from "../../guards/roles.guard";
+import { UsersService } from "../../modules/users/users.service";
+import { Reflector } from "@nestjs/core";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 
@@ -19,13 +22,23 @@ describe("ModulesController", () => {
   };
 
   beforeEach(async () => {
+    const mockUsersService = {
+      validateUserPermissions: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ModulesController],
-      providers: [{ provide: ModulesService, useValue: mockModulesService }],
+      providers: [
+        { provide: ModulesService, useValue: mockModulesService },
+        { provide: UsersService, useValue: mockUsersService },
+        { provide: Reflector, useValue: {} },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(TenantGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -61,7 +74,7 @@ describe("ModulesController", () => {
   });
 
   describe("toggleModule", () => {
-    it("should toggle module activation state", async () => {
+    it("should toggle module activation state for OWNER", async () => {
       const moduleId = "almacenes";
       const dto = { enabled: false };
       const mockResult = {
@@ -74,15 +87,64 @@ describe("ModulesController", () => {
       };
       mockModulesService.toggleModule.mockResolvedValue(mockResult);
 
-      const result = await controller.toggleModule(moduleId, dto, mockReq);
+      // Update mock req for OWNER user
+      const mockOwnerReq = {
+        tenantId: "tenant-test-123",
+        user: { id: "user-owner-1", role: "OWNER" },
+      };
+
+      const result = await controller.toggleModule(moduleId, dto, mockOwnerReq);
 
       expect(mockModulesService.toggleModule).toHaveBeenCalledWith(
-        mockReq.tenantId,
+        mockOwnerReq.tenantId,
         moduleId,
         dto,
-        mockReq.user.id,
+        mockOwnerReq.user.id,
       );
       expect(result).toEqual(mockResult);
+    });
+
+    it("should fail when non-OWNER user tries to toggle module", async () => {
+      const moduleId = "almacenes";
+      const dto = { enabled: false };
+
+      // Test with an ADMIN user (should fail)
+      const mockAdminReq = {
+        tenantId: "tenant-test-123",
+        user: { id: "user-admin-1", role: "ADMIN" },
+      };
+
+      const mockUsersService = {
+        validateUserPermissions: jest.fn(),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        controllers: [ModulesController],
+        providers: [
+          { provide: ModulesService, useValue: mockModulesService },
+          { provide: UsersService, useValue: mockUsersService },
+          { provide: Reflector, useValue: {} },
+        ],
+      })
+        .overrideGuard(AuthGuard)
+        .useValue({ canActivate: () => true })
+        .overrideGuard(TenantGuard)
+        .useValue({ canActivate: () => true })
+        .overrideGuard(RolesGuard)
+        .useValue({
+          canActivate: jest.fn().mockReturnValueOnce(false), // This should cause the controller to throw
+        })
+        .compile();
+
+      const testController = module.get<ModulesController>(ModulesController);
+
+      // Mock UsersService to return false for non-OWNER permissions
+      mockUsersService.validateUserPermissions.mockReturnValue(false);
+
+      // The RolesGuard should return false, and the controller should throw
+      await expect(
+        testController.toggleModule(moduleId, dto, mockAdminReq),
+      ).rejects.toThrow();
     });
   });
 });
