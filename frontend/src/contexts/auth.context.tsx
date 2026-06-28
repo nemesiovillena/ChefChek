@@ -31,13 +31,33 @@ interface PersistedSession {
   sessionId: string | null;
 }
 
+// Stable empty snapshot reused on the server (and on the client when nothing is
+// persisted). useSyncExternalStore requires getServerSnapshot to return a
+// cached, referentially-stable value; a fresh object literal per call triggers
+// "getServerSnapshot should be cached to avoid an infinite loop".
+const EMPTY_PERSISTED_SESSION: PersistedSession = {
+  user: null,
+  tenantSlug: null,
+  sessionId: null,
+};
+
+// Memoize the client snapshot so the same object reference is returned whenever
+// the underlying sessionStorage values are unchanged. Without this, every render
+// builds a new object and React treats it as a changed snapshot.
+let cachedPersistedSession: PersistedSession = EMPTY_PERSISTED_SESSION;
+let cachedPersistedRaw: string | null = null;
+
 const readPersistedSession = (): PersistedSession => {
   if (typeof window === 'undefined') {
-    return { user: null, tenantSlug: null, sessionId: null };
+    return EMPTY_PERSISTED_SESSION;
   }
   const savedUser = sessionStorage.getItem('user');
   const savedTenantSlug = sessionStorage.getItem('tenant_slug');
   const savedSessionId = sessionStorage.getItem('session_id');
+  const raw = `${savedUser ?? ''}|${savedTenantSlug ?? ''}|${savedSessionId ?? ''}`;
+  if (raw === cachedPersistedRaw) {
+    return cachedPersistedSession;
+  }
   let parsedUser: AuthResponse['user'] | null = null;
   if (savedUser) {
     try {
@@ -46,19 +66,17 @@ const readPersistedSession = (): PersistedSession => {
       parsedUser = null;
     }
   }
-  return {
+  cachedPersistedRaw = raw;
+  cachedPersistedSession = {
     user: parsedUser,
     tenantSlug: savedTenantSlug,
     sessionId: savedSessionId,
   };
+  return cachedPersistedSession;
 };
 
 const subscribePersistedSession = () => () => {};
-const getServerPersistedSession = (): PersistedSession => ({
-  user: null,
-  tenantSlug: null,
-  sessionId: null,
-});
+const getServerPersistedSession = (): PersistedSession => EMPTY_PERSISTED_SESSION;
 
 export function AuthProvider({ children }: AuthProviderProps) {
   // Hydrate from sessionStorage synchronously on the client to avoid the
