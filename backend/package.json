@@ -34,11 +34,11 @@
   "type": "commonjs",
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --fix --quiet",
-      "prettier --write"
+      "bunx eslint --fix --quiet",
+      "bunx prettier --write"
     ],
     "*.{json,md}": [
-      "prettier --write"
+      "bunx prettier --write"
     ]
   },
   "dependencies": {
