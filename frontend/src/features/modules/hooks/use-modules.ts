@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { fetchModuleStates, toggleModule, isModuleConflictError } from '../api/modules-api';
+import { fetchModuleStates, toggleModule, isModuleConflictError, isPermissionError } from '../api/modules-api';
 import { Module } from '../types/module.types';
+import { useAuth } from '@/contexts/auth.context';
 
 interface UseModulesResult {
   modules: Module[] | null;
@@ -10,12 +11,17 @@ interface UseModulesResult {
   error: string | null;
   toggleEnabled: (moduleId: string, enabled: boolean) => Promise<void>;
   refetch: () => Promise<void>;
+  canManageModules: boolean;
 }
 
 export function useModules(): UseModulesResult {
+  const { user } = useAuth();
   const [modules, setModules] = useState<Module[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Solo OWNER puede gestionar módulos
+  const canManageModules = user?.role === 'OWNER';
 
   const fetchModules = useCallback(async () => {
     setLoading(true);
@@ -47,7 +53,9 @@ export function useModules(): UseModulesResult {
       // Rollback on error
       setModules(previousModules);
 
-      if (isModuleConflictError(err)) {
+      if (isPermissionError(err)) {
+        setError('Solo el OWNER puede gestionar módulos');
+      } else if (isModuleConflictError(err)) {
         setError(err.message);
       } else {
         setError(err instanceof Error ? err.message : 'Failed to update module');
@@ -62,5 +70,6 @@ export function useModules(): UseModulesResult {
     error,
     toggleEnabled,
     refetch: fetchModules,
+    canManageModules,
   };
 }

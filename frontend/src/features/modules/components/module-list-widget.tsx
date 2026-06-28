@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { useModules } from '../hooks/use-modules';
 import { Switch } from '@/components/ui/switch';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Check, X, AlertCircle, Lock } from 'lucide-react';
 
 export function ModuleListWidget() {
-  const { modules, loading, error, toggleEnabled, refetch } = useModules();
+  const { modules, loading, error, toggleEnabled, refetch, canManageModules } = useModules();
 
   useEffect(() => {
     refetch();
@@ -42,11 +42,23 @@ export function ModuleListWidget() {
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-4">Active Modules</h2>
+
+      {!canManageModules && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
+          <Lock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            Solo el <strong>OWNER</strong> puede gestionar los módulos activos.
+            Contacta al administrador del tenant para realizar cambios.
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         {modules?.map((module) => (
           <ModuleCard
             key={module.id}
             module={module}
+            canManageModules={canManageModules}
             onToggle={(enabled) => toggleEnabled(module.id, enabled)}
           />
         ))}
@@ -64,10 +76,11 @@ interface ModuleCardProps {
     alwaysActive: boolean;
     enabled: boolean;
   };
+  canManageModules: boolean;
   onToggle: (enabled: boolean) => Promise<void>;
 }
 
-function ModuleCard({ module, onToggle }: ModuleCardProps) {
+function ModuleCard({ module, canManageModules, onToggle }: ModuleCardProps) {
   const [toggling, setToggling] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -116,11 +129,17 @@ function ModuleCard({ module, onToggle }: ModuleCardProps) {
         <Switch
           checked={module.enabled}
           onCheckedChange={handleToggle}
-          disabled={module.alwaysActive || toggling}
+          disabled={module.alwaysActive || toggling || !canManageModules}
         />
         {module.alwaysActive && (
           <div className="text-xs text-gray-500 text-center mt-1">
             Always active
+          </div>
+        )}
+        {!canManageModules && (
+          <div className="text-xs text-gray-500 text-center mt-1 flex items-center justify-center gap-1">
+            <Lock className="h-3 w-3" />
+            Solo OWNER
           </div>
         )}
       </div>

@@ -2,11 +2,13 @@
 
 import { createContext, useContext, useState, useSyncExternalStore, ReactNode } from 'react';
 
+type UserRole = 'OWNER' | 'ADMIN' | 'USER' | 'VIEWER';
+
 interface User {
   id: string;
   email: string;
   name: string;
-  role: string;
+  role: UserRole;
   tenantId: string;
 }
 

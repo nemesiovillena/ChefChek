@@ -54,6 +54,23 @@ Frontend ejecutará en: `http://localhost:3000`
    - Password: `admin123`
    - Tenant: `chefchek-demo`
 
+### 5. Sembrar datos de desarrollo (opcional)
+
+El seed coherente puebla los 56 modelos con datos encadenados (catálogo → recetas → menú → albaranes → stock → producción → APPCC → wiki), incluyendo un 2.º tenant vacío para tests de aislamiento.
+
+```bash
+cd backend
+bun db:seed              # reset (TRUNCATE CASCADE) + seed
+bun db:seed:no-reset     # sin reset (best-effort, puede colisionar en uniques)
+```
+
+- **Login seed**: `admin@chefchek.local` / `admin123` (tenant `chefchek-demo`)
+- **2.º tenant** (aislamiento e2e): `otro-restaurante` (vacío)
+- Incluye 1 albarán PENDIENTE de OCR con `ExtractedProduct` sin matchear para probar el flujo de revisión.
+- Idempotencia por reset (muchos modelos no tienen unique key natural para upsert).
+
+> **Nota de puertos:** si el puerto 5432 del host está ocupado por otro postgres (p.ej. brew con DBs de otros proyectos), crea un `docker-compose.override.yml` (gitignored) publicando postgres en 5433 y apunta `backend/.env` `DATABASE_URL` a `localhost:5433`.
+
 ## Características Principales
 
 ### Gestión de Inventario
