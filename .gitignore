@@ -5,6 +5,8 @@ coverage/
 .env.local
 .env.production
 .env.production.local
+# Local docker port override (e.g. when host 5432 is taken by another postgres)
+docker-compose.override.yml
 *.log
 .DS_Store
 .claude/
