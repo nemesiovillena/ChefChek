@@ -64,14 +64,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
         <div className="hidden md:flex items-center gap-stack-lg">
-          <a href="/dashboard" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">DASHBOARD</a>
-          <a href="/dashboard/recipes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">RECETAS</a>
-          <a href="/dashboard/articulos" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ARTÍCULOS</a>
+          <Link href="/dashboard" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">DASHBOARD</Link>
+          <Link href="/dashboard/recipes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">RECETAS</Link>
+          <Link href="/dashboard/articulos" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ARTÍCULOS</Link>
           <Link href="/dashboard/albaranes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ALBARANES</Link>
-          <a href="/dashboard/menus" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">MENÚS</a>
-          <a href="/dashboard/production" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">PRODUCCIÓN</a>
-          <a href="/dashboard/users" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">EQUIPO</a>
-          <a href="/dashboard/settings" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">CONFIGURACIÓN</a>
+          <Link href="/dashboard/menus" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">MENÚS</Link>
+          <Link href="/dashboard/production" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">PRODUCCIÓN</Link>
+          <Link href="/dashboard/users" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">EQUIPO</Link>
+          <Link href="/dashboard/settings" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">CONFIGURACIÓN</Link>
         </div>
         <div className="flex items-center gap-stack-md">
           <div className="text-right hidden sm:block">
@@ -162,34 +162,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-base pb-safe bg-surface-container-high border-t border-border rounded-t-xl md:hidden">
-        <a 
+        <Link
           href="/dashboard" 
           className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
         >
           <span className="material-symbols-outlined">dashboard</span>
           <span className="font-label-md text-label-md mt-1">Dashboard</span>
-        </a>
-        <a 
+        </Link>
+        <Link
           href="/dashboard/recipes" 
           className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
         >
           <span className="material-symbols-outlined">receipt_long</span>
           <span className="font-label-md text-label-md mt-1">Recetas</span>
-        </a>
-        <a
+        </Link>
+        <Link
           href="/dashboard/articulos"
           className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
         >
           <span className="material-symbols-outlined">flatware</span>
           <span className="font-label-md text-label-md mt-1">Artículos</span>
-        </a>
-        <a 
+        </Link>
+        <Link
           href="/dashboard/settings" 
           className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
         >
           <span className="material-symbols-outlined">settings</span>
           <span className="font-label-md text-label-md mt-1">Config</span>
-        </a>
+        </Link>
       </nav>
     </div>
   );
