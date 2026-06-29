@@ -109,7 +109,6 @@ describe("E2E - Tenant Isolation", () => {
         name: "Tenant A Exclusive Product",
         purchasePrice: 10,
         netPrice: 12,
-        category: "Test",
         allergens: [],
       });
     productAId = productRes.body.data.id;

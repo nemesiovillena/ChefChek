@@ -83,7 +83,6 @@ describe("E2E - Products CRUD", () => {
           description: "Tomate para tests",
           purchasePrice: 2.5,
           netPrice: 3.0,
-          category: "Verduras",
           allergens: [],
         })
         .expect(201);
@@ -100,12 +99,14 @@ describe("E2E - Products CRUD", () => {
         .expect(401);
     });
 
-    it("should reject without tenant header", async () => {
+    it("should create without tenant header (tenant derived from user)", async () => {
+      // The backend derives the tenant from the authenticated user, not the
+      // X-Tenant-Slug header, so creation succeeds without it.
       await request(app.getHttpServer())
         .post("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
         .send({ name: "No Tenant Product" })
-        .expect(403);
+        .expect(201);
     });
 
     it("should reject invalid product data", async () => {
@@ -147,7 +148,6 @@ describe("E2E - Products CRUD", () => {
           name: "Cebolla E2E",
           purchasePrice: 1.5,
           netPrice: 2.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;
@@ -182,7 +182,6 @@ describe("E2E - Products CRUD", () => {
           name: "Pimiento E2E",
           purchasePrice: 3.0,
           netPrice: 4.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;
@@ -210,7 +209,6 @@ describe("E2E - Products CRUD", () => {
           name: "Ajo E2E",
           purchasePrice: 5.0,
           netPrice: 6.0,
-          category: "Verduras",
           allergens: [],
         });
       productId = res.body.data.id;

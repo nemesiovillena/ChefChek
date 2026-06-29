@@ -94,7 +94,6 @@ describe("E2E - User Flow (Full)", () => {
           name: "Harina E2E",
           purchasePrice: 1.2,
           netPrice: 1.5,
-          category: "Panaderia",
           allergens: [1],
         })
         .expect(201);
@@ -109,7 +108,15 @@ describe("E2E - User Flow (Full)", () => {
         .send({
           name: "Pan E2E",
           description: "Receta de test",
-          elaboration: "Mezclar y hornear",
+          elaboration: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [{ type: "text", text: "Mezclar y hornear" }],
+              },
+            ],
+          }),
           portions: 10,
           ingredients: [{ productId, quantity: 500, unit: "g" }],
         })
@@ -146,11 +153,13 @@ describe("E2E - User Flow (Full)", () => {
         .expect(401);
     });
 
-    it("should reject access without tenant header", async () => {
+    it("should work without tenant header (tenant derived from user)", async () => {
+      // The backend derives the tenant from the authenticated user, not the
+      // X-Tenant-Slug header, so an authenticated request succeeds without it.
       await request(app.getHttpServer())
         .get("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
-        .expect(403);
+        .expect(200);
     });
 
     it("should return 404 for non-existent product", async () => {
