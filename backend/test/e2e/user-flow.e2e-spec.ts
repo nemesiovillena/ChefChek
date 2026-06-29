@@ -92,9 +92,6 @@ describe("E2E - User Flow (Full)", () => {
         .set(authHeaders())
         .send({
           name: "Harina E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 1.2,
           netPrice: 1.5,
           category: "Panaderia",

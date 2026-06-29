@@ -81,9 +81,6 @@ describe("E2E - Products CRUD", () => {
         .send({
           name: "Tomate E2E",
           description: "Tomate para tests",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 2.5,
           netPrice: 3.0,
           category: "Verduras",
@@ -148,9 +145,6 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Cebolla E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 1.5,
           netPrice: 2.0,
           category: "Verduras",
@@ -186,9 +180,6 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Pimiento E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 3.0,
           netPrice: 4.0,
           category: "Verduras",
@@ -217,9 +208,6 @@ describe("E2E - Products CRUD", () => {
         .set(authHeaders())
         .send({
           name: "Ajo E2E",
-          purchaseUnit: "kg",
-          storageUnit: "kg",
-          recipeUnit: "g",
           purchasePrice: 5.0,
           netPrice: 6.0,
           category: "Verduras",

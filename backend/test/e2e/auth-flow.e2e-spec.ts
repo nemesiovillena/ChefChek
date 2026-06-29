@@ -167,7 +167,7 @@ describe("E2E - Auth Flow", () => {
       await request(app.getHttpServer())
         .post("/api/v1/auth/logout")
         .send({ sessionId })
-        .expect(200);
+        .expect(204);
 
       // Session should be invalid after logout
       await request(app.getHttpServer())

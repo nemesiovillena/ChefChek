@@ -107,9 +107,6 @@ describe("E2E - Tenant Isolation", () => {
       })
       .send({
         name: "Tenant A Exclusive Product",
-        purchaseUnit: "kg",
-        storageUnit: "kg",
-        recipeUnit: "g",
         purchasePrice: 10,
         netPrice: 12,
         category: "Test",
