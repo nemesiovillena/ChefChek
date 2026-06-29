@@ -615,4 +615,163 @@ describe("WarehousesService", () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe("getStockMovements and report", () => {
+    it("should return movements with filters applied", async () => {
+      const mockMovements = [
+        {
+          id: "m-1",
+          productId: "p-1",
+          type: "ENTRANCE",
+          quantity: 10,
+          tenantId,
+        },
+      ];
+      prismaService.stockMovement.findMany.mockResolvedValue(mockMovements);
+
+      const result = await service.getStockMovements(tenantId, {
+        productId: "p-1",
+        warehouseId: "wh-1",
+        type: "ENTRANCE",
+        startDate: new Date(),
+        endDate: new Date(),
+      });
+
+      expect(result).toEqual(mockMovements);
+      expect(prismaService.stockMovement.findMany).toHaveBeenCalled();
+    });
+
+    it("should return stock movements grouped by type for a date range", async () => {
+      const mockMovements = [
+        { id: "m-1", type: "ENTRANCE", quantity: 15, tenantId },
+        { id: "m-2", type: "EXIT", quantity: 5, tenantId },
+      ];
+      prismaService.stockMovement.findMany.mockResolvedValue(mockMovements);
+
+      const start = new Date();
+      const end = new Date();
+      const result = await service.getStockMovementsByDateRange(
+        tenantId,
+        start,
+        end,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data.total).toBe(2);
+      expect(result.data.summary.ENTRANCE.quantity).toBe(15);
+      expect(result.data.summary.EXIT.quantity).toBe(5);
+    });
+  });
+
+  describe("Inventory operations", () => {
+    it("should create inventory successfully", async () => {
+      prismaService.warehouse.findFirst.mockResolvedValue({ id: "wh-1" });
+      prismaService.inventory.create.mockResolvedValue({
+        id: "inv-1",
+        status: "PENDING",
+      });
+
+      const result = await service.createInventory(tenantId, {
+        warehouseId: "wh-1",
+        name: "Inventario mensual",
+        notes: "Test",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.status).toBe("PENDING");
+      expect(prismaService.inventory.create).toHaveBeenCalled();
+    });
+
+    it("should throw NotFoundException on create inventory if warehouse doesn't exist", async () => {
+      prismaService.warehouse.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createInventory(tenantId, {
+          warehouseId: "wh-missing",
+          name: "Inv",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should get inventories list", async () => {
+      prismaService.inventory.findMany.mockResolvedValue([{ id: "inv-1" }]);
+
+      const result = await service.getInventories(tenantId);
+      expect(result).toHaveLength(1);
+    });
+
+    it("should add item to inventory", async () => {
+      prismaService.inventory.findFirst.mockResolvedValue({ id: "inv-1" });
+      prismaService.inventoryItem.create.mockResolvedValue({
+        id: "item-1",
+        difference: 2,
+      });
+
+      const result = await service.addInventoryItem("inv-1", tenantId, {
+        productId: "prod-1",
+        quantity: 12,
+        theoreticalQuantity: 10,
+        unit: "ud",
+        notes: "ok",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.difference).toBe(2);
+    });
+
+    it("should update item in inventory", async () => {
+      prismaService.inventoryItem.findFirst.mockResolvedValue({
+        id: "item-1",
+        theoreticalQuantity: 10,
+        inventory: { tenantId },
+      });
+      prismaService.inventoryItem.update.mockResolvedValue({
+        id: "item-1",
+        actualQuantity: 8,
+        difference: -2,
+      });
+
+      const result = await service.updateInventoryItem(
+        "item-1",
+        tenantId,
+        8,
+        "notes",
+        "GOOD",
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.data.difference).toBe(-2);
+    });
+
+    it("should complete inventory and generate discrepance report", async () => {
+      prismaService.inventory.findFirst.mockResolvedValue({
+        id: "inv-1",
+        items: [
+          {
+            productId: "p-1",
+            difference: -2,
+            theoreticalQuantity: 10,
+            actualQuantity: 8,
+          },
+          {
+            productId: "p-2",
+            difference: 0,
+            theoreticalQuantity: 5,
+            actualQuantity: 5,
+          },
+        ],
+      });
+      prismaService.inventory.update.mockResolvedValue({
+        id: "inv-1",
+        status: "COMPLETED",
+      });
+
+      const result = await service.completeInventory("inv-1", tenantId);
+
+      expect(result.success).toBe(true);
+      expect(result.report.totalItems).toBe(2);
+      expect(result.report.itemsWithDifferences).toBe(1);
+      expect(result.report.totalDiscrepancy).toBe(2);
+    });
+  });
 });

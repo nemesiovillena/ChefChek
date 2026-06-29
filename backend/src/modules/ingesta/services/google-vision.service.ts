@@ -3,6 +3,7 @@ import {
   Logger,
   InternalServerErrorException,
   BadRequestException,
+  HttpException,
 } from "@nestjs/common";
 import { ImageAnnotatorClient } from "@google-cloud/vision";
 import { OCRResultDto, GoogleVisionOptions } from "../dto/google-vision.dto";
@@ -70,6 +71,9 @@ export class GoogleVisionService implements IOcrService {
       };
     } catch (error) {
       this.logger.error(`OCR failed: ${error.message}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw this.handleOcrError(error);
     }
   }

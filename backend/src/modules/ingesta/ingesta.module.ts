@@ -3,6 +3,7 @@ import { BullModule } from "@nestjs/bull";
 import { IngestaService } from "./ingesta.service";
 import { TelegramBotService } from "./telegram-bot.service";
 import { PythonOcrService } from "./python-ocr.service";
+import { GoogleVisionService } from "./services/google-vision.service";
 import { OcrAiService } from "./ocr-ai.service";
 import { ProductRecognitionService } from "./product-recognition.service";
 import { DocumentQueueProcessor } from "./document-queue.processor";
@@ -42,11 +43,12 @@ import { AuthModule } from "../auth/auth.module";
     },
     {
       provide: "FALLBACK_OCR_SERVICE",
-      useExisting: PythonOcrService, // Fallback = mismo Python OCR (tesseract eliminado)
+      useExisting: GoogleVisionService, // Fallback = Google Vision API
     },
     IngestaService,
     TelegramBotService,
     PythonOcrService,
+    GoogleVisionService,
     OcrAiService,
     ProductRecognitionService,
     DocumentQueueProcessor,
@@ -55,6 +57,7 @@ import { AuthModule } from "../auth/auth.module";
     IngestaService,
     TelegramBotService,
     PythonOcrService,
+    GoogleVisionService,
     OcrAiService,
     ProductRecognitionService,
   ],
