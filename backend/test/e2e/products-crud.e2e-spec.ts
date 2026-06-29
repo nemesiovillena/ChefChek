@@ -49,10 +49,10 @@ describe("E2E - Products CRUD", () => {
 
     const loginRes = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
+      .set("x-tenant-slug", tenantSlug)
       .send({
         email: testEmail,
         password: "TestPass123!",
-        tenantId: tenantSlug,
       });
 
     sessionId = loginRes.body.data.session.id;

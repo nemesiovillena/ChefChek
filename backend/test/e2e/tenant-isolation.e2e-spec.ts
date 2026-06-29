@@ -82,19 +82,19 @@ describe("E2E - Tenant Isolation", () => {
     // Login both users
     const loginA = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
+      .set("x-tenant-slug", tenantA.slug)
       .send({
         email: "tenant-a@test.com",
         password: "TestPass123!",
-        tenantId: tenantA.slug,
       });
     sessionA = loginA.body.data.session.id;
 
     const loginB = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
+      .set("x-tenant-slug", tenantB.slug)
       .send({
         email: "tenant-b@test.com",
         password: "TestPass123!",
-        tenantId: tenantB.slug,
       });
     sessionB = loginB.body.data.session.id;
 

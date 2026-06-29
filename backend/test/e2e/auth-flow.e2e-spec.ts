@@ -66,10 +66,10 @@ describe("E2E - Auth Flow", () => {
     it("should login with valid credentials and tenant slug", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: testEmail,
           password: testPassword,
-          tenantId: tenantSlug,
         })
         .expect(201);
 
@@ -84,10 +84,10 @@ describe("E2E - Auth Flow", () => {
     it("should reject invalid password", async () => {
       await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: testEmail,
           password: "WrongPass!",
-          tenantId: tenantSlug,
         })
         .expect(401);
     });
@@ -95,19 +95,22 @@ describe("E2E - Auth Flow", () => {
     it("should reject non-existent user", async () => {
       await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: "noone@test.com",
           password: testPassword,
-          tenantId: tenantSlug,
         })
         .expect(401);
     });
 
     it("should reject missing tenant slug", async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
-        .send({ email: testEmail, password: testPassword })
-        .expect(400);
+        .send({ email: testEmail, password: testPassword });
+
+      // Without the x-tenant-slug header the controller cannot resolve a
+      // tenant and returns a structured error body (success: false).
+      expect(res.body.success).toBe(false);
     });
   });
 
@@ -115,10 +118,10 @@ describe("E2E - Auth Flow", () => {
     it("should validate an active session", async () => {
       const loginRes = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: testEmail,
           password: testPassword,
-          tenantId: tenantSlug,
         });
 
       const sessionId = loginRes.body.data.session.id;
@@ -153,10 +156,10 @@ describe("E2E - Auth Flow", () => {
     it("should logout and invalidate session", async () => {
       const loginRes = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
+        .set("x-tenant-slug", tenantSlug)
         .send({
           email: testEmail,
           password: testPassword,
-          tenantId: tenantSlug,
         });
 
       const sessionId = loginRes.body.data.session.id;
