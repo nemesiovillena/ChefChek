@@ -1,6 +1,6 @@
 # Stage 1: Build (full deps, bun)
-# oven/bun:1 is Debian-based so the Prisma engine (glibc) matches the node runtime below.
-FROM oven/bun:1 AS builder
+# oven/bun:1.3.14 is Debian-based so the Prisma engine (glibc) matches the node runtime below.
+FROM oven/bun:1.3.14 AS builder
 
 WORKDIR /app
 
@@ -20,14 +20,18 @@ RUN bunx prisma generate
 RUN bun run build
 
 # Stage 2: Production dependencies (bun, prod-only)
-FROM oven/bun:1 AS prod-deps
+FROM oven/bun:1.3.14 AS prod-deps
 
 WORKDIR /app
 
 COPY package.json bun.lock ./
 
-# Production dependencies only (prisma + @prisma/client are prod deps)
-RUN bun install --frozen-lockfile --production
+# Production dependencies only (prisma + @prisma/client are prod deps).
+# --ignore-scripts skips the `prepare` (husky) lifecycle hook, which fails
+# here because husky is a devDependency not installed with --production.
+# prisma client is generated explicitly on the next line, so skipping
+# postinstalls is safe.
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Copy schema and generate the Prisma client for the runtime platform
 COPY prisma ./prisma

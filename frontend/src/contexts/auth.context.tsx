@@ -31,46 +31,48 @@ interface PersistedSession {
   sessionId: string | null;
 }
 
-// Stable empty snapshot reused on the server and as the initial client value.
-// useSyncExternalStore requires getSnapshot/getServerSnapshot to return a
-// stable reference when the store hasn't changed — returning a fresh object
-// literal each call makes React re-render in an infinite loop.
+// Stable empty snapshot reused on the server (and on the client when nothing is
+// persisted). useSyncExternalStore requires getServerSnapshot to return a
+// cached, referentially-stable value; a fresh object literal per call triggers
+// "getServerSnapshot should be cached to avoid an infinite loop".
 const EMPTY_PERSISTED_SESSION: PersistedSession = {
   user: null,
   tenantSlug: null,
   sessionId: null,
 };
 
-// The store never emits (subscribe is a no-op), so the client snapshot only
-// matters for initial hydration. Compute it once per page load and reuse it
-// to keep the reference stable across renders.
-let clientSnapshot: PersistedSession = EMPTY_PERSISTED_SESSION;
-let clientSnapshotInitialized = false;
+// Memoize the client snapshot so the same object reference is returned whenever
+// the underlying sessionStorage values are unchanged. Without this, every render
+// builds a new object and React treats it as a changed snapshot.
+let cachedPersistedSession: PersistedSession = EMPTY_PERSISTED_SESSION;
+let cachedPersistedRaw: string | null = null;
 
 const readPersistedSession = (): PersistedSession => {
   if (typeof window === 'undefined') {
     return EMPTY_PERSISTED_SESSION;
   }
-  if (!clientSnapshotInitialized) {
-    const savedUser = sessionStorage.getItem('user');
-    const savedTenantSlug = sessionStorage.getItem('tenant_slug');
-    const savedSessionId = sessionStorage.getItem('session_id');
-    let parsedUser: AuthResponse['user'] | null = null;
-    if (savedUser) {
-      try {
-        parsedUser = JSON.parse(savedUser);
-      } catch {
-        parsedUser = null;
-      }
-    }
-    clientSnapshot = {
-      user: parsedUser,
-      tenantSlug: savedTenantSlug,
-      sessionId: savedSessionId,
-    };
-    clientSnapshotInitialized = true;
+  const savedUser = sessionStorage.getItem('user');
+  const savedTenantSlug = sessionStorage.getItem('tenant_slug');
+  const savedSessionId = sessionStorage.getItem('session_id');
+  const raw = `${savedUser ?? ''}|${savedTenantSlug ?? ''}|${savedSessionId ?? ''}`;
+  if (raw === cachedPersistedRaw) {
+    return cachedPersistedSession;
   }
-  return clientSnapshot;
+  let parsedUser: AuthResponse['user'] | null = null;
+  if (savedUser) {
+    try {
+      parsedUser = JSON.parse(savedUser);
+    } catch {
+      parsedUser = null;
+    }
+  }
+  cachedPersistedRaw = raw;
+  cachedPersistedSession = {
+    user: parsedUser,
+    tenantSlug: savedTenantSlug,
+    sessionId: savedSessionId,
+  };
+  return cachedPersistedSession;
 };
 
 const subscribePersistedSession = () => () => {};
@@ -92,10 +94,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Only show a loading state when there is a persisted session that needs
   // backend verification. When there is nothing persisted, the initial state
   // is already final, so loading is false and no setState-in-effect is needed.
-  // Start in loading state so auth guards wait for the mount-time session
-  // validation instead of redirecting during the SSR/hydration window where
-  // the persisted snapshot is still empty.
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(!!persisted.user && !!persisted.sessionId);
 
   const isAuthenticated = !!user;
 
@@ -119,23 +118,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, sessionId, user, tenantId]);
 
-  // Check session on mount. getCurrentSession() returns null when there is no
-  // persisted session, so all setState happens inside the resolved promise
-  // callback (no synchronous setState-in-effect). isLoading starts true so
-  // auth guards wait for this validation instead of redirecting during the
-  // SSR/hydration window where the persisted snapshot is still empty.
+  // Check session on mount. The backend verification is an external-system
+  // subscription: setState calls happen inside the resolved promise callback
+  // (after await), not synchronously in the effect body.
   useEffect(() => {
+    const savedUser = sessionStorage.getItem('user');
+    const savedSessionId = sessionStorage.getItem('session_id');
+
+    if (!savedUser || !savedSessionId) {
+      return;
+    }
+
     let cancelled = false;
     authService
       .getCurrentSession()
       .then((session) => {
         if (cancelled) return;
         if (session) {
-          // Restore the user from the validated session. Without this, a hard
-          // reload leaves `user` null (useState initializes during hydration
-          // from the empty server snapshot) and protected routes redirect to
-          // /login even with a valid persisted session.
-          setUser(session.user);
           setTenantId(session.user.tenantId);
         }
         setIsLoading(false);

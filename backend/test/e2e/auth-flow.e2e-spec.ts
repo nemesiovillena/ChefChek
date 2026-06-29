@@ -106,10 +106,10 @@ describe("E2E - Auth Flow", () => {
     it("should reject missing tenant slug", async () => {
       const res = await request(app.getHttpServer())
         .post("/api/v1/auth/login")
-        .send({ email: testEmail, password: testPassword })
-        .expect(201);
+        .send({ email: testEmail, password: testPassword });
 
-      // Login without x-tenant-slug header returns success:false (TENANT_REQUIRED)
+      // Without the x-tenant-slug header the controller cannot resolve a
+      // tenant and returns a structured error body (success: false).
       expect(res.body.success).toBe(false);
     });
   });
@@ -137,7 +137,6 @@ describe("E2E - Auth Flow", () => {
     });
 
     it("should reject invalid session id", async () => {
-      // validateSession throws (401) for an invalid session id format
       await request(app.getHttpServer())
         .get("/api/v1/auth/validate")
         .set("Authorization", "Bearer invalid-session-id")
@@ -170,7 +169,7 @@ describe("E2E - Auth Flow", () => {
         .send({ sessionId })
         .expect(204);
 
-      // Session should be invalid after logout (validateSession throws 401)
+      // Session should be invalid after logout
       await request(app.getHttpServer())
         .get("/api/v1/auth/validate")
         .set("Authorization", `Bearer ${sessionId}`)

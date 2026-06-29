@@ -43,33 +43,25 @@ jobs:
       - name: Unit tests
         run: bun run test
 
-  # End-to-end backend tests against a real Postgres.
   e2e:
-    name: E2E Tests (postgres)
+    name: E2E Tests
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:15-alpine
         env:
           POSTGRES_USER: chefchek
-          POSTGRES_PASSWORD: chefchek_password_change_in_prod
-          POSTGRES_DB: chefchek
+          POSTGRES_PASSWORD: chefchek_password
+          POSTGRES_DB: chefchek_test
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U chefchek"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
-
+          --health-retries 10
     env:
-      DATABASE_URL: postgresql://chefchek:chefchek_password_change_in_prod@localhost:5432/chefchek?schema=public
-      DB_CLEAN: "true"
-      JWT_SECRET: ci-jwt-secret
-      JWT_EXPIRES_IN: 1d
-      APP_NAME: ChefChek
-
+      DATABASE_URL: postgresql://chefchek:chefchek_password@localhost:5432/chefchek_test?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,5 +82,5 @@ jobs:
       - name: Apply migrations
         run: bunx prisma migrate deploy
 
-      - name: Run E2E tests
+      - name: E2E tests
         run: bun run test:e2e

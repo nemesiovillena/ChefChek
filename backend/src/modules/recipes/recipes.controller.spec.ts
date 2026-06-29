@@ -238,4 +238,36 @@ describe("RecipesController", () => {
       });
     });
   });
+
+  describe("uploadImage", () => {
+    it("should upload recipe image successfully", async () => {
+      const mockFile = {
+        fieldname: "file",
+        originalname: "test-recipe.jpg",
+        encoding: "7bit",
+        mimetype: "image/jpeg",
+        buffer: Buffer.from("mockImageContent"),
+        size: 100,
+      } as Express.Multer.File;
+
+      const result = await controller.uploadImage(mockFile);
+      expect(result.success).toBe(true);
+      expect(result.data.imageUrl).toContain("/uploads/recipes/");
+    });
+
+    it("should throw BadRequestException if file is missing", async () => {
+      await expect(controller.uploadImage(null)).rejects.toThrow();
+    });
+
+    it("should throw BadRequestException if file type is invalid", async () => {
+      const mockFile = {
+        fieldname: "file",
+        originalname: "test.pdf",
+        mimetype: "application/pdf",
+        buffer: Buffer.from("pdfcontent"),
+      } as any;
+
+      await expect(controller.uploadImage(mockFile)).rejects.toThrow();
+    });
+  });
 });

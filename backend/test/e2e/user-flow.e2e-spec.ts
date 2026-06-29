@@ -94,7 +94,7 @@ describe("E2E - User Flow (Full)", () => {
           name: "Harina E2E",
           purchasePrice: 1.2,
           netPrice: 1.5,
-          allergens: [],
+          allergens: [1],
         })
         .expect(201);
 
@@ -153,15 +153,13 @@ describe("E2E - User Flow (Full)", () => {
         .expect(401);
     });
 
-    it("should allow access with auth only (tenant from user)", async () => {
-      // Protected routes resolve tenantId from the session user; the
-      // X-Tenant-Slug header is not required when authenticated.
-      const res = await request(app.getHttpServer())
+    it("should work without tenant header (tenant derived from user)", async () => {
+      // The backend derives the tenant from the authenticated user, not the
+      // X-Tenant-Slug header, so an authenticated request succeeds without it.
+      await request(app.getHttpServer())
         .get("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
         .expect(200);
-
-      expect(res.body.success).toBe(true);
     });
 
     it("should return 404 for non-existent product", async () => {

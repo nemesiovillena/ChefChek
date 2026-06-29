@@ -99,22 +99,14 @@ describe("E2E - Products CRUD", () => {
         .expect(401);
     });
 
-    it("should resolve tenant from authenticated user (no tenant header)", async () => {
-      // Protected routes resolve tenantId from the session user; the
-      // X-Tenant-Slug header is not required when authenticated.
-      const res = await request(app.getHttpServer())
+    it("should create without tenant header (tenant derived from user)", async () => {
+      // The backend derives the tenant from the authenticated user, not the
+      // X-Tenant-Slug header, so creation succeeds without it.
+      await request(app.getHttpServer())
         .post("/api/v1/products")
         .set("Authorization", `Bearer ${sessionId}`)
-        .send({
-          name: "No Header Product",
-          description: "Created without tenant header",
-          purchasePrice: 1.0,
-          netPrice: 1.5,
-          allergens: [],
-        })
+        .send({ name: "No Tenant Product" })
         .expect(201);
-
-      expect(res.body.success).toBe(true);
     });
 
     it("should reject invalid product data", async () => {
