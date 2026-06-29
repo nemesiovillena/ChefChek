@@ -124,7 +124,7 @@ Routes (app) - 22 total
 - [x] B.2.5 Configurar Nginx como servidor estático
 
 ### B.3 Crear Docker Compose
-- [x] B.3.1 Crear `backend/docker-compose.yml`
+- [x] B.3.1 Crear `docker-compose.yml (raíz del repo; `backend/docker-compose.yml` consolidado/eliminado 2026-06)`
 - [x] B.3.2 Configurar PostgreSQL service (postgres:14-alpine)
 - [x] B.3.3 Configurar Redis service (opcional, para cache)
 - [x] B.3.4 Configurar Backend service
@@ -166,7 +166,7 @@ Routes (app) - 22 total
   - backend/Dockerfile: Cambiado de node:20-slim a node:20-bullseye-slim (builder + runner)
   - backend/Dockerfile: Instalación de libssl1.1 + wget + dumb-init
   - backend/src/main.ts: Añadido endpoint /health para health checks
-  - backend/docker-compose.yml: Health check con wget --spider
+  - docker-compose.yml (raíz del repo; `backend/docker-compose.yml` consolidado/eliminado 2026-06): Health check con wget --spider
   - Nueva migración creada: 20260602171047_add_missing_models (telegram_bots, digital_menu_configs)
 - **Stack Docker completo**: ✅ PostgreSQL healthy, Redis healthy, Backend healthy, Frontend funcionando
 
@@ -460,7 +460,7 @@ Success rate: 100% ✅
 - **Cambios clave**:
   - backend/Dockerfile: node:20-bullseye-slim + libssl1.1 + wget + dumb-init
   - backend/src/main.ts: Endpoint /health añadido
-  - backend/docker-compose.yml: Health check wget --spider
+  - docker-compose.yml (raíz del repo; `backend/docker-compose.yml` consolidado/eliminado 2026-06): Health check wget --spider
   - backend/test/security/auth.security.spec.ts: Import bcrypt, mocks corregidos, imports paths corregidos
 
 **Última actualización**: 2026-06-02 21:35
