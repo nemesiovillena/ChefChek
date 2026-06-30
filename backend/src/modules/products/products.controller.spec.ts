@@ -9,6 +9,15 @@ import {
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { BadRequestException } from "@nestjs/common";
+import * as fs from "fs";
+
+jest.mock("fs", () => ({
+  ...jest.requireActual("fs"),
+  existsSync: jest.fn(),
+  mkdirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+}));
 
 describe("ProductsController", () => {
   let controller: ProductsController;
@@ -23,6 +32,10 @@ describe("ProductsController", () => {
     calculateProductCost: jest.fn(),
     getCategories: jest.fn(),
     getSuppliers: jest.fn(),
+    createSupplier: jest.fn(),
+    getProductPriceHistory: jest.fn(),
+    getSupplierProducts: jest.fn(),
+    getSupplierPriceHistory: jest.fn(),
   };
 
   const mockReq = {
@@ -268,6 +281,203 @@ describe("ProductsController", () => {
         productId,
         mockReq.tenantId,
       );
+    });
+  });
+
+  describe("createSupplier", () => {
+    it("creates supplier when name is provided", async () => {
+      mockProductsService.createSupplier.mockResolvedValue({
+        success: true,
+        data: { id: "supplier-1" },
+      });
+
+      const result = await controller.createSupplier(mockReq, {
+        name: "Proveedor 1",
+      } as any);
+
+      expect(mockProductsService.createSupplier).toHaveBeenCalledWith(
+        mockReq.tenantId,
+        { name: "Proveedor 1" },
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("throws BadRequest when name is empty or whitespace", async () => {
+      await expect(
+        controller.createSupplier(mockReq, { name: "" } as any),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.createSupplier(mockReq, { name: "   " } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws BadRequest when name is missing", async () => {
+      await expect(
+        controller.createSupplier(mockReq, {} as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("getProductPriceHistory", () => {
+    it("throws BadRequest when productId is missing", async () => {
+      await expect(
+        controller.getProductPriceHistory(undefined as any, undefined, mockReq),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("returns history with productId only", async () => {
+      mockProductsService.getProductPriceHistory.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getProductPriceHistory("product-1", undefined, mockReq);
+
+      expect(mockProductsService.getProductPriceHistory).toHaveBeenCalledWith(
+        "product-1",
+        mockReq.tenantId,
+        undefined,
+      );
+    });
+
+    it("passes supplierId when provided", async () => {
+      mockProductsService.getProductPriceHistory.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getProductPriceHistory(
+        "product-1",
+        "supplier-1",
+        mockReq,
+      );
+
+      expect(mockProductsService.getProductPriceHistory).toHaveBeenCalledWith(
+        "product-1",
+        mockReq.tenantId,
+        "supplier-1",
+      );
+    });
+  });
+
+  describe("getSupplierProducts", () => {
+    it("uses default page=1 and limit=20 when not provided", async () => {
+      mockProductsService.getSupplierProducts.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getSupplierProducts("supplier-1", mockReq);
+
+      expect(mockProductsService.getSupplierProducts).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+        1,
+        20,
+      );
+    });
+
+    it("parses page and limit when provided as strings", async () => {
+      mockProductsService.getSupplierProducts.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getSupplierProducts("supplier-1", mockReq, "3", "50");
+
+      expect(mockProductsService.getSupplierProducts).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+        3,
+        50,
+      );
+    });
+  });
+
+  describe("getSupplierPriceHistory", () => {
+    it("uses default limit=30 when not provided", async () => {
+      mockProductsService.getSupplierPriceHistory.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getSupplierPriceHistory("supplier-1", mockReq);
+
+      expect(mockProductsService.getSupplierPriceHistory).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+        30,
+      );
+    });
+
+    it("parses limit when provided as string", async () => {
+      mockProductsService.getSupplierPriceHistory.mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      await controller.getSupplierPriceHistory("supplier-1", mockReq, "10");
+
+      expect(mockProductsService.getSupplierPriceHistory).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+        10,
+      );
+    });
+  });
+
+  describe("uploadImage", () => {
+    it("throws BadRequest when no file is provided", async () => {
+      await expect(controller.uploadImage(undefined as any)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("throws BadRequest for an unsupported mimetype", async () => {
+      const file = {
+        buffer: Buffer.from("data"),
+        originalname: "file.txt",
+        mimetype: "text/plain",
+      } as Express.Multer.File;
+
+      await expect(controller.uploadImage(file)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("uploads a valid image and creates the uploads dir when missing", async () => {
+      (fs.existsSync as unknown as jest.Mock).mockReturnValue(false);
+      (fs.mkdirSync as unknown as jest.Mock).mockReturnValue(undefined);
+      (fs.writeFileSync as unknown as jest.Mock).mockReturnValue(undefined);
+
+      const file = {
+        buffer: Buffer.from("img-data"),
+        originalname: "photo.png",
+        mimetype: "image/png",
+      } as Express.Multer.File;
+
+      const result = await controller.uploadImage(file);
+
+      expect(result.success).toBe(true);
+      expect(result.data.url).toContain("/uploads/products/");
+      expect(fs.mkdirSync).toHaveBeenCalled();
+      expect(fs.writeFileSync).toHaveBeenCalled();
+    });
+
+    it("uploads a valid image reusing the existing uploads dir", async () => {
+      (fs.existsSync as unknown as jest.Mock).mockReturnValue(true);
+      (fs.writeFileSync as unknown as jest.Mock).mockReturnValue(undefined);
+
+      const file = {
+        buffer: Buffer.from("img-data"),
+        originalname: "photo.jpg",
+        mimetype: "image/jpeg",
+      } as Express.Multer.File;
+
+      const result = await controller.uploadImage(file);
+
+      expect(result.success).toBe(true);
+      expect(fs.mkdirSync).not.toHaveBeenCalled();
     });
   });
 });
