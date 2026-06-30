@@ -195,6 +195,18 @@ describe("DashboardService", () => {
         take: 12,
       });
     });
+
+    it("should return existing metrics when dashboardMetrics exist", async () => {
+      const mockMetrics = [
+        { id: "m-1", metricType: "COST_TREND", value: 500, date: new Date() },
+      ];
+      prismaService.dashboardMetric.findMany.mockResolvedValue(mockMetrics);
+
+      const result = await service.getCostTrend("tenant-1", "MONTH");
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockMetrics);
+    });
   });
 
   describe("getMenuMarginAnalysis", () => {

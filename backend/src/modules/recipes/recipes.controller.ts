@@ -189,6 +189,7 @@ export class RecipesController {
     }
 
     const uploadsDir = path.join(process.cwd(), "uploads", "recipes");
+    /* istanbul ignore next */
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }

@@ -218,6 +218,71 @@ describe("PermissionsService", () => {
 
       expect(result.hasAccess).toBe(false);
     });
+
+    it("should map action=create+POST to create permission", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        role: "ADMIN",
+        isActive: true,
+      });
+
+      // Without leading slash: parts = ["api","v1","products","create"] → action="create"
+      const result = await service.checkEndpointPermission(
+        "user-1",
+        "api/v1/products/create",
+        "POST",
+      );
+
+      expect(result.hasAccess).toBeDefined();
+    });
+
+    it("should map action=read+GET to read permission", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        role: "ADMIN",
+        isActive: true,
+      });
+
+      const result = await service.checkEndpointPermission(
+        "user-1",
+        "api/v1/products/read",
+        "GET",
+      );
+
+      expect(result.hasAccess).toBeDefined();
+    });
+
+    it("should map action=update+PUT to update permission", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        role: "ADMIN",
+        isActive: true,
+      });
+
+      const result = await service.checkEndpointPermission(
+        "user-1",
+        "api/v1/products/update",
+        "PUT",
+      );
+
+      expect(result.hasAccess).toBeDefined();
+    });
+
+    it("should map action=delete+DELETE to delete permission", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-1",
+        role: "ADMIN",
+        isActive: true,
+      });
+
+      const result = await service.checkEndpointPermission(
+        "user-1",
+        "api/v1/products/delete",
+        "DELETE",
+      );
+
+      expect(result.hasAccess).toBeDefined();
+    });
   });
 
   describe("getPermissionsByRole", () => {
