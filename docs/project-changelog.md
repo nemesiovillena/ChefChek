@@ -10,6 +10,19 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 ---
 
+## Estado real — 2026-06-29 (verificación contra `develop`)
+
+- **Tests backend (unit)**: 1340 tests / 79 suites (todos verdes).
+- **E2E backend**: 29/29 (Supertest, sin cambios).
+- **Frontend hydration fix**: eliminado `useSyncExternalStore` de `auth.context.tsx`
+  (la suscripción era un no-op y causaba SSR/client mismatch al usar sessionStorage
+  como initializer de `useState`). Estado inicializado con valores server-safe (null/false);
+  sessionStorage se lee en `useEffect` post-mount. Añadido `suppressHydrationWarning`
+  al `<body>` en `layout.tsx` para silenciar modificaciones de extensiones de navegador.
+- **Cobertura backend**: última medición formalizada 2026-06-04 (85.15%); revalidar.
+
+---
+
 ## Estado real — 2026-06-28 (verificación contra `develop`)
 
 Corrección de cifras desfasadas que aparecían en versiones previas de este

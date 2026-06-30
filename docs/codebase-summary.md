@@ -1,6 +1,6 @@
 # ChefChek - Codebase Summary
 
-> Última verificación: 2026-06-28 (contra `develop`). Las cifras de este
+> Última verificación: 2026-06-29 (contra `develop`). Las cifras de este
 > documento se comprobaron contra el código, no contra versiones anteriores.
 
 ## Overview
@@ -72,8 +72,9 @@ Organizados por dominio bajo `backend/src/modules/`:
 | Backend | 🟢 Compila (`nest build`), 69 modelos, 26 módulos, seed coherente |
 | Frontend | 🟢 Compila (`next build`), 24+ rutas; 0 errores de tipo |
 | Lint frontend | 🟡 0 errores, ~125 warnings (cosmético, `unused-vars`) |
+| Tests backend (unit) | 🟢 1340 tests, 79 suites (medido 2026-06-29) |
 | E2E backend | 🟢 29/29 (Supertest) |
-| Docs | 🟡 En sincronización (este documento actualizado; changelog histórico no) |
+| Docs | 🟢 Sincronizados (2026-06-29) |
 
 > El porcentaje global ("X% completo") es orientativo y no se mantiene
 > automáticamente; confiar en CI + build como indicador de salud.
@@ -82,8 +83,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 
 - Consolidar versión NestJS (common 10 vs core 11) en el backend.
 - Cerrar warnings de lint del frontend (~125, mayoría `unused-vars`).
-- Auditoría de cobertura de tests backend actualizada (la última medición
-  registrada es de 2026-06-04; revalidar antes de citar cifras).
+- Cobertura de tests backend: última medición formalizada 2026-06-04 (85.15%); revalidar antes de citar.
 
 ---
-**Última verificación**: 2026-06-28 · **Rama**: `develop` · **Versión**: 0.2.0
+**Última verificación**: 2026-06-29 · **Rama**: `develop` · **Versión**: 0.2.0

@@ -664,15 +664,15 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
   const { data: costData, isLoading: costLoading } = useRecipeCost(recipe.id);
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white">
+    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
+      <div className="relative top-20 mx-auto p-6 border border-gray-200 dark:border-zinc-800 w-full max-w-3xl shadow-xl rounded-md bg-white dark:bg-zinc-900 text-gray-900 dark:text-white">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
             Costo: {recipe.name}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
+            className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg
               className="h-6 w-6"
@@ -689,60 +689,77 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
         </div>
 
         {costLoading ? (
-          <div className="text-center py-8">Calculando costo...</div>
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Calculando costo...</div>
         ) : costData ? (
           <div>
             <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600">Costo Total</div>
-                <div className="text-2xl font-bold text-gray-900">
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-4 rounded-lg transition-colors">
+                <div className="text-sm text-green-700 dark:text-green-400">Costo Total</div>
+                <div className="text-2xl font-bold text-green-900 dark:text-green-200">
                   €{costData.totalCost.toFixed(2)}
                 </div>
               </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600">Costo por Porción</div>
-                <div className="text-2xl font-bold text-gray-900">
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-lg transition-colors">
+                <div className="text-sm text-blue-700 dark:text-blue-400">Costo por Porción</div>
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">
                   €{costData.costPerPortion.toFixed(2)}
                 </div>
               </div>
             </div>
 
-            <h4 className="text-lg font-medium mb-4">Ingredientes</h4>
+            <h4 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Ingredientes</h4>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
+                <thead className="bg-gray-50 dark:bg-zinc-800/50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       Producto
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       Cantidad
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       Unidad
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       Costo
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {costData.ingredients.map((ingredient, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {ingredient.productName}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {ingredient.quantity}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {ingredient.unit}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 text-right">
-                        €{ingredient.cost.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+                  {costData.ingredients
+                    ? costData.ingredients.map((ingredient, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                            {ingredient.productName}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {ingredient.quantity}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {ingredient.unit}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
+                            €{ingredient.cost.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    : recipe.ingredients.map((ingredient, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                            {ingredient.productName ?? ingredient.productId}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {ingredient.quantity}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {ingredient.unit}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 text-right">
+                            —
+                          </td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </div>
@@ -752,7 +769,7 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
         <div className="mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
           >
             Cerrar
           </button>

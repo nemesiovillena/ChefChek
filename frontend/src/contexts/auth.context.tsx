@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useSyncExternalStore, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
 
@@ -23,78 +23,32 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Snapshot of the persisted session data in sessionStorage. Used to hydrate
-// the initial state synchronously on the client without setState-in-effect.
-interface PersistedSession {
-  user: AuthResponse['user'] | null;
-  tenantSlug: string | null;
-  sessionId: string | null;
-}
-
-// Stable empty snapshot reused on the server (and on the client when nothing is
-// persisted). useSyncExternalStore requires getServerSnapshot to return a
-// cached, referentially-stable value; a fresh object literal per call triggers
-// "getServerSnapshot should be cached to avoid an infinite loop".
-const EMPTY_PERSISTED_SESSION: PersistedSession = {
-  user: null,
-  tenantSlug: null,
-  sessionId: null,
-};
-
-// Memoize the client snapshot so the same object reference is returned whenever
-// the underlying sessionStorage values are unchanged. Without this, every render
-// builds a new object and React treats it as a changed snapshot.
-let cachedPersistedSession: PersistedSession = EMPTY_PERSISTED_SESSION;
-let cachedPersistedRaw: string | null = null;
-
-const readPersistedSession = (): PersistedSession => {
-  if (typeof window === 'undefined') {
-    return EMPTY_PERSISTED_SESSION;
-  }
-  const savedUser = sessionStorage.getItem('user');
-  const savedTenantSlug = sessionStorage.getItem('tenant_slug');
-  const savedSessionId = sessionStorage.getItem('session_id');
-  const raw = `${savedUser ?? ''}|${savedTenantSlug ?? ''}|${savedSessionId ?? ''}`;
-  if (raw === cachedPersistedRaw) {
-    return cachedPersistedSession;
-  }
-  let parsedUser: AuthResponse['user'] | null = null;
-  if (savedUser) {
-    try {
-      parsedUser = JSON.parse(savedUser);
-    } catch {
-      parsedUser = null;
-    }
-  }
-  cachedPersistedRaw = raw;
-  cachedPersistedSession = {
-    user: parsedUser,
-    tenantSlug: savedTenantSlug,
-    sessionId: savedSessionId,
-  };
-  return cachedPersistedSession;
-};
-
-const subscribePersistedSession = () => () => {};
-const getServerPersistedSession = (): PersistedSession => EMPTY_PERSISTED_SESSION;
-
 export function AuthProvider({ children }: AuthProviderProps) {
-  // Hydrate from sessionStorage synchronously on the client to avoid the
-  // previous setState-in-effect pattern for the instant-load path.
-  const persisted = useSyncExternalStore(
-    subscribePersistedSession,
-    readPersistedSession,
-    getServerPersistedSession,
-  );
-
-  const [user, setUser] = useState<AuthResponse['user'] | null>(persisted.user);
+  // Lazy initializers read sessionStorage once on mount (client-only).
+  // Server renders null/false; client hydrates from persisted session.
+  const [user, setUser] = useState<AuthResponse['user'] | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = sessionStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [tenantSlug, setTenantSlug] = useState<string | null>(persisted.tenantSlug);
-  const [sessionId, setSessionId] = useState<string | null>(persisted.sessionId);
-  // Only show a loading state when there is a persisted session that needs
-  // backend verification. When there is nothing persisted, the initial state
-  // is already final, so loading is false and no setState-in-effect is needed.
-  const [isLoading, setIsLoading] = useState<boolean>(!!persisted.user && !!persisted.sessionId);
+  const [tenantSlug, setTenantSlug] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem('tenant_slug');
+  });
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem('session_id');
+  });
+  // Start as loading when a persisted session exists so the UI doesn't flash.
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return !!(sessionStorage.getItem('user') && sessionStorage.getItem('session_id'));
+  });
 
   const isAuthenticated = !!user;
 
@@ -118,14 +72,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, sessionId, user, tenantId]);
 
-  // Check session on mount. The backend verification is an external-system
-  // subscription: setState calls happen inside the resolved promise callback
-  // (after await), not synchronously in the effect body.
+  // On mount: verify persisted session with backend to obtain tenantId.
+  // State is already hydrated from sessionStorage via lazy initializers above.
   useEffect(() => {
-    const savedUser = sessionStorage.getItem('user');
-    const savedSessionId = sessionStorage.getItem('session_id');
-
-    if (!savedUser || !savedSessionId) {
+    if (!user || !sessionId) {
       return;
     }
 
@@ -145,6 +95,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         sessionStorage.removeItem('session_id');
         sessionStorage.removeItem('tenant_slug');
         sessionStorage.removeItem('user');
+        setUser(null);
+        setTenantSlug(null);
+        setSessionId(null);
         setIsLoading(false);
       });
 

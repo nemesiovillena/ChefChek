@@ -20,6 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   });
   const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (isDark) {
@@ -40,6 +41,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (!showMore) return;
+    const close = () => setShowMore(false);
+    document.addEventListener('click', close, { capture: true });
+    return () => document.removeEventListener('click', close, { capture: true });
+  }, [showMore]);
 
   if (isLoading) {
     return (
@@ -72,7 +80,67 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/dashboard/menus" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">MENÚS</Link>
           <Link href="/dashboard/production" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">PRODUCCIÓN</Link>
           <Link href="/dashboard/users" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">EQUIPO</Link>
-          <Link href="/dashboard/settings" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">CONFIGURACIÓN</Link>
+          {/* Dropdown for remaining modules */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1"
+            >
+              MÁS
+              <span className="material-symbols-outlined text-[16px]">{showMore ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            {showMore && (
+              <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                <div className="p-2">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Seguridad alimentaria</p>
+                  <Link href="/dashboard/appcc" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">health_and_safety</span>APPCC
+                  </Link>
+                  <Link href="/dashboard/allergens" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">warning</span>Alérgenos
+                  </Link>
+                </div>
+                <div className="border-t border-border p-2">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Almacén & Pedidos</p>
+                  <Link href="/dashboard/warehouse" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">warehouse</span>Almacén
+                  </Link>
+                  <Link href="/dashboard/orders" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">shopping_cart</span>Pedidos
+                  </Link>
+                </div>
+                <div className="border-t border-border p-2">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Contenido</p>
+                  <Link href="/dashboard/technical-sheets" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">description</span>Fichas técnicas
+                  </Link>
+                  <Link href="/dashboard/digital-menu" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">qr_code</span>Menú digital
+                  </Link>
+                  <Link href="/dashboard/wiki-procedimientos" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">menu_book</span>Wiki
+                  </Link>
+                </div>
+                <div className="border-t border-border p-2">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">IA & Herramientas</p>
+                  <Link href="/dashboard/ocr-ai" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">document_scanner</span>OCR / IA
+                  </Link>
+                  <Link href="/dashboard/ingestion" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">upload_file</span>Ingesta
+                  </Link>
+                  <Link href="/dashboard/sprint-tracker" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">track_changes</span>Sprint
+                  </Link>
+                </div>
+                <div className="border-t border-border p-2">
+                  <Link href="/dashboard/settings" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">settings</span>Configuración
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-stack-md">
           <div className="text-right hidden sm:block">
@@ -165,34 +233,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-base pb-safe bg-surface-container-high border-t border-border rounded-t-xl md:hidden">
-        <Link
-          href="/dashboard"
-          className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
-        >
+        <Link href="/dashboard" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
           <span className="material-symbols-outlined">dashboard</span>
-          <span className="font-label-md text-label-md mt-1">Dashboard</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">Dashboard</span>
         </Link>
-        <Link
-          href="/dashboard/recipes"
-          className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
-        >
+        <Link href="/dashboard/recipes" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
           <span className="material-symbols-outlined">receipt_long</span>
-          <span className="font-label-md text-label-md mt-1">Recetas</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">Recetas</span>
         </Link>
-        <Link
-          href="/dashboard/articulos"
-          className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
-        >
-          <span className="material-symbols-outlined">flatware</span>
-          <span className="font-label-md text-label-md mt-1">Artículos</span>
+        <Link href="/dashboard/appcc" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
+          <span className="material-symbols-outlined">health_and_safety</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">APPCC</span>
         </Link>
-        <Link
-          href="/dashboard/settings"
-          className="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:text-primary transition-all duration-300 ease-in-out"
-        >
-          <span className="material-symbols-outlined">settings</span>
-          <span className="font-label-md text-label-md mt-1">Config</span>
+        <Link href="/dashboard/warehouse" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
+          <span className="material-symbols-outlined">warehouse</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">Almacén</span>
         </Link>
+        <button onClick={() => setShowMore(!showMore)} className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
+          <span className="material-symbols-outlined">apps</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">Más</span>
+        </button>
       </nav>
     </div>
   );

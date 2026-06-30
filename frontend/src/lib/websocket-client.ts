@@ -197,7 +197,9 @@ export class WebSocketClient {
         return;
       }
 
-      this.socket = io(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/ws`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || apiUrl.replace(/\/api\/?$/, '');
+      this.socket = io(`${backendBaseUrl}/api/v1/ws`, {
         auth: { token },
         transports: ['websocket', 'polling'],
         reconnection: true,
