@@ -73,9 +73,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated, sessionId, user, tenantId]);
 
   // On mount: verify persisted session with backend to obtain tenantId.
-  // State is already hydrated from sessionStorage via lazy initializers above.
+  // Reads sessionStorage directly so the effect has no React state dependencies.
   useEffect(() => {
-    if (!user || !sessionId) {
+    const hasSavedSession =
+      sessionStorage.getItem('user') && sessionStorage.getItem('session_id');
+
+    if (!hasSavedSession) {
       return;
     }
 
