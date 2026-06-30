@@ -6,6 +6,15 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 
+jest.mock("fs", () => ({
+  ...jest.requireActual("fs"),
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+}));
+
+import * as fs from "fs";
+
 describe("RecipesController", () => {
   let controller: RecipesController;
 
@@ -268,6 +277,23 @@ describe("RecipesController", () => {
       } as any;
 
       await expect(controller.uploadImage(mockFile)).rejects.toThrow();
+    });
+
+    it("should create uploads directory when it does not exist", async () => {
+      (fs.existsSync as jest.Mock).mockReturnValueOnce(false);
+
+      const mockFile = {
+        fieldname: "file",
+        originalname: "test-recipe.jpg",
+        mimetype: "image/jpeg",
+        buffer: Buffer.from("content"),
+        size: 100,
+      } as Express.Multer.File;
+
+      const result = await controller.uploadImage(mockFile);
+
+      expect(fs.mkdirSync).toHaveBeenCalled();
+      expect(result.success).toBe(true);
     });
   });
 });

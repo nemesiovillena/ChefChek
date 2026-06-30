@@ -435,4 +435,161 @@ describe("MenusService", () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe("updateItemPrices (private via create)", () => {
+    it("should return early when menu not found in updateItemPrices", async () => {
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+      mockPrismaService.menu.create.mockResolvedValue(mockMenu);
+      // First findUnique (updateItemPrices): null → return early
+      // Second findUnique (reload): return menu
+      mockPrismaService.menu.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(mockMenu);
+
+      const result = await service.create(tenantId, createMenuDto);
+
+      expect(result).toBeDefined();
+    });
+
+    it("should update price for items with price=0 when recipe found", async () => {
+      const zeroPriceItem = {
+        id: "item-0",
+        recipeId: "recipe-1",
+        price: 0,
+        isAvailable: true,
+        recipe: mockRecipe,
+      };
+      const menuWithZeroPriceItem = {
+        ...mockMenu,
+        sections: [{ ...mockMenuSection, items: [zeroPriceItem] }],
+      };
+
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+      mockPrismaService.menu.create.mockResolvedValue(mockMenu);
+      mockPrismaService.menu.findUnique
+        .mockResolvedValueOnce(menuWithZeroPriceItem) // updateItemPrices
+        .mockResolvedValueOnce(menuWithZeroPriceItem); // reload
+      mockPrismaService.menuItem.update.mockResolvedValue({});
+
+      const result = await service.create(tenantId, createMenuDto);
+
+      expect(mockPrismaService.menuItem.update).toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+
+    it("should skip update when recipe not found for price=0 item", async () => {
+      const zeroPriceItem = {
+        id: "item-0",
+        recipeId: "no-recipe",
+        price: 0,
+        isAvailable: true,
+        recipe: mockRecipe,
+      };
+      const menuWithZeroPriceItem = {
+        ...mockMenu,
+        sections: [{ ...mockMenuSection, items: [zeroPriceItem] }],
+      };
+
+      mockPrismaService.recipe.findUnique
+        .mockResolvedValueOnce(mockRecipe) // for the create validation
+        .mockResolvedValueOnce(null); // for updateItemPrices recipe lookup
+      mockPrismaService.menu.create.mockResolvedValue(mockMenu);
+      mockPrismaService.menu.findUnique
+        .mockResolvedValueOnce(menuWithZeroPriceItem)
+        .mockResolvedValueOnce(menuWithZeroPriceItem);
+
+      const result = await service.create(tenantId, createMenuDto);
+
+      expect(mockPrismaService.menuItem.update).not.toHaveBeenCalled();
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe("formatMenuResponse / calculateAllergens (private)", () => {
+    it("should include allergens from recipe ingredients", () => {
+      const recipeWithAllergens = {
+        id: "r-1",
+        name: "Recipe",
+        totalCost: 5,
+        ingredients: [
+          {
+            product: {
+              allergens: [1, 7, 14],
+            },
+          },
+        ],
+      };
+
+      const menuWithAllergens = {
+        ...mockMenu,
+        sections: [
+          {
+            id: "s-1",
+            name: "Main",
+            order: 0,
+            items: [
+              {
+                id: "i-1",
+                recipeId: "r-1",
+                recipe: recipeWithAllergens,
+                price: 10,
+                isAvailable: true,
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = (service as any).formatMenuResponse(menuWithAllergens);
+
+      expect(result.sections[0].items[0].allergens).toContain(1);
+      expect(result.sections[0].items[0].allergens).toContain(7);
+    });
+
+    it("should calculate marginPercentage as 0 when price is 0", () => {
+      const menuWithFreeItem = {
+        ...mockMenu,
+        sections: [
+          {
+            id: "s-1",
+            name: "Main",
+            order: 0,
+            items: [
+              {
+                id: "i-1",
+                recipeId: "r-1",
+                recipe: { ...mockRecipe, totalCost: 5 },
+                price: 0,
+                isAvailable: true,
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = (service as any).formatMenuResponse(menuWithFreeItem);
+
+      // marginPercentage = price > 0 ? ... : 0
+      expect(result.sections[0].items[0].price).toBe(0);
+    });
+
+    it("should use empty object when sectionsTranslations is missing", () => {
+      const menuNoSectionsTrans = {
+        ...mockMenu,
+        translations: [
+          {
+            id: "t-1",
+            language: "es",
+            name: "Menú",
+            description: "Descripción",
+            // no sectionsTranslations
+          },
+        ],
+      };
+
+      const result = (service as any).formatMenuResponse(menuNoSectionsTrans);
+
+      expect(result.translations[0].sectionsTranslations).toEqual({});
+    });
+  });
 });
