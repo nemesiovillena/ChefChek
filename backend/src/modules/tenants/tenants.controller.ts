@@ -10,7 +10,6 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  Req,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -18,16 +17,15 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
 } from "@nestjs/swagger";
 import { TenantsService } from "./tenants.service";
 import { CreateTenantDto, UpdateTenantDto } from "./dto/create-tenant.dto";
 import { AuthGuard } from "../../guards/auth.guard";
-import { RolesGuard } from "../../guards/roles.guard";
-import { Roles } from "../../decorators/roles.decorator";
+import { SuperadminGuard } from "../../guards/superadmin.guard";
 
 @ApiTags("Tenants")
 @Controller("api/v1/tenants")
+@UseGuards(AuthGuard, SuperadminGuard)
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
@@ -41,29 +39,16 @@ export class TenantsController {
 
   @Get()
   @ApiOperation({ summary: "Listar todos los tenants" })
-  @ApiQuery({
-    name: "page",
-    required: false,
-    type: Number,
-    description: "Número de página (default: 1)",
-  })
-  @ApiQuery({
-    name: "limit",
-    required: false,
-    type: Number,
-    description: "Resultados por página (default: 20)",
-  })
+  @ApiQuery({ name: "page", required: false, type: Number })
+  @ApiQuery({ name: "limit", required: false, type: Number })
   @ApiResponse({ status: 200, description: "Lista de tenants" })
   async findAll(@Query("page") page?: string, @Query("limit") limit?: string) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 20;
-
     return this.tenantsService.findAll(pageNum, limitNum);
   }
 
   @Get(":id")
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles("ADMIN")
   @ApiOperation({ summary: "Obtener un tenant por ID" })
   @ApiParam({ name: "id", description: "ID del tenant" })
   @ApiResponse({ status: 200, description: "Tenant encontrado" })
@@ -73,8 +58,6 @@ export class TenantsController {
   }
 
   @Patch(":id")
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles("ADMIN")
   @ApiOperation({ summary: "Actualizar un tenant" })
   @ApiParam({ name: "id", description: "ID del tenant" })
   @ApiResponse({ status: 200, description: "Tenant actualizado exitosamente" })
@@ -87,8 +70,6 @@ export class TenantsController {
   }
 
   @Delete(":id")
-  @UseGuards(AuthGuard, RolesGuard)
-  @Roles("ADMIN")
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: "Eliminar un tenant" })
   @ApiParam({ name: "id", description: "ID del tenant" })

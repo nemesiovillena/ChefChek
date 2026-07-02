@@ -11,6 +11,11 @@ export class TenantGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>() as any;
 
+    // SUPERADMIN opera sin tenant — bypass obligatorio
+    if (request.user?.role === "SUPERADMIN") {
+      return true;
+    }
+
     // Check if tenantId is already set by TenantMiddleware
     if (!request.tenantId) {
       // If not set, try to get it from authenticated user

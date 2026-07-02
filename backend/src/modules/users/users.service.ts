@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
@@ -21,6 +22,12 @@ export class UsersService {
       role = "USER",
       isActive = true,
     } = createUserDto;
+
+    if ((role as string) === "SUPERADMIN") {
+      throw new BadRequestException(
+        "No se puede crear un SUPERADMIN desde esta API",
+      );
+    }
 
     // Validar que el tenant ID coincida con el tenant de la request
     if (tenantId !== requestTenantId) {
@@ -215,6 +222,26 @@ export class UsersService {
     };
   }
 
+  async findSuperadminByEmail(email: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { email, role: "SUPERADMIN" },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+      isActive: user.isActive,
+    };
+  }
+
   async findByEmail(email: string, tenantId: string) {
     const user = await this.prisma.user.findUnique({
       where: {
@@ -270,8 +297,9 @@ export class UsersService {
       return false;
     }
 
-    // Roles con mayor jerarquía: OWNER > ADMIN > USER > VIEWER
+    // Roles con mayor jerarquía: SUPERADMIN > OWNER > ADMIN > USER > VIEWER
     const roleHierarchy: { [key: string]: number } = {
+      SUPERADMIN: 5,
       OWNER: 4,
       ADMIN: 3,
       USER: 2,

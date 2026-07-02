@@ -52,6 +52,7 @@ import { QRModule } from "./modules/qr/qr.module";
 import { AlbaranesModule } from "./modules/albaranes/albaranes.module";
 import { WebSocketModule } from "./websocket/websocket.module";
 import { ModulesModule } from "./modules/modules/modules.module";
+import { SuperadminModule } from "./modules/superadmin/superadmin.module";
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { ModulesModule } from "./modules/modules/modules.module";
     GuardsModule,
     WebSocketModule,
     ModulesModule,
+    SuperadminModule,
   ],
   controllers: [
     TenantsController,

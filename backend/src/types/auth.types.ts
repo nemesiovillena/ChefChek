@@ -5,7 +5,7 @@ export interface AuthUser {
   email: string;
   name: string;
   role: string;
-  tenantId: string;
+  tenantId: string | null;
 }
 
 export interface AuthenticatedRequest extends ExpressRequest {

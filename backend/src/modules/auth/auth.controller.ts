@@ -18,7 +18,7 @@ import {
   ApiParam,
 } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
-import { LoginDto } from "./dto/login.dto";
+import { LoginDto, SuperadminLoginDto } from "./dto/login.dto";
 import { AuthenticatedRequest } from "../../types/auth.types";
 
 @ApiTags("Auth")
@@ -79,6 +79,24 @@ export class AuthController {
       loginDto.email,
       loginDto.password,
       tenantSlug,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  @Post("superadmin/login")
+  @ApiOperation({ summary: "Login exclusivo para SUPERADMIN (sin tenant)" })
+  @ApiResponse({ status: 200, description: "Login exitoso" })
+  @ApiResponse({ status: 401, description: "Credenciales inválidas" })
+  async superadminLogin(
+    @Body() dto: SuperadminLoginDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers["user-agent"];
+    return this.authService.superadminLogin(
+      dto.email,
+      dto.password,
       ipAddress,
       userAgent,
     );

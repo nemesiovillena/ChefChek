@@ -46,6 +46,7 @@ describe("AuthService", () => {
   beforeEach(async () => {
     const mockUsersService = {
       findByEmail: jest.fn(),
+      findSuperadminByEmail: jest.fn(),
       create: jest.fn(),
     };
 
@@ -237,6 +238,106 @@ describe("AuthService", () => {
     });
   });
 
+  describe("superadminLogin", () => {
+    const mockSuperadmin = {
+      id: "sa-1",
+      email: "superadmin@chefchek.io",
+      passwordHash: "hashedPassword",
+      name: "ChefChek Superadmin",
+      role: "SUPERADMIN" as const,
+      tenantId: null,
+      isActive: true,
+    };
+
+    it("should login SUPERADMIN without tenantSlug and return tenantId null", async () => {
+      usersService.findSuperadminByEmail.mockResolvedValue(mockSuperadmin);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      sessionService.createSession.mockResolvedValue({
+        session: mockSession,
+        cookie: "session-cookie-serialized",
+      });
+
+      const result = await service.superadminLogin(
+        "superadmin@chefchek.io",
+        "password123",
+        "127.0.0.1",
+        "Mozilla/5.0",
+      );
+
+      expect(usersService.findSuperadminByEmail).toHaveBeenCalledWith(
+        "superadmin@chefchek.io",
+      );
+      expect(result).toEqual({
+        success: true,
+        data: {
+          user: {
+            id: mockSuperadmin.id,
+            email: mockSuperadmin.email,
+            name: mockSuperadmin.name,
+            role: mockSuperadmin.role,
+            tenantId: null,
+          },
+          session: {
+            id: mockSession.id,
+            expiresAt: mockSession.expiresAt,
+          },
+          cookie: "session-cookie-serialized",
+        },
+        message: "Login successful",
+      });
+      expect(sessionService.createSession).toHaveBeenCalledWith(
+        mockSuperadmin.id,
+        "127.0.0.1",
+        "Mozilla/5.0",
+      );
+    });
+
+    it("should reject when user is not found", async () => {
+      usersService.findSuperadminByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "password123"),
+      ).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "password123"),
+      ).rejects.toThrow("Invalid credentials");
+    });
+
+    it("should reject when found user role is not SUPERADMIN", async () => {
+      usersService.findSuperadminByEmail.mockResolvedValue({
+        ...mockSuperadmin,
+        role: "OWNER" as const,
+      });
+
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "password123"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("should reject when account is inactive", async () => {
+      usersService.findSuperadminByEmail.mockResolvedValue({
+        ...mockSuperadmin,
+        isActive: false,
+      });
+
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "password123"),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("should reject when password is invalid", async () => {
+      usersService.findSuperadminByEmail.mockResolvedValue(mockSuperadmin);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "wrongpassword"),
+      ).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.superadminLogin("superadmin@chefchek.io", "wrongpassword"),
+      ).rejects.toThrow("Invalid credentials");
+    });
+  });
+
   describe("logout", () => {
     it("should return logout response with cookie", async () => {
       sessionService.invalidateSession.mockResolvedValue({
@@ -359,7 +460,7 @@ describe("AuthService", () => {
         message: "User created successfully",
       });
 
-      const result = await service.register(
+      await service.register(
         "admin@example.com",
         "password123",
         "Admin User",

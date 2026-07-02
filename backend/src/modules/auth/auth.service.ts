@@ -130,6 +130,46 @@ export class AuthService {
     };
   }
 
+  async superadminLogin(
+    email: string,
+    password: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const user = await this.usersService.findSuperadminByEmail(email);
+
+    if (!user || !user.isActive || user.role !== "SUPERADMIN") {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    const { session, cookie } = await this.sessionService.createSession(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: null,
+        },
+        session: { id: session.id, expiresAt: session.expiresAt },
+        cookie,
+      },
+      message: "Login successful",
+    };
+  }
+
   async refreshSession(
     sessionId: string,
     ipAddress?: string,

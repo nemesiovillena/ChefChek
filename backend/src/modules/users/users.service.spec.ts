@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
 
@@ -109,6 +110,22 @@ describe("UsersService", () => {
       await expect(
         service.create(createUserDto, "different-tenant-id"),
       ).rejects.toThrow("Cannot create user for different tenant");
+    });
+
+    it("should throw BadRequestException if role is SUPERADMIN", async () => {
+      const superadminDto = {
+        ...createUserDto,
+        role: "SUPERADMIN" as any,
+      };
+
+      await expect(service.create(superadminDto, "tenant-id")).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.create(superadminDto, "tenant-id")).rejects.toThrow(
+        "No se puede crear un SUPERADMIN desde esta API",
+      );
+      // Should short-circuit before hitting the database
+      expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
     });
 
     it("should throw NotFoundException if tenant does not exist", async () => {
@@ -497,6 +514,49 @@ describe("UsersService", () => {
     });
   });
 
+  describe("findSuperadminByEmail", () => {
+    const mockSuperadmin = {
+      id: "sa-id",
+      tenantId: null,
+      email: "superadmin@chefchek.io",
+      passwordHash: "hashed-password",
+      name: "ChefChek Superadmin",
+      role: "SUPERADMIN",
+      isActive: true,
+    };
+
+    it("should return the superadmin user by email (no tenant filter)", async () => {
+      prisma.user.findFirst.mockResolvedValue(mockSuperadmin);
+
+      const result = await service.findSuperadminByEmail(
+        "superadmin@chefchek.io",
+      );
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { email: "superadmin@chefchek.io", role: "SUPERADMIN" },
+      });
+      expect(result).toEqual({
+        id: "sa-id",
+        email: "superadmin@chefchek.io",
+        passwordHash: "hashed-password",
+        name: "ChefChek Superadmin",
+        role: "SUPERADMIN",
+        tenantId: null,
+        isActive: true,
+      });
+    });
+
+    it("should return null when no superadmin matches the email", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      const result = await service.findSuperadminByEmail(
+        "notfound@chefchek.io",
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe("findById", () => {
     const mockUser = {
       id: "user-id",
@@ -689,6 +749,26 @@ describe("UsersService", () => {
       ]);
 
       expect(result).toBe(false);
+    });
+
+    it("should grant SUPERADMIN access to any role requirement (hierarchy level 5)", async () => {
+      const mockSuperadmin = {
+        id: "sa-id",
+        role: "SUPERADMIN",
+        isActive: true,
+      };
+
+      (service.findById as jest.Mock).mockResolvedValue(mockSuperadmin);
+
+      // SUPERADMIN sits above OWNER (4), so it satisfies every requirement.
+      const result = await service.validateUserPermissions("sa-id", [
+        "OWNER",
+        "ADMIN",
+        "USER",
+        "VIEWER",
+      ]);
+
+      expect(result).toBe(true);
     });
   });
 });

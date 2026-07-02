@@ -36,6 +36,7 @@ export class TenantMiddleware implements NestMiddleware {
     "/api/v1/auth/validate",
     "/api/v1/auth/register",
     "/api/v1/auth/sessions",
+    "/api/v1/auth/superadmin/login",
     "/api/v1/tenants",
   ];
 
