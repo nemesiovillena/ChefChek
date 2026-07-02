@@ -25,31 +25,15 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  // Lazy initializers read sessionStorage once on mount (client-only).
-  // Server renders null/false; client hydrates from persisted session.
-  const [user, setUser] = useState<AuthResponse['user'] | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const saved = sessionStorage.getItem('user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Server and first client render share the same empty state to avoid
+  // hydration mismatches; the persisted session is restored after mount.
+  const [user, setUser] = useState<AuthResponse['user'] | null>(null);
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [tenantSlug, setTenantSlug] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem('tenant_slug');
-  });
-  const [sessionId, setSessionId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem('session_id');
-  });
-  // Start as loading when a persisted session exists so the UI doesn't flash.
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return !!(sessionStorage.getItem('user') && sessionStorage.getItem('session_id'));
-  });
+  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  // Start loading so protected routes don't redirect to /login before the
+  // persisted session is restored on mount.
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const isAuthenticated = !!user;
 
@@ -73,36 +57,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isAuthenticated, sessionId, user, tenantId]);
 
-  // On mount: verify persisted session with backend to obtain tenantId.
-  // Reads sessionStorage directly so the effect has no React state dependencies.
+  // On mount: verify the persisted session with the backend. Loading stays
+  // true until validation resolves, so protected routes don't flash a login
+  // redirect. Runs only on the client after hydration, so the server/client
+  // first render stay identical (both see the empty initial state). All
+  // setState calls live in async callbacks.
   useEffect(() => {
-    const hasSavedSession =
-      sessionStorage.getItem('user') && sessionStorage.getItem('session_id');
-
-    if (!hasSavedSession) {
-      return;
-    }
-
     let cancelled = false;
+
+    const clearSession = () => {
+      sessionStorage.removeItem('session_id');
+      sessionStorage.removeItem('tenant_slug');
+      sessionStorage.removeItem('user');
+      setUser(null);
+      setTenantSlug(null);
+      setSessionId(null);
+      setTenantId(null);
+      setIsLoading(false);
+    };
+
     authService
       .getCurrentSession()
       .then((session) => {
         if (cancelled) return;
-        if (session) {
-          setTenantId(session.user.tenantId);
+        if (!session) {
+          clearSession();
+          return;
         }
+        setUser(session.user);
+        setTenantId(session.user.tenantId);
         setIsLoading(false);
       })
       .catch((error) => {
         if (cancelled) return;
         console.error('Error loading saved session:', error);
-        sessionStorage.removeItem('session_id');
-        sessionStorage.removeItem('tenant_slug');
-        sessionStorage.removeItem('user');
-        setUser(null);
-        setTenantSlug(null);
-        setSessionId(null);
-        setIsLoading(false);
+        clearSession();
       });
 
     return () => {
