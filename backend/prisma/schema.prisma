@@ -1612,3 +1612,18 @@ model ProductPriceHistory {
   @@index([productId, recordedAt])
   @@map("product_price_histories")
 }
+
+model Allergen {
+  id          Int      @id
+  name        String
+  nameEu1169  String?
+  description String?
+  icon        String?
+  color       String?
+  severity    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("allergens")
+}

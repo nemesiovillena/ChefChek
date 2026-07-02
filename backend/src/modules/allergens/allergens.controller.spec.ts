@@ -10,6 +10,9 @@ describe("AllergensController", () => {
   let controller: AllergensController;
 
   const mockAllergensService = {
+    findAll: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
     getAllergensInfo: jest.fn(),
     updateProductAllergens: jest.fn(),
     calculateRecipeAllergens: jest.fn(),
@@ -432,6 +435,52 @@ describe("AllergensController", () => {
       expect(
         mockAllergensService.recalculateAllAllergensForTenant,
       ).toHaveBeenCalledWith(mockReq.tenantId);
+    });
+  });
+
+  describe("listAllergens", () => {
+    it("should return the catalog with tenant scope", async () => {
+      const catalog = [{ id: 1, name: "Gluten", productsCount: 3 }];
+      mockAllergensService.findAll.mockResolvedValue(catalog);
+
+      const result = await controller.listAllergens(mockReq);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(catalog);
+      expect(mockAllergensService.findAll).toHaveBeenCalledWith(
+        mockReq.tenantId,
+      );
+    });
+  });
+
+  describe("createAllergen", () => {
+    it("should create and return the new allergen", async () => {
+      const dto = { name: "Custom" };
+      const created = { id: 15, name: "Custom", isActive: true };
+      mockAllergensService.create.mockResolvedValue(created);
+
+      const result = await controller.createAllergen(dto as any);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(created);
+      expect(mockAllergensService.create).toHaveBeenCalledWith(dto);
+    });
+  });
+
+  describe("updateAllergen", () => {
+    it("should update and return the allergen", async () => {
+      const updated = { id: 1, name: "Renamed", isActive: true };
+      mockAllergensService.update.mockResolvedValue(updated);
+
+      const result = await controller.updateAllergen("1", {
+        name: "Renamed",
+      } as any);
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(updated);
+      expect(mockAllergensService.update).toHaveBeenCalledWith(1, {
+        name: "Renamed",
+      });
     });
   });
 });

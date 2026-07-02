@@ -8,12 +8,93 @@ import {
   UpdateProductAllergensDto,
   AllergenConflictDto,
   AllergenComplianceReportDto,
+  CreateAllergenDto,
+  UpdateAllergenDto,
 } from "./dto/allergens.dto";
 import { ALLERGENS_INFO } from "./dto/allergens.dto";
 
 @Injectable()
 export class AllergensService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Lista el catálogo global de alérgenos. Si se pasa tenantId, añade
+   * `productsCount`: nº de productos del tenant cuyo Int[] contiene el id.
+   */
+  async findAll(tenantId?: string): Promise<any[]> {
+    const allergens = await this.prisma.allergen.findMany({
+      orderBy: { id: "asc" },
+    });
+
+    if (!tenantId) {
+      return allergens;
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { tenantId },
+      select: { allergens: true },
+    });
+    const countById = new Map<number, number>();
+    for (const p of products) {
+      for (const id of p.allergens) {
+        countById.set(id, (countById.get(id) ?? 0) + 1);
+      }
+    }
+
+    return allergens.map((a) => ({
+      ...a,
+      productsCount: countById.get(a.id) ?? 0,
+    }));
+  }
+
+  /**
+   * Crea un alérgeno. El id se auto-asigna como max(id)+1 (>=15) para no
+   * colisionar con los códigos UE oficiales (1-14) ya sembrados.
+   */
+  async create(data: CreateAllergenDto): Promise<any> {
+    const maxRow = await this.prisma.allergen.aggregate({
+      _max: { id: true },
+    });
+    const nextId = (maxRow._max.id ?? 0) + 1;
+
+    return this.prisma.allergen.create({
+      data: {
+        id: nextId,
+        name: data.name,
+        nameEu1169: data.nameEu1169,
+        description: data.description,
+        icon: data.icon,
+        color: data.color,
+        severity: data.severity,
+        isActive: true,
+      },
+    });
+  }
+
+  /** Actualiza un alérgeno del catálogo por id. */
+  async update(id: number, data: UpdateAllergenDto): Promise<any> {
+    const existing = await this.prisma.allergen.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException("Allergen not found");
+    }
+
+    return this.prisma.allergen.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.nameEu1169 !== undefined && {
+          nameEu1169: data.nameEu1169,
+        }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.icon !== undefined && { icon: data.icon }),
+        ...(data.color !== undefined && { color: data.color }),
+        ...(data.severity !== undefined && { severity: data.severity }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+      },
+    });
+  }
 
   async updateProductAllergens(
     tenantId: string,

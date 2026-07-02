@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcrypt";
+import { ALLERGENS_INFO } from "../src/modules/allergens/dto/allergens.dto";
 
 /**
  * Coherent multi-module seed for ChefChek.
@@ -86,6 +87,88 @@ async function main() {
     },
   });
   console.log(`✅ Tenant demo + empty isolation tenant`);
+
+  // ── L0: catálogo global de alérgenos (UE 1169/2011) ───────────────────
+  // Catálogo global (no por tenant): los 14 alérgenos oficiales son universales.
+  // Los ids 1-14 coinciden con el enum AllergenEU y el Int[] de Product/Recipe/
+  // Menu para que los datos existentes sigan resolviendo sin migración.
+  const allergenExtra: Record<
+    number,
+    { nameEu1169: string; description: string }
+  > = {
+    1: {
+      nameEu1169: "Cereales que contienen gluten",
+      description:
+        "Trigo, centeno, cebada, avena, espelta, kamut y sus variedades híbridas.",
+    },
+    2: {
+      nameEu1169: "Crustáceos y productos a base de crustáceos",
+      description: "Gambas, langostinos, cangrejo, langosta, bogavante.",
+    },
+    3: {
+      nameEu1169: "Huevos y productos a base de huevos",
+      description: "Incluye clara, yema y derivados.",
+    },
+    4: {
+      nameEu1169: "Pescados y productos a base de pescado",
+      description: "Incluye derivados como gelatina y surimi.",
+    },
+    5: {
+      nameEu1169: "Cacahuetes y productos a base de cacahuetes",
+      description: "También conocido como maní y sus derivados.",
+    },
+    6: {
+      nameEu1169: "Soja y productos a base de soja",
+      description: "Incluye lecitina, proteína y salsa de soja.",
+    },
+    7: {
+      nameEu1169: "Leche y productos a base de leche",
+      description: "Incluye lactosa y derivados lácteos.",
+    },
+    8: {
+      nameEu1169: "Apio y productos a base de apio",
+      description: "Incluye hojas, semillas, tallo y raíz.",
+    },
+    9: {
+      nameEu1169: "Mostaza y productos a base de mostaza",
+      description: "Incluye semillas y pasta de mostaza.",
+    },
+    10: {
+      nameEu1169: "Granos de sésamo y productos a base de sésamo",
+      description: "Incluye aceite y pasta (tahini).",
+    },
+    11: {
+      nameEu1169: "Dióxido de azufre y sulfitos",
+      description:
+        "Conservante en vinos, frutos secos y procesados (>10 mg/kg).",
+    },
+    12: {
+      nameEu1169: "Altramuces y productos a base de altramuces",
+      description: "Legumbre usada en harinas y aperitivos.",
+    },
+    13: {
+      nameEu1169: "Moluscos y productos a base de moluscos",
+      description: "Mejillones, almejas, ostras, calamares, pulpo.",
+    },
+    14: {
+      nameEu1169: "Mostaza en polvo y derivados",
+      description: "Presentación en polvo de mostaza y preparados.",
+    },
+  };
+  for (const a of ALLERGENS_INFO) {
+    await prisma.allergen.create({
+      data: {
+        id: a.id,
+        name: a.name,
+        icon: a.icon,
+        color: a.color,
+        severity: a.severity,
+        isActive: true,
+        ...allergenExtra[a.id],
+      },
+    });
+  }
+  console.log(`✅ Catálogo de alérgenos UE-1169 (${ALLERGENS_INFO.length})`);
 
   // ── L0: users ─────────────────────────────────────────────────────────
   const hash = await bcrypt.hash("admin123", 10);

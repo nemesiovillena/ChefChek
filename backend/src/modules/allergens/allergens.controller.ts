@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Param,
   Body,
   Req,
@@ -12,6 +13,8 @@ import { AllergensService } from "./allergens.service";
 import {
   UpdateProductAllergensDto,
   AllergenComplianceReportDto,
+  CreateAllergenDto,
+  UpdateAllergenDto,
 } from "./dto/allergens.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -22,6 +25,40 @@ import { Roles } from "../../decorators/roles.decorator";
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class AllergensController {
   constructor(private readonly allergensService: AllergensService) {}
+
+  @Get()
+  @Roles("ADMIN", "USER", "VIEWER")
+  async listAllergens(@Req() req: any) {
+    const tenantId = req.tenantId;
+    const data = await this.allergensService.findAll(tenantId);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Post()
+  @Roles("ADMIN", "USER")
+  async createAllergen(@Body() dto: CreateAllergenDto) {
+    const data = await this.allergensService.create(dto);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Patch(":id")
+  @Roles("ADMIN", "USER")
+  async updateAllergen(
+    @Param("id") id: string,
+    @Body() dto: UpdateAllergenDto,
+  ) {
+    const data = await this.allergensService.update(Number(id), dto);
+    return {
+      success: true,
+      data,
+    };
+  }
 
   @Get("info")
   async getAllergensInfo() {

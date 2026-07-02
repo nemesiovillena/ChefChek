@@ -25,6 +25,13 @@ describe("AllergensService", () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    allergen: {
+      findMany: jest.fn(),
+      aggregate: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+    },
   };
 
   const tenantId = "test-tenant-id";
@@ -581,6 +588,110 @@ describe("AllergensService", () => {
         recipes: 0,
         menus: 0,
       });
+    });
+  });
+
+  describe("findAll", () => {
+    it("should return catalog as-is when no tenantId", async () => {
+      const catalog = [
+        { id: 1, name: "Gluten", isActive: true },
+        { id: 2, name: "Crustáceos", isActive: true },
+      ];
+      mockPrismaService.allergen.findMany.mockResolvedValue(catalog);
+
+      const result = await service.findAll();
+
+      expect(mockPrismaService.allergen.findMany).toHaveBeenCalledWith({
+        orderBy: { id: "asc" },
+      });
+      expect(result).toEqual(catalog);
+    });
+
+    it("should add productsCount per allergen when tenantId given", async () => {
+      const catalog = [
+        { id: 1, name: "Gluten", isActive: true },
+        { id: 2, name: "Crustáceos", isActive: true },
+      ];
+      mockPrismaService.allergen.findMany.mockResolvedValue(catalog);
+      // Two products: one with [1], another with [1,2]
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { allergens: [1] },
+        { allergens: [1, 2] },
+      ]);
+
+      const result = await service.findAll(tenantId);
+
+      expect(mockPrismaService.product.findMany).toHaveBeenCalledWith({
+        where: { tenantId },
+        select: { allergens: true },
+      });
+      expect(result[0].productsCount).toBe(2);
+      expect(result[1].productsCount).toBe(1);
+    });
+  });
+
+  describe("create", () => {
+    it("should assign id = max(id)+1 and create", async () => {
+      const dto = { name: "Custom", icon: "🆕" };
+      mockPrismaService.allergen.aggregate.mockResolvedValue({
+        _max: { id: 14 },
+      });
+      const created = { id: 15, ...dto, isActive: true };
+      mockPrismaService.allergen.create.mockResolvedValue(created);
+
+      const result = await service.create(dto as any);
+
+      expect(mockPrismaService.allergen.aggregate).toHaveBeenCalledWith({
+        _max: { id: true },
+      });
+      expect(mockPrismaService.allergen.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: 15,
+          name: "Custom",
+          isActive: true,
+        }),
+      });
+      expect(result).toEqual(created);
+    });
+
+    it("should assign id=1 when catalog empty", async () => {
+      mockPrismaService.allergen.aggregate.mockResolvedValue({
+        _max: { id: null },
+      });
+      mockPrismaService.allergen.create.mockResolvedValue({ id: 1 });
+
+      await service.create({ name: "First" } as any);
+
+      expect(mockPrismaService.allergen.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ id: 1 }),
+      });
+    });
+  });
+
+  describe("update", () => {
+    it("should update existing allergen", async () => {
+      mockPrismaService.allergen.findUnique.mockResolvedValue({ id: 1 });
+      const updated = { id: 1, name: "Renamed", isActive: false };
+      mockPrismaService.allergen.update.mockResolvedValue(updated);
+
+      const result = await service.update(1, {
+        name: "Renamed",
+        isActive: false,
+      } as any);
+
+      expect(mockPrismaService.allergen.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { name: "Renamed", isActive: false },
+      });
+      expect(result).toEqual(updated);
+    });
+
+    it("should throw NotFoundException if missing", async () => {
+      mockPrismaService.allergen.findUnique.mockResolvedValue(null);
+
+      await expect(service.update(99, { name: "x" } as any)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  IsBoolean,
 } from "class-validator";
 
 enum AllergenEU {
@@ -89,4 +90,59 @@ export class AllergenComplianceReportDto {
   @IsArray()
   @IsNumber()
   conflicts?: AllergenConflictDto[];
+}
+
+export class CreateAllergenDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  nameEu1169?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  severity?: string;
+}
+
+export class UpdateAllergenDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  nameEu1169?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  severity?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

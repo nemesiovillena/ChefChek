@@ -112,6 +112,18 @@
 
 ## Alérgenos Base (UE 1169/2011)
 
+### Tabla `allergens` (catálogo global)
+
+Catálogo **global** (no por tenant) gestionado por CRUD en `/api/v1/allergens`.
+Los 14 alérgenos oficiales se siembran con `id` = código UE (1-14), de modo que
+el `Int[] allergens` de `products`, `recipes` y `menus` y el enum `AllergenEU`
+siguen resolviendo sin migración de datos. Los alérgenos creados por el usuario
+toman `id = max(id)+1` (≥15). Fuente autoritativa de la siembra:
+`prisma/seed.ts` + `ALLERGENS_INFO` (`src/modules/allergens/dto/allergens.dto.ts`).
+
+Campos: `id` (PK, código UE), `name`, `nameEu1169`, `description`, `icon`,
+`color`, `severity`, `isActive`, `createdAt`, `updatedAt`.
+
 **14 Alérgenos Oficiales:**
 1. Cereales con gluten
 2. Crustáceos y moluscos
