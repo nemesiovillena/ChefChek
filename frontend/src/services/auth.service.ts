@@ -20,7 +20,7 @@ export interface AuthResponse {
     email: string;
     name: string;
     role: string;
-    tenantId: string;
+    tenantId: string | null;
   };
   session: {
     id: string;
@@ -48,7 +48,9 @@ class AuthService {
       // Store session ID in sessionStorage (memory only, cleared on tab close)
       sessionStorage.setItem('session_id', response.data.session.id);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+      if (response.data.user.tenantId) {
+        sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+      }
 
       return response.data;
     } catch (error: unknown) {
@@ -68,7 +70,9 @@ class AuthService {
       sessionStorage.setItem('session_id', response.data.session.id);
       sessionStorage.setItem('tenant_slug', tenantSlug);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+      if (response.data.user.tenantId) {
+        sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+      }
 
       return response.data;
     } catch (error: unknown) {
@@ -97,13 +101,33 @@ class AuthService {
     }
   }
 
+  async loginSuperadmin(email: string, password: string): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.post<AuthResponse>('/v1/auth/superadmin/login', { email, password });
+
+      sessionStorage.setItem('session_id', response.data.session.id);
+      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      // No tenant_slug for SUPERADMIN
+
+      return response.data;
+    } catch (error: unknown) {
+      const errorResponse = error instanceof AxiosError
+        ? (error.response?.data as ErrorResponse | undefined)
+        : undefined;
+      throw new Error(errorResponse?.message || 'Error al iniciar sesión como SUPERADMIN');
+    }
+  }
+
   async getCurrentSession(): Promise<AuthResponse | null> {
     try {
       const sessionId = sessionStorage.getItem('session_id');
       const tenantSlug = sessionStorage.getItem('tenant_slug');
       const savedUser = sessionStorage.getItem('user');
 
-      if (!sessionId || !tenantSlug || !savedUser) return null;
+      const userObj = savedUser ? JSON.parse(savedUser) : null;
+      const isSuperadmin = userObj?.role === 'SUPERADMIN';
+
+      if (!sessionId || (!tenantSlug && !isSuperadmin) || !savedUser) return null;
 
       // Validate session with backend
       const response = await apiClient.get<{ user: AuthResponse['user']; isValid: boolean }>('/v1/auth/validate');

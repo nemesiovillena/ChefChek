@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 // methods) so this module stays decoupled from the auth provider.
 export interface WebSocketAuthContext {
   sessionId: string | null;
-  user: { tenantId: string } | null;
+  user: { tenantId: string | null } | null;
 }
 
 // Event types (sync with backend)

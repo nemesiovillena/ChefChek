@@ -12,6 +12,7 @@ export interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  loginSuperadmin: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -123,9 +124,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
       sessionStorage.setItem('session_id', sessionId);
       sessionStorage.setItem('tenant_slug', credentials.tenantSlug);
       sessionStorage.setItem('user', JSON.stringify(response.user));
-      sessionStorage.setItem('tenant_id', response.user.tenantId);
+      if (response.user.tenantId) {
+        sessionStorage.setItem('tenant_id', response.user.tenantId);
+      }
 
       // WebSocket will auto-connect via useEffect
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginSuperadmin = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const response = await authService.loginSuperadmin(email, password);
+      setUser(response.user);
+      setTenantId(null);
+      setTenantSlug(null);
+
+      const sessionId = response.session.id;
+      setSessionId(sessionId);
+      sessionStorage.setItem('session_id', sessionId);
+      sessionStorage.setItem('user', JSON.stringify(response.user));
     } catch (error) {
       throw error;
     } finally {
@@ -211,6 +233,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated,
     login,
+    loginSuperadmin,
     register,
     logout,
     refreshSession,

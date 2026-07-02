@@ -20,8 +20,8 @@ export function useModules(): UseModulesResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Solo OWNER puede gestionar módulos
-  const canManageModules = user?.role === 'OWNER';
+  // Los módulos son gestionados exclusivamente por SUPERADMIN desde su panel
+  const canManageModules = false;
 
   const fetchModules = useCallback(async () => {
     setLoading(true);

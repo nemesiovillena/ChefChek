@@ -47,8 +47,8 @@ export function ModuleListWidget() {
         <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start gap-2">
           <Lock className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-amber-800">
-            Solo el <strong>OWNER</strong> puede gestionar los módulos activos.
-            Contacta al administrador del tenant para realizar cambios.
+            Los módulos activos son configurados por el equipo ChefChek.
+            Contacta con soporte para solicitar cambios.
           </div>
         </div>
       )}
@@ -139,7 +139,7 @@ function ModuleCard({ module, canManageModules, onToggle }: ModuleCardProps) {
         {!canManageModules && (
           <div className="text-xs text-gray-500 text-center mt-1 flex items-center justify-center gap-1">
             <Lock className="h-3 w-3" />
-            Solo OWNER
+            Solo ChefChek
           </div>
         )}
       </div>
