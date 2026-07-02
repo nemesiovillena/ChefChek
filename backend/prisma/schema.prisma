@@ -62,17 +62,18 @@ model Tenant {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String
+  id           String    @id @default(cuid())
+  tenantId     String?
   email        String
   passwordHash String
   name         String
-  role         UserRole @default(USER)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         UserRole  @default(USER)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // tenantId is null for SUPERADMIN users (no tenant scope)
+  tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions          Session[]
   knowledgeArticles KnowledgeArticle[]
   articleVersions   KnowledgeVersion[]
@@ -295,6 +296,7 @@ model RecipeCategory {
 }
 
 enum UserRole {
+  SUPERADMIN
   OWNER
   ADMIN
   USER
