@@ -47,6 +47,11 @@ export default function ArticulosPage() {
   const [sortField, setSortField] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  // Date filters
+  const [dateFilterType, setDateFilterType] = useState<'createdAt' | 'lastPurchaseDate'>('createdAt');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -179,7 +184,30 @@ export default function ArticulosPage() {
     const matchesCategory = !subcategoryIdsForParent || subcategoryIdsForParent.has(product.categoryId || '');
     const matchesSubcategory = !selectedSubcategory || product.categoryId === selectedSubcategory;
     const matchesSupplier = !selectedSupplier || product.supplierId === selectedSupplier;
-    return matchesSearch && matchesCategory && matchesSubcategory && matchesSupplier;
+
+    let matchesDate = true;
+    if (startDate || endDate) {
+      const productDateStr = product[dateFilterType];
+      if (!productDateStr) {
+        matchesDate = false;
+      } else {
+        const productDate = new Date(productDateStr);
+        productDate.setHours(0, 0, 0, 0);
+
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (productDate < start) matchesDate = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (productDate > end) matchesDate = false;
+        }
+      }
+    }
+
+    return matchesSearch && matchesCategory && matchesSubcategory && matchesSupplier && matchesDate;
   });
 
   const supplierIds = [...new Set(products.map((p: Product) => p.supplierId).filter(Boolean))];
@@ -301,7 +329,7 @@ export default function ArticulosPage() {
 
         {/* Chained Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
               <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
@@ -329,6 +357,28 @@ export default function ArticulosPage() {
                   <option key={id} value={id}>{categoryNameMap[id!] || id}</option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filtrar por fecha</label>
+              <select value={dateFilterType} onChange={(e) => setDateFilterType(e.target.value as 'createdAt' | 'lastPurchaseDate')} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="createdAt">Registro</option>
+                <option value="lastPurchaseDate">Última Compra</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+              <div className="flex gap-2">
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full flex-1 px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                {(startDate || endDate) && (
+                  <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-400 rounded-md transition-colors" title="Limpiar fechas">
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
