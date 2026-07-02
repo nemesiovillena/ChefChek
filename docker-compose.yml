@@ -61,10 +61,10 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:3001
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+    # NOTE: no source bind-mount here. The image is a Next.js standalone build
+    # (output:'standalone') whose server.js lives at /app/server.js; mounting
+    # ./frontend over /app shadows it and causes "Cannot find module server.js".
+    # For dev hot-reload, run `npm run dev` on the host instead.
     networks:
       - chefchek-network
 
