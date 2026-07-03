@@ -220,11 +220,13 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
 
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-zinc-800 mb-4">
-          <nav className="flex -mb-px space-x-4 overflow-x-auto">
+          <div role="tablist" aria-label="Secciones del artículo" className="flex -mb-px space-x-4 overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
@@ -235,7 +237,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
                 {tab.label}
               </button>
             ))}
-          </nav>
+          </div>
         </div>
 
         {/* Tab Content */}
