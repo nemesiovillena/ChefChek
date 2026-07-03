@@ -1091,4 +1091,159 @@ export class ProductsService {
       },
     });
   }
+
+  async createBulk(productsData: any[], requestTenantId: string) {
+    const existingCategories = await this.prisma.category.findMany({
+      where: { tenantId: requestTenantId },
+    });
+    const existingSuppliers = await this.prisma.supplier.findMany({
+      where: { tenantId: requestTenantId },
+    });
+
+    const categoryMap = new Map(
+      existingCategories.map((c) => [c.name.toLowerCase().trim(), c.id]),
+    );
+    const supplierMap = new Map(
+      existingSuppliers.map((s) => [s.name.toLowerCase().trim(), s.id]),
+    );
+
+    const createdProducts: any[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of productsData) {
+        let categoryId = null;
+        let supplierId = null;
+
+        // Resolver categoría
+        if (item.categoryName && item.categoryName.trim()) {
+          const catNameLower = item.categoryName.toLowerCase().trim();
+          if (categoryMap.has(catNameLower)) {
+            categoryId = categoryMap.get(catNameLower);
+          } else {
+            const newCat = await tx.category.create({
+              data: {
+                tenantId: requestTenantId,
+                name: item.categoryName.trim(),
+                slug: item.categoryName
+                  .toLowerCase()
+                  .trim()
+                  .replace(/[^a-z0-9]/g, "-"),
+                context: "articles",
+              },
+            });
+            categoryId = newCat.id;
+            categoryMap.set(catNameLower, newCat.id);
+          }
+        } else if (item.categoryId) {
+          categoryId = item.categoryId;
+        }
+
+        // Resolver proveedor
+        if (item.supplierName && item.supplierName.trim()) {
+          const supNameLower = item.supplierName.toLowerCase().trim();
+          if (supplierMap.has(supNameLower)) {
+            supplierId = supplierMap.get(supNameLower);
+          } else {
+            const newSup = await tx.supplier.create({
+              data: {
+                tenantId: requestTenantId,
+                name: item.supplierName.trim(),
+              },
+            });
+            supplierId = newSup.id;
+            supplierMap.set(supNameLower, newSup.id);
+          }
+        } else if (item.supplierId) {
+          supplierId = item.supplierId;
+        }
+
+        // Preparar datos del artículo
+        const {
+          name,
+          description = "",
+          purchaseFormat = "",
+          referenceUnit = "kg",
+          unitsPerFormat = 1,
+          referenceUnitSize = 1,
+          purchasePrice = 0,
+          wastePercentage = 0,
+          profitMargin = 0,
+          iva = 10,
+          barcode = "",
+          brand = "",
+          minimumStock,
+          maximumStock,
+        } = item;
+
+        if (!name || !name.trim()) {
+          throw new BadRequestException(
+            "El nombre del producto es obligatorio en la importación masiva",
+          );
+        }
+
+        const calculatedUnitSize =
+          Number(unitsPerFormat) * Number(referenceUnitSize);
+        const effectivePrice = Number(purchasePrice);
+        const effWastePercentage = Number(wastePercentage);
+        const effProfitMargin = Number(profitMargin);
+
+        const netPrice = this.calculateNetPrice(
+          effectivePrice,
+          effWastePercentage,
+          effProfitMargin,
+        );
+
+        const yieldFactor =
+          effWastePercentage > 0
+            ? this.calculateYieldFactor(effWastePercentage)
+            : 1.0;
+
+        const product = await tx.product.create({
+          data: {
+            tenantId: requestTenantId,
+            name: name.trim(),
+            description,
+            purchaseFormat,
+            referenceUnit,
+            unitsPerFormat: Number(unitsPerFormat),
+            referenceUnitSize: Number(referenceUnitSize),
+            unitSize: calculatedUnitSize,
+            purchasePrice: effectivePrice,
+            netPrice,
+            profitMargin: effProfitMargin,
+            wastePercentage: effWastePercentage,
+            yieldFactor,
+            iva: Number(iva),
+            barcode,
+            brand,
+            categoryId,
+            supplierId,
+          },
+        });
+
+        // Crear stock si corresponde
+        if (minimumStock !== undefined || maximumStock !== undefined) {
+          await tx.stock.create({
+            data: {
+              tenantId: requestTenantId,
+              productId: product.id,
+              minimumStock:
+                minimumStock !== undefined ? Number(minimumStock) : 0,
+              maximumStock:
+                maximumStock !== undefined ? Number(maximumStock) : null,
+              quantity: 0,
+            },
+          });
+        }
+
+        createdProducts.push(product);
+      }
+    });
+
+    return {
+      success: true,
+      count: createdProducts.length,
+      message: `${createdProducts.length} productos importados correctamente`,
+    };
+  }
 }

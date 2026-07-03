@@ -23,46 +23,46 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users               User[]
-  products            Product[]
-  recipes             Recipe[]
-  menus               Menu[]
-  invoices            Invoice[]
-  temperatureControls TemperatureControl[]
-  cleaningPlans       CleaningPlan[]
-  pestControls        PestControl[]
-  goodsReceptions     GoodsReception[]
-  alerts              Alert[]
-  staffMembers        StaffMember[]
-  workBatches         WorkBatch[]
-  taskAssignments     TaskAssignment[]
-  productionAlerts    ProductionAlert[]
-  productionOrders    ProductionOrder[]
-  miseEnPlaceSheets   MiseEnPlaceSheet[]
-  warehouses          Warehouse[]
-  orders              Order[]
-  appccControls       AppccControl[]
-  documents           Document[]
-  telegramBots        TelegramBot[]
-  telegramUsers       TelegramUser[]
-  suppliers           Supplier[]
+  users                  User[]
+  products               Product[]
+  recipes                Recipe[]
+  menus                  Menu[]
+  invoices               Invoice[]
+  temperatureControls    TemperatureControl[]
+  cleaningPlans          CleaningPlan[]
+  pestControls           PestControl[]
+  goodsReceptions        GoodsReception[]
+  alerts                 Alert[]
+  staffMembers           StaffMember[]
+  workBatches            WorkBatch[]
+  taskAssignments        TaskAssignment[]
+  productionAlerts       ProductionAlert[]
+  productionOrders       ProductionOrder[]
+  miseEnPlaceSheets      MiseEnPlaceSheet[]
+  warehouses             Warehouse[]
+  orders                 Order[]
+  appccControls          AppccControl[]
+  documents              Document[]
+  telegramBots           TelegramBot[]
+  telegramUsers          TelegramUser[]
+  suppliers              Supplier[]
   supplierPriceHistories SupplierPriceHistory[]
-  albaranes           Albaran[]
-  unitsOfMeasure      UnitOfMeasure[]
-  productPriceHistories ProductPriceHistory[]
-  configurations      Configuration[]
-  categories          Category[]
-  stocks              Stock[]
-  documentTemplates   DocumentTemplate[]
-  inventories         Inventory[]
-  knowledgeCategories KnowledgeCategory[]
-  knowledgeArticles   KnowledgeArticle[]
-  knowledgeTags       KnowledgeTag[]
-  auditLogs           AuditLog[]
-  digitalMenuConfigs  DigitalMenuConfig[]
-  dashboardMetrics    DashboardMetric[]
-  dashboardAlerts     DashboardAlert[]
-  qrcodes             QRCode[]
+  albaranes              Albaran[]
+  unitsOfMeasure         UnitOfMeasure[]
+  productPriceHistories  ProductPriceHistory[]
+  configurations         Configuration[]
+  categories             Category[]
+  stocks                 Stock[]
+  documentTemplates      DocumentTemplate[]
+  inventories            Inventory[]
+  knowledgeCategories    KnowledgeCategory[]
+  knowledgeArticles      KnowledgeArticle[]
+  knowledgeTags          KnowledgeTag[]
+  auditLogs              AuditLog[]
+  digitalMenuConfigs     DigitalMenuConfig[]
+  dashboardMetrics       DashboardMetric[]
+  dashboardAlerts        DashboardAlert[]
+  qrcodes                QRCode[]
 
   @@map("tenants")
 }
@@ -77,6 +77,7 @@ model User {
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   // tenantId is null for SUPERADMIN users (no tenant scope)
   tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -123,10 +124,10 @@ model Product {
   unitSize          Float  @default(1) // Auto-calculado: unitsPerFormat × referenceUnitSize
 
   // Precios
-  purchasePrice       Float
+  purchasePrice         Float
   previousPurchasePrice Float @default(0)
-  netPrice      Float
-  profitMargin  Float @default(0)
+  netPrice              Float
+  profitMargin          Float @default(0)
 
   // Rendimiento
   wastePercentage Float @default(0)
@@ -144,13 +145,14 @@ model Product {
   imageUrl      String?
   lot           String?
 
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier          Supplier?          @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier          Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   recipeIngredients RecipeIngredient[]
   stockMovements    StockMovement[]
   stocks            Stock[]
@@ -224,10 +226,11 @@ model Recipe {
   version       Int     @default(1)
   parentVersion String?
 
-  isActive  Boolean  @default(true)
-  isPublic  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  isPublic  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ingredients       RecipeIngredient[]
@@ -335,7 +338,7 @@ enum LineStatus {
 
 // Sprint Tracker - Sprint 16
 model Sprint {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   description    String?
   type           String // DEVELOPMENT, REFACTORING, DOCUMENTATION, TESTING, INFRASTRUCTURE
@@ -348,11 +351,12 @@ model Sprint {
   teamMembers    Json?
   notes          String?
   createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  progress       Float    @default(0)
-  totalTasks     Int      @default(0)
-  completedTasks Int      @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+  progress       Float     @default(0)
+  totalTasks     Int       @default(0)
+  completedTasks Int       @default(0)
 
   tasks      Task[]
   teamMember TeamMember[]
@@ -378,6 +382,7 @@ model Task {
   createdBy      String
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
 
   sprint          Sprint           @relation(fields: [sprintId], references: [id], onDelete: Cascade)
   assignedMember  TeamMember?      @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
@@ -552,14 +557,15 @@ model Invoice {
 
 // Almacenes
 model Warehouse {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   tenantId  String
   name      String
   location  String?
   capacity  Float?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   movements   StockMovement[]
@@ -989,33 +995,34 @@ model Document {
 
 // Proveedores
 model Supplier {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   tenantId            String
   name                String
-  cifNif              String?  // CIF/NIF para auto-matching con OCR
-  address             String?  // Dirección del proveedor
+  cifNif              String? // CIF/NIF para auto-matching con OCR
+  address             String? // Dirección del proveedor
   contactPerson       String?
   email               String?
   phone               String?
   whatsapp            String?
   website             String?
-  sanitaryRegistry    String?  // Nº registro sanitario RGSA
-  averageDeliveryTime Int      @default(3) // días
-  reliabilityScore    Float    @default(85) // 0-100
-  priceTier           String   @default("MEDIUM") // LOW, MEDIUM, HIGH
-  preferredStatus     String   @default("ALTERNATIVE") // PREFERRED, ALTERNATIVE, EXCLUDED
-  orderMethods        String[] @default(["EMAIL"]) // EMAIL, PHONE, WEB, WHATSAPP
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  sanitaryRegistry    String? // Nº registro sanitario RGSA
+  averageDeliveryTime Int       @default(3) // días
+  reliabilityScore    Float     @default(85) // 0-100
+  priceTier           String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+  preferredStatus     String    @default("ALTERNATIVE") // PREFERRED, ALTERNATIVE, EXCLUDED
+  orderMethods        String[]  @default(["EMAIL"]) // EMAIL, PHONE, WEB, WHATSAPP
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
 
-  ocrLayoutHints      Json?    // Patrones de layout del proveedor para mejorar OCR
+  ocrLayoutHints Json? // Patrones de layout del proveedor para mejorar OCR
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products     Product[]
-  priceHistory SupplierPriceHistory[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products              Product[]
+  priceHistory          SupplierPriceHistory[]
   productPriceHistories ProductPriceHistory[]
-  albaranes    Albaran[]
+  albaranes             Albaran[]
 
   @@index([tenantId])
   @@index([name])
@@ -1112,7 +1119,7 @@ model Configuration {
 
 // Categorías de Productos
 model Category {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   tenantId    String
   name        String
   slug        String
@@ -1120,11 +1127,12 @@ model Category {
   icon        String?
   color       String? // Para UI
   context     CategoryContext @default(articles)
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
+  sortOrder   Int             @default(0)
+  isActive    Boolean         @default(true)
   parentId    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   parent   Category?        @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
@@ -1490,14 +1498,14 @@ model AuditLog {
 
 // Supplier Price History - For tracking price trends
 model SupplierPriceHistory {
-  id          String   @id @default(cuid())
-  tenantId    String
-  supplierId  String
+  id           String   @id @default(cuid())
+  tenantId     String
+  supplierId   String
   averagePrice Float
-  recordDate  DateTime @default(now())
+  recordDate   DateTime @default(now())
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@index([supplierId])
   @@index([tenantId])
@@ -1510,28 +1518,29 @@ model SupplierPriceHistory {
 model Albaran {
   id              String        @id @default(cuid())
   tenantId        String
-  supplierId      String?       // Proveedor asociado (null si no hay match)
-  internalNumber  String        // Número interno auto-generado por tenant
-  albaranNumber   String?       // Número del albarán del proveedor
+  supplierId      String? // Proveedor asociado (null si no hay match)
+  internalNumber  String // Número interno auto-generado por tenant
+  albaranNumber   String? // Número del albarán del proveedor
   date            DateTime      @default(now())
-  base            Float         @default(0)       // Base imponible
-  vatTotal        Float         @default(0)       // Total IVA
-  total           Float         @default(0)       // Total con IVA
-  grossAmount     Float         @default(0)       // Total bruto (antes de IVA)
-  vatBreakdown    Json?         // Desglose de IVA por tipo: [{rate, base, amount}]
+  base            Float         @default(0) // Base imponible
+  vatTotal        Float         @default(0) // Total IVA
+  total           Float         @default(0) // Total con IVA
+  grossAmount     Float         @default(0) // Total bruto (antes de IVA)
+  vatBreakdown    Json? // Desglose de IVA por tipo: [{rate, base, amount}]
   status          AlbaranStatus @default(PENDIENTE)
-  originalFileUrl String?       // URL del archivo original subido
-  ocrConfidence   Float         @default(0)       // 0-1 confianza global OCR
-  ocrRawData      Json?         // Respuesta cruda del OCR para re-procesado
-  warehouseId     String?       // Almacén seleccionado para la entrada de stock
+  originalFileUrl String? // URL del archivo original subido
+  ocrConfidence   Float         @default(0) // 0-1 confianza global OCR
+  ocrRawData      Json? // Respuesta cruda del OCR para re-procesado
+  warehouseId     String? // Almacén seleccionado para la entrada de stock
   notes           String?
   createdBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier     Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  warehouse    Warehouse?    @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier     Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse    Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   lines        AlbaranLine[]
   priceHistory ProductPriceHistory[]
 
@@ -1547,19 +1556,19 @@ model Albaran {
 model AlbaranLine {
   id               String          @id @default(cuid())
   albaranId        String
-  articleNumber    String?         // Código de artículo del proveedor
-  lot              String?         // Lote (opcional)
+  articleNumber    String? // Código de artículo del proveedor
+  lot              String? // Lote (opcional)
   description      String
   quantity         Float
   unit             String          @default("ud")
   unitPrice        Float
   vatPercent       Float           @default(10)
-  priceWithVat     Float?          // Precio unidad con IVA (unit_price × (1 + vat%))
-  lineAmount       Float           // Cantidad × precio unidad (sin IVA)
+  priceWithVat     Float? // Precio unidad con IVA (unit_price × (1 + vat%))
+  lineAmount       Float // Cantidad × precio unidad (sin IVA)
   matchStatus      LineMatchStatus @default(NUEVO)
   lineStatus       LineStatus      @default(PENDIENTE)
-  matchedProductId String?         // FK a Product si hay match
-  confidence       Float           @default(0)    // 0-1 confianza del match
+  matchedProductId String? // FK a Product si hay match
+  confidence       Float           @default(0) // 0-1 confianza del match
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
@@ -1576,8 +1585,8 @@ model AlbaranLine {
 model UnitOfMeasure {
   id        String   @id @default(cuid())
   tenantId  String
-  name      String   // "Kilogramo", "Litro", "Unidad", "Docena", "Caja"
-  symbol    String   // "kg", "L", "und", "doc", "caja"
+  name      String // "Kilogramo", "Litro", "Unidad", "Docena", "Caja"
+  symbol    String // "kg", "L", "und", "doc", "caja"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1594,10 +1603,10 @@ model ProductPriceHistory {
   id            String   @id @default(cuid())
   tenantId      String
   productId     String
-  supplierId    String?  // Proveedor asociado al cambio de precio
-  albaranId     String?  // Albarán que originó el cambio
-  previousPrice Float    // Precio anterior
-  newPrice      Float    // Precio nuevo
+  supplierId    String? // Proveedor asociado al cambio de precio
+  albaranId     String? // Albarán que originó el cambio
+  previousPrice Float // Precio anterior
+  newPrice      Float // Precio nuevo
   recordedAt    DateTime @default(now())
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1613,6 +1622,11 @@ model ProductPriceHistory {
   @@map("product_price_histories")
 }
 
+// Catálogo global de alérgenos (UE 1169/2011). No es por tenant: los 14
+// alérgenos oficiales son universales. El `id` coincide con el código UE
+// (1-14) para que el `Int[]` de Product/Recipe/Menu y el enum AllergenEU
+// sigan resolviendo sin migrar datos. Los alérgenos creados por el usuario
+// toman id = max(id)+1 (>=15).
 model Allergen {
   id          Int      @id
   name        String

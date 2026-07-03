@@ -426,4 +426,18 @@ export class ProductsController {
       tenantId,
     );
   }
+
+  @Post("bulk")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear múltiples productos en lote (importación)" })
+  @ApiResponse({ status: 201, description: "Productos creados exitosamente" })
+  async createBulk(@Body() body: { products: any[] }, @Req() req: any) {
+    const tenantId = req.tenantId;
+    if (!body.products || !Array.isArray(body.products)) {
+      throw new BadRequestException(
+        "El cuerpo debe contener un array 'products'",
+      );
+    }
+    return this.productsService.createBulk(body.products, tenantId);
+  }
 }

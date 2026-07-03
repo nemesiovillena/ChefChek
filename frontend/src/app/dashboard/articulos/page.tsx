@@ -10,6 +10,7 @@ import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
+import ImportModal from './components/import-modal';
 
 interface Supplier {
   id: string;
@@ -39,6 +40,7 @@ export default function ArticulosPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParentCategory, setSelectedParentCategory] = useState('');
@@ -51,6 +53,127 @@ export default function ArticulosPage() {
   const [dateFilterType, setDateFilterType] = useState<'createdAt' | 'lastPurchaseDate'>('createdAt');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const getExportData = () => {
+    return sortedProducts.map((product) => ({
+      Nombre: product.name,
+      Descripción: product.description || '',
+      Categoría: getCategoryDisplay(product.categoryId),
+      Proveedor: product.supplier?.name || '-',
+      'Precio Compra': product.purchasePrice.toFixed(2),
+      'Precio Neto': product.netPrice.toFixed(2),
+      IVA: product.iva,
+      Formato: product.purchaseFormat || '',
+      Unidad: product.referenceUnit,
+      UnidadesPorFormato: product.unitsPerFormat,
+      TamañoUnidad: product.referenceUnitSize,
+      CódigoBarras: product.barcode || '',
+      Marca: product.brand || '',
+      Estado: product.isActive ? 'Activo' : 'Desactivado',
+      ÚltimaCompra: product.lastPurchaseDate ? formatLastPurchaseDate(product.lastPurchaseDate) : '-'
+    }));
+  };
+
+  const exportToCSV = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map((row) =>
+      Object.values(row)
+        .map((val) => `"${String(val).replace(/"/g, '""')}"`)
+        .join(',')
+    );
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `articulos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToExcel = () => {
+    const data = getExportData();
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]).join(';');
+    const rows = data.map((row) =>
+      Object.values(row)
+        .map((val) => `"${String(val).replace(/"/g, '""')}"`)
+        .join(';')
+    );
+    const blob = new Blob(['\uFEFF' + [headers, ...rows].join('\r\n')], {
+      type: 'text/csv;charset=utf-8;'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `articulos_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      addNotification({ type: 'error', title: 'Error', message: 'No se pudo abrir la ventana de impresión' });
+      return;
+    }
+
+    const rowsHtml = sortedProducts.map((product) => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${product.name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${getCategoryDisplay(product.categoryId)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd;">${product.supplier?.name || '-'}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.purchasePrice.toFixed(2)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.netPrice.toFixed(2)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${product.isActive ? 'Activo' : 'Desactivado'}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Listado de Artículos - ChefChek</title>
+          <style>
+            body { font-family: sans-serif; color: #333; margin: 20px; }
+            h2 { color: #4F46E5; margin-bottom: 5px; }
+            p { font-size: 12px; color: #666; margin-top: 0; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+            th { background-color: #F3F4F6; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #ddd; }
+            tr:nth-child(even) { background-color: #F9FAFB; }
+          </style>
+        </head>
+        <body>
+          <h2>ChefChek - Reporte de Artículos</h2>
+          <p>Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Proveedor</th>
+                <th style="text-align: right;">P. Compra</th>
+                <th style="text-align: right;">P. Neto</th>
+                <th style="text-align: center;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -224,6 +347,7 @@ export default function ArticulosPage() {
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts];
     sorted.sort((a, b) => {
@@ -242,8 +366,8 @@ export default function ArticulosPage() {
           valB = (parentCatB?.name || '').toLowerCase();
           break;
         case 'subcategory':
-          valA = getCategoryDisplay(a.categoryId).toLowerCase();
-          valB = getCategoryDisplay(b.categoryId).toLowerCase();
+          valA = (a.categoryId ? categoryNameMap[a.categoryId] || a.categoryId : '').toLowerCase();
+          valB = (b.categoryId ? categoryNameMap[b.categoryId] || b.categoryId : '').toLowerCase();
           break;
         case 'purchasePrice':
           valA = a.purchasePrice || 0;
@@ -270,7 +394,7 @@ export default function ArticulosPage() {
       return 0;
     });
     return sorted;
-  }, [filteredProducts, sortField, sortDirection, tree, getCategoryDisplay]);
+  }, [filteredProducts, sortField, sortDirection, tree, categoryNameMap]);
 
   const renderSortableHeader = (label: string, field: string) => {
     const isActive = sortField === field;
@@ -320,7 +444,27 @@ export default function ArticulosPage() {
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Artículos</h2>
             <p className="mt-2 text-gray-600 dark:text-gray-400">Gestión de artículos e inventario</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
+            <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
+              Importar
+            </button>
+            <div className="relative group">
+              <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1">
+                Exportar
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
+                <button onClick={exportToCSV} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                  Exportar a CSV
+                </button>
+                <button onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                  Exportar a Excel
+                </button>
+                <button onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                  Exportar a PDF
+                </button>
+              </div>
+            </div>
             <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
               Crear Artículo
             </button>
@@ -503,6 +647,11 @@ export default function ArticulosPage() {
         article={selectedProduct}
         tree={tree}
         suppliers={suppliers}
+      />
+
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => { setShowImportModal(false); refetch(); }}
       />
     </div>
   );
