@@ -8,6 +8,16 @@ export interface RecipeIngredient {
   unit: string;
 }
 
+export interface RecipeSubRecipeItem {
+  id: string;
+  subRecipeId: string;
+  subRecipeName: string;
+  quantity: number;
+  unit: string;
+  totalCost: number;
+  costPerUnit: number;
+}
+
 export interface Recipe {
   id: string;
   name: string;
@@ -25,7 +35,7 @@ export interface Recipe {
   isActive: boolean;
   isPublic: boolean;
   ingredients: RecipeIngredient[];
-  subRecipes?: Recipe[];
+  subRecipes?: RecipeSubRecipeItem[];
   categories?: RecipeCategory[];
   costBreakdown?: {
     ingredientsCost: number;
@@ -56,6 +66,7 @@ export interface CreateRecipeData {
   portions: number;
   portionSize?: number;
   ingredients: RecipeIngredient[];
+  subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
   categoryIds?: string[];
   allergens?: number[];
 }

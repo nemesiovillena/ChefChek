@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
@@ -13,8 +13,11 @@ import {
   RecipeIngredient,
   useRecipeCost,
 } from '@/hooks/use-recipes';
+
+type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string };
 import { useProducts, Product } from '@/hooks/use-products';
 import { useCategories, Category } from '@/hooks/use-categories';
+import { useAllergens } from '@/hooks/use-allergens';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +34,13 @@ export default function RecipesPage() {
 
   const { data: categoriesData } = useCategories("recipes");
   const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
+
+  // Catálogo de alérgenos para resolver ids → {nombre, icono} en la tabla.
+  const { allergens: allergenCatalog } = useAllergens();
+  const allergenById = useMemo(
+    () => new Map(allergenCatalog.map((a) => [a.id, a] as const)),
+    [allergenCatalog],
+  );
 
   const createRecipeMutation = useCreateRecipe();
   const updateRecipeMutation = useUpdateRecipe();
@@ -55,6 +65,8 @@ export default function RecipesPage() {
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([
     { productId: '', productName: '', quantity: 0, unit: 'kg' },
   ]);
+
+  const [subRecipes, setSubRecipes] = useState<SubRecipeRow[]>([]);
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -147,6 +159,20 @@ export default function RecipesPage() {
     setIngredients(newIngredients);
   };
 
+  const handleAddSubRecipe = () => {
+    setSubRecipes([...subRecipes, { subRecipeId: '', quantity: 0, unit: 'raciones' }]);
+  };
+
+  const handleRemoveSubRecipe = (index: number) => {
+    setSubRecipes(subRecipes.filter((_, i) => i !== index));
+  };
+
+  const handleSubRecipeChange = (index: number, field: keyof SubRecipeRow, value: string | number) => {
+    const updated = [...subRecipes];
+    updated[index] = { ...updated[index], [field]: value };
+    setSubRecipes(updated);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -157,6 +183,7 @@ export default function RecipesPage() {
       portions: parseInt(formData.portions, 10) || 1,
       portionSize: parseInt(formData.portionSize, 10) || 250,
       ingredients: ingredients.filter((ing) => ing.productId && ing.quantity > 0),
+      subRecipes: subRecipes.filter((s) => s.subRecipeId && s.quantity > 0),
       categoryIds: selectedCategoryIds,
       allergens: [],
     };
@@ -187,6 +214,7 @@ export default function RecipesPage() {
         portionSize: '250',
       });
       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+      setSubRecipes([]);
       setSelectedCategoryIds([]);
       refetch();
     } catch (error: unknown) {
@@ -208,6 +236,13 @@ export default function RecipesPage() {
       portionSize: recipe.portionSize?.toString() || '250',
     });
     setIngredients(recipe.ingredients);
+    setSubRecipes(
+      recipe.subRecipes?.map((s) => ({
+        subRecipeId: s.subRecipeId,
+        quantity: s.quantity,
+        unit: s.unit,
+      })) || [],
+    );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
     setShowCreateForm(true);
   };
@@ -287,6 +322,9 @@ export default function RecipesPage() {
                     Categorías
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Alérgenos
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Porciones
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -306,7 +344,7 @@ export default function RecipesPage() {
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {filteredRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       No hay recetas
                     </td>
                   </tr>
@@ -337,6 +375,26 @@ export default function RecipesPage() {
                           </div>
                         ) : (
                           <span className="text-gray-400 dark:text-gray-600">Sin categorías</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {recipe.allergens && recipe.allergens.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {recipe.allergens.map((id) => {
+                              const a = allergenById.get(id);
+                              return (
+                                <span
+                                  key={id}
+                                  title={a?.name ?? `Alérgeno ${id}`}
+                                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-50 dark:bg-amber-900/20 text-base leading-none"
+                                >
+                                  {a?.icon ?? '⚠️'}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400 dark:text-gray-600">Sin alérgenos</span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -409,6 +467,7 @@ export default function RecipesPage() {
                         portionSize: '250',
                       });
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+                      setSubRecipes([]);
                     }}
                     className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
                   >
@@ -604,6 +663,72 @@ export default function RecipesPage() {
                     </div>
                   </div>
 
+                  {/* Sub-recetas */}
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Sub-recetas
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAddSubRecipe}
+                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        + Agregar sub-receta
+                      </button>
+                    </div>
+                    {subRecipes.length > 0 && (
+                      <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+                        {subRecipes.map((sub, index) => (
+                          <div key={index} className="flex gap-2 items-center">
+                            <select
+                              value={sub.subRecipeId}
+                              onChange={(e) => handleSubRecipeChange(index, 'subRecipeId', e.target.value)}
+                              className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              <option value="">Seleccionar receta</option>
+                              {recipes
+                                .filter((r) => r.id !== selectedRecipe?.id && r.isActive)
+                                .map((r) => (
+                                  <option key={r.id} value={r.id}>
+                                    {r.name}
+                                  </option>
+                                ))}
+                            </select>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Cantidad"
+                              value={sub.quantity}
+                              onChange={(e) => handleSubRecipeChange(index, 'quantity', parseFloat(e.target.value))}
+                              className="w-24 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <select
+                              value={sub.unit}
+                              onChange={(e) => handleSubRecipeChange(index, 'unit', e.target.value)}
+                              className="w-28 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                              <option value="raciones">raciones</option>
+                              <option value="kg">kg</option>
+                              <option value="g">g</option>
+                              <option value="l">l</option>
+                              <option value="ml">ml</option>
+                              <option value="units">u</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSubRecipe(index)}
+                              className="text-red-650 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-bold p-1"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-100 dark:border-zinc-800">
                     <button
                       type="button"
@@ -618,6 +743,7 @@ export default function RecipesPage() {
                           portionSize: '250',
                         });
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
+                        setSubRecipes([]);
                       }}
                       className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
                     >
@@ -763,6 +889,50 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
                 </tbody>
               </table>
             </div>
+
+            {recipe.subRecipes && recipe.subRecipes.length > 0 && (
+              <>
+                <h4 className="text-lg font-medium mt-6 mb-4 text-gray-900 dark:text-white">Sub-recetas</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
+                    <thead className="bg-gray-50 dark:bg-zinc-800/50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Receta
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Cantidad
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Unidad
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          Costo
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+                      {recipe.subRecipes.map((sub, index) => (
+                        <tr key={index}>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                            {sub.subRecipeName}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {sub.quantity}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {sub.unit}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
+                            €{(sub.quantity * sub.costPerUnit).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         ) : null}
 
