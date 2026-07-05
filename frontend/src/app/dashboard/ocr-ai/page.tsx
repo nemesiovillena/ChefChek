@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { Button } from '@/components/ui/button';
+import { formatEuro } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -466,12 +467,12 @@ export default function OcrAiPage() {
                         <div className="grid grid-cols-3 gap-4 text-sm">
                           <div>
                             <p className="text-muted-foreground">Precio Actual</p>
-                            <p className="font-medium">€{product.unitPrice.toFixed(2)}</p>
+                            <p className="font-medium">{formatEuro(product.unitPrice)}</p>
                           </div>
                           {product.previousPrice && (
                             <div>
                               <p className="text-muted-foreground">Precio Anterior</p>
-                              <p className="font-medium">€{product.previousPrice.toFixed(2)}</p>
+                              <p className="font-medium">{formatEuro(product.previousPrice)}</p>
                             </div>
                           )}
                           {product.changePercentage !== null && (
@@ -571,13 +572,13 @@ export default function OcrAiPage() {
                           <div>
                             <p className="text-muted-foreground">Precio Anterior</p>
                             <p className="font-medium text-red-600 line-through">
-                              €{update.oldPrice.toFixed(2)}
+                              {formatEuro(update.oldPrice)}
                             </p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Nuevo Precio</p>
                             <p className="font-medium text-green-600">
-                              €{update.newPrice.toFixed(2)}
+                              {formatEuro(update.newPrice)}
                             </p>
                           </div>
                           <div>

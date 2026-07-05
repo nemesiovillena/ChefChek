@@ -27,6 +27,7 @@ import { useAllergens } from '@/hooks/use-allergens';
 import AllergenBadge from '@/components/shared/allergen-badge';
 import AllergenIcon from '@/components/shared/allergen-icon';
 import apiClient from '@/lib/api-client';
+import { formatEuro } from '@/lib/utils';
 import { CategoriesManagementModal } from '@/components/shared/categories-management-modal';
 
 export const dynamic = 'force-dynamic';
@@ -528,10 +529,10 @@ export default function RecipesPage() {
                         {recipe.portions} ({recipe.portionSize}g)
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        €{recipe.totalCost.toFixed(2)}
+                        {formatEuro(recipe.totalCost)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        €{costPerPortionOf(recipe).toFixed(2)}
+                        {formatEuro(costPerPortionOf(recipe))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -996,13 +997,13 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-4 rounded-lg transition-colors">
                 <div className="text-sm text-green-700 dark:text-green-400">Costo Total</div>
                 <div className="text-2xl font-bold text-green-900 dark:text-green-200">
-                  €{costData.totalCost.toFixed(2)}
+                  {formatEuro(costData.totalCost)}
                 </div>
               </div>
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-lg transition-colors">
                 <div className="text-sm text-blue-700 dark:text-blue-400">Costo por Porción</div>
                 <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">
-                  €{costData.costPerPortion.toFixed(2)}
+                  {formatEuro(costData.costPerPortion)}
                 </div>
               </div>
             </div>
@@ -1040,7 +1041,7 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
                             {ingredient.unit}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
-                            €{ingredient.cost.toFixed(2)}
+                            {formatEuro(ingredient.cost)}
                           </td>
                         </tr>
                       ))
@@ -1098,7 +1099,7 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
                             {sub.unit}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
-                            €{sub.cost.toFixed(2)}
+                            {formatEuro(sub.cost)}
                           </td>
                         </tr>
                       ))}

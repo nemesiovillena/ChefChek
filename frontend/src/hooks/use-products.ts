@@ -1,4 +1,5 @@
 import { useCrud as createCrudHooks, useApiMutation } from './use-api';
+import { formatEuro } from '@/lib/utils';
 
 export interface PurchaseFormat {
   id: string;
@@ -178,7 +179,7 @@ export function getReferencePrice(product: Product): number {
   return product.purchasePrice / size;
 }
 
-/** Format reference price for display: "€5.00/kg" */
+/** Format reference price for display: "5,00 €/kg" */
 export function formatRefPrice(price: number, unit: string): string {
-  return `€${price.toFixed(2)}/${unit}`;
+  return `${formatEuro(price)}/${unit}`;
 }

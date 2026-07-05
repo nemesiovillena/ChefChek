@@ -392,7 +392,7 @@ export class TechnicalSheetsService {
       );
 
       if (options.includeCosts) {
-        doc.text(` (Costo: €${cost.toFixed(2)})`, { align: "right" });
+        doc.text(` (Costo: ${this.formatEuro(cost)})`, { align: "right" });
       }
 
       doc.moveDown();
@@ -411,7 +411,7 @@ export class TechnicalSheetsService {
     if (options.includeCosts) {
       doc.moveDown();
       doc.font("Helvetica-Bold");
-      doc.text(`Costo Total Ingredientes: €${totalCost.toFixed(2)}`);
+      doc.text(`Costo Total Ingredientes: ${this.formatEuro(totalCost)}`);
       doc.font("Helvetica");
     }
 
@@ -728,6 +728,11 @@ export class TechnicalSheetsService {
     };
 
     return allergens[allergenId] || `Alérgeno ${allergenId}`;
+  }
+
+  // Formato monetario español: coma decimal y símbolo detrás ("12,34 €")
+  private formatEuro(value: number): string {
+    return `${value.toFixed(2).replace(".", ",")} €`;
   }
 
   private generateDocumentId(): string {

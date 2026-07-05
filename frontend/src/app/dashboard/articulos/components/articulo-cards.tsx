@@ -3,7 +3,7 @@
 import { Product } from '@/hooks/use-products';
 import Image from 'next/image';
 import { CategoryTreeNode } from '@/hooks/use-categories';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
@@ -116,10 +116,10 @@ export default function ArticuloCards({
             {/* Price + Stock */}
             <div className="mt-3 flex items-center justify-between">
               <span className="text-sm font-mono text-gray-700">
-                €{(product.purchasePrice || 0).toFixed(2)}
+                {formatEuro(product.purchasePrice || 0)}
               </span>
               <span className="text-xs font-semibold text-indigo-600 font-mono ml-1">
-                {product.referenceUnit && `€${(product.purchasePrice / (product.unitSize || 1)).toFixed(2)}/${product.referenceUnit}`}
+                {product.referenceUnit && `${formatEuro(product.purchasePrice / (product.unitSize || 1))}/${product.referenceUnit}`}
               </span>
               <StockBadge
                 current={product.stocks?.[0]?.quantity ?? 0}

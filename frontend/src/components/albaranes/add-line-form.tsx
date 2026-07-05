@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { addAlbaranLine } from '@/lib/api-albaran';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,7 +105,7 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
         <div>
           <Label className="text-xs">Total línea</Label>
           <div className="h-8 px-3 flex items-center text-sm font-medium bg-gray-100 rounded-md border">
-            €{lineTotal.toFixed(2)}
+            {formatEuro(lineTotal)}
           </div>
         </div>
       </div>

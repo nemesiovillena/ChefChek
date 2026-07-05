@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateManualAlbaran } from '@/hooks/use-manual-albaran';
 import { Product } from '@/hooks/use-products';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Package } from 'lucide-react';
 
@@ -250,7 +251,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
 
               {/* Line total */}
               <div className="col-span-2 text-right text-sm font-medium text-gray-700">
-                €{lineTotal.toFixed(2)}
+                {formatEuro(lineTotal)}
               </div>
 
               {/* Delete */}
@@ -291,7 +292,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
 
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">
-            Total: <strong className="text-gray-900">€{grandTotal.toFixed(2)}</strong>
+            Total: <strong className="text-gray-900">{formatEuro(grandTotal)}</strong>
           </span>
           <Button
             onClick={handleSubmit}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink, Sparkles, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { formatEuro } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -15,15 +16,15 @@ export const dynamic = 'force-dynamic';
 
 /** Modelos IA disponibles con info de coste */
 const AI_MODELS = [
-  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0€', desc: 'Regex básico, sin coste' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0.01€', desc: 'Rápido y barato, buena precisión' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0.005€', desc: 'El más barato, muy buena visión' },
-  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0.05€', desc: 'Máxima precisión, más caro' },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0.01€', desc: 'Buen balance calidad/precio' },
-  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0.01€', desc: 'OpenRouter — GPT-4o Mini' },
-  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0.01€', desc: 'OpenRouter — Claude Haiku' },
-  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0.005€', desc: 'OpenRouter — Gemini Flash' },
-  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0.002€', desc: 'OpenRouter — Llama 4 Maverick' },
+  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0 €', desc: 'Regex básico, sin coste' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0,01 €', desc: 'Rápido y barato, buena precisión' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0,005 €', desc: 'El más barato, muy buena visión' },
+  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0,05 €', desc: 'Máxima precisión, más caro' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0,01 €', desc: 'Buen balance calidad/precio' },
+  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'OpenRouter — GPT-4o Mini' },
+  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'OpenRouter — Claude Haiku' },
+  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'OpenRouter — Gemini Flash' },
+  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'OpenRouter — Llama 4 Maverick' },
 ];
 
 /** Storage key para persistir modelo seleccionado */
@@ -274,7 +275,7 @@ export default function IngestionPage() {
                     <span>{product.quantity} {product.unit}</span>
                     <span>•</span>
                     <span className="font-medium text-foreground">
-                      €{product.unit_price.toFixed(2)}
+                      {formatEuro(product.unit_price)}
                     </span>
                     <span>•</span>
                     <span

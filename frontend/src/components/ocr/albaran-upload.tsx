@@ -2,6 +2,7 @@
 
 import { Upload, FileText, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -176,10 +177,10 @@ export function AlbaranUpload() {
                         {product.quantity} {product.unit}
                       </span>
                       <span>•</span>
-                      <span>€{product.unit_price.toFixed(2)}/ud</span>
+                      <span>{formatEuro(product.unit_price)}/ud</span>
                       <span>•</span>
                       <span className="font-medium text-foreground">
-                        Total: €{product.total_price.toFixed(2)}
+                        Total: {formatEuro(product.total_price)}
                       </span>
                     </div>
                   </div>

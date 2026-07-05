@@ -2,7 +2,7 @@
 
 import { TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
 import { useSupplierPriceHistory } from '@/hooks/use-suppliers';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 
 interface Props {
   supplierId: string;
@@ -147,7 +147,7 @@ export function SupplierPriceHistory({ supplierId, supplierName }: Props) {
                     {new Date(entry.recordDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                   </td>
                   <td className="px-3 py-1.5 text-right text-gray-900 font-bold">
-                    €{entry.averagePrice.toFixed(2)}
+                    {formatEuro(entry.averagePrice)}
                   </td>
                   <td className={cn(
                     'px-3 py-1.5 text-right font-semibold',

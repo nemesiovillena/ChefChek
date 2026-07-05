@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -263,7 +264,7 @@ export default function DashboardInteractivoPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {metric.type.includes('PERCENTAGE') ? `${metric.value.toFixed(1)}%` : `€${metric.value.toFixed(2)}`}
+                {metric.type.includes('PERCENTAGE') ? `${metric.value.toFixed(1)}%` : formatEuro(metric.value)}
               </div>
               {metric.changePercentage !== undefined && (
                 <div className={`flex items-center gap-1 mt-2 ${metric.changePercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -295,7 +296,7 @@ export default function DashboardInteractivoPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{supplier.supplierName}</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold">€{supplier.monthlyCost.toFixed(2)}</span>
+                      <span className="font-bold">{formatEuro(supplier.monthlyCost)}</span>
                       <Badge variant={supplier.trend > 0 ? 'destructive' : 'default'}>
                         {supplier.trend > 0 ? '+' : ''}{supplier.trend.toFixed(1)}%
                       </Badge>
