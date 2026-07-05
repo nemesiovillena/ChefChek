@@ -2,23 +2,8 @@
 
 import { useRef } from 'react';
 import Image from 'next/image';
-
-const ALLERGENS = [
-  { id: 1, name: 'Cereales con Gluten', image: '/images/allergens/gluten-derivados-300x300.webp' },
-  { id: 2, name: 'Crustáceos', image: '/images/allergens/crustaceos-300x300.webp' },
-  { id: 3, name: 'Huevos', image: '/images/allergens/huevos-300x300.webp' },
-  { id: 4, name: 'Pescados', image: '/images/allergens/pescados-300x300.webp' },
-  { id: 5, name: 'Cacahuetes', image: '/images/allergens/cacahuetes-300x300.webp' },
-  { id: 6, name: 'Soja', image: '/images/allergens/soja-300x300.webp' },
-  { id: 7, name: 'Lácteos', image: '/images/allergens/lacteos-300x300.webp' },
-  { id: 8, name: 'Apio', image: '/images/allergens/apio-300x300.webp' },
-  { id: 9, name: 'Mostaza', image: '/images/allergens/mostaza-300x300.webp' },
-  { id: 10, name: 'Granos de Sésamo', image: '/images/allergens/granos-sesamo-300x300.webp' },
-  { id: 11, name: 'Dióxido de Azufre / Sulfitos', image: '/images/allergens/dioxido-azufre-sulfitos-300x300.webp' },
-  { id: 12, name: 'Altramuces', image: '/images/allergens/altramuces-300x300.webp' },
-  { id: 13, name: 'Moluscos', image: '/images/allergens/moluscos-300x300.webp' },
-  { id: 14, name: 'Cáscaras de Frutos Secos', image: '/images/allergens/cascaras-frutos-secos-300x300.webp' },
-];
+import AllergenIcon from '@/components/shared/allergen-icon';
+import { useAllergens } from '@/hooks/use-allergens';
 
 interface TabAlergenosProps {
   allergens: number[];
@@ -31,6 +16,8 @@ interface TabAlergenosProps {
 
 export default function TabAlergenos({ allergens, setAllergens, hideAllergens, setHideAllergens, imageUrl, onImageUpload }: TabAlergenosProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Catálogo BD: fuente de ids y nombres; los pictogramas UE los resuelve AllergenIcon.
+  const { allergens: allergenCatalog } = useAllergens();
 
   const toggleAllergen = (id: number) => {
     if (allergens.includes(id)) {
@@ -55,7 +42,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">Seleccionar Alérgenos</label>
         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-          {ALLERGENS.map((allergen) => {
+          {allergenCatalog.map((allergen) => {
             const isSelected = allergens.includes(allergen.id);
             return (
               <button
@@ -67,7 +54,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
                 }`}
                 title={allergen.name}
               >
-                <Image src={allergen.image} alt={allergen.name} width={40} height={40} className="w-10 h-10 object-contain" />
+                <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={32} />
                 <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-indigo-700' : 'text-gray-600'}`}>
                   {allergen.name}
                 </span>

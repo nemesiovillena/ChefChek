@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useAllergens, type AllergenResponse } from '@/hooks/use-allergens';
+import AllergenIcon from '@/components/shared/allergen-icon';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -226,7 +227,7 @@ export default function AllergensPage() {
                   <Card key={allergen.id} className="p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-4">
-                        <div className="text-4xl">{allergen.icon || '⚠️'}</div>
+                        <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={40} />
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h3 className="text-lg font-semibold">{allergen.name}</h3>
