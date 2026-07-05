@@ -170,9 +170,10 @@ function ArticuloDrawerForm({ article, tree, suppliers, onClose }: ArticuloDrawe
   const [nutritionalData, setNutritionalData] = useState<NutritionalData>(() => deriveNutrition(article));
   const [saving, setSaving] = useState(false);
   // Locally-created suppliers (added via the supplier tab) merged with the prop-supplied list.
+  // Dedupe: once the suppliers query refetches, the created supplier arrives via props too.
   const [addedSuppliers, setAddedSuppliers] = useState<SupplierOption[]>([]);
   const suppliersList = useMemo(
-    () => [...suppliers, ...addedSuppliers],
+    () => [...suppliers, ...addedSuppliers.filter((a) => !suppliers.some((s) => s.id === a.id))],
     [suppliers, addedSuppliers],
   );
 

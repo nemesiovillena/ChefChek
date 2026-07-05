@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product, CreateProductData } from '@/hooks/use-products';
 import { CategoryTreeNode } from '@/hooks/use-categories';
@@ -132,6 +132,14 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
   const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
   const [nutritionalData, setNutritionalData] = useState(() => deriveNutrition(article));
 
+  // Proveedores creados desde el diálogo rápido: se añaden localmente para que
+  // el combobox pueda mostrarlos seleccionados sin esperar al refetch de la query.
+  const [addedSuppliers, setAddedSuppliers] = useState<SupplierOption[]>([]);
+  const suppliersList = useMemo(
+    () => [...suppliers, ...addedSuppliers.filter((a) => !suppliers.some((s) => s.id === a.id))],
+    [suppliers, addedSuppliers],
+  );
+
   const handleImageUpload = async (file: File) => {
     const form = new FormData();
     form.append('file', file);
@@ -260,11 +268,14 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           )}
           {activeTab === 'proveedor-stock' && (
             <TabProveedorStock
-              suppliers={suppliers}
+              suppliers={suppliersList}
               tree={tree}
               formData={formData}
               setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
+              onSupplierCreated={(supplier) => {
+                setAddedSuppliers((prev) => [...prev, supplier]);
+              }}
             />
           )}
           {activeTab === 'nutricion' && (

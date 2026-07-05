@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useProducts, Product, useDeleteProduct, useUpdateProduct } from '@/hooks/use-products';
+import { useProducts, Product, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
@@ -62,6 +62,7 @@ export default function ArticulosPage() {
       Proveedor: product.supplier?.name || '-',
       'Precio Compra': product.purchasePrice.toFixed(2),
       'Precio Neto': product.netPrice.toFixed(2),
+      'Precio Referencia': formatRefPrice(getReferencePrice(product), product.referenceUnit),
       IVA: product.iva,
       Formato: product.purchaseFormat || '',
       Unidad: product.referenceUnit,
@@ -128,6 +129,7 @@ export default function ArticulosPage() {
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${product.supplier?.name || '-'}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.purchasePrice.toFixed(2)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.netPrice.toFixed(2)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${product.isActive ? 'Activo' : 'Desactivado'}</td>
       </tr>
     `).join('');
@@ -156,6 +158,7 @@ export default function ArticulosPage() {
                 <th>Proveedor</th>
                 <th style="text-align: right;">P. Compra</th>
                 <th style="text-align: right;">P. Neto</th>
+                <th style="text-align: right;">P. Ref.</th>
                 <th style="text-align: center;">Estado</th>
               </tr>
             </thead>
@@ -377,13 +380,18 @@ export default function ArticulosPage() {
           valA = a.netPrice || 0;
           valB = b.netPrice || 0;
           break;
+        case 'referencePrice':
+          valA = getReferencePrice(a);
+          valB = getReferencePrice(b);
+          break;
         case 'status':
           valA = a.isActive ? 1 : 0;
           valB = b.isActive ? 1 : 0;
           break;
         case 'lastPurchaseDate':
-          valA = a.lastPurchaseDate ? new Date(a.lastPurchaseDate).getTime() : 0;
-          valB = b.lastPurchaseDate ? new Date(b.lastPurchaseDate).getTime() : 0;
+          // Sin compras registradas se ordena por la fecha de alta del artículo
+          valA = new Date(a.lastPurchaseDate ?? a.createdAt).getTime();
+          valB = new Date(b.lastPurchaseDate ?? b.createdAt).getTime();
           break;
         default:
           return 0;
@@ -539,6 +547,7 @@ export default function ArticulosPage() {
                   {renderSortableHeader('Proveedor', 'supplier')}
                   {renderSortableHeader('Precio Compra', 'purchasePrice')}
                   {renderSortableHeader('Precio Neto', 'netPrice')}
+                  {renderSortableHeader('Precio Ref.', 'referencePrice')}
                   {renderSortableHeader('Última Compra', 'lastPurchaseDate')}
                   {renderSortableHeader('Estado', 'status')}
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">Acciones</th>
@@ -546,9 +555,9 @@ export default function ArticulosPage() {
               </thead>
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {productsLoading ? (
-                  <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
                 ) : sortedProducts.length === 0 ? (
-                  <tr><td colSpan={9} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
                 ) : (
                   sortedProducts.map((product: Product) => {
                     const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
@@ -560,13 +569,16 @@ export default function ArticulosPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.purchasePrice.toFixed(2)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.netPrice.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {product.lastPurchaseDate ? (
                             <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
                               {formatLastPurchaseDate(product.lastPurchaseDate)}
                             </span>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-600">-</span>
+                            <span className="text-gray-400 dark:text-gray-500" title="Sin compras registradas — fecha de alta del artículo">
+                              {formatLastPurchaseDate(product.createdAt)}
+                            </span>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

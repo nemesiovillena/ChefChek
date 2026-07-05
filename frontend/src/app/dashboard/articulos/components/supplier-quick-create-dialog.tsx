@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
@@ -16,6 +17,7 @@ interface SupplierQuickCreateDialogProps {
 /** Small centered dialog to create a supplier quickly — name + optional fields */
 export default function SupplierQuickCreateDialog({ isOpen, onClose, onCreated }: SupplierQuickCreateDialogProps) {
   const addNotification = useNotification();
+  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
@@ -41,6 +43,9 @@ export default function SupplierQuickCreateDialog({ isOpen, onClose, onCreated }
         email: email.trim() || undefined,
       });
       const created = response.data?.data || response.data;
+
+      // Refresca listados y filtros que consumen la query de proveedores
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
 
       addNotification({ type: 'success', title: 'Proveedor creado', message: `"${name.trim()}" añadido correctamente` });
       onCreated({ id: created.id, name: created.name });
