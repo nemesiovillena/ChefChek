@@ -151,8 +151,9 @@ async function main() {
       description: "Mejillones, almejas, ostras, calamares, pulpo.",
     },
     14: {
-      nameEu1169: "Mostaza en polvo y derivados",
-      description: "Presentación en polvo de mostaza y preparados.",
+      nameEu1169: "Frutos de cáscara y productos derivados",
+      description:
+        "Almendras, avellanas, nueces, anacardos, pacanas, nueces de Brasil, pistachos, macadamias.",
     },
   };
   for (const a of ALLERGENS_INFO) {
