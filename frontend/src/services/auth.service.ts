@@ -1,5 +1,6 @@
 import { AxiosError } from 'axios';
 import apiClient from '@/lib/api-client';
+import { slugify } from '@/lib/utils';
 
 export interface LoginCredentials {
   email: string;
@@ -37,9 +38,13 @@ export interface ErrorResponse {
 
 class AuthService {
   async loginWithEmail(credentials: LoginCredentials): Promise<AuthResponse> {
+    // El slug viaja como header HTTP: solo admite ISO-8859-1. Texto pegado en
+    // macOS puede llegar en forma NFD (acentos combinantes > U+00FF) y haría
+    // que fetch/XHR lancen "String contains non ISO-8859-1 code point".
+    const tenantSlug = slugify(credentials.tenantSlug);
     try {
       // Store tenant slug temporarily for the request
-      sessionStorage.setItem('tenant_slug', credentials.tenantSlug);
+      sessionStorage.setItem('tenant_slug', tenantSlug);
 
       // Send only email and password, tenantSlug goes via header
       const { email, password } = credentials;
@@ -54,6 +59,9 @@ class AuthService {
 
       return response.data;
     } catch (error: unknown) {
+      // No dejar un slug de un login fallido en sessionStorage: rompería las
+      // peticiones posteriores del tab (headers) aunque el usuario reintente.
+      sessionStorage.removeItem('tenant_slug');
       const errorResponse = error instanceof AxiosError
         ? (error.response?.data as ErrorResponse | undefined)
         : undefined;
@@ -66,7 +74,7 @@ class AuthService {
       const response = await apiClient.post<AuthResponse>('/v1/auth/register', data);
 
       // Store session ID and tenant slug
-      const tenantSlug = this.slugify(data.tenantName);
+      const tenantSlug = slugify(data.tenantName);
       sessionStorage.setItem('session_id', response.data.session.id);
       sessionStorage.setItem('tenant_slug', tenantSlug);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
@@ -193,16 +201,6 @@ class AuthService {
 
   getCurrentTenantSlug(): string | null {
     return sessionStorage.getItem('tenant_slug');
-  }
-
-  private slugify(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '');
   }
 }
 

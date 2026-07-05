@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
+import { slugify } from '@/lib/utils';
 
 export interface AuthContextType {
   user: AuthResponse['user'] | null;
@@ -103,15 +104,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true);
     try {
       const response = await authService.loginWithEmail(credentials);
+      // Mismo saneado que auth.service: el slug acaba en headers HTTP, que
+      // solo aceptan ISO-8859-1 (texto pegado puede traer acentos NFD).
+      const safeTenantSlug = slugify(credentials.tenantSlug);
       setUser(response.user);
       setTenantId(response.user.tenantId);
-      setTenantSlug(credentials.tenantSlug);
+      setTenantSlug(safeTenantSlug);
 
       // Persist to sessionStorage
       const sessionId = response.session.id;
       setSessionId(sessionId);
       sessionStorage.setItem('session_id', sessionId);
-      sessionStorage.setItem('tenant_slug', credentials.tenantSlug);
+      sessionStorage.setItem('tenant_slug', safeTenantSlug);
       sessionStorage.setItem('user', JSON.stringify(response.user));
       if (response.user.tenantId) {
         sessionStorage.setItem('tenant_id', response.user.tenantId);
