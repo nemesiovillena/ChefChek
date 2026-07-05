@@ -16,6 +16,8 @@ export interface RecipeSubRecipeItem {
   unit: string;
   totalCost: number;
   costPerUnit: number;
+  /** Costo de la cantidad usada, con la unidad ya convertida por el backend */
+  cost: number;
 }
 
 export interface Recipe {

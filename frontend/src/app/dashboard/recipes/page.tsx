@@ -15,9 +15,19 @@ import {
 } from '@/hooks/use-recipes';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string };
+import ElaborationStepEditor, {
+  ElaborationStep,
+  parseSteps,
+  serializeSteps,
+} from './components/elaboration-step-editor';
 import { useProducts, Product } from '@/hooks/use-products';
+import { ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
+import AllergenBadge from '@/components/shared/allergen-badge';
+import AllergenIcon from '@/components/shared/allergen-icon';
+import apiClient from '@/lib/api-client';
+import { CategoriesManagementModal } from '@/components/shared/categories-management-modal';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,18 +59,25 @@ export default function RecipesPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showCostModal, setShowCostModal] = useState(false);
+  const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [activeMetaTab, setActiveMetaTab] = useState<'categories' | 'allergens'>('categories');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [sortField, setSortField] = useState<'name' | 'category' | 'totalCost' | 'costPerUnit'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedAllergenIds, setSelectedAllergenIds] = useState<number[]>([]);
+  const [generatingSheetId, setGeneratingSheetId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    elaboration: '',
     portions: '1',
     portionSize: '250',
   });
+
+  const [elaborationSteps, setElaborationSteps] = useState<ElaborationStep[]>(() => parseSteps(null));
 
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([
     { productId: '', productName: '', quantity: 0, unit: 'kg' },
@@ -135,6 +152,33 @@ export default function RecipesPage() {
     setShowCostModal(true);
   };
 
+  // Genera la ficha técnica en PDF y la abre en pestaña nueva con el visor
+  // nativo del navegador (zoom/imprimir/descargar sin UI propia).
+  const handleViewSheet = async (recipe: Recipe) => {
+    setGeneratingSheetId(recipe.id);
+    try {
+      const response = await apiClient.post(
+        '/v1/technical-sheets/generate',
+        { recipeId: recipe.id, includeAllergens: true, includeCosts: true },
+        { responseType: 'blob' },
+      );
+      const url = URL.createObjectURL(
+        new Blob([response.data], { type: 'application/pdf' }),
+      );
+      window.open(url, '_blank', 'noopener');
+      // El visor ya cargó el blob; liberar la URL pasado un margen amplio
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo generar la ficha técnica',
+      });
+    } finally {
+      setGeneratingSheetId(null);
+    }
+  };
+
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { productId: '', productName: '', quantity: 0, unit: 'kg' }]);
   };
@@ -153,6 +197,9 @@ export default function RecipesPage() {
         productId,
         productName: product?.name,
       };
+      if (product?.allergens?.length) {
+        setSelectedAllergenIds((prev) => Array.from(new Set([...prev, ...product.allergens])));
+      }
     } else {
       newIngredients[index] = { ...newIngredients[index], [field]: value };
     }
@@ -176,16 +223,17 @@ export default function RecipesPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    const filledSteps = elaborationSteps.filter((s) => s.description.trim());
     const recipeData = {
       name: formData.name,
       description: formData.description || undefined,
-      elaboration: formData.elaboration || undefined,
+      elaboration: filledSteps.length > 0 ? serializeSteps(filledSteps) : undefined,
       portions: parseInt(formData.portions, 10) || 1,
       portionSize: parseInt(formData.portionSize, 10) || 250,
       ingredients: ingredients.filter((ing) => ing.productId && ing.quantity > 0),
       subRecipes: subRecipes.filter((s) => s.subRecipeId && s.quantity > 0),
       categoryIds: selectedCategoryIds,
-      allergens: [],
+      allergens: selectedAllergenIds,
     };
 
     try {
@@ -209,13 +257,14 @@ export default function RecipesPage() {
       setFormData({
         name: '',
         description: '',
-        elaboration: '',
         portions: '1',
         portionSize: '250',
       });
+      setElaborationSteps(parseSteps(null));
       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
       setSubRecipes([]);
       setSelectedCategoryIds([]);
+      setSelectedAllergenIds([]);
       refetch();
     } catch (error: unknown) {
       addNotification({
@@ -231,10 +280,10 @@ export default function RecipesPage() {
     setFormData({
       name: recipe.name,
       description: recipe.description || '',
-      elaboration: recipe.elaboration || '',
       portions: recipe.portions.toString(),
       portionSize: recipe.portionSize?.toString() || '250',
     });
+    setElaborationSteps(parseSteps(recipe.elaboration));
     setIngredients(recipe.ingredients);
     setSubRecipes(
       recipe.subRecipes?.map((s) => ({
@@ -244,6 +293,7 @@ export default function RecipesPage() {
       })) || [],
     );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
+    setSelectedAllergenIds(recipe.allergens || []);
     setShowCreateForm(true);
   };
 
@@ -254,6 +304,69 @@ export default function RecipesPage() {
       recipe.categories?.some(cat => cat.categoryId === selectedCategory);
     return matchesSearch && matchesCategory;
   });
+
+  // Clave de ordenación por categoría: la primera alfabéticamente; sin categoría queda vacía
+  const firstCategoryName = (recipe: Recipe): string =>
+    recipe.categories
+      ?.map((c) => c.categoryName)
+      .sort((a, b) => a.localeCompare(b, 'es'))[0] ?? '';
+
+  const costPerPortionOf = (recipe: Recipe): number =>
+    recipe.costBreakdown?.costPerPortion ??
+    (recipe.portions > 0 ? recipe.totalCost / recipe.portions : recipe.totalCost);
+
+  const sortedRecipes = [...filteredRecipes].sort((a, b) => {
+    const dir = sortDirection === 'asc' ? 1 : -1;
+    switch (sortField) {
+      case 'name':
+        return a.name.localeCompare(b.name, 'es') * dir;
+      case 'category': {
+        const catA = firstCategoryName(a);
+        const catB = firstCategoryName(b);
+        // Las recetas sin categoría van siempre al final; empates se resuelven por nombre
+        if (!catA && !catB) return a.name.localeCompare(b.name, 'es');
+        if (!catA) return 1;
+        if (!catB) return -1;
+        return (catA.localeCompare(catB, 'es') || a.name.localeCompare(b.name, 'es')) * dir;
+      }
+      case 'totalCost':
+        return (a.totalCost - b.totalCost) * dir;
+      case 'costPerUnit':
+        return (costPerPortionOf(a) - costPerPortionOf(b)) * dir;
+    }
+  });
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const renderSortableHeader = (label: string, field: typeof sortField) => {
+    const isActive = sortField === field;
+    return (
+      <th
+        onClick={() => handleSort(field)}
+        className="group px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-150"
+      >
+        <div className="flex items-center space-x-1">
+          <span>{label}</span>
+          {isActive ? (
+            sortDirection === 'asc' ? (
+              <ChevronUp className="h-3.5 w-3.5 text-indigo-600" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+            )
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+          )}
+        </div>
+      </th>
+    );
+  };
 
   return (
     <div className="w-full">
@@ -266,18 +379,32 @@ export default function RecipesPage() {
               Gestión de recetas y escandallos
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-          >
-            Crear Receta
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCategoriesModal(true)}
+              className="px-4 py-2 bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Gestionar categorías
+            </button>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              Crear Receta
+            </button>
+          </div>
         </div>
+
+        <CategoriesManagementModal
+          isOpen={showCategoriesModal}
+          onClose={() => setShowCategoriesModal(false)}
+          context="recipes"
+        />
 
         {/* Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Buscar
               </label>
@@ -289,7 +416,7 @@ export default function RecipesPage() {
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
-            <div>
+            <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Categoría
               </label>
@@ -306,6 +433,23 @@ export default function RecipesPage() {
                 ))}
               </select>
             </div>
+            <button
+              type="button"
+              disabled={!searchTerm && !selectedCategory}
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedCategory('');
+              }}
+              className="px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] mt-1 md:mt-0 font-medium text-sm select-none
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
+                dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
+                enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
+                dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
+                enabled:cursor-pointer"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Limpiar filtros
+            </button>
           </div>
         </div>
 
@@ -315,24 +459,16 @@ export default function RecipesPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
               <thead className="bg-gray-50 dark:bg-zinc-800/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Nombre
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Categorías
-                  </th>
+                  {renderSortableHeader('Nombre', 'name')}
+                  {renderSortableHeader('Categorías', 'category')}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Alérgenos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Porciones
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Costo Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Costo/Unidad
-                  </th>
+                  {renderSortableHeader('Costo Total', 'totalCost')}
+                  {renderSortableHeader('Costo/Ración', 'costPerUnit')}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Estado
                   </th>
@@ -342,14 +478,14 @@ export default function RecipesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
-                {filteredRecipes.length === 0 ? (
+                {sortedRecipes.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       No hay recetas
                     </td>
                   </tr>
                 ) : (
-                  filteredRecipes.map((recipe: Recipe) => (
+                  sortedRecipes.map((recipe: Recipe) => (
                     <tr key={recipe.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -380,18 +516,9 @@ export default function RecipesPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {recipe.allergens && recipe.allergens.length > 0 ? (
                           <div className="flex flex-wrap gap-1 items-center">
-                            {recipe.allergens.map((id) => {
-                              const a = allergenById.get(id);
-                              return (
-                                <span
-                                  key={id}
-                                  title={a?.name ?? `Alérgeno ${id}`}
-                                  className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-amber-50 dark:bg-amber-900/20 text-base leading-none"
-                                >
-                                  {a?.icon ?? '⚠️'}
-                                </span>
-                              );
-                            })}
+                            {recipe.allergens.map((id) => (
+                              <AllergenBadge key={id} id={id} allergen={allergenById.get(id)} />
+                            ))}
                           </div>
                         ) : (
                           <span className="text-sm text-gray-400 dark:text-gray-600">Sin alérgenos</span>
@@ -404,7 +531,7 @@ export default function RecipesPage() {
                         €{recipe.totalCost.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        €{recipe.totalCostPerUnit?.toFixed(2) || recipe.costBreakdown?.costPerUnit.toFixed(2) || '0.00'}
+                        €{costPerPortionOf(recipe).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
@@ -419,6 +546,13 @@ export default function RecipesPage() {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <button
+                          onClick={() => handleViewSheet(recipe)}
+                          disabled={generatingSheetId === recipe.id}
+                          className="inline-flex items-center justify-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                        >
+                          {generatingSheetId === recipe.id ? 'Generando…' : 'Ficha'}
+                        </button>
                         <button
                           onClick={() => handleViewCost(recipe)}
                           className="inline-flex items-center justify-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
@@ -462,10 +596,10 @@ export default function RecipesPage() {
                       setFormData({
                         name: '',
                         description: '',
-                        elaboration: '',
                         portions: '1',
                         portionSize: '250',
                       });
+                      setElaborationSteps(parseSteps(null));
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                       setSubRecipes([]);
                     }}
@@ -518,31 +652,82 @@ export default function RecipesPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {/* Pestañas para Categorías y Alérgenos */}
+                  <div className="flex gap-2 p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg mt-4 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMetaTab('categories')}
+                      className={`px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-250 cursor-pointer ${
+                        activeMetaTab === 'categories'
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700/50'
+                      }`}
+                    >
                       Categorías
-                    </label>
-                    <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
-                      {categories.map((category) => (
-                        <label key={category.id} className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedCategoryIds.includes(category.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedCategoryIds([...selectedCategoryIds, category.id]);
-                              } else {
-                                setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
-                              }
-                            }}
-                            className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
-                          />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {category.icon} {category.name}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveMetaTab('allergens')}
+                      className={`px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-250 cursor-pointer ${
+                        activeMetaTab === 'allergens'
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700/50'
+                      }`}
+                    >
+                      Alérgenos
+                    </button>
+                  </div>
+
+                  {/* Contenido de la Pestaña Activa */}
+                  <div className="mt-2">
+                    {activeMetaTab === 'categories' && (
+                      <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
+                        {categories.map((category) => (
+                          <label key={category.id} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategoryIds.includes(category.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                                } else {
+                                  setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
+                                }
+                              }}
+                              className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
+                            />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              {category.icon} {category.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {activeMetaTab === 'allergens' && (
+                      <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
+                        {allergenCatalog.map((allergen) => (
+                          <label key={allergen.id} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedAllergenIds.includes(allergen.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedAllergenIds([...selectedAllergenIds, allergen.id]);
+                                } else {
+                                  setSelectedAllergenIds(selectedAllergenIds.filter(id => id !== allergen.id));
+                                }
+                              }}
+                              className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
+                            />
+                            <span className="inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
+                              <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={18} />
+                              {allergen.name}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -579,21 +764,10 @@ export default function RecipesPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Elaboración (JSON)
-                    </label>
-                    <textarea
-                      name="elaboration"
-                      value={formData.elaboration}
-                      onChange={(e) =>
-                        setFormData({ ...formData, elaboration: e.target.value })
-                      }
-                      placeholder='{"type":"doc","content":[...]}'
-                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
-                      rows={4}
-                    />
-                  </div>
+                  <ElaborationStepEditor
+                    steps={elaborationSteps}
+                    onStepsChange={setElaborationSteps}
+                  />
 
                   <div>
                     <div className="flex justify-between items-center mb-2">
@@ -738,10 +912,10 @@ export default function RecipesPage() {
                         setFormData({
                           name: '',
                           description: '',
-                          elaboration: '',
                           portions: '1',
                           portionSize: '250',
                         });
+                        setElaborationSteps(parseSteps(null));
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                         setSubRecipes([]);
                       }}
@@ -924,7 +1098,7 @@ function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => v
                             {sub.unit}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
-                            €{(sub.quantity * sub.costPerUnit).toFixed(2)}
+                            €{sub.cost.toFixed(2)}
                           </td>
                         </tr>
                       ))}
