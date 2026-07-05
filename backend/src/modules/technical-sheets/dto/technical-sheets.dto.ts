@@ -118,8 +118,11 @@ export class GenerateSheetDto {
   @IsString()
   recipeId: string;
 
+  // Opcional: sin templateId se usa el primer template activo del tenant
+  // (o se crea el estándar si no hay ninguno).
+  @IsOptional()
   @IsString()
-  templateId: string;
+  templateId?: string;
 
   @IsOptional()
   format?: PDFFormat;

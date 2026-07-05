@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
 import {
   CreateTemplateDto,
   UpdateTemplateDto,
@@ -130,9 +131,11 @@ export class TechnicalSheetsService {
       throw new NotFoundException("Recipe not found");
     }
 
-    const template = await this.prisma.technicalSheetTemplate.findFirst({
-      where: { id: dto.templateId, tenantId },
-    });
+    const template = dto.templateId
+      ? await this.prisma.technicalSheetTemplate.findFirst({
+          where: { id: dto.templateId, tenantId },
+        })
+      : await this.getOrCreateDefaultTemplate(tenantId, userId);
 
     if (!template) {
       throw new NotFoundException("Template not found");
@@ -266,28 +269,33 @@ export class TechnicalSheetsService {
     doc.on("data", (chunk) => chunks.push(chunk));
 
     const styles = template.styles || this.getDefaultStyles();
+    // Los templates seed pueden traer layout vacío ({}); sin este fallback
+    // ninguna sección sería visible y el PDF saldría en blanco.
+    const layout = template.layout?.header
+      ? template.layout
+      : this.getDefaultLayout();
 
-    if (template.layout.header.visible) {
+    if (layout.header.visible) {
       this.generateHeader(doc, recipe, template, styles);
     }
 
-    if (template.layout.generalInfo.visible) {
+    if (layout.generalInfo.visible) {
       this.generateGeneralInfo(doc, recipe, template, styles);
     }
 
-    if (template.layout.ingredients.visible) {
+    if (layout.ingredients.visible) {
       this.generateIngredients(doc, recipe, template, styles, options);
     }
 
-    if (template.layout.preparation.visible) {
+    if (layout.preparation.visible) {
       this.generatePreparation(doc, recipe, template, styles);
     }
 
-    if (template.layout.nutrition.visible) {
+    if (layout.nutrition.visible) {
       this.generateNutrition(doc, recipe, template, styles);
     }
 
-    if (template.layout.footer.visible) {
+    if (layout.footer.visible) {
       this.generateFooter(doc, template, styles, options);
     }
 
@@ -339,11 +347,19 @@ export class TechnicalSheetsService {
       [`Tiempo cocción:`, `${recipe.cookingTime || 60} min`],
     ];
 
+    // Lista en dos columnas alineadas: etiqueta en negrita, valor en normal.
+    const labelWidth = 150;
+    const left = doc.page.margins.left;
     info.forEach(([label, value]) => {
-      doc.text(`${label} ${value}`, { continued: true });
-      doc.moveDown();
+      const y = doc.y;
+      doc.font("Helvetica-Bold").text(String(label), left, y, {
+        width: labelWidth,
+      });
+      doc.font("Helvetica").text(String(value), left + labelWidth, y);
+      doc.moveDown(0.3);
     });
 
+    doc.x = left;
     doc.moveDown();
   }
 
@@ -363,7 +379,11 @@ export class TechnicalSheetsService {
     let totalCost = 0;
 
     recipe.ingredients.forEach((ingredient, index) => {
-      const cost = (ingredient.quantity * ingredient.product.cost) / 1000;
+      // Mismo precio rector que el escandallo de recetas: precio de
+      // referencia del artículo corregido por mermas, según unidad usada.
+      const cost =
+        ingredient.quantity *
+        calculateProductCostPerUnit(ingredient.product, ingredient.unit);
       totalCost += cost;
 
       doc.text(
@@ -378,11 +398,11 @@ export class TechnicalSheetsService {
       doc.moveDown();
 
       if (options.includeAllergens && ingredient.product.allergens) {
-        const allergenNames = ingredient.product.allergens.map((id) =>
-          this.getAllergenName(id),
-        );
+        const allergenIds: number[] = ingredient.product.allergens;
+        const allergenNames = allergenIds.map((id) => this.getAllergenName(id));
         if (allergenNames.length > 0) {
           doc.text(`   Alérgenos: ${allergenNames.join(", ")}`);
+          this.drawAllergenIcons(doc, allergenIds);
           doc.moveDown();
         }
       }
@@ -450,11 +470,19 @@ export class TechnicalSheetsService {
       [`Fibra:`, `${nutrition.fiber || 0}g`],
     ];
 
+    // Mismo formato de lista compacta que Información General
+    const labelWidth = 150;
+    const left = doc.page.margins.left;
     info.forEach(([label, value]) => {
-      doc.text(`${label} ${value}`);
-      doc.moveDown();
+      const y = doc.y;
+      doc.font("Helvetica-Bold").text(String(label), left, y, {
+        width: labelWidth,
+      });
+      doc.font("Helvetica").text(String(value), left + labelWidth, y);
+      doc.moveDown(0.3);
     });
 
+    doc.x = left;
     doc.moveDown();
   }
 
@@ -501,6 +529,34 @@ export class TechnicalSheetsService {
     return Buffer.from([]);
   }
 
+  // Primer template activo del tenant; si no existe ninguno, crea el
+  // estándar con las secciones por defecto para no obligar al frontend
+  // a gestionar plantillas antes de poder generar una ficha.
+  private async getOrCreateDefaultTemplate(
+    tenantId: string,
+    userId: string,
+  ): Promise<any> {
+    const existing = await this.prisma.technicalSheetTemplate.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.technicalSheetTemplate.create({
+      data: {
+        tenantId,
+        name: "Ficha técnica estándar",
+        type: "STANDARD",
+        layout: this.getDefaultLayout(),
+        fields: this.getDefaultFields(),
+        styles: this.getDefaultStyles() as any,
+        createdBy: userId,
+      } as any,
+    });
+  }
+
   private getDefaultLayout() {
     return {
       header: { visible: true, order: 1 },
@@ -533,6 +589,8 @@ export class TechnicalSheetsService {
     };
   }
 
+  // Recipe.elaboration es JSON {"steps":[{description,equipment,time,temperature}]}
+  // (ElaborationStepEditor). Se tolera texto plano legacy separado por saltos de línea.
   private parsePreparationSteps(
     elaboration: string,
   ): Array<{ text: string; time?: string; temperature?: string }> {
@@ -540,12 +598,30 @@ export class TechnicalSheetsService {
       return [{ text: "No hay pasos de elaboración especificados" }];
     }
 
+    try {
+      const parsed = JSON.parse(elaboration);
+      if (Array.isArray(parsed?.steps)) {
+        const steps = parsed.steps
+          .filter((s: any) => s?.description)
+          .map((s: any) => ({
+            text: String(s.description),
+            time: s.time ? String(s.time) : undefined,
+            temperature: s.temperature ? String(s.temperature) : undefined,
+          }));
+        if (steps.length > 0) {
+          return steps;
+        }
+        return [{ text: "No hay pasos de elaboración especificados" }];
+      }
+    } catch {
+      // No es JSON: texto plano legacy
+    }
+
     const steps = elaboration.split("\n").filter((step) => step.trim());
-    return steps.map((step) => {
-      return {
-        text: step,
-      };
-    });
+    if (steps.length === 0) {
+      return [{ text: "No hay pasos de elaboración especificados" }];
+    }
+    return steps.map((step) => ({ text: step }));
   }
 
   private calculateEstimatedNutrition(recipe: any): any {
@@ -575,22 +651,80 @@ export class TechnicalSheetsService {
     };
   }
 
+  // Pictogramas oficiales UE-1169 en PNG (pdfkit no soporta webp). Las claves
+  // son los ids del catálogo BD, igual que en getAllergenName: el orden NO es
+  // el canónico UE (10=Sésamo, 11=Sulfitos, 14=Frutos de Cáscara).
+  private static readonly ALLERGEN_ICON_FILES: Record<number, string> = {
+    1: "gluten-derivados.png",
+    2: "crustaceos.png",
+    3: "huevos.png",
+    4: "pescados.png",
+    5: "cacahuetes.png",
+    6: "soja.png",
+    7: "lacteos.png",
+    8: "apio.png",
+    9: "mostaza.png",
+    10: "granos-sesamo.png",
+    11: "dioxido-azufre-sulfitos.png",
+    12: "altramuces.png",
+    13: "moluscos.png",
+    14: "cascaras-frutos-secos.png",
+  };
+
+  private getAllergenIconPath(allergenId: number): string | null {
+    const file = TechnicalSheetsService.ALLERGEN_ICON_FILES[allergenId];
+    if (!file) {
+      return null;
+    }
+    // __dirname funciona en dev (src) y en producción porque nest-cli.json
+    // copia assets/ a dist con la misma estructura de módulos.
+    const iconPath = path.join(__dirname, "assets", "allergens", file);
+    return fs.existsSync(iconPath) ? iconPath : null;
+  }
+
+  // Fila de pictogramas bajo la línea de texto de alérgenos. Los nombres en
+  // texto se mantienen siempre: UE-1169 exige declaración escrita y el
+  // pictograma solo es refuerzo visual.
+  private drawAllergenIcons(doc: any, allergenIds: number[]): void {
+    // ~8 mm impresos, tamaño habitual de pictograma en cartas de alérgenos
+    const size = 22;
+    const gap = 6;
+    const iconPaths = allergenIds
+      .map((id) => this.getAllergenIconPath(id))
+      .filter((p): p is string => p !== null);
+    if (iconPaths.length === 0) {
+      return;
+    }
+
+    if (doc.y + size > doc.page.height - doc.page.margins.bottom) {
+      doc.addPage();
+    }
+    const y = doc.y;
+    let x = doc.page.margins.left + 15;
+    for (const iconPath of iconPaths) {
+      doc.image(iconPath, x, y, { width: size, height: size });
+      x += size + gap;
+    }
+    doc.x = doc.page.margins.left;
+    doc.y = y + size + 4;
+  }
+
   private getAllergenName(allergenId: number): string {
     const allergens: Record<number, string> = {
-      1: "Cereales con Gluten",
+      1: "Gluten",
       2: "Crustáceos",
       3: "Huevos",
       4: "Pescado",
       5: "Cacahuetes",
-      6: "Soya",
+      6: "Soja",
       7: "Leche",
       8: "Apio",
       9: "Mostaza",
-      10: "Semillas de Sésamo",
+      10: "Sésamo",
       11: "Sulfitos",
       12: "Altramuces",
       13: "Moluscos",
-      14: "Mostaza en Polvo",
+      14: "Frutos de Cáscara",
     };
 
     return allergens[allergenId] || `Alérgeno ${allergenId}`;
