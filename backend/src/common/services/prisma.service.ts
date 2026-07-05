@@ -54,26 +54,34 @@ export class PrismaService
             }
             return query(args);
           },
-          async delete({ model, args }) {
-            const modelName = model.toLowerCase();
-            if (modelsWithSoftDelete.includes(modelName)) {
-              return (this as any)[modelName].update({
+          // Arrow functions: capturan el `this` del constructor (cliente base con
+          // delegates de modelo). Con method shorthand, `this` sería el objeto
+          // $allModels y `this[model]` undefined → TypeError en todo delete.
+          delete: async ({ model, args, query }) => {
+            if (modelsWithSoftDelete.includes(model.toLowerCase())) {
+              // El delegate del cliente usa camelCase (Category → category)
+              const delegate = (this as any)[
+                model.charAt(0).toLowerCase() + model.slice(1)
+              ];
+              return delegate.update({
                 where: args.where,
                 data: { deletedAt: new Date() },
               });
             }
             // Comportamiento por defecto para otros modelos sin soft-delete
-            return (this as any)[modelName].delete(args);
+            return query(args);
           },
-          async deleteMany({ model, args }) {
-            const modelName = model.toLowerCase();
-            if (modelsWithSoftDelete.includes(modelName)) {
-              return (this as any)[modelName].updateMany({
+          deleteMany: async ({ model, args, query }) => {
+            if (modelsWithSoftDelete.includes(model.toLowerCase())) {
+              const delegate = (this as any)[
+                model.charAt(0).toLowerCase() + model.slice(1)
+              ];
+              return delegate.updateMany({
                 where: args.where,
                 data: { deletedAt: new Date() },
               });
             }
-            return (this as any)[modelName].deleteMany(args);
+            return query(args);
           },
         },
       },
