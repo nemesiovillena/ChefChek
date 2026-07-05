@@ -34,6 +34,7 @@ describe("RecipesService", () => {
   const tenantId = "test-tenant-id";
   const recipeId = "test-recipe-id";
 
+  // Precio de referencia: 10 €/kg (purchasePrice ÷ unitSize, sin mermas)
   const mockProduct = {
     id: "product-1",
     name: "Test Product",
@@ -43,15 +44,19 @@ describe("RecipesService", () => {
     purchaseUnit: "Kilogramo",
     storageUnit: "Kilogramos",
     recipeUnit: "Gramos",
+    referenceUnit: "kg",
+    unitSize: 1,
+    yieldFactor: 1,
     allergens: [1, 2],
     tenantId,
   };
 
+  // 100 g × 0,01 €/g = 1 € de coste de ingredientes
   const mockIngredient = {
     id: "ingredient-1",
     productId: "product-1",
     quantity: 100,
-    unit: "Gramos",
+    unit: "g",
     product: mockProduct,
   };
 
@@ -181,7 +186,15 @@ describe("RecipesService", () => {
           },
           subRecipes: {
             include: {
-              subRecipe: true,
+              subRecipe: {
+                include: {
+                  ingredients: {
+                    include: {
+                      product: true,
+                    },
+                  },
+                },
+              },
             },
           },
           categories: {
@@ -412,7 +425,9 @@ describe("RecipesService", () => {
       const result = await service.calculateRecipeCost(tenantId, recipeId);
 
       expect(result).toBeDefined();
-      expect(result.totalCost).toBe(mockRecipe.totalCost);
+      // El breakdown se calcula en vivo desde los productos, no desde el
+      // totalCost almacenado: 100 g × (10 €/kg → 0,01 €/g) = 1 €
+      expect(result.totalCost).toBeCloseTo(1);
       expect(result).toHaveProperty("ingredientsCost");
       expect(result).toHaveProperty("subRecipesCost");
       expect(result).toHaveProperty("costPerPortion");
@@ -705,7 +720,7 @@ describe("RecipesService", () => {
         ...mockRecipe,
         ingredients: [mockIngredient],
         subRecipes: [mockSubRecipe],
-        totalCost: 35.5, // 15.5 (ingredients) + 20 (sub-recipe)
+        totalCost: 35.5,
         totalCostPerUnit: 0.355,
       };
 
@@ -713,7 +728,8 @@ describe("RecipesService", () => {
 
       const result = await service.calculateRecipeCost(tenantId, recipeId);
 
-      expect(result.totalCost).toBe(35.5);
+      // En vivo: 1 € de ingredientes + 50 g × 0,2 €/g de sub-receta = 11 €
+      expect(result.totalCost).toBeCloseTo(11);
       expect(result.ingredientsCost).toBeDefined();
       expect(result.subRecipesCost).toBeDefined();
     });

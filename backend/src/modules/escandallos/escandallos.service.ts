@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
 import {
   CostBreakdownDto,
   RecipeDetailedCostDto,
@@ -110,7 +111,11 @@ export class EscandallosService {
 
     for (const ingredient of recipe.ingredients) {
       const product = ingredient.product;
-      const currentCost = await this.calculateProductCostPerUnit(product);
+      // €/unidad de referencia del artículo (kg, L o ud), con mermas
+      const currentCost = calculateProductCostPerUnit(
+        product,
+        product.referenceUnit,
+      );
 
       // Buscar variación histórica (simulada - en producción usar datos reales)
       const previousCost = currentCost * (0.9 + Math.random() * 0.2); // +/-10% simulado
@@ -330,9 +335,18 @@ export class EscandallosService {
 
     for (const ingredient of recipe.ingredients) {
       const product = ingredient.product;
-      const unitCost = await this.calculateProductCostPerUnit(product);
+      // Mismo precio rector que recetas y fichas técnicas: precio de
+      // referencia con mermas vía yieldFactor. unitCost ya incluye mermas,
+      // por lo que totalCost = ingredientCost (no se vuelven a sumar);
+      // wastageCost es solo el desglose informativo de esa parte.
+      const unitCost = calculateProductCostPerUnit(product, ingredient.unit);
+      const unitCostWithoutWaste = calculateProductCostPerUnit(
+        { ...product, yieldFactor: 1 },
+        ingredient.unit,
+      );
       const ingredientCost = ingredient.quantity * unitCost;
-      const wastageCost = ingredientCost * (product.wastePercentage / 100);
+      const wastageCost =
+        ingredient.quantity * (unitCost - unitCostWithoutWaste);
 
       breakdown.push({
         productId: product.id,
@@ -342,22 +356,11 @@ export class EscandallosService {
         unitCost,
         ingredientCost,
         wastageCost,
-        totalCost: ingredientCost + wastageCost,
+        totalCost: ingredientCost,
       });
     }
 
     return breakdown;
-  }
-
-  private async calculateProductCostPerUnit(product: any): Promise<number> {
-    const purchasePrice = product.purchasePrice;
-    const wastePercentage = product.wastePercentage;
-    const yieldFactor = product.yieldFactor;
-
-    // costPerUR = purchasePrice ÷ (yieldFactor × (1 - wastePercentage))
-    const effectiveCost =
-      purchasePrice / (yieldFactor * (1 - wastePercentage / 100));
-    return effectiveCost;
   }
 
   private async calculateSubRecipesCost(

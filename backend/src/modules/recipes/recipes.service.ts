@@ -4,12 +4,14 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import {
   RecipeResponse,
   IngredientResponse,
   SubRecipeResponse,
   RecipeCostBreakdown,
+  RecipeCostResponse,
 } from "./dto/recipe-response.dto";
 
 @Injectable()
@@ -30,14 +32,17 @@ export class RecipesService {
       subRecipes = [],
       isPublic = false,
       categoryIds = [],
+      allergens = [],
     } = createRecipeDto;
 
-    // Validar que elaboration sea JSON válido (TipTap)
+    // Validar que elaboration, si viene, sea JSON válido (pasos estructurados)
     let parsedElaboration;
-    try {
-      parsedElaboration = JSON.parse(elaboration);
-    } catch (error) {
-      throw new BadRequestException("Elaboration must be valid TipTap JSON");
+    if (elaboration !== undefined && elaboration !== null) {
+      try {
+        parsedElaboration = JSON.parse(elaboration);
+      } catch (error) {
+        throw new BadRequestException("Elaboration must be valid JSON");
+      }
     }
 
     // Calcular costos iniciales
@@ -45,6 +50,8 @@ export class RecipesService {
       tenantId,
       ingredients,
       subRecipes,
+      portions,
+      portionSize,
     );
 
     // Crear receta
@@ -53,13 +60,17 @@ export class RecipesService {
         tenantId,
         name,
         description,
-        elaboration: JSON.stringify(parsedElaboration),
+        elaboration:
+          parsedElaboration !== undefined
+            ? JSON.stringify(parsedElaboration)
+            : null,
         portions,
         portionSize,
         totalCost: costBreakdown.totalCost,
         totalCostPerUnit: costBreakdown.costPerUnit,
         version: 1,
         isPublic,
+        allergens,
         ingredients: {
           create: ingredients.map((ing) => ({
             productId: ing.productId,
@@ -86,23 +97,7 @@ export class RecipesService {
               }
             : undefined,
       },
-      include: {
-        ingredients: {
-          include: {
-            product: true,
-          },
-        },
-        subRecipes: {
-          include: {
-            subRecipe: true,
-          },
-        },
-        categories: {
-          include: {
-            category: true,
-          },
-        },
-      },
+      include: this.recipeInclude,
     });
 
     return this.formatRecipeResponse(recipe);
@@ -137,23 +132,7 @@ export class RecipesService {
 
     const recipes = await this.prisma.recipe.findMany({
       where,
-      include: {
-        ingredients: {
-          include: {
-            product: true,
-          },
-        },
-        subRecipes: {
-          include: {
-            subRecipe: true,
-          },
-        },
-        categories: {
-          include: {
-            category: true,
-          },
-        },
-      },
+      include: this.recipeInclude,
       orderBy: { createdAt: "desc" },
     });
 
@@ -214,6 +193,10 @@ export class RecipesService {
   ): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
       where: { id, tenantId },
+      include: {
+        ingredients: true,
+        subRecipes: true,
+      },
     });
 
     if (!recipe) {
@@ -246,31 +229,44 @@ export class RecipesService {
       subRecipes,
       isPublic = recipe.isPublic,
       categoryIds,
+      allergens = recipe.allergens,
       isActive = recipe.isActive,
     } = updateRecipeDto;
 
     // Validar y parsear elaboration si se actualiza
-    if (elaboration !== recipe.elaboration) {
+    if (
+      elaboration !== undefined &&
+      elaboration !== null &&
+      elaboration !== recipe.elaboration
+    ) {
       try {
         JSON.parse(elaboration);
       } catch (error) {
-        throw new BadRequestException("Elaboration must be valid TipTap JSON");
+        throw new BadRequestException("Elaboration must be valid JSON");
       }
     }
 
     // Recalcular costos si hay cambios en ingredientes
     let totalCost = recipe.totalCost;
-    let totalCostPerUnit = recipe.totalCostPerUnit;
 
     if (ingredients || subRecipes) {
       const costBreakdown = await this.calculateCost(
         tenantId,
-        ingredients || (recipe as any).ingredients,
-        subRecipes || (recipe as any).subRecipes,
+        ingredients || recipe.ingredients,
+        subRecipes || recipe.subRecipes,
+        portions,
+        portionSize,
       );
       totalCost = costBreakdown.totalCost;
-      totalCostPerUnit = costBreakdown.costPerUnit;
     }
+
+    // El costo por unidad de rendimiento depende de porciones y tamaño,
+    // así que se recalcula siempre a partir del costo total vigente
+    const totalCostPerUnit = this.computeCostPerYieldUnit(
+      totalCost,
+      portions,
+      portionSize,
+    );
 
     const updatedRecipe = await this.prisma.recipe.update({
       where: { id },
@@ -285,6 +281,7 @@ export class RecipesService {
         version,
         parentVersion,
         isPublic,
+        allergens,
         isActive,
       },
       include: {
@@ -347,23 +344,7 @@ export class RecipesService {
     // Recargar con relaciones actualizadas
     const finalRecipe = await this.prisma.recipe.findUnique({
       where: { id },
-      include: {
-        ingredients: {
-          include: {
-            product: true,
-          },
-        },
-        subRecipes: {
-          include: {
-            subRecipe: true,
-          },
-        },
-        categories: {
-          include: {
-            category: true,
-          },
-        },
-      },
+      include: this.recipeInclude,
     });
 
     return this.formatRecipeResponse(finalRecipe);
@@ -417,15 +398,21 @@ export class RecipesService {
   async calculateRecipeCost(
     tenantId: string,
     id: string,
-  ): Promise<RecipeCostBreakdown> {
+  ): Promise<RecipeCostResponse> {
     const recipe = await this.findOne(tenantId, id);
-    return recipe.costBreakdown!;
+    return {
+      ...recipe.costBreakdown!,
+      ingredients: recipe.ingredients || [],
+      subRecipes: recipe.subRecipes || [],
+    };
   }
 
   private async calculateCost(
     tenantId: string,
     ingredients: any[],
     subRecipes: any[],
+    portions: number,
+    portionSize: number,
   ): Promise<RecipeCostBreakdown> {
     let ingredientsCost = 0;
     let subRecipesCost = 0;
@@ -435,7 +422,9 @@ export class RecipesService {
     const products = await (this.prisma as any).product.findMany({
       where: { id: { in: productIds }, tenantId, isActive: true },
     });
-    const productMap = new Map(products.map((p: any) => [p.id, p]));
+    const productMap = new Map<string, any>(
+      products.map((p: any) => [p.id, p]),
+    );
 
     // Calcular costos de ingredientes base
     for (const ingredient of ingredients) {
@@ -447,10 +436,8 @@ export class RecipesService {
         );
       }
 
-      // Calcular costo: cantidad × costo/UR
-      const costPerUnit = await this.calculateProductCostPerUnit(product);
-      const ingredientCost = ingredient.quantity * costPerUnit;
-      ingredientsCost += ingredientCost;
+      const costPerUnit = calculateProductCostPerUnit(product, ingredient.unit);
+      ingredientsCost += ingredient.quantity * costPerUnit;
     }
 
     // OPTIMIZED: Fetch all sub-recipes in a single query
@@ -473,76 +460,113 @@ export class RecipesService {
         );
       }
 
-      // Calcular costo proporcional de sub-receta
-      const subRecipeCostPerUnit = subRecipeData.totalCostPerUnit;
-      const subRecipeCost = subRecipe.quantity * subRecipeCostPerUnit;
-      subRecipesCost += subRecipeCost;
+      subRecipesCost += this.calculateSubRecipeCost(
+        subRecipe.quantity,
+        subRecipe.unit,
+        subRecipeData,
+      );
     }
 
     const totalCost = ingredientsCost + subRecipesCost;
-    const costPerPortion = totalCost / 1; // Ajustar según portions
-    const costPerUnit = totalCost / 100; // Porcentaje base
 
     return {
       ingredientsCost,
       subRecipesCost,
       totalCost,
-      costPerPortion,
-      costPerUnit,
+      costPerPortion: portions > 0 ? totalCost / portions : totalCost,
+      costPerUnit: this.computeCostPerYieldUnit(
+        totalCost,
+        portions,
+        portionSize,
+      ),
     };
   }
 
-  private async calculateProductCostPerUnit(product: any): Promise<number> {
-    // Calcular costo por UR usando el sistema multi-unidad
-    // costPerUR = purchasePrice ÷ (factor UC→UA × factor UA→UR)
+  /**
+   * Costo de usar una sub-receta según la unidad de la cantidad:
+   * - raciones/porciones → cantidad × costo por ración de la sub-receta
+   * - kg/L → convertidos a unidad de rendimiento (g/ml) antes de multiplicar
+   * - g/ml/ud (u otra unidad) → cantidad × costo por unidad de rendimiento
+   */
+  private calculateSubRecipeCost(
+    quantity: number,
+    unit: string,
+    subRecipeData: {
+      totalCost: number;
+      totalCostPerUnit: number;
+      portions: number;
+    },
+  ): number {
+    const normalized = (unit || "").trim().toLowerCase();
 
-    const purchasePrice = product.purchasePrice;
-    const netPrice = product.netPrice;
-    const wastePercentage = product.wastePercentage;
+    if (
+      [
+        "ración",
+        "raciones",
+        "racion",
+        "porción",
+        "porciones",
+        "porcion",
+      ].includes(normalized)
+    ) {
+      const costPerPortion =
+        subRecipeData.portions > 0
+          ? subRecipeData.totalCost / subRecipeData.portions
+          : subRecipeData.totalCost;
+      return quantity * costPerPortion;
+    }
 
-    // Usar precio neto ajustado por mermas
-    const effectivePrice = netPrice;
-
-    // Factores de conversión (deberían venir del producto o configuración)
-    const ucToUaFactor = this.getUcToUaFactor(
-      product.purchaseUnit,
-      product.storageUnit,
-    );
-    const uaToUrFactor = this.getUaToUrFactor(
-      product.storageUnit,
-      product.recipeUnit,
-    );
-
-    // Costo por UR
-    return effectivePrice / (ucToUaFactor * uaToUrFactor);
+    const toYieldUnitFactor: { [key: string]: number } = {
+      kg: 1000,
+      l: 1000,
+      cl: 10,
+    };
+    const factor = toYieldUnitFactor[normalized] ?? 1;
+    return quantity * factor * subRecipeData.totalCostPerUnit;
   }
 
-  private getUcToUaFactor(purchaseUnit: string, storageUnit: string): number {
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      "Caja 10kg": { Kilogramos: 10, Gramos: 10000 },
-      "Bote 300uds": { Unidades: 300 },
-      "Saco 25kg": { Kilogramos: 25, Gramos: 25000 },
-      Litro: { Litros: 1, Mililitros: 1000 },
-      Kilogramo: { Kilogramos: 1, Gramos: 1000 },
-    };
-
-    return conversionMap[purchaseUnit]?.[storageUnit] || 1;
-  }
-
-  private getUaToUrFactor(storageUnit: string, recipeUnit: string): number {
-    const conversionMap: { [key: string]: { [key: string]: number } } = {
-      Kilogramos: { Gramos: 1000 },
-      Litros: { Mililitros: 1000 },
-      Unidades: { Unidades: 1 },
-    };
-
-    return conversionMap[storageUnit]?.[recipeUnit] || 1;
+  /**
+   * Costo por unidad de rendimiento de la receta (€/g, €/ml o €/ud producido).
+   * Es el valor que usan las recetas padre para costear esta receta como
+   * sub-receta: cantidad usada × costo por unidad de rendimiento.
+   */
+  private computeCostPerYieldUnit(
+    totalCost: number,
+    portions: number,
+    portionSize: number,
+  ): number {
+    const totalYield = (portions || 1) * (portionSize || 0);
+    if (totalYield > 0) {
+      return totalCost / totalYield;
+    }
+    return portions > 0 ? totalCost / portions : totalCost;
   }
 
   private async createVersionSnapshot(recipeId: string): Promise<void> {
     // Implementar sistema de versionado completo
     // Esto podría crear una tabla RecipeVersion o similar
     // Por ahora, simplemente marcamos la versión en parentVersion
+  }
+
+  /**
+   * Include común de lectura: ingredientes+producto, sub-recetas con SUS propios
+   * ingredientes+producto, y categorías. Necesario para que formatRecipeResponse
+   * pueda derivar los alérgenos tanto de ingredientes como de sub-recetas; sin el
+   * nivel nested de subRecipe.ingredients, el listado pierde los alérgenos de
+   * sub-recetas (ej. Spaghetti → Salsa Boloñesa).
+   */
+  private get recipeInclude() {
+    return {
+      ingredients: { include: { product: true } },
+      subRecipes: {
+        include: {
+          subRecipe: {
+            include: { ingredients: { include: { product: true } } },
+          },
+        },
+      },
+      categories: { include: { category: true } },
+    };
   }
 
   private formatRecipeResponse(recipe: any): RecipeResponse {
@@ -553,7 +577,9 @@ export class RecipesService {
         productName: ing.product.name,
         quantity: ing.quantity,
         unit: ing.unit,
-        cost: ing.quantity * this.estimateIngredientCost(ing),
+        cost: ing.product
+          ? ing.quantity * calculateProductCostPerUnit(ing.product, ing.unit)
+          : 0,
       })) || [];
 
     const subRecipes: SubRecipeResponse[] =
@@ -565,6 +591,11 @@ export class RecipesService {
         unit: sub.unit,
         totalCost: sub.subRecipe.totalCost,
         costPerUnit: sub.subRecipe.totalCostPerUnit,
+        cost: this.calculateSubRecipeCost(
+          sub.quantity,
+          sub.unit,
+          sub.subRecipe,
+        ),
       })) || [];
 
     const categories =
@@ -575,19 +606,28 @@ export class RecipesService {
         categorySlug: cat.category.slug,
       })) || [];
 
+    // Desglose calculado en vivo desde precios de artículos actuales,
+    // sin depender del totalCost persistido (puede estar desactualizado)
+    const ingredientsCost = ingredients.reduce((sum, ing) => sum + ing.cost, 0);
+    const subRecipesCost = subRecipes.reduce((sum, sub) => sum + sub.cost, 0);
+    const totalCost = ingredientsCost + subRecipesCost;
+
     const costBreakdown: RecipeCostBreakdown = {
-      ingredientsCost: ingredients.reduce((sum, ing) => sum + ing.cost, 0),
-      subRecipesCost: subRecipes.reduce(
-        (sum, sub) => sum + sub.quantity * sub.costPerUnit,
-        0,
+      ingredientsCost,
+      subRecipesCost,
+      totalCost,
+      costPerPortion:
+        recipe.portions > 0 ? totalCost / recipe.portions : totalCost,
+      costPerUnit: this.computeCostPerYieldUnit(
+        totalCost,
+        recipe.portions,
+        recipe.portionSize,
       ),
-      totalCost: recipe.totalCost,
-      costPerPortion: recipe.totalCost / recipe.portions,
-      costPerUnit: recipe.totalCostPerUnit,
     };
 
-    // Calcular alérgenos (unión de ingredientes + sub-recetas)
-    const allergens = new Set<number>();
+    // Alérgenos = seleccionados manualmente + unión derivada de ingredientes/sub-recetas.
+    // Nunca se ocultan los derivados de ingredientes: solo se pueden añadir extra (ej. contaminación cruzada).
+    const allergens = new Set<number>(recipe.allergens || []);
     ingredients.forEach((ing) => {
       const product = recipe.ingredients.find(
         (i: any) => i.id === ing.id,
@@ -616,8 +656,8 @@ export class RecipesService {
       elaboration: recipe.elaboration,
       portions: recipe.portions,
       portionSize: recipe.portionSize,
-      totalCost: recipe.totalCost,
-      totalCostPerUnit: recipe.totalCostPerUnit,
+      totalCost: costBreakdown.totalCost,
+      totalCostPerUnit: costBreakdown.costPerUnit,
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,
@@ -630,10 +670,5 @@ export class RecipesService {
       costBreakdown,
       allergens: Array.from(allergens),
     };
-  }
-
-  private estimateIngredientCost(ingredient: any): number {
-    // Estimación simplificada - en producción usar cálculo exacto
-    return 0.0025; // Costo promedio por UR
   }
 }

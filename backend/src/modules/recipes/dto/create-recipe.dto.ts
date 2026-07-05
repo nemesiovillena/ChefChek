@@ -14,6 +14,10 @@ class IngredientDto {
   @IsString()
   productId: string;
 
+  @IsOptional()
+  @IsString()
+  productName?: string;
+
   @IsNumber()
   quantity: number;
 
@@ -40,8 +44,9 @@ export class CreateRecipeDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsString()
-  elaboration: string; // TipTap JSON
+  elaboration?: string; // JSON de pasos: {"steps":[{description, equipment, time, temperature}]}
 
   @IsOptional()
   @IsNumber()
@@ -73,6 +78,11 @@ export class CreateRecipeDto {
   @IsArray()
   @IsString({ each: true })
   categoryIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  allergens?: number[];
 
   @IsOptional()
   @IsBoolean()

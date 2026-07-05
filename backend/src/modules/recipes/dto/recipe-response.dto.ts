@@ -15,6 +15,8 @@ export interface SubRecipeResponse {
   unit: string;
   totalCost: number;
   costPerUnit: number;
+  /** Costo de la cantidad usada, con la unidad ya convertida (g/kg/ml/L/ud/raciones) */
+  cost: number;
 }
 
 export interface RecipeCategoryResponse {
@@ -30,6 +32,12 @@ export interface RecipeCostBreakdown {
   totalCost: number;
   costPerPortion: number;
   costPerUnit: number;
+}
+
+/** Desglose de costo con el detalle por ingrediente/sub-receta (endpoint /calculate) */
+export interface RecipeCostResponse extends RecipeCostBreakdown {
+  ingredients: IngredientResponse[];
+  subRecipes: SubRecipeResponse[];
 }
 
 export interface RecipeResponse {
