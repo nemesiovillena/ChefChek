@@ -3,19 +3,34 @@ import { Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCategories, useCategoryTree, Category } from '@/hooks/use-categories';
-import { useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks/use-category-mutations';
+import {
+  useCategories,
+  useCategoryTree,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+  Category,
+  CategoryContext,
+} from '@/hooks/use-categories';
+import { slugify } from '@/lib/utils';
 import { CategoryTreeView } from './category-tree-view';
 import { CategoryForm, CategoryFormData } from './category-form';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** Catálogo a gestionar: 'articles' (inventario) o 'recipes' (platos). */
+  context: CategoryContext;
 }
 
-export function CategoriesManagementModal({ isOpen, onClose }: Props) {
-  const { data: categories, isLoading } = useCategories('articles');
-  const { data: tree } = useCategoryTree('articles');
+const DELETE_WARNING: Record<CategoryContext, string> = {
+  articles: 'Los artículos en esta categoría quedarán sin categoría.',
+  recipes: 'Las recetas perderán esta categoría.',
+};
+
+export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
+  const { data: categories, isLoading } = useCategories(context);
+  const { data: tree } = useCategoryTree(context);
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
@@ -24,7 +39,7 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`¿Eliminar categoría "${name}"? Los artículos en esta categoría quedarán sin categoría.`)) {
+    if (confirm(`¿Eliminar categoría "${name}"? ${DELETE_WARNING[context]}`)) {
       try {
         await deleteMutation.mutateAsync(id);
       } catch (error: unknown) {
@@ -47,9 +62,28 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
   const handleSubmit = async (data: CategoryFormData) => {
     try {
       if (editingCategory) {
-        await updateMutation.mutateAsync({ id: editingCategory.id, data });
+        // parentId '' (opción "Sin categoría padre") → null para desvincular en backend
+        await updateMutation.mutateAsync({
+          id: editingCategory.id,
+          name: data.name,
+          description: data.description,
+          icon: data.icon,
+          color: data.color,
+          isActive: data.isActive,
+          parentId: data.parentId || null,
+        });
       } else {
-        await createMutation.mutateAsync(data);
+        // El backend exige slug único por tenant+context y rechaza campos no permitidos
+        await createMutation.mutateAsync({
+          name: data.name,
+          slug: slugify(data.name),
+          context,
+          description: data.description || undefined,
+          icon: data.icon,
+          color: data.color,
+          isActive: data.isActive,
+          parentId: data.parentId || undefined,
+        });
       }
       setActiveTab('list');
       setEditingCategory(null);
@@ -63,7 +97,9 @@ export function CategoriesManagementModal({ isOpen, onClose }: Props) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Gestión de Categorías</DialogTitle>
+          <DialogTitle>
+            {context === 'recipes' ? 'Categorías de recetas' : 'Categorías de artículos'}
+          </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>

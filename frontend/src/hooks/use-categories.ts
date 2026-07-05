@@ -38,6 +38,7 @@ export interface CategoryTreeNode extends Category {
   children: CategoryTreeNode[];
 }
 
+// Alineado con CreateCategoryDto del backend (forbidNonWhitelisted: no admite sortOrder)
 export interface CreateCategoryData {
   name: string;
   slug: string;
@@ -45,13 +46,15 @@ export interface CreateCategoryData {
   description?: string;
   icon?: string;
   color?: string;
-  sortOrder?: number;
   isActive?: boolean;
   parentId?: string;
 }
 
-export interface UpdateCategoryData extends Partial<CreateCategoryData> {
+export interface UpdateCategoryData extends Partial<Omit<CreateCategoryData, 'parentId'>> {
   id: string;
+  sortOrder?: number;
+  // null desvincula la categoría padre; undefined la deja sin cambios
+  parentId?: string | null;
 }
 
 // Keep useCrud for mutations (create, update, delete) — they don't need context.
