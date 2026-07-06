@@ -362,18 +362,34 @@ describe("RecipesService", () => {
   });
 
   describe("remove", () => {
-    it("should soft delete a recipe (set isActive to false)", async () => {
+    it("should soft delete a recipe via prisma delete (deletedAt)", async () => {
       mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
-      mockPrismaService.recipe.update.mockResolvedValue({
+      mockPrismaService.recipe.delete.mockResolvedValue({
         ...mockRecipe,
-        isActive: false,
+        deletedAt: new Date(),
       });
 
       await service.remove(tenantId, recipeId);
 
-      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith({
+      expect(mockPrismaService.recipe.findFirst).toHaveBeenCalledWith({
+        where: { id: recipeId, tenantId },
+      });
+      expect(mockPrismaService.recipe.delete).toHaveBeenCalledWith({
         where: { id: recipeId },
-        data: { isActive: false },
+      });
+    });
+
+    // Regresión: borrar una receta DESACTIVADA no debe dar 404.
+    // Antes remove() filtraba por isActive:true y fallaba.
+    it("should delete even if the recipe is deactivated (isActive false)", async () => {
+      const deactivatedRecipe = { ...mockRecipe, isActive: false };
+      mockPrismaService.recipe.findFirst.mockResolvedValue(deactivatedRecipe);
+      mockPrismaService.recipe.delete.mockResolvedValue(deactivatedRecipe);
+
+      await service.remove(tenantId, recipeId);
+
+      expect(mockPrismaService.recipe.delete).toHaveBeenCalledWith({
+        where: { id: recipeId },
       });
     });
 

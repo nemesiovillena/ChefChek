@@ -351,17 +351,22 @@ export class RecipesService {
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
+    // La existencia se comprueba solo por id+tenant; el ext de soft-delete ya
+    // añade deletedAt: null. NO filtrar por isActive: las recetas desactivadas
+    // (toggle propio de la UI) también deben poder eliminarse definitivamente.
     const recipe = await this.prisma.recipe.findFirst({
-      where: { id, tenantId, isActive: true },
+      where: { id, tenantId },
     });
 
     if (!recipe) {
       throw new NotFoundException(`Recipe with ID ${id} not found`);
     }
 
-    await this.prisma.recipe.update({
+    // Soft-delete real (deletedAt) vía la extensión de Prisma: elimina la
+    // receta de todos los listados, igual que productos/albaranes/categorías.
+    // No basta con isActive:false (es un toggle aparte y no la oculta).
+    await this.prisma.recipe.delete({
       where: { id },
-      data: { isActive: false },
     });
   }
 
