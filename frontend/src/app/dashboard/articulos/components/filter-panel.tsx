@@ -3,7 +3,7 @@
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { Button } from '@/components/ui/button';
 import { X, SlidersHorizontal } from 'lucide-react';
-import CategoryCombobox from './category-combobox';
+import CategoryCombobox from '@/components/shared/category-combobox';
 import SupplierCombobox from './supplier-combobox';
 
 interface FilterPanelProps {

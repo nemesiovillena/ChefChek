@@ -7,7 +7,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranes } from '@/hooks/use-albaranes';
+import { useSuppliers } from '@/hooks/use-suppliers';
+import { useProducts, Product } from '@/hooks/use-products';
 import { AlbaranCard } from '@/components/albaranes/albaran-card';
+import ManualAlbaranForm from '@/components/albaranes/manual-albaran-form';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +31,19 @@ export default function AlbaranesPage() {
   const [statusFilter, setStatusFilter] = useState<AlbaranStatus | ''>('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [showManualModal, setShowManualModal] = useState(false);
+
+  // Datos para el formulario de albarán manual
+  const { data: suppliersData } = useSuppliers({ isActive: true });
+  const suppliers = (Array.isArray(suppliersData) ? suppliersData : []).map(
+    (s) => ({ id: s.id, name: s.name }),
+  );
+  const { data: productsData } = useProducts();
+  const products: Product[] = Array.isArray(productsData?.data)
+    ? productsData.data
+    : Array.isArray(productsData)
+      ? productsData
+      : [];
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -59,7 +76,7 @@ export default function AlbaranesPage() {
               <FileUp className="mr-2 h-4 w-4" />
               Subir Albarán
             </Button>
-            <Button onClick={() => router.push('/dashboard/ingestion')}>
+            <Button onClick={() => setShowManualModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Albarán
             </Button>
@@ -67,6 +84,23 @@ export default function AlbaranesPage() {
         </div>
         <p className="text-gray-600">Gestión de albaranes de proveedores</p>
       </div>
+
+      {/* Alta manual de albarán */}
+      <Dialog open={showManualModal} onOpenChange={setShowManualModal}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nuevo albarán manual</DialogTitle>
+          </DialogHeader>
+          <ManualAlbaranForm
+            suppliers={suppliers}
+            products={products}
+            onComplete={() => {
+              setShowManualModal(false);
+              refetch();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">

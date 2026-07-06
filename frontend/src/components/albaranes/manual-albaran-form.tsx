@@ -3,7 +3,10 @@
 import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateManualAlbaran } from '@/hooks/use-manual-albaran';
+import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
 import { Product } from '@/hooks/use-products';
+import { useCategoryTree } from '@/hooks/use-categories';
+import CategoryCombobox from '@/components/shared/category-combobox';
 import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Package } from 'lucide-react';
@@ -21,6 +24,8 @@ interface AlbaranLine {
   unit: string;
   price: number;
   category: string;
+  // Categoría/subcategoría del catálogo para productos nuevos
+  categoryId: string;
 }
 
 interface ManualAlbaranFormProps {
@@ -37,7 +42,7 @@ const UNITS = [
 
 let lineCounter = 0;
 function newLine(): AlbaranLine {
-  return { id: `line-${++lineCounter}`, productId: '', name: '', quantity: 1, unit: 'und', price: 0, category: '' };
+  return { id: `line-${++lineCounter}`, productId: '', name: '', quantity: 1, unit: 'und', price: 0, category: '', categoryId: '' };
 }
 
 export default function ManualAlbaranForm({ suppliers, products, onComplete }: ManualAlbaranFormProps) {
@@ -49,6 +54,22 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
   const [reference, setReference] = useState('');
   const [lines, setLines] = useState<AlbaranLine[]>([newLine()]);
   const [productSearch, setProductSearch] = useState<Record<string, string>>({});
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  // Proveedores creados desde el diálogo: se añaden localmente para que
+  // aparezcan seleccionables al instante, sin esperar al refetch de la query.
+  const [createdSuppliers, setCreatedSuppliers] = useState<SupplierOption[]>([]);
+
+  // Árbol de categorías de artículos para clasificar los productos nuevos
+  const { data: categoryTreeData } = useCategoryTree('articles');
+  const categoryTree = Array.isArray(categoryTreeData) ? categoryTreeData : [];
+
+  const allSuppliers = useMemo(
+    () => [
+      ...suppliers,
+      ...createdSuppliers.filter((c) => !suppliers.some((s) => s.id === c.id)),
+    ],
+    [suppliers, createdSuppliers],
+  );
 
   // Grand total
   const grandTotal = useMemo(
@@ -97,7 +118,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
 
     const payload = {
       supplierId: supplierId || undefined,
-      supplierName: suppliers.find((s) => s.id === supplierId)?.name || undefined,
+      supplierName: allSuppliers.find((s) => s.id === supplierId)?.name || undefined,
       date,
       reference: reference || undefined,
       lines: validLines.map((l) => ({
@@ -107,6 +128,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
         unit: l.unit,
         price: l.price,
         category: l.category || undefined,
+        categoryId: l.categoryId || undefined,
       })),
     };
 
@@ -125,14 +147,23 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
       {/* Header: Supplier, Date, Reference */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-gray-700">Proveedor</label>
+            <button
+              type="button"
+              onClick={() => setShowSupplierDialog(true)}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              + Nuevo proveedor
+            </button>
+          </div>
           <select
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           >
             <option value="">— Sin proveedor —</option>
-            {suppliers.map((s) => (
+            {allSuppliers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
@@ -269,13 +300,12 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
 
             {/* Category (shown for new products) */}
             {!line.productId && line.name && (
-              <div className="mt-1 ml-0 col-span-4">
-                <input
-                  type="text"
-                  value={line.category}
-                  onChange={(e) => updateLine(line.id, { category: e.target.value })}
+              <div className="mt-1 ml-0 col-span-4 max-w-xs">
+                <CategoryCombobox
+                  tree={categoryTree}
+                  value={line.categoryId}
+                  onValueChange={(v) => updateLine(line.id, { categoryId: v })}
                   placeholder="Categoría (para producto nuevo)"
-                  className="w-full max-w-xs px-2 py-1 border border-gray-200 rounded text-xs text-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             )}
@@ -303,6 +333,16 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
           </Button>
         </div>
       </div>
+
+      <SupplierQuickCreateDialog
+        isOpen={showSupplierDialog}
+        onClose={() => setShowSupplierDialog(false)}
+        onCreated={(supplier) => {
+          setCreatedSuppliers((prev) => [...prev, supplier]);
+          setSupplierId(supplier.id);
+          setShowSupplierDialog(false);
+        }}
+      />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { CategoryTreeNode } from '@/hooks/use-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
-import CategoryCombobox from './category-combobox';
+import CategoryCombobox from '@/components/shared/category-combobox';
 
 interface ArticuloQuickAddProps {
   tree: CategoryTreeNode[];

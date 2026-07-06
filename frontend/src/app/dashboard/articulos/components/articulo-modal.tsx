@@ -156,6 +156,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       addNotification({ type: 'error', title: 'Error', message: 'El nombre es obligatorio' });
       return;
     }
+    if (!formData.categoryId) {
+      addNotification({ type: 'error', title: 'Error', message: 'Debes seleccionar una categoría' });
+      setActiveTab('proveedor-stock');
+      return;
+    }
 
     const nutritionalInfo = Object.entries(nutritionalData).some(([, v]) => v)
       ? Object.fromEntries(Object.entries(nutritionalData).filter(([, v]) => v).map(([k, v]) => [k, parseFloat(v)]))

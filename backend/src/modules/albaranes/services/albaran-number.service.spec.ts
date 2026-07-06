@@ -6,7 +6,7 @@ describe("AlbaranNumberService", () => {
   let service: AlbaranNumberService;
 
   const prisma = {
-    albaran: { findFirst: jest.fn() },
+    $queryRaw: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -24,32 +24,31 @@ describe("AlbaranNumberService", () => {
 
   describe("generateInternalNumber", () => {
     it("returns ALB-0001 when no previous albaran exists", async () => {
-      prisma.albaran.findFirst.mockResolvedValue(null);
+      prisma.$queryRaw.mockResolvedValue([{ max: null }]);
       await expect(service.generateInternalNumber("t1")).resolves.toBe(
         "ALB-0001",
       );
     });
 
-    it("returns ALB-0001 when previous albaran has no internalNumber", async () => {
-      prisma.albaran.findFirst.mockResolvedValue({ internalNumber: null });
-      await expect(service.generateInternalNumber("t1")).resolves.toBe(
-        "ALB-0001",
-      );
-    });
-
-    it("increments sequence from last internalNumber", async () => {
-      prisma.albaran.findFirst.mockResolvedValue({
-        internalNumber: "ALB-0005",
-      });
+    it("increments sequence from the max existing number", async () => {
+      prisma.$queryRaw.mockResolvedValue([{ max: 5 }]);
       await expect(service.generateInternalNumber("t1")).resolves.toBe(
         "ALB-0006",
       );
     });
 
-    it("resets to ALB-0001 when internalNumber does not match ALB-n pattern", async () => {
-      prisma.albaran.findFirst.mockResolvedValue({
-        internalNumber: "CUSTOM-99",
-      });
+    // Los albaranes soft-borrados siguen ocupando el índice único
+    // (tenantId, internalNumber): el SQL calcula el máximo sobre todas las
+    // filas, así que un número de un albarán borrado nunca se reutiliza.
+    it("does not reuse numbers occupied by soft-deleted albaranes", async () => {
+      prisma.$queryRaw.mockResolvedValue([{ max: 2029 }]);
+      await expect(service.generateInternalNumber("t1")).resolves.toBe(
+        "ALB-2030",
+      );
+    });
+
+    it("returns ALB-0001 when no row matches the ALB-NNNN pattern", async () => {
+      prisma.$queryRaw.mockResolvedValue([]);
       await expect(service.generateInternalNumber("t1")).resolves.toBe(
         "ALB-0001",
       );

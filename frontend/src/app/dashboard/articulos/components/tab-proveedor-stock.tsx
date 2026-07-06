@@ -1,11 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { CategoryTreeNode } from '@/hooks/use-categories';
+import { Category, CategoryTreeNode } from '@/hooks/use-categories';
 import SupplierCombobox from './supplier-combobox';
-import CategoryCombobox from './category-combobox';
-import SupplierQuickCreateDialog from './supplier-quick-create-dialog';
+import CategoryCombobox from '@/components/shared/category-combobox';
+import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
+import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
+
+/**
+ * Fusiona las categorías creadas en línea con el árbol propuesto por props.
+ * Garantiza que la nueva categoría sea seleccionable al instante sin esperar
+ * al refetch de useCategoryTree. Duplica contra el árbol (cuando el refetch
+ * llega, la categoría ya viene por props y se ignora la copia local).
+ */
+function mergeAddedCategories(tree: CategoryTreeNode[], added: Category[]): CategoryTreeNode[] {
+  if (!added.length) return tree;
+  const topLevel = added.filter((c) => !c.parentId);
+  const children = added.filter((c) => c.parentId);
+
+  let result = [...tree];
+  for (const c of topLevel) {
+    if (!result.some((n) => n.id === c.id)) result.push({ ...c, children: [] });
+  }
+  result = result.map((parent) => {
+    const kids = children.filter((c) => c.parentId === parent.id);
+    if (!kids.length) return parent;
+    const merged = [...(parent.children ?? [])];
+    for (const k of kids) {
+      if (!merged.some((m) => m.id === k.id)) merged.push({ ...k, children: [] });
+    }
+    return { ...parent, children: merged };
+  });
+  return result;
+}
 
 interface SupplierOption {
   id: string;
@@ -32,6 +60,10 @@ interface TabProveedorStockProps {
 export default function TabProveedorStock({ suppliers, tree, formData, setFormData, currentStock, onSupplierCreated }: TabProveedorStockProps) {
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  // Categorías creadas en línea: se fusionan al árbol para mostrarlas al instante.
+  const [addedCategories, setAddedCategories] = useState<Category[]>([]);
+  const effectiveTree = useMemo(() => mergeAddedCategories(tree, addedCategories), [tree, addedCategories]);
 
   const minStock = parseFloat(formData.minimumStock) || 0;
   const maxStock = parseFloat(formData.maximumStock) || 0;
@@ -63,15 +95,27 @@ export default function TabProveedorStock({ suppliers, tree, formData, setFormDa
         </div>
       </div>
 
-      {/* Single category combobox */}
+      {/* Category combobox + create button */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-        <CategoryCombobox
-          tree={tree}
-          value={formData.categoryId}
-          onValueChange={(v) => update('categoryId', v)}
-          placeholder="Seleccionar categoría"
-        />
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <CategoryCombobox
+              tree={effectiveTree}
+              value={formData.categoryId}
+              onValueChange={(v) => update('categoryId', v)}
+              placeholder="Seleccionar categoría"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCreateCategory(true)}
+            className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+            title="Añadir nueva categoría"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Stock limits */}
@@ -110,6 +154,18 @@ export default function TabProveedorStock({ suppliers, tree, formData, setFormDa
           onSupplierCreated?.(supplier);
           update('supplierId', supplier.id);
           setShowCreateSupplier(false);
+        }}
+      />
+
+      {/* Quick create category dialog — crea y autoselecciona al instante */}
+      <CategoryQuickCreateDialog
+        isOpen={showCreateCategory}
+        onClose={() => setShowCreateCategory(false)}
+        tree={tree}
+        onCreated={(category) => {
+          setAddedCategories((prev) => (prev.some((c) => c.id === category.id) ? prev : [...prev, category]));
+          update('categoryId', category.id);
+          setShowCreateCategory(false);
         }}
       />
     </div>
