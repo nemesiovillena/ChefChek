@@ -20,7 +20,8 @@ import ElaborationStepEditor, {
   parseSteps,
   serializeSteps,
 } from './components/elaboration-step-editor';
-import { useProducts, Product } from '@/hooks/use-products';
+import ProductCombobox from './components/product-combobox';
+import SubRecipeCombobox from './components/sub-recipe-combobox';
 import { ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
@@ -39,9 +40,6 @@ export default function RecipesPage() {
 
   const { data: recipesData, error: recipesError, refetch } = useRecipes();
   const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
-
-  const { data: productsData } = useProducts();
-  const products: Product[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
 
   const { data: categoriesData } = useCategories("recipes");
   const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
@@ -190,21 +188,26 @@ export default function RecipesPage() {
 
   const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number) => {
     const newIngredients = [...ingredients];
-    if (field === 'productId') {
-      const productId = String(value);
-      const product = products.find((p) => p.id === productId);
-      newIngredients[index] = {
-        ...newIngredients[index],
-        productId,
-        productName: product?.name,
-      };
-      if (product?.allergens?.length) {
-        setSelectedAllergenIds((prev) => Array.from(new Set([...prev, ...product.allergens])));
-      }
-    } else {
-      newIngredients[index] = { ...newIngredients[index], [field]: value };
-    }
+    newIngredients[index] = { ...newIngredients[index], [field]: value };
     setIngredients(newIngredients);
+  };
+
+  // Selección de ingrediente desde el combobox (búsqueda server-side). Recibe el
+  // producto completo para resolver nombre y alérgenos sin el listado en cliente.
+  const handleProductSelect = (
+    index: number,
+    product: { id: string; name: string; allergens?: number[] },
+  ) => {
+    const newIngredients = [...ingredients];
+    newIngredients[index] = {
+      ...newIngredients[index],
+      productId: product.id,
+      productName: product.name,
+    };
+    setIngredients(newIngredients);
+    if (product.allergens?.length) {
+      setSelectedAllergenIds((prev) => Array.from(new Set([...prev, ...product.allergens!])));
+    }
   };
 
   const handleAddSubRecipe = () => {
@@ -786,20 +789,11 @@ export default function RecipesPage() {
                     <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                       {ingredients.map((ingredient, index) => (
                         <div key={index} className="flex gap-2 items-center">
-                          <select
+                          <ProductCombobox
                             value={ingredient.productId}
-                            onChange={(e) =>
-                              handleIngredientChange(index, 'productId', e.target.value)
-                            }
-                            className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            <option value="">Seleccionar producto</option>
-                            {products.map((product) => (
-                              <option key={product.id} value={product.id}>
-                                {product.name}
-                              </option>
-                            ))}
-                          </select>
+                            label={ingredient.productName}
+                            onSelect={(product) => handleProductSelect(index, product)}
+                          />
                           <input
                             type="number"
                             step="0.01"
@@ -856,20 +850,14 @@ export default function RecipesPage() {
                       <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                         {subRecipes.map((sub, index) => (
                           <div key={index} className="flex gap-2 items-center">
-                            <select
-                              value={sub.subRecipeId}
-                              onChange={(e) => handleSubRecipeChange(index, 'subRecipeId', e.target.value)}
-                              className="flex-1 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                              <option value="">Seleccionar receta</option>
-                              {recipes
+                            <SubRecipeCombobox
+                              items={recipes
                                 .filter((r) => r.id !== selectedRecipe?.id && r.isActive)
-                                .map((r) => (
-                                  <option key={r.id} value={r.id}>
-                                    {r.name}
-                                  </option>
-                                ))}
-                            </select>
+                                .map((r) => ({ id: r.id, name: r.name }))}
+                              value={sub.subRecipeId}
+                              label={recipes.find((r) => r.id === sub.subRecipeId)?.name}
+                              onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
+                            />
                             <input
                               type="number"
                               step="0.01"
