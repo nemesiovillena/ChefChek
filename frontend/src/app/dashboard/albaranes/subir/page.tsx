@@ -168,7 +168,7 @@ export default function SubirAlbaranPage() {
               accept="image/*"
               capture="environment"
               onChange={handleFileSelect}
-              className="hidden"
+              className="sr-only"
             />
 
             {/* Acción secundaria: galería / PDF (escritorio y varios archivos) */}
@@ -187,7 +187,7 @@ export default function SubirAlbaranPage() {
               multiple
               accept="image/*,.pdf"
               onChange={handleFileSelect}
-              className="hidden"
+              className="sr-only"
             />
             <p className="text-xs text-muted-foreground text-center">
               JPG, PNG, HEIC, PDF — máx 10MB por archivo
