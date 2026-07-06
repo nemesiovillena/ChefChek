@@ -65,7 +65,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className={`${isDark ? 'dark' : ''} min-h-screen bg-background text-foreground selection:bg-secondary-container selection:text-white`}>
+    <div className={`${isDark ? 'dark' : ''} min-h-screen bg-background text-foreground`}>
       {/* Top Navigation Shell */}
       <header className="fixed top-0 w-full z-50 bg-surface-container flex justify-between items-center px-margin-desktop h-stack-xl border-b border-border">
         <div className="flex items-center gap-gutter">

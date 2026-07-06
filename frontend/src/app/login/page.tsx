@@ -68,7 +68,7 @@ export default function LoginPage() {
     'mt-1 block w-full px-stack-md py-stack-sm bg-[#1a1a1a] text-primary border border-[#333333] rounded-md shadow-inner focus:border-[var(--secondary)] focus:ring-2 focus:ring-[var(--secondary)]/30 focus:outline-none font-body-md text-body-md transition-all duration-200 placeholder-[#444749]';
 
   return (
-    <div className="dark min-h-screen flex items-center justify-center bg-[var(--background)] text-foreground selection:bg-secondary-container selection:text-white px-margin-mobile">
+    <div className="dark min-h-screen flex items-center justify-center bg-[var(--background)] text-foreground px-margin-mobile">
       <div className="max-w-md w-full space-y-stack-lg p-stack-lg bg-[var(--tonal-2)] rounded-xl border border-border shadow-2xl">
         <div className="flex flex-col items-center">
           <h1 className="font-display text-display tracking-tight text-primary uppercase font-extrabold text-4xl mb-stack-xs select-none">
