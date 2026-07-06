@@ -131,6 +131,18 @@ describe("AlbaranesService", () => {
       expect(res.meta).toEqual({ total: 1, page: 1, limit: 20, totalPages: 1 });
     });
 
+    it("excludes archived albaranes when no status filter is given", async () => {
+      await service.findAll({} as any, "t1");
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.status).toEqual({ not: AlbaranStatus.ARCHIVADO });
+    });
+
+    it("returns archived albaranes when status ARCHIVADO is requested", async () => {
+      await service.findAll({ status: AlbaranStatus.ARCHIVADO } as any, "t1");
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.status).toBe(AlbaranStatus.ARCHIVADO);
+    });
+
     it("applies supplierId, status, search, date range and pagination", async () => {
       await service.findAll(
         {

@@ -77,6 +77,9 @@ export class AlbaranesService {
     }
     if (query.status) {
       where.status = query.status;
+    } else {
+      // Los archivados solo se muestran pidiéndolos explícitamente (pestaña Archivados)
+      where.status = { not: AlbaranStatus.ARCHIVADO };
     }
     if (query.dateFrom || query.dateTo) {
       where.date = {};

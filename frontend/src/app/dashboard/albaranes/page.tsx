@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp } from 'lucide-react';
+import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
 export default function AlbaranesPage() {
@@ -32,6 +32,8 @@ export default function AlbaranesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
+  // Los archivados no aparecen en el listado general; viven en su propia pestaña
+  const [activeTab, setActiveTab] = useState<'activos' | 'archivados'>('activos');
 
   // Datos para el formulario de albarán manual
   const { data: suppliersData } = useSuppliers({ isActive: true });
@@ -53,10 +55,15 @@ export default function AlbaranesPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters({ search: searchTerm, status: statusFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined });
+      setFilters({
+        search: searchTerm,
+        status: activeTab === 'archivados' ? 'ARCHIVADO' : statusFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      });
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, dateFrom, dateTo, setFilters]);
+  }, [searchTerm, statusFilter, dateFrom, dateTo, activeTab, setFilters]);
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -102,9 +109,34 @@ export default function AlbaranesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Pestañas: activos vs archivados (div role=tablist — un <nav> no fijo quedaría oculto por globals.css) */}
+      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-6">
+        {(
+          [
+            { key: 'activos', label: 'Activos', icon: FileText },
+            { key: 'archivados', label: 'Archivados', icon: Archive },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === tab.key
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${activeTab === 'activos' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -114,18 +146,19 @@ export default function AlbaranesPage() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as AlbaranStatus | '')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Todos los estados</SelectItem>
-              <SelectItem value="PENDIENTE">Pendiente</SelectItem>
-              <SelectItem value="REVISADO">Revisado</SelectItem>
-              <SelectItem value="CONFIRMADO">Confirmado</SelectItem>
-              <SelectItem value="ARCHIVADO">Archivado</SelectItem>
-            </SelectContent>
-          </Select>
+          {activeTab === 'activos' && (
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as AlbaranStatus | '')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Todos los estados</SelectItem>
+                <SelectItem value="PENDIENTE">Pendiente</SelectItem>
+                <SelectItem value="REVISADO">Revisado</SelectItem>
+                <SelectItem value="CONFIRMADO">Confirmado</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Input
             type="date"
             placeholder="Desde"
@@ -162,14 +195,27 @@ export default function AlbaranesPage() {
       {!loading && albaranes.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <FileUp className="h-8 w-8 text-gray-400" />
+            {activeTab === 'archivados' ? (
+              <Archive className="h-8 w-8 text-gray-400" />
+            ) : (
+              <FileUp className="h-8 w-8 text-gray-400" />
+            )}
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes</h3>
-          <p className="text-gray-600 mb-4">Sube tu primer albarán para empezar a gestionarlos</p>
-          <Button onClick={() => router.push('/dashboard/albaranes/subir')}>
-            <FileUp className="mr-2 h-4 w-4" />
-            Subir Albarán
-          </Button>
+          {activeTab === 'archivados' ? (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes archivados</h3>
+              <p className="text-gray-600">Los albaranes confirmados que archives aparecerán aquí</p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes</h3>
+              <p className="text-gray-600 mb-4">Sube tu primer albarán para empezar a gestionarlos</p>
+              <Button onClick={() => router.push('/dashboard/albaranes/subir')}>
+                <FileUp className="mr-2 h-4 w-4" />
+                Subir Albarán
+              </Button>
+            </>
+          )}
         </div>
       )}
 
