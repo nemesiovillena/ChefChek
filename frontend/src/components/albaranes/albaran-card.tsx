@@ -11,6 +11,9 @@ interface AlbaranCardProps {
 }
 
 export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
+  // El backend rechaza borrar albaranes confirmados/archivados (stock ya asentado)
+  const canDelete = albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO';
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -26,11 +29,12 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation from Link
     e.stopPropagation();
+    if (!confirm(`¿Estás seguro de eliminar el albarán ${albaran.albaranNumber || albaran.internalNumber || ''}?`)) return;
     try {
       await deleteAlbaran(albaran.id);
       onDelete?.(albaran.id);
-    } catch {
-      // Silently fail — user can retry
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al eliminar albarán');
     }
   };
 
@@ -53,13 +57,15 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
           </div>
           <div className="flex items-center gap-2">
             <AlbaranStatusBadge status={albaran.status} />
-            <button
-              onClick={handleDelete}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
-              title="Eliminar albarán"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
+                title="Eliminar albarán"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
