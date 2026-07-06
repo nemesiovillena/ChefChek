@@ -2,38 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Category, CategoryTreeNode } from '@/hooks/use-categories';
+import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
 import SupplierCombobox from './supplier-combobox';
 import CategoryCombobox from '@/components/shared/category-combobox';
 import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
 import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
-
-/**
- * Fusiona las categorías creadas en línea con el árbol propuesto por props.
- * Garantiza que la nueva categoría sea seleccionable al instante sin esperar
- * al refetch de useCategoryTree. Duplica contra el árbol (cuando el refetch
- * llega, la categoría ya viene por props y se ignora la copia local).
- */
-function mergeAddedCategories(tree: CategoryTreeNode[], added: Category[]): CategoryTreeNode[] {
-  if (!added.length) return tree;
-  const topLevel = added.filter((c) => !c.parentId);
-  const children = added.filter((c) => c.parentId);
-
-  let result = [...tree];
-  for (const c of topLevel) {
-    if (!result.some((n) => n.id === c.id)) result.push({ ...c, children: [] });
-  }
-  result = result.map((parent) => {
-    const kids = children.filter((c) => c.parentId === parent.id);
-    if (!kids.length) return parent;
-    const merged = [...(parent.children ?? [])];
-    for (const k of kids) {
-      if (!merged.some((m) => m.id === k.id)) merged.push({ ...k, children: [] });
-    }
-    return { ...parent, children: merged };
-  });
-  return result;
-}
 
 interface SupplierOption {
   id: string;

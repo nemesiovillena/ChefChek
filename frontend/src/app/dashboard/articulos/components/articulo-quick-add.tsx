@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateProduct } from '@/hooks/use-products';
-import { CategoryTreeNode } from '@/hooks/use-categories';
+import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus } from 'lucide-react';
 import CategoryCombobox from '@/components/shared/category-combobox';
+import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
 
 interface ArticuloQuickAddProps {
   tree: CategoryTreeNode[];
@@ -25,6 +26,10 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
   const [referenceUnit, setReferenceUnit] = useState('kg');
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  // Categorías creadas en línea: se fusionan al árbol para mostrarlas al instante.
+  const [addedCategories, setAddedCategories] = useState<Category[]>([]);
+  const effectiveTree = useMemo(() => mergeAddedCategories(tree, addedCategories), [tree, addedCategories]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -77,14 +82,26 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
           onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
         />
       </div>
-      <div className="w-[180px]">
+      <div className="w-[215px]">
         <label className="block text-xs font-medium text-gray-600 mb-1">Categoría</label>
-        <CategoryCombobox
-          tree={tree}
-          value={categoryId}
-          onValueChange={setCategoryId}
-          placeholder="Categoría"
-        />
+        <div className="flex gap-1">
+          <div className="flex-1">
+            <CategoryCombobox
+              tree={effectiveTree}
+              value={categoryId}
+              onValueChange={setCategoryId}
+              placeholder="Categoría"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCreateCategory(true)}
+            className="shrink-0 h-[38px] w-9 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+            title="Añadir nueva categoría"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <div className="w-[80px]">
         <label className="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
@@ -108,6 +125,18 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
       <Button size="sm" variant="link" onClick={onOpenFull} className="h-8 text-xs text-indigo-600">
         Formulario completo
       </Button>
+
+      {/* Quick create category dialog — crea y autoselecciona al instante */}
+      <CategoryQuickCreateDialog
+        isOpen={showCreateCategory}
+        onClose={() => setShowCreateCategory(false)}
+        tree={tree}
+        onCreated={(category) => {
+          setAddedCategories((prev) => (prev.some((c) => c.id === category.id) ? prev : [...prev, category]));
+          setCategoryId(category.id);
+          setShowCreateCategory(false);
+        }}
+      />
     </div>
   );
 }
