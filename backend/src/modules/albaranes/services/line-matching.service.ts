@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
-import { ProductRecognitionService } from "../../ingesta/product-recognition.service";
+import { ProductRecognitionService } from "../../ocr/product-recognition.service";
 import { LineMatchStatus } from "@prisma/client";
 
 export interface MatchLineInput {

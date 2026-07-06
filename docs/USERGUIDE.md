@@ -130,13 +130,13 @@ El dashboard proporciona una visión general de las operaciones de cocina:
 - Documentar productos usados
 - Alertas de vencimiento
 
-### 6. Inventario (Ingesta)
+### 6. Inventario (Albaranes)
 
-#### OCR AI
-- Subir documentos (facturas, recibos)
-- Reconocimiento automático de productos
-- Validación y corrección
-- Historial de documentos
+#### Albaranes y OCR
+- Subir albaranes desde el móvil (cámara) o PDF
+- Reconocimiento automático de productos (OCR + IA)
+- Alta manual de albaranes con creación de productos y entrada de stock
+- Revisión, confirmación y archivo de albaranes
 
 #### Gestión de Stock
 - Ver niveles de stock actuales
@@ -199,7 +199,6 @@ El dashboard proporciona una visión general de las operaciones de cocina:
 - Gestionar prioridades de alertas
 
 ### Integraciones
-- Configurar API de Telegram
 - Conectar sistemas externos
 - Configurar webhooks
 - Gestionar claves API

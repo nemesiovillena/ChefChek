@@ -61,10 +61,9 @@ ChefChek es una plataforma SaaS Multi-tenant modular diseñada para cocinas prof
 - **Branding**: Logotipos, colores corporativos
 - **Filtros**: Alérgenos interactivos en tiempo real
 
-### Ingesta Omnicanal
-- **Bot Telegram**: Webhooks seguros para fotos de documentos
-- **OCR + IA**: Procesamiento inteligente de albaranes
-- **Queue de Procesamiento**: Sistema asíncrono de análisis
+### Albaranes + OCR
+- **Albaranes**: Gestión, alta manual y upload de albaranes de proveedores
+- **OCR + IA**: Lectura automática de albaranes desde imagen/PDF (módulo `ocr`, microservicio Python); el alta manual crea productos, albarán (REVISADO) y entrada de stock
 
 ### Conocimiento
 - **Wiki de Procedimientos**: Base de conocimiento interno

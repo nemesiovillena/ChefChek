@@ -6,7 +6,7 @@ import { AlbaranStatusService } from "./services/albaran-status.service";
 import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
-import { PythonOcrService } from "../ingesta/python-ocr.service";
+import { PythonOcrService } from "../ocr/python-ocr.service";
 import { AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranesService", () => {

@@ -122,13 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Link>
                 </div>
                 <div className="border-t border-border p-2">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">IA & Herramientas</p>
-                  <Link href="/dashboard/ocr-ai" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">document_scanner</span>OCR / IA
-                  </Link>
-                  <Link href="/dashboard/ingestion" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">upload_file</span>Ingesta
-                  </Link>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Herramientas</p>
                   <Link href="/dashboard/sprint-tracker" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
                     <span className="material-symbols-outlined text-[18px]">track_changes</span>Sprint
                   </Link>
@@ -240,6 +234,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Link href="/dashboard/recipes" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
           <span className="material-symbols-outlined">receipt_long</span>
           <span className="font-label-md text-label-md mt-1 text-[10px]">Recetas</span>
+        </Link>
+        <Link href="/dashboard/albaranes/subir" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
+          <span className="material-symbols-outlined">add_a_photo</span>
+          <span className="font-label-md text-label-md mt-1 text-[10px]">Subir</span>
         </Link>
         <Link href="/dashboard/appcc" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
           <span className="material-symbols-outlined">health_and_safety</span>

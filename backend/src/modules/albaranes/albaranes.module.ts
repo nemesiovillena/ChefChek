@@ -6,18 +6,14 @@ import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { AlbaranStockService } from "./services/albaran-stock.service";
+import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
-import { IngestaModule } from "../ingesta/ingesta.module";
+import { OcrModule } from "../ocr/ocr.module";
 import { CoreModule } from "../core/core.module";
 
 @Module({
-  imports: [
-    PrismaModule,
-    forwardRef(() => AuthModule),
-    forwardRef(() => IngestaModule),
-    CoreModule,
-  ],
+  imports: [PrismaModule, forwardRef(() => AuthModule), OcrModule, CoreModule],
   controllers: [AlbaranesController],
   providers: [
     AlbaranesService,
@@ -26,9 +22,11 @@ import { CoreModule } from "../core/core.module";
     SupplierMatchingService,
     LineMatchingService,
     AlbaranStockService,
+    ManualAlbaranService,
   ],
   exports: [
     AlbaranesService,
+    AlbaranNumberService,
     SupplierMatchingService,
     LineMatchingService,
     AlbaranStockService,

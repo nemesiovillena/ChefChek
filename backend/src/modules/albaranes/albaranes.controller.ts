@@ -22,12 +22,14 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import { AlbaranesService } from "./albaranes.service";
+import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import {
   CreateAlbaranDto,
   CreateAlbaranLineDto,
 } from "./dto/create-albaran.dto";
+import { ManualAlbaranDto } from "./dto/manual-albaran.dto";
 import {
   UpdateAlbaranDto,
   UpdateAlbaranStatusDto,
@@ -41,7 +43,10 @@ import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 @Controller("api/v1/albaranes")
 @UseGuards(AuthGuard, TenantGuard)
 export class AlbaranesController {
-  constructor(private readonly albaranesService: AlbaranesService) {}
+  constructor(
+    private readonly albaranesService: AlbaranesService,
+    private readonly manualAlbaranService: ManualAlbaranService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: "Crear albarán manual" })
@@ -49,6 +54,15 @@ export class AlbaranesController {
   async create(@Body() dto: CreateAlbaranDto, @Req() req: any) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.create(dto, tenantId);
+  }
+
+  @Post("manual")
+  @ApiOperation({ summary: "Alta manual de albarán con productos y stock" })
+  @ApiResponse({ status: 201, description: "Albarán manual procesado" })
+  @ApiResponse({ status: 400, description: "Datos inválidos" })
+  async createManual(@Body() dto: ManualAlbaranDto, @Req() req: any) {
+    const tenantId = req.user?.tenantId || dto.tenantId;
+    return this.manualAlbaranService.process(dto, tenantId, req.user?.id);
   }
 
   @Post("from-upload")

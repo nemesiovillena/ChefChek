@@ -596,6 +596,10 @@ async function throttledRecalculation(
 
 ### Recalcular en Cascada
 
+> **Deprecado:** este endpoint pertenecía al módulo `ocr-ai`/`ingesta`,
+> eliminado al consolidar la ingesta en Albaranes. Actualmente no existe
+> endpoint público de recálculo en cascada. Esquema conservado como referencia.
+
 ```http
 POST /api/v1/ocr-ai/cascade-recalculation
 Content-Type: application/json

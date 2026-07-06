@@ -8,6 +8,7 @@ export interface ManualAlbaranLineInput {
   unit: string;
   price: number;
   category?: string;
+  categoryId?: string;
 }
 
 export interface ManualAlbaranInput {
@@ -23,7 +24,7 @@ export function useCreateManualAlbaran() {
 
   return useMutation({
     mutationFn: async (data: ManualAlbaranInput) => {
-      const response = await apiClient.post('/v1/ingesta/manual', data);
+      const response = await apiClient.post('/v1/albaranes/manual', data);
       return response.data;
     },
     onSuccess: () => {

@@ -1,7 +1,19 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, FileText, Loader2, CheckCircle2, AlertCircle, XCircle, ExternalLink, Sparkles, Settings } from 'lucide-react';
+import { useState, useRef } from 'react';
+import {
+  Upload,
+  Camera,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  ExternalLink,
+  Sparkles,
+  Settings,
+  ArrowLeft,
+} from 'lucide-react';
 import Link from 'next/link';
 import { formatEuro } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,7 +49,9 @@ function getAlbaranId(results: AlbaranUploadResult): string | undefined {
   return (results as ResultsWithAlbaran).albaranId;
 }
 
-export default function IngestionPage() {
+export default function SubirAlbaranPage() {
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
   const [aiModel, setAiModel] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
     return localStorage.getItem(STORAGE_KEY_MODEL) || '';
@@ -54,14 +68,10 @@ export default function IngestionPage() {
   const {
     fileInputRef,
     files,
-    isDragging,
     isUploading,
     uploadProgress,
     results,
     error,
-    handleDragOver,
-    handleDragLeave,
-    handleDrop,
     handleFileSelect,
     removeFile,
     processFiles,
@@ -72,22 +82,30 @@ export default function IngestionPage() {
     aiApiKey: aiModel && aiModel !== 'regex' ? aiApiKey : undefined,
   });
 
-  const selectedModelInfo = AI_MODELS.find(m => m.id === aiModel);
+  const selectedModelInfo = AI_MODELS.find((m) => m.id === aiModel);
   const needsApiKey = aiModel && aiModel !== 'regex';
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Importar desde Albarán</h1>
+    <div className="container mx-auto p-4 sm:p-6 max-w-2xl">
+      {/* Back + title */}
+      <Link
+        href="/dashboard/albaranes"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-3"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver a Albaranes
+      </Link>
+      <div className="mb-5">
+        <h1 className="text-2xl sm:text-3xl font-bold">Subir Albarán</h1>
         <p className="text-muted-foreground mt-1">
-          Sube un albarán o factura para extraer productos automáticamente
+          Haz una foto al albarán o sube un archivo para extraer los productos automáticamente
         </p>
       </div>
 
       <Card>
-        <CardContent>
+        <CardContent className="space-y-5">
           {/* AI Model Selector */}
-          <div className="mb-6 space-y-3">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-medium">Motor de extracción</h3>
@@ -121,7 +139,10 @@ export default function IngestionPage() {
                     API Key configurada
                   </p>
                 ) : (
-                  <Link href="/dashboard/settings" className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1">
+                  <Link
+                    href="/dashboard/settings"
+                    className="text-xs text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                  >
                     <Settings className="h-3 w-3" />
                     Configura la API Key en Ajustes
                   </Link>
@@ -130,29 +151,35 @@ export default function IngestionPage() {
             )}
           </div>
 
-          {/* Upload Area */}
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragging
-                ? 'border-primary bg-primary/5'
-                : 'border-muted hover:border-primary/50'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground mb-4">
-              Arrastra aquí tu albarán o factura
-            </p>
+          {/* Capture / Upload Area — mobile-first: cámara prioritaria */}
+          <div className="space-y-3">
+            {/* Acción principal en móvil: abrir la cámara */}
+            <Button
+              type="button"
+              className="w-full h-14 text-base"
+              onClick={() => cameraInputRef.current?.click()}
+            >
+              <Camera className="mr-2 h-5 w-5" />
+              Hacer foto al albarán
+            </Button>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {/* Acción secundaria: galería / PDF (escritorio y varios archivos) */}
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              className="w-full"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="mr-2 h-4 w-4" />
-              Seleccionar archivos
+              Subir imagen o PDF
             </Button>
             <input
               ref={fileInputRef}
@@ -162,34 +189,28 @@ export default function IngestionPage() {
               onChange={handleFileSelect}
               className="hidden"
             />
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="text-xs text-muted-foreground text-center">
               JPG, PNG, HEIC, PDF — máx 10MB por archivo
             </p>
           </div>
 
           {/* File List */}
           {files.length > 0 && (
-            <div className="mt-6 space-y-2">
+            <div className="space-y-2">
               <h3 className="text-sm font-medium">Archivos seleccionados</h3>
               {files.map((file, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                 >
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm text-gray-700 truncate flex-1">
-                      {file.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {(file.size / 1024).toFixed(1)} KB
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => removeFile(index)}>
                     <XCircle className="h-4 w-4" />
                   </Button>
                 </div>
@@ -199,7 +220,7 @@ export default function IngestionPage() {
 
           {/* Error */}
           {error && (
-            <Alert variant="destructive" className="mt-6">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -207,7 +228,7 @@ export default function IngestionPage() {
 
           {/* Progress */}
           {isUploading && (
-            <div className="mt-6 space-y-2">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 <span className="text-sm font-medium">
@@ -226,25 +247,21 @@ export default function IngestionPage() {
 
           {/* Process Button */}
           {!isUploading && files.length > 0 && !results && (
-            <div className="mt-6">
-              <Button className="w-full" onClick={processFiles}>
-                <Upload className="mr-2 h-4 w-4" />
-                Procesar Albarán
-              </Button>
-            </div>
+            <Button className="w-full h-12" onClick={processFiles}>
+              <Upload className="mr-2 h-4 w-4" />
+              Procesar Albarán
+            </Button>
           )}
         </CardContent>
       </Card>
 
       {/* Results */}
       {results && (
-        <Card className="mt-6">
+        <Card className="mt-5">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Productos Detectados</CardTitle>
-              <Badge variant="default">
-                {results.products.length} productos
-              </Badge>
+              <Badge variant="default">{results.products.length} productos</Badge>
             </div>
             <CardDescription>
               {results.products.length} producto{results.products.length !== 1 ? 's' : ''} detectados
@@ -253,12 +270,9 @@ export default function IngestionPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {results.products.map((product, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 border rounded-lg"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+              <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h4 className="font-medium">{product.name}</h4>
                     {product.matchedProductId ? (
                       <Badge variant="outline" className="text-xs">
@@ -271,8 +285,10 @@ export default function IngestionPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span>{product.quantity} {product.unit}</span>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                    <span>
+                      {product.quantity} {product.unit}
+                    </span>
                     <span>•</span>
                     <span className="font-medium text-foreground">
                       {formatEuro(product.unit_price)}
@@ -283,8 +299,8 @@ export default function IngestionPage() {
                         product.confidence >= 0.7
                           ? 'text-green-600'
                           : product.confidence >= 0.5
-                          ? 'text-yellow-600'
-                          : 'text-red-600'
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
                       }
                     >
                       {(product.confidence * 100).toFixed(0)}% confianza
@@ -294,11 +310,18 @@ export default function IngestionPage() {
               </div>
             ))}
 
-            <div className="pt-4 border-t flex gap-2">
+            <div className="pt-4 border-t flex flex-col sm:flex-row gap-2">
               <Button onClick={handleImport} disabled={isUploading} className="flex-1">
                 Importar {results.products.filter((p) => p.confidence >= 0.5).length} productos
               </Button>
-              <Link href={getAlbaranId(results) ? `/dashboard/albaranes/${getAlbaranId(results)}` : '/dashboard/albaranes'}>
+              <Link
+                href={
+                  getAlbaranId(results)
+                    ? `/dashboard/albaranes/${getAlbaranId(results)}`
+                    : '/dashboard/albaranes'
+                }
+                className="flex-1"
+              >
                 <Button variant="outline" className="w-full">
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {getAlbaranId(results) ? 'Ver Albarán' : 'Ver en Albaranes'}

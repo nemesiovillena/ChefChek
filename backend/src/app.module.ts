@@ -29,7 +29,6 @@ import { MenusController } from "./modules/menus/menus.controller";
 import { TechnicalSheetsController } from "./modules/technical-sheets/technical-sheets.controller";
 import { DigitalMenuController } from "./modules/digital-menu/digital-menu.controller";
 import { DashboardController } from "./modules/dashboard/dashboard.controller";
-import { IngestaController } from "./modules/ingesta/ingesta.controller";
 import { SalaController } from "./modules/sala/sala.controller";
 import { EscandallosController } from "./modules/escandallos/escandallos.controller";
 import { SprintController } from "./modules/sprint/sprint.controller";
@@ -44,7 +43,6 @@ import { CategoriesModule } from "./modules/categories/categories.module";
 import { DigitalMenuModule } from "./modules/digital-menu/digital-menu.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { OrdersModule } from "./modules/orders/orders.module";
-import { IngestaModule } from "./modules/ingesta/ingesta.module";
 import { SalaModule } from "./modules/sala/sala.module";
 import { EscandallosModule } from "./modules/escandallos/escandallos.module";
 import { SprintModule } from "./modules/sprint/sprint.module";
@@ -78,7 +76,6 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
     ConocimientoModule,
     DigitalMenuModule,
     DashboardModule,
-    IngestaModule,
     SalaModule,
     EscandallosModule,
     SprintModule,
@@ -100,7 +97,6 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
     TechnicalSheetsController,
     DigitalMenuController,
     DashboardController,
-    IngestaController,
     SalaController,
     EscandallosController,
     SprintController,

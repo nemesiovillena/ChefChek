@@ -102,7 +102,8 @@
 - `producción/`: Partidas, órdenes, hojas pedido
 - `almacenes/`: Inventory, stock movements
 - `sala/`: QR menus, branding
-- `ingesta/`: Telegram bot, OCR, IA
+- `albaranes/`: Gestión, alta manual y upload de albaranes
+- `ocr/`: Motor OCR/IA compartido (microservicio Python) para lectura de albaranes
 - `conocimiento/`: Wiki, roadmap tracker
 
 ### Frontend Structure

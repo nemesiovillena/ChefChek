@@ -147,14 +147,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: "ingesta",
-    name: "Ingesta",
-    description: "Procesamiento de documentos y OCR",
-    dependencies: [],
-    alwaysActive: false,
-    defaultEnabled: true,
-  },
-  {
     id: "conocimiento",
     name: "Conocimiento",
     description: "Base de conocimiento y documentación",

@@ -72,7 +72,7 @@ export default function AlbaranesPage() {
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-3xl font-bold text-gray-900">Albaranes</h1>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/dashboard/ingestion')}>
+            <Button variant="outline" onClick={() => router.push('/dashboard/albaranes/subir')}>
               <FileUp className="mr-2 h-4 w-4" />
               Subir Albarán
             </Button>
@@ -166,7 +166,7 @@ export default function AlbaranesPage() {
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes</h3>
           <p className="text-gray-600 mb-4">Sube tu primer albarán para empezar a gestionarlos</p>
-          <Button onClick={() => router.push('/dashboard/ingestion')}>
+          <Button onClick={() => router.push('/dashboard/albaranes/subir')}>
             <FileUp className="mr-2 h-4 w-4" />
             Subir Albarán
           </Button>

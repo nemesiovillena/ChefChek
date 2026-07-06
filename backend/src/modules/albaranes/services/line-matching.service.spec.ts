@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { LineMatchingService } from "./line-matching.service";
 import { PrismaService } from "../../../common/services/prisma.service";
-import { ProductRecognitionService } from "../../ingesta/product-recognition.service";
+import { ProductRecognitionService } from "../../ocr/product-recognition.service";
 import { LineMatchStatus } from "@prisma/client";
 
 describe("LineMatchingService", () => {

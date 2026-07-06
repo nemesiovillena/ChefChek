@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { AlbaranesController } from "./albaranes.controller";
 import { AlbaranesService } from "./albaranes.service";
+import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 
@@ -22,12 +23,17 @@ describe("AlbaranesController", () => {
     remove: jest.fn(),
   };
 
+  const mockManualService = { process: jest.fn() };
+
   const mockReq = { user: { tenantId: "t1" }, body: {} };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AlbaranesController],
-      providers: [{ provide: AlbaranesService, useValue: mockService }],
+      providers: [
+        { provide: AlbaranesService, useValue: mockService },
+        { provide: ManualAlbaranService, useValue: mockManualService },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

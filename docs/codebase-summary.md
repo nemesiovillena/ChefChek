@@ -35,7 +35,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 - **Producción**: `production`, `produccion`, `orders`, `sprint`
 - **Almacenes**: `almacenes`
 - **Sala / carta digital**: `digital-menu`, `qr`, `sala`
-- **Ingesta (automatización)**: `ingesta` (Telegram bot + OCR + IA)
+- **Albaranes + OCR**: `albaranes` (gestión, alta manual y upload de albaranes) + `ocr` (motor OCR/IA compartido para lectura de albaranes)
 - **Conocimiento**: `conocimiento` (wiki/procedimientos)
 - **Visión**: `dashboard`
 

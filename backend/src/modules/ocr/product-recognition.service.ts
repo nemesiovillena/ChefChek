@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
-import { ExtractedProductDto } from "./dto/ingesta.dto";
+import { ExtractedProductDto } from "./dto/extracted-product.dto";
 import { calculateSimilarity } from "../../common/utils/string-similarity";
 
 @Injectable()

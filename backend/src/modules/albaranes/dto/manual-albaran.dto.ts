@@ -33,6 +33,11 @@ export class ManualAlbaranLineDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  // Id de categoría/subcategoría del catálogo; tiene prioridad sobre `category`
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
 }
 
 export class ManualAlbaranDto {

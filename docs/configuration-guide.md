@@ -49,12 +49,6 @@ Guía completa de configuración para despliegue de ChefChek en diferentes entor
 
 ### Servicios Externos
 
-#### Telegram Bot (Opcional)
-
-| Variable | Tipo | Default | Requerido | Descripción | Ejemplo |
-|----------|------|---------|-----------|-------------|---------|
-| `TELEGRAM_BOT_TOKEN` | string | - | ⚠️ Opcional | Token del bot de Telegram para ingesta de documentos | `123456789:ABCdefGHIjklMNOpqrsTUVwxyz` |
-
 #### OCR Service (Opcional)
 
 | Variable | Tipo | Default | Requerido | Descripción | Ejemplo |
@@ -122,8 +116,6 @@ LOG_LEVEL="debug"
 # CORS
 ALLOWED_ORIGINS="http://localhost:3000,http://localhost:3001"
 
-# Telegram Bot (opcional)
-TELEGRAM_BOT_TOKEN=""
 
 # OCR (opcional)
 OCR_API_KEY=""
@@ -176,8 +168,6 @@ LOG_LEVEL="info"
 # ⚠️ CAMBIAR EN PRODUCCIÓN - Solo dominios de staging
 ALLOWED_ORIGINS="https://staging.chefchek.com,https://app-staging.chefchek.com"
 
-# Telegram Bot (opcional)
-TELEGRAM_BOT_TOKEN=""
 
 # OCR (opcional)
 OCR_API_KEY=""
@@ -236,8 +226,6 @@ LOG_LEVEL="error"
 # ⚠️ CAMBIAR: Solo incluir dominios de producción
 ALLOWED_ORIGINS="https://chefchek.com,https://app.chefchek.com,https://api.chefchek.com"
 
-# Telegram Bot (opcional)
-TELEGRAM_BOT_TOKEN=""
 
 # OCR (opcional)
 OCR_API_KEY=""
