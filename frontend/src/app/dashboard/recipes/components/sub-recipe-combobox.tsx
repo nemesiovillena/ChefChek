@@ -46,7 +46,7 @@ export default function SubRecipeCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="flex-1 inline-flex items-center justify-between gap-2 rounded-md border border-input bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-accent font-normal">
+      <PopoverTrigger className="flex-1 inline-flex items-center justify-between gap-2 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--on-surface)]/5 font-normal focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/30">
         <span className="flex min-w-0 flex-1 items-center gap-2">
           {value && label ? (
             <>
