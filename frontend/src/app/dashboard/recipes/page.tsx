@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import {
   useRecipes,
   Recipe,
@@ -33,10 +34,23 @@ import { CategoriesManagementModal } from '@/components/shared/categories-manage
 
 export const dynamic = 'force-dynamic';
 
+// Estilos Material 3 compartidos del modal de receta. Los tokens viven en
+// globals.css y .dark los redefine, por eso no hace falta variante dark:.
+const m3InputBase =
+  'px-3 py-2 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-[var(--on-surface)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/30 transition-colors';
+const m3Field = `mt-1 block w-full text-sm placeholder:text-[var(--on-surface-variant)] ${m3InputBase}`;
+const m3Label = 'block text-sm font-medium text-[var(--on-surface)]';
+const RECIPE_TABS = [
+  { id: 'general', label: 'General' },
+  { id: 'elaboracion', label: 'Elaboración' },
+  { id: 'clasificacion', label: 'Clasificación' },
+] as const;
+
 export default function RecipesPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
+  const confirm = useConfirm();
 
   const { data: recipesData, error: recipesError, refetch } = useRecipes();
   const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
@@ -59,7 +73,7 @@ export default function RecipesPage() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showCostModal, setShowCostModal] = useState(false);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
-  const [activeMetaTab, setActiveMetaTab] = useState<'categories' | 'allergens'>('categories');
+  const [activeTab, setActiveTab] = useState<'general' | 'elaboracion' | 'clasificacion'>('general');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -109,22 +123,27 @@ export default function RecipesPage() {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`¿Estás seguro de eliminar la receta "${name}"?`)) {
-      try {
-        await deleteRecipeMutation.mutateAsync(id);
-        addNotification({
-          type: 'success',
-          title: 'Receta eliminada',
-          message: 'Receta eliminada correctamente',
-        });
-        refetch();
-      } catch (error: unknown) {
-        addNotification({
-          type: 'error',
-          title: 'Error',
-          message: error instanceof Error ? error.message : 'Error al eliminar receta',
-        });
-      }
+    const ok = await confirm({
+      title: 'Eliminar receta',
+      description: `¿Estás seguro de eliminar "${name}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      await deleteRecipeMutation.mutateAsync(id);
+      addNotification({
+        type: 'success',
+        title: 'Receta eliminada',
+        message: `"${name}" se ha eliminado correctamente.`,
+      });
+      refetch();
+    } catch (error: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: error instanceof Error ? error.message : 'Error al eliminar receta',
+      });
     }
   };
 
@@ -227,6 +246,13 @@ export default function RecipesPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // El nombre es requerido: si se envía desde otra pestaña, volvemos a General
+    // para que el navegador dispare la validación nativa del campo.
+    if (!formData.name.trim()) {
+      setActiveTab('general');
+      return;
+    }
+
     const filledSteps = elaborationSteps.filter((s) => s.description.trim());
     const recipeData = {
       name: formData.name,
@@ -298,6 +324,7 @@ export default function RecipesPage() {
     );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
     setSelectedAllergenIds(recipe.allergens || []);
+    setActiveTab('general');
     setShowCreateForm(true);
   };
 
@@ -391,7 +418,7 @@ export default function RecipesPage() {
               Gestionar categorías
             </button>
             <button
-              onClick={() => setShowCreateForm(true)}
+              onClick={() => { setActiveTab('general'); setShowCreateForm(true); }}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
             >
               Crear Receta
@@ -586,11 +613,11 @@ export default function RecipesPage() {
 
         {/* Create/Edit Modal */}
         {showCreateForm && (
-          <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-805">
-              <div className="mt-3">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl leading-6 font-semibold text-gray-900 dark:text-white">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
+            <div className="relative top-8 mx-auto w-full max-w-3xl mb-8 rounded-[28px] border border-[var(--outline-variant)] bg-[var(--surface-container-high)] shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)]">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold tracking-tight text-[var(--on-surface)]">
                     {selectedRecipe ? 'Editar Receta' : 'Crear Receta'}
                   </h3>
                   <button
@@ -607,7 +634,7 @@ export default function RecipesPage() {
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                       setSubRecipes([]);
                     }}
-                    className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+                    className="rounded-full p-1 text-[var(--on-surface-variant)] hover:text-[var(--on-surface)] hover:bg-[var(--on-surface)]/10 transition-colors"
                   >
                     <span className="sr-only">Cerrar</span>
                     <svg
@@ -624,275 +651,256 @@ export default function RecipesPage() {
                   </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Nombre *
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      required
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Descripción
-                    </label>
-                    <textarea
-                      name="description"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({ ...formData, description: e.target.value })
-                      }
-                      className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Pestañas para Categorías y Alérgenos */}
-                  <div className="flex gap-2 p-1 bg-gray-100 dark:bg-zinc-800 rounded-lg mt-4 w-fit">
+                {/* Pestañas de sección. Se usa role="tablist" (no <nav>) porque
+                    globals.css oculta todo <nav> que no sea .fixed. */}
+                <div role="tablist" aria-label="Secciones de la receta" className="flex gap-1 border-b border-[var(--outline-variant)]">
+                  {RECIPE_TABS.map((tab) => (
                     <button
+                      key={tab.id}
                       type="button"
-                      onClick={() => setActiveMetaTab('categories')}
-                      className={`px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-250 cursor-pointer ${
-                        activeMetaTab === 'categories'
-                          ? 'bg-indigo-600 text-white shadow'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700/50'
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`inline-flex items-center px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                        activeTab === tab.id
+                          ? 'border-[var(--primary)] text-[var(--primary)]'
+                          : 'border-transparent text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'
                       }`}
                     >
-                      Categorías
+                      {tab.label}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveMetaTab('allergens')}
-                      className={`px-4 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-250 cursor-pointer ${
-                        activeMetaTab === 'allergens'
-                          ? 'bg-indigo-600 text-white shadow'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-zinc-700/50'
-                      }`}
-                    >
-                      Alérgenos
-                    </button>
-                  </div>
+                  ))}
+                </div>
 
-                  {/* Contenido de la Pestaña Activa */}
-                  <div className="mt-2">
-                    {activeMetaTab === 'categories' && (
-                      <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
-                        {categories.map((category) => (
-                          <label key={category.id} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedCategoryIds.includes(category.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedCategoryIds([...selectedCategoryIds, category.id]);
-                                } else {
-                                  setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
-                                }
-                              }}
-                              className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
-                            />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">
-                              {category.icon} {category.name}
-                            </span>
-                          </label>
-                        ))}
+                <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                  {/* ── General: identidad + composición (define la receta y su coste) ── */}
+                  {activeTab === 'general' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className={m3Label}>Nombre *</label>
+                        <input
+                          type="text"
+                          name="name"
+                          required
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className={m3Field}
+                        />
                       </div>
-                    )}
 
-                    {activeMetaTab === 'allergens' && (
-                      <div className="flex flex-wrap gap-4 p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-md border border-gray-100 dark:border-zinc-800">
-                        {allergenCatalog.map((allergen) => (
-                          <label key={allergen.id} className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedAllergenIds.includes(allergen.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedAllergenIds([...selectedAllergenIds, allergen.id]);
-                                } else {
-                                  setSelectedAllergenIds(selectedAllergenIds.filter(id => id !== allergen.id));
-                                }
-                              }}
-                              className="rounded border-gray-300 dark:border-zinc-700 text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-zinc-800"
-                            />
-                            <span className="inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
-                              <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={18} />
-                              {allergen.name}
-                            </span>
-                          </label>
-                        ))}
+                      <div>
+                        <label className={m3Label}>Descripción</label>
+                        <textarea
+                          name="description"
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          rows={3}
+                          className={m3Field}
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Porciones *
-                      </label>
-                      <input
-                        type="number"
-                        name="portions"
-                        min="1"
-                        required
-                        value={formData.portions}
-                        onChange={(e) =>
-                          setFormData({ ...formData, portions: e.target.value })
-                        }
-                        className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Tamaño Porción (g)
-                      </label>
-                      <input
-                        type="number"
-                        name="portionSize"
-                        min="1"
-                        value={formData.portionSize}
-                        onChange={(e) =>
-                          setFormData({ ...formData, portionSize: e.target.value })
-                        }
-                        className="mt-1 block w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-
-                  <ElaborationStepEditor
-                    steps={elaborationSteps}
-                    onStepsChange={setElaborationSteps}
-                  />
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Ingredientes
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddIngredient}
-                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                      >
-                        + Agregar ingrediente
-                      </button>
-                    </div>
-                    <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
-                      {ingredients.map((ingredient, index) => (
-                        <div key={index} className="flex gap-2 items-center">
-                          <ProductCombobox
-                            value={ingredient.productId}
-                            label={ingredient.productName}
-                            onSelect={(product) => handleProductSelect(index, product)}
-                          />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className={m3Label}>Porciones *</label>
                           <input
                             type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Cantidad"
-                            value={ingredient.quantity}
-                            onChange={(e) =>
-                              handleIngredientChange(index, 'quantity', parseFloat(e.target.value))
-                            }
-                            className="w-24 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            name="portions"
+                            min="1"
+                            required
+                            value={formData.portions}
+                            onChange={(e) => setFormData({ ...formData, portions: e.target.value })}
+                            className={m3Field}
                           />
-                          <select
-                            value={ingredient.unit}
-                            onChange={(e) =>
-                              handleIngredientChange(index, 'unit', e.target.value)
-                            }
-                            className="w-20 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                          >
-                            <option value="kg">kg</option>
-                            <option value="g">g</option>
-                            <option value="l">l</option>
-                            <option value="ml">ml</option>
-                            <option value="units">u</option>
-                          </select>
-                          {ingredients.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveIngredient(index)}
-                              className="text-red-650 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-bold p-1"
-                            >
-                              ✕
-                            </button>
-                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sub-recetas */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Sub-recetas
-                      </label>
-                      <button
-                        type="button"
-                        onClick={handleAddSubRecipe}
-                        className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                      >
-                        + Agregar sub-receta
-                      </button>
-                    </div>
-                    {subRecipes.length > 0 && (
-                      <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
-                        {subRecipes.map((sub, index) => (
-                          <div key={index} className="flex gap-2 items-center">
-                            <SubRecipeCombobox
-                              items={recipes
-                                .filter((r) => r.id !== selectedRecipe?.id && r.isActive)
-                                .map((r) => ({ id: r.id, name: r.name }))}
-                              value={sub.subRecipeId}
-                              label={recipes.find((r) => r.id === sub.subRecipeId)?.name}
-                              onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
-                            />
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              placeholder="Cantidad"
-                              value={sub.quantity}
-                              onChange={(e) => handleSubRecipeChange(index, 'quantity', parseFloat(e.target.value))}
-                              className="w-24 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                            <select
-                              value={sub.unit}
-                              onChange={(e) => handleSubRecipeChange(index, 'unit', e.target.value)}
-                              className="w-28 px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            >
-                              <option value="raciones">raciones</option>
-                              <option value="kg">kg</option>
-                              <option value="g">g</option>
-                              <option value="l">l</option>
-                              <option value="ml">ml</option>
-                              <option value="units">u</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSubRecipe(index)}
-                              className="text-red-650 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-bold p-1"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
+                        <div>
+                          <label className={m3Label}>Tamaño Porción (g)</label>
+                          <input
+                            type="number"
+                            name="portionSize"
+                            min="1"
+                            value={formData.portionSize}
+                            onChange={(e) => setFormData({ ...formData, portionSize: e.target.value })}
+                            className={m3Field}
+                          />
+                        </div>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-100 dark:border-zinc-800">
+                      {/* Ingredientes */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className={m3Label}>Ingredientes</label>
+                          <button
+                            type="button"
+                            onClick={handleAddIngredient}
+                            className="text-sm font-medium text-[var(--primary)] hover:brightness-110"
+                          >
+                            + Agregar ingrediente
+                          </button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+                          {ingredients.map((ingredient, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <ProductCombobox
+                                value={ingredient.productId}
+                                label={ingredient.productName}
+                                onSelect={(product) => handleProductSelect(index, product)}
+                              />
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Cantidad"
+                                value={ingredient.quantity}
+                                onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value))}
+                                className={`w-24 text-sm ${m3InputBase}`}
+                              />
+                              <select
+                                value={ingredient.unit}
+                                onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
+                                className={`w-20 text-sm ${m3InputBase}`}
+                              >
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                                <option value="l">l</option>
+                                <option value="ml">ml</option>
+                                <option value="units">u</option>
+                              </select>
+                              {ingredients.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveIngredient(index)}
+                                  className="rounded-lg p-1 font-bold text-[var(--error)] hover:bg-[var(--error)]/10"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Sub-recetas */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className={m3Label}>Sub-recetas</label>
+                          <button
+                            type="button"
+                            onClick={handleAddSubRecipe}
+                            className="text-sm font-medium text-[var(--primary)] hover:brightness-110"
+                          >
+                            + Agregar sub-receta
+                          </button>
+                        </div>
+                        {subRecipes.length > 0 && (
+                          <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+                            {subRecipes.map((sub, index) => (
+                              <div key={index} className="flex gap-2 items-center">
+                                <SubRecipeCombobox
+                                  items={recipes
+                                    .filter((r) => r.id !== selectedRecipe?.id && r.isActive)
+                                    .map((r) => ({ id: r.id, name: r.name }))}
+                                  value={sub.subRecipeId}
+                                  label={recipes.find((r) => r.id === sub.subRecipeId)?.name}
+                                  onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Cantidad"
+                                  value={sub.quantity}
+                                  onChange={(e) => handleSubRecipeChange(index, 'quantity', parseFloat(e.target.value))}
+                                  className={`w-24 text-sm ${m3InputBase}`}
+                                />
+                                <select
+                                  value={sub.unit}
+                                  onChange={(e) => handleSubRecipeChange(index, 'unit', e.target.value)}
+                                  className={`w-28 text-sm ${m3InputBase}`}
+                                >
+                                  <option value="raciones">raciones</option>
+                                  <option value="kg">kg</option>
+                                  <option value="g">g</option>
+                                  <option value="l">l</option>
+                                  <option value="ml">ml</option>
+                                  <option value="units">u</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSubRecipe(index)}
+                                  className="rounded-lg p-1 font-bold text-[var(--error)] hover:bg-[var(--error)]/10"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Elaboración: pasos de la receta ── */}
+                  {activeTab === 'elaboracion' && (
+                    <ElaborationStepEditor steps={elaborationSteps} onStepsChange={setElaborationSteps} />
+                  )}
+
+                  {/* ── Clasificación: categorías y alérgenos (metadatos, no afectan al coste) ── */}
+                  {activeTab === 'clasificacion' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className={`${m3Label} mb-2`}>Categorías</label>
+                        <div className="flex flex-wrap gap-4 p-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">
+                          {categories.map((category) => (
+                            <label key={category.id} className="flex items-center space-x-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedCategoryIds.includes(category.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCategoryIds([...selectedCategoryIds, category.id]);
+                                  } else {
+                                    setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id));
+                                  }
+                                }}
+                                className="rounded border-[var(--outline-variant)] text-[var(--primary)] focus:ring-[var(--primary)]/40 bg-[var(--surface-container-lowest)]"
+                              />
+                              <span className="text-sm text-[var(--on-surface)]">
+                                {category.icon} {category.name}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={`${m3Label} mb-2`}>Alérgenos</label>
+                        <div className="flex flex-wrap gap-4 p-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">
+                          {allergenCatalog.map((allergen) => (
+                            <label key={allergen.id} className="flex items-center space-x-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedAllergenIds.includes(allergen.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedAllergenIds([...selectedAllergenIds, allergen.id]);
+                                  } else {
+                                    setSelectedAllergenIds(selectedAllergenIds.filter(id => id !== allergen.id));
+                                  }
+                                }}
+                                className="rounded border-[var(--outline-variant)] text-[var(--primary)] focus:ring-[var(--primary)]/40 bg-[var(--surface-container-lowest)]"
+                              />
+                              <span className="inline-flex items-center gap-1.5 text-sm text-[var(--on-surface)]">
+                                <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={18} />
+                                {allergen.name}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-4 border-t border-[var(--outline-variant)]">
                     <button
                       type="button"
                       onClick={() => {
@@ -908,7 +916,7 @@ export default function RecipesPage() {
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                         setSubRecipes([]);
                       }}
-                      className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
+                      className="rounded-full px-5 py-2 text-sm font-medium text-[var(--primary)] hover:bg-[var(--on-surface)]/10 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -918,7 +926,7 @@ export default function RecipesPage() {
                         createRecipeMutation.isPending ||
                         updateRecipeMutation.isPending
                       }
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                      className="rounded-full px-5 py-2 text-sm font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 transition"
                     >
                       {createRecipeMutation.isPending ||
                       updateRecipeMutation.isPending

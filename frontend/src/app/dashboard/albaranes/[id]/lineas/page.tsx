@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
+import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { confirmLine, rejectLine } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
@@ -26,6 +27,7 @@ export default function AlbaranLineasPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState<string | null>(null);
+  const addNotification = useNotification();
 
   // Product picker dialog state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -50,7 +52,11 @@ export default function AlbaranLineasPage() {
       refetch();
     } catch (err) {
       console.error('Error confirming line:', err);
-      alert(err instanceof Error ? err.message : 'Error al confirmar línea');
+      addNotification({
+        type: 'error',
+        title: 'No se pudo confirmar',
+        message: err instanceof Error ? err.message : 'Error al confirmar línea',
+      });
     } finally {
       setUpdating(null);
     }
@@ -63,7 +69,11 @@ export default function AlbaranLineasPage() {
       refetch();
     } catch (err) {
       console.error('Error rejecting line:', err);
-      alert(err instanceof Error ? err.message : 'Error al rechazar línea');
+      addNotification({
+        type: 'error',
+        title: 'No se pudo rechazar',
+        message: err instanceof Error ? err.message : 'Error al rechazar línea',
+      });
     } finally {
       setUpdating(null);
     }

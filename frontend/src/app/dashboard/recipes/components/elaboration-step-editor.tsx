@@ -49,13 +49,13 @@ export default function ElaborationStepEditor({ steps, onStepsChange }: Elaborat
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-[var(--on-surface)]">
           Pasos de elaboración
         </label>
         <button
           type="button"
           onClick={handleAddStep}
-          className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 cursor-pointer"
+          className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] hover:brightness-110 cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Añadir paso
@@ -63,7 +63,7 @@ export default function ElaborationStepEditor({ steps, onStepsChange }: Elaborat
       </div>
 
       {steps.length === 0 ? (
-        <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
+        <div className="text-center py-6 text-[var(--on-surface-variant)] text-sm border border-dashed border-[var(--outline-variant)] rounded-xl bg-[var(--surface-container-lowest)]">
           No hay pasos. Haz clic en &quot;Añadir paso&quot; para comenzar.
         </div>
       ) : (

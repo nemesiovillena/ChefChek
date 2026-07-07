@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
+import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,8 @@ export default function AlbaranResumenPage() {
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+  const addNotification = useNotification();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -35,7 +39,11 @@ export default function AlbaranResumenPage() {
       refetch();
     } catch (err) {
       console.error('Error updating status:', err);
-      alert(err instanceof Error ? err.message : 'Error al actualizar estado');
+      addNotification({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err instanceof Error ? err.message : 'Error al actualizar estado',
+      });
     } finally {
       setUpdating(false);
     }
@@ -43,7 +51,16 @@ export default function AlbaranResumenPage() {
 
   const handleDelete = async () => {
     if (!albaran) return;
-    if (!confirm(`¿Estás seguro de eliminar el albarán ${albaran.albaranNumber}?`)) return;
+    const number = albaran.albaranNumber || '';
+    const ok = await confirm({
+      title: 'Eliminar albarán',
+      description: number
+        ? `¿Estás seguro de eliminar el albarán ${number}? Esta acción no se puede deshacer.`
+        : '¿Estás seguro de eliminar este albarán? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
 
     setUpdating(true);
     try {
@@ -51,7 +68,11 @@ export default function AlbaranResumenPage() {
       router.push('/dashboard/albaranes');
     } catch (err) {
       console.error('Error deleting albaran:', err);
-      alert(err instanceof Error ? err.message : 'Error al eliminar albarán');
+      addNotification({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: err instanceof Error ? err.message : 'Error al eliminar albarán',
+      });
       setUpdating(false);
     }
   };

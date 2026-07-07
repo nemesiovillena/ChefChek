@@ -1,5 +1,22 @@
 # ChefChek — Estándares de Código y Convenciones
 
+## ⛔ Regla crítica: Cero pérdida de datos
+
+**Ningún cambio, refactor o migración puede provocar la pérdida de datos.** Esta regla prevalece sobre cualquier otra consideración (estética, limpieza, rendimiento) y es **no negociable**.
+
+Aplica a TODO tipo de trabajo:
+
+- **Migraciones de UI** (p. ej. sustituir `confirm()`/`alert()` nativos por diálogos/toasts):
+  - Una acción destructiva (borrar, sobrescribir, archivar, vaciar) **solo** puede ejecutarse **después** de una confirmación explícita del usuario. Nunca dispararla automáticamente ni omitir la confirmación.
+  - Conservar íntegra la lógica de negocio: mismos datos enviados, mismo endpoint, mismo orden. Si el flujo original pedía confirmación, el nuevo también debe pedirla.
+  - Antes de cerrar el cambio, verificar que la acción sigue ejecutándose al confirmar y que **no** se ejecuta al cancelar.
+- **Migraciones de base de datos / Prisma**:
+  - Toda migración debe ser **reversible** y probarse primero en seco (`dry-run`). Prohibido `TRUNCATE`, `DROP` o `DELETE` masivo sin backup explícito y aprobación.
+  - Para cambios de esquema con datos existentes, aportar `up` y `down` y un plan de rescate.
+- **Semántica de borrado**: preferir **soft-delete** (`isActive=false`, `deletedAt`) al borrado físico salvo que el producto lo exija y se justifique.
+
+**Verificación obligatoria antes de dar por terminado un cambio destructivo:** demostrar (test, curl o evidencia en UI) que (1) la acción no se dispara sin confirmación y (2) los datos confirmados se procesan correctamente. Si hay duda, conservar el comportamiento anterior y preguntar.
+
 ## 1. Idioma
 
 Toda la comunicación, comentarios, nombres de variables descriptivas y documentación se redactan en **español** cuando el contexto del negocio lo requiere. Los identificadores de código (variables, funciones, componentes) siguen la convención del lenguaje (kebab-case para archivos JS/TS, PascalCase para componentes React, snake_case para Python/SQL).

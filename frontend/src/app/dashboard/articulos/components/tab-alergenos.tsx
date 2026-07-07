@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import Image from 'next/image';
 import AllergenIcon from '@/components/shared/allergen-icon';
+import { useNotification } from '@/components/notification-system';
 import { useAllergens } from '@/hooks/use-allergens';
 
 interface TabAlergenosProps {
@@ -18,6 +19,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Catálogo BD: fuente de ids y nombres; los pictogramas UE los resuelve AllergenIcon.
   const { allergens: allergenCatalog } = useAllergens();
+  const addNotification = useNotification();
 
   const toggleAllergen = (id: number) => {
     if (allergens.includes(id)) {
@@ -31,7 +33,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
-      alert('El archivo no puede superar los 2 MB');
+      addNotification({ type: 'warning', title: 'Archivo demasiado grande', message: 'La imagen no puede superar los 2 MB.' });
       return;
     }
     onImageUpload(file);

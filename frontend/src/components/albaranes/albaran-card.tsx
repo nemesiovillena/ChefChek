@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { AlbaranStatusBadge } from './albaran-status-badge';
 import { deleteAlbaran, type Albaran } from '@/lib/api-albaran';
+import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import { FileText, Building2, Calendar, Euro, Layers, Trash2 } from 'lucide-react';
 
 interface AlbaranCardProps {
@@ -13,6 +15,8 @@ interface AlbaranCardProps {
 export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
   // El backend rechaza borrar albaranes confirmados/archivados (stock ya asentado)
   const canDelete = albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO';
+  const addNotification = useNotification();
+  const confirm = useConfirm();
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -29,12 +33,25 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
   const handleDelete = async (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation from Link
     e.stopPropagation();
-    if (!confirm(`¿Estás seguro de eliminar el albarán ${albaran.albaranNumber || albaran.internalNumber || ''}?`)) return;
+    const number = albaran.albaranNumber || albaran.internalNumber || '';
+    const ok = await confirm({
+      title: 'Eliminar albarán',
+      description: number
+        ? `¿Estás seguro de eliminar el albarán ${number}? Esta acción no se puede deshacer.`
+        : '¿Estás seguro de eliminar este albarán? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       await deleteAlbaran(albaran.id);
       onDelete?.(albaran.id);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al eliminar albarán');
+      addNotification({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: err instanceof Error ? err.message : 'Error al eliminar albarán',
+      });
     }
   };
 

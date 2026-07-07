@@ -183,7 +183,11 @@ export function SuppliersManagementModal({ isOpen, onClose }: Props) {
       }
       handleCancelForm();
     } catch (error: unknown) {
-      alert(resolveSupplierErrorMessage(error, 'Error al guardar proveedor'));
+      setNotification({
+        type: 'error',
+        title: 'No se pudo guardar',
+        message: resolveSupplierErrorMessage(error, 'Error al guardar proveedor'),
+      });
     }
   };
 

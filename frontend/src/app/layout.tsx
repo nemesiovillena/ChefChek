@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { NotificationSystem } from "@/components/notification-system";
 import { GlobalDblclickSelect } from "@/components/global-dblclick-select";
 import { AuthProvider } from "@/contexts/auth.context";
+import { ConfirmProvider } from "@/contexts/confirm.context";
 import { QueryProvider } from "@/lib/query-client";
 import "./globals.css";
 
@@ -35,8 +36,10 @@ export default function RootLayout({
         <QueryProvider>
           <GlobalDblclickSelect />
           <AuthProvider>
-            {children}
-            <NotificationSystem />
+            <ConfirmProvider>
+              {children}
+              <NotificationSystem />
+            </ConfirmProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

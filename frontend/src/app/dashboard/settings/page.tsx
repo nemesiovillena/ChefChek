@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
+import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
 import { AI_PROVIDERS, getApiKey, setApiKey } from '@/lib/ai-api-keys';
 import { Key, Eye, EyeOff, Check, AlertTriangle } from 'lucide-react';
@@ -21,6 +22,7 @@ interface TenantConfig {
 export default function SettingsPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const addNotification = useNotification();
   const [config, setConfig] = useState<TenantConfig | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -130,7 +132,7 @@ export default function SettingsPage() {
       const tenantSlug = sessionStorage.getItem('tenant_slug');
 
       if (!sessionId || !tenantSlug) {
-        alert('No session found. Please log in again.');
+        addNotification({ type: 'error', title: 'Sesión no encontrada', message: 'No hay sesión activa. Por favor, inicia sesión de nuevo.' });
         return;
       }
 

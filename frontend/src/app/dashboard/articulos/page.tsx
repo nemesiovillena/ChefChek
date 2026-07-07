@@ -8,7 +8,8 @@ import { useProducts, Product, useDeleteProduct, useUpdateProduct, getReferenceP
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { useConfirm } from '@/contexts/confirm.context';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
 
@@ -21,6 +22,7 @@ export default function ArticulosPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
+  const confirm = useConfirm();
 
   const { data: productsData, isLoading: productsLoading, error: productsError, refetch } = useProducts();
   const products: Product[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
@@ -205,15 +207,29 @@ export default function ArticulosPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (confirm(`¿Estás seguro de eliminar el artículo "${name}"?`)) {
-      try {
-        await deleteProductMutation.mutateAsync(id);
-        addNotification({ type: 'success', title: 'Artículo eliminado', message: 'Artículo eliminado correctamente' });
-        refetch();
-      } catch (error: unknown) {
-        addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'Error al eliminar artículo' });
-      }
+  const handleDelete = async (product: Product) => {
+    const ok = await confirm({
+      title: 'Eliminar artículo',
+      description: 'Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+      children: <ArticleContextCard product={product} />,
+    });
+    if (!ok) return;
+    try {
+      await deleteProductMutation.mutateAsync(product.id);
+      addNotification({
+        type: 'success',
+        title: 'Artículo eliminado',
+        message: `"${product.name}" se ha eliminado correctamente.`,
+      });
+      refetch();
+    } catch (error: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: error instanceof Error ? error.message : 'Error al eliminar el artículo',
+      });
     }
   };
 
@@ -635,7 +651,7 @@ export default function ArticulosPage() {
                             </button>
                           )}
                           <button
-                            onClick={() => handleDelete(product.id, product.name)}
+                            onClick={() => handleDelete(product)}
                             title="Eliminar artículo"
                             aria-label="Eliminar artículo"
                             className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
@@ -665,6 +681,29 @@ export default function ArticulosPage() {
         isOpen={showImportModal}
         onClose={() => { setShowImportModal(false); refetch(); }}
       />
+    </div>
+  );
+}
+
+/** Tarjeta de contexto para el diálogo de borrado: ancla la confirmación al artículo real. */
+function ArticleContextCard({ product }: { product: Product }) {
+  const refPrice = formatRefPrice(getReferencePrice(product), product.referenceUnit);
+  const meta = [product.category?.name, refPrice].filter(Boolean).join(' · ');
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--surface-container-highest)]">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <Tag className="h-5 w-5 text-[var(--on-surface-variant)]" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-[var(--on-surface)]">{product.name}</p>
+        {meta && <p className="truncate text-xs text-[var(--on-surface-variant)]">{meta}</p>}
+      </div>
     </div>
   );
 }

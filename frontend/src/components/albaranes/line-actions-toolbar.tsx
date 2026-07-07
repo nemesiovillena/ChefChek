@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { confirmLine } from '@/lib/api-albaran';
+import { useNotification } from '@/components/notification-system';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import type { AlbaranLine } from '@/lib/api-albaran';
@@ -14,6 +15,7 @@ interface LineActionsToolbarProps {
 
 export function LineActionsToolbar({ albaranId, lines, onRefresh }: LineActionsToolbarProps) {
   const [loading, setLoading] = useState(false);
+  const addNotification = useNotification();
 
   // Count lines by status
   const pendingHighMatch = lines.filter(
@@ -35,7 +37,11 @@ export function LineActionsToolbar({ albaranId, lines, onRefresh }: LineActionsT
       onRefresh();
     } catch (err) {
       console.error('Error confirming lines:', err);
-      alert(err instanceof Error ? err.message : 'Error al confirmar líneas');
+      addNotification({
+        type: 'error',
+        title: 'No se pudieron confirmar',
+        message: err instanceof Error ? err.message : 'Error al confirmar líneas',
+      });
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useCategories,
@@ -34,18 +36,28 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
+  const addNotification = useNotification();
+  const confirm = useConfirm();
 
   const [activeTab, setActiveTab] = useState('list');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const handleDelete = async (id: string, name: string) => {
-    if (confirm(`¿Eliminar categoría "${name}"? ${DELETE_WARNING[context]}`)) {
-      try {
-        await deleteMutation.mutateAsync(id);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Error al eliminar categoría';
-        alert(message);
-      }
+    const ok = await confirm({
+      title: 'Eliminar categoría',
+      description: `¿Eliminar "${name}"? ${DELETE_WARNING[context]}`,
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (error: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo eliminar',
+        message: error instanceof Error ? error.message : 'Error al eliminar categoría',
+      });
     }
   };
 
@@ -88,8 +100,11 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
       setActiveTab('list');
       setEditingCategory(null);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error al guardar categoría';
-      alert(message);
+      addNotification({
+        type: 'error',
+        title: 'No se pudo guardar',
+        message: error instanceof Error ? error.message : 'Error al guardar categoría',
+      });
     }
   };
 
