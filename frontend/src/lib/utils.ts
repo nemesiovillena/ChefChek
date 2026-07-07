@@ -25,3 +25,27 @@ export function slugify(text: string): string {
     .replace(/[\s_-]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// Descarga un Blob como archivo en el navegador (ancla un <a> y hace click).
+// Centraliza el patrón que se repetía inline en digital-menu/articulos/recipes.
+export function downloadBlob(filename: string, blob: Blob): void {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+// Formatea bytes (Number o string desde BigInt del backend) a humano: "1,2 MB".
+export function formatBytes(bytes: number | string | null | undefined): string {
+  if (bytes === null || bytes === undefined) return '—';
+  const n = typeof bytes === 'string' ? Number(bytes) : bytes;
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), units.length - 1);
+  const v = n / Math.pow(1024, i);
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}

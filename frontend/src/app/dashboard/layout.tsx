@@ -135,6 +135,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Link href="/dashboard/papelera" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
                     <span className="material-symbols-outlined text-[18px]">delete</span>Papelera
                   </Link>
+                  <Link href="/dashboard/backups" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">cloud_sync</span>Copias de Seguridad
+                  </Link>
                 </div>
                 <div className="border-t border-border p-2">
                   <Link href="/dashboard/settings" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">

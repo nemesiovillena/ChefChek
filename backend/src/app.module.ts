@@ -52,6 +52,8 @@ import { TrashModule } from "./modules/trash/trash.module";
 import { WebSocketModule } from "./websocket/websocket.module";
 import { ModulesModule } from "./modules/modules/modules.module";
 import { SuperadminModule } from "./modules/superadmin/superadmin.module";
+import { CostingConfigModule } from "./modules/costing-config/costing-config.module";
+import { BackupModule } from "./modules/backup/backup.module";
 
 @Module({
   imports: [
@@ -66,6 +68,7 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
     AuthModule,
     ProductsModule,
     CategoriesModule,
+    CostingConfigModule,
     RecipesModule,
     MenusModule,
     TechnicalSheetsModule,
@@ -87,6 +90,7 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
     WebSocketModule,
     ModulesModule,
     SuperadminModule,
+    BackupModule,
   ],
   controllers: [
     TenantsController,

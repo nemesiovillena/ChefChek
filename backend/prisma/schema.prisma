@@ -1656,3 +1656,55 @@ model Allergen {
 
   @@map("allergens")
 }
+
+// Copias de seguridad integradas (export/import). tenantId es nullable para
+// copias globales (SUPERADMIN); kind separa EXPORT (snapshot) de RESTORE (job
+// de restauración). Los auto-backups previos a un restore usan
+// type=AUTO_PRE_RESTORE y son visibles en el historial como anchor de rollback.
+model Backup {
+  id             String       @id @default(cuid())
+  tenantId       String?
+  scope          BackupScope  @default(TENANT)
+  status         BackupStatus @default(PENDING)
+  kind           BackupKind
+  type           BackupType   @default(MANUAL)
+  format         String       @default("json")
+  filename       String?
+  fileSizeBytes  BigInt?
+  rowCount       Int?
+  checksum       String?
+  schemaVersion  Int          @default(1)
+  sourceBackupId String?
+  notes          String?
+  errorMessage   String?      @db.Text
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+  completedAt    DateTime?
+
+  @@index([tenantId, kind, createdAt])
+  @@index([scope, createdAt])
+  @@map("backups")
+}
+
+enum BackupScope {
+  TENANT
+  GLOBAL
+}
+
+enum BackupStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum BackupKind {
+  EXPORT
+  RESTORE
+}
+
+enum BackupType {
+  MANUAL
+  AUTO_PRE_RESTORE
+  AUTO_SCHEDULED
+}
