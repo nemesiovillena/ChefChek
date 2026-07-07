@@ -164,7 +164,7 @@ export default function PapeleraPage() {
               onClick={() => setType(id)}
               className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
                 active
-                  ? 'border-transparent bg-[var(--primary)] text-[var(--on-primary)]'
+                  ? 'border-transparent bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm'
                   : 'border-[var(--outline-variant)] text-[var(--on-surface-variant)] hover:bg-[var(--on-surface)]/10'
               }`}
             >

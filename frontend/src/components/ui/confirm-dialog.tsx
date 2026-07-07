@@ -38,7 +38,7 @@ const VARIANT_STYLES: Record<
   info: {
     icon: <Info className="h-7 w-7" strokeWidth={2} />,
     tile: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    confirm: 'bg-[var(--primary)] text-[var(--on-primary)]',
+    confirm: 'bg-[var(--primary)] text-[var(--primary-foreground)]',
   },
 };
 
