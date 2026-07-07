@@ -139,6 +139,11 @@ model Product {
   wastePercentage Float @default(0)
   yieldFactor     Float @default(1.0)
 
+  // Prueba de rendimiento (Peso Bruto/Neto → deriva yieldFactor/wastePercentage) + ración
+  grossWeight   Float? // Peso Bruto (kg) de la prueba de rendimiento
+  netWeight     Float? // Peso Neto (kg) tras mermar
+  portionWeight Float? // Peso de una ración (g), para el coste de ración
+
   // Alérgenos (array de IDs)
   allergens Int[]
 

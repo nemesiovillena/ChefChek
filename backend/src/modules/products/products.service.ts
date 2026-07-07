@@ -21,6 +21,8 @@ export class ProductsService {
       wastePercentage = 0,
       profitMargin = 0,
       yieldFactor = 1.0,
+      grossWeight,
+      netWeight,
       allergens = [],
       category,
       supplier,
@@ -43,18 +45,31 @@ export class ProductsService {
       wastePercentage,
       profitMargin,
     );
+    // Peso Bruto/Neto (prueba de rendimiento) manda sobre el % de merma manual
+    // cuando ambos llegan — deriva yieldFactor/wastePercentage reales.
+    const yieldFromWeights =
+      grossWeight && netWeight && grossWeight > 0
+        ? netWeight / grossWeight
+        : undefined;
     const finalYieldFactor =
-      wastePercentage > 0
+      yieldFromWeights ??
+      (wastePercentage > 0
         ? this.calculateYieldFactor(wastePercentage)
-        : yieldFactor;
+        : yieldFactor);
+    const finalWastePercentage =
+      yieldFromWeights !== undefined
+        ? 100 - yieldFromWeights * 100
+        : wastePercentage;
 
     const createData: any = {
       tenantId: requestTenantId,
       purchasePrice: effectivePrice,
       netPrice,
       profitMargin,
-      wastePercentage,
+      wastePercentage: finalWastePercentage,
       yieldFactor: finalYieldFactor,
+      grossWeight,
+      netWeight,
       allergens,
       unitsPerFormat,
       referenceUnitSize: effectiveRefUnitSize,
@@ -326,6 +341,22 @@ export class ProductsService {
           wastePercentage > 0
             ? this.calculateYieldFactor(wastePercentage)
             : 1.0;
+      }
+    }
+
+    // Peso Bruto/Neto (prueba de rendimiento) manda sobre el % de merma manual
+    // cuando ambos están presentes (nuevos o ya guardados) — deriva
+    // yieldFactor/wastePercentage reales, igual que en create().
+    if (
+      updateData.grossWeight !== undefined ||
+      updateData.netWeight !== undefined
+    ) {
+      const grossWeight = updateData.grossWeight ?? existingProduct.grossWeight;
+      const netWeight = updateData.netWeight ?? existingProduct.netWeight;
+      if (grossWeight && netWeight && grossWeight > 0) {
+        const yieldFromWeights = netWeight / grossWeight;
+        data.yieldFactor = yieldFromWeights;
+        data.wastePercentage = 100 - yieldFromWeights * 100;
       }
     }
 

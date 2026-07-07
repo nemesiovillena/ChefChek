@@ -8,9 +8,11 @@ import PesoPrecioFields from './peso-precio-fields';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
+import TabMermas from './tab-mermas';
 
 const TABS = [
   { id: 'formato-precio', label: 'Formato y Precio' },
+  { id: 'mermas', label: 'Mermas' },
   { id: 'alergenos', label: 'Alérgenos' },
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'nutricion', label: 'Nutrición' },
@@ -35,7 +37,9 @@ const emptyFormData = {
   referenceUnit: 'kg',
   unitsPerFormat: '1',
   referenceUnitSize: '1',
-  wastePercentage: '',
+  grossWeight: '',
+  netWeight: '',
+  portionWeight: '',
   purchasePrice: '',
   iva: '10',
   qr: '',
@@ -62,7 +66,9 @@ function deriveFormData(article: Product | null | undefined) {
     referenceUnit: article.referenceUnit || 'kg',
     unitsPerFormat: String(article.unitsPerFormat || 1),
     referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
-    wastePercentage: article.wastePercentage?.toString() || '',
+    grossWeight: article.grossWeight?.toString() || '',
+    netWeight: article.netWeight?.toString() || '',
+    portionWeight: article.portionWeight?.toString() || '',
     purchasePrice: article.purchasePrice?.toString() || '',
     iva: article.iva?.toString() || '10',
     qr: article.qr || '',
@@ -176,7 +182,9 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
       referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
       purchasePrice: isNaN(parsedPrice) ? undefined : parsedPrice,
-      wastePercentage: parseFloat(formData.wastePercentage) || undefined,
+      grossWeight: parseFloat(formData.grossWeight) || undefined,
+      netWeight: parseFloat(formData.netWeight) || undefined,
+      portionWeight: parseFloat(formData.portionWeight) || undefined,
       iva: parseFloat(formData.iva) || undefined,
       qr: formData.qr || undefined,
       barcode: formData.barcode || undefined,
@@ -257,6 +265,12 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
         <div className="min-h-[200px]">
           {activeTab === 'formato-precio' && (
             <PesoPrecioFields
+              formData={formData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
+            />
+          )}
+          {activeTab === 'mermas' && (
+            <TabMermas
               formData={formData}
               setFormData={(data) => setFormData({ ...formData, ...data })}
             />

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useProducts, Product, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice } from '@/hooks/use-products';
+import { useProducts, Product, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
@@ -63,7 +63,7 @@ export default function ArticulosPage() {
       Categoría: getCategoryDisplay(product.categoryId),
       Proveedor: product.supplier?.name || '-',
       'Precio Compra': product.purchasePrice.toFixed(2),
-      'Precio Neto': product.netPrice.toFixed(2),
+      'Precio Real': getRealPrice(product)?.toFixed(2) ?? '-',
       'Precio Referencia': formatRefPrice(getReferencePrice(product), product.referenceUnit),
       IVA: product.iva,
       Formato: product.purchaseFormat || '',
@@ -130,7 +130,7 @@ export default function ArticulosPage() {
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${getCategoryDisplay(product.categoryId)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${product.supplier?.name || '-'}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.purchasePrice.toFixed(2)}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">&euro;${product.netPrice.toFixed(2)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${getRealPrice(product) !== null ? '&euro;' + getRealPrice(product)!.toFixed(2) : '-'}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">${formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${product.isActive ? 'Activo' : 'Desactivado'}</td>
       </tr>
@@ -159,7 +159,7 @@ export default function ArticulosPage() {
                 <th>Categoría</th>
                 <th>Proveedor</th>
                 <th style="text-align: right;">P. Compra</th>
-                <th style="text-align: right;">P. Neto</th>
+                <th style="text-align: right;">P. Real</th>
                 <th style="text-align: right;">P. Ref.</th>
                 <th style="text-align: center;">Estado</th>
               </tr>
@@ -392,9 +392,9 @@ export default function ArticulosPage() {
           valA = a.purchasePrice || 0;
           valB = b.purchasePrice || 0;
           break;
-        case 'netPrice':
-          valA = a.netPrice || 0;
-          valB = b.netPrice || 0;
+        case 'realPrice':
+          valA = getRealPrice(a) ?? 0;
+          valB = getRealPrice(b) ?? 0;
           break;
         case 'referencePrice':
           valA = getReferencePrice(a);
@@ -562,7 +562,7 @@ export default function ArticulosPage() {
                   {renderSortableHeader('Subcategoría', 'subcategory')}
                   {renderSortableHeader('Proveedor', 'supplier')}
                   {renderSortableHeader('Precio Compra', 'purchasePrice')}
-                  {renderSortableHeader('Precio Neto', 'netPrice')}
+                  {renderSortableHeader('Precio Real', 'realPrice')}
                   {renderSortableHeader('Precio Ref.', 'referencePrice')}
                   {renderSortableHeader('Última Compra', 'lastPurchaseDate')}
                   {renderSortableHeader('Estado', 'status')}
@@ -584,7 +584,11 @@ export default function ArticulosPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getCategoryDisplay(product.categoryId)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.purchasePrice.toFixed(2)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.netPrice.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {getRealPrice(product) !== null
+                            ? formatRefPrice(getRealPrice(product)!, product.referenceUnit)
+                            : <span className="text-gray-400 dark:text-gray-600">—</span>}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {product.lastPurchaseDate ? (

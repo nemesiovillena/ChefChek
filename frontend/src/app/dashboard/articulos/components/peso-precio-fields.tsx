@@ -9,7 +9,6 @@ export interface PesoPrecioFormData {
   referenceUnit: string;
   unitsPerFormat: string;
   referenceUnitSize: string;
-  wastePercentage: string;
   purchasePrice: string;
   iva: string;
   qr: string;
@@ -106,18 +105,6 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
             />
           </div>
         )}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">% Merma</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            max="100"
-            value={formData.wastePercentage}
-            onChange={(e) => update('wastePercentage', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          />
-        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra (&euro;)</label>
           <input

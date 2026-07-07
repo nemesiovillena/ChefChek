@@ -106,6 +106,22 @@ export class CreateProductDto {
   @Max(2)
   yieldFactor?: number;
 
+  // Prueba de rendimiento (Peso Bruto/Neto → deriva yieldFactor/wastePercentage) + ración
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  grossWeight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  netWeight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  portionWeight?: number;
+
   // Alérgenos
   @IsOptional()
   @IsArray()
@@ -230,6 +246,21 @@ export class UpdateProductDto {
   @Min(0.1)
   @Max(2)
   yieldFactor?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  grossWeight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  netWeight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  portionWeight?: number;
 
   @IsOptional()
   @IsArray()
