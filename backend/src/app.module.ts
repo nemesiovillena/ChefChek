@@ -48,6 +48,7 @@ import { EscandallosModule } from "./modules/escandallos/escandallos.module";
 import { SprintModule } from "./modules/sprint/sprint.module";
 import { QRModule } from "./modules/qr/qr.module";
 import { AlbaranesModule } from "./modules/albaranes/albaranes.module";
+import { TrashModule } from "./modules/trash/trash.module";
 import { WebSocketModule } from "./websocket/websocket.module";
 import { ModulesModule } from "./modules/modules/modules.module";
 import { SuperadminModule } from "./modules/superadmin/superadmin.module";
@@ -81,6 +82,7 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
     SprintModule,
     QRModule,
     AlbaranesModule,
+    TrashModule,
     GuardsModule,
     WebSocketModule,
     ModulesModule,
