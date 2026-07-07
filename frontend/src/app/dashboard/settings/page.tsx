@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
 import { AI_PROVIDERS, getApiKey, setApiKey } from '@/lib/ai-api-keys';
-import { Key, Eye, EyeOff, Check, AlertTriangle } from 'lucide-react';
+import { Key, Eye, EyeOff, Check, AlertTriangle, Percent } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
+import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,9 @@ export default function SettingsPage() {
   });
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, boolean>>({});
+
+  // Costeo de recetas: coste objetivo máximo (%) global del tenant
+  const { data: costingConfig } = useCostingConfig();
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -313,6 +317,21 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Costeo de Recetas */}
+        <div className="bg-white shadow rounded-lg mb-6 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Percent className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-xl font-semibold">Costeo de Recetas</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Coste objetivo máximo aplicado por defecto al escandallo de las recetas. Cada receta puede pisar este valor con su propio % objetivo.
+          </p>
+          <CostingConfigForm
+            key={costingConfig?.targetCostPercentage ?? 'loading'}
+            initialValue={costingConfig?.targetCostPercentage ?? 30}
+          />
+        </div>
+
         {/* Module Configuration */}
         <ModuleListWidget />
 
@@ -409,6 +428,50 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Formulario del % de coste objetivo global; se remonta (via key) cuando llega un nuevo valor del servidor. */
+function CostingConfigForm({ initialValue }: { initialValue: number }) {
+  const updateCostingConfigMutation = useUpdateCostingConfig();
+  const [targetCostPercentage, setTargetCostPercentage] = useState(String(initialValue));
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    const value = parseFloat(targetCostPercentage);
+    if (Number.isNaN(value) || value < 0 || value > 100) return;
+    await updateCostingConfigMutation.mutateAsync({ targetCostPercentage: value });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="flex items-end gap-3">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Coste objetivo máximo (%)
+        </label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          step={0.1}
+          value={targetCostPercentage}
+          onChange={(e) => setTargetCostPercentage(e.target.value)}
+          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={updateCostingConfigMutation.isPending}
+        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        } disabled:opacity-50`}
+      >
+        {saved ? '✓ Guardado' : 'Guardar'}
+      </button>
     </div>
   );
 }

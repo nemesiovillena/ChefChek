@@ -20,6 +20,17 @@ export interface RecipeSubRecipeItem {
   cost: number;
 }
 
+export interface RecipePricing {
+  targetCostPercentage: number;
+  isTargetCostOverridden: boolean;
+  targetGrossMarginPercentage: number;
+  theoreticalSellingPrice: number;
+  sellingPrice: number | null;
+  grossMargin: number | null;
+  grossMarginPercentage: number | null;
+  costPercentage: number | null;
+}
+
 export interface Recipe {
   id: string;
   name: string;
@@ -32,6 +43,8 @@ export interface Recipe {
   portionSize?: number;
   totalCost: number;
   totalCostPerUnit?: number;
+  sellingPrice?: number | null;
+  targetCostPercentageOverride?: number | null;
   version?: number;
   parentVersion?: string | null;
   isActive: boolean;
@@ -46,6 +59,7 @@ export interface Recipe {
     costPerPortion: number;
     costPerUnit: number;
   };
+  pricing?: RecipePricing;
   allergens: number[];
   createdAt: string;
   updatedAt: string;
@@ -71,24 +85,40 @@ export interface CreateRecipeData {
   subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
   categoryIds?: string[];
   allergens?: number[];
+  sellingPrice?: number;
+  targetCostPercentageOverride?: number;
 }
 
-export interface UpdateRecipeData extends Partial<CreateRecipeData> {
+export interface UpdateRecipeData
+  extends Omit<Partial<CreateRecipeData>, 'targetCostPercentageOverride'> {
   id: string;
   isActive?: boolean;
+  /** null limpia el override y vuelve a usar el % objetivo global */
+  targetCostPercentageOverride?: number | null;
+}
+
+export interface RecipeCostIngredient {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  cost: number;
+  grossWeight: number;
+  netWeight: number;
+  yieldPercentage: number;
+  wastePercentage: number;
+  referencePurchasePrice: number;
+  realPrice: number;
+  referenceUnit: string;
 }
 
 export interface RecipeCost {
   recipeId: string;
   totalCost: number;
   costPerPortion: number;
-  ingredients: {
-    productId: string;
-    productName: string;
-    quantity: number;
-    unit: string;
-    cost: number;
-  }[];
+  ingredients: RecipeCostIngredient[];
+  subRecipes?: RecipeSubRecipeItem[];
+  pricing: RecipePricing;
 }
 
 // Recipes CRUD hooks.

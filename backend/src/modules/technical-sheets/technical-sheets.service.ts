@@ -271,12 +271,25 @@ export class TechnicalSheetsService {
     const styles = template.styles || this.getDefaultStyles();
     // Los templates seed pueden traer layout vacío ({}); sin este fallback
     // ninguna sección sería visible y el PDF saldría en blanco.
-    const layout = template.layout?.header
-      ? template.layout
-      : this.getDefaultLayout();
+    // "Receta" (recipeCardOnly) ignora el layout del template: solo header +
+    // ingredientes + elaboración, para imprimir en cocina sin costes/alérgenos.
+    const layout = options.recipeCardOnly
+      ? this.getRecipeCardLayout()
+      : template.layout?.header
+        ? template.layout
+        : this.getDefaultLayout();
+    const effectiveOptions = options.recipeCardOnly
+      ? { ...options, includeCosts: false, includeAllergens: false }
+      : options;
 
     if (layout.header.visible) {
-      this.generateHeader(doc, recipe, template, styles);
+      this.generateHeader(
+        doc,
+        recipe,
+        template,
+        styles,
+        options.recipeCardOnly,
+      );
     }
 
     if (layout.generalInfo.visible) {
@@ -284,7 +297,7 @@ export class TechnicalSheetsService {
     }
 
     if (layout.ingredients.visible) {
-      this.generateIngredients(doc, recipe, template, styles, options);
+      this.generateIngredients(doc, recipe, template, styles, effectiveOptions);
     }
 
     if (layout.preparation.visible) {
@@ -296,7 +309,7 @@ export class TechnicalSheetsService {
     }
 
     if (layout.footer.visible) {
-      this.generateFooter(doc, template, styles, options);
+      this.generateFooter(doc, template, styles, effectiveOptions);
     }
 
     doc.end();
@@ -311,9 +324,10 @@ export class TechnicalSheetsService {
     recipe: any,
     template: any,
     styles: any,
+    recipeCardOnly?: boolean,
   ): void {
     doc.fontSize(styles.headerFontSize || 18).font("Helvetica-Bold");
-    doc.text("FICHA TÉCNICA", { align: "center" });
+    doc.text(recipeCardOnly ? "RECETA" : "FICHA TÉCNICA", { align: "center" });
     doc.moveDown();
 
     doc.fontSize(24).font("Helvetica-Bold");
@@ -434,6 +448,10 @@ export class TechnicalSheetsService {
     steps.forEach((step, index) => {
       doc.text(`${index + 1}. ${step.text}`);
       doc.moveDown();
+      if (step.equipment) {
+        doc.text(`   Utensilios: ${step.equipment}`);
+        doc.moveDown();
+      }
       if (step.time) {
         doc.text(`   Tiempo: ${step.time}`);
         doc.moveDown();
@@ -568,6 +586,20 @@ export class TechnicalSheetsService {
     };
   }
 
+  // "Receta": solo nombre+descripción, ingredientes y elaboración (con
+  // utensilios/tiempo/temperatura) — sin código/porciones/rendimiento,
+  // costes, alérgenos ni nutrición.
+  private getRecipeCardLayout() {
+    return {
+      header: { visible: true, order: 1 },
+      generalInfo: { visible: false, order: 2 },
+      ingredients: { visible: true, order: 3 },
+      preparation: { visible: true, order: 4 },
+      nutrition: { visible: false, order: 5 },
+      footer: { visible: true, order: 6 },
+    };
+  }
+
   private getDefaultFields() {
     return [
       { id: "name", name: "Nombre", type: "TEXT", required: true },
@@ -591,9 +623,12 @@ export class TechnicalSheetsService {
 
   // Recipe.elaboration es JSON {"steps":[{description,equipment,time,temperature}]}
   // (ElaborationStepEditor). Se tolera texto plano legacy separado por saltos de línea.
-  private parsePreparationSteps(
-    elaboration: string,
-  ): Array<{ text: string; time?: string; temperature?: string }> {
+  private parsePreparationSteps(elaboration: string): Array<{
+    text: string;
+    time?: string;
+    temperature?: string;
+    equipment?: string;
+  }> {
     if (!elaboration) {
       return [{ text: "No hay pasos de elaboración especificados" }];
     }
@@ -607,6 +642,7 @@ export class TechnicalSheetsService {
             text: String(s.description),
             time: s.time ? String(s.time) : undefined,
             temperature: s.temperature ? String(s.temperature) : undefined,
+            equipment: s.equipment ? String(s.equipment) : undefined,
           }));
         if (steps.length > 0) {
           return steps;

@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
+import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import {
   RecipeResponse,
@@ -12,11 +13,15 @@ import {
   SubRecipeResponse,
   RecipeCostBreakdown,
   RecipeCostResponse,
+  RecipePricing,
 } from "./dto/recipe-response.dto";
 
 @Injectable()
 export class RecipesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private costingConfigService: CostingConfigService,
+  ) {}
 
   async create(
     tenantId: string,
@@ -33,6 +38,8 @@ export class RecipesService {
       isPublic = false,
       categoryIds = [],
       allergens = [],
+      sellingPrice,
+      targetCostPercentageOverride,
     } = createRecipeDto;
 
     // Validar que elaboration, si viene, sea JSON válido (pasos estructurados)
@@ -68,6 +75,8 @@ export class RecipesService {
         portionSize,
         totalCost: costBreakdown.totalCost,
         totalCostPerUnit: costBreakdown.costPerUnit,
+        sellingPrice,
+        targetCostPercentageOverride,
         version: 1,
         isPublic,
         allergens,
@@ -136,7 +145,9 @@ export class RecipesService {
       orderBy: { createdAt: "desc" },
     });
 
-    return recipes.map((recipe) => this.formatRecipeResponse(recipe));
+    return Promise.all(
+      recipes.map((recipe) => this.formatRecipeResponse(recipe)),
+    );
   }
 
   async findOne(tenantId: string, id: string): Promise<RecipeResponse> {
@@ -231,6 +242,8 @@ export class RecipesService {
       categoryIds,
       allergens = recipe.allergens,
       isActive = recipe.isActive,
+      sellingPrice = recipe.sellingPrice,
+      targetCostPercentageOverride = recipe.targetCostPercentageOverride,
     } = updateRecipeDto;
 
     // Validar y parsear elaboration si se actualiza
@@ -283,6 +296,8 @@ export class RecipesService {
         isPublic,
         allergens,
         isActive,
+        sellingPrice,
+        targetCostPercentageOverride,
       },
       include: {
         ingredients: {
@@ -409,6 +424,7 @@ export class RecipesService {
       ...recipe.costBreakdown!,
       ingredients: recipe.ingredients || [],
       subRecipes: recipe.subRecipes || [],
+      pricing: recipe.pricing!,
     };
   }
 
@@ -574,18 +590,38 @@ export class RecipesService {
     };
   }
 
-  private formatRecipeResponse(recipe: any): RecipeResponse {
+  private async formatRecipeResponse(recipe: any): Promise<RecipeResponse> {
     const ingredients: IngredientResponse[] =
-      recipe.ingredients?.map((ing: any) => ({
-        id: ing.id,
-        productId: ing.productId,
-        productName: ing.product.name,
-        quantity: ing.quantity,
-        unit: ing.unit,
-        cost: ing.product
-          ? ing.quantity * calculateProductCostPerUnit(ing.product, ing.unit)
-          : 0,
-      })) || [];
+      recipe.ingredients?.map((ing: any) => {
+        const product = ing.product;
+        const yieldFactor =
+          product?.yieldFactor && product.yieldFactor > 0
+            ? product.yieldFactor
+            : 1;
+        const unitSize = product?.unitSize > 0 ? product.unitSize : 1;
+        const referencePurchasePrice = product
+          ? product.purchasePrice / unitSize
+          : 0;
+        const yieldPercentage = yieldFactor * 100;
+
+        return {
+          id: ing.id,
+          productId: ing.productId,
+          productName: product?.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          cost: product
+            ? ing.quantity * calculateProductCostPerUnit(product, ing.unit)
+            : 0,
+          grossWeight: ing.quantity,
+          netWeight: ing.quantity * yieldFactor,
+          yieldPercentage,
+          wastePercentage: 100 - yieldPercentage,
+          referencePurchasePrice,
+          realPrice: referencePurchasePrice / yieldFactor,
+          referenceUnit: product?.referenceUnit || "kg",
+        };
+      }) || [];
 
     const subRecipes: SubRecipeResponse[] =
       recipe.subRecipes?.map((sub: any) => ({
@@ -654,6 +690,11 @@ export class RecipesService {
       }
     });
 
+    const pricing = await this.buildPricing(
+      recipe,
+      costBreakdown.costPerPortion,
+    );
+
     return {
       id: recipe.id,
       name: recipe.name,
@@ -663,6 +704,8 @@ export class RecipesService {
       portionSize: recipe.portionSize,
       totalCost: costBreakdown.totalCost,
       totalCostPerUnit: costBreakdown.costPerUnit,
+      sellingPrice: recipe.sellingPrice ?? null,
+      targetCostPercentageOverride: recipe.targetCostPercentageOverride ?? null,
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,
@@ -673,7 +716,44 @@ export class RecipesService {
       subRecipes,
       categories,
       costBreakdown,
+      pricing,
       allergens: Array.from(allergens),
+    };
+  }
+
+  /**
+   * Pricing derivado del escandallo: coste objetivo (global u override de la
+   * receta), margen bruto a partir del PVP sin IVA manual, y PVP teórico
+   * (regla de negocio fija: coste × 4). El IVA queda fuera de alcance.
+   */
+  private async buildPricing(
+    recipe: any,
+    costPerPortion: number,
+  ): Promise<RecipePricing> {
+    const config = await this.costingConfigService.getConfig(recipe.tenantId);
+    const isTargetCostOverridden =
+      recipe.targetCostPercentageOverride !== null &&
+      recipe.targetCostPercentageOverride !== undefined;
+    const targetCostPercentage = isTargetCostOverridden
+      ? recipe.targetCostPercentageOverride
+      : config.targetCostPercentage;
+
+    const sellingPrice: number | null = recipe.sellingPrice ?? null;
+    const hasSellingPrice = sellingPrice !== null && sellingPrice > 0;
+
+    return {
+      targetCostPercentage,
+      isTargetCostOverridden,
+      targetGrossMarginPercentage: 100 - targetCostPercentage,
+      theoreticalSellingPrice: costPerPortion * 4,
+      sellingPrice,
+      grossMargin: hasSellingPrice ? sellingPrice! - costPerPortion : null,
+      grossMarginPercentage: hasSellingPrice
+        ? ((sellingPrice! - costPerPortion) / sellingPrice!) * 100
+        : null,
+      costPercentage: hasSellingPrice
+        ? (costPerPortion / sellingPrice!) * 100
+        : null,
     };
   }
 }

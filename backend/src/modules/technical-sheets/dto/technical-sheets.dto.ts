@@ -150,6 +150,13 @@ export class GenerateSheetDto {
   @IsOptional()
   @IsBoolean()
   includeCosts?: boolean;
+
+  // "Receta" imprimible: solo header (nombre+descripción), ingredientes y
+  // elaboración (con utensilios/tiempo/temperatura) — sin costes/alérgenos/
+  // info general/nutrición, sea cual sea el template o las demás opciones.
+  @IsOptional()
+  @IsBoolean()
+  recipeCardOnly?: boolean;
 }
 
 export class GenerateBatchDto {

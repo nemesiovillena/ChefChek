@@ -12,7 +12,6 @@ import {
   useUpdateRecipe,
   useDeleteRecipe,
   RecipeIngredient,
-  useRecipeCost,
 } from '@/hooks/use-recipes';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string };
@@ -23,7 +22,8 @@ import ElaborationStepEditor, {
 } from './components/elaboration-step-editor';
 import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
-import { ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
+import RecipeCostModal from './components/recipe-cost-modal';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2 } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import AllergenBadge from '@/components/shared/allergen-badge';
@@ -77,7 +77,7 @@ export default function RecipesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [sortField, setSortField] = useState<'name' | 'category' | 'totalCost' | 'costPerUnit'>('name');
+  const [sortField, setSortField] = useState<'name' | 'category' | 'costPerUnit'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedAllergenIds, setSelectedAllergenIds] = useState<number[]>([]);
@@ -170,14 +170,18 @@ export default function RecipesPage() {
     setShowCostModal(true);
   };
 
-  // Genera la ficha técnica en PDF y la abre en pestaña nueva con el visor
-  // nativo del navegador (zoom/imprimir/descargar sin UI propia).
-  const handleViewSheet = async (recipe: Recipe) => {
+  // Genera un PDF de /v1/technical-sheets/generate y lo abre en pestaña nueva
+  // con el visor nativo del navegador (zoom/imprimir/descargar sin UI propia).
+  const openGeneratedPdf = async (
+    recipe: Recipe,
+    extraOptions: Record<string, unknown>,
+    errorMessage: string,
+  ) => {
     setGeneratingSheetId(recipe.id);
     try {
       const response = await apiClient.post(
         '/v1/technical-sheets/generate',
-        { recipeId: recipe.id, includeAllergens: true, includeCosts: true },
+        { recipeId: recipe.id, ...extraOptions },
         { responseType: 'blob' },
       );
       const url = URL.createObjectURL(
@@ -187,15 +191,27 @@ export default function RecipesPage() {
       // El visor ya cargó el blob; liberar la URL pasado un margen amplio
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
-      addNotification({
-        type: 'error',
-        title: 'Error',
-        message: 'No se pudo generar la ficha técnica',
-      });
+      addNotification({ type: 'error', title: 'Error', message: errorMessage });
     } finally {
       setGeneratingSheetId(null);
     }
   };
+
+  const handleViewSheet = (recipe: Recipe) =>
+    openGeneratedPdf(
+      recipe,
+      { includeAllergens: true, includeCosts: true },
+      'No se pudo generar la ficha técnica',
+    );
+
+  // "Receta" imprimible: solo nombre+descripción, ingredientes y elaboración
+  // (utensilios/tiempo/temperatura) — sin costes ni alérgenos.
+  const handleViewRecipeCard = (recipe: Recipe) =>
+    openGeneratedPdf(
+      recipe,
+      { recipeCardOnly: true },
+      'No se pudo generar la receta',
+    );
 
   const handleAddIngredient = () => {
     setIngredients([...ingredients, { productId: '', productName: '', quantity: 0, unit: 'kg' }]);
@@ -360,8 +376,6 @@ export default function RecipesPage() {
         if (!catB) return -1;
         return (catA.localeCompare(catB, 'es') || a.name.localeCompare(b.name, 'es')) * dir;
       }
-      case 'totalCost':
-        return (a.totalCost - b.totalCost) * dir;
       case 'costPerUnit':
         return (costPerPortionOf(a) - costPerPortionOf(b)) * dir;
     }
@@ -496,9 +510,8 @@ export default function RecipesPage() {
                     Alérgenos
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Porciones
+                    Raciones
                   </th>
-                  {renderSortableHeader('Costo Total', 'totalCost')}
                   {renderSortableHeader('Costo/Ración', 'costPerUnit')}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Estado
@@ -511,7 +524,7 @@ export default function RecipesPage() {
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {sortedRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                       No hay recetas
                     </td>
                   </tr>
@@ -559,9 +572,6 @@ export default function RecipesPage() {
                         {recipe.portions} ({recipe.portionSize}g)
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {formatEuro(recipe.totalCost)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {formatEuro(costPerPortionOf(recipe))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -578,29 +588,46 @@ export default function RecipesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                         <button
+                          onClick={() => handleViewRecipeCard(recipe)}
+                          disabled={generatingSheetId === recipe.id}
+                          title="Receta (imprimir)"
+                          aria-label="Receta (imprimir)"
+                          className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-wait dark:border-purple-900/30 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                        >
+                          <BookOpen className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleViewSheet(recipe)}
                           disabled={generatingSheetId === recipe.id}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          title="Ficha técnica"
+                          aria-label="Ficha técnica"
+                          className="inline-flex items-center justify-center p-2 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                         >
-                          {generatingSheetId === recipe.id ? 'Generando…' : 'Ficha'}
+                          <FileText className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleViewCost(recipe)}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          title="Costo"
+                          aria-label="Costo"
+                          className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                         >
-                          Costo
+                          <Calculator className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(recipe)}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          title="Editar receta"
+                          aria-label="Editar receta"
+                          className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                         >
-                          Editar
+                          <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(recipe.id, recipe.name)}
-                          className="inline-flex items-center justify-center px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          title="Eliminar receta"
+                          aria-label="Eliminar receta"
+                          className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
                         >
-                          Eliminar
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
                     </tr>
@@ -953,169 +980,6 @@ export default function RecipesPage() {
           />
         )}
       </main>
-    </div>
-  );
-}
-
-function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
-  const { data: costData, isLoading: costLoading } = useRecipeCost(recipe.id);
-
-  return (
-    <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-6 border border-gray-200 dark:border-zinc-800 w-full max-w-3xl shadow-xl rounded-md bg-white dark:bg-zinc-900 text-gray-900 dark:text-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-            Costo: {recipe.name}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-
-        {costLoading ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Calculando costo...</div>
-        ) : costData ? (
-          <div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-4 rounded-lg transition-colors">
-                <div className="text-sm text-green-700 dark:text-green-400">Costo Total</div>
-                <div className="text-2xl font-bold text-green-900 dark:text-green-200">
-                  {formatEuro(costData.totalCost)}
-                </div>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-lg transition-colors">
-                <div className="text-sm text-blue-700 dark:text-blue-400">Costo por Porción</div>
-                <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">
-                  {formatEuro(costData.costPerPortion)}
-                </div>
-              </div>
-            </div>
-
-            <h4 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Ingredientes</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-                <thead className="bg-gray-50 dark:bg-zinc-800/50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Producto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Cantidad
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Unidad
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Costo
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
-                  {costData.ingredients
-                    ? costData.ingredients.map((ingredient, index) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                            {ingredient.productName}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {ingredient.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {ingredient.unit}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
-                            {formatEuro(ingredient.cost)}
-                          </td>
-                        </tr>
-                      ))
-                    : recipe.ingredients.map((ingredient, index) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                            {ingredient.productName ?? ingredient.productId}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {ingredient.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {ingredient.unit}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 text-right">
-                            —
-                          </td>
-                        </tr>
-                      ))}
-                </tbody>
-              </table>
-            </div>
-
-            {recipe.subRecipes && recipe.subRecipes.length > 0 && (
-              <>
-                <h4 className="text-lg font-medium mt-6 mb-4 text-gray-900 dark:text-white">Sub-recetas</h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-                    <thead className="bg-gray-50 dark:bg-zinc-800/50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Receta
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Cantidad
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Unidad
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          Costo
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
-                      {recipe.subRecipes.map((sub, index) => (
-                        <tr key={index}>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                            {sub.subRecipeName}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {sub.quantity}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {sub.unit}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">
-                            {formatEuro(sub.cost)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
-
-        <div className="mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
-          >
-            Cerrar
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

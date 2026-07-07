@@ -2,10 +2,15 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { RecipesService } from "./recipes.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 
 describe("RecipesService", () => {
   let service: RecipesService;
+
+  const mockCostingConfigService = {
+    getConfig: jest.fn().mockResolvedValue({ targetCostPercentage: 30 }),
+  };
 
   const mockPrismaService = {
     recipe: {
@@ -101,6 +106,10 @@ describe("RecipesService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: CostingConfigService,
+          useValue: mockCostingConfigService,
         },
       ],
     }).compile();

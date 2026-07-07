@@ -229,6 +229,10 @@ model Recipe {
   totalCost        Float @default(0)
   totalCostPerUnit Float @default(0)
 
+  // Pricing (PVP sin IVA manual + override de coste objetivo)
+  sellingPrice                  Float?
+  targetCostPercentageOverride  Float?
+
   // Rendimiento
   portions    Int   @default(1)
   portionSize Float @default(1)

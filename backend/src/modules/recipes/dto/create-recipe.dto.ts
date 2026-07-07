@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   Min,
+  Max,
   ValidateNested,
   IsObject,
 } from "class-validator";
@@ -87,4 +88,17 @@ export class CreateRecipeDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // PVP sin IVA, manual — base para calcular margen bruto en el escandallo
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sellingPrice?: number;
+
+  // % de coste objetivo propio de esta receta; sin valor usa el global de Configuración
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  targetCostPercentageOverride?: number;
 }
