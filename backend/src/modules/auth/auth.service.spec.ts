@@ -33,6 +33,7 @@ describe("AuthService", () => {
     role: "USER" as const,
     tenantId: "tenant-123",
     isActive: true,
+    avatarUrl: null,
   };
 
   const mockSession = {
@@ -213,6 +214,7 @@ describe("AuthService", () => {
             name: mockUser.name,
             role: mockUser.role,
             tenantId: mockUser.tenantId,
+            avatarUrl: mockUser.avatarUrl,
           },
           session: {
             id: mockSession.id,
@@ -247,6 +249,7 @@ describe("AuthService", () => {
       role: "SUPERADMIN" as const,
       tenantId: null,
       isActive: true,
+      avatarUrl: null,
     };
 
     it("should login SUPERADMIN without tenantSlug and return tenantId null", async () => {
@@ -411,6 +414,12 @@ describe("AuthService", () => {
       name: "New User",
       role: "USER" as const,
       isActive: true,
+      avatarUrl: null,
+      street: null,
+      city: null,
+      phone: null,
+      whatsapp: null,
+      payrollEmail: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

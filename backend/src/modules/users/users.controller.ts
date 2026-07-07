@@ -11,7 +11,13 @@ import {
   HttpStatus,
   Req,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import * as fs from "fs";
+import * as path from "path";
 import {
   ApiTags,
   ApiOperation,
@@ -42,6 +48,40 @@ export class UsersController {
   async create(@Body() createUserDto: CreateUserDto, @Req() req: any) {
     const tenantId = req.tenantId; // Extraído del middleware de tenant
     return this.usersService.create(createUserDto, tenantId);
+  }
+
+  @Post("upload-avatar")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Subir avatar de usuario" })
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }),
+  )
+  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException("No file provided");
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        "Only jpg, png, webp and gif images are allowed",
+      );
+    }
+
+    const uploadsDir = path.join(process.cwd(), "uploads", "users");
+    /* istanbul ignore next */
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
+
+    return {
+      success: true,
+      data: { avatarUrl: `/uploads/users/${fileName}` },
+      message: "Avatar uploaded successfully",
+    };
   }
 
   @Get()

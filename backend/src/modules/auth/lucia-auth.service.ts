@@ -11,6 +11,7 @@ interface LuciaUserAttributes {
   role: string;
   tenantId: string;
   isActive: boolean;
+  avatarUrl: string | null;
 }
 
 @Injectable()
@@ -40,6 +41,7 @@ export class LuciaAuthService implements OnModuleInit {
           role: attributes.role,
           tenantId: attributes.tenantId,
           isActive: attributes.isActive,
+          avatarUrl: attributes.avatarUrl,
         };
       },
       sessionExpiresIn: new TimeSpan(24, "h"), // 24 horas

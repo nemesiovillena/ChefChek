@@ -22,6 +22,7 @@ export interface AuthResponse {
     name: string;
     role: string;
     tenantId: string | null;
+    avatarUrl?: string | null;
   };
   session: {
     id: string;

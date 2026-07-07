@@ -64,6 +64,14 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // FormData bodies (file uploads) need the browser to compute the
+    // multipart boundary itself. The instance default ('application/json')
+    // would otherwise stick and axios would JSON.stringify the FormData
+    // into "{}", silently dropping the file.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error: AxiosError) => {

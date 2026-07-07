@@ -75,6 +75,12 @@ model User {
   name         String
   role         UserRole  @default(USER)
   isActive     Boolean   @default(true)
+  avatarUrl    String?
+  street       String?
+  city         String?
+  phone        String?
+  whatsapp     String?
+  payrollEmail String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?

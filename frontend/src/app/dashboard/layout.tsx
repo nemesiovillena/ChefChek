@@ -10,6 +10,12 @@ import { useWebSocketNotifications } from '@/hooks/use-websocket';
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
+function getInitials(name?: string): string {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
@@ -126,6 +132,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <Link href="/dashboard/sprint-tracker" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
                     <span className="material-symbols-outlined text-[18px]">track_changes</span>Sprint
                   </Link>
+                  <Link href="/dashboard/papelera" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
+                    <span className="material-symbols-outlined text-[18px]">delete</span>Papelera
+                  </Link>
                 </div>
                 <div className="border-t border-border p-2">
                   <Link href="/dashboard/settings" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
@@ -141,14 +150,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="font-label-sm text-label-sm text-on-surface-variant">{(user?.role || 'CHEF DE CUISINE').toUpperCase()}</p>
             <p className="font-body-md text-body-md text-primary">{user?.name || 'Marcus V.'}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer" onClick={() => router.push('/dashboard/settings')}>
-            <Image
-              alt="Chef Profile"
-              width={40}
-              height={40}
-              className="object-cover w-full h-full"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyjEviJPItAjkIVE069AOakDc9BxNwOWm9b28J4CyXeWz8GsiEoqfmGJvcojI_ljpYcNv6Ns3Sbhp_39eMXgV6AEF6iwWkH4_3fnwSUX5aV1WRd4GSdBc1hswyFlMBNg1QxZ3ibN7ZoMxA7tpasgN8OuninUUnkyb-esrf2U97m4ENXRPvf1u_3-Uup0A2UXwbPmQmJxxJPKISeMhP8nRk1OsyGBbOFHt0RgD2sqs2V3igDz42dSP8kRMAeHI0se30xtIGpJToJ2c"
-            />
+          <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => router.push('/dashboard/settings')}>
+            {user?.avatarUrl ? (
+              <Image
+                alt="Foto de perfil"
+                width={40}
+                height={40}
+                className="object-cover w-full h-full"
+                src={user.avatarUrl}
+              />
+            ) : (
+              getInitials(user?.name) || <span className="material-symbols-outlined text-[20px]">person</span>
+            )}
           </div>
           <button
             onClick={() => setShowNotifications(!showNotifications)}

@@ -59,6 +59,7 @@ export class AuthService {
           name: user.name,
           role: user.role,
           tenantId: user.tenantId,
+          avatarUrl: user.avatarUrl,
         },
         session: {
           id: session.id,

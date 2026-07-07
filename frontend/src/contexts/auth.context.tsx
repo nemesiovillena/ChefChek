@@ -17,6 +17,8 @@ export interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  /** Re-valida la sesión contra el backend y refresca `user` (p. ej. tras editar el propio perfil). */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -218,6 +220,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const refreshUser = async () => {
+    const session = await authService.getCurrentSession();
+    if (session) {
+      setUser(session.user);
+      sessionStorage.setItem('user', JSON.stringify(session.user));
+    }
+  };
+
   const value: AuthContextType = {
     user,
     tenantId,
@@ -230,6 +240,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshSession,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

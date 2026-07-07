@@ -21,6 +21,12 @@ export class UsersService {
       name,
       role = "USER",
       isActive = true,
+      avatarUrl,
+      street,
+      city,
+      phone,
+      whatsapp,
+      payrollEmail,
     } = createUserDto;
 
     if ((role as string) === "SUPERADMIN") {
@@ -72,6 +78,12 @@ export class UsersService {
         name,
         role,
         isActive,
+        avatarUrl,
+        street,
+        city,
+        phone,
+        whatsapp,
+        payrollEmail,
       },
       select: {
         id: true,
@@ -79,6 +91,12 @@ export class UsersService {
         name: true,
         role: true,
         isActive: true,
+        avatarUrl: true,
+        street: true,
+        city: true,
+        phone: true,
+        whatsapp: true,
+        payrollEmail: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -106,6 +124,12 @@ export class UsersService {
           name: true,
           role: true,
           isActive: true,
+          avatarUrl: true,
+          street: true,
+          city: true,
+          phone: true,
+          whatsapp: true,
+          payrollEmail: true,
           createdAt: true,
         },
       }),
@@ -138,6 +162,12 @@ export class UsersService {
         name: true,
         role: true,
         isActive: true,
+        avatarUrl: true,
+        street: true,
+        city: true,
+        phone: true,
+        whatsapp: true,
+        payrollEmail: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -187,6 +217,12 @@ export class UsersService {
         name: true,
         role: true,
         isActive: true,
+        avatarUrl: true,
+        street: true,
+        city: true,
+        phone: true,
+        whatsapp: true,
+        payrollEmail: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -239,6 +275,7 @@ export class UsersService {
       role: user.role,
       tenantId: user.tenantId,
       isActive: user.isActive,
+      avatarUrl: user.avatarUrl,
     };
   }
 
@@ -264,6 +301,7 @@ export class UsersService {
       role: user.role,
       tenantId: user.tenantId,
       isActive: user.isActive,
+      avatarUrl: user.avatarUrl,
     };
   }
 
@@ -284,6 +322,7 @@ export class UsersService {
       role: user.role,
       tenantId: user.tenantId,
       isActive: user.isActive,
+      avatarUrl: user.avatarUrl,
     };
   }
 

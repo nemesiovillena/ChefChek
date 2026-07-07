@@ -26,6 +26,7 @@ export interface User {
   role: 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'USER' | 'VIEWER';
   tenantId: string | null;
   isActive: boolean;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
