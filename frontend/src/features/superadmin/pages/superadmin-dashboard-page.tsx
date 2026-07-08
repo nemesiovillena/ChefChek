@@ -3,16 +3,32 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useSuperadminTenants } from '../hooks/use-superadmin-tenants';
+import { useSuperadminClients } from '../hooks/use-superadmin-clients';
 import { TenantList } from '../components/tenant-list';
-import { TenantModuleManager } from '../components/tenant-module-manager';
-import { TenantSummary } from '../api/superadmin-api';
+import { TrashedClientList } from '../components/trashed-client-list';
+import { ClientDetailsPanel } from '../components/client-details-panel';
+import { ClientFormDialog } from '../components/client-form-dialog';
+import type { TenantSummary } from '../api/superadmin-api';
+
+type View = 'active' | 'trashed';
 
 export function SuperadminDashboardPage() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
-  const { tenants, loading: tenantsLoading, error: tenantsError, fetchTenants } = useSuperadminTenants();
+  const {
+    active,
+    trashed,
+    loading,
+    error,
+    refresh,
+    update,
+    deactivate,
+    restore,
+    purge,
+  } = useSuperadminClients();
+  const [view, setView] = useState<View>('active');
   const [selectedTenant, setSelectedTenant] = useState<TenantSummary | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     if (!isLoading) {
@@ -24,13 +40,13 @@ export function SuperadminDashboardPage() {
         router.push('/dashboard');
         return;
       }
-      fetchTenants();
+      refresh();
     }
-  }, [isLoading, isAuthenticated, user, router, fetchTenants]);
+  }, [isLoading, isAuthenticated, user, router, refresh]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#121212] text-[#e5e2e1]">
+      <div className="dark min-h-screen flex items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
           <span className="material-symbols-outlined text-4xl animate-spin text-secondary">
             progress_activity
@@ -73,46 +89,100 @@ export function SuperadminDashboardPage() {
 
       {/* Main layout */}
       <div className="pt-16 flex min-h-screen">
-        {/* Sidebar: tenant list */}
-        <aside className="w-72 shrink-0 border-r border-border bg-surface-container-low overflow-y-auto">
-          <div className="px-stack-lg py-stack-md border-b border-border">
+        {/* Sidebar: listado de clientes + papelera */}
+        <aside className="w-80 shrink-0 border-r border-border bg-surface-container-low overflow-y-auto flex flex-col">
+          <div className="px-stack-lg py-stack-md border-b border-border space-y-stack-md">
             <p className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
               Clientes
             </p>
+            {/* Toggle Activos / Papelera */}
+            <div role="tablist" className="flex bg-surface-container rounded-full p-1">
+              <button
+                role="tab"
+                aria-selected={view === 'active'}
+                onClick={() => setView('active')}
+                className={`flex-1 px-stack-md py-1.5 rounded-full font-label-sm text-label-sm cursor-pointer transition-colors ${
+                  view === 'active' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                Activos
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === 'trashed'}
+                onClick={() => setView('trashed')}
+                className={`flex-1 px-stack-md py-1.5 rounded-full font-label-sm text-label-sm cursor-pointer transition-colors ${
+                  view === 'trashed' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                Papelera{trashed.length > 0 ? ` (${trashed.length})` : ''}
+              </button>
+            </div>
+            {view === 'active' && (
+              <button
+                onClick={() => setShowCreate(true)}
+                className="w-full flex items-center justify-center gap-stack-sm px-stack-md py-stack-sm rounded-full bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-xl">add</span>
+                Nuevo cliente
+              </button>
+            )}
           </div>
-          {tenantsLoading && (
-            <p className="px-stack-lg py-stack-md text-on-surface-variant font-label-sm text-label-sm">
-              Cargando...
-            </p>
-          )}
-          {tenantsError && (
-            <p className="px-stack-lg py-stack-md text-error font-label-sm text-label-sm">
-              {tenantsError}
-            </p>
-          )}
-          {!tenantsLoading && !tenantsError && (
-            <TenantList
-              tenants={tenants}
-              selectedId={selectedTenant?.id ?? null}
-              onSelect={setSelectedTenant}
-            />
-          )}
+
+          <div className="flex-1 overflow-y-auto">
+            {loading && (
+              <p className="px-stack-lg py-stack-md text-on-surface-variant font-label-sm text-label-sm">
+                Cargando...
+              </p>
+            )}
+            {error && (
+              <p className="px-stack-lg py-stack-md text-error font-label-sm text-label-sm">{error}</p>
+            )}
+            {!loading && !error && view === 'active' && (
+              <TenantList
+                tenants={active}
+                selectedId={selectedTenant?.id ?? null}
+                onSelect={setSelectedTenant}
+              />
+            )}
+            {!loading && !error && view === 'trashed' && (
+              <TrashedClientList clients={trashed} onRestore={restore} onPurge={purge} />
+            )}
+          </div>
         </aside>
 
-        {/* Main panel: module manager */}
+        {/* Main panel */}
         <main className="flex-1 overflow-y-auto">
-          {selectedTenant ? (
-            <TenantModuleManager tenant={selectedTenant} />
+          {view === 'active' && selectedTenant ? (
+            <ClientDetailsPanel
+              tenant={selectedTenant}
+              update={update}
+              deactivate={deactivate}
+              onDeactivated={() => setSelectedTenant(null)}
+            />
+          ) : view === 'trashed' ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-on-surface-variant py-24">
+              <span className="material-symbols-outlined text-5xl">delete_sweep</span>
+              <p className="font-label-md text-label-md">
+                Selecciona un cliente en la papelera para reactivarlo o borrarlo.
+              </p>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-on-surface-variant py-24">
               <span className="material-symbols-outlined text-5xl">store</span>
               <p className="font-label-md text-label-md">
-                Selecciona un cliente para gestionar sus módulos
+                Selecciona un cliente para ver y editar sus datos.
               </p>
             </div>
           )}
         </main>
       </div>
+
+      <ClientFormDialog
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={refresh}
+      />
     </div>
   );
 }

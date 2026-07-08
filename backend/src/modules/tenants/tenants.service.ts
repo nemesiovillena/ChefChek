@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { CreateTenantDto, UpdateTenantDto } from "./dto/create-tenant.dto";
@@ -68,6 +69,14 @@ export class TenantsService {
         slug: tenant.slug,
         domain: tenant.domain,
         isActive: tenant.isActive,
+        contactName: tenant.contactName,
+        contactPosition: tenant.contactPosition,
+        contactPhone: tenant.contactPhone,
+        contactEmail: tenant.contactEmail,
+        addressStreet: tenant.addressStreet,
+        addressCity: tenant.addressCity,
+        addressPostalCode: tenant.addressPostalCode,
+        cifNif: tenant.cifNif,
         createdAt: tenant.createdAt,
         updatedAt: tenant.updatedAt,
       },
@@ -89,6 +98,14 @@ export class TenantsService {
           slug: true,
           domain: true,
           isActive: true,
+          contactName: true,
+          contactPosition: true,
+          contactPhone: true,
+          contactEmail: true,
+          addressStreet: true,
+          addressCity: true,
+          addressPostalCode: true,
+          cifNif: true,
           createdAt: true,
         },
       }),
@@ -158,6 +175,23 @@ export class TenantsService {
     return tenant;
   }
 
+  /**
+   * Busca un tenant por slug IGNORANDO el soft-delete (raw SQL). find* del
+   * Prisma extension filtra deletedAt:null, así que con esto el login puede
+   * distinguir "cliente dado de baja" de "tenant inexistente".
+   */
+  async findBySlugIncludingDeleted(slug: string) {
+    const rows = await this.prisma.$queryRaw<
+      { id: string; deletedAt: Date | null; isActive: boolean }[]
+    >`
+      SELECT id, "deletedAt", "isActive"
+      FROM tenants
+      WHERE slug = ${slug}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  }
+
   async update(id: string, updateTenantDto: UpdateTenantDto) {
     const existingTenant = await this.prisma.tenant.findUnique({
       where: { id },
@@ -205,6 +239,14 @@ export class TenantsService {
         slug: tenant.slug,
         domain: tenant.domain,
         isActive: tenant.isActive,
+        contactName: tenant.contactName,
+        contactPosition: tenant.contactPosition,
+        contactPhone: tenant.contactPhone,
+        contactEmail: tenant.contactEmail,
+        addressStreet: tenant.addressStreet,
+        addressCity: tenant.addressCity,
+        addressPostalCode: tenant.addressPostalCode,
+        cifNif: tenant.cifNif,
         createdAt: tenant.createdAt,
         updatedAt: tenant.updatedAt,
       },
@@ -230,6 +272,73 @@ export class TenantsService {
       data: null,
       message: "Tenant deleted successfully",
     };
+  }
+
+  /**
+   * Clientes dados de baja (soft-delete). Raw SQL porque el Prisma extension
+   * filtra deletedAt:null en find*, así que no aparecerían con findMany normal.
+   */
+  async listTrashed() {
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        slug: string;
+        domain: string | null;
+        isActive: boolean;
+        deletedAt: Date;
+        contactName: string | null;
+        contactEmail: string | null;
+        contactPhone: string | null;
+      }>
+    >`
+      SELECT id, name, slug, domain, "isActive", "deletedAt",
+             "contactName", "contactEmail", "contactPhone"
+      FROM tenants
+      WHERE "deletedAt" IS NOT NULL
+      ORDER BY "deletedAt" DESC
+      LIMIT 500
+    `;
+    return rows.map((r) => ({ ...r, deletedAt: r.deletedAt.toISOString() }));
+  }
+
+  /**
+   * Recupera un cliente dado de baja: pone deletedAt a null. updateMany NO está
+   * interceptado por el extension → opera sobre la fila borrada.
+   */
+  async restore(id: string) {
+    const res = await this.prisma.tenant.updateMany({
+      where: { id, deletedAt: { not: null } },
+      data: { deletedAt: null },
+    });
+    if (res.count === 0) {
+      throw new NotFoundException("Cliente no encontrado en la papelera.");
+    }
+    return { id, restored: true };
+  }
+
+  /**
+   * Borrado DEFINITIVO del cliente y todos sus datos (onDelete:Cascade borra
+   * los ~40 agregados asociados). Requiere que esté dado de baja antes (flujo
+   * de la papelera): no se purga un cliente activo. Raw SQL para saltar el
+   * rewrite a soft-delete del extension.
+   */
+  async purge(id: string) {
+    const rows = await this.prisma.$queryRaw<
+      { id: string; deletedAt: Date | null }[]
+    >`
+      SELECT id, "deletedAt" FROM tenants WHERE id = ${id}
+    `;
+    if (rows.length === 0) {
+      throw new NotFoundException("Cliente no encontrado.");
+    }
+    if (!rows[0].deletedAt) {
+      throw new BadRequestException(
+        "Da de baja al cliente antes de borrarlo definitivamente.",
+      );
+    }
+    await this.prisma.$executeRaw`DELETE FROM tenants WHERE id = ${id}`;
+    return { id, purged: true };
   }
 
   async validateTenantExists(tenantId: string): Promise<boolean> {

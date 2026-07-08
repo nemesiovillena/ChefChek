@@ -48,7 +48,7 @@ export function TenantModuleManager({ tenant }: TenantModuleManagerProps) {
       <div className="px-stack-lg py-stack-md border-b border-border">
         <h3 className="font-headline-md text-headline-md text-primary">{tenant.name}</h3>
         <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
-          {tenant.slug} · {tenant.plan}
+          {tenant.slug}
         </p>
       </div>
 

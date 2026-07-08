@@ -35,6 +35,16 @@ export class CreateTenantDto {
   @IsEnum(["ADMIN", "USER", "VIEWER"])
   @IsOptional()
   adminRole?: "ADMIN" | "USER" | "VIEWER";
+
+  // Datos de contacto del cliente (opcionales en el alta)
+  @IsOptional() @IsString() contactName?: string;
+  @IsOptional() @IsString() contactPosition?: string;
+  @IsOptional() @IsString() contactPhone?: string;
+  @IsOptional() @IsEmail() contactEmail?: string;
+  @IsOptional() @IsString() addressStreet?: string;
+  @IsOptional() @IsString() addressCity?: string;
+  @IsOptional() @IsString() addressPostalCode?: string;
+  @IsOptional() @IsString() cifNif?: string;
 }
 
 export class UpdateTenantDto {
@@ -53,4 +63,14 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // Datos de contacto del cliente (editables desde superadmin)
+  @IsOptional() @IsString() contactName?: string;
+  @IsOptional() @IsString() contactPosition?: string;
+  @IsOptional() @IsString() contactPhone?: string;
+  @IsOptional() @IsEmail() contactEmail?: string;
+  @IsOptional() @IsString() addressStreet?: string;
+  @IsOptional() @IsString() addressCity?: string;
+  @IsOptional() @IsString() addressPostalCode?: string;
+  @IsOptional() @IsString() cifNif?: string;
 }

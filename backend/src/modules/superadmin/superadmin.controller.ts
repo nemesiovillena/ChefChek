@@ -2,9 +2,12 @@ import {
   Controller,
   Get,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
+  HttpCode,
+  HttpStatus,
   UseGuards,
   Req,
 } from "@nestjs/common";
@@ -26,6 +29,13 @@ export class SuperadminController {
   @ApiResponse({ status: 200, description: "Lista de tenants" })
   async listTenants(@Query("page") page = "1", @Query("limit") limit = "20") {
     return this.superadminService.listTenants(+page, +limit);
+  }
+
+  @Get("tenants/trashed")
+  @ApiOperation({ summary: "Lista los clientes dados de baja (papelera)" })
+  @ApiResponse({ status: 200, description: "Clientes en papelera" })
+  async listTrashedTenants() {
+    return this.superadminService.listTrashedTenants();
   }
 
   @Get("tenants/:tenantId/modules")
@@ -66,5 +76,33 @@ export class SuperadminController {
     @Body() dto: UpdateTenantDto,
   ) {
     return this.superadminService.updateTenant(tenantId, dto);
+  }
+
+  @Patch("tenants/:tenantId/restore")
+  @ApiOperation({ summary: "Recupera un cliente dado de baja" })
+  @ApiParam({ name: "tenantId", description: "ID del tenant" })
+  @ApiResponse({ status: 200, description: "Cliente recuperado" })
+  @ApiResponse({
+    status: 404,
+    description: "Cliente no encontrado en papelera",
+  })
+  async restoreTenant(@Param("tenantId") tenantId: string) {
+    return this.superadminService.restoreTenant(tenantId);
+  }
+
+  @Delete("tenants/:tenantId/purge")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: "Borra definitivamente un cliente y todos sus datos",
+  })
+  @ApiParam({ name: "tenantId", description: "ID del tenant" })
+  @ApiResponse({ status: 204, description: "Cliente borrado permanentemente" })
+  @ApiResponse({
+    status: 400,
+    description: "Debe darse de baja antes de purgar",
+  })
+  @ApiResponse({ status: 404, description: "Cliente no encontrado" })
+  async purgeTenant(@Param("tenantId") tenantId: string, @Req() req: any) {
+    return this.superadminService.purgeTenant(tenantId, req.user.id);
   }
 }

@@ -22,6 +22,15 @@ describe("AuthService", () => {
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
+    deletedAt: null,
+    contactName: null,
+    contactPosition: null,
+    contactPhone: null,
+    contactEmail: null,
+    addressStreet: null,
+    addressCity: null,
+    addressPostalCode: null,
+    cifNif: null,
     users: [],
   };
 
@@ -53,6 +62,7 @@ describe("AuthService", () => {
 
     const mockTenantsService = {
       findBySlug: jest.fn(),
+      findBySlugIncludingDeleted: jest.fn().mockResolvedValue(null),
     };
 
     const mockSessionService = {

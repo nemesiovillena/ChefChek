@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { UsersService } from "../users/users.service";
 import { TenantsService } from "../tenants/tenants.service";
@@ -17,8 +18,28 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string, tenantId: string) {
-    const tenant = await this.tenantsService.findBySlug(tenantId);
-    if (!tenant || !tenant.isActive) {
+    // findBySlug lanza NotFoundException cuando el tenant está dado de baja
+    // (el Prisma extension filtra deletedAt:null). Se captura para distinguir
+    // "cliente dado de baja" de "no existe".
+    let tenant: Awaited<ReturnType<TenantsService["findBySlug"]>> | null = null;
+    try {
+      tenant = await this.tenantsService.findBySlug(tenantId);
+    } catch (e) {
+      if (!(e instanceof NotFoundException)) {
+        throw e;
+      }
+    }
+    if (!tenant) {
+      const trashed =
+        await this.tenantsService.findBySlugIncludingDeleted(tenantId);
+      if (trashed?.deletedAt) {
+        throw new UnauthorizedException(
+          "Cliente dado de baja. Contacta con soporte.",
+        );
+      }
+      throw new UnauthorizedException("Tenant not found or inactive");
+    }
+    if (!tenant.isActive) {
       throw new UnauthorizedException("Tenant not found or inactive");
     }
 
@@ -101,8 +122,25 @@ export class AuthService {
     tenantSlug: string,
     role: "ADMIN" | "USER" | "VIEWER" = "USER",
   ) {
-    const tenant = await this.tenantsService.findBySlug(tenantSlug);
-    if (!tenant || !tenant.isActive) {
+    let tenant: Awaited<ReturnType<TenantsService["findBySlug"]>> | null = null;
+    try {
+      tenant = await this.tenantsService.findBySlug(tenantSlug);
+    } catch (e) {
+      if (!(e instanceof NotFoundException)) {
+        throw e;
+      }
+    }
+    if (!tenant) {
+      const trashed =
+        await this.tenantsService.findBySlugIncludingDeleted(tenantSlug);
+      if (trashed?.deletedAt) {
+        throw new BadRequestException(
+          "Cliente dado de baja. Contacta con soporte.",
+        );
+      }
+      throw new BadRequestException("Tenant not found or inactive");
+    }
+    if (!tenant.isActive) {
       throw new BadRequestException("Tenant not found or inactive");
     }
 

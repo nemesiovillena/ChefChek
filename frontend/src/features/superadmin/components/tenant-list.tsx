@@ -29,7 +29,10 @@ export function TenantList({ tenants, selectedId, onSelect }: TenantListProps) {
           >
             <div>
               <p className="font-label-md text-label-md text-primary">{tenant.name}</p>
-              <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">{tenant.slug}</p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant mt-0.5">
+                {tenant.slug}
+                {tenant.contactName ? ` · ${tenant.contactName}` : ''}
+              </p>
             </div>
             <span
               className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
