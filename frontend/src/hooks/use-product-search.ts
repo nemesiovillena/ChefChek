@@ -30,10 +30,12 @@ export function useProductSearch(debounceMs: number = 300): UseProductSearchRetu
     setError(null);
 
     try {
-      const response = await apiClient.get<Product[]>('/v1/products', {
+      // El interceptor global de apiClient desenvuelve el envelope paginado
+      // { success, data, meta } del backend en { data, total, page, ... }.
+      const response = await apiClient.get<{ data: Product[] }>('/v1/products', {
         params: { search: query },
       });
-      setProducts(response.data || []);
+      setProducts(response.data?.data || []);
     } catch (err: unknown) {
       let message = 'Error buscando productos';
       if (axios.isAxiosError<{ message?: string }>(err)) {
