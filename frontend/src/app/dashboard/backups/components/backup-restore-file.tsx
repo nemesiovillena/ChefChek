@@ -2,11 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { UploadCloud, Loader2, FileJson } from 'lucide-react';
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from '@/components/ui/progress';
 import { restoreFromFile } from '@/hooks/use-backups';
 import { useInvalidateQueries } from '@/hooks/use-api';
 import { useConfirm } from '@/contexts/confirm.context';
@@ -84,7 +79,7 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
         }}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
           {busy ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
@@ -103,7 +98,7 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
         <button
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="inline-flex items-center gap-2 rounded-full border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] transition-colors hover:bg-[var(--on-surface)]/5 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-300 dark:hover:bg-zinc-800"
         >
           <UploadCloud className="h-4 w-4" /> Elegir archivo
         </button>
@@ -111,11 +106,16 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
 
       {uploadPct !== null && (
         <div className="mt-3">
-          <div className="mb-1 flex w-full items-center justify-between">
-            <ProgressLabel>Subiendo archivo…</ProgressLabel>
-            <ProgressValue>{uploadPct}%</ProgressValue>
+          <div className="mb-1.5 flex w-full items-center justify-between text-sm">
+            <span className="font-medium text-[var(--on-surface)]">Subiendo archivo…</span>
+            <span className="tabular-nums text-[var(--on-surface-variant)]">{uploadPct}%</span>
           </div>
-          <Progress value={uploadPct} />
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
+            <div
+              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+              style={{ width: `${uploadPct}%` }}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength } from "class-validator";
+import { IsOptional, IsString, MaxLength } from "class-validator";
 
 export type BackupScope = "TENANT" | "GLOBAL";
 export type BackupActorScope = "TENANT" | "GLOBAL";

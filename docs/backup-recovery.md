@@ -1035,6 +1035,33 @@ psql -c "VACUUM ANALYZE;"
 
 ---
 
+## Copias de Seguridad desde la App (módulo integrado)
+
+Además de los scripts infra-level de más arriba (DR externo, `pg_dump`), existe un **módulo de backup integrado** en la propia aplicación que permite a un ADMIN exportar/restaurar los datos de **su tenant** y a un SUPERADMIN exportar/restaurar **toda la BD** (todos los tenants), desde el dashboard (`/dashboard/backups`, en el menú MÁS → Herramientas).
+
+### Características
+- **Formato**: un archivo `.json` estructurado por copia, con todas las tablas en orden FK y metadatos (`schemaVersion`, `scope`, `tenantId`, `counts`, `coverageGap`).
+- **Generación asíncrona**: el export corre en proceso (sin Bull/Redis); el frontend hace polling del progreso por tabla.
+- **Restauración con barra de progreso**: subida real (`onUploadProgress`) + procesamiento por tabla.
+- **Cero pérdida de datos**: toda restauración crea SIEMPRE un **auto-backup previo** (visible en el historial como "Auto pre-restore") y se ejecuta en una transacción atómica; si falla, no se muta nada.
+- **Incluye papelera**: el SQL crudo salta el middleware de soft-delete, así que las filas con `deletedAt` quedan en el snapshot.
+- **Validación**: checksum sha256 + `schemaVersion` (rechaza copias incompatibles con el schema actual).
+
+### Endpoints
+- **Tenant** (`ADMIN`/`OWNER`, `api/v1/backups`): `GET /`, `POST /` (export), `GET /:id/status`, `GET /:id/download`, `DELETE /:id`, `POST /:id/restore`, `POST /restore` (subir archivo).
+- **Global** (`SUPERADMIN`, `api/v1/superadmin/backups`): mismo shape, scope `GLOBAL`.
+
+### Almacenamiento
+Los `.json` se escriben en `uploads/backups/{tenantId|global}/`. En dev persisten por el bind-mount; **en producción (Dokploy) se necesita un volumen para `uploads/`**.
+
+### Cobertura
+El módulo descubre las tablas en runtime (`information_schema`) y las respalda todas salvo `sessions`, `backups` y `_prisma_migrations`. Las tablas sin `tenantId` se scopean por su cadena de padres hasta una tabla tenant-rooted (incluida la m-n implícita `_SprintToTeamMember`). El campo `coverageGap` del JSON lista cualquier tabla que no se pudo scopear por tenant.
+
+### Relación con los scripts infra
+Los scripts `backup.sh`/`restore.sh` siguen siendo el **backbone DR** (cron, off-site, `pg_dump -Fc`). El módulo de la app es complementario: operativo desde la UI, tenant-scoped, sin binarios externos (el contenedor `node:20-bullseye-slim` no incluye `pg_dump`).
+
+---
+
 **Documento mantenido por**: DevOps Team  
 **Última actualización**: 2025-06-03  
 **Versión**: 1.0  

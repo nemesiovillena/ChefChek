@@ -2,14 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from '@/components/ui/progress';
 import { useBackupJob } from '@/hooks/use-backups';
-// NOTA: el <Progress> de base-ui tipa `children` como función render, así que la
-// etiqueta y el porcentaje se renderizan FUERA del componente, no como hijos.
 
 interface Props {
   baseUrl: string;
@@ -22,6 +15,9 @@ interface Props {
 /**
  * Tarjeta de progreso de un job de backup/restore. Hace polling del estado en
  * vivo (useBackupJob) y avisa al terminar. Reutilizable para export y restore.
+ *
+ * Barra inline con tokens M3 (no usa el <Progress> de base-ui, cuyo tipado de
+ * `children` como función render es incompatible con uso simple).
  */
 export function BackupJobProgress({ baseUrl, jobId, onTerminal }: Props) {
   const { data } = useBackupJob(baseUrl, jobId);
@@ -51,14 +47,19 @@ export function BackupJobProgress({ baseUrl, jobId, onTerminal }: Props) {
 
   return (
     <div className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-      <div className="mb-1 flex w-full items-center justify-between gap-2">
-        <ProgressLabel className="flex items-center gap-2 text-[var(--on-surface)]">
+      <div className="mb-1.5 flex w-full items-center justify-between gap-2 text-sm">
+        <span className="flex items-center gap-2 font-medium text-[var(--on-surface)]">
           {running && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {label}
-        </ProgressLabel>
-        <ProgressValue>{data.progress}%</ProgressValue>
+        </span>
+        <span className="tabular-nums text-[var(--on-surface-variant)]">{data.progress}%</span>
       </div>
-      <Progress value={data.progress} />
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
+        <div
+          className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+          style={{ width: `${data.progress}%` }}
+        />
+      </div>
       {data.status === 'FAILED' && data.error && (
         <p className="mt-2 line-clamp-3 text-xs text-[var(--error)]">{data.error}</p>
       )}

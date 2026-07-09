@@ -132,32 +132,26 @@ export function BackupList({ baseUrl, backups, loading, error, onRestoreStarted 
                     {b.notes ? ` · ${b.notes}` : ''}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   <button
                     onClick={() => handleDownload(b)}
                     disabled={!canDownload}
-                    title="Descargar"
-                    aria-label="Descargar copia"
-                    className="inline-flex items-center justify-center rounded-full p-2 text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-300 dark:hover:bg-zinc-800"
                   >
-                    <Download className="h-4 w-4" />
+                    <Download className="h-3.5 w-3.5" /> Descargar
                   </button>
                   <button
                     onClick={() => handleRestore(b)}
                     disabled={!canDownload}
-                    title="Restaurar"
-                    aria-label="Restaurar copia"
-                    className="inline-flex items-center justify-center rounded-full p-2 text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--tertiary)]/15 hover:text-[var(--primary)] disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
                   >
-                    <RotateCcw className="h-4 w-4" />
+                    <RotateCcw className="h-3.5 w-3.5" /> Restaurar
                   </button>
                   <button
                     onClick={() => handleDelete(b)}
-                    title="Eliminar"
-                    aria-label="Eliminar copia"
-                    className="inline-flex items-center justify-center rounded-full p-2 text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--error)]/10 hover:text-[var(--error)]"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" /> Eliminar
                   </button>
                 </div>
               </li>
