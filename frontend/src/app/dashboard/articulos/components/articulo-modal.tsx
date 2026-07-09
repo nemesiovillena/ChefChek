@@ -290,6 +290,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           )}
           {activeTab === 'proveedor-stock' && (
             <TabProveedorStock
+              productId={article?.id}
               suppliers={suppliersList}
               tree={tree}
               formData={formData}

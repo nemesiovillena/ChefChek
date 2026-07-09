@@ -1,4 +1,6 @@
-import { useCrud as createCrudHooks, useApiMutation } from './use-api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useCrud as createCrudHooks, useApiMutation, useApiQuery } from './use-api';
+import apiClient from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
 
 export interface PurchaseFormat {
@@ -202,4 +204,125 @@ export function getRealPrice(product: Product): number | null {
   if (!hasYieldInfo) return null;
   const unitSize = product.unitSize || 1;
   return product.purchasePrice / unitSize / (product.yieldFactor || 1);
+}
+
+/**
+ * Ofertas de proveedor por artículo: un mismo Product puede tener varias
+ * ofertas (mismo ingrediente, distintos proveedores/precios). La marcada
+ * `isPreferred` es la que alimenta los campos planos del Product
+ * (purchasePrice/netPrice/etc.), que es lo que leen getReferencePrice/
+ * getRealPrice de arriba — sin cambios en esas funciones.
+ */
+export interface ProductSupplierOffer {
+  id: string;
+  productId: string;
+  supplierId: string;
+  supplier?: ProductSupplier;
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: number;
+  referenceUnitSize: number;
+  unitSize: number;
+  purchasePrice: number;
+  previousPurchasePrice: number;
+  netPrice: number;
+  profitMargin: number;
+  isPreferred: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplierOfferInput {
+  purchasePrice: number;
+  netPrice?: number;
+  purchaseFormat?: string;
+  referenceUnit?: string;
+  unitsPerFormat?: number;
+  referenceUnitSize?: number;
+  profitMargin?: number;
+}
+
+function invalidateSupplierOffers(
+  queryClient: ReturnType<typeof useQueryClient>,
+  productId: string,
+) {
+  queryClient.invalidateQueries({ queryKey: ['products', productId, 'supplier-offers'] });
+  queryClient.invalidateQueries({ queryKey: ['products', productId] });
+  queryClient.invalidateQueries({ queryKey: ['products'] });
+}
+
+export function useProductSupplierOffers(productId: string) {
+  return useApiQuery<ProductSupplierOffer[]>(
+    ['products', productId, 'supplier-offers'],
+    `/v1/products/${productId}/supplier-offers`,
+    { enabled: !!productId }
+  );
+}
+
+export function useCreateSupplierOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      supplierId,
+      ...data
+    }: SupplierOfferInput & { productId: string; supplierId: string }) => {
+      const res = await apiClient.post<ProductSupplierOffer>(
+        `/v1/products/${productId}/supplier-offers`,
+        { supplierId, ...data }
+      );
+      return res.data;
+    },
+    onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
+  });
+}
+
+export function useUpdateSupplierOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      offerId,
+      ...data
+    }: SupplierOfferInput & { productId: string; offerId: string }) => {
+      const res = await apiClient.patch<ProductSupplierOffer>(
+        `/v1/products/${productId}/supplier-offers/${offerId}`,
+        data
+      );
+      return res.data;
+    },
+    onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
+  });
+}
+
+export function useDeleteSupplierOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productId,
+      offerId,
+      promoteOfferId,
+    }: {
+      productId: string;
+      offerId: string;
+      promoteOfferId?: string;
+    }) => {
+      const query = promoteOfferId ? `?promoteOfferId=${promoteOfferId}` : '';
+      await apiClient.delete(`/v1/products/${productId}/supplier-offers/${offerId}${query}`);
+    },
+    onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
+  });
+}
+
+export function useSetPreferredSupplierOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ productId, offerId }: { productId: string; offerId: string }) => {
+      const res = await apiClient.post<ProductSupplierOffer>(
+        `/v1/products/${productId}/supplier-offers/${offerId}/set-preferred`
+      );
+      return res.data;
+    },
+    onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
+  });
 }

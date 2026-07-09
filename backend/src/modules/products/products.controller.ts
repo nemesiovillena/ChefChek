@@ -25,11 +25,16 @@ import {
 } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ProductsService } from "./products.service";
+import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import {
   CreateProductDto,
   UpdateProductDto,
   ProductsQueryDto,
 } from "./dto/create-product.dto";
+import {
+  CreateProductSupplierOfferDto,
+  UpdateProductSupplierOfferDto,
+} from "./dto/product-supplier-offer.dto";
 import { CreateSupplierDto, UpdateSupplierDto } from "./dto/supplier.dto";
 import {
   CreateUnitOfMeasureDto,
@@ -49,7 +54,10 @@ import * as path from "path";
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
 @RequireModule("articulos")
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly productSupplierOffersService: ProductSupplierOffersService,
+  ) {}
 
   @Post()
   @Roles("ADMIN", "USER")
@@ -208,6 +216,112 @@ export class ProductsController {
   async calculateCost(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId;
     return this.productsService.calculateProductCost(id, tenantId);
+  }
+
+  // ─── Ofertas de proveedor por artículo ──────────────────────────
+
+  @Get(":id/supplier-offers")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar ofertas de proveedor de un artículo" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  async listSupplierOffers(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    const data = await this.productSupplierOffersService.listOffers(
+      id,
+      tenantId,
+    );
+    return { success: true, data, message: "Ofertas obtenidas" };
+  }
+
+  @Post(":id/supplier-offers")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear/actualizar la oferta de un proveedor" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  async createSupplierOffer(
+    @Param("id") id: string,
+    @Body() body: CreateProductSupplierOfferDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    const { supplierId, ...data } = body;
+    const offer = await this.productSupplierOffersService.upsertOffer(
+      id,
+      supplierId,
+      tenantId,
+      data,
+    );
+    return { success: true, data: offer, message: "Oferta guardada" };
+  }
+
+  @Patch(":id/supplier-offers/:offerId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar precio/formato de una oferta" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiParam({ name: "offerId", description: "ID de la oferta" })
+  async updateSupplierOffer(
+    @Param("id") id: string,
+    @Param("offerId") offerId: string,
+    @Body() body: UpdateProductSupplierOfferDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    const offers = await this.productSupplierOffersService.listOffers(
+      id,
+      tenantId,
+    );
+    const existing = offers.find((o) => o.id === offerId);
+    if (!existing) {
+      throw new BadRequestException("Oferta no encontrada");
+    }
+    const offer = await this.productSupplierOffersService.upsertOffer(
+      id,
+      existing.supplierId,
+      tenantId,
+      body,
+    );
+    return { success: true, data: offer, message: "Oferta actualizada" };
+  }
+
+  @Delete(":id/supplier-offers/:offerId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Eliminar una oferta de proveedor" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiParam({ name: "offerId", description: "ID de la oferta" })
+  async deleteSupplierOffer(
+    @Param("offerId") offerId: string,
+    @Query("promoteOfferId") promoteOfferId: string | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    await this.productSupplierOffersService.removeOffer(
+      offerId,
+      tenantId,
+      promoteOfferId,
+    );
+    return { success: true, data: null, message: "Oferta eliminada" };
+  }
+
+  @Post(":id/supplier-offers/:offerId/set-preferred")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Marcar una oferta como preferente" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiParam({ name: "offerId", description: "ID de la oferta" })
+  async setPreferredSupplierOffer(
+    @Param("id") id: string,
+    @Param("offerId") offerId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    const offer = await this.productSupplierOffersService.setPreferred(
+      id,
+      offerId,
+      tenantId,
+    );
+    return {
+      success: true,
+      data: offer,
+      message: "Oferta marcada como preferente",
+    };
   }
 
   @Get(":id")

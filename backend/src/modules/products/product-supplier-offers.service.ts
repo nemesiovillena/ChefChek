@@ -175,7 +175,14 @@ export class ProductSupplierOffersService {
         });
       }
 
-      await this.syncProductFromOffer(tx, productId, updated);
+      // El "precio anterior" a mostrar en Product es el precio vigente antes
+      // de este cambio de preferente — no el histórico interno de la nueva
+      // oferta (que puede ser 0 si nunca cambió de precio por su cuenta).
+      await this.syncProductFromOffer(tx, productId, {
+        ...updated,
+        previousPurchasePrice:
+          product?.purchasePrice ?? updated.previousPurchasePrice,
+      });
 
       return updated;
     });

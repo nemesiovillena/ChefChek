@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
+import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -38,6 +39,13 @@ describe("ProductsController", () => {
     getSupplierPriceHistory: jest.fn(),
   };
 
+  const mockProductSupplierOffersService = {
+    listOffers: jest.fn(),
+    upsertOffer: jest.fn(),
+    setPreferred: jest.fn(),
+    removeOffer: jest.fn(),
+  };
+
   const mockReq = {
     tenantId: "tenant-test-123",
     user: { id: "user-1", role: "ADMIN" },
@@ -46,7 +54,13 @@ describe("ProductsController", () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProductsController],
-      providers: [{ provide: ProductsService, useValue: mockProductsService }],
+      providers: [
+        { provide: ProductsService, useValue: mockProductsService },
+        {
+          provide: ProductSupplierOffersService,
+          useValue: mockProductSupplierOffersService,
+        },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

@@ -202,6 +202,10 @@ describe("ProductSupplierOffersService", () => {
           data: expect.objectContaining({
             purchasePrice: 6.53,
             supplierId: "supplier-dialvi",
+            // El precio anterior a mostrar es el que tenía el producto antes
+            // de este cambio (10, baseProduct), no el histórico propio de la
+            // oferta recién promovida (0, nunca cambió de precio por sí sola).
+            previousPurchasePrice: 10,
           }),
         }),
       );

@@ -394,47 +394,64 @@ export class ProductsService {
       }
     }
 
-    // Si el DTO trae proveedor + precio de compra, se interpreta como
-    // "editar/crear la oferta preferente de ese proveedor" — el modal grande
-    // nunca crea una oferta secundaria silenciosa (para eso está la lista de
-    // ofertas del tab Proveedor y Stock). ProductSupplierOffersService ya
-    // registra su propio ProductPriceHistory y sincroniza Product si la
-    // oferta es/pasa a ser la preferente, así que se retira el manejo legacy
-    // de precio/formato de `data` para no pisar lo que el service escribió.
-    if (supplier && updateData.purchasePrice !== undefined) {
-      const offer = await this.productSupplierOffersService.upsertOffer(
-        id,
-        supplier,
-        requestTenantId,
-        {
-          purchasePrice: data.purchasePrice,
-          netPrice: data.netPrice,
-          purchaseFormat: data.purchaseFormat,
-          referenceUnit: data.referenceUnit,
-          unitsPerFormat: data.unitsPerFormat,
-          referenceUnitSize: data.referenceUnitSize,
-          profitMargin: data.profitMargin,
-        },
-      );
-      if (!offer.isPreferred) {
-        await this.productSupplierOffersService.setPreferred(
-          id,
-          offer.id,
-          requestTenantId,
-        );
-      }
+    // Si cambia el precio de compra, se enruta SIEMPRE a la oferta que sea
+    // preferente AHORA MISMO (leída de BD en este instante) — nunca al
+    // `supplier` que traiga el DTO, que puede ser una foto fija tomada al
+    // abrir el modal y haber quedado obsoleta si mientras tanto se cambió el
+    // proveedor preferente desde la pestaña "Proveedor y Stock" (ese cambio
+    // es independiente e inmediato, no espera al botón Guardar). Confiar en
+    // el DTO aquí revertía el proveedor preferente al guardar el formulario
+    // grande. Solo se usa `supplier` del DTO como fallback cuando el producto
+    // todavía no tiene ninguna oferta (alta inicial de la primera oferta).
+    if (updateData.purchasePrice !== undefined) {
+      const currentPreferredOffer =
+        await this.prisma.productSupplierOffer.findFirst({
+          where: {
+            productId: id,
+            tenantId: requestTenantId,
+            isPreferred: true,
+          },
+        });
+      const targetSupplierId = currentPreferredOffer?.supplierId ?? supplier;
 
-      delete data.supplierId;
-      delete data.purchasePrice;
-      delete data.previousPurchasePrice;
-      delete data.netPrice;
-      delete data.purchaseFormat;
-      delete data.referenceUnit;
-      delete data.unitsPerFormat;
-      delete data.referenceUnitSize;
-      delete data.unitSize;
-      delete data.profitMargin;
-      priceChanged = false;
+      // Sin proveedor preferente y sin `supplier` en el DTO: no hay a qué
+      // oferta enrutar el precio (caso legacy sin proveedor conocido) — se
+      // mantiene el camino directo sobre Product de más abajo, sin tocar.
+      if (targetSupplierId) {
+        const offer = await this.productSupplierOffersService.upsertOffer(
+          id,
+          targetSupplierId,
+          requestTenantId,
+          {
+            purchasePrice: data.purchasePrice,
+            netPrice: data.netPrice,
+            purchaseFormat: data.purchaseFormat,
+            referenceUnit: data.referenceUnit,
+            unitsPerFormat: data.unitsPerFormat,
+            referenceUnitSize: data.referenceUnitSize,
+            profitMargin: data.profitMargin,
+          },
+        );
+        if (!offer.isPreferred) {
+          await this.productSupplierOffersService.setPreferred(
+            id,
+            offer.id,
+            requestTenantId,
+          );
+        }
+
+        delete data.supplierId;
+        delete data.purchasePrice;
+        delete data.previousPurchasePrice;
+        delete data.netPrice;
+        delete data.purchaseFormat;
+        delete data.referenceUnit;
+        delete data.unitsPerFormat;
+        delete data.referenceUnitSize;
+        delete data.unitSize;
+        delete data.profitMargin;
+        priceChanged = false;
+      }
     }
 
     // Peso Bruto/Neto (prueba de rendimiento) manda sobre el % de merma manual

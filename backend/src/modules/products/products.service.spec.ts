@@ -33,6 +33,12 @@ describe("ProductsService", () => {
     recipeIngredient: {
       findMany: jest.fn(),
     },
+    productPriceHistory: {
+      create: jest.fn(),
+    },
+    productSupplierOffer: {
+      findFirst: jest.fn(),
+    },
   };
   (mockPrismaService as any).$transaction = jest.fn((fn: any) =>
     fn(mockPrismaService),
@@ -717,6 +723,7 @@ describe("ProductsService", () => {
       (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
         { id: "offer-dialvi", isPreferred: false },
       );
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
       prismaService.product.findFirst.mockResolvedValue(existingProduct);
       prismaService.product.update.mockResolvedValue({
         ...existingProduct,
@@ -770,6 +777,7 @@ describe("ProductsService", () => {
       (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
         { id: "offer-a", isPreferred: true },
       );
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
       prismaService.product.findFirst.mockResolvedValue(existingProduct);
       prismaService.product.update.mockResolvedValue({
         ...existingProduct,
@@ -782,6 +790,54 @@ describe("ProductsService", () => {
 
       await service.update("prod-1", updateDto, tenantId);
 
+      expect(productSupplierOffersService.setPreferred).not.toHaveBeenCalled();
+    });
+
+    it("routes a price edit to the CURRENTLY preferred offer, ignoring a stale supplier in the DTO (regression: modal reverting the preferred supplier on save)", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 6.53,
+        netPrice: 6.53,
+        supplierId: "supplier-dialvi",
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      // El DTO trae el proveedor que estaba seleccionado cuando se abrió el
+      // modal ("supplier-a"), pero mientras tanto el usuario marcó Dialvi
+      // como preferente desde la pestaña Proveedor y Stock (acción
+      // independiente e inmediata). El precio editado en "Formato y Precio"
+      // debe aplicarse a Dialvi (el preferente real ahora), no a supplier-a.
+      const updateDto = { supplier: "supplier-a", purchasePrice: 6.9 };
+
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue({
+        id: "offer-dialvi",
+        supplierId: "supplier-dialvi",
+        isPreferred: true,
+      });
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { id: "offer-dialvi", isPreferred: true },
+      );
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        "prod-1",
+        "supplier-dialvi",
+        tenantId,
+        expect.objectContaining({ purchasePrice: 6.9 }),
+      );
       expect(productSupplierOffersService.setPreferred).not.toHaveBeenCalled();
     });
   });
