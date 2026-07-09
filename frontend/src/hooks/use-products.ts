@@ -62,7 +62,6 @@ export interface Product {
   yieldFactor: number;
   grossWeight?: number | null;
   netWeight?: number | null;
-  portionWeight?: number | null;
   categoryId?: string;
   supplierId?: string;
   allergens: number[];
@@ -117,7 +116,6 @@ export interface CreateProductData {
   yieldFactor?: number;
   grossWeight?: number;
   netWeight?: number;
-  portionWeight?: number;
   allergens?: number[];
   iva?: number;
   qr?: string;
@@ -194,20 +192,14 @@ export function formatRefPrice(price: number, unit: string): string {
 }
 
 /**
- * Precio Real/kg: coste del kg limpio tras mermar, a partir de una prueba de
- * rendimiento (Peso Bruto/Peso Neto). null si el artículo no tiene esos datos.
- * Precio Real/kg = Precio Compra / unitSize / (Peso Neto / Peso Bruto)
+ * Precio Real/kg: coste del kg limpio tras mermar. Usa product.yieldFactor
+ * directamente (fuente de verdad persistida, ya sea derivado de una prueba de
+ * rendimiento Peso Bruto/Neto o de un % de merma manual). null si el artículo
+ * no tiene ningún dato de merma configurado.
  */
 export function getRealPrice(product: Product): number | null {
-  if (!product.grossWeight || !product.netWeight) return null;
+  const hasYieldInfo = (!!product.grossWeight && !!product.netWeight) || product.wastePercentage > 0;
+  if (!hasYieldInfo) return null;
   const unitSize = product.unitSize || 1;
-  const yieldFactor = product.netWeight / product.grossWeight;
-  return product.purchasePrice / unitSize / yieldFactor;
-}
-
-/** Coste de una ración = Precio Real/kg × (Peso Ración en g / 1000). null si falta algún dato. */
-export function getPortionCost(product: Product): number | null {
-  const realPrice = getRealPrice(product);
-  if (realPrice === null || !product.portionWeight) return null;
-  return realPrice * (product.portionWeight / 1000);
+  return product.purchasePrice / unitSize / (product.yieldFactor || 1);
 }

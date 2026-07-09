@@ -10,7 +10,7 @@ export interface MermasFormData {
   referenceUnit: string;
   grossWeight: string;
   netWeight: string;
-  portionWeight: string;
+  wastePercentage: string;
 }
 
 interface TabMermasProps {
@@ -20,8 +20,11 @@ interface TabMermasProps {
 
 /**
  * Prueba de rendimiento: Peso Bruto/Peso Neto de una muestra real del artículo,
- * de donde se deriva el Rendimiento/Merma real (sustituye al antiguo % Merma
- * manual). Peso Ración calcula además el coste de una ración servida.
+ * de donde se deriva el Rendimiento/Merma real. Si no se pesa el artículo, la
+ * Merma también se puede introducir a mano (ej. desde una tabla de referencia
+ * de mermas conocidas: cebolla 15%, calabacín 11%...) — en ese caso el campo
+ * Merma queda editable; en cuanto Peso Bruto y Peso Neto están rellenos, pasa
+ * a mostrar (no-editable) la merma real calculada, que manda sobre la manual.
  */
 export default function TabMermas({ formData, setFormData }: TabMermasProps) {
   const update = (field: keyof MermasFormData, value: string) => {
@@ -36,14 +39,18 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
 
   const grossWeight = parseFloat(formData.grossWeight) || 0;
   const netWeight = parseFloat(formData.netWeight) || 0;
-  const portionWeight = parseFloat(formData.portionWeight) || 0;
+  const manualWaste = parseFloat(formData.wastePercentage) || 0;
 
   const hasYieldData = grossWeight > 0 && netWeight > 0;
-  const yieldPercentage = hasYieldData ? (netWeight / grossWeight) * 100 : null;
-  const wastePercentage = yieldPercentage !== null ? 100 - yieldPercentage : null;
+  const effectiveWaste = hasYieldData
+    ? 100 - (netWeight / grossWeight) * 100
+    : manualWaste > 0
+      ? manualWaste
+      : null;
+  const hasAnyYieldInfo = effectiveWaste !== null;
+  const yieldPercentage = hasAnyYieldInfo ? 100 - effectiveWaste! : null;
   const totalCost = hasYieldData ? pricePerUnit * grossWeight : null;
-  const realPrice = hasYieldData && netWeight > 0 ? totalCost! / netWeight : null;
-  const portionCost = realPrice !== null && portionWeight > 0 ? realPrice * (portionWeight / 1000) : null;
+  const realPrice = hasAnyYieldInfo ? pricePerUnit / (yieldPercentage! / 100) : null;
 
   const unit = formData.referenceUnit || 'kg';
 
@@ -81,36 +88,42 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Peso Ración (g)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Merma (%)</label>
           <input
             type="number"
-            step="1"
+            step="0.01"
             min="0"
-            value={formData.portionWeight}
-            onChange={(e) => update('portionWeight', e.target.value)}
-            placeholder="Ej: 190"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            max="100"
+            value={hasYieldData ? effectiveWaste!.toFixed(2) : formData.wastePercentage}
+            onChange={(e) => update('wastePercentage', e.target.value)}
+            disabled={hasYieldData}
+            placeholder="Ej: 15 (si ya la conoces)"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
+              hasYieldData
+                ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
+                : 'border-gray-300'
+            }`}
           />
         </div>
       </div>
 
-      {hasYieldData && (
+      {hasAnyYieldInfo && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 space-y-1.5">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-            <span className="text-indigo-700">Coste Total de compra:</span>
-            <span className="text-indigo-900 font-semibold text-right">{formatEuro(totalCost!)}</span>
+            <span className="text-indigo-700">Precio Compra/{unit} (referencia):</span>
+            <span className="text-indigo-900 font-semibold text-right">{formatEuro(pricePerUnit)}/{unit}</span>
+            {hasYieldData && (
+              <>
+                <span className="text-indigo-700">Coste Total de compra:</span>
+                <span className="text-indigo-900 font-semibold text-right">{formatEuro(totalCost!)}</span>
+              </>
+            )}
             <span className="text-indigo-700">Rendimiento:</span>
             <span className="text-indigo-900 font-semibold text-right">{yieldPercentage!.toFixed(2)} %</span>
             <span className="text-indigo-700">Merma:</span>
-            <span className="text-indigo-900 font-semibold text-right">{wastePercentage!.toFixed(2)} %</span>
+            <span className="text-indigo-900 font-semibold text-right">{effectiveWaste!.toFixed(2)} %</span>
             <span className="text-indigo-700">Precio Real/{unit}:</span>
             <span className="text-indigo-900 font-semibold text-right">{formatEuro(realPrice!)}/{unit}</span>
-            {portionCost !== null && (
-              <>
-                <span className="text-indigo-700">Coste de la ración:</span>
-                <span className="text-indigo-900 font-semibold text-right">{formatEuro(portionCost)}</span>
-              </>
-            )}
           </div>
         </div>
       )}
