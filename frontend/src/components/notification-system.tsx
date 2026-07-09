@@ -80,7 +80,11 @@ export function NotificationSystem() {
   );
 }
 
-// Hook for using notifications in components
+// Hook for using notifications in components.
+// Guarded for SSR/prerender: `window` is unavailable on the server, so return a
+// no-op there. The real notifier is only available client-side once
+// NotificationSystem has mounted and assigned window.addNotification.
 export function useNotification() {
+  if (typeof window === 'undefined') return () => {};
   return (window as WindowWithNotification).addNotification || (() => {});
 }
