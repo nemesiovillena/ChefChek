@@ -18,6 +18,7 @@ import { UpdateCategoryDto } from "./dto/category.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import {
   ApiTags,
@@ -29,7 +30,8 @@ import {
 @ApiTags("categories")
 @ApiBearerAuth()
 @Controller("api/v1/categories")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("categories")
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 

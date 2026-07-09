@@ -165,6 +165,16 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Handle 403 from a disabled module (ModuleGuard): signal the app so it can
+    // refresh the navigation and redirect away from the blocked route. The
+    // request is still rejected so callers can handle the error as usual.
+    if (error.response?.status === 403 && typeof window !== 'undefined') {
+      const message = (error.response.data as { message?: string } | undefined)?.message ?? '';
+      if (message.startsWith("Module '")) {
+        window.dispatchEvent(new CustomEvent('chefchek:module-disabled'));
+      }
+    }
+
     return Promise.reject(error);
   }
 );

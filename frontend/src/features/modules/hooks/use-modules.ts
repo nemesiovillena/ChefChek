@@ -12,6 +12,12 @@ interface UseModulesResult {
   toggleEnabled: (moduleId: string, enabled: boolean) => Promise<void>;
   refetch: () => Promise<void>;
   canManageModules: boolean;
+  /**
+   * Whether a module is enabled for the current tenant. Returns true while
+   * modules are still loading (avoids hiding nav during the initial fetch)
+   * and for items without a moduleId (transversal features).
+   */
+  isEnabled: (moduleId?: string) => boolean;
 }
 
 export function useModules(): UseModulesResult {
@@ -64,6 +70,16 @@ export function useModules(): UseModulesResult {
     }
   }, [modules]);
 
+  const isEnabled = useCallback(
+    (moduleId?: string) => {
+      if (!moduleId) return true;
+      // While loading, keep items visible to avoid a flash of hidden nav.
+      if (!modules) return true;
+      return modules.some((m) => m.id === moduleId && m.enabled);
+    },
+    [modules],
+  );
+
   return {
     modules,
     loading,
@@ -71,5 +87,6 @@ export function useModules(): UseModulesResult {
     toggleEnabled,
     refetch: fetchModules,
     canManageModules,
+    isEnabled,
   };
 }

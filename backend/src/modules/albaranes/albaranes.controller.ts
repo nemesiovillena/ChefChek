@@ -25,6 +25,7 @@ import { AlbaranesService } from "./albaranes.service";
 import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import {
   CreateAlbaranDto,
   CreateAlbaranLineDto,
@@ -41,7 +42,8 @@ import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 @ApiTags("Albaranes")
 @ApiBearerAuth()
 @Controller("api/v1/albaranes")
-@UseGuards(AuthGuard, TenantGuard)
+@UseGuards(AuthGuard, TenantGuard, ModuleGuard)
+@RequireModule("albaranes")
 export class AlbaranesController {
   constructor(
     private readonly albaranesService: AlbaranesService,

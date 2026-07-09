@@ -23,6 +23,7 @@ import { ProductionService } from "./production.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import {
   CreateWorkBatchDto,
@@ -37,7 +38,8 @@ import {
 
 @ApiTags("Production")
 @Controller("api/v1/production")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("production")
 export class ProductionController {
   constructor(private readonly productionService: ProductionService) {}
 

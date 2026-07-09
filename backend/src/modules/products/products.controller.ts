@@ -40,12 +40,14 @@ import { UseGuards } from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import * as fs from "fs";
 import * as path from "path";
 
 @ApiTags("Products")
 @Controller("api/v1/products")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("articulos")
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 

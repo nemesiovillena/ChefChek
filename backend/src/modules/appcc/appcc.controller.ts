@@ -15,6 +15,7 @@ import { AppccService } from "./appcc.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import {
   CreateTemperatureControlDto,
@@ -30,7 +31,8 @@ import {
 } from "./dto/appcc.dto";
 
 @Controller("api/v1/appcc")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("appcc")
 export class AppccController {
   constructor(private readonly appccService: AppccService) {}
 

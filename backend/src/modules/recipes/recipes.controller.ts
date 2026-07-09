@@ -28,11 +28,13 @@ import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Recipes")
 @Controller("api/v1/recipes")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("recipes")
 export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
 

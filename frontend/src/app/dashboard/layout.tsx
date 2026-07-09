@@ -2,10 +2,17 @@
 
 import { useAuth } from '@/contexts/auth.context';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
+import { useModules } from '@/features/modules/hooks/use-modules';
+import {
+  PRIMARY_NAV,
+  MORE_SECTIONS,
+  MOBILE_NAV,
+  moduleForPath,
+} from '@/features/modules/lib/nav-config';
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -19,6 +26,8 @@ function getInitials(name?: string): string {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { modules, refetch, isEnabled } = useModules();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return true;
     const savedTheme = localStorage.getItem('theme');
@@ -27,6 +36,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMore, setShowMore] = useState(false);
+
+  // Load module activation states for the current tenant once authenticated.
+  useEffect(() => {
+    if (isAuthenticated) refetch();
+  }, [isAuthenticated, refetch]);
+
+  // Block direct URL access to disabled modules: redirect to /dashboard.
+  useEffect(() => {
+    if (!modules) return; // wait until module states are loaded
+    const mod = moduleForPath(pathname);
+    if (mod && !isEnabled(mod)) {
+      router.replace('/dashboard');
+    }
+  }, [pathname, modules, isEnabled, router]);
+
+  // React to a 403 from a disabled module (dispatched by api-client): refresh
+  // the module states and leave the blocked route.
+  useEffect(() => {
+    const onModuleDisabled = () => {
+      refetch();
+      if (pathname !== '/dashboard') router.replace('/dashboard');
+    };
+    window.addEventListener('chefchek:module-disabled', onModuleDisabled);
+    return () => window.removeEventListener('chefchek:module-disabled', onModuleDisabled);
+  }, [refetch, pathname, router]);
 
   useEffect(() => {
     if (isDark) {
@@ -55,6 +89,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => document.removeEventListener('click', close, { capture: true });
   }, [showMore]);
 
+  // Filter dropdown sections: drop empty sections (all items disabled).
+  const visibleSections = useMemo(
+    () =>
+      MORE_SECTIONS.map((section) => ({
+        ...section,
+        items: section.items.filter((item) => isEnabled(item.moduleId)),
+      })).filter((section) => section.items.length > 0),
+    [isEnabled],
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212] text-[#e5e2e1]">
@@ -79,74 +123,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
         <div className="hidden md:flex items-center gap-stack-lg">
-          <Link href="/dashboard" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">DASHBOARD</Link>
-          <Link href="/dashboard/recipes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">RECETAS</Link>
-          <Link href="/dashboard/articulos" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ARTÍCULOS</Link>
-          <Link href="/dashboard/albaranes" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">ALBARANES</Link>
-          <Link href="/dashboard/menus" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">MENÚS</Link>
-          <Link href="/dashboard/production" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">PRODUCCIÓN</Link>
-          <Link href="/dashboard/users" className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1">EQUIPO</Link>
-          {/* Dropdown for remaining modules */}
-          <div className="relative">
-            <button
-              onClick={() => setShowMore(!showMore)}
-              className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1"
+          {PRIMARY_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1"
             >
-              MÁS
-              <span className="material-symbols-outlined text-[16px]">{showMore ? 'expand_less' : 'expand_more'}</span>
-            </button>
-            {showMore && (
-              <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-                <div className="p-2">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Seguridad alimentaria</p>
-                  <Link href="/dashboard/appcc" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">health_and_safety</span>APPCC
-                  </Link>
-                  <Link href="/dashboard/allergens" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">warning</span>Alérgenos
-                  </Link>
+              {item.label}
+            </Link>
+          ))}
+          {/* Dropdown for remaining modules (only if any section is visible) */}
+          {visibleSections.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMore(!showMore)}
+                className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1"
+              >
+                MÁS
+                <span className="material-symbols-outlined text-[16px]">{showMore ? 'expand_less' : 'expand_more'}</span>
+              </button>
+              {showMore && (
+                <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+                  {visibleSections.map((section, idx) => (
+                    <div key={section.title ?? `sec-${idx}`} className={idx === 0 ? 'p-2' : 'border-t border-border p-2'}>
+                      {section.title && (
+                        <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">
+                          {section.title}
+                        </p>
+                      )}
+                      {section.items.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setShowMore(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
                 </div>
-                <div className="border-t border-border p-2">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Almacén & Pedidos</p>
-                  <Link href="/dashboard/warehouse" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">warehouse</span>Almacén
-                  </Link>
-                  <Link href="/dashboard/orders" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">shopping_cart</span>Pedidos
-                  </Link>
-                </div>
-                <div className="border-t border-border p-2">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Contenido</p>
-                  <Link href="/dashboard/technical-sheets" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">description</span>Fichas técnicas
-                  </Link>
-                  <Link href="/dashboard/digital-menu" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">qr_code</span>Menú digital
-                  </Link>
-                  <Link href="/dashboard/wiki-procedimientos" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">menu_book</span>Wiki
-                  </Link>
-                </div>
-                <div className="border-t border-border p-2">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">Herramientas</p>
-                  <Link href="/dashboard/sprint-tracker" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">track_changes</span>Sprint
-                  </Link>
-                  <Link href="/dashboard/papelera" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">delete</span>Papelera
-                  </Link>
-                  <Link href="/dashboard/backups" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">cloud_sync</span>Copias de Seguridad
-                  </Link>
-                </div>
-                <div className="border-t border-border p-2">
-                  <Link href="/dashboard/settings" onClick={() => setShowMore(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">settings</span>Configuración
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-stack-md">
           <div className="text-right hidden sm:block">
@@ -211,9 +232,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           )}
-          <button 
+          <button
             onClick={toggleTheme}
-            className="text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 ml-1 p-1 flex items-center justify-center" 
+            className="text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 ml-1 p-1 flex items-center justify-center"
             title={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
           >
             {isDark ? (
@@ -226,9 +247,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </svg>
             )}
           </button>
-          <button 
+          <button
             onClick={logout}
-            className="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200 ml-2" 
+            className="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200 ml-2"
             title="Cerrar Sesión"
           >
             logout
@@ -243,26 +264,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-base pb-safe bg-surface-container-high border-t border-border rounded-t-xl md:hidden">
-        <Link href="/dashboard" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
-          <span className="material-symbols-outlined">dashboard</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">Dashboard</span>
-        </Link>
-        <Link href="/dashboard/recipes" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
-          <span className="material-symbols-outlined">receipt_long</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">Recetas</span>
-        </Link>
-        <Link href="/dashboard/albaranes/subir" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
-          <span className="material-symbols-outlined">add_a_photo</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">Subir</span>
-        </Link>
-        <Link href="/dashboard/appcc" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
-          <span className="material-symbols-outlined">health_and_safety</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">APPCC</span>
-        </Link>
-        <Link href="/dashboard/warehouse" className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
-          <span className="material-symbols-outlined">warehouse</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">Almacén</span>
-        </Link>
+        {MOBILE_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out"
+          >
+            <span className="material-symbols-outlined">{item.icon}</span>
+            <span className="font-label-md text-label-md mt-1 text-[10px]">{item.label}</span>
+          </Link>
+        ))}
         <button onClick={() => setShowMore(!showMore)} className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
           <span className="material-symbols-outlined">apps</span>
           <span className="font-label-md text-label-md mt-1 text-[10px]">Más</span>

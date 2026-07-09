@@ -120,6 +120,19 @@ export class ModulesService {
   }
 
   /**
+   * Resolve whether a module is enabled for a tenant, applying its default
+   * when no explicit configuration exists. Used by ModuleGuard to gate access.
+   */
+  async isModuleEnabled(tenantId: string, moduleId: string): Promise<boolean> {
+    const def = findModule(moduleId);
+    if (!def) {
+      return false;
+    }
+    const state = await this.getModuleState(tenantId, moduleId);
+    return state ?? def.defaultEnabled;
+  }
+
+  /**
    * Get the activation state of a specific module.
    */
   private async getModuleState(

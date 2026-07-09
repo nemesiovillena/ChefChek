@@ -31,11 +31,13 @@ import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Users")
 @Controller("api/v1/users")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("sala")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 

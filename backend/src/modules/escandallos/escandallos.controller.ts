@@ -22,12 +22,14 @@ import { EscandallosService } from "./escandallos.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { GenerateEscandalloReportDto } from "./dto/escandallos.dto";
 
 @ApiTags("Escandallos")
 @Controller("api/v1/escandallos")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@RequireModule("escandallos")
 export class EscandallosController {
   constructor(private readonly escandallosService: EscandallosService) {}
 

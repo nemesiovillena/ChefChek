@@ -14,6 +14,7 @@ import {
 import { QRService } from "./qr.service";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { AuthGuard } from "../../guards/auth.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import {
   GenerateQRCodeDto,
   QRCodeResponseDto,
@@ -23,7 +24,8 @@ import {
 } from "./dto/qr.dto";
 
 @Controller("api/v1/qr")
-@UseGuards(AuthGuard, TenantGuard)
+@UseGuards(AuthGuard, TenantGuard, ModuleGuard)
+@RequireModule("qr")
 export class QRController {
   constructor(private readonly qrService: QRService) {}
 
