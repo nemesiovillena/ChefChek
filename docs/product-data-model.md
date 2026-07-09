@@ -23,7 +23,7 @@ model Product {
   // Precios
   purchasePrice         Float            // Precio bruto de compra actual
   previousPurchasePrice Float @default(0) // Precio de compra inmediatamente anterior (instantánea del último cambio; alimenta el badge de tendencia del listado)
-  netPrice              Float            // Precio neto (producto limpio)
+  netPrice              Float            // ⚠️ Doble significado (ver nota abajo). NO alimenta el costeo de recetas/escandallos.
   profitMargin          Float @default(0) // Margen de beneficio
 
   // Rendimiento
@@ -74,6 +74,22 @@ model ProductPriceHistory {
 `previousPurchasePrice` en `Product` es solo una instantánea del último valor (un paso), usada por el indicador de tendencia del listado. El histórico completo vive en `product_price_histories`.
 
 **Lectura**: `GET /api/v1/products/price-history?productId=<id>` devuelve los últimos 50 registros (`recordedAt desc`) con `supplier` y `albaran` incluidos.
+
+## Nota: doble significado de `netPrice` (deuda técnica documentada)
+
+El campo `Product.netPrice` está **sobrecargado**: significa cosas distintas según quién lo escriba.
+
+- **Edición manual / alta / alta masiva** (`ProductsService` create/update/createBulk, función `calculateNetPrice`): `netPrice = purchasePrice × (1 − waste%) × (1 + margin%)`.
+- **Confirmación de albarán** (stock y manual): `netPrice = precio de línea en crudo` (sin merma ni margen). Rama preferente vía `upsertOffer → syncProductFromOffer`; fallback directa en `albaran-stock.service`.
+
+**Por qué no se unifica la fórmula de escritura**:
+- `netPrice` **no alimenta el costeo** de recetas/escandallos (esos usan `getReferencePrice = purchasePrice / unitSize`, ruta independiente).
+- No se muestra en el listado de artículos (usa `purchasePrice`, "Precio Real", "Precio Ref.").
+- Reescribir el flujo de albarán/stock + ofertas no se justifica (YAGNI; riesgo > beneficio).
+
+**Acoplamiento ya resuelto (2026-07-09)**: `manual-albaran.service` antes **leía** `netPrice` como si fuera el precio de compra anterior (tendencia subir/bajar y mensaje *"De X€ a Y€"*), lo que solo era correcto por accidente. Ahora esas lecturas usan `purchasePrice` (producto pre-actualización), así las notificaciones son correctas por diseño e independientes del significado de `netPrice`. `albaran-stock.service` ya usaba precios explícitos.
+
+Si en el futuro se quiere una semántica única de **escritura**, el objetivo razonable es `netPrice = purchasePrice × (1 − waste%)` ("precio neto limpio", sin margen) en todas las escrituras. Es un refactor deliberado, no un fix rápido.
 
 ## Campos Detallados
 

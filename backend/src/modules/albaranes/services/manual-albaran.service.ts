@@ -79,9 +79,11 @@ export class ManualAlbaranService {
         });
         if (existing && line.price > 0) {
           const priceChangePercentage =
-            existing.netPrice > 0
+            existing.purchasePrice > 0
               ? Math.abs(
-                  ((line.price - existing.netPrice) / existing.netPrice) * 100,
+                  ((line.price - existing.purchasePrice) /
+                    existing.purchasePrice) *
+                    100,
                 )
               : 0;
 
@@ -282,13 +284,14 @@ export class ManualAlbaranService {
     newPrice: number,
     percentageChange: number,
   ) {
-    const direction = newPrice > product.netPrice ? "aumentado" : "disminuido";
+    const direction =
+      newPrice > product.purchasePrice ? "aumentado" : "disminuido";
     const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
 
     await this.notificationsService.createNotification(tenantId, {
       type: alertType,
       title: `Cambio de precio significativo: ${product.name}`,
-      message: `El precio de ${product.name} ha ${direction} un ${percentageChange.toFixed(1)}%. De ${product.netPrice}€ a ${newPrice}€.`,
+      message: `El precio de ${product.name} ha ${direction} un ${percentageChange.toFixed(1)}%. De ${product.purchasePrice}€ a ${newPrice}€.`,
       severity: alertType,
     });
   }
