@@ -272,7 +272,7 @@ export function ClientFormDialog({
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-stack-lg py-stack-sm rounded-full bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            className="px-stack-lg py-stack-sm rounded-full bg-primary text-primary-foreground font-label-md text-label-md hover:opacity-90 disabled:opacity-50 cursor-pointer"
           >
             {submitting ? 'Creando...' : 'Crear cliente'}
           </button>

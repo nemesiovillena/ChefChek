@@ -102,7 +102,7 @@ export function SuperadminDashboardPage() {
                 aria-selected={view === 'active'}
                 onClick={() => setView('active')}
                 className={`flex-1 px-stack-md py-1.5 rounded-full font-label-sm text-label-sm cursor-pointer transition-colors ${
-                  view === 'active' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                  view === 'active' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'
                 }`}
               >
                 Activos
@@ -112,7 +112,7 @@ export function SuperadminDashboardPage() {
                 aria-selected={view === 'trashed'}
                 onClick={() => setView('trashed')}
                 className={`flex-1 px-stack-md py-1.5 rounded-full font-label-sm text-label-sm cursor-pointer transition-colors ${
-                  view === 'trashed' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                  view === 'trashed' ? 'bg-primary text-primary-foreground' : 'text-on-surface-variant'
                 }`}
               >
                 Papelera{trashed.length > 0 ? ` (${trashed.length})` : ''}
@@ -121,7 +121,7 @@ export function SuperadminDashboardPage() {
             {view === 'active' && (
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full flex items-center justify-center gap-stack-sm px-stack-md py-stack-sm rounded-full bg-primary text-on-primary font-label-md text-label-md hover:opacity-90 cursor-pointer"
+                className="w-full flex items-center justify-center gap-stack-sm px-stack-md py-stack-sm rounded-full bg-primary text-primary-foreground font-label-md text-label-md hover:opacity-90 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-xl">add</span>
                 Nuevo cliente
