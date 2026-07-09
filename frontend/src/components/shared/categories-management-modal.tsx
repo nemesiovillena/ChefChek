@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -66,9 +64,11 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
     setActiveTab('form');
   };
 
-  const handleCreate = () => {
-    setEditingCategory(null);
-    setActiveTab('form');
+  // Volver a la pestaña Árbol siempre limpia la edición en curso, así la
+  // pestaña "Nueva categoría" abre un formulario en blanco (no el último editado).
+  const handleTabChange = (value: string) => {
+    if (value === 'list') setEditingCategory(null);
+    setActiveTab(value);
   };
 
   const handleSubmit = async (data: CategoryFormData) => {
@@ -117,7 +117,7 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="list">Árbol ({categories?.length ?? 0})</TabsTrigger>
             <TabsTrigger value="form">
@@ -126,15 +126,9 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
           </TabsList>
 
           <TabsContent value="list" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-600">
-                {categories?.filter(c => c.isActive).length ?? 0} activas de {categories?.length ?? 0} totales
-              </p>
-              <Button onClick={handleCreate} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Nueva categoría
-              </Button>
-            </div>
+            <p className="text-sm text-gray-600">
+              {categories?.filter(c => c.isActive).length ?? 0} activas de {categories?.length ?? 0} totales
+            </p>
 
             {isLoading ? (
               <p className="text-center py-8">Cargando...</p>
@@ -154,7 +148,7 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
               category={editingCategory}
               tree={tree ?? []}
               onSubmit={handleSubmit}
-              onCancel={() => setActiveTab('list')}
+              onCancel={() => handleTabChange('list')}
               isSubmitting={createMutation.isPending || updateMutation.isPending}
             />
           </TabsContent>
