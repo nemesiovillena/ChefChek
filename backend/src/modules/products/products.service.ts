@@ -350,6 +350,11 @@ export class ProductsService {
       delete data.unitSize;
     }
 
+    // Flag: ¿cambia realmente el precio de compra? Si es así hay que registrar
+    // una fila en ProductPriceHistory (igual que hace el flujo de albaranes),
+    // para que las ediciones manuales también dejen traza en el historial.
+    let priceChanged = false;
+
     // Recalcular precios si se modifican
     if (
       updateData.purchasePrice !== undefined ||
@@ -362,6 +367,7 @@ export class ProductsService {
         updateData.purchasePrice !== existingProduct.purchasePrice
       ) {
         data.previousPurchasePrice = existingProduct.purchasePrice;
+        priceChanged = true;
       }
 
       const purchasePrice =
@@ -417,22 +423,45 @@ export class ProductsService {
         : null;
     }
 
-    const product = await this.prisma.product.update({
-      where: { id },
-      data,
-      include: {
-        purchaseFormats: true,
-        nutritionalInfo: true,
-        category: { include: { parent: true } },
-        supplier: true,
-        stocks: true,
-        albaranLines: {
-          select: { albaran: { select: { date: true } } },
-          orderBy: { albaran: { date: "desc" } },
-          take: 1,
-        },
+    const productInclude = {
+      purchaseFormats: true,
+      nutritionalInfo: true,
+      category: { include: { parent: true } },
+      supplier: true,
+      stocks: true,
+      albaranLines: {
+        select: { albaran: { select: { date: true } } },
+        orderBy: { albaran: { date: "desc" as const } },
+        take: 1,
       },
-    });
+    };
+
+    // Si el precio de compra cambió, registrar la traza de historial en la misma
+    // transacción que la actualización del producto (consistencia garantizada).
+    const product = priceChanged
+      ? await this.prisma.$transaction(async (tx) => {
+          const updated = await tx.product.update({
+            where: { id },
+            data,
+            include: productInclude,
+          });
+          await tx.productPriceHistory.create({
+            data: {
+              tenantId: requestTenantId,
+              productId: id,
+              supplierId: existingProduct.supplierId ?? null,
+              albaranId: null,
+              previousPrice: existingProduct.purchasePrice,
+              newPrice: updateData.purchasePrice as number,
+            },
+          });
+          return updated;
+        })
+      : await this.prisma.product.update({
+          where: { id },
+          data,
+          include: productInclude,
+        });
 
     // Update stock min/max if provided
     if (minimumStock !== undefined || maximumStock !== undefined) {

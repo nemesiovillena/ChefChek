@@ -22,7 +22,7 @@ export function useProductPriceHistory(productId: string | null, supplierId?: st
 
   return useApiQuery<PriceHistoryEntry[]>(
     ['price-history', productId ?? '', supplierId ?? ''],
-    `/products/price-history?${params.toString()}`,
+    `/v1/products/price-history?${params.toString()}`,
     { enabled: !!productId },
   );
 }

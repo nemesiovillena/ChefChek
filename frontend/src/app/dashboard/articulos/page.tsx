@@ -12,6 +12,7 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
+import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
 
 interface Supplier {
   id: string;
@@ -609,7 +610,15 @@ export default function ArticulosPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{parentCat?.name || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getCategoryDisplay(product.categoryId)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">&euro;{product.purchasePrice.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          <span className="inline-flex items-center gap-1.5">
+                            &euro;{product.purchasePrice.toFixed(2)}
+                            <ProductPriceTrendBadge
+                              current={product.purchasePrice}
+                              previous={product.previousPurchasePrice ?? 0}
+                            />
+                          </span>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {getRealPrice(product) !== null
                             ? formatRefPrice(getRealPrice(product)!, product.referenceUnit)
