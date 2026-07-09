@@ -9,13 +9,16 @@ import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
 import TabMermas from './tab-mermas';
+import { ProductPriceHistoryChart } from '@/components/products/product-price-history-chart';
+import { ProductPriceHistoryTable } from '@/components/products/product-price-history-table';
 
-const TABS = [
+const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'formato-precio', label: 'Formato y Precio' },
   { id: 'mermas', label: 'Mermas' },
   { id: 'alergenos', label: 'Alérgenos' },
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'nutricion', label: 'Nutrición' },
+  { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
 ];
 
 interface SupplierOption {
@@ -242,7 +245,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-zinc-800 mb-4">
           <div role="tablist" aria-label="Secciones del artículo" className="flex -mb-px space-x-4 overflow-x-auto">
-            {TABS.map((tab) => (
+            {TABS.filter((tab) => !tab.editOnly || !!article?.id).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -299,6 +302,12 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           )}
           {activeTab === 'nutricion' && (
             <TabNutricion nutritionalData={nutritionalData} setNutritionalData={setNutritionalData} />
+          )}
+          {activeTab === 'historial-precios' && article?.id && (
+            <div className="space-y-4">
+              <ProductPriceHistoryChart productId={article.id} supplierId={article.supplierId ?? undefined} />
+              <ProductPriceHistoryTable productId={article.id} supplierId={article.supplierId ?? undefined} />
+            </div>
           )}
         </div>
 

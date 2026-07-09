@@ -21,9 +21,10 @@ model Product {
   recipeUnit        String           // UR: Gramos, Mililitros
 
   // Precios
-  purchasePrice      Float            // Precio bruto de compra
-  netPrice          Float            // Precio neto (producto limpio)
-  profitMargin      Float            @default(0) // Margen de beneficio
+  purchasePrice         Float            // Precio bruto de compra actual
+  previousPurchasePrice Float @default(0) // Precio de compra inmediatamente anterior (instantánea del último cambio; alimenta el badge de tendencia del listado)
+  netPrice              Float            // Precio neto (producto limpio)
+  profitMargin          Float @default(0) // Margen de beneficio
 
   // Rendimiento
   wastePercentage   Float            @default(0) // Porcentaje de mermas
@@ -47,6 +48,32 @@ model Product {
   @@map("products")
 }
 ```
+
+## Historial de Precios de Compra
+
+Cada cambio del precio de compra (`purchasePrice`) queda registrado en la tabla `product_price_histories` (modelo `ProductPriceHistory`), para poder consultar subidas/bajadas a lo largo del tiempo.
+
+```prisma
+model ProductPriceHistory {
+  id            String   @id @default(cuid())
+  tenantId      String
+  productId     String
+  supplierId    String?  // Proveedor asociado al cambio
+  albaranId     String?  // Albarán que originó el cambio (null si fue edición manual)
+  previousPrice Float    // Precio anterior
+  newPrice      Float    // Precio nuevo
+  recordedAt    DateTime @default(now())
+}
+```
+
+**Trazas de escritura** (dos orígenes, ambos graban `previousPrice`/`newPrice`):
+
+- **Edición manual** — `ProductsService.update()`: al cambiar `purchasePrice`, actualiza el producto y crea la fila de historial en la misma transacción. `supplierId` = proveedor actual del producto; `albaranId` = `null`.
+- **Confirmación de albarán** — `AlbaranStockService`: al confirmar un albarán con un precio de línea distinto, actualiza `previousPurchasePrice`/`purchasePrice`/`netPrice` y crea la fila de historial con `supplierId` y `albaranId` del albarán.
+
+`previousPurchasePrice` en `Product` es solo una instantánea del último valor (un paso), usada por el indicador de tendencia del listado. El histórico completo vive en `product_price_histories`.
+
+**Lectura**: `GET /api/v1/products/price-history?productId=<id>` devuelve los últimos 50 registros (`recordedAt desc`) con `supplier` y `albaran` incluidos.
 
 ## Campos Detallados
 

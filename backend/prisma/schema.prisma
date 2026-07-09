@@ -61,6 +61,7 @@ model Tenant {
   albaranes              Albaran[]
   unitsOfMeasure         UnitOfMeasure[]
   productPriceHistories  ProductPriceHistory[]
+  productSupplierOffers  ProductSupplierOffer[]
   configurations         Configuration[]
   categories             Category[]
   stocks                 Stock[]
@@ -184,6 +185,7 @@ model Product {
   nutritionalInfo   NutritionalInfo?
   albaranLines      AlbaranLine[]
   priceHistory      ProductPriceHistory[]
+  supplierOffers    ProductSupplierOffer[]
 
   @@index([tenantId])
   @@index([name])
@@ -204,6 +206,47 @@ model PurchaseFormat {
 
   @@index([productId])
   @@map("purchase_formats")
+}
+
+// Oferta de un proveedor concreto para un artículo. Un Product puede tener
+// varias ofertas (mismo ingrediente, distintos proveedores/precios); la
+// marcada `isPreferred` es la única que sincroniza los campos planos de
+// Product (purchasePrice/netPrice/supplierId/formato), que siguen siendo la
+// fuente que lee el motor de costeo de recetas sin cambios.
+// El @@unique de Prisma se omite a propósito: la unicidad real (máx. 1
+// preferente por producto, máx. 1 oferta activa por proveedor) se aplica con
+// índices únicos parciales creados a mano en la migración (Prisma no soporta
+// índices parciales de forma declarativa).
+model ProductSupplierOffer {
+  id         String   @id @default(cuid())
+  tenantId   String
+  productId  String
+  supplierId String
+
+  purchaseFormat    String @default("")
+  referenceUnit     String @default("kg")
+  unitsPerFormat    Int    @default(1)
+  referenceUnitSize Float  @default(1)
+  unitSize          Float  @default(1)
+
+  purchasePrice         Float
+  previousPurchasePrice Float @default(0)
+  netPrice              Float
+  profitMargin          Float @default(0)
+
+  isPreferred Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([supplierId])
+  @@map("product_supplier_offers")
 }
 
 model NutritionalInfo {
@@ -1051,6 +1094,7 @@ model Supplier {
   priceHistory          SupplierPriceHistory[]
   productPriceHistories ProductPriceHistory[]
   albaranes             Albaran[]
+  supplierOffers        ProductSupplierOffer[]
 
   @@index([tenantId])
   @@index([name])

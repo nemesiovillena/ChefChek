@@ -11,9 +11,16 @@ import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { OcrModule } from "../ocr/ocr.module";
 import { CoreModule } from "../core/core.module";
+import { ProductsModule } from "../products/products.module";
 
 @Module({
-  imports: [PrismaModule, forwardRef(() => AuthModule), OcrModule, CoreModule],
+  imports: [
+    PrismaModule,
+    forwardRef(() => AuthModule),
+    OcrModule,
+    CoreModule,
+    ProductsModule,
+  ],
   controllers: [AlbaranesController],
   providers: [
     AlbaranesService,

@@ -2,12 +2,14 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AlbaranStockService } from "./albaran-stock.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
+import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { LineStatus, LineMatchStatus, AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranStockService", () => {
   let service: AlbaranStockService;
   let prisma: jest.Mocked<PrismaService>;
   let notifications: jest.Mocked<NotificationsService>;
+  let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
 
   const mockTenantId = "tenant-123";
   const mockAlbaranId = "albaran-123";
@@ -56,12 +58,19 @@ describe("AlbaranStockService", () => {
             createNotification: jest.fn(),
           },
         },
+        {
+          provide: ProductSupplierOffersService,
+          useValue: {
+            upsertOffer: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AlbaranStockService>(AlbaranStockService);
     prisma = module.get(PrismaService);
     notifications = module.get(NotificationsService);
+    productSupplierOffersService = module.get(ProductSupplierOffersService);
   });
 
   it("should be defined", () => {
@@ -148,7 +157,7 @@ describe("AlbaranStockService", () => {
       expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
     });
 
-    it("should process CONFIRMADO line with matched product and update stock", async () => {
+    it("should process CONFIRMADO line with matched product, upsert the supplier's offer and update stock", async () => {
       const mockProduct = {
         id: mockProductId,
         name: "Test Product",
@@ -196,14 +205,24 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true, purchasePrice: 5 },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
       expect(mockTx.product.findFirst).toHaveBeenCalled();
-      expect(mockTx.product.update).toHaveBeenCalledWith({
-        where: { id: mockProductId },
-        data: { purchasePrice: 5, netPrice: 5, previousPurchasePrice: 4.5 },
-      });
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-123",
+        mockTenantId,
+        { purchasePrice: 5, netPrice: 5 },
+        mockTx,
+        mockAlbaranId,
+      );
+      // El precio plano ya no se sobreescribe directamente: lo hace
+      // ProductSupplierOffersService cuando la oferta es la preferente.
+      expect(mockTx.product.update).not.toHaveBeenCalled();
       expect(mockTx.stockMovement.create).toHaveBeenCalled();
       expect(mockTx.stock.create).toHaveBeenCalledWith({
         data: {
@@ -211,6 +230,142 @@ describe("AlbaranStockService", () => {
           productId: mockProductId,
           warehouseId: mockWarehouseId,
           quantity: 10,
+        },
+      });
+    });
+
+    it("does not overwrite Product's flat price when the line's supplier offer is not the preferred one", async () => {
+      const mockProduct = {
+        id: mockProductId,
+        name: "Mozzarella",
+        purchasePrice: 10,
+        netPrice: 10,
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-001",
+        supplierId: "supplier-dialvi",
+        warehouseId: mockWarehouseId,
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "Mozzarella",
+            quantity: 10,
+            unit: "kg",
+            unitPrice: 6.53,
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn(),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      // Dialvi no es el proveedor preferente de este producto: su oferta se
+      // actualiza, pero el precio plano vigente del producto no cambia.
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: false, purchasePrice: 6.53 },
+      );
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-dialvi",
+        mockTenantId,
+        { purchasePrice: 6.53, netPrice: 6.53 },
+        mockTx,
+        mockAlbaranId,
+      );
+      expect(mockTx.product.update).not.toHaveBeenCalled();
+      expect(notifications.createNotification).not.toHaveBeenCalled();
+    });
+
+    it("falls back to a direct Product update when the albarán has no supplier assigned", async () => {
+      const mockProduct = {
+        id: mockProductId,
+        name: "Test Product",
+        purchasePrice: 4.5,
+        netPrice: 4.5,
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-001",
+        supplierId: null,
+        warehouseId: mockWarehouseId,
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "Test Product",
+            quantity: 10,
+            unit: "kg",
+            unitPrice: 5,
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn().mockResolvedValue(mockProduct),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).not.toHaveBeenCalled();
+      expect(mockTx.product.update).toHaveBeenCalledWith({
+        where: { id: mockProductId },
+        data: { previousPurchasePrice: 4.5, purchasePrice: 5, netPrice: 5 },
+      });
+      expect(mockTx.productPriceHistory.create).toHaveBeenCalledWith({
+        data: {
+          tenantId: mockTenantId,
+          productId: mockProductId,
+          supplierId: null,
+          albaranId: mockAlbaranId,
+          previousPrice: 4.5,
+          newPrice: 5,
         },
       });
     });
@@ -272,6 +427,9 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true, purchasePrice: 5 },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
@@ -410,6 +568,9 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true, purchasePrice: 5 },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
@@ -470,6 +631,9 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true, purchasePrice: 5 },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
@@ -596,6 +760,9 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
@@ -651,6 +818,9 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true, purchasePrice: 5 },
+      );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 

@@ -2,10 +2,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 
 describe("ProductsService", () => {
   let service: ProductsService;
   let prismaService: any;
+  let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
 
   const mockPrismaService = {
     product: {
@@ -32,6 +34,9 @@ describe("ProductsService", () => {
       findMany: jest.fn(),
     },
   };
+  (mockPrismaService as any).$transaction = jest.fn((fn: any) =>
+    fn(mockPrismaService),
+  );
 
   const tenantId = "tenant-123";
 
@@ -43,11 +48,19 @@ describe("ProductsService", () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: ProductSupplierOffersService,
+          useValue: {
+            upsertOffer: jest.fn(),
+            setPreferred: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
     prismaService = mockPrismaService;
+    productSupplierOffersService = module.get(ProductSupplierOffersService);
   });
 
   afterEach(() => {
@@ -685,6 +698,91 @@ describe("ProductsService", () => {
           }),
         }),
       );
+    });
+
+    it("delegates to ProductSupplierOffersService when supplier + purchasePrice are both provided, without writing price fields on Product directly", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        netPrice: 10,
+        supplierId: "supplier-a",
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      const updateDto = { supplier: "supplier-dialvi", purchasePrice: 6.53 };
+
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { id: "offer-dialvi", isPreferred: false },
+      );
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        "prod-1",
+        "supplier-dialvi",
+        tenantId,
+        expect.objectContaining({ purchasePrice: 6.53 }),
+      );
+      // Dialvi no era la oferta preferente: se promueve explícitamente.
+      expect(productSupplierOffersService.setPreferred).toHaveBeenCalledWith(
+        "prod-1",
+        "offer-dialvi",
+        tenantId,
+      );
+      // El precio/proveedor ya lo sincronizó el offers service — el update
+      // directo de Product no debe volver a escribir esos campos.
+      expect(prismaService.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({
+            purchasePrice: expect.anything(),
+            supplierId: expect.anything(),
+          }),
+        }),
+      );
+    });
+
+    it("does not call setPreferred when the offer is already the preferred one", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        netPrice: 10,
+        supplierId: "supplier-a",
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      const updateDto = { supplier: "supplier-a", purchasePrice: 12 };
+
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { id: "offer-a", isPreferred: true },
+      );
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(productSupplierOffersService.setPreferred).not.toHaveBeenCalled();
     });
   });
 

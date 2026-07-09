@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { getReferencePrice } from "../../common/utils/unit-conversions";
+import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -13,7 +14,10 @@ import {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly productSupplierOffersService: ProductSupplierOffersService,
+  ) {}
 
   private resolveLastPurchase(
     albaranDate: Date | null,
@@ -388,6 +392,49 @@ export class ProductsService {
             ? this.calculateYieldFactor(wastePercentage)
             : 1.0;
       }
+    }
+
+    // Si el DTO trae proveedor + precio de compra, se interpreta como
+    // "editar/crear la oferta preferente de ese proveedor" — el modal grande
+    // nunca crea una oferta secundaria silenciosa (para eso está la lista de
+    // ofertas del tab Proveedor y Stock). ProductSupplierOffersService ya
+    // registra su propio ProductPriceHistory y sincroniza Product si la
+    // oferta es/pasa a ser la preferente, así que se retira el manejo legacy
+    // de precio/formato de `data` para no pisar lo que el service escribió.
+    if (supplier && updateData.purchasePrice !== undefined) {
+      const offer = await this.productSupplierOffersService.upsertOffer(
+        id,
+        supplier,
+        requestTenantId,
+        {
+          purchasePrice: data.purchasePrice,
+          netPrice: data.netPrice,
+          purchaseFormat: data.purchaseFormat,
+          referenceUnit: data.referenceUnit,
+          unitsPerFormat: data.unitsPerFormat,
+          referenceUnitSize: data.referenceUnitSize,
+          profitMargin: data.profitMargin,
+        },
+      );
+      if (!offer.isPreferred) {
+        await this.productSupplierOffersService.setPreferred(
+          id,
+          offer.id,
+          requestTenantId,
+        );
+      }
+
+      delete data.supplierId;
+      delete data.purchasePrice;
+      delete data.previousPurchasePrice;
+      delete data.netPrice;
+      delete data.purchaseFormat;
+      delete data.referenceUnit;
+      delete data.unitsPerFormat;
+      delete data.referenceUnitSize;
+      delete data.unitSize;
+      delete data.profitMargin;
+      priceChanged = false;
     }
 
     // Peso Bruto/Neto (prueba de rendimiento) manda sobre el % de merma manual

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { AlbaranNumberService } from "./albaran-number.service";
 import { NotificationsService } from "../../core/notifications.service";
+import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { ManualAlbaranDto } from "../dto/manual-albaran.dto";
 
 /**
@@ -24,6 +25,7 @@ export class ManualAlbaranService {
     private readonly prisma: PrismaService,
     private readonly albaranNumberService: AlbaranNumberService,
     private readonly notificationsService: NotificationsService,
+    private readonly productSupplierOffersService: ProductSupplierOffersService,
   ) {}
 
   async process(
@@ -83,18 +85,39 @@ export class ManualAlbaranService {
                 )
               : 0;
 
-          await this.prisma.product.update({
-            where: { id: existing.id },
-            data: { purchasePrice: line.price, netPrice: line.price },
-          });
-
-          if (priceChangePercentage > 10) {
-            await this.notifyPriceChange(
+          if (supplierId) {
+            // Upsert de la oferta de este proveedor. Si es la preferente del
+            // producto, sincroniza el precio plano; si es otro proveedor,
+            // solo actualiza su oferta sin tocar el precio vigente.
+            const offer = await this.productSupplierOffersService.upsertOffer(
+              existing.id,
+              supplierId,
               tenantId,
-              existing,
-              line.price,
-              priceChangePercentage,
+              { purchasePrice: line.price, netPrice: line.price },
             );
+            if (offer.isPreferred && priceChangePercentage > 10) {
+              await this.notifyPriceChange(
+                tenantId,
+                existing,
+                line.price,
+                priceChangePercentage,
+              );
+            }
+          } else {
+            // Fallback legacy: sin proveedor conocido no se puede crear oferta.
+            await this.prisma.product.update({
+              where: { id: existing.id },
+              data: { purchasePrice: line.price, netPrice: line.price },
+            });
+
+            if (priceChangePercentage > 10) {
+              await this.notifyPriceChange(
+                tenantId,
+                existing,
+                line.price,
+                priceChangePercentage,
+              );
+            }
           }
           results.updated++;
         }
@@ -107,10 +130,19 @@ export class ManualAlbaranService {
         if (existingByName) {
           productId = existingByName.id;
           if (line.price > 0) {
-            await this.prisma.product.update({
-              where: { id: existingByName.id },
-              data: { purchasePrice: line.price, netPrice: line.price },
-            });
+            if (supplierId) {
+              await this.productSupplierOffersService.upsertOffer(
+                existingByName.id,
+                supplierId,
+                tenantId,
+                { purchasePrice: line.price, netPrice: line.price },
+              );
+            } else {
+              await this.prisma.product.update({
+                where: { id: existingByName.id },
+                data: { purchasePrice: line.price, netPrice: line.price },
+              });
+            }
           }
           results.updated++;
         } else {

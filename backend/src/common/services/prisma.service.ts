@@ -12,6 +12,7 @@ const modelsWithSoftDelete = [
   "category",
   "albaran",
   "tenant",
+  "productsupplieroffer",
 ];
 
 @Injectable()

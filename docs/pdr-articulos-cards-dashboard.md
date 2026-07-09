@@ -334,9 +334,10 @@ function calculatePriceTrend(supplierId: string): PriceTrend {
 }
 ```
 
-**Consideración**:
-- Si no existe histórico de precios, guardar el primer precio como baseline
-- Opción: crear tabla `SupplierPriceHistory` con registros periódicos o al actualizar precios
+**Consideración** (implementado):
+- El histórico de precios **ya existe**: tablas `product_price_histories` (`ProductPriceHistory`, por artículo) y `supplier_price_histories` (`SupplierPriceHistory`, precio medio por proveedor).
+- `ProductPriceHistory` se escribe tanto al editar el precio de un artículo (`ProductsService.update`) como al confirmar un albarán (`AlbaranStockService`); expuesta en `GET /api/v1/products/price-history`.
+- En el listado de artículos hay además un badge de tendencia que compara `purchasePrice` con `previousPurchasePrice` (instantánea del último cambio).
 
 ---
 
@@ -498,7 +499,7 @@ function calculatePriceTrend(supplierId: string): PriceTrend {
 | Riesgo | Probabilidad | Impacto | Mitigación |
 |--------|--------------|---------|------------|
 | Endpoints de Suppliers incompletos | Media | Medio | Implementar endpoints completos en Fase 2 |
-| Histórico de precios no existe | Alta | Alto | Crear tabla `SupplierPriceHistory` o usar lógica alternativa |
+| ~~Histórico de precios no existe~~ | — | — | **Resuelto**: existe `ProductPriceHistory` (por artículo) + `SupplierPriceHistory` (por proveedor); badge de tendencia en el listado y pestaña "Hist. Precios" en la ficha |
 | Gestión de jerarquía de categorías compleja | Baja | Medio | Reutilizar lógica existente de `useCategoryTree` |
 | Performance en modales con muchos registros | Media | Bajo | Implementar paginación o virtual scrolling |
 | Icon picker no disponible | Baja | Bajo | Usar selector de emojis o iconos Lucide predefinidos |
@@ -532,7 +533,7 @@ Si no se aprueba "Alertas de Stock", otras opciones:
 ## Preguntas Abiertas
 
 1. **Card 4**: ¿Se aprueba "Alertas de Stock" o prefiere otra opción?
-2. **Histórico de precios**: ¿Crear tabla `SupplierPriceHistory` o usar lógica alternativa?
+2. ~~**Histórico de precios**: ¿Crear tabla `SupplierPriceHistory` o usar lógica alternativa?~~ → **Resuelto**: implementado con `ProductPriceHistory` + `SupplierPriceHistory`.
 3. **Eliminar proveedores**: ¿Permitir eliminación forzada aunque tenga productos asociados?
 4. **Icon picker**: ¿Usar emojis, iconos Lucide predefinidos, o instalar librería de color picker?
 5. **Reordenar categorías**: ¿Implementar drag & drop o botones simples de subir/bajar?

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
+import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
 function normalizeUnit(unit: string): string {
@@ -24,6 +25,7 @@ export class AlbaranStockService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly productSupplierOffersService: ProductSupplierOffersService,
   ) {}
 
   /**
@@ -91,36 +93,62 @@ export class AlbaranStockService {
                   )
                 : 100;
 
-            // Save previous price before overwriting
-            await tx.product.update({
-              where: { id: product.id },
-              data: {
-                previousPurchasePrice: currentPrice,
-                purchasePrice: lineUnitPrice,
-                netPrice: lineUnitPrice,
-              },
-            });
-
-            // Record price change in history
-            await tx.productPriceHistory.create({
-              data: {
+            if (albaran.supplierId) {
+              // Upsert de la oferta de ESTE proveedor concreto. Si es la
+              // oferta preferente del producto, sincroniza los campos planos
+              // (comportamiento legacy preservado); si es un proveedor
+              // distinto al preferente, solo actualiza su oferta — el precio
+              // vigente del producto no se sobreescribe.
+              const offer = await this.productSupplierOffersService.upsertOffer(
+                product.id,
+                albaran.supplierId,
                 tenantId,
-                productId: product.id,
-                supplierId: albaran.supplierId,
-                albaranId: albaran.id,
-                previousPrice: currentPrice,
-                newPrice: lineUnitPrice,
-              },
-            });
-
-            if (percentageChange > 10) {
-              await this.notifyPriceChange(
-                tenantId,
-                product.name,
-                currentPrice,
-                lineUnitPrice,
-                percentageChange,
+                { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+                tx,
+                albaran.id,
               );
+
+              if (offer.isPreferred && percentageChange > 10) {
+                await this.notifyPriceChange(
+                  tenantId,
+                  product.name,
+                  currentPrice,
+                  lineUnitPrice,
+                  percentageChange,
+                );
+              }
+            } else {
+              // Fallback legacy: albarán sin proveedor asignado, no se puede
+              // crear una oferta (supplierId es obligatorio en el modelo).
+              await tx.product.update({
+                where: { id: product.id },
+                data: {
+                  previousPurchasePrice: currentPrice,
+                  purchasePrice: lineUnitPrice,
+                  netPrice: lineUnitPrice,
+                },
+              });
+
+              await tx.productPriceHistory.create({
+                data: {
+                  tenantId,
+                  productId: product.id,
+                  supplierId: null,
+                  albaranId: albaran.id,
+                  previousPrice: currentPrice,
+                  newPrice: lineUnitPrice,
+                },
+              });
+
+              if (percentageChange > 10) {
+                await this.notifyPriceChange(
+                  tenantId,
+                  product.name,
+                  currentPrice,
+                  lineUnitPrice,
+                  percentageChange,
+                );
+              }
             }
           }
 
