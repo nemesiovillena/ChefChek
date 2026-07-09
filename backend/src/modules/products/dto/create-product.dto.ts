@@ -11,6 +11,7 @@ import {
   IsBoolean,
   ValidateNested,
   IsIn,
+  IsDateString,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -270,6 +271,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // Fecha de compra manual (editable desde el listado). null = limpiar.
+  @IsOptional()
+  @IsDateString()
+  manualPurchaseDate?: string | null;
 
   // Campos extendidos
   @IsOptional()

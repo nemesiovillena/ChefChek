@@ -15,6 +15,27 @@ import {
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private resolveLastPurchase(
+    albaranDate: Date | null,
+    manualDate: Date | null,
+  ): {
+    lastPurchaseDate: Date | null;
+    purchaseDateSource: "albaran" | "manual" | null;
+  } {
+    if (albaranDate && manualDate) {
+      return albaranDate >= manualDate
+        ? { lastPurchaseDate: albaranDate, purchaseDateSource: "albaran" }
+        : { lastPurchaseDate: manualDate, purchaseDateSource: "manual" };
+    }
+    if (albaranDate) {
+      return { lastPurchaseDate: albaranDate, purchaseDateSource: "albaran" };
+    }
+    if (manualDate) {
+      return { lastPurchaseDate: manualDate, purchaseDateSource: "manual" };
+    }
+    return { lastPurchaseDate: null, purchaseDateSource: null };
+  }
+
   async create(createProductDto: CreateProductDto, requestTenantId: string) {
     const {
       purchasePrice,
@@ -220,11 +241,16 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    // Mapear lastPurchaseDate desde la línea de albarán más reciente
+    // Mapear lastPurchaseDate: la más reciente entre albarán y fecha manual
     const productsWithLastPurchase = products.map((p) => {
       const { albaranLines, ...rest } = p as any;
-      const lastPurchaseDate = albaranLines?.[0]?.albaran?.date ?? null;
-      return { ...rest, lastPurchaseDate };
+      const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
+      const manualDate = (rest.manualPurchaseDate as Date | null) ?? null;
+      const { lastPurchaseDate, purchaseDateSource } = this.resolveLastPurchase(
+        albaranDate,
+        manualDate,
+      );
+      return { ...rest, lastPurchaseDate, purchaseDateSource };
     });
 
     return {
@@ -244,6 +270,11 @@ export class ProductsService {
         purchaseFormats: true,
         nutritionalInfo: true,
         stocks: true,
+        albaranLines: {
+          select: { albaran: { select: { date: true } } },
+          orderBy: { albaran: { date: "desc" } },
+          take: 1,
+        },
       },
     });
 
@@ -251,9 +282,17 @@ export class ProductsService {
       throw new NotFoundException("Product not found");
     }
 
+    const { albaranLines, ...rest } = product as any;
+    const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
+    const manualDate = (rest.manualPurchaseDate as Date | null) ?? null;
+    const { lastPurchaseDate, purchaseDateSource } = this.resolveLastPurchase(
+      albaranDate,
+      manualDate,
+    );
+
     return {
       success: true,
-      data: product,
+      data: { ...rest, lastPurchaseDate, purchaseDateSource },
       message: "Product retrieved successfully",
     };
   }
@@ -370,6 +409,13 @@ export class ProductsService {
       };
     }
 
+    // Prisma DateTime no acepta "YYYY-MM-DD" crudo; string vacío/null limpia el campo
+    if (updateData.manualPurchaseDate !== undefined) {
+      data.manualPurchaseDate = updateData.manualPurchaseDate
+        ? new Date(updateData.manualPurchaseDate)
+        : null;
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
       data,
@@ -379,6 +425,11 @@ export class ProductsService {
         category: { include: { parent: true } },
         supplier: true,
         stocks: true,
+        albaranLines: {
+          select: { albaran: { select: { date: true } } },
+          orderBy: { albaran: { date: "desc" } },
+          take: 1,
+        },
       },
     });
 
@@ -406,9 +457,17 @@ export class ProductsService {
       }
     }
 
+    const { albaranLines, ...productRest } = product as any;
+    const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
+    const manualDate = (productRest.manualPurchaseDate as Date | null) ?? null;
+    const { lastPurchaseDate, purchaseDateSource } = this.resolveLastPurchase(
+      albaranDate,
+      manualDate,
+    );
+
     return {
       success: true,
-      data: product,
+      data: { ...productRest, lastPurchaseDate, purchaseDateSource },
       message: "Product updated successfully",
     };
   }

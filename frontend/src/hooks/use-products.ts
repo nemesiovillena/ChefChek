@@ -80,6 +80,8 @@ export interface Product {
   nutritionalInfo?: NutritionalInfo;
   stocks: ProductStock[];
   lastPurchaseDate?: string | null;
+  manualPurchaseDate?: string | null;
+  purchaseDateSource?: 'albaran' | 'manual' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -131,6 +133,7 @@ export interface CreateProductData {
 export interface UpdateProductData extends Partial<CreateProductData> {
   id: string;
   isActive?: boolean;
+  manualPurchaseDate?: string | null;
 }
 
 export interface ProductsQuery {

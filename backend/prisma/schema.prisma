@@ -172,6 +172,8 @@ model Product {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
+
   tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   supplier          Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)

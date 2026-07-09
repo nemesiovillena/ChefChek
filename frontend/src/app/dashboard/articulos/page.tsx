@@ -56,6 +56,11 @@ export default function ArticulosPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Edición inline de "Última Compra"
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [dateDraft, setDateDraft] = useState('');
+  const [dateDraftOriginal, setDateDraftOriginal] = useState('');
+
   const getExportData = () => {
     return sortedProducts.map((product) => ({
       Nombre: product.name,
@@ -366,6 +371,27 @@ export default function ArticulosPage() {
     return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
+  const toDateInputValue = (iso?: string | null): string =>
+    iso ? new Date(iso).toISOString().slice(0, 10) : '';
+
+  const startEditDate = (product: Product) => {
+    const seed = toDateInputValue(product.manualPurchaseDate ?? product.lastPurchaseDate);
+    setEditingDateId(product.id);
+    setDateDraft(seed);
+    setDateDraftOriginal(seed);
+  };
+
+  const commitDate = async (product: Product) => {
+    const next = dateDraft || null;
+    setEditingDateId(null);
+    if ((next ?? '') === dateDraftOriginal) return; // sin cambios respecto a lo mostrado al abrir → no mutar
+    try {
+      await updateProductMutation.mutateAsync({ id: product.id, manualPurchaseDate: next });
+    } catch (error: unknown) {
+      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'No se pudo actualizar la fecha de compra' });
+    }
+  };
+
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts];
@@ -590,15 +616,46 @@ export default function ArticulosPage() {
                             : <span className="text-gray-400 dark:text-gray-600">—</span>}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {product.lastPurchaseDate ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-medium">
-                              {formatLastPurchaseDate(product.lastPurchaseDate)}
-                            </span>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          {editingDateId === product.id ? (
+                            <input
+                              type="date"
+                              autoFocus
+                              value={dateDraft}
+                              onChange={(e) => setDateDraft(e.target.value)}
+                              onBlur={() => commitDate(product)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitDate(product);
+                                if (e.key === 'Escape') setEditingDateId(null);
+                              }}
+                              className="px-2 py-1 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            />
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-500" title="Sin compras registradas — fecha de alta del artículo">
-                              {formatLastPurchaseDate(product.createdAt)}
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => startEditDate(product)}
+                              title={
+                                product.purchaseDateSource === 'manual'
+                                  ? 'Fecha editada manualmente — clic para editar'
+                                  : product.purchaseDateSource === 'albaran'
+                                    ? 'Según último albarán — clic para editar'
+                                    : 'Sin compras registradas — clic para fijar fecha manual'
+                              }
+                              className="inline-flex items-center gap-1 cursor-pointer hover:underline"
+                            >
+                              {product.lastPurchaseDate ? (
+                                <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                                  {formatLastPurchaseDate(product.lastPurchaseDate)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-500">
+                                  {formatLastPurchaseDate(product.createdAt)}
+                                </span>
+                              )}
+                              {product.purchaseDateSource === 'manual' && (
+                                <span aria-hidden className="text-[10px] text-indigo-500">✎</span>
+                              )}
+                            </button>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
