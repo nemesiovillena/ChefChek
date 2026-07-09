@@ -345,9 +345,10 @@ export class ProductsService {
       data.unitsPerFormat = upf;
       data.referenceUnitSize = rus;
       data.unitSize = upf * rus;
+    } else {
+      // Sin cambios de formato: ignorar cualquier unitSize suelto (es auto-calculado)
+      delete data.unitSize;
     }
-    // Remove unitSize from updateData if sent directly (it's auto-calculated)
-    delete data.unitSize;
 
     // Recalcular precios si se modifican
     if (
