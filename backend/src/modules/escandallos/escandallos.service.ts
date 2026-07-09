@@ -111,7 +111,7 @@ export class EscandallosService {
 
     for (const ingredient of recipe.ingredients) {
       const product = ingredient.product;
-      // €/unidad de referencia del artículo (kg, L o ud), con mermas
+      // €/unidad de referencia del artículo (kg, L o ud)
       const currentCost = calculateProductCostPerUnit(
         product,
         product.referenceUnit,
@@ -336,17 +336,12 @@ export class EscandallosService {
     for (const ingredient of recipe.ingredients) {
       const product = ingredient.product;
       // Mismo precio rector que recetas y fichas técnicas: precio de
-      // referencia con mermas vía yieldFactor. unitCost ya incluye mermas,
-      // por lo que totalCost = ingredientCost (no se vuelven a sumar);
-      // wastageCost es solo el desglose informativo de esa parte.
+      // referencia del artículo (sin dividir por yieldFactor, la cantidad
+      // ya es el peso bruto realmente comprado/usado). wastageCost queda a
+      // 0: la merma ya no se carga como coste extra, solo es informativa.
       const unitCost = calculateProductCostPerUnit(product, ingredient.unit);
-      const unitCostWithoutWaste = calculateProductCostPerUnit(
-        { ...product, yieldFactor: 1 },
-        ingredient.unit,
-      );
       const ingredientCost = ingredient.quantity * unitCost;
-      const wastageCost =
-        ingredient.quantity * (unitCost - unitCostWithoutWaste);
+      const wastageCost = 0;
 
       breakdown.push({
         productId: product.id,
