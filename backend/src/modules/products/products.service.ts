@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { getReferencePrice } from "../../common/utils/unit-conversions";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
@@ -145,6 +146,53 @@ export class ProductsService {
       data: product,
       message: "Product created successfully",
     };
+  }
+
+  // ─── Detección advisory de duplicados por nombre ────────────────
+  // Normaliza acentos (español) para comparar Tomate = Tomáte = JAMÓN.
+  // Advisory-only: NO bloquea create/update/bulk; solo alimenta el aviso
+  // de la UI. Ambos lados se pasan por lower() antes de mapear acentos,
+  // por eso solo hace falta el set de acentos en minúscula (16 = 16).
+  private static readonly ACCENTS_FROM = "áàäéèëíïóòöúùüñç";
+  private static readonly ACCENTS_TO = "aaaeeeiiooouuunc";
+
+  async findNameMatches(
+    tenantId: string,
+    name: string,
+    excludeId?: string,
+  ): Promise<{ id: string; name: string; isActive: boolean }[]> {
+    const trimmed = (name ?? "").trim();
+    if (trimmed.length < 2) {
+      return [];
+    }
+
+    // Matching "exacto + contiene" (accent-insensitive): avisa no solo si el
+    // nombre es idéntico, sino si lo escrito está contenido en uno existente o
+    // viceversa. Así "aceite girasol" coincide con "Aceite girasol alto oleico"
+    // o "Aceite de girasol (Ruiz)". NO detecta typos ("grasol"≠"girasol").
+    // Se normaliza una sola vez (CTE + subquery) para no repetir translate().
+    const matches = await this.prisma.$queryRaw<
+      { id: string; name: string; isActive: boolean }[]
+    >(Prisma.sql`
+      WITH norm AS (
+        SELECT translate(lower(trim(${trimmed})), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS input
+      )
+      SELECT q.id, q.name, q."isActive"
+      FROM (
+        SELECT p.id, p.name, p."isActive",
+               translate(lower(trim(p.name)), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS pn
+        FROM products p
+        WHERE p."tenantId" = ${tenantId}
+          AND p."deletedAt" IS NULL
+          ${excludeId ? Prisma.sql`AND p.id <> ${excludeId}` : Prisma.empty}
+      ) q
+      CROSS JOIN norm
+      WHERE strpos(q.pn, norm.input) > 0
+         OR strpos(norm.input, q.pn) > 0
+      ORDER BY (q.pn = norm.input) DESC, LENGTH(q.name), q.name
+      LIMIT 5
+    `);
+    return matches;
   }
 
   async findAll(query: ProductsQueryDto, requestTenantId: string) {

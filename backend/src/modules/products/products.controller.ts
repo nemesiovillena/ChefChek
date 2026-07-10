@@ -79,6 +79,31 @@ export class ProductsController {
     return this.productsService.findAll(query, tenantId);
   }
 
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo captura como id.
+  // Advisory-only: devuelve artículos activos del tenant cuyo nombre coincide
+  // ignorando mayúsculas/espacios/acentos. No bloquea la creación.
+  @Get("check-name")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Comprobar artículos con nombre similar (accent-insensitive)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Lista de coincidencias existentes",
+  })
+  async checkName(
+    @Query("name") name: string,
+    @Query("excludeId") excludeId: string | undefined,
+    @Req() req: any,
+  ) {
+    const matches = await this.productsService.findNameMatches(
+      req.tenantId,
+      (name ?? "").trim(),
+      excludeId,
+    );
+    return { success: true, data: matches };
+  }
+
   @Get("categories")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Obtener todas las categorías de productos" })

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product, CreateProductData } from '@/hooks/use-products';
+import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
 import TabAlergenos from './tab-alergenos';
@@ -136,6 +137,8 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
   // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
   const [activeTab, setActiveTab] = useState('formato-precio');
   const [formData, setFormData] = useState(() => deriveFormData(article));
+  // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye el propio id.
+  const { matches: duplicateNameMatches } = useProductNameCheck(formData.name, article?.id);
   const [allergens, setAllergens] = useState<number[]>(() => article?.allergens ?? []);
   const [hideAllergens, setHideAllergens] = useState(() => article?.hideAllergens ?? false);
   const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
@@ -240,6 +243,25 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
             placeholder="Nombre del artículo"
             className="w-full px-4 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg"
           />
+          {duplicateNameMatches.length > 0 && (
+            <div role="status" className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <div>
+                <span className="font-medium">Posible duplicado.</span> Ya existe un artículo con nombre similar:{' '}
+                {duplicateNameMatches.slice(0, 3).map((m, idx) => (
+                  <span key={m.id}>
+                    <span className="font-semibold">«{m.name}»</span>
+                    {!m.isActive && <span className="font-normal italic"> (inactivo)</span>}
+                    {idx < Math.min(duplicateNameMatches.length, 3) - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}{' '}
+                Puedes continuar si es un artículo distinto.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
