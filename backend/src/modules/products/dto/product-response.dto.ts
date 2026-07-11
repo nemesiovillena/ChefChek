@@ -20,6 +20,7 @@ export class ProductResponseDto {
     previousPurchasePrice: number;
     netPrice: number;
     profitMargin: number;
+    discountPercentage: number; // Descuento informativo del proveedor (no recalcula precios)
     referencePrice: number; // purchasePrice / unitSize
 
     // Rendimiento

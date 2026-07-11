@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useProducts, Product, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice } from '@/hooks/use-products';
+import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
+import apiClient from '@/lib/api-client';
+import { PaginatedResponse } from '@/types/api.types';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { useConfirm } from '@/contexts/confirm.context';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag, RotateCcw } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
+import PaginationControls from '@/components/shared/pagination-controls';
 import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
 
 interface Supplier {
@@ -24,9 +27,6 @@ export default function ArticulosPage() {
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
-
-  const { data: productsData, isLoading: productsLoading, error: productsError, refetch } = useProducts();
-  const products: Product[] = Array.isArray(productsData?.data) ? productsData.data : Array.isArray(productsData) ? productsData : [];
 
   const { data: categoryTree } = useCategoryTree("articles");
   const { data: categoriesData } = useCategories("articles");
@@ -46,6 +46,8 @@ export default function ArticulosPage() {
   const [showImportModal, setShowImportModal] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedParentCategory, setSelectedParentCategory] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
@@ -57,13 +59,70 @@ export default function ArticulosPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Paginación server-side
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   // Edición inline de "Última Compra"
   const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const [dateDraft, setDateDraft] = useState('');
   const [dateDraftOriginal, setDateDraftOriginal] = useState('');
 
-  const getExportData = () => {
-    return sortedProducts.map((product) => ({
+  // "Padre incluye hijos" se resuelve aquí con el árbol ya cargado; el
+  // backend solo recibe la lista final de categoryIds, no la jerarquía.
+  const subcategoryIdsForParent = useMemo(() => {
+    if (!selectedParentCategory) return null;
+    const parent = tree.find((c) => c.id === selectedParentCategory);
+    if (!parent) return null;
+    const ids = new Set(parent.children?.map((c) => c.id) || []);
+    ids.add(parent.id);
+    return ids;
+  }, [selectedParentCategory, tree]);
+
+  const categoryIdsParam = useMemo(() => {
+    if (selectedSubcategory) return selectedSubcategory;
+    if (subcategoryIdsForParent) return Array.from(subcategoryIdsForParent).join(',');
+    return undefined;
+  }, [selectedSubcategory, subcategoryIdsForParent]);
+
+  const filterParams: ProductsQuery = useMemo(() => ({
+    search: debouncedSearch || undefined,
+    categoryIds: categoryIdsParam,
+    supplier: selectedSupplier || undefined,
+    dateField: dateFilterType,
+    dateFrom: startDate || undefined,
+    dateTo: endDate || undefined,
+    sortBy: sortField === 'status' ? 'isActive' : sortField,
+    sortOrder: sortDirection,
+  }), [debouncedSearch, categoryIdsParam, selectedSupplier, dateFilterType, startDate, endDate, sortField, sortDirection]);
+
+  const { data: productsData, isLoading: productsLoading, error: productsError, refetch } = useProducts({ ...filterParams, page, pageSize });
+  const products: Product[] = productsData?.data ?? [];
+  const totalItems = productsData?.total ?? 0;
+  const totalPages = productsData?.totalPages ?? 1;
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Export siempre cubre todo el resultado filtrado (no solo la página
+  // visible) — pide al backend el mismo WHERE/ORDER BY sin paginar.
+  const fetchAllFilteredProducts = async (): Promise<Product[]> => {
+    const response = await apiClient.get<PaginatedResponse<Product>>('/v1/products', {
+      params: { ...filterParams, export: 'true' },
+    });
+    return response.data.data;
+  };
+
+  const getExportData = (list: Product[]) => {
+    return list.map((product) => ({
       Nombre: product.name,
       Descripción: product.description || '',
       Categoría: getCategoryDisplay(product.categoryId),
@@ -83,9 +142,24 @@ export default function ArticulosPage() {
     }));
   };
 
-  const exportToCSV = () => {
-    const data = getExportData();
-    if (data.length === 0) return;
+  const runExport = async (build: (list: Product[]) => void) => {
+    setIsExporting(true);
+    try {
+      const list = await fetchAllFilteredProducts();
+      if (list.length === 0) {
+        addNotification({ type: 'error', title: 'Sin datos', message: 'No hay artículos que coincidan con los filtros actuales' });
+        return;
+      }
+      build(list);
+    } catch (error: unknown) {
+      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'No se pudo exportar el listado' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToCSV = () => runExport((list) => {
+    const data = getExportData(list);
     const headers = Object.keys(data[0]).join(',');
     const rows = data.map((row) =>
       Object.values(row)
@@ -100,11 +174,10 @@ export default function ArticulosPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  });
 
-  const exportToExcel = () => {
-    const data = getExportData();
-    if (data.length === 0) return;
+  const exportToExcel = () => runExport((list) => {
+    const data = getExportData(list);
     const headers = Object.keys(data[0]).join(';');
     const rows = data.map((row) =>
       Object.values(row)
@@ -121,16 +194,16 @@ export default function ArticulosPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+  });
 
-  const exportToPDF = () => {
+  const exportToPDF = () => runExport((list) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       addNotification({ type: 'error', title: 'Error', message: 'No se pudo abrir la ventana de impresión' });
       return;
     }
 
-    const rowsHtml = sortedProducts.map((product) => `
+    const rowsHtml = list.map((product) => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${product.name}</td>
         <td style="padding: 8px; border-bottom: 1px solid #ddd;">${getCategoryDisplay(product.categoryId)}</td>
@@ -184,7 +257,7 @@ export default function ArticulosPage() {
       </html>
     `);
     printWindow.document.close();
-  };
+  });
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -193,6 +266,7 @@ export default function ArticulosPage() {
       setSortField(field);
       setSortDirection('asc');
     }
+    setPage(1);
   };
 
   const availableSubcategories = useMemo(() => {
@@ -318,48 +392,6 @@ export default function ArticulosPage() {
     }
   };
 
-  const subcategoryIdsForParent = useMemo(() => {
-    if (!selectedParentCategory) return null;
-    const parent = tree.find((c) => c.id === selectedParentCategory);
-    if (!parent) return null;
-    const ids = new Set(parent.children?.map((c) => c.id) || []);
-    ids.add(parent.id);
-    return ids;
-  }, [selectedParentCategory, tree]);
-
-  const filteredProducts = products.filter((product: Product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = !subcategoryIdsForParent || subcategoryIdsForParent.has(product.categoryId || '');
-    const matchesSubcategory = !selectedSubcategory || product.categoryId === selectedSubcategory;
-    const matchesSupplier = !selectedSupplier || product.supplierId === selectedSupplier;
-
-    let matchesDate = true;
-    if (startDate || endDate) {
-      const productDateStr = product[dateFilterType];
-      if (!productDateStr) {
-        matchesDate = false;
-      } else {
-        const productDate = new Date(productDateStr);
-        productDate.setHours(0, 0, 0, 0);
-
-        if (startDate) {
-          const start = new Date(startDate);
-          start.setHours(0, 0, 0, 0);
-          if (productDate < start) matchesDate = false;
-        }
-        if (endDate) {
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          if (productDate > end) matchesDate = false;
-        }
-      }
-    }
-
-    return matchesSearch && matchesCategory && matchesSubcategory && matchesSupplier && matchesDate;
-  });
-
-  const supplierIds = [...new Set(products.map((p: Product) => p.supplierId).filter(Boolean))];
-
   const getCategoryDisplay = useCallback((catId: string | undefined): string => {
     if (!catId) return '-';
     if (categoryNameMap[catId]) return categoryNameMap[catId];
@@ -392,60 +424,6 @@ export default function ArticulosPage() {
       addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'No se pudo actualizar la fecha de compra' });
     }
   };
-
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const sortedProducts = useMemo(() => {
-    const sorted = [...filteredProducts];
-    sorted.sort((a, b) => {
-      let valA: string | number = '';
-      let valB: string | number = '';
-
-      switch (sortField) {
-        case 'name':
-          valA = (a.name || '').toLowerCase();
-          valB = (b.name || '').toLowerCase();
-          break;
-        case 'category':
-          const parentCatA = tree.find((p) => p.children?.some((c) => c.id === a.categoryId));
-          const parentCatB = tree.find((p) => p.children?.some((c) => c.id === b.categoryId));
-          valA = (parentCatA?.name || '').toLowerCase();
-          valB = (parentCatB?.name || '').toLowerCase();
-          break;
-        case 'subcategory':
-          valA = (a.categoryId ? categoryNameMap[a.categoryId] || a.categoryId : '').toLowerCase();
-          valB = (b.categoryId ? categoryNameMap[b.categoryId] || b.categoryId : '').toLowerCase();
-          break;
-        case 'purchasePrice':
-          valA = a.purchasePrice || 0;
-          valB = b.purchasePrice || 0;
-          break;
-        case 'realPrice':
-          valA = getRealPrice(a) ?? 0;
-          valB = getRealPrice(b) ?? 0;
-          break;
-        case 'referencePrice':
-          valA = getReferencePrice(a);
-          valB = getReferencePrice(b);
-          break;
-        case 'status':
-          valA = a.isActive ? 1 : 0;
-          valB = b.isActive ? 1 : 0;
-          break;
-        case 'lastPurchaseDate':
-          // Sin compras registradas se ordena por la fecha de alta del artículo
-          valA = new Date(a.lastPurchaseDate ?? a.createdAt).getTime();
-          valB = new Date(b.lastPurchaseDate ?? b.createdAt).getTime();
-          break;
-        default:
-          return 0;
-      }
-
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [filteredProducts, sortField, sortDirection, tree, categoryNameMap]);
 
   const renderSortableHeader = (label: string, field: string) => {
     const isActive = sortField === field;
@@ -500,18 +478,18 @@ export default function ArticulosPage() {
               Importar
             </button>
             <div className="relative group">
-              <button className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1">
-                Exportar
+              <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
+                {isExporting ? 'Exportando…' : 'Exportar'}
                 <ChevronDown className="h-4 w-4" />
               </button>
               <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
-                <button onClick={exportToCSV} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
                   Exportar a CSV
                 </button>
-                <button onClick={exportToExcel} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
                   Exportar a Excel
                 </button>
-                <button onClick={exportToPDF} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
                   Exportar a PDF
                 </button>
               </div>
@@ -524,58 +502,103 @@ export default function ArticulosPage() {
 
         {/* Chained Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <input type="text" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
-              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="">Todas</option>
                 {tree.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcategoría</label>
-              <select value={selectedSubcategory} onChange={(e) => setSelectedSubcategory(e.target.value)} disabled={!selectedParentCategory} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600">
+              <select value={selectedSubcategory} onChange={(e) => { setSelectedSubcategory(e.target.value); setPage(1); }} disabled={!selectedParentCategory} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600">
                 <option value="">Todas</option>
                 {availableSubcategories.map((sub) => (<option key={sub.id} value={sub.id}>{sub.name}</option>))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
-              <select value={selectedSupplier} onChange={(e) => setSelectedSupplier(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <select value={selectedSupplier} onChange={(e) => { setSelectedSupplier(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="">Todos</option>
                 {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                {supplierIds.filter((id) => !suppliers.some((s) => s.id === id)).map((id) => (
-                  <option key={id} value={id}>{categoryNameMap[id!] || id}</option>
-                ))}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filtrar por fecha</label>
-              <select value={dateFilterType} onChange={(e) => setDateFilterType(e.target.value as 'createdAt' | 'lastPurchaseDate')} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <select value={dateFilterType} onChange={(e) => { setDateFilterType(e.target.value as 'createdAt' | 'lastPurchaseDate'); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="createdAt">Registro</option>
                 <option value="lastPurchaseDate">Última Compra</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
               <div className="flex gap-2">
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full flex-1 px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="w-full flex-1 px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
                 {(startDate || endDate) && (
-                  <button onClick={() => { setStartDate(''); setEndDate(''); }} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-400 rounded-md transition-colors" title="Limpiar fechas">
+                  <button onClick={() => { setStartDate(''); setEndDate(''); setPage(1); }} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-400 rounded-md transition-colors" title="Limpiar fechas">
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
             </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={
+                  !searchTerm &&
+                  !selectedParentCategory &&
+                  !selectedSubcategory &&
+                  !selectedSupplier &&
+                  dateFilterType === 'createdAt' &&
+                  !startDate &&
+                  !endDate
+                }
+                onClick={() => {
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                  setSearchTerm('');
+                  setDebouncedSearch('');
+                  setSelectedParentCategory('');
+                  setSelectedSubcategory('');
+                  setSelectedSupplier('');
+                  setDateFilterType('createdAt');
+                  setStartDate('');
+                  setEndDate('');
+                  setPage(1);
+                }}
+                className="w-full px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] font-medium text-sm select-none
+                  disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
+                  dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
+                  enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
+                  dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
+                  enabled:cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Limpiar filtros
+              </button>
+            </div>
           </div>
+        </div>
+
+        <div className="mb-6">
+          <PaginationControls
+            variant="card"
+            page={page}
+            totalPages={totalPages}
+            total={totalItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            emptyLabel="Sin artículos"
+          />
         </div>
 
         {/* Articles Table */}
@@ -599,10 +622,10 @@ export default function ArticulosPage() {
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {productsLoading ? (
                   <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
-                ) : sortedProducts.length === 0 ? (
+                ) : products.length === 0 ? (
                   <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
                 ) : (
-                  sortedProducts.map((product: Product) => {
+                  products.map((product: Product) => {
                     const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
                     return (
                       <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
@@ -736,6 +759,16 @@ export default function ArticulosPage() {
               </tbody>
             </table>
           </div>
+
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={totalItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            emptyLabel="Sin artículos"
+          />
         </div>
       </main>
 

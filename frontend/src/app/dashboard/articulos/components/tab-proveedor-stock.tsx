@@ -1,8 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Plus, Star, Trash2 } from 'lucide-react';
-import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
 import {
   useProductSupplierOffers,
   useCreateSupplierOffer,
@@ -13,9 +12,7 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import { formatEuro } from '@/lib/utils';
 import SupplierCombobox from './supplier-combobox';
-import CategoryCombobox from '@/components/shared/category-combobox';
 import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
-import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
 
 interface SupplierOption {
   id: string;
@@ -25,7 +22,6 @@ interface SupplierOption {
 /** Form fields managed by TabProveedorStock. */
 export interface ProveedorStockFormData {
   supplierId: string;
-  categoryId: string;
   minimumStock: string;
   maximumStock: string;
 }
@@ -34,28 +30,25 @@ interface TabProveedorStockProps {
   /** Presente solo en edición: habilita la gestión de varias ofertas de proveedor. */
   productId?: string;
   suppliers: SupplierOption[];
-  tree: CategoryTreeNode[];
   formData: ProveedorStockFormData;
   setFormData: (data: ProveedorStockFormData) => void;
   currentStock?: number;
   onSupplierCreated?: (supplier: SupplierOption) => void;
+  /** Precio Compra ya introducido en "Formato y Precio", para sugerirlo como precio de la primera oferta. */
+  basePurchasePrice?: string;
 }
 
 export default function TabProveedorStock({
   productId,
   suppliers,
-  tree,
   formData,
   setFormData,
   currentStock,
   onSupplierCreated,
+  basePurchasePrice,
 }: TabProveedorStockProps) {
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
-  const [showCreateCategory, setShowCreateCategory] = useState(false);
-  // Categorías creadas en línea: se fusionan al árbol para mostrarlas al instante.
-  const [addedCategories, setAddedCategories] = useState<Category[]>([]);
-  const effectiveTree = useMemo(() => mergeAddedCategories(tree, addedCategories), [tree, addedCategories]);
 
   const minStock = parseFloat(formData.minimumStock) || 0;
   const maxStock = parseFloat(formData.maximumStock) || 0;
@@ -69,6 +62,7 @@ export default function TabProveedorStock({
           productId={productId}
           suppliers={suppliers}
           onSupplierCreated={onSupplierCreated}
+          basePurchasePrice={basePurchasePrice}
         />
       ) : (
         // Alta de artículo: todavía no existe un producto al que asociar
@@ -99,29 +93,6 @@ export default function TabProveedorStock({
           </p>
         </div>
       )}
-
-      {/* Category combobox + create button */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <CategoryCombobox
-              tree={effectiveTree}
-              value={formData.categoryId}
-              onValueChange={(v) => update('categoryId', v)}
-              placeholder="Seleccionar categoría"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowCreateCategory(true)}
-            className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
-            title="Añadir nueva categoría"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
 
       {/* Stock limits */}
       <div className="grid grid-cols-2 gap-4">
@@ -163,18 +134,6 @@ export default function TabProveedorStock({
           }}
         />
       )}
-
-      {/* Quick create category dialog — crea y autoselecciona al instante */}
-      <CategoryQuickCreateDialog
-        isOpen={showCreateCategory}
-        onClose={() => setShowCreateCategory(false)}
-        tree={tree}
-        onCreated={(category) => {
-          setAddedCategories((prev) => (prev.some((c) => c.id === category.id) ? prev : [...prev, category]));
-          update('categoryId', category.id);
-          setShowCreateCategory(false);
-        }}
-      />
     </div>
   );
 }
@@ -183,10 +142,11 @@ interface SupplierOffersSectionProps {
   productId: string;
   suppliers: SupplierOption[];
   onSupplierCreated?: (supplier: SupplierOption) => void;
+  basePurchasePrice?: string;
 }
 
 /** Lista de ofertas de proveedor de un artículo existente: precio por proveedor + preferente. */
-function SupplierOffersSection({ productId, suppliers, onSupplierCreated }: SupplierOffersSectionProps) {
+function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePurchasePrice }: SupplierOffersSectionProps) {
   const { data: offers, isLoading } = useProductSupplierOffers(productId);
   const createOffer = useCreateSupplierOffer();
   const deleteOffer = useDeleteSupplierOffer();
@@ -194,7 +154,10 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated }: Supp
   const confirm = useConfirm();
   const addNotification = useNotification();
 
-  const [showAdd, setShowAdd] = useState(false);
+  // null = sin decisión manual todavía: se auto-abre si la lista está vacía,
+  // pero en cuanto el usuario toca Añadir/Cancelar, su elección manda siempre.
+  const [showAdd, setShowAdd] = useState<boolean | null>(null);
+  const addVisible = showAdd ?? (!isLoading && (offers?.length ?? 0) === 0);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierId, setNewSupplierId] = useState('');
   const [newPrice, setNewPrice] = useState('');
@@ -202,8 +165,15 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated }: Supp
   const existingSupplierIds = new Set((offers ?? []).map((o) => o.supplierId));
   const availableSuppliers = suppliers.filter((s) => !existingSupplierIds.has(s.id));
 
+  // Primera oferta del artículo: sugiere el Precio Compra ya introducido en
+  // "Formato y Precio" en vez de pedirlo de nuevo en blanco. Para proveedores
+  // adicionales (ya hay al menos una oferta) no se sugiere nada — puede variar.
+  const isFirstOffer = !isLoading && (offers?.length ?? 0) === 0;
+  const suggestedPrice = isFirstOffer ? (basePurchasePrice ?? '') : '';
+  const effectivePrice = newPrice || suggestedPrice;
+
   const handleAdd = async () => {
-    const price = parseFloat(newPrice);
+    const price = parseFloat(effectivePrice);
     if (!newSupplierId || isNaN(price) || price < 0) {
       addNotification({ type: 'error', title: 'Error', message: 'Selecciona un proveedor e indica un precio válido' });
       return;
@@ -279,7 +249,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated }: Supp
           </div>
         ))}
 
-        {showAdd ? (
+        {addVisible ? (
           <div className="flex items-end gap-2 rounded-md border border-dashed border-gray-300 p-2">
             <div className="flex-1">
               <SupplierCombobox
@@ -293,7 +263,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated }: Supp
               type="number"
               step="0.01"
               min="0"
-              value={newPrice}
+              value={effectivePrice}
               onChange={(e) => setNewPrice(e.target.value)}
               placeholder="Precio €"
               className="w-28 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"

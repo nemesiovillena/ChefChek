@@ -94,6 +94,13 @@ export class CreateProductDto {
   @Max(100)
   profitMargin?: number;
 
+  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercentage?: number;
+
   // Rendimiento
   @IsOptional()
   @IsNumber()
@@ -236,6 +243,13 @@ export class UpdateProductDto {
   @Max(100)
   profitMargin?: number;
 
+  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercentage?: number;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -333,6 +347,10 @@ export class ProductsQueryDto {
 
   @IsOptional()
   @IsString()
+  categoryIds?: string; // CSV de ids; resuelto en frontend desde el árbol de categorías
+
+  @IsOptional()
+  @IsString()
   supplier?: string;
 
   @IsOptional()
@@ -346,6 +364,19 @@ export class ProductsQueryDto {
 
   @IsOptional()
   @IsString()
+  @IsIn(["createdAt", "lastPurchaseDate"])
+  dateField?: "createdAt" | "lastPurchaseDate";
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsString()
   sortBy?: string;
 
   @IsOptional()
@@ -354,9 +385,16 @@ export class ProductsQueryDto {
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   page?: number;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(["true", "false"])
+  export?: string; // "true" activa el modo sin paginar; se parsea a bool en el service
 }

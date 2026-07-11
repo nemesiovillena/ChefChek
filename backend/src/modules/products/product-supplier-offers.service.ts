@@ -107,6 +107,12 @@ export class ProductSupplierOffersService {
         });
       }
     } else {
+      // Primera oferta del producto: se marca preferente para que sincronice
+      // Product.supplierId/purchasePrice (de lo contrario el listado de
+      // artículos, que lee product.supplier, seguiría mostrando "sin proveedor").
+      const offerCount = await client.productSupplierOffer.count({
+        where: { productId },
+      });
       offer = await client.productSupplierOffer.create({
         data: {
           tenantId,
@@ -121,7 +127,7 @@ export class ProductSupplierOffersService {
           referenceUnitSize,
           unitSize,
           profitMargin: data.profitMargin ?? 0,
-          isPreferred: false,
+          isPreferred: offerCount === 0,
         },
       });
     }

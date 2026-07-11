@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCrud as createCrudHooks, useApiMutation, useApiQuery } from './use-api';
 import apiClient from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
+import { PaginatedResponse } from '@/types/api.types';
 
 export interface PurchaseFormat {
   id: string;
@@ -60,6 +61,7 @@ export interface Product {
   previousPurchasePrice: number;
   netPrice: number;
   profitMargin: number;
+  discountPercentage: number;
   wastePercentage: number;
   yieldFactor: number;
   grossWeight?: number | null;
@@ -115,6 +117,7 @@ export interface CreateProductData {
   purchasePrice?: number;
   wastePercentage?: number;
   profitMargin?: number;
+  discountPercentage?: number;
   yieldFactor?: number;
   grossWeight?: number;
   netWeight?: number;
@@ -137,26 +140,62 @@ export interface UpdateProductData extends Partial<CreateProductData> {
 }
 
 export interface ProductsQuery {
+  search?: string;
   category?: string;
+  categoryIds?: string; // CSV; el frontend resuelve "padre incluye hijos" con el árbol de categorías
   supplier?: string;
   isActive?: boolean;
-  search?: string;
+  stockStatus?: 'low' | 'empty';
+  dateField?: 'createdAt' | 'lastPurchaseDate';
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page?: number;
   pageSize?: number;
+  export?: boolean;
 }
 
 // useCrud is a hook factory (builds hooks, does not itself call React hooks);
 // aliased to a non-hook name so it can run at module scope.
 const {
-  useList,
   useGet,
   useCreate,
   useUpdate,
   useDelete,
 } = createCrudHooks<Product, CreateProductData, UpdateProductData>('/v1/products', ['products']);
 
-export function useProducts(query?: ProductsQuery, page: number = 1, pageSize: number = 50) {
-  return useList(page, pageSize);
+function buildProductsQueryString(query?: ProductsQuery): string {
+  if (!query) return '';
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.categoryIds) params.set('categoryIds', query.categoryIds);
+  else if (query.category) params.set('category', query.category);
+  if (query.supplier) params.set('supplier', query.supplier);
+  if (query.isActive !== undefined) params.set('isActive', String(query.isActive));
+  if (query.stockStatus) params.set('stockStatus', query.stockStatus);
+  if (query.dateField) params.set('dateField', query.dateField);
+  if (query.dateFrom) params.set('dateFrom', query.dateFrom);
+  if (query.dateTo) params.set('dateTo', query.dateTo);
+  if (query.sortBy) params.set('sortBy', query.sortBy);
+  if (query.sortOrder) params.set('sortOrder', query.sortOrder);
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('limit', String(query.pageSize));
+  if (query.export) params.set('export', 'true');
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * Listado de artículos paginado/filtrado en servidor. La respuesta ya viene
+ * desenvuelta por el interceptor global de apiClient: { data, total, page,
+ * pageSize, totalPages, hasNext, hasPrevious } (ver api-client.ts).
+ */
+export function useProducts(query?: ProductsQuery) {
+  return useApiQuery<PaginatedResponse<Product>>(
+    ['products', JSON.stringify(query ?? {})],
+    `/v1/products${buildProductsQueryString(query)}`
+  );
 }
 
 export function useProduct(id: string) {

@@ -10,11 +10,13 @@ import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
 import TabMermas from './tab-mermas';
+import TabCodigos from './tab-codigos';
 import { ProductPriceHistoryChart } from '@/components/products/product-price-history-chart';
 import { ProductPriceHistoryTable } from '@/components/products/product-price-history-table';
 
 const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'formato-precio', label: 'Formato y Precio' },
+  { id: 'codigos', label: 'Códigos' },
   { id: 'mermas', label: 'Mermas' },
   { id: 'alergenos', label: 'Alérgenos' },
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
@@ -45,6 +47,7 @@ const emptyFormData = {
   netWeight: '',
   wastePercentage: '',
   purchasePrice: '',
+  discountPercentage: '',
   iva: '10',
   qr: '',
   brand: '',
@@ -74,6 +77,7 @@ function deriveFormData(article: Product | null | undefined) {
     netWeight: article.netWeight?.toString() || '',
     wastePercentage: article.wastePercentage > 0 ? article.wastePercentage.toString() : '',
     purchasePrice: article.purchasePrice?.toString() || '',
+    discountPercentage: article.discountPercentage > 0 ? article.discountPercentage.toString() : '',
     iva: article.iva?.toString() || '10',
     qr: article.qr || '',
     brand: article.brand || '',
@@ -170,7 +174,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
     }
     if (!formData.categoryId) {
       addNotification({ type: 'error', title: 'Error', message: 'Debes seleccionar una categoría' });
-      setActiveTab('proveedor-stock');
+      setActiveTab('formato-precio');
       return;
     }
 
@@ -188,6 +192,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
       referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
       purchasePrice: isNaN(parsedPrice) ? undefined : parsedPrice,
+      discountPercentage: parseFloat(formData.discountPercentage) || 0,
       grossWeight: parseFloat(formData.grossWeight) || 0,
       netWeight: parseFloat(formData.netWeight) || 0,
       wastePercentage: parseFloat(formData.wastePercentage) || 0,
@@ -292,6 +297,13 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
             <PesoPrecioFields
               formData={formData}
               setFormData={(data) => setFormData({ ...formData, ...data })}
+              tree={tree}
+            />
+          )}
+          {activeTab === 'codigos' && (
+            <TabCodigos
+              formData={formData}
+              setFormData={(data) => setFormData({ ...formData, ...data })}
             />
           )}
           {activeTab === 'mermas' && (
@@ -314,10 +326,10 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
             <TabProveedorStock
               productId={article?.id}
               suppliers={suppliersList}
-              tree={tree}
               formData={formData}
               setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
+              basePurchasePrice={formData.purchasePrice}
               onSupplierCreated={(supplier) => {
                 setAddedSuppliers((prev) => [...prev, supplier]);
               }}

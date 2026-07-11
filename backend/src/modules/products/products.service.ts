@@ -195,120 +195,208 @@ export class ProductsService {
     return matches;
   }
 
-  async findAll(query: ProductsQueryDto, requestTenantId: string) {
+  // Debe reflejar exactamente resolveLastPurchase(): el más reciente entre
+  // la fecha de albarán y la fecha manual (Postgres GREATEST ignora NULLs).
+  private static readonly LAST_PURCHASE_DATE_SQL = Prisma.sql`GREATEST(p."manualPurchaseDate", (SELECT MAX(a."date") FROM albaran_lines al JOIN albaranes a ON a.id = al."albaranId" WHERE al."matchedProductId" = p.id AND a."deletedAt" IS NULL))`;
+
+  private static readonly REFERENCE_PRICE_SQL = Prisma.sql`(p."purchasePrice" / NULLIF(p."unitSize", 0))`;
+
+  // Debe reflejar exactamente getRealPrice() (use-products.ts): usa verdad JS
+  // (!!grossWeight && !!netWeight), donde 0 cuenta como "sin dato" — no basta
+  // con IS NOT NULL, hay que excluir también el 0 explícito.
+  private static readonly REAL_PRICE_SQL = Prisma.sql`(CASE WHEN (p."grossWeight" IS NOT NULL AND p."grossWeight" != 0 AND p."netWeight" IS NOT NULL AND p."netWeight" != 0) OR p."wastePercentage" > 0 THEN p."purchasePrice" / NULLIF(p."unitSize", 0) / NULLIF(p."yieldFactor", 0) ELSE NULL END)`;
+
+  private static readonly CATEGORY_NAME_SQL = Prisma.sql`COALESCE(parent.name, c.name)`;
+  private static readonly SUBCATEGORY_NAME_SQL = Prisma.sql`c.name`;
+
+  // Allowlist obligatorio: sortBy nunca se interpola directo en SQL raw.
+  private sortExprFor(sortBy: string): Prisma.Sql {
+    switch (sortBy) {
+      case "purchasePrice":
+        return Prisma.sql`p."purchasePrice"`;
+      case "isActive":
+        return Prisma.sql`p."isActive"`;
+      case "createdAt":
+        return Prisma.sql`p."createdAt"`;
+      case "lastPurchaseDate":
+        return ProductsService.LAST_PURCHASE_DATE_SQL;
+      case "realPrice":
+        // COALESCE a 0: replica el ?? 0 del sort en cliente (legacy) — sin
+        // esto, Postgres pone los NULL primero en DESC (justo al revés).
+        return Prisma.sql`COALESCE(${ProductsService.REAL_PRICE_SQL}, 0)`;
+      case "referencePrice":
+        return ProductsService.REFERENCE_PRICE_SQL;
+      case "category":
+        return ProductsService.CATEGORY_NAME_SQL;
+      case "subcategory":
+        return ProductsService.SUBCATEGORY_NAME_SQL;
+      case "name":
+      default:
+        return Prisma.sql`p.name`;
+    }
+  }
+
+  private buildProductsWhere(
+    query: ProductsQueryDto,
+    requestTenantId: string,
+  ): Prisma.Sql {
     const {
+      categoryIds,
       search,
       category,
       supplier,
+      dateField,
+      dateFrom,
+      dateTo,
       isActive,
-      sortBy = "name",
-      sortOrder = "asc",
-      page = 1,
-      limit = 20,
       stockStatus,
     } = query;
 
-    const skip = (page - 1) * limit;
-    const where: Record<string, unknown> = { tenantId: requestTenantId };
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`p."tenantId" = ${requestTenantId}`,
+      Prisma.sql`p."deletedAt" IS NULL`,
+    ];
 
     if (search) {
-      (where as any).OR = [
-        { name: { contains: search, mode: "insensitive" as const } },
-        { description: { contains: search, mode: "insensitive" as const } },
-        { barcode: { contains: search, mode: "insensitive" as const } },
-        { brand: { contains: search, mode: "insensitive" as const } },
-      ];
+      const term = `%${search}%`;
+      conditions.push(
+        Prisma.sql`(p.name ILIKE ${term} OR p.description ILIKE ${term} OR p.barcode ILIKE ${term} OR p.brand ILIKE ${term})`,
+      );
     }
 
-    if (category) {
-      where.categoryId = category;
+    const ids = categoryIds
+      ? categoryIds
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : category
+        ? [category]
+        : [];
+    if (ids.length > 0) {
+      conditions.push(Prisma.sql`p."categoryId" = ANY(${ids}::text[])`);
     }
     if (supplier) {
-      where.supplierId = supplier;
+      conditions.push(Prisma.sql`p."supplierId" = ${supplier}`);
     }
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      conditions.push(Prisma.sql`p."isActive" = ${isActive}`);
     }
 
-    if (stockStatus) {
-      where.stocks = {
-        some:
-          stockStatus === "empty"
-            ? { quantity: { lte: 0 } }
-            : {
-                OR: [
-                  { quantity: { lte: 0 } },
-                  {
-                    AND: [
-                      { quantity: { gt: 0 } },
-                      {
-                        quantity: {
-                          lte: this.prisma.$queryRaw`"minimumStock"`,
-                        },
-                      },
-                    ],
-                  },
-                ],
-              },
-      };
+    if (stockStatus === "empty") {
+      conditions.push(
+        Prisma.sql`EXISTS (SELECT 1 FROM stocks s WHERE s."productId" = p.id AND s.quantity <= 0)`,
+      );
+    } else if (stockStatus === "low") {
+      conditions.push(
+        Prisma.sql`EXISTS (SELECT 1 FROM stocks s WHERE s."productId" = p.id AND (s.quantity <= 0 OR (s.quantity > 0 AND s.quantity <= s."minimumStock")))`,
+      );
     }
 
-    const [products, total] = await Promise.all([
-      this.prisma.product.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-              parentId: true,
-              parent: { select: { id: true, name: true } },
-            },
-          },
-          supplier: { select: { id: true, name: true } },
-          purchaseFormats: true,
-          nutritionalInfo: true,
-          stocks: {
-            select: {
-              id: true,
-              quantity: true,
-              minimumStock: true,
-              maximumStock: true,
-            },
-          },
-          albaranLines: {
-            select: {
-              albaran: {
-                select: { date: true },
-              },
-            },
-            orderBy: { albaran: { date: "desc" } },
-            take: 1,
-          },
-        },
-      }),
-      this.prisma.product.count({ where }),
+    if (dateFrom || dateTo) {
+      const dateExpr =
+        dateField === "lastPurchaseDate"
+          ? ProductsService.LAST_PURCHASE_DATE_SQL
+          : Prisma.sql`p."createdAt"`;
+      if (dateFrom) {
+        conditions.push(Prisma.sql`${dateExpr} >= ${new Date(dateFrom)}`);
+      }
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        conditions.push(Prisma.sql`${dateExpr} <= ${end}`);
+      }
+    }
+
+    return Prisma.join(conditions, " AND ");
+  }
+
+  async findAll(query: ProductsQueryDto, requestTenantId: string) {
+    const { sortBy = "name", sortOrder = "asc", page = 1, limit = 20 } = query;
+
+    const exportAll = query.export === "true";
+    const orderDirection =
+      sortOrder === "desc" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+    const orderExpr = this.sortExprFor(sortBy);
+    const whereSql = this.buildProductsWhere(query, requestTenantId);
+
+    const paginationSql = exportAll
+      ? Prisma.empty
+      : Prisma.sql`LIMIT ${limit} OFFSET ${(page - 1) * limit}`;
+
+    const [rows, countRows] = await Promise.all([
+      this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+        SELECT p.id
+        FROM products p
+        LEFT JOIN categories c ON c.id = p."categoryId" AND c."deletedAt" IS NULL
+        LEFT JOIN categories parent ON parent.id = c."parentId" AND parent."deletedAt" IS NULL
+        WHERE ${whereSql}
+        ORDER BY ${orderExpr} ${orderDirection}
+        ${paginationSql}
+      `),
+      this.prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM products p
+        WHERE ${whereSql}
+      `),
     ]);
 
-    // Mapear lastPurchaseDate: la más reciente entre albarán y fecha manual
-    const productsWithLastPurchase = products.map((p) => {
-      const { albaranLines, ...rest } = p as any;
-      const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
-      const manualDate = (rest.manualPurchaseDate as Date | null) ?? null;
-      const { lastPurchaseDate, purchaseDateSource } = this.resolveLastPurchase(
-        albaranDate,
-        manualDate,
-      );
-      return { ...rest, lastPurchaseDate, purchaseDateSource };
+    const total = Number(countRows[0]?.count ?? 0);
+    const orderedIds = rows.map((r) => r.id);
+
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: orderedIds } },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            parent: { select: { id: true, name: true } },
+          },
+        },
+        supplier: { select: { id: true, name: true } },
+        purchaseFormats: true,
+        nutritionalInfo: true,
+        stocks: {
+          select: {
+            id: true,
+            quantity: true,
+            minimumStock: true,
+            maximumStock: true,
+          },
+        },
+        albaranLines: {
+          select: {
+            albaran: {
+              select: { date: true },
+            },
+          },
+          orderBy: { albaran: { date: "desc" } },
+          take: 1,
+        },
+      },
     });
+    const productsById = new Map(products.map((p) => [p.id, p]));
+
+    // Mapear lastPurchaseDate: la más reciente entre albarán y fecha manual
+    const productsWithLastPurchase = orderedIds
+      .map((id) => productsById.get(id))
+      .filter((p): p is (typeof products)[number] => !!p)
+      .map((p) => {
+        const { albaranLines, ...rest } = p as any;
+        const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
+        const manualDate = (rest.manualPurchaseDate as Date | null) ?? null;
+        const { lastPurchaseDate, purchaseDateSource } =
+          this.resolveLastPurchase(albaranDate, manualDate);
+        return { ...rest, lastPurchaseDate, purchaseDateSource };
+      });
 
     return {
       success: true,
       data: productsWithLastPurchase,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: exportAll
+        ? { total, page: 1, limit: total || 1, totalPages: 1 }
+        : { total, page, limit, totalPages: Math.ceil(total / limit) },
       message: "Products retrieved successfully",
     };
   }

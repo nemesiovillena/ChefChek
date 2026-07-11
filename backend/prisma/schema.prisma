@@ -146,6 +146,7 @@ model Product {
   previousPurchasePrice Float @default(0)
   netPrice              Float
   profitMargin          Float @default(0)
+  discountPercentage    Float @default(0) // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
 
   // Rendimiento
   wastePercentage Float @default(0)
@@ -285,9 +286,9 @@ model Recipe {
   totalCost        Float @default(0)
   totalCostPerUnit Float @default(0)
 
-  // Pricing (PVP sin IVA manual + override de coste objetivo)
-  sellingPrice                  Float?
-  targetCostPercentageOverride  Float?
+  // Pricing (PVP con IVA manual; sin IVA derivado a 1,10; coste objetivo siempre el global de Configuración)
+  sellingPriceWithVat Float?
+  sellingPrice        Float?
 
   // Rendimiento
   portions    Int   @default(1)

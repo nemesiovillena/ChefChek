@@ -1,7 +1,12 @@
 'use client';
 
+import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { UnitSelector } from '@/components/shared/unit-selector';
 import { formatEuro } from '@/lib/utils';
+import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
+import CategoryCombobox from '@/components/shared/category-combobox';
+import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
 
 /** Form fields managed by PesoPrecioFields. */
 export interface PesoPrecioFormData {
@@ -10,15 +15,16 @@ export interface PesoPrecioFormData {
   unitsPerFormat: string;
   referenceUnitSize: string;
   purchasePrice: string;
+  discountPercentage: string;
   iva: string;
-  qr: string;
   brand: string;
-  barcode: string;
+  categoryId: string;
 }
 
 interface PesoPrecioFieldsProps {
   formData: PesoPrecioFormData;
   setFormData: (data: PesoPrecioFormData) => void;
+  tree: CategoryTreeNode[];
 }
 
 // Dynamic labels based on reference unit
@@ -28,7 +34,7 @@ const UNIT_LABELS: Record<string, { size: string; sizePlaceholder: string; total
   und: { size: '', sizePlaceholder: '', total: 'und' },
 };
 
-export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFieldsProps) {
+export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPrecioFieldsProps) {
   const update = (field: string, value: string) => {
     const updates: Record<string, string> = { [field]: value };
 
@@ -38,6 +44,11 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
     }
     setFormData({ ...formData, ...updates });
   };
+
+  const [showCreateCategory, setShowCreateCategory] = useState(false);
+  // Categorías creadas en línea: se fusionan al árbol para mostrarlas al instante.
+  const [addedCategories, setAddedCategories] = useState<Category[]>([]);
+  const effectiveTree = useMemo(() => mergeAddedCategories(tree, addedCategories), [tree, addedCategories]);
 
   // Live reference price preview
   const price = parseFloat(formData.purchasePrice) || 0;
@@ -89,7 +100,7 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {/* referenceUnitSize field — hidden when referenceUnit is "und" */}
         {!isUnd && (
           <div>
@@ -113,6 +124,20 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
             min="0"
             value={formData.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">% Descuento <span className="text-gray-400">(opcional)</span></label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
+            value={formData.discountPercentage}
+            onChange={(e) => update('discountPercentage', e.target.value)}
+            placeholder="Ej: 10"
+            title="Descuento informativo del proveedor sobre este artículo. No recalcula el Precio Compra."
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
@@ -146,14 +171,25 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Código QR</label>
-          <input
-            type="text"
-            value={formData.qr}
-            onChange={(e) => update('qr', e.target.value)}
-            placeholder="Código QR"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <CategoryCombobox
+                tree={effectiveTree}
+                value={formData.categoryId}
+                onValueChange={(v) => update('categoryId', v)}
+                placeholder="Seleccionar categoría"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateCategory(true)}
+              className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+              title="Añadir nueva categoría"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Marca <span className="text-gray-400">(opcional)</span></label>
@@ -167,16 +203,17 @@ export default function PesoPrecioFields({ formData, setFormData }: PesoPrecioFi
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Código de barras (EAN)</label>
-        <input
-          type="text"
-          value={formData.barcode}
-          onChange={(e) => update('barcode', e.target.value)}
-          placeholder="Ej: 8412345678901"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-        />
-      </div>
+      {/* Quick create category dialog — crea y autoselecciona al instante */}
+      <CategoryQuickCreateDialog
+        isOpen={showCreateCategory}
+        onClose={() => setShowCreateCategory(false)}
+        tree={tree}
+        onCreated={(category) => {
+          setAddedCategories((prev) => (prev.some((c) => c.id === category.id) ? prev : [...prev, category]));
+          update('categoryId', category.id);
+          setShowCreateCategory(false);
+        }}
+      />
     </div>
   );
 }
