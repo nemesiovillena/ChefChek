@@ -175,14 +175,21 @@ describe("RecipesService", () => {
   });
 
   describe("findAll", () => {
-    it("should return an array of recipes", async () => {
+    it("should return a paginated list of recipes", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
+      mockPrismaService.recipe.count.mockResolvedValue(1);
 
       const result = await service.findAll(tenantId);
 
       expect(result).toBeDefined();
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
+      expect(Array.isArray(result.data)).toBe(true);
+      expect(result.data.length).toBeGreaterThan(0);
+      expect(result.meta).toEqual({
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith({
         where: {
           tenantId,
@@ -212,12 +219,15 @@ describe("RecipesService", () => {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { name: "asc" },
+        skip: 0,
+        take: 20,
       });
     });
 
     it("should filter recipes by search query", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
+      mockPrismaService.recipe.count.mockResolvedValue(1);
 
       const result = await service.findAll(tenantId, { search: "Test" });
 

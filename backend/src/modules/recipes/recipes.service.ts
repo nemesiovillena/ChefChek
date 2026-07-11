@@ -3,10 +3,12 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
 import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
+import { RecipesQueryDto } from "./dto/recipes-query.dto";
 import {
   RecipeResponse,
   IngredientResponse,
@@ -16,12 +18,72 @@ import {
   RecipePricing,
 } from "./dto/recipe-response.dto";
 
+// IVA hostelería (ES) fijo al 10%: PVP sin IVA = PVP con IVA / 1.10
+const RECIPE_VAT_RATE = 0.1;
+
+function deriveSellingPriceFromVat(
+  sellingPriceWithVat: number | null | undefined,
+): number | null | undefined {
+  if (sellingPriceWithVat === null) {
+    return null;
+  }
+  if (sellingPriceWithVat === undefined) {
+    return undefined;
+  }
+  return Math.round((sellingPriceWithVat / (1 + RECIPE_VAT_RATE)) * 100) / 100;
+}
+
 @Injectable()
 export class RecipesService {
   constructor(
     private prisma: PrismaService,
     private costingConfigService: CostingConfigService,
   ) {}
+
+  // ─── Detección advisory de duplicados por nombre ────────────────
+  // Normaliza acentos (español) para comparar Paella = Paëlla = PAELLA.
+  // Advisory-only: NO bloquea create/update/duplicate; solo alimenta el
+  // aviso de la UI. Ambos lados se pasan por lower() antes de mapear acentos,
+  // por eso solo hace falta el set de acentos en minúscula (16 = 16).
+  private static readonly ACCENTS_FROM = "áàäéèëíïóòöúùüñç";
+  private static readonly ACCENTS_TO = "aaaeeeiiooouuunc";
+
+  async findNameMatches(
+    tenantId: string,
+    name: string,
+    excludeId?: string,
+  ): Promise<{ id: string; name: string; isActive: boolean }[]> {
+    const trimmed = (name ?? "").trim();
+    if (trimmed.length < 2) {
+      return [];
+    }
+
+    // Matching "exacto + contiene" (accent-insensitive): avisa no solo si el
+    // nombre es idéntico, sino si lo escrito está contenido en uno existente o
+    // viceversa. NO detecta typos. Se normaliza una sola vez (CTE + subquery).
+    const matches = await this.prisma.$queryRaw<
+      { id: string; name: string; isActive: boolean }[]
+    >(Prisma.sql`
+      WITH norm AS (
+        SELECT translate(lower(trim(${trimmed})), ${RecipesService.ACCENTS_FROM}, ${RecipesService.ACCENTS_TO}) AS input
+      )
+      SELECT q.id, q.name, q."isActive"
+      FROM (
+        SELECT r.id, r.name, r."isActive",
+               translate(lower(trim(r.name)), ${RecipesService.ACCENTS_FROM}, ${RecipesService.ACCENTS_TO}) AS pn
+        FROM recipes r
+        WHERE r."tenantId" = ${tenantId}
+          AND r."deletedAt" IS NULL
+          ${excludeId ? Prisma.sql`AND r.id <> ${excludeId}` : Prisma.empty}
+      ) q
+      CROSS JOIN norm
+      WHERE strpos(q.pn, norm.input) > 0
+         OR strpos(norm.input, q.pn) > 0
+      ORDER BY (q.pn = norm.input) DESC, LENGTH(q.name), q.name
+      LIMIT 5
+    `);
+    return matches;
+  }
 
   async create(
     tenantId: string,
@@ -38,9 +100,9 @@ export class RecipesService {
       isPublic = false,
       categoryIds = [],
       allergens = [],
-      sellingPrice,
-      targetCostPercentageOverride,
+      sellingPriceWithVat,
     } = createRecipeDto;
+    const sellingPrice = deriveSellingPriceFromVat(sellingPriceWithVat);
 
     // Validar que elaboration, si viene, sea JSON válido (pasos estructurados)
     let parsedElaboration;
@@ -75,8 +137,8 @@ export class RecipesService {
         portionSize,
         totalCost: costBreakdown.totalCost,
         totalCostPerUnit: costBreakdown.costPerUnit,
+        sellingPriceWithVat,
         sellingPrice,
-        targetCostPercentageOverride,
         version: 1,
         isPublic,
         allergens,
@@ -114,16 +176,28 @@ export class RecipesService {
 
   async findAll(
     tenantId: string,
-    query?: { search?: string; category?: string },
-  ): Promise<RecipeResponse[]> {
+    query?: RecipesQueryDto,
+  ): Promise<{
+    data: RecipeResponse[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      search,
+      category,
+      sortBy = "name",
+      sortOrder = "asc",
+      page = 1,
+      limit = 20,
+    } = query ?? {};
+
     const where: any = {
       tenantId,
-      ...(query?.search && {
+      ...(search && {
         OR: [
-          { name: { contains: query.search, mode: "insensitive" as const } },
+          { name: { contains: search, mode: "insensitive" as const } },
           {
             description: {
-              contains: query.search,
+              contains: search,
               mode: "insensitive" as const,
             },
           },
@@ -131,23 +205,54 @@ export class RecipesService {
       }),
     };
 
-    if (query?.category) {
+    if (category) {
       where.categories = {
         some: {
-          categoryId: query.category,
+          categoryId: category,
         },
       };
     }
 
-    const recipes = await this.prisma.recipe.findMany({
-      where,
-      include: this.recipeInclude,
-      orderBy: { createdAt: "desc" },
-    });
+    const skip = (page - 1) * limit;
 
-    return Promise.all(
+    // Nota: "category" (nombre de la primera categoría alfabéticamente) y
+    // "costPerUnit" son calculados en cliente/formatRecipeResponse, no
+    // columnas — no se ofrecen como sortBy aquí (allowlist = name/createdAt).
+    const [recipes, total] = await Promise.all([
+      this.prisma.recipe.findMany({
+        where,
+        include: this.recipeInclude,
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      }),
+      this.prisma.recipe.count({ where }),
+    ]);
+
+    const data = await Promise.all(
       recipes.map((recipe) => this.formatRecipeResponse(recipe)),
     );
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Listado ligero (id+nombre) sin paginar, para pickers (combobox de
+   * sub-recetas) — separado de findAll() porque ese ahora pagina y un
+   * picker necesita poder elegir entre TODAS las recetas activas, no solo
+   * la página visible del listado principal.
+   */
+  async findAllOptions(
+    tenantId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    return this.prisma.recipe.findMany({
+      where: { tenantId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
   }
 
   async findOne(tenantId: string, id: string): Promise<RecipeResponse> {
@@ -242,9 +347,9 @@ export class RecipesService {
       categoryIds,
       allergens = recipe.allergens,
       isActive = recipe.isActive,
-      sellingPrice = recipe.sellingPrice,
-      targetCostPercentageOverride = recipe.targetCostPercentageOverride,
+      sellingPriceWithVat = recipe.sellingPriceWithVat,
     } = updateRecipeDto;
+    const sellingPrice = deriveSellingPriceFromVat(sellingPriceWithVat);
 
     // Validar y parsear elaboration si se actualiza
     if (
@@ -296,8 +401,8 @@ export class RecipesService {
         isPublic,
         allergens,
         isActive,
+        sellingPriceWithVat,
         sellingPrice,
-        targetCostPercentageOverride,
       },
       include: {
         ingredients: {
@@ -704,8 +809,8 @@ export class RecipesService {
       portionSize: recipe.portionSize,
       totalCost: costBreakdown.totalCost,
       totalCostPerUnit: costBreakdown.costPerUnit,
+      sellingPriceWithVat: recipe.sellingPriceWithVat ?? null,
       sellingPrice: recipe.sellingPrice ?? null,
-      targetCostPercentageOverride: recipe.targetCostPercentageOverride ?? null,
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,
@@ -722,30 +827,27 @@ export class RecipesService {
   }
 
   /**
-   * Pricing derivado del escandallo: coste objetivo (global u override de la
-   * receta), margen bruto a partir del PVP sin IVA manual, y PVP teórico
-   * (regla de negocio fija: coste × 4). El IVA queda fuera de alcance.
+   * Pricing derivado del escandallo: coste objetivo (global de Configuración,
+   * informativo), margen bruto a partir del PVP sin IVA (derivado del PVP con
+   * IVA a 1,10), y PVP teórico (regla de negocio fija: coste × 4).
    */
   private async buildPricing(
     recipe: any,
     costPerPortion: number,
   ): Promise<RecipePricing> {
     const config = await this.costingConfigService.getConfig(recipe.tenantId);
-    const isTargetCostOverridden =
-      recipe.targetCostPercentageOverride !== null &&
-      recipe.targetCostPercentageOverride !== undefined;
-    const targetCostPercentage = isTargetCostOverridden
-      ? recipe.targetCostPercentageOverride
-      : config.targetCostPercentage;
+    const targetCostPercentage = config.targetCostPercentage;
 
+    const sellingPriceWithVat: number | null =
+      recipe.sellingPriceWithVat ?? null;
     const sellingPrice: number | null = recipe.sellingPrice ?? null;
     const hasSellingPrice = sellingPrice !== null && sellingPrice > 0;
 
     return {
       targetCostPercentage,
-      isTargetCostOverridden,
       targetGrossMarginPercentage: 100 - targetCostPercentage,
       theoreticalSellingPrice: costPerPortion * 4,
+      sellingPriceWithVat,
       sellingPrice,
       grossMargin: hasSellingPrice ? sellingPrice! - costPerPortion : null,
       grossMarginPercentage: hasSellingPrice

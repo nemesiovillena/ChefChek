@@ -25,6 +25,7 @@ import {
 } from "@nestjs/swagger";
 import { RecipesService } from "./recipes.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
+import { RecipesQueryDto } from "./dto/recipes-query.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
@@ -58,17 +59,56 @@ export class RecipesController {
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Listar todas las recetas del tenant" })
   @ApiResponse({ status: 200, description: "Lista de recetas" })
-  async findAll(
-    @Req() req: any,
-    @Query() query: { search?: string; category?: string },
-  ) {
+  async findAll(@Req() req: any, @Query() query: RecipesQueryDto) {
     const tenantId = req.tenantId;
-    const recipes = await this.recipesService.findAll(tenantId, query);
+    const { data, meta } = await this.recipesService.findAll(tenantId, query);
     return {
       success: true,
-      data: recipes,
+      data,
+      meta,
       message: "Recipes retrieved successfully",
     };
+  }
+
+  @Get("options")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Listado ligero (id+nombre) de todas las recetas activas del tenant, sin paginar — para pickers (p.ej. sub-recetas)",
+  })
+  async findAllOptions(@Req() req: any) {
+    const tenantId = req.tenantId;
+    const data = await this.recipesService.findAllOptions(tenantId);
+    return {
+      success: true,
+      data,
+      message: "Recipe options retrieved successfully",
+    };
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo captura como id.
+  // Advisory-only: devuelve recetas activas del tenant cuyo nombre coincide
+  // ignorando mayúsculas/espacios/acentos. No bloquea la creación.
+  @Get("check-name")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Comprobar recetas con nombre similar (accent-insensitive)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Lista de coincidencias existentes",
+  })
+  async checkName(
+    @Query("name") name: string,
+    @Query("excludeId") excludeId: string | undefined,
+    @Req() req: any,
+  ) {
+    const matches = await this.recipesService.findNameMatches(
+      req.tenantId,
+      (name ?? "").trim(),
+      excludeId,
+    );
+    return { success: true, data: matches };
   }
 
   @Get(":id")

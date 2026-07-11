@@ -1,5 +1,6 @@
 import { useCrud as createCrudHooks } from './use-api';
 import { useApiQuery } from './use-api';
+import { PaginatedResponse } from '@/types/api.types';
 
 export interface RecipeIngredient {
   productId: string;
@@ -22,9 +23,9 @@ export interface RecipeSubRecipeItem {
 
 export interface RecipePricing {
   targetCostPercentage: number;
-  isTargetCostOverridden: boolean;
   targetGrossMarginPercentage: number;
   theoreticalSellingPrice: number;
+  sellingPriceWithVat: number | null;
   sellingPrice: number | null;
   grossMargin: number | null;
   grossMarginPercentage: number | null;
@@ -43,8 +44,8 @@ export interface Recipe {
   portionSize?: number;
   totalCost: number;
   totalCostPerUnit?: number;
+  sellingPriceWithVat?: number | null;
   sellingPrice?: number | null;
-  targetCostPercentageOverride?: number | null;
   version?: number;
   parentVersion?: string | null;
   isActive: boolean;
@@ -85,16 +86,12 @@ export interface CreateRecipeData {
   subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
   categoryIds?: string[];
   allergens?: number[];
-  sellingPrice?: number;
-  targetCostPercentageOverride?: number;
+  sellingPriceWithVat?: number;
 }
 
-export interface UpdateRecipeData
-  extends Omit<Partial<CreateRecipeData>, 'targetCostPercentageOverride'> {
+export interface UpdateRecipeData extends Partial<CreateRecipeData> {
   id: string;
   isActive?: boolean;
-  /** null limpia el override y vuelve a usar el % objetivo global */
-  targetCostPercentageOverride?: number | null;
 }
 
 export interface RecipeCostIngredient {
@@ -125,15 +122,56 @@ export interface RecipeCost {
 // useCrud is a hook factory (builds hooks, does not itself call React hooks);
 // aliased to a non-hook name so it can run at module scope.
 const {
-  useList,
   useGet,
   useCreate,
   useUpdate,
   useDelete,
 } = createCrudHooks<Recipe, CreateRecipeData, UpdateRecipeData>('/v1/recipes', ['recipes']);
 
-export function useRecipes(query?: { search?: string; category?: string }, page: number = 1, pageSize: number = 50) {
-  return useList(page, pageSize);
+export interface RecipesQuery {
+  search?: string;
+  category?: string;
+  sortBy?: 'name' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}
+
+function buildRecipesQueryString(query?: RecipesQuery): string {
+  if (!query) return '';
+  const params = new URLSearchParams();
+  if (query.search) params.set('search', query.search);
+  if (query.category) params.set('category', query.category);
+  if (query.sortBy) params.set('sortBy', query.sortBy);
+  if (query.sortOrder) params.set('sortOrder', query.sortOrder);
+  if (query.page) params.set('page', String(query.page));
+  if (query.pageSize) params.set('limit', String(query.pageSize));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * Listado de recetas paginado/filtrado en servidor. La respuesta ya viene
+ * desenvuelta por el interceptor global de apiClient: { data, total, page,
+ * pageSize, totalPages, hasNext, hasPrevious } (ver api-client.ts).
+ */
+export function useRecipes(query?: RecipesQuery) {
+  return useApiQuery<PaginatedResponse<Recipe>>(
+    ['recipes', JSON.stringify(query ?? {})],
+    `/v1/recipes${buildRecipesQueryString(query)}`
+  );
+}
+
+/**
+ * Listado ligero (id+nombre) de recetas activas, sin paginar — para pickers
+ * (p.ej. combobox de sub-recetas), que necesitan elegir entre TODAS las
+ * recetas, no solo la página visible del listado principal (paginado).
+ */
+export function useRecipeOptions() {
+  return useApiQuery<{ id: string; name: string }[]>(
+    ['recipe-options'],
+    '/v1/recipes/options'
+  );
 }
 
 export function useRecipe(id: string) {

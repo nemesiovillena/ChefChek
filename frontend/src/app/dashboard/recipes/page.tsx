@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
   useRecipes,
+  useRecipeOptions,
   Recipe,
   useCreateRecipe,
   useUpdateRecipe,
@@ -26,11 +27,13 @@ import RecipeCostModal from './components/recipe-cost-modal';
 import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2 } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
+import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
 import AllergenBadge from '@/components/shared/allergen-badge';
 import AllergenIcon from '@/components/shared/allergen-icon';
 import apiClient from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
 import { CategoriesManagementModal } from '@/components/shared/categories-management-modal';
+import PaginationControls from '@/components/shared/pagination-controls';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,9 +54,6 @@ export default function RecipesPage() {
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
-
-  const { data: recipesData, error: recipesError, refetch } = useRecipes();
-  const recipes: Recipe[] = Array.isArray(recipesData?.data) ? recipesData.data : Array.isArray(recipesData) ? recipesData : [];
 
   const { data: categoriesData } = useCategories("recipes");
   const categories: Category[] = Array.isArray(categoriesData) ? categoriesData : [];
@@ -76,6 +76,8 @@ export default function RecipesPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'elaboracion' | 'clasificacion'>('general');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortField, setSortField] = useState<'name' | 'category' | 'costPerUnit'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -83,12 +85,78 @@ export default function RecipesPage() {
   const [selectedAllergenIds, setSelectedAllergenIds] = useState<number[]>([]);
   const [generatingSheetId, setGeneratingSheetId] = useState<string | null>(null);
 
+  // Paginación server-side
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+  };
+
+  // "category"/"costPerUnit" son calculados en cliente (primera categoría
+  // alfabética, coste en vivo) — el backend solo ordena por columnas reales
+  // (name/createdAt). Para esos dos, se pide la página en orden base por
+  // nombre y se reordena en cliente SOLO dentro de la página visible.
+  const { data: recipesData, error: recipesError, refetch } = useRecipes({
+    search: debouncedSearch || undefined,
+    category: selectedCategory || undefined,
+    sortBy: 'name',
+    sortOrder: sortField === 'name' ? sortDirection : 'asc',
+    page,
+    pageSize,
+  });
+  const recipes: Recipe[] = useMemo(() => recipesData?.data ?? [], [recipesData]);
+  const totalItems = recipesData?.total ?? 0;
+  const totalPages = recipesData?.totalPages ?? 1;
+
+  // Picker de sub-recetas: necesita TODAS las recetas activas, no solo la
+  // página visible del listado principal (ya paginado).
+  const { data: recipeOptions } = useRecipeOptions();
+  const allActiveRecipeOptions = recipeOptions ?? [];
+
+  // Clave de ordenación por categoría: la primera alfabéticamente; sin categoría queda vacía
+  const firstCategoryName = (recipe: Recipe): string =>
+    recipe.categories
+      ?.map((c) => c.categoryName)
+      .sort((a, b) => a.localeCompare(b, 'es'))[0] ?? '';
+
+  const costPerPortionOf = (recipe: Recipe): number =>
+    recipe.costBreakdown?.costPerPortion ??
+    (recipe.portions > 0 ? recipe.totalCost / recipe.portions : recipe.totalCost);
+
+  // "name" ya viene ordenado del servidor (todo el dataset). "category" y
+  // "costPerUnit" son calculados, así que solo reordenan la página visible
+  // — limitación conocida y aceptada (ver plan de paginación de recetas).
+  const sortedRecipes = useMemo(() => {
+    if (sortField === 'name') return recipes;
+    const dir = sortDirection === 'asc' ? 1 : -1;
+    return [...recipes].sort((a, b) => {
+      if (sortField === 'category') {
+        const catA = firstCategoryName(a);
+        const catB = firstCategoryName(b);
+        // Las recetas sin categoría van siempre al final; empates se resuelven por nombre
+        if (!catA && !catB) return a.name.localeCompare(b.name, 'es');
+        if (!catA) return 1;
+        if (!catB) return -1;
+        return (catA.localeCompare(catB, 'es') || a.name.localeCompare(b.name, 'es')) * dir;
+      }
+      return (costPerPortionOf(a) - costPerPortionOf(b)) * dir;
+    });
+  }, [recipes, sortField, sortDirection]);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     portions: '1',
     portionSize: '250',
   });
+  // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye la propia receta.
+  const { matches: duplicateRecipeNameMatches } = useRecipeNameCheck(formData.name, selectedRecipe?.id);
 
   const [elaborationSteps, setElaborationSteps] = useState<ElaborationStep[]>(() => parseSteps(null));
 
@@ -344,43 +412,6 @@ export default function RecipesPage() {
     setShowCreateForm(true);
   };
 
-  const filteredRecipes = recipes.filter((recipe: Recipe) => {
-    const matchesSearch = recipe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (recipe.description?.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = !selectedCategory ||
-      recipe.categories?.some(cat => cat.categoryId === selectedCategory);
-    return matchesSearch && matchesCategory;
-  });
-
-  // Clave de ordenación por categoría: la primera alfabéticamente; sin categoría queda vacía
-  const firstCategoryName = (recipe: Recipe): string =>
-    recipe.categories
-      ?.map((c) => c.categoryName)
-      .sort((a, b) => a.localeCompare(b, 'es'))[0] ?? '';
-
-  const costPerPortionOf = (recipe: Recipe): number =>
-    recipe.costBreakdown?.costPerPortion ??
-    (recipe.portions > 0 ? recipe.totalCost / recipe.portions : recipe.totalCost);
-
-  const sortedRecipes = [...filteredRecipes].sort((a, b) => {
-    const dir = sortDirection === 'asc' ? 1 : -1;
-    switch (sortField) {
-      case 'name':
-        return a.name.localeCompare(b.name, 'es') * dir;
-      case 'category': {
-        const catA = firstCategoryName(a);
-        const catB = firstCategoryName(b);
-        // Las recetas sin categoría van siempre al final; empates se resuelven por nombre
-        if (!catA && !catB) return a.name.localeCompare(b.name, 'es');
-        if (!catA) return 1;
-        if (!catB) return -1;
-        return (catA.localeCompare(catB, 'es') || a.name.localeCompare(b.name, 'es')) * dir;
-      }
-      case 'costPerUnit':
-        return (costPerPortionOf(a) - costPerPortionOf(b)) * dir;
-    }
-  });
-
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -388,6 +419,7 @@ export default function RecipesPage() {
       setSortField(field);
       setSortDirection('asc');
     }
+    setPage(1);
   };
 
   const renderSortableHeader = (label: string, field: typeof sortField) => {
@@ -456,7 +488,7 @@ export default function RecipesPage() {
               <input
                 type="text"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Nombre o descripción"
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
@@ -467,7 +499,7 @@ export default function RecipesPage() {
               </label>
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
                 className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">Todas</option>
@@ -482,8 +514,11 @@ export default function RecipesPage() {
               type="button"
               disabled={!searchTerm && !selectedCategory}
               onClick={() => {
+                if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
                 setSearchTerm('');
+                setDebouncedSearch('');
                 setSelectedCategory('');
+                setPage(1);
               }}
               className="px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] mt-1 md:mt-0 font-medium text-sm select-none
                 disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
@@ -496,6 +531,19 @@ export default function RecipesPage() {
               Limpiar filtros
             </button>
           </div>
+        </div>
+
+        <div className="mb-6">
+          <PaginationControls
+            variant="card"
+            page={page}
+            totalPages={totalPages}
+            total={totalItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            emptyLabel="Sin recetas"
+          />
         </div>
 
         {/* Recipes Table */}
@@ -636,6 +684,16 @@ export default function RecipesPage() {
               </tbody>
             </table>
           </div>
+
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            total={totalItems}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            emptyLabel="Sin recetas"
+          />
         </div>
 
         {/* Create/Edit Modal */}
@@ -713,6 +771,25 @@ export default function RecipesPage() {
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                           className={m3Field}
                         />
+                        {duplicateRecipeNameMatches.length > 0 && (
+                          <div role="status" className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                            <svg className="mt-0.5 h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                            </svg>
+                            <div>
+                              <span className="font-medium">Posible duplicado.</span> Ya existe una receta con nombre similar:{' '}
+                              {duplicateRecipeNameMatches.slice(0, 3).map((m, idx) => (
+                                <span key={m.id}>
+                                  <span className="font-semibold">«{m.name}»</span>
+                                  {!m.isActive && <span className="font-normal italic"> (inactivo)</span>}
+                                  {idx < Math.min(duplicateRecipeNameMatches.length, 3) - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                              {duplicateRecipeNameMatches.length > 3 ? ` y ${duplicateRecipeNameMatches.length - 3} más.` : '.'}{' '}
+                              Puedes continuar si es una receta distinta.
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -774,7 +851,7 @@ export default function RecipesPage() {
                               />
                               <input
                                 type="number"
-                                step="0.01"
+                                step="0.001"
                                 min="0"
                                 placeholder="Cantidad"
                                 value={ingredient.quantity}
@@ -823,16 +900,14 @@ export default function RecipesPage() {
                             {subRecipes.map((sub, index) => (
                               <div key={index} className="flex gap-2 items-center">
                                 <SubRecipeCombobox
-                                  items={recipes
-                                    .filter((r) => r.id !== selectedRecipe?.id && r.isActive)
-                                    .map((r) => ({ id: r.id, name: r.name }))}
+                                  items={allActiveRecipeOptions.filter((r) => r.id !== selectedRecipe?.id)}
                                   value={sub.subRecipeId}
-                                  label={recipes.find((r) => r.id === sub.subRecipeId)?.name}
+                                  label={allActiveRecipeOptions.find((r) => r.id === sub.subRecipeId)?.name}
                                   onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
                                 />
                                 <input
                                   type="number"
-                                  step="0.01"
+                                  step="0.001"
                                   min="0"
                                   placeholder="Cantidad"
                                   value={sub.quantity}

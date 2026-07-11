@@ -8,24 +8,21 @@ import { formatEuro } from '@/lib/utils';
 
 const formatPercent = (value: number, decimals = 1) => `${value.toFixed(decimals)}%`;
 
-/** PVP sin IVA + coste objetivo propio de la receta; se remonta (via key) cuando llega pricing fresco del servidor. */
+/** PVP con IVA manual; PVP sin IVA se deriva (÷1,10) y se muestra solo lectura. Se remonta (via key) cuando llega pricing fresco del servidor. */
 export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recipe; pricing: RecipePricing }) {
   const updateRecipeMutation = useUpdateRecipe();
   const invalidateQueries = useInvalidateQueries();
   const addNotification = useNotification();
 
-  const [sellingPriceInput, setSellingPriceInput] = useState(
-    pricing.sellingPrice != null ? String(pricing.sellingPrice) : '',
-  );
-  const [overrideInput, setOverrideInput] = useState(
-    pricing.isTargetCostOverridden ? String(pricing.targetCostPercentage) : '',
+  const [sellingPriceWithVatInput, setSellingPriceWithVatInput] = useState(
+    pricing.sellingPriceWithVat != null ? String(pricing.sellingPriceWithVat) : '',
   );
 
-  const handleSaveSellingPrice = async () => {
-    const value = sellingPriceInput.trim() === '' ? undefined : parseFloat(sellingPriceInput);
+  const handleSaveSellingPriceWithVat = async () => {
+    const value = sellingPriceWithVatInput.trim() === '' ? undefined : parseFloat(sellingPriceWithVatInput);
     if (value !== undefined && (Number.isNaN(value) || value < 0)) return;
     try {
-      await updateRecipeMutation.mutateAsync({ id: recipe.id, sellingPrice: value });
+      await updateRecipeMutation.mutateAsync({ id: recipe.id, sellingPriceWithVat: value });
       invalidateQueries([['recipe-cost', recipe.id]]);
       addNotification({ type: 'success', title: 'PVP guardado', message: 'El precio de venta se ha actualizado.' });
     } catch (error: unknown) {
@@ -33,67 +30,11 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
     }
   };
 
-  const handleSaveOverride = async (clear = false) => {
-    const value = clear || overrideInput.trim() === '' ? null : parseFloat(overrideInput);
-    if (value !== null && (Number.isNaN(value) || value < 0 || value > 100)) return;
-    try {
-      await updateRecipeMutation.mutateAsync({ id: recipe.id, targetCostPercentageOverride: value });
-      invalidateQueries([['recipe-cost', recipe.id]]);
-      if (clear) setOverrideInput('');
-      addNotification({ type: 'success', title: 'Coste objetivo actualizado', message: clear ? 'Ahora usa el valor global.' : 'Se ha guardado el % propio de esta receta.' });
-    } catch (error: unknown) {
-      addNotification({ type: 'error', title: 'Error', message: error instanceof Error ? error.message : 'No se pudo guardar el coste objetivo' });
-    }
-  };
-
   const overCost = pricing.costPercentage != null && pricing.costPercentage > pricing.targetCostPercentage;
 
   return (
     <div className="border border-gray-200 dark:border-zinc-800 rounded-lg p-4 space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (sin IVA)</label>
-          <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={sellingPriceInput}
-            onChange={(e) => setSellingPriceInput(e.target.value)}
-            onBlur={handleSaveSellingPrice}
-            placeholder="Sin fijar"
-            className="w-32 px-3 py-2 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Coste objetivo propio (%)
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              step="0.1"
-              min={0}
-              max={100}
-              value={overrideInput}
-              onChange={(e) => setOverrideInput(e.target.value)}
-              onBlur={() => handleSaveOverride(false)}
-              placeholder={`Global: ${formatPercent(pricing.targetCostPercentage, 0)}`}
-              className="w-28 px-3 py-2 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            {pricing.isTargetCostOverridden && (
-              <button
-                type="button"
-                onClick={() => handleSaveOverride(true)}
-                className="px-3 py-2 text-sm border border-gray-300 dark:border-zinc-700 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800"
-              >
-                Usar global
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
         <div>
           <div className="text-gray-500 dark:text-gray-400">Margen Bruto</div>
           <div className="font-semibold text-gray-900 dark:text-white">
@@ -114,6 +55,32 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
           </div>
         </div>
       </div>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (con IVA)</label>
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={sellingPriceWithVatInput}
+            onChange={(e) => setSellingPriceWithVatInput(e.target.value)}
+            onBlur={handleSaveSellingPriceWithVat}
+            placeholder="Sin fijar"
+            className="w-36 px-3 py-2.5 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white text-lg font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (sin IVA)</label>
+          <div className="w-36 px-3 py-2.5 border border-transparent text-gray-900 dark:text-white text-lg font-semibold">
+            {pricing.sellingPrice != null ? formatEuro(pricing.sellingPrice) : '—'}
+          </div>
+        </div>
+      </div>
+
+      <p className="text-sm font-bold text-gray-900 dark:text-white">
+        El coste objetivo máximo de esta receta es del {formatPercent(pricing.targetCostPercentage)}.
+      </p>
     </div>
   );
 }

@@ -50,15 +50,15 @@ export interface RecipeCostBreakdown {
 
 /** Pricing derivado del escandallo: coste objetivo, margen bruto y PVP teórico */
 export interface RecipePricing {
-  /** % de coste objetivo efectivo (override de la receta, o el global de Configuración) */
+  /** % de coste objetivo, siempre el global de Configuración (informativo) */
   targetCostPercentage: number;
-  /** true si la receta pisa el % global con su propio targetCostPercentageOverride */
-  isTargetCostOverridden: boolean;
   /** 100 - targetCostPercentage */
   targetGrossMarginPercentage: number;
   /** PVP teórico = costPerPortion * 4 */
   theoreticalSellingPrice: number;
-  /** PVP sin IVA, manual (Recipe.sellingPrice); null si aún no se ha fijado */
+  /** PVP con IVA, manual (Recipe.sellingPriceWithVat); null si aún no se ha fijado */
+  sellingPriceWithVat: number | null;
+  /** PVP sin IVA = sellingPriceWithVat / 1.10 (IVA hostelería 10%); null si aún no se ha fijado */
   sellingPrice: number | null;
   /** sellingPrice - costPerPortion; null si no hay sellingPrice */
   grossMargin: number | null;
@@ -84,8 +84,8 @@ export interface RecipeResponse {
   portionSize: number;
   totalCost: number;
   totalCostPerUnit: number;
+  sellingPriceWithVat?: number | null;
   sellingPrice?: number | null;
-  targetCostPercentageOverride?: number | null;
   version: number;
   parentVersion?: string;
   isActive: boolean;
