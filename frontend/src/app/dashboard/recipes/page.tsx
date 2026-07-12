@@ -168,6 +168,16 @@ export default function RecipesPage() {
 
   const [subRecipes, setSubRecipes] = useState<SubRecipeRow[]>([]);
 
+  // Peso total de los ingredientes en kg. Solo suma unidades de masa (kg/g);
+  // l/ml y "unidades" no tienen un peso definido y se excluyen del total.
+  const totalIngredientsWeightKg = useMemo(() => {
+    return ingredients.reduce((total, ingredient) => {
+      if (ingredient.unit === 'kg') return total + (ingredient.quantity || 0);
+      if (ingredient.unit === 'g') return total + (ingredient.quantity || 0) / 1000;
+      return total;
+    }, 0);
+  }, [ingredients]);
+
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -844,6 +854,11 @@ export default function RecipesPage() {
                             + Agregar ingrediente
                           </button>
                         </div>
+                        {totalIngredientsWeightKg > 0 && (
+                          <p className="text-xs text-[var(--muted-foreground)] mb-2">
+                            Peso total: {totalIngredientsWeightKg.toFixed(3)} kg
+                          </p>
+                        )}
                         <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                           {ingredients.map((ingredient, index) => (
                             <div key={index} className="flex gap-2 items-center">
