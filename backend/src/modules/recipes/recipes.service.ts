@@ -829,7 +829,7 @@ export class RecipesService {
   /**
    * Pricing derivado del escandallo: coste objetivo (global de Configuración,
    * informativo), margen bruto a partir del PVP sin IVA (derivado del PVP con
-   * IVA a 1,10), y PVP teórico (regla de negocio fija: coste × 4).
+   * IVA a 1,10), y PVP teórico (coste × multiplicador global de Configuración).
    */
   private async buildPricing(
     recipe: any,
@@ -837,6 +837,7 @@ export class RecipesService {
   ): Promise<RecipePricing> {
     const config = await this.costingConfigService.getConfig(recipe.tenantId);
     const targetCostPercentage = config.targetCostPercentage;
+    const theoreticalPriceMultiplier = config.theoreticalPriceMultiplier;
 
     const sellingPriceWithVat: number | null =
       recipe.sellingPriceWithVat ?? null;
@@ -846,7 +847,8 @@ export class RecipesService {
     return {
       targetCostPercentage,
       targetGrossMarginPercentage: 100 - targetCostPercentage,
-      theoreticalSellingPrice: costPerPortion * 4,
+      theoreticalPriceMultiplier,
+      theoreticalSellingPrice: costPerPortion * theoreticalPriceMultiplier,
       sellingPriceWithVat,
       sellingPrice,
       grossMargin: hasSellingPrice ? sellingPrice! - costPerPortion : null,

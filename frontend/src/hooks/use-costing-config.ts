@@ -2,6 +2,7 @@ import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
 
 export interface CostingConfig {
   targetCostPercentage: number;
+  theoreticalPriceMultiplier: number;
 }
 
 const COSTING_CONFIG_KEY = ['costing-config'];

@@ -6,8 +6,15 @@ export class UpdateCostingConfigDto {
   @Min(0)
   @Max(100)
   targetCostPercentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1)
+  @Max(100)
+  theoreticalPriceMultiplier?: number;
 }
 
 export interface CostingConfigResponse {
   targetCostPercentage: number;
+  theoreticalPriceMultiplier: number;
 }

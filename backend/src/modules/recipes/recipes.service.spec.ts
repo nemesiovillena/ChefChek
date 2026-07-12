@@ -9,7 +9,10 @@ describe("RecipesService", () => {
   let service: RecipesService;
 
   const mockCostingConfigService = {
-    getConfig: jest.fn().mockResolvedValue({ targetCostPercentage: 30 }),
+    getConfig: jest.fn().mockResolvedValue({
+      targetCostPercentage: 30,
+      theoreticalPriceMultiplier: 4,
+    }),
   };
 
   const mockPrismaService = {

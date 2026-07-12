@@ -13,10 +13,10 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
           <thead className="bg-gray-50 dark:bg-zinc-800/50">
             <tr>
-              {['Producto', 'Peso Bruto', 'Precio Compra', 'Rendimiento', 'Merma', 'Peso Neto', 'Precio Real', 'Costo'].map((label, i) => (
+              {['Producto', 'Peso Bruto', 'Rendimiento', 'Merma', 'Peso Neto', 'Precio Real', 'Costo'].map((label, i, arr) => (
                 <th
                   key={label}
-                  className={`px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap ${i === 7 ? 'text-right' : 'text-left'}`}
+                  className={`px-4 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap ${i === arr.length - 1 ? 'text-right' : 'text-left'}`}
                 >
                   {label}
                 </th>
@@ -28,7 +28,6 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
               <tr key={index}>
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{ingredient.productName}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.grossWeight} {ingredient.unit}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatEuro(ingredient.referencePurchasePrice)}/{ingredient.referenceUnit}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.yieldPercentage, 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.wastePercentage, 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.netWeight.toFixed(2)} {ingredient.unit}</td>

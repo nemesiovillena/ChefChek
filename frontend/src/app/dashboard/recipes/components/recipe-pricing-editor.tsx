@@ -15,7 +15,7 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
   const addNotification = useNotification();
 
   const [sellingPriceWithVatInput, setSellingPriceWithVatInput] = useState(
-    pricing.sellingPriceWithVat != null ? String(pricing.sellingPriceWithVat) : '',
+    pricing.sellingPriceWithVat != null ? pricing.sellingPriceWithVat.toFixed(2) : '',
   );
 
   const handleSaveSellingPriceWithVat = async () => {
@@ -34,23 +34,38 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
 
   return (
     <div className="border border-gray-200 dark:border-zinc-800 rounded-lg p-4 space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-        <div>
-          <div className="text-gray-500 dark:text-gray-400">Margen Bruto</div>
-          <div className="font-semibold text-gray-900 dark:text-white">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 rounded-lg border transition-colors bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/30">
+          <div className="text-sm text-green-700 dark:text-green-400">Margen Bruto</div>
+          <div className="text-3xl font-bold text-green-900 dark:text-green-200">
             {pricing.grossMargin != null ? formatEuro(pricing.grossMargin) : '—'}
-            {pricing.grossMarginPercentage != null && (
-              <span className="text-gray-400 dark:text-gray-500 font-normal"> ({formatPercent(pricing.grossMarginPercentage)})</span>
-            )}
           </div>
         </div>
-        <div>
-          <div className="text-gray-500 dark:text-gray-400">Margen Bruto Objetivo</div>
-          <div className="font-semibold text-gray-900 dark:text-white">{formatPercent(pricing.targetGrossMarginPercentage)}</div>
+        <div
+          className={`p-5 rounded-lg border transition-colors ${
+            overCost
+              ? 'bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30'
+              : 'bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/30'
+          }`}
+        >
+          <div className={`text-sm ${overCost ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>
+            Margen Bruto Objetivo
+          </div>
+          <div className={`text-3xl font-bold ${overCost ? 'text-red-900 dark:text-red-200' : 'text-green-900 dark:text-green-200'}`}>
+            {pricing.grossMarginPercentage != null ? formatPercent(pricing.grossMarginPercentage) : '—'}
+          </div>
         </div>
-        <div>
-          <div className="text-gray-500 dark:text-gray-400">% Coste Real</div>
-          <div className={`font-semibold ${overCost ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+        <div
+          className={`p-5 rounded-lg border transition-colors ${
+            overCost
+              ? 'bg-red-50 dark:bg-red-950/20 border-red-100 dark:border-red-900/30'
+              : 'bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/30'
+          }`}
+        >
+          <div className={`text-sm ${overCost ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400'}`}>
+            Coste Real
+          </div>
+          <div className={`text-3xl font-bold ${overCost ? 'text-red-900 dark:text-red-200' : 'text-green-900 dark:text-green-200'}`}>
             {pricing.costPercentage != null ? formatPercent(pricing.costPercentage) : '—'}
           </div>
         </div>
@@ -78,9 +93,11 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
         </div>
       </div>
 
-      <p className="text-sm font-bold text-gray-900 dark:text-white">
-        El coste objetivo máximo de esta receta es del {formatPercent(pricing.targetCostPercentage)}.
-      </p>
+      {overCost && (
+        <p className="text-sm font-bold text-red-700 dark:text-red-400">
+          Información: El coste objetivo máximo de esta receta no puede superar el {formatPercent(pricing.targetCostPercentage)}.
+        </p>
+      )}
     </div>
   );
 }

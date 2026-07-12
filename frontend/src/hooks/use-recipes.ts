@@ -24,6 +24,7 @@ export interface RecipeSubRecipeItem {
 export interface RecipePricing {
   targetCostPercentage: number;
   targetGrossMarginPercentage: number;
+  theoreticalPriceMultiplier: number;
   theoreticalSellingPrice: number;
   sellingPriceWithVat: number | null;
   sellingPrice: number | null;

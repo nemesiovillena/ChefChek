@@ -324,11 +324,12 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold">Costeo de Recetas</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
-            Coste objetivo máximo aplicado por defecto al escandallo de las recetas. Cada receta puede pisar este valor con su propio % objetivo.
+            Coste objetivo máximo aplicado por defecto al escandallo de las recetas, y multiplicador usado para calcular el PVP teórico (coste × multiplicador).
           </p>
           <CostingConfigForm
-            key={costingConfig?.targetCostPercentage ?? 'loading'}
-            initialValue={costingConfig?.targetCostPercentage ?? 30}
+            key={`${costingConfig?.targetCostPercentage ?? 'loading'}-${costingConfig?.theoreticalPriceMultiplier ?? 'loading'}`}
+            initialTargetCostPercentage={costingConfig?.targetCostPercentage ?? 30}
+            initialTheoreticalPriceMultiplier={costingConfig?.theoreticalPriceMultiplier ?? 4}
           />
         </div>
 
@@ -432,16 +433,28 @@ export default function SettingsPage() {
   );
 }
 
-/** Formulario del % de coste objetivo global; se remonta (via key) cuando llega un nuevo valor del servidor. */
-function CostingConfigForm({ initialValue }: { initialValue: number }) {
+/** Formulario del % de coste objetivo y del multiplicador de PVP teórico, ambos globales; se remonta (via key) cuando llega un nuevo valor del servidor. */
+function CostingConfigForm({
+  initialTargetCostPercentage,
+  initialTheoreticalPriceMultiplier,
+}: {
+  initialTargetCostPercentage: number;
+  initialTheoreticalPriceMultiplier: number;
+}) {
   const updateCostingConfigMutation = useUpdateCostingConfig();
-  const [targetCostPercentage, setTargetCostPercentage] = useState(String(initialValue));
+  const [targetCostPercentage, setTargetCostPercentage] = useState(String(initialTargetCostPercentage));
+  const [theoreticalPriceMultiplier, setTheoreticalPriceMultiplier] = useState(String(initialTheoreticalPriceMultiplier));
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
-    const value = parseFloat(targetCostPercentage);
-    if (Number.isNaN(value) || value < 0 || value > 100) return;
-    await updateCostingConfigMutation.mutateAsync({ targetCostPercentage: value });
+    const targetCostValue = parseFloat(targetCostPercentage);
+    const multiplierValue = parseFloat(theoreticalPriceMultiplier);
+    if (Number.isNaN(targetCostValue) || targetCostValue < 0 || targetCostValue > 100) return;
+    if (Number.isNaN(multiplierValue) || multiplierValue <= 0) return;
+    await updateCostingConfigMutation.mutateAsync({
+      targetCostPercentage: targetCostValue,
+      theoreticalPriceMultiplier: multiplierValue,
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -459,6 +472,20 @@ function CostingConfigForm({ initialValue }: { initialValue: number }) {
           step={0.1}
           value={targetCostPercentage}
           onChange={(e) => setTargetCostPercentage(e.target.value)}
+          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Multiplicador PVP teórico
+        </label>
+        <input
+          type="number"
+          min={0.1}
+          max={100}
+          step={0.1}
+          value={theoreticalPriceMultiplier}
+          onChange={(e) => setTheoreticalPriceMultiplier(e.target.value)}
           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
       </div>

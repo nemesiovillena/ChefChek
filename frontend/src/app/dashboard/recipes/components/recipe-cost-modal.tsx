@@ -58,7 +58,7 @@ export default function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; o
 function SummaryCards({ recipe, costData }: { recipe: Recipe; costData: RecipeCost }) {
   const { pricing } = costData;
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div className="bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 p-4 rounded-lg transition-colors">
         <div className="text-sm text-green-700 dark:text-green-400">Costo Total</div>
         <div className="text-2xl font-bold text-green-900 dark:text-green-200">{formatEuro(costData.totalCost)}</div>
@@ -71,12 +71,8 @@ function SummaryCards({ recipe, costData }: { recipe: Recipe; costData: RecipeCo
         <div className="text-sm text-amber-700 dark:text-amber-400">Coste Objetivo Máximo</div>
         <div className="text-2xl font-bold text-amber-900 dark:text-amber-200">{formatPercent(pricing.targetCostPercentage)}</div>
       </div>
-      <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 p-4 rounded-lg transition-colors">
-        <div className="text-sm text-teal-700 dark:text-teal-400">Margen Bruto Objetivo</div>
-        <div className="text-2xl font-bold text-teal-900 dark:text-teal-200">{formatPercent(pricing.targetGrossMarginPercentage)}</div>
-      </div>
       <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 p-4 rounded-lg transition-colors">
-        <div className="text-sm text-purple-700 dark:text-purple-400">PVP Teórico (coste×4)</div>
+        <div className="text-sm text-purple-700 dark:text-purple-400">PVP Teórico (coste×{pricing.theoreticalPriceMultiplier})</div>
         <div className="text-2xl font-bold text-purple-900 dark:text-purple-200">{formatEuro(pricing.theoreticalSellingPrice)}</div>
       </div>
     </div>

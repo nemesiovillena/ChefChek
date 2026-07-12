@@ -54,7 +54,9 @@ export interface RecipePricing {
   targetCostPercentage: number;
   /** 100 - targetCostPercentage */
   targetGrossMarginPercentage: number;
-  /** PVP teórico = costPerPortion * 4 */
+  /** Multiplicador aplicado al coste por ración para el PVP teórico, siempre el global de Configuración */
+  theoreticalPriceMultiplier: number;
+  /** PVP teórico = costPerPortion * theoreticalPriceMultiplier */
   theoreticalSellingPrice: number;
   /** PVP con IVA, manual (Recipe.sellingPriceWithVat); null si aún no se ha fijado */
   sellingPriceWithVat: number | null;
