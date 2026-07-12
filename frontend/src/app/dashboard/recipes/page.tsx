@@ -24,6 +24,7 @@ import ElaborationStepEditor, {
 import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
+import { useInvalidateQueries } from '@/hooks/use-api';
 import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2 } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
@@ -68,6 +69,7 @@ export default function RecipesPage() {
   const createRecipeMutation = useCreateRecipe();
   const updateRecipeMutation = useUpdateRecipe();
   const deleteRecipeMutation = useDeleteRecipe();
+  const invalidateQueries = useInvalidateQueries();
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -353,6 +355,7 @@ export default function RecipesPage() {
     try {
       if (selectedRecipe) {
         await updateRecipeMutation.mutateAsync({ id: selectedRecipe.id, ...recipeData });
+        invalidateQueries([['recipe-cost', selectedRecipe.id]]);
         addNotification({
           type: 'success',
           title: 'Receta actualizada',
