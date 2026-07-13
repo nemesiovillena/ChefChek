@@ -83,6 +83,18 @@ export class AlbaranStockService {
             continue;
           }
 
+          // Producto sin proveedor: hereda el del albarán. Solo se rellena
+          // cuando está vacío — nunca se pisa un proveedor ya asignado.
+          if (!product.supplierId && albaran.supplierId) {
+            await tx.product.update({
+              where: { id: product.id },
+              data: { supplierId: albaran.supplierId },
+            });
+            this.logger.log(
+              `Proveedor ${albaran.supplierId} asignado a producto sin proveedor: ${product.name}`,
+            );
+          }
+
           // Update purchase price if different
           const currentPrice = Number(product.purchasePrice);
           if (lineUnitPrice !== currentPrice) {
