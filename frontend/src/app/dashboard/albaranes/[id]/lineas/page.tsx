@@ -5,11 +5,13 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
+import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
 import { LineActionsToolbar } from '@/components/albaranes/line-actions-toolbar';
 import { ProductPickerDialog } from '@/components/albaranes/product-picker-dialog';
+import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { CreateProductInline } from '@/components/albaranes/create-product-inline';
 import { AddLineForm } from '@/components/albaranes/add-line-form';
 import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
@@ -18,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check } from 'lucide-react';
-import type { AlbaranLine, LineStatus } from '@/lib/api-albaran';
+import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
   const router = useRouter();
@@ -38,6 +40,34 @@ export default function AlbaranLineasPage() {
 
   // Add manual line state
   const [showAddLine, setShowAddLine] = useState(false);
+
+  // Albaran status transition (Marcar Revisado / Confirmar desde esta pestaña)
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+
+  const handleAlbaranStatusChange = async (nextStatus: AlbaranStatus) => {
+    setStatusUpdating(true);
+    try {
+      await updateStatus(id, nextStatus);
+      refetch();
+      addNotification({
+        type: 'success',
+        title: nextStatus === 'CONFIRMADO' ? 'Albarán confirmado' : 'Albarán revisado',
+        message:
+          nextStatus === 'CONFIRMADO'
+            ? 'Stock actualizado y productos nuevos creados en el catálogo'
+            : 'Ya puedes confirmar el albarán para asentar el stock',
+      });
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err instanceof Error ? err.message : 'Error al actualizar estado',
+      });
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -149,6 +179,7 @@ export default function AlbaranLineasPage() {
             <CreateProductInline
               albaranId={id}
               line={line}
+              supplierId={albaran?.supplierId}
               onSuccess={handleCreateSuccess}
               onCancel={() => setCreatingLine(null)}
             />
@@ -243,7 +274,13 @@ export default function AlbaranLineasPage() {
                 {albaran.supplier?.name} - {lines.length} líneas totales
               </p>
             </div>
-            <AlbaranStatusBadge status={albaran.status} />
+            <div className="flex flex-col items-end gap-2">
+              <AlbaranStatusBadge status={albaran.status} />
+              <OcrMethodBadge
+                extractionMethod={albaran.ocrRawData?.extraction_method}
+                extractionModel={albaran.ocrRawData?.extraction_model}
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -435,6 +472,55 @@ export default function AlbaranLineasPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Avance de estado sin volver al Resumen: aparece cuando ya no
+              quedan líneas pendientes de confirmar/rechazar. Sin proveedor
+              asignado se bloquea: los productos/ofertas nacerían huérfanos. */}
+          {pendingCount === 0 &&
+            (albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO') &&
+            (!albaran.supplier ? (
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm text-amber-800 flex-1">
+                  Todas las líneas están revisadas, pero el albarán no tiene proveedor
+                  asignado. Asígnalo antes de continuar para que los precios y los
+                  productos nuevos queden vinculados a él.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setSupplierPickerOpen(true)}
+                  className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                >
+                  Asignar proveedor
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
+                <div className="flex items-center gap-2 flex-1">
+                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                  <p className="text-sm text-green-800">
+                    {albaran.status === 'PENDIENTE'
+                      ? 'Todas las líneas están revisadas. Puedes marcar el albarán como revisado.'
+                      : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
+                  </p>
+                </div>
+                <Button
+                  onClick={() =>
+                    handleAlbaranStatusChange(
+                      albaran.status === 'PENDIENTE' ? 'REVISADO' : 'CONFIRMADO',
+                    )
+                  }
+                  disabled={statusUpdating}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  {albaran.status === 'PENDIENTE' ? 'Marcar Revisado' : 'Confirmar Albarán'}
+                </Button>
+              </div>
+            ))}
         </>
       )}
 
@@ -448,6 +534,15 @@ export default function AlbaranLineasPage() {
           onSuccess={refetch}
         />
       )}
+
+      {/* Supplier Picker (desde el aviso de proveedor sin asignar) */}
+      <SupplierPickerDialog
+        open={supplierPickerOpen}
+        onOpenChange={setSupplierPickerOpen}
+        albaranId={id}
+        currentSupplierId={albaran?.supplier?.id}
+        onSuccess={refetch}
+      />
     </div>
   );
 }

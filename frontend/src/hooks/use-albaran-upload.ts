@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { ALBARAN_UPLOAD_URL, uploadUrl } from '@/lib/upload-api';
+import { ALBARAN_UPLOAD_URL } from '@/lib/upload-api';
 
 export interface DetectedProduct {
   name: string;
@@ -19,10 +19,6 @@ export interface AlbaranUploadResult {
 }
 
 export interface UseAlbaranUploadOptions {
-  /** Supplier name to associate with imported products */
-  supplierName?: string;
-  /** Called after successful product import */
-  onImportComplete?: () => void;
   /** AI model for structured extraction */
   aiModel?: string;
   /** AI API key (stored in sessionStorage, never persisted in backend) */
@@ -185,82 +181,6 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
     }
   }, [files, options.aiApiKey, options.aiModel]);
 
-  /** Import detected products into the product catalog */
-  const handleImport = useCallback(async () => {
-    if (!results) return;
-
-    setIsUploading(true);
-    setError(null);
-
-    try {
-      const toImport = results.products.filter((p) => p.confidence >= 0.5);
-
-      if (toImport.length === 0) {
-        setError('No hay productos con suficiente confianza para importar');
-        setIsUploading(false);
-        return;
-      }
-
-      // Import each product individually via the existing create endpoint
-      const importUrl = uploadUrl('/v1/products');
-      const authHeaders = getAuthHeaders();
-      let imported = 0;
-      let failed = 0;
-
-      for (const p of toImport) {
-        try {
-          const response = await fetch(importUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...authHeaders,
-            },
-            body: JSON.stringify({
-              name: p.name,
-              purchasePrice: p.unit_price || 0,
-              purchaseFormat: '',
-              referenceUnit: p.unit || 'ud',
-              unitsPerFormat: 1,
-              referenceUnitSize: 1,
-              unitSize: 1,
-              profitMargin: 0,
-              wastePercentage: 0,
-              yieldFactor: 1,
-              allergens: [],
-              supplier: options.supplierName || 'Sin proveedor',
-              source: 'ocr',
-            }),
-          });
-
-          if (response.ok) {
-            imported++;
-          } else {
-            failed++;
-          }
-        } catch {
-          failed++;
-        }
-      }
-
-      if (imported === 0) {
-        throw new Error('No se pudo importar ningún producto');
-      }
-
-      options.onImportComplete?.();
-      setResults(null);
-      setFiles([]);
-
-      if (failed > 0) {
-        setError(`Importados ${imported} producto(s). ${failed} fallaron.`);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error importando');
-      console.error('Error importing:', err);
-    } finally {
-      setIsUploading(false);
-    }
-  }, [results, options]);
-
   /** Reset all state */
   const reset = useCallback(() => {
     setFiles([]);
@@ -285,7 +205,6 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
     handleFileSelect,
     removeFile,
     processFiles,
-    handleImport,
     reset,
   };
 }

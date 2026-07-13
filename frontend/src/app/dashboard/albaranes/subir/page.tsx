@@ -75,7 +75,6 @@ export default function SubirAlbaranPage() {
     handleFileSelect,
     removeFile,
     processFiles,
-    handleImport,
     reset,
   } = useAlbaranUpload({
     aiModel: aiModel && aiModel !== 'regex' ? aiModel : undefined,
@@ -310,10 +309,9 @@ export default function SubirAlbaranPage() {
               </div>
             ))}
 
+            {/* Los productos se crean/actualizan al CONFIRMAR el albarán
+                (albaran-stock.service): la revisión de líneas es el paso previo */}
             <div className="pt-4 border-t flex flex-col sm:flex-row gap-2">
-              <Button onClick={handleImport} disabled={isUploading} className="flex-1">
-                Importar {results.products.filter((p) => p.confidence >= 0.5).length} productos
-              </Button>
               <Link
                 href={
                   getAlbaranId(results)
@@ -322,9 +320,9 @@ export default function SubirAlbaranPage() {
                 }
                 className="flex-1"
               >
-                <Button variant="outline" className="w-full">
+                <Button className="w-full">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  {getAlbaranId(results) ? 'Ver Albarán' : 'Ver en Albaranes'}
+                  {getAlbaranId(results) ? 'Revisar Albarán' : 'Ver en Albaranes'}
                 </Button>
               </Link>
               <Button variant="ghost" onClick={reset}>
