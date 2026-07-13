@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
-import { AI_PROVIDERS, getApiKey, setApiKey } from '@/lib/ai-api-keys';
+import { AI_PROVIDERS, getApiKey, sanitizeApiKey, setApiKey } from '@/lib/ai-api-keys';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
@@ -103,7 +103,7 @@ export default function SettingsPage() {
   }
 
   const handleApiKeyChange = (providerId: string, key: string) => {
-    setApiKeysState(prev => ({ ...prev, [providerId]: key }));
+    setApiKeysState(prev => ({ ...prev, [providerId]: sanitizeApiKey(key) }));
     setSavedKeys(prev => ({ ...prev, [providerId]: false }));
   };
 
@@ -124,7 +124,7 @@ export default function SettingsPage() {
     const key = apiKeys[providerId];
     if (!key) return null;
     const provider = AI_PROVIDERS.find(p => p.id === providerId);
-    return provider ? key.startsWith(provider.keyPrefix) : true;
+    return provider ? provider.keyPrefixes.some(prefix => key.startsWith(prefix)) : true;
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
