@@ -1,5 +1,6 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
 import { apiClient } from '@/lib/api-client';
 import { downloadBlob } from '@/lib/utils';
@@ -56,10 +57,15 @@ export function useCreateBackup(baseUrl: string) {
   );
 }
 
-/** Borra una copia (archivo + registro). */
+/** Borra una copia (archivo + registro). Construye la URL con el id:
+ * la factoría genérica useApiMutation ignora `variables` en su rama DELETE,
+ * por lo que hay que inyectar el id en la ruta manualmente (como useCrud.useDelete). */
 export function useDeleteBackup(baseUrl: string) {
   const invalidate = useInvalidateQueries();
-  return useApiMutation<void, string>(baseUrl, 'DELETE', {
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await apiClient.delete(`${baseUrl}/${id}`);
+    },
     onSuccess: () => invalidate([['backups', baseUrl]]),
   });
 }
