@@ -213,6 +213,10 @@ class DocumentProcessor:
         preprocessing_metadata = {}
 
         try:
+            # Conservar la imagen original: la IA multimodal necesita la foto
+            # a color, no la versión binarizada que se genera para EasyOCR
+            original_image = image
+
             # Pre-procesamiento si está habilitado
             if enable_preprocessing:
                 logger.info("Aplicando pre-procesamiento...")
@@ -237,10 +241,11 @@ class DocumentProcessor:
 
             # Extraer datos estructurados (AI si hay modelo, si no regex)
             logger.info("Extrayendo datos estructurados...")
-            # Codificar imagen original para AI (la pre-procesada puede tener peor calidad visual)
+            # Codificar la imagen ORIGINAL para la IA (la pre-procesada está
+            # binarizada y degrada mucho la extracción multimodal)
             image_base64 = None
             if ai_model and ai_api_key:
-                _, img_encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                _, img_encoded = cv2.imencode('.jpg', original_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
                 image_base64 = base64.b64encode(img_encoded).decode('utf-8')
             document = self._extract_structured_data(
                 ocr_results,
@@ -320,11 +325,15 @@ class DocumentProcessor:
                 )
                 if ai_result and ai_result.get('products'):
                     logger.info(f"IA extrajo {len(ai_result['products'])} productos correctamente")
-                    return self._build_document_from_ai(ai_result, ocr_results)
+                    document = self._build_document_from_ai(ai_result, ocr_results)
+                    document.extraction_method = "ai"
+                    return document
                 else:
-                    logger.warning("IA no devolvió productos, fallback a regex")
+                    logger.error("IA no devolvió productos, fallback a regex "
+                                 "(el resultado será de calidad muy inferior)")
             except Exception as e:
-                logger.warning(f"Extracción IA falló: {e}, fallback a regex")
+                logger.error(f"Extracción IA falló: {e}, fallback a regex "
+                             f"(el resultado será de calidad muy inferior)")
 
         # Fallback: extracción con regex (método original)
 

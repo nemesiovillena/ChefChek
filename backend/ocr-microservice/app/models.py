@@ -76,6 +76,7 @@ class ExtractedDocument(BaseModel):
     confidence: float = Field(default=0.0, ge=0.0, le=1.0, description="Confianza global del documento")
     processing_time: float = Field(default=0.0, description="Tiempo de procesamiento en segundos")
     raw_text: Optional[str] = Field(None, description="Texto crudo extraído por OCR")
+    extraction_method: str = Field(default="regex", description="Método de extracción usado: 'ai' o 'regex'")
     # Legacy fields (mantenidos por compatibilidad con BD existente)
     cif_code: Optional[str] = Field(None, description="Código CIF extraído (legacy, usa supplier_cif)")
     nif_code: Optional[str] = Field(None, description="Código NIF extraído")

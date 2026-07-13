@@ -93,10 +93,12 @@ SUPPORTED_MODELS = {
 }
 
 # Mapeo de modelos OpenRouter a los IDs reales del router
+# (verificados contra https://openrouter.ai/api/v1/models — los IDs
+# retirados devuelven 404 "No endpoints found" y fuerzan fallback a regex)
 OPENROUTER_MODEL_IDS = {
     "openrouter-gpt-4o-mini": "openai/gpt-4o-mini",
-    "openrouter-claude-haiku": "anthropic/claude-haiku-4-5-20251001",
-    "openrouter-gemini-flash": "google/gemini-2.0-flash-001",
+    "openrouter-claude-haiku": "anthropic/claude-haiku-4.5",
+    "openrouter-gemini-flash": "google/gemini-2.5-flash",
     "openrouter-llama": "meta-llama/llama-4-maverick",
 }
 
@@ -166,7 +168,8 @@ class AIExtractionService:
 
     def _build_prompt(self, ocr_text: str, supplier_hints: Optional[dict] = None) -> str:
         """Construye el prompt de extracción, incluyendo hints de proveedor si existen."""
-        base_prompt = ALBARAN_EXTRACTION_PROMPT.format(ocr_text=ocr_text)
+        # No usar str.format(): el template contiene JSON de ejemplo con llaves sin escapar
+        base_prompt = ALBARAN_EXTRACTION_PROMPT.replace("{ocr_text}", ocr_text)
 
         if not supplier_hints:
             return base_prompt
@@ -232,7 +235,7 @@ class AIExtractionService:
                     ],
                 }
             ],
-            max_tokens=2000,
+            max_tokens=8000,
             temperature=0.1,
         )
 
@@ -268,7 +271,7 @@ class AIExtractionService:
                     ],
                 }
             ],
-            max_tokens=2000,
+            max_tokens=8000,
             temperature=0.1,
         )
 
@@ -293,7 +296,7 @@ class AIExtractionService:
             [prompt, image_part],
             generation_config=genai.GenerationConfig(
                 temperature=0.1,
-                max_output_tokens=2000,
+                max_output_tokens=8000,
             ),
         )
 
@@ -307,7 +310,7 @@ class AIExtractionService:
 
         response = client.messages.create(
             model=model,
-            max_tokens=2000,
+            max_tokens=8000,
             messages=[
                 {
                     "role": "user",
