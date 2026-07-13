@@ -237,6 +237,15 @@
     color: var(--on-surface);
   }
 
+  /* Sin color-scheme el navegador pinta el icono nativo del calendario
+     en oscuro sobre fondo oscuro (invisible en dark mode) */
+  .dark input[type='date'],
+  .dark input[type='datetime-local'],
+  .dark input[type='time'],
+  .dark input[type='month'] {
+    color-scheme: dark;
+  }
+
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
     display: inline-block;
