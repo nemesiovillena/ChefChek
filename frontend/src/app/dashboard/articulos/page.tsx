@@ -626,12 +626,18 @@ export default function ArticulosPage() {
                   <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
                 ) : (
                   products.map((product: Product) => {
+                    // Nombre propio de la categoría del producto. Si es raíz (sin
+                    // padre, p.ej. Limpieza/Desechables) se muestra en la columna
+                    // Categoría y la subcategoría queda vacía; si es hija, la
+                    // columna Categoría muestra el padre y la subcategoría la hoja.
+                    const productCatName = getCategoryDisplay(product.categoryId);
                     const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
+                    const hasParent = Boolean(parentCat);
                     return (
                       <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
                         <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div></td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{parentCat?.name || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{getCategoryDisplay(product.categoryId)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? parentCat!.name : productCatName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? productCatName : '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           <span className="inline-flex items-center gap-1.5">
