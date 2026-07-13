@@ -400,6 +400,12 @@ export class AlbaranesService {
         }
       }
 
+      // Registrar el modelo que hizo la extracción (se muestra en la UI);
+      // se estampa después del refine para que Object.assign no lo pise
+      if ((document as any).extraction_method === "ai" && aiModel) {
+        (document as any).extraction_model = aiModel;
+      }
+
       // 3. Create albaran with lines
       const internalNumber =
         await this.numberService.generateInternalNumber(tenantId);

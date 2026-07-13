@@ -8,6 +8,7 @@ import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
+import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -145,7 +146,13 @@ export default function AlbaranResumenPage() {
                     <p className="text-sm text-gray-500 mt-1">Ref: {albaran.internalNumber}</p>
                   )}
                 </div>
-                <AlbaranStatusBadge status={albaran.status} />
+                <div className="flex flex-col items-end gap-2">
+                  <AlbaranStatusBadge status={albaran.status} />
+                  <OcrMethodBadge
+                    extractionMethod={albaran.ocrRawData?.extraction_method}
+                    extractionModel={albaran.ocrRawData?.extraction_model}
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">

@@ -46,6 +46,12 @@ export interface Albaran {
   updatedAt: string;
   lines?: AlbaranLine[];
   _count?: { lines: number };
+  /** Documento OCR crudo; extraction_method indica si extrajo la IA ('ai') o el fallback regex ('regex') */
+  ocrRawData?: {
+    extraction_method?: string;
+    extraction_model?: string;
+    confidence?: number;
+  } | null;
 }
 
 export interface AlbaranListResponse {

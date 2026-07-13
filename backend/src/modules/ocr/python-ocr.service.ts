@@ -17,7 +17,9 @@ export class PythonOcrService implements IOcrService {
 
     this.axiosInstance = axios.create({
       baseURL: this.ocrServiceUrl,
-      timeout: 30000, // 30 segundos
+      // OCR (EasyOCR CPU ~10s) + extracción IA (10-30s según modelo) pueden
+      // superar holgadamente los 30s; un timeout corto aborta la subida entera
+      timeout: 120000,
     });
 
     this.logger.log(`Python OCR Service inicializado: ${this.ocrServiceUrl}`);
