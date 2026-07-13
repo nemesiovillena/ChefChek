@@ -117,9 +117,9 @@ export class ProductsController {
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Obtener todos los proveedores" })
   @ApiResponse({ status: 200, description: "Lista de proveedores" })
-  async getSuppliers(@Req() req: any) {
+  async getSuppliers(@Query("search") search: string, @Req() req: any) {
     const tenantId = req.tenantId;
-    return this.productsService.getSuppliers(tenantId);
+    return this.productsService.getSuppliers(tenantId, search);
   }
 
   // ─── Units of Measure ─────────────────────────────────────────

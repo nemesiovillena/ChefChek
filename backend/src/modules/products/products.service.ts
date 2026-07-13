@@ -766,9 +766,15 @@ export class ProductsService {
     };
   }
 
-  async getSuppliers(requestTenantId: string) {
+  async getSuppliers(requestTenantId: string, search?: string) {
     const suppliers = await this.prisma.supplier.findMany({
-      where: { tenantId: requestTenantId, isActive: true },
+      where: {
+        tenantId: requestTenantId,
+        isActive: true,
+        ...(search?.trim()
+          ? { name: { contains: search.trim(), mode: "insensitive" as const } }
+          : {}),
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
