@@ -23,6 +23,14 @@ export class ProductResponseDto {
     discountPercentage: number; // Descuento informativo del proveedor (no recalcula precios)
     referencePrice: number; // purchasePrice / unitSize
 
+    // Último cambio de precio con traza (delta del historial). null si no hay
+    // historial → el badge de tendencia no se renderiza.
+    latestPriceChange?: {
+      previousPrice: number;
+      newPrice: number;
+      recordedAt: string;
+    } | null;
+
     // Rendimiento
     wastePercentage: number;
     yieldFactor: number;
@@ -55,6 +63,11 @@ export class ProductsListResponseDto {
     referencePrice: number;
     isActive: boolean;
     allergens: number[];
+    latestPriceChange?: {
+      previousPrice: number;
+      newPrice: number;
+      recordedAt: string;
+    } | null;
   }>;
   meta: {
     total: number;

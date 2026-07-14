@@ -60,6 +60,13 @@ export interface Product {
   purchasePrice: number;
   previousPurchasePrice: number;
   netPrice: number;
+  // Delta del último cambio de precio con traza (sourceado del historial).
+  // null/undefined si no hay historial → el badge de tendencia no se renderiza.
+  latestPriceChange?: {
+    previousPrice: number;
+    newPrice: number;
+    recordedAt: string;
+  } | null;
   profitMargin: number;
   discountPercentage: number;
   wastePercentage: number;

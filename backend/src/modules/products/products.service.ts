@@ -374,6 +374,18 @@ export class ProductsService {
           orderBy: { albaran: { date: "desc" } },
           take: 1,
         },
+        // Último cambio de precio registrado: alimenta el badge de tendencia del
+        // listado (sourcear desde el historial, no desde la columna plana
+        // `previousPurchasePrice`, que deriva). Se omite en exports (no muestran
+        // badge y devolverían la relación completa).
+        ...(exportAll
+          ? {}
+          : {
+              priceHistory: {
+                take: 1,
+                orderBy: { recordedAt: "desc" },
+              },
+            }),
       },
     });
     const productsById = new Map(products.map((p) => [p.id, p]));
@@ -383,12 +395,27 @@ export class ProductsService {
       .map((id) => productsById.get(id))
       .filter((p): p is (typeof products)[number] => !!p)
       .map((p) => {
-        const { albaranLines, ...rest } = p as any;
+        const { albaranLines, priceHistory, ...rest } = p as any;
         const albaranDate = albaranLines?.[0]?.albaran?.date ?? null;
         const manualDate = (rest.manualPurchaseDate as Date | null) ?? null;
         const { lastPurchaseDate, purchaseDateSource } =
           this.resolveLastPurchase(albaranDate, manualDate);
-        return { ...rest, lastPurchaseDate, purchaseDateSource };
+        // Delta del último cambio real con traza (null si no hay historial → el
+        // badge no se renderiza).
+        const latest = priceHistory?.[0] ?? null;
+        const latestPriceChange = latest
+          ? {
+              previousPrice: latest.previousPrice,
+              newPrice: latest.newPrice,
+              recordedAt: latest.recordedAt,
+            }
+          : null;
+        return {
+          ...rest,
+          lastPurchaseDate,
+          purchaseDateSource,
+          latestPriceChange,
+        };
       });
 
     return {
