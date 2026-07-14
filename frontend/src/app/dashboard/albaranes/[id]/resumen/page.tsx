@@ -263,17 +263,23 @@ export default function AlbaranResumenPage() {
                 </Button>
               )}
 
-              {canDelete && (
+              {/* El botón de borrado siempre está visible. Si está confirmado/archivado el stock
+                  ya está asentado y se deshabilita con tooltip (el span porta el title porque el
+                  Button deshabilitado usa pointer-events-none y no recibiría el hover). */}
+              <span
+                className="block w-full"
+                title={canDelete ? undefined : 'No se puede eliminar: el stock ya está asentado (albarán confirmado o archivado)'}
+              >
                 <Button
                   variant="destructive"
                   className="w-full"
                   onClick={handleDelete}
-                  disabled={updating}
+                  disabled={updating || !canDelete}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Eliminar Albarán
                 </Button>
-              )}
+              </span>
             </CardContent>
           </Card>
         </div>

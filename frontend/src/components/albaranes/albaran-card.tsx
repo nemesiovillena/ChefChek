@@ -74,11 +74,22 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
           </div>
           <div className="flex items-center gap-2">
             <AlbaranStatusBadge status={albaran.status} />
-            {canDelete && (
+            {canDelete ? (
               <button
                 onClick={handleDelete}
                 className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
                 title="Eliminar albarán"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            ) : (
+              // No borrable: el stock ya está asentado (CONFIRMADO/ARCHIVADO).
+              // Se muestra deshabilitado con tooltip en vez de oculto, para que se entienda por qué.
+              <button
+                type="button"
+                disabled
+                title="No se puede eliminar: el stock ya está asentado (albarán confirmado o archivado)"
+                className="p-1 rounded-md text-gray-300 cursor-not-allowed"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
