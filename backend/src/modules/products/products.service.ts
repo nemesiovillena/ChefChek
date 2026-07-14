@@ -378,10 +378,16 @@ export class ProductsService {
         // listado (sourcear desde el historial, no desde la columna plana
         // `previousPurchasePrice`, que deriva). Se omite en exports (no muestran
         // badge y devolverían la relación completa).
+        //
+        // Solo cambios originados por una compra real (albarán confirmado). Las
+        // filas manuales (albaranId null = correcciones, toggles de proveedor
+        // preferente, ediciones) son ruido, no tendencia de compra, y generaban
+        // badges falsos (p.ej. Arla 6.95→20.85 = +200% por cambio de unidad).
         ...(exportAll
           ? {}
           : {
               priceHistory: {
+                where: { albaranId: { not: null } },
                 take: 1,
                 orderBy: { recordedAt: "desc" },
               },
