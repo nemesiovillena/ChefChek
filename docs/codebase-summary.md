@@ -84,6 +84,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 - Consolidar versión NestJS (common 10 vs core 11) en el backend.
 - Cerrar warnings de lint del frontend (~125, mayoría `unused-vars`).
 - Cobertura de tests backend: última medición formalizada 2026-06-04 (85.15%); revalidar antes de citar.
+- **Módulo Compras planificado** (PDR aprobado 2026-07-14): `docs/pdr-modulo-compras.md` + sprints en `plans/260714-1357-modulo-compras/`. Incluye retirada del prototipo `orders` (su servicio referencia modelos Prisma inexistentes; tablas stub se conservan) y nueva entidad `Location` (multi-local).
 
 ---
 **Última verificación**: 2026-06-29 · **Rama**: `develop` · **Versión**: 0.2.0
