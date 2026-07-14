@@ -46,10 +46,10 @@ export const MORE_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Almacén & Pedidos',
+    title: 'Almacén & Compras',
     items: [
       { label: 'Almacén', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
-      { label: 'Pedidos', href: '/dashboard/orders', moduleId: 'orders', icon: 'shopping_cart' },
+      { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/albaranes', moduleId: 'albaranes' },
   { prefix: '/dashboard/recipes', moduleId: 'recipes' },
   { prefix: '/dashboard/menus', moduleId: 'menus' },
-  { prefix: '/dashboard/orders', moduleId: 'orders' },
+  { prefix: '/dashboard/compras', moduleId: 'compras' },
   { prefix: '/dashboard/users', moduleId: 'sala' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
 ];

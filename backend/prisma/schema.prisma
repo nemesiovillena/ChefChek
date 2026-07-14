@@ -75,6 +75,9 @@ model Tenant {
   dashboardMetrics       DashboardMetric[]
   dashboardAlerts        DashboardAlert[]
   qrcodes                QRCode[]
+  locations              Location[]
+  purchaseOrders         PurchaseOrder[]
+  purchaseLists          PurchaseList[]
 
   @@map("tenants")
 }
@@ -184,9 +187,11 @@ model Product {
   stocks            Stock[]
   purchaseFormats   PurchaseFormat[]
   nutritionalInfo   NutritionalInfo?
-  albaranLines      AlbaranLine[]
-  priceHistory      ProductPriceHistory[]
-  supplierOffers    ProductSupplierOffer[]
+  albaranLines       AlbaranLine[]
+  priceHistory       ProductPriceHistory[]
+  supplierOffers     ProductSupplierOffer[]
+  purchaseOrderLines PurchaseOrderLine[]
+  purchaseListItems  PurchaseListItem[]
 
   @@index([tenantId])
   @@index([name])
@@ -629,22 +634,25 @@ model Invoice {
 
 // Almacenes
 model Warehouse {
-  id        String    @id @default(cuid())
-  tenantId  String
-  name      String
-  location  String?
-  capacity  Float?
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  location   String? // Descripción libre de ubicación (texto); NO confundir con locationId (multi-local)
+  locationId String? // Local (entidad Location) al que pertenece el almacén
+  capacity   Float?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
 
   tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  locationRef Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
   movements   StockMovement[]
   stocks      Stock[]
   inventories Inventory[]
   albaranes   Albaran[]
 
+  @@index([locationId])
   @@map("warehouses")
 }
 
@@ -1096,6 +1104,8 @@ model Supplier {
   productPriceHistories ProductPriceHistory[]
   albaranes             Albaran[]
   supplierOffers        ProductSupplierOffer[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseLists         PurchaseList[]
 
   @@index([tenantId])
   @@index([name])
@@ -1765,4 +1775,154 @@ enum BackupType {
   MANUAL
   AUTO_PRE_RESTORE
   AUTO_SCHEDULED
+}
+
+// ══════════════════════════════════════════════════════════════
+// Módulo Compras (pedidos a proveedores) + multi-local
+// ══════════════════════════════════════════════════════════════
+
+// Local del grupo de restauración (multi-local). Cada tenant tiene al menos
+// un local por defecto (backfill en la migración add_compras_foundations).
+model Location {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String?
+  isDefault Boolean   @default(false)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouses     Warehouse[]
+  purchaseOrders PurchaseOrder[]
+  purchaseLists  PurchaseList[]
+
+  @@index([tenantId])
+  @@map("locations")
+}
+
+enum PurchaseOrderStatus {
+  BORRADOR
+  PENDIENTE_ENVIO
+  ENVIADO
+  RECIBIDO_PARCIAL
+  RECIBIDO
+  CANCELADO
+}
+
+// Pedido de compra a un proveedor
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  tenantId    String
+  orderNumber String // Secuencial por tenant: PED-1, PED-2... (calcular con $queryRaw MAX sobre TODAS las filas, incluidas soft-deleted)
+  supplierId  String
+  locationId  String?
+  status      PurchaseOrderStatus @default(BORRADOR)
+  notes       String?
+
+  // Envío al proveedor
+  sentAt  DateTime?
+  sentVia String? // EMAIL, WHATSAPP, PHONE, WEB
+  sentBy  String? // userId que registró el envío
+
+  expectedTotal Float  @default(0) // Suma de expectedPrice × quantity de las líneas
+  receivedTotal Float? // Suma real tras conciliar con albarán
+
+  createdBy String? // userId
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  lines    PurchaseOrderLine[]
+  events   PurchaseOrderEvent[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, supplierId])
+  @@index([tenantId, locationId])
+  @@map("purchase_orders")
+}
+
+// Línea de pedido: cantidad pedida vs recibida (conciliación con albarán)
+model PurchaseOrderLine {
+  id               String  @id @default(cuid())
+  orderId          String
+  productId        String
+  quantity         Float
+  unit             String? // Unidad de la cantidad (formato de compra del producto)
+  expectedPrice    Float? // Precio unitario esperado (oferta activa al crear el pedido)
+  receivedQuantity Float? // Rellenado al conciliar con el albarán
+  receivedPrice    Float? // Precio unitario real del albarán
+  lineNotes        String?
+  sortOrder        Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("purchase_order_lines")
+}
+
+// Lista de compra (checklist de artículos por proveedor). Base de los pedidos
+// manuales y de las programaciones (Sprint 6).
+model PurchaseList {
+  id         String    @id @default(cuid())
+  tenantId   String
+  supplierId String
+  locationId String?
+  name       String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  location Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items    PurchaseListItem[]
+
+  @@index([tenantId, supplierId])
+  @@map("purchase_lists")
+}
+
+model PurchaseListItem {
+  id              String   @id @default(cuid())
+  listId          String
+  productId       String
+  defaultQuantity Float    @default(1)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  list    PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, productId])
+  @@index([productId])
+  @@map("purchase_list_items")
+}
+
+// Auditoría del pedido: creación, cambios de estado, envíos por canal
+model PurchaseOrderEvent {
+  id      String  @id @default(cuid())
+  orderId String
+  type    String // CREATED, STATUS_CHANGED, SENT, SCHEDULED_GENERATION...
+  channel String? // EMAIL, WHATSAPP, PHONE, WEB (solo eventos de envío)
+  userId  String?
+  payload Json?
+
+  createdAt DateTime @default(now())
+
+  order PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("purchase_order_events")
 }

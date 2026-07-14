@@ -13,11 +13,20 @@ interface UseProductSearchReturn {
   error: string | null;
 }
 
-export function useProductSearch(debounceMs: number = 300): UseProductSearchReturn {
+export interface ProductSearchFilters {
+  /** Restringe la búsqueda a artículos cuyo proveedor principal sea este. */
+  supplierId?: string;
+}
+
+export function useProductSearch(
+  debounceMs: number = 300,
+  filters?: ProductSearchFilters,
+): UseProductSearchReturn {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const supplierId = filters?.supplierId;
 
   const searchProducts = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -33,7 +42,7 @@ export function useProductSearch(debounceMs: number = 300): UseProductSearchRetu
       // El interceptor global de apiClient desenvuelve el envelope paginado
       // { success, data, meta } del backend en { data, total, page, ... }.
       const response = await apiClient.get<{ data: Product[] }>('/v1/products', {
-        params: { search: query },
+        params: { search: query, ...(supplierId ? { supplier: supplierId } : {}) },
       });
       setProducts(response.data?.data || []);
     } catch (err: unknown) {
@@ -48,7 +57,7 @@ export function useProductSearch(debounceMs: number = 300): UseProductSearchRetu
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [supplierId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

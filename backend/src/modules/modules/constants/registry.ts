@@ -139,9 +139,10 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: true,
   },
   {
-    id: "orders",
-    name: "Pedidos",
-    description: "Gestión de pedidos y órdenes",
+    id: "compras",
+    name: "Compras",
+    description:
+      "Pedidos y compras a proveedores: listas, envío, precios y analítica",
     dependencies: [],
     alwaysActive: false,
     defaultEnabled: true,

@@ -42,7 +42,7 @@ import { ConocimientoModule } from "./modules/conocimiento/conocimiento.module";
 import { CategoriesModule } from "./modules/categories/categories.module";
 import { DigitalMenuModule } from "./modules/digital-menu/digital-menu.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
-import { OrdersModule } from "./modules/orders/orders.module";
+import { ComprasModule } from "./modules/compras/compras.module";
 import { SalaModule } from "./modules/sala/sala.module";
 import { EscandallosModule } from "./modules/escandallos/escandallos.module";
 import { SprintModule } from "./modules/sprint/sprint.module";
@@ -75,7 +75,7 @@ import { BackupModule } from "./modules/backup/backup.module";
     ProductionModule,
     AppccModule,
     AllergensModule,
-    OrdersModule,
+    ComprasModule,
     AlmacenesModule,
     ConocimientoModule,
     DigitalMenuModule,
