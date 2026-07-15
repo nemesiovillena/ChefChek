@@ -10,8 +10,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .models import OCRResponse, HealthResponse, OCRRequest, OCRRefineRequest
+from .models import (
+    OCRResponse,
+    HealthResponse,
+    OCRRequest,
+    OCRRefineRequest,
+    CatalogExtractionResponse,
+)
 from .services.document_processor import DocumentProcessor
+from .services.catalog_extraction_service import CatalogExtractionService
 import os
 
 # Configurar logging
@@ -297,6 +304,56 @@ async def process_pdf(
         raise HTTPException(
             status_code=500,
             detail=f"Error procesando PDF: {str(e)}"
+        )
+
+
+@app.post("/ocr/catalog", tags=["OCR"], response_model=CatalogExtractionResponse)
+async def process_catalog(
+    file: UploadFile = File(..., description="Imagen o PDF de la tarifa/catálogo"),
+    ai_model: str = Form(..., description="Modelo IA para extracción (obligatorio, sin fallback regex)"),
+    ai_api_key: str = Form(..., description="API key del provider de IA")
+):
+    """
+    Extraer artículos y precios de un catálogo/tarifa de proveedor.
+
+    A diferencia de /ocr/image y /ocr/pdf (albaranes), no aplica el pipeline
+    completo de OCR+validación: la IA multimodal lee la imagen directamente.
+    Requiere modelo + API key — no hay fallback por regex para catálogos.
+    """
+    start_time = time.time()
+    content = await file.read()
+    file_size = len(content)
+
+    if file_size > settings.image_max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Archivo demasiado grande. Máximo: {settings.image_max_size / 1024 / 1024}MB"
+        )
+
+    logger.info(f"Procesando catálogo: {file.filename}, tamaño: {file_size / 1024:.2f}KB")
+
+    catalog_service = CatalogExtractionService()
+    is_pdf = file.content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+
+    try:
+        if is_pdf:
+            result = catalog_service.extract_from_pdf(content, ai_model, ai_api_key)
+        else:
+            result = catalog_service.extract_from_image(content, ai_model, ai_api_key)
+
+        if not result["success"]:
+            logger.warning(f"Extracción de catálogo falló: {result['error_message']}")
+
+        return CatalogExtractionResponse(**result)
+
+    except Exception as e:
+        logger.error(f"Error procesando catálogo: {str(e)}", exc_info=True)
+        return CatalogExtractionResponse(
+            success=False,
+            supplier_name=None,
+            products=[],
+            processing_time=time.time() - start_time,
+            error_message=f"Error procesando catálogo: {str(e)}"
         )
 
 

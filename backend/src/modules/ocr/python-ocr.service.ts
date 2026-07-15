@@ -310,6 +310,66 @@ export class PythonOcrService implements IOcrService {
   }
 
   /**
+   * Procesa una imagen o PDF de tarifa/catálogo de proveedor (módulo
+   * Compras): a diferencia de processImage/processPdf, no hay fallback por
+   * regex — requiere modelo + API key de IA sí o sí.
+   */
+  async processCatalog(
+    fileBuffer: Buffer,
+    filename: string,
+    mimetype: string,
+    aiModel: string,
+    aiApiKey: string,
+  ): Promise<{
+    success: boolean;
+    supplier_name: string | null;
+    products: {
+      article_number: string | null;
+      name: string;
+      purchase_format: string | null;
+      unit_price: number;
+    }[];
+    processing_time: number;
+    error_message?: string;
+  }> {
+    const formData = new FormData();
+    formData.append(
+      "file",
+      new Blob([new Uint8Array(fileBuffer)], {
+        type: mimetype || "image/jpeg",
+      }),
+      filename,
+    );
+    formData.append("ai_model", aiModel);
+    formData.append("ai_api_key", aiApiKey);
+
+    try {
+      this.logger.log(
+        `Procesando catálogo: ${filename} (${fileBuffer.length} bytes, modelo: ${aiModel})`,
+      );
+
+      const response = await this.axiosInstance.post("/ocr/catalog", formData, {
+        headers: {},
+      });
+
+      const result = response.data;
+      this.logger.log(
+        `✅ Catálogo procesado: ${result.success ? `${result.products?.length || 0} artículos` : "FALLO"}`,
+      );
+      return result;
+    } catch (error: any) {
+      this.logger.error(`❌ Error procesando catálogo: ${error.message}`);
+      return {
+        success: false,
+        supplier_name: null,
+        products: [],
+        processing_time: 0,
+        error_message: error.message,
+      };
+    }
+  }
+
+  /**
    * Refina la extracción OCR usando hints de layout del proveedor.
    * Llama al endpoint /ocr/refine del microservicio Python.
    */

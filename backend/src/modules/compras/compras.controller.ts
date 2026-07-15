@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,10 +11,14 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -27,6 +32,8 @@ import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
+import { OfferResolutionService } from "./services/offer-resolution.service";
+import { CatalogImportService } from "./services/catalog-import.service";
 import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { SendOrderDto } from "./dto/send-order.dto";
@@ -37,6 +44,7 @@ import {
   UpdatePriceDeviationDto,
   UpdatePriceToleranceDto,
 } from "./dto/price-deviation.dto";
+import { UpdateCatalogImportLineDto } from "./dto/catalog-import.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -70,6 +78,8 @@ export class ComprasController {
     private readonly orderReconciliationService: OrderReconciliationService,
     private readonly invoiceService: InvoiceService,
     private readonly priceAgreementService: PriceAgreementService,
+    private readonly offerResolutionService: OfferResolutionService,
+    private readonly catalogImportService: CatalogImportService,
     private readonly mailService: MailService,
   ) {}
 
@@ -387,6 +397,160 @@ export class ComprasController {
       dto,
     );
     return { success: true, data };
+  }
+
+  // ── Catálogos/tarifas de proveedor (importación vía IA) ──
+
+  @Get("catalogos")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar importaciones de catálogo" })
+  async findAllCatalogImports(@Req() req: any) {
+    const data = await this.catalogImportService.findAll(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Post("catalogos")
+  @Roles("ADMIN", "USER")
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 10 * 1024 * 1024 } }),
+  )
+  @ApiOperation({
+    summary:
+      "Subir tarifa/catálogo (imagen o PDF) y extraer líneas propuestas vía IA",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Falta la key de IA o la extracción falló",
+  })
+  async createCatalogImport(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("No se ha subido ningún archivo");
+    }
+    const { supplierId, ai_model: aiModel, ai_api_key: aiApiKey } = req.body;
+    if (!supplierId) {
+      throw new BadRequestException("Falta supplierId");
+    }
+    if (!aiModel || !aiApiKey) {
+      throw new BadRequestException(
+        "Se requiere modelo y API key de IA para leer catálogos",
+      );
+    }
+    const data = await this.catalogImportService.createFromUpload(
+      req.tenantId,
+      supplierId,
+      req.user?.id,
+      {
+        buffer: file.buffer,
+        filename: file.originalname,
+        mimetype: file.mimetype,
+      },
+      aiModel,
+      aiApiKey,
+    );
+    return { success: true, data };
+  }
+
+  @Get("catalogos/:id")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Detalle de una importación con sus líneas" })
+  async findOneCatalogImport(@Req() req: any, @Param("id") id: string) {
+    const data = await this.catalogImportService.findOne(req.tenantId, id);
+    return { success: true, data };
+  }
+
+  @Patch("catalogos/:id/lineas/:lineId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Aceptar/rechazar una línea propuesta, o reasignar su artículo",
+  })
+  async updateCatalogImportLine(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: UpdateCatalogImportLineDto,
+  ) {
+    const data = await this.catalogImportService.updateLine(
+      req.tenantId,
+      id,
+      lineId,
+      dto,
+    );
+    return { success: true, data };
+  }
+
+  @Post("catalogos/:id/aplicar")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Aplicar las líneas ACEPTADA: crea/actualiza ofertas y evalúa precios pactados",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Sin líneas aceptadas o sin artículo asignado",
+  })
+  async applyCatalogImport(@Req() req: any, @Param("id") id: string) {
+    const data = await this.catalogImportService.apply(
+      req.tenantId,
+      id,
+      req.user?.id,
+    );
+    return { success: true, data };
+  }
+
+  @Post("catalogos/:id/descartar")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Descartar la importación sin aplicar nada" })
+  async discardCatalogImport(@Req() req: any, @Param("id") id: string) {
+    const data = await this.catalogImportService.discard(req.tenantId, id);
+    return { success: true, data };
+  }
+
+  // ── Comparativa de proveedores y activación de oferta por local ──
+
+  @Get("comparativa")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Ofertas de un artículo con precio normalizado por unidad de referencia y mejor precio destacado",
+  })
+  async compareOffers(
+    @Req() req: any,
+    @Query("productId") productId: string,
+    @Query("locationId") locationId?: string,
+  ) {
+    if (!productId) {
+      throw new BadRequestException("Falta productId");
+    }
+    const data = await this.offerResolutionService.compareOffers(
+      req.tenantId,
+      productId,
+      locationId,
+    );
+    return { success: true, data };
+  }
+
+  @Put("ofertas/:offerId/local/:locationId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Activar/desactivar una oferta para un local puntual",
+  })
+  async setOfferLocationOverride(
+    @Req() req: any,
+    @Param("offerId") offerId: string,
+    @Param("locationId") locationId: string,
+    @Body("enabled") enabled: boolean,
+  ) {
+    await this.offerResolutionService.setLocationOverride(
+      req.tenantId,
+      offerId,
+      locationId,
+      enabled,
+    );
+    return { success: true };
   }
 
   // ── Locales (multi-local) ──

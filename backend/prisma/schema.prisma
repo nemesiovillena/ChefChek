@@ -79,6 +79,8 @@ model Tenant {
   purchaseOrders         PurchaseOrder[]
   purchaseLists          PurchaseList[]
   priceDeviations        PriceDeviation[]
+  catalogImports         CatalogImport[]
+  offerLocationSettings  OfferLocationSetting[]
 
   @@map("tenants")
 }
@@ -193,6 +195,7 @@ model Product {
   supplierOffers     ProductSupplierOffer[]
   purchaseOrderLines PurchaseOrderLine[]
   purchaseListItems  PurchaseListItem[]
+  catalogImportLines CatalogImportLine[]
 
   @@index([tenantId])
   @@index([name])
@@ -251,15 +254,37 @@ model ProductSupplierOffer {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product    Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
-  supplier   Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  deviations PriceDeviation[]
+  tenant           Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product          Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier         Supplier               @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  deviations       PriceDeviation[]
+  locationSettings OfferLocationSetting[]
 
   @@index([tenantId])
   @@index([productId])
   @@index([supplierId])
   @@map("product_supplier_offers")
+}
+
+// Activa/desactiva una oferta concreta para un local (multi-local, módulo
+// Compras): sin fila = sigue el criterio general (oferta preferente).
+model OfferLocationSetting {
+  id         String   @id @default(cuid())
+  tenantId   String
+  offerId    String
+  locationId String
+  enabled    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  offer    ProductSupplierOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  location Location             @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, locationId])
+  @@index([tenantId])
+  @@index([locationId])
+  @@map("offer_location_settings")
 }
 
 model NutritionalInfo {
@@ -1121,6 +1146,7 @@ model Supplier {
   supplierOffers        ProductSupplierOffer[]
   purchaseOrders        PurchaseOrder[]
   purchaseLists         PurchaseList[]
+  catalogImports        CatalogImport[]
 
   @@index([tenantId])
   @@index([name])
@@ -1814,10 +1840,11 @@ model Location {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  warehouses     Warehouse[]
-  purchaseOrders PurchaseOrder[]
-  purchaseLists  PurchaseList[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouses            Warehouse[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseLists         PurchaseList[]
+  offerLocationSettings OfferLocationSetting[]
 
   @@index([tenantId])
   @@map("locations")
@@ -1985,4 +2012,60 @@ model PriceDeviation {
   @@index([albaranId])
   @@index([purchaseOrderId])
   @@map("price_deviations")
+}
+
+enum CatalogImportStatus {
+  PENDIENTE
+  APLICADO
+  DESCARTADO
+}
+
+enum CatalogLineStatus {
+  PROPUESTA
+  ACEPTADA
+  RECHAZADA
+}
+
+// Importación de tarifa/catálogo de un proveedor (foto/PDF) vía IA: líneas
+// propuestas que exigen revisión humana antes de tocar ninguna oferta real.
+model CatalogImport {
+  id         String              @id @default(cuid())
+  tenantId   String
+  supplierId String
+  fileUrl    String?
+  aiModel    String?
+  status     CatalogImportStatus @default(PENDIENTE)
+  createdBy  String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  deletedAt  DateTime?
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  lines    CatalogImportLine[]
+
+  @@index([tenantId, supplierId])
+  @@map("catalog_imports")
+}
+
+model CatalogImportLine {
+  id               String            @id @default(cuid())
+  catalogImportId  String
+  rawName          String // Descripción extraída del catálogo
+  articleNumber    String?
+  purchaseFormat   String?
+  unitPrice        Float
+  matchedProductId String?
+  matchStatus      LineMatchStatus   @default(NUEVO)
+  lineStatus       CatalogLineStatus @default(PROPUESTA)
+  confidence       Float             @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  catalogImport  CatalogImport @relation(fields: [catalogImportId], references: [id], onDelete: Cascade)
+  matchedProduct Product?      @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
+
+  @@index([catalogImportId])
+  @@index([matchedProductId])
+  @@map("catalog_import_lines")
 }

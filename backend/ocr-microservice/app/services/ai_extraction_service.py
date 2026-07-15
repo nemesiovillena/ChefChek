@@ -73,6 +73,43 @@ Texto OCR del documento:
 Extrae los datos del albarán:"""
 
 
+# Prompt para catálogos/tarifas de proveedor (lista de precios, no un
+# albarán): sin cliente, sin IVA por línea necesariamente, sin totales.
+# Igual que ALBARAN_EXTRACTION_PROMPT: usa .replace(), nunca .format(),
+# porque el JSON de ejemplo tiene llaves sin escapar.
+CATALOG_EXTRACTION_PROMPT = """Eres un experto en la lectura de tarifas y catálogos de precios de proveedores de hostelería españoles.
+A partir del texto OCR y la imagen del documento, extrae la lista de artículos con su precio.
+
+REGLAS IMPORTANTES:
+1. Esto es una TARIFA o CATÁLOGO (lista de precios), NO un albarán de entrega. No hay cliente ni cantidades entregadas.
+2. Extrae CADA artículo de la tabla/lista con su precio unitario.
+3. NO incluyas encabezados de tabla, condiciones comerciales, pies de página, datos bancarios ni logotipos.
+4. El formato de compra (ej: "Caja 5kg", "Garrafa 5L", "Ud") suele ir junto al nombre o en una columna aparte.
+5. Las cantidades y precios usan coma decimal en español (ej: 4,50 = 4.50).
+6. Si el proveedor aparece identificado en el documento (cabecera/logo), inclúyelo; si no, deja null.
+7. Si no puedes determinar un campo con confianza, déjalo como null.
+
+Responde SOLO con JSON válido en este formato exacto:
+{
+  "supplier_name": "nombre del proveedor o null",
+  "products": [
+    {
+      "article_number": "código de artículo del proveedor o null",
+      "name": "descripción del producto",
+      "purchase_format": "formato de compra (ej: Caja 5kg) o null",
+      "unit_price": 5.50
+    }
+  ]
+}
+
+Texto OCR del documento:
+---
+{ocr_text}
+---
+
+Extrae la tarifa:"""
+
+
 # Modelos soportados por provider
 SUPPORTED_MODELS = {
     # OpenAI
@@ -118,6 +155,7 @@ class AIExtractionService:
         model: str,
         api_key: str,
         supplier_hints: Optional[dict] = None,
+        document_type: str = "albaran",
     ) -> Optional[dict]:
         """
         Extraer datos estructurados usando IA.
@@ -127,7 +165,8 @@ class AIExtractionService:
             image_base64: Imagen en base64 para visión multimodal
             model: Nombre del modelo (ej: 'gpt-4o-mini')
             api_key: API key del provider
-            supplier_hints: Hints de layout del proveedor (opcional)
+            supplier_hints: Hints de layout del proveedor (opcional, solo albaranes)
+            document_type: "albaran" (default) o "catalog" (tarifa/lista de precios)
 
         Returns:
             Dict con datos extraídos o None si falla
@@ -138,7 +177,7 @@ class AIExtractionService:
             return None
 
         # Build prompt with optional supplier hints
-        prompt = self._build_prompt(ocr_text, supplier_hints)
+        prompt = self._build_prompt(ocr_text, supplier_hints, document_type)
 
         start_time = time.time()
 
@@ -166,12 +205,21 @@ class AIExtractionService:
             logger.error(f"AI extraction falló con {model} tras {elapsed:.2f}s: {e}")
             return None
 
-    def _build_prompt(self, ocr_text: str, supplier_hints: Optional[dict] = None) -> str:
+    def _build_prompt(
+        self,
+        ocr_text: str,
+        supplier_hints: Optional[dict] = None,
+        document_type: str = "albaran",
+    ) -> str:
         """Construye el prompt de extracción, incluyendo hints de proveedor si existen."""
         # No usar str.format(): el template contiene JSON de ejemplo con llaves sin escapar
-        base_prompt = ALBARAN_EXTRACTION_PROMPT.replace("{ocr_text}", ocr_text)
+        template = (
+            CATALOG_EXTRACTION_PROMPT if document_type == "catalog" else ALBARAN_EXTRACTION_PROMPT
+        )
+        base_prompt = template.replace("{ocr_text}", ocr_text)
 
-        if not supplier_hints:
+        # Los catálogos no usan hints de layout de proveedor (solo albaranes)
+        if not supplier_hints or document_type == "catalog":
             return base_prompt
 
         # Build supplier context section

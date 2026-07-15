@@ -131,3 +131,20 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="Versión del servicio")
     uptime: float = Field(..., description="Tiempo de actividad en segundos")
     dependencies: Dict[str, str] = Field(default_factory=dict, description="Estado de dependencias")
+
+
+class CatalogProduct(BaseModel):
+    """Artículo extraído de un catálogo/tarifa de proveedor (sin cantidad ni IVA)"""
+    article_number: Optional[str] = Field(None, description="Código de artículo del proveedor")
+    name: str = Field(..., description="Nombre del producto")
+    purchase_format: Optional[str] = Field(None, description="Formato de compra (ej: Caja 5kg)")
+    unit_price: float = Field(default=0.0, description="Precio unitario")
+
+
+class CatalogExtractionResponse(BaseModel):
+    """Respuesta de la extracción de un catálogo/tarifa de proveedor"""
+    success: bool = Field(..., description="Si la extracción fue exitosa")
+    supplier_name: Optional[str] = Field(None, description="Proveedor detectado en el documento")
+    products: List[CatalogProduct] = Field(default_factory=list, description="Artículos extraídos")
+    processing_time: float = Field(..., description="Tiempo total de procesamiento")
+    error_message: Optional[str] = Field(None, description="Mensaje de error si falló")

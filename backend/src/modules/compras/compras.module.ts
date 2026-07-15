@@ -10,10 +10,15 @@ import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
+import { OfferResolutionService } from "./services/offer-resolution.service";
+import { CatalogImportService } from "./services/catalog-import.service";
+import { LineMatchingService } from "../albaranes/services/line-matching.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { UsersModule } from "../users/users.module";
 import { MailModule } from "../mail/mail.module";
+import { ProductsModule } from "../products/products.module";
+import { OcrModule } from "../ocr/ocr.module";
 
 /**
  * Módulo Compras: pedidos a proveedores, listas de compra, envío multicanal,
@@ -26,6 +31,8 @@ import { MailModule } from "../mail/mail.module";
   imports: [
     PrismaModule,
     MailModule,
+    ProductsModule,
+    OcrModule,
     forwardRef(() => AuthModule),
     forwardRef(() => UsersModule),
   ],
@@ -41,6 +48,12 @@ import { MailModule } from "../mail/mail.module";
     OrderReconciliationService,
     InvoiceService,
     PriceAgreementService,
+    OfferResolutionService,
+    // Reutilizada de AlbaranesModule (mismo algoritmo de matching, sin
+    // importar el módulo entero: AlbaranesModule ya importa ComprasModule y
+    // eso crearía un ciclo).
+    LineMatchingService,
+    CatalogImportService,
   ],
   exports: [
     LocationsService,
@@ -48,6 +61,7 @@ import { MailModule } from "../mail/mail.module";
     PurchaseOrderService,
     OrderReconciliationService,
     PriceAgreementService,
+    OfferResolutionService,
   ],
 })
 export class ComprasModule {}

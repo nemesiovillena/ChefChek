@@ -276,7 +276,15 @@ export class ProductsService {
       conditions.push(Prisma.sql`p."categoryId" = ANY(${ids}::text[])`);
     }
     if (supplier) {
-      conditions.push(Prisma.sql`p."supplierId" = ${supplier}`);
+      // Proveedor principal del artículo O cualquier oferta multi-proveedor
+      // suya (módulo Compras: los pedidos son por proveedor, y un artículo
+      // puede tener ofertas de varios proveedores sin ser el principal).
+      conditions.push(
+        Prisma.sql`(p."supplierId" = ${supplier} OR EXISTS (
+          SELECT 1 FROM product_supplier_offers pso
+          WHERE pso."productId" = p.id AND pso."supplierId" = ${supplier} AND pso."deletedAt" IS NULL
+        ))`,
+      );
     }
     if (isActive !== undefined) {
       conditions.push(Prisma.sql`p."isActive" = ${isActive}`);
