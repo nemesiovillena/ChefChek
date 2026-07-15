@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UnitSelector } from '@/components/shared/unit-selector';
+import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { Loader2, Plus } from 'lucide-react';
 
 interface AddLineFormProps {
@@ -27,6 +28,11 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
   const [vatPercent] = useState('10');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
+  // La línea sigue siendo texto libre: solo informa para que el usuario sepa
+  // que el producto ya existe y pueda cancelar y usarlo en su lugar.
+  const { matches: duplicateNameMatches } = useProductNameCheck(description);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +72,24 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
             placeholder="Nombre del producto"
             className="h-8 text-sm"
           />
+          {duplicateNameMatches.length > 0 && (
+            <div role="status" className="mt-1 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span>
+                <span className="font-medium">Posible duplicado.</span> Ya existe:{' '}
+                {duplicateNameMatches.slice(0, 3).map((m, idx) => (
+                  <span key={m.id}>
+                    <span className="font-semibold">«{m.name}»</span>
+                    {!m.isActive && <span className="italic"> (inactivo)</span>}
+                    {idx < Math.min(duplicateNameMatches.length, 3) - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}
+              </span>
+            </div>
+          )}
         </div>
         <div>
           <Label htmlFor="line-qty" className="text-xs">Cantidad</Label>

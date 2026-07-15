@@ -184,15 +184,28 @@ export default function AlbaranLineasPage() {
               onCancel={() => setCreatingLine(null)}
             />
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleOpenCreate(line)}
-              className="text-red-700 border-red-300 hover:bg-red-50"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Crear
-            </Button>
+            <>
+              {/* Puede ser un existente que el OCR no casó: ofrecer vincular
+                  antes de crear un artículo paralelo (duplicado). */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenPicker(line)}
+                className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+              >
+                <Search className="h-3 w-3 mr-1" />
+                Elegir
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenCreate(line)}
+                className="text-red-700 border-red-300 hover:bg-red-50"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Crear
+              </Button>
+            </>
           )
         )}
 
