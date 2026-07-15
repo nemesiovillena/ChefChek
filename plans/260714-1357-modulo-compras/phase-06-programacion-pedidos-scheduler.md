@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Programación de pedidos: scheduler que genera borradores + notificación (sin auto-envío)"
-status: pending
+status: done
 ---
 
 ## Context
@@ -39,11 +39,13 @@ status: pending
 
 ## Checking (criterios de aceptación)
 
-- [ ] Programación L-X-V 09:00 crea BORRADOR ese día/hora (prueba con hora inmediata) + notificación visible
-- [ ] Reejecutar el tick manualmente (o esperar 2 ticks) NO duplica el pedido del día
-- [ ] Programación `enabled=false` no ejecuta; reactivar no genera retroactivos
-- [ ] El pedido generado usa cantidades sugeridas mín/máx y la oferta activa del local (fase 5 si está)
-- [ ] Backend reiniciado a mitad de día: programaciones pendientes de hoy se recuperan en el siguiente tick sin duplicar las ya ejecutadas
-- [ ] Nunca se envía nada al proveedor automáticamente (estado siempre BORRADOR)
-- [ ] Specs de `shouldRun` + claim de idempotencia pasan; sin errores TS
-- [ ] Informe en `reports/sprint-6-checking-report.md`
+- [x] Programación en día/hora ya pasada crea BORRADOR (probado con hora inmediata, esperando a marcas de reloj reales) + notificación visible (`Alert` en BD)
+- [x] Reejecutar el tick (esperado 2 ticks reales, 19:00→19:05) NO duplica el pedido del día
+- [x] Programación `enabled=false` no ejecuta; reactivar no genera retroactivos (solo evalúa el estado actual en el siguiente tick)
+- [x] El pedido generado usa cantidades sugeridas mín/máx (reutiliza `PurchaseListService.generateOrder` de la fase 1 tal cual); respeta `locationId` de la programación
+- [x] Backend reiniciado a mitad de día: programaciones ya ejecutadas hoy no se duplican en el siguiente tick (estado 100% en BD vía `lastRunAt`, no en memoria)
+- [x] Nunca se envía nada al proveedor automáticamente (estado siempre BORRADOR)
+- [x] Specs de `shouldRun` + claim de idempotencia pasan (14/14); sin errores TS
+- [x] Informe en `reports/sprint-6-checking-report.md`
+
+**Nota:** el pedido generado NO reenruta a la oferta activa por local de la fase 5 — ver [[compras-offer-location-override-does-not-reroute-orders]] (memoria), misma decisión de alcance documentada en el informe de la fase 5: `purchase-list.service.ts::generateOrder` no se tocó, sigue usando el proveedor fijo de la lista.

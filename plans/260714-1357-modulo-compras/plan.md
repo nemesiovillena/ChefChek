@@ -25,7 +25,7 @@ Cada fase termina con su **Checking** (checklist en el phase file) y un informe 
 | 3 | [Recepción: conciliación pedido↔albarán y factura mínima](phase-03-recepcion-conciliacion-albaran-factura.md) | [x] | 12-14h | 1 |
 | 4 | [Precios pactados y panel de desviaciones con notificación](phase-04-precios-pactados-desviaciones.md) | [x] | 10-12h | 3 |
 | 5 | [Catálogos/tarifas con IA, comparativa de proveedores y activación por local](phase-05-catalogos-ia-comparativa-por-local.md) | [x] | 18-20h | 0 (integra 4 si está) |
-| 6 | [Programación de pedidos (scheduler → borrador + notificación)](phase-06-programacion-pedidos-scheduler.md) | [ ] | 10-12h | 1 |
+| 6 | [Programación de pedidos (scheduler → borrador + notificación)](phase-06-programacion-pedidos-scheduler.md) | [x] | 10-12h | 1 |
 | 7 | [Analítica de compras + QA end-to-end del módulo](phase-07-analitica-compras-qa-final.md) | [ ] | 14-16h | 2,3,4,5,6 |
 
 ## Key Insights

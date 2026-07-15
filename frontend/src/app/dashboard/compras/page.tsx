@@ -32,6 +32,7 @@ import { PedidosTab } from './components/pedidos-tab';
 import { ListasTab } from './components/listas-tab';
 import { PriceDeviationPanel } from './components/price-deviation-panel';
 import { CatalogosTab } from './components/catalogos-tab';
+import { ProgramacionesTab } from './components/programaciones-tab';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -56,7 +57,6 @@ const TABS: { id: TabId; label: string; icon: typeof ShoppingCart }[] = [
 
 /** Qué sprint del plan activa cada pestaña aún no funcional. */
 const PENDING_TABS: Partial<Record<TabId, string>> = {
-  programaciones: 'La programación de pedidos estará disponible próximamente (Sprint 6).',
   analitica: 'La analítica de compras estará disponible próximamente (Sprint 7).',
 };
 
@@ -123,6 +123,8 @@ export default function ComprasPage() {
         <PriceDeviationPanel canManage={canManage} />
       ) : activeTab === 'catalogos' ? (
         <CatalogosTab />
+      ) : activeTab === 'programaciones' ? (
+        <ProgramacionesTab canManage={canManage || user?.role === 'USER'} />
       ) : activeTab === 'locales' ? (
         <LocationsPanel canManage={canManage} />
       ) : (

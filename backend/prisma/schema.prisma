@@ -81,6 +81,7 @@ model Tenant {
   priceDeviations        PriceDeviation[]
   catalogImports         CatalogImport[]
   offerLocationSettings  OfferLocationSetting[]
+  purchaseSchedules      PurchaseSchedule[]
 
   @@map("tenants")
 }
@@ -1147,6 +1148,7 @@ model Supplier {
   purchaseOrders        PurchaseOrder[]
   purchaseLists         PurchaseList[]
   catalogImports        CatalogImport[]
+  purchaseSchedules     PurchaseSchedule[]
 
   @@index([tenantId])
   @@index([name])
@@ -1845,6 +1847,7 @@ model Location {
   purchaseOrders        PurchaseOrder[]
   purchaseLists         PurchaseList[]
   offerLocationSettings OfferLocationSetting[]
+  purchaseSchedules     PurchaseSchedule[]
 
   @@index([tenantId])
   @@map("locations")
@@ -1934,10 +1937,11 @@ model PurchaseList {
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
 
-  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  location Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  items    PurchaseListItem[]
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier  Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  location  Location?          @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  items     PurchaseListItem[]
+  schedules PurchaseSchedule[]
 
   @@index([tenantId, supplierId])
   @@map("purchase_lists")
@@ -1958,6 +1962,34 @@ model PurchaseListItem {
   @@unique([listId, productId])
   @@index([productId])
   @@map("purchase_list_items")
+}
+
+// Programación de pedidos: genera un pedido BORRADOR + notificación en el
+// día/hora configurados. NUNCA envía nada automáticamente (decisión de
+// producto). Zona horaria fija Europe/Madrid (single-región, sin necesidad
+// de configurarla por tenant por ahora).
+model PurchaseSchedule {
+  id         String    @id @default(cuid())
+  tenantId   String
+  supplierId String
+  listId     String
+  locationId String?
+  daysOfWeek Int[] // 0=domingo … 6=sábado (Date.getDay() de JS)
+  timeOfDay  String // "HH:mm" 24h, hora local Europe/Madrid
+  enabled    Boolean   @default(true)
+  lastRunAt  DateTime? // último tick que generó un pedido (claim de idempotencia)
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  list     PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  location Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, enabled])
+  @@map("purchase_schedules")
 }
 
 // Auditoría del pedido: creación, cambios de estado, envíos por canal

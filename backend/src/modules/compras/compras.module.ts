@@ -12,6 +12,7 @@ import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
+import { PurchaseScheduleService } from "./services/purchase-schedule.service";
 import { LineMatchingService } from "../albaranes/services/line-matching.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
@@ -54,6 +55,7 @@ import { OcrModule } from "../ocr/ocr.module";
     // eso crearía un ciclo).
     LineMatchingService,
     CatalogImportService,
+    PurchaseScheduleService,
   ],
   exports: [
     LocationsService,

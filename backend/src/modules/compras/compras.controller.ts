@@ -34,6 +34,7 @@ import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
+import { PurchaseScheduleService } from "./services/purchase-schedule.service";
 import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { SendOrderDto } from "./dto/send-order.dto";
@@ -45,6 +46,10 @@ import {
   UpdatePriceToleranceDto,
 } from "./dto/price-deviation.dto";
 import { UpdateCatalogImportLineDto } from "./dto/catalog-import.dto";
+import {
+  CreatePurchaseScheduleDto,
+  UpdatePurchaseScheduleDto,
+} from "./dto/purchase-schedule.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -80,6 +85,7 @@ export class ComprasController {
     private readonly priceAgreementService: PriceAgreementService,
     private readonly offerResolutionService: OfferResolutionService,
     private readonly catalogImportService: CatalogImportService,
+    private readonly purchaseScheduleService: PurchaseScheduleService,
     private readonly mailService: MailService,
   ) {}
 
@@ -550,6 +556,68 @@ export class ComprasController {
       locationId,
       enabled,
     );
+    return { success: true };
+  }
+
+  // ── Programaciones de pedidos (Sprint 6) ──
+
+  @Get("programaciones")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar programaciones de pedidos" })
+  async findAllPurchaseSchedules(@Req() req: any) {
+    const data = await this.purchaseScheduleService.findAll(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Get("programaciones/:id")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Detalle de una programación" })
+  async findOnePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
+    const data = await this.purchaseScheduleService.findOne(req.tenantId, id);
+    return { success: true, data };
+  }
+
+  @Post("programaciones")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Crear una programación: genera BORRADOR + notificación en el día/hora configurados, nunca envía",
+  })
+  async createPurchaseSchedule(
+    @Req() req: any,
+    @Body() dto: CreatePurchaseScheduleDto,
+  ) {
+    const data = await this.purchaseScheduleService.create(
+      req.tenantId,
+      req.user?.id,
+      dto,
+    );
+    return { success: true, data };
+  }
+
+  @Patch("programaciones/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Actualizar días/hora/local/activación de una programación",
+  })
+  async updatePurchaseSchedule(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdatePurchaseScheduleDto,
+  ) {
+    const data = await this.purchaseScheduleService.update(
+      req.tenantId,
+      id,
+      dto,
+    );
+    return { success: true, data };
+  }
+
+  @Delete("programaciones/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Eliminar una programación" })
+  async removePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
+    await this.purchaseScheduleService.remove(req.tenantId, id);
     return { success: true };
   }
 
