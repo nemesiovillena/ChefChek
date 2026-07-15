@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Ban,
   Check,
+  FileText,
   Loader2,
   PackageCheck,
   Send,
@@ -23,24 +24,28 @@ import {
   type PurchaseOrderStatus,
 } from '@/hooks/use-purchase-orders';
 import { ProductSearchInput } from '../../components/product-search-input';
+import { SendOrderDialog } from '../../components/send-order-dialog';
+import { openOrderPdf } from '@/hooks/use-order-sending';
 
 const euro = new Intl.NumberFormat('es-ES', {
   style: 'currency',
   currency: 'EUR',
 });
 
-/** Acciones de transición visibles por estado (espejo de la máquina backend). */
+/**
+ * Acciones de transición visibles por estado (espejo de la máquina backend).
+ * Marcar ENVIADO no aparece aquí: se hace desde el diálogo "Enviar al
+ * proveedor" (elige canal y registra sentVia + evento SENT).
+ */
 const STATUS_ACTIONS: Record<
   PurchaseOrderStatus,
   { to: PurchaseOrderStatus; label: string; icon: typeof Send; primary?: boolean }[]
 > = {
   BORRADOR: [
-    { to: 'PENDIENTE_ENVIO', label: 'Marcar pendiente de envío', icon: Check, primary: true },
-    { to: 'ENVIADO', label: 'Marcar enviado', icon: Send },
+    { to: 'PENDIENTE_ENVIO', label: 'Marcar pendiente de envío', icon: Check },
     { to: 'CANCELADO', label: 'Cancelar', icon: Ban },
   ],
   PENDIENTE_ENVIO: [
-    { to: 'ENVIADO', label: 'Marcar enviado', icon: Send, primary: true },
     { to: 'BORRADOR', label: 'Volver a borrador', icon: ArrowLeft },
     { to: 'CANCELADO', label: 'Cancelar', icon: Ban },
   ],
@@ -120,6 +125,17 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
     })),
   );
   const [dirty, setDirty] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+
+  const canSend = order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
+
+  const handlePdf = async () => {
+    try {
+      await openOrderPdf(order.id);
+    } catch (e) {
+      notifyError(e, 'No se pudo generar el PDF');
+    }
+  };
 
   const notifyError = (e: unknown, fallback: string) =>
     addNotification({
@@ -339,6 +355,22 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {updateMut.isPending ? 'Guardando…' : 'Guardar cambios'}
           </button>
         )}
+        {canSend && (
+          <button
+            onClick={() => setSendOpen(true)}
+            disabled={dirty}
+            title={dirty ? 'Guarda los cambios primero' : undefined}
+            className="flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" /> Enviar al proveedor
+          </button>
+        )}
+        <button
+          onClick={handlePdf}
+          className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
+        >
+          <FileText className="h-4 w-4" /> PDF
+        </button>
         {STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => (
           <button
             key={to}
@@ -365,6 +397,8 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
           </button>
         )}
       </footer>
+
+      <SendOrderDialog order={order} open={sendOpen} onOpenChange={setSendOpen} />
 
       {(order.events ?? []).length > 0 && (
         <section>

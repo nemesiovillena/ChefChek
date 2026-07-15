@@ -5,9 +5,12 @@ import { PurchaseListService } from "./services/purchase-list.service";
 import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderNumberService } from "./services/purchase-order-number.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
+import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
+import { OrderSendingService } from "./services/order-sending.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { UsersModule } from "../users/users.module";
+import { MailModule } from "../mail/mail.module";
 
 /**
  * Módulo Compras: pedidos a proveedores, listas de compra, envío multicanal,
@@ -19,6 +22,7 @@ import { UsersModule } from "../users/users.module";
 @Module({
   imports: [
     PrismaModule,
+    MailModule,
     forwardRef(() => AuthModule),
     forwardRef(() => UsersModule),
   ],
@@ -29,6 +33,8 @@ import { UsersModule } from "../users/users.module";
     PurchaseOrderService,
     PurchaseOrderNumberService,
     PurchaseOrderStatusService,
+    PurchaseOrderPdfService,
+    OrderSendingService,
   ],
   exports: [LocationsService, PurchaseListService, PurchaseOrderService],
 })

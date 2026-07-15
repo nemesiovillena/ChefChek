@@ -8,6 +8,7 @@ import { AI_PROVIDERS, getApiKey, sanitizeApiKey, setApiKey } from '@/lib/ai-api
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
+import { SmtpConfigSection } from './components/smtp-config-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -335,6 +336,11 @@ export default function SettingsPage() {
 
         {/* Module Configuration */}
         <ModuleListWidget />
+
+        {/* SMTP para envío de pedidos (módulo Compras) */}
+        <div className="mb-6 mt-6">
+          <SmtpConfigSection />
+        </div>
 
         {/* API Keys */}
         <div className="bg-white shadow rounded-lg p-6">

@@ -1,8 +1,11 @@
 ---
 phase: 2
 title: "Envío multicanal: PDF de pedido, wa.me, SMTP por tenant, tel: y eventos de auditoría"
-status: pending
+status: done
 ---
+
+> Completado 2026-07-15. Informe: [reports/sprint-2-checking-report.md](reports/sprint-2-checking-report.md)
+> Decisión: cifrado AES-256-GCM con CONFIG_ENCRYPTION_KEY de entorno (nueva var en .env/.env.example — definir en producción). wa.me: 9 dígitos → prefijo 34. Email verificado end-to-end contra SMTP local (aiosmtpd); pendiente prueba con SMTP real del usuario.
 
 ## Context
 
@@ -44,12 +47,12 @@ status: pending
 
 ## Checking (criterios de aceptación)
 
-- [ ] PDF abre en pestaña nueva con datos correctos del pedido
-- [ ] Email real recibido con PDF adjunto (SMTP de prueba); fallo SMTP (credenciales malas) → toast con error y pedido NO pasa a ENVIADO
-- [ ] wa.me abre WhatsApp con el mensaje pre-redactado y el número correcto del proveedor; confirmar → ENVIADO
-- [ ] tel:/manual marca ENVIADO con nota
-- [ ] Cada envío genera `PurchaseOrderEvent` visible en timeline (usuario, canal, fecha)
-- [ ] Password SMTP cifrado en BD (verificar fila `Configuration`) y ausente en respuestas GET
-- [ ] Solo se ofrecen los canales presentes en `Supplier.orderMethods`
-- [ ] Specs de mail/sending/pdf pasan; sin errores TS
-- [ ] Informe en `reports/sprint-2-checking-report.md`
+- [x] PDF válido (%PDF, A4 con líneas y total) servido en `GET /pedidos/:id/pdf` y abierto vía blob autenticado
+- [x] Email real recibido con `PED-0003.pdf` adjunto (sink SMTP local); host inválido → 400 con mensaje claro y pedido sigue en BORRADOR
+- [x] wa.me con mensaje pre-redactado y número normalizado (34+9 dígitos); "Marcar enviado" exige abrir WhatsApp antes (UI) → ENVIADO sentVia=WHATSAPP
+- [x] tel:/manual marca ENVIADO ("Pedido comunicado")
+- [x] Evento SENT con canal en timeline (('SENT','EMAIL') verificado)
+- [x] Password cifrado AES-256-GCM en `Configuration` (sin valor en claro) y ausente de GET (solo hasPassword)
+- [x] Solo canales de `Supplier.orderMethods` (WEB no admitido → 400)
+- [x] 12 specs nuevos (sending+mail) pasan; builds TS limpios
+- [x] Informe en `reports/sprint-2-checking-report.md`

@@ -6,8 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import {
@@ -20,7 +22,12 @@ import { LocationsService } from "./services/locations.service";
 import { PurchaseListService } from "./services/purchase-list.service";
 import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
+import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
+import { OrderSendingService } from "./services/order-sending.service";
+import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
+import { SendOrderDto } from "./dto/send-order.dto";
+import { SmtpConfigDto, SmtpTestDto } from "../mail/dto/smtp-config.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -49,7 +56,40 @@ export class ComprasController {
     private readonly purchaseListService: PurchaseListService,
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly purchaseOrderStatusService: PurchaseOrderStatusService,
+    private readonly purchaseOrderPdfService: PurchaseOrderPdfService,
+    private readonly orderSendingService: OrderSendingService,
+    private readonly mailService: MailService,
   ) {}
+
+  // ── Configuración SMTP del tenant (envío de pedidos por email) ──
+
+  @Get("smtp")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Configuración SMTP (nunca devuelve el password)" })
+  async getSmtpConfig(@Req() req: any) {
+    const data = await this.mailService.getPublicConfig(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Put("smtp")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Guardar configuración SMTP (password cifrado)" })
+  async saveSmtpConfig(@Req() req: any, @Body() dto: SmtpConfigDto) {
+    const data = await this.mailService.saveConfig(
+      req.tenantId,
+      dto,
+      req.user?.id,
+    );
+    return { success: true, data };
+  }
+
+  @Post("smtp/test")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Enviar email de prueba con la config guardada" })
+  async testSmtp(@Req() req: any, @Body() dto: SmtpTestDto) {
+    const data = await this.mailService.sendTest(req.tenantId, dto.to);
+    return { success: true, data };
+  }
 
   // ── Listas de compra (checklist por proveedor) ──
 
@@ -144,6 +184,54 @@ export class ComprasController {
   async findOneOrder(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseOrderService.findOne(req.tenantId, id);
     return { success: true, data };
+  }
+
+  @Get("pedidos/:id/envio")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Vista previa de envío: texto, canales del proveedor y wa.me",
+  })
+  async getSendPreview(@Req() req: any, @Param("id") id: string) {
+    const data = await this.orderSendingService.getSendPreview(
+      req.tenantId,
+      id,
+    );
+    return { success: true, data };
+  }
+
+  @Post("pedidos/:id/enviar")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Enviar pedido: EMAIL envía vía SMTP con PDF adjunto; WHATSAPP/PHONE/WEB registran el envío manual",
+  })
+  @ApiResponse({ status: 400, description: "Canal no admitido o SMTP fallido" })
+  async sendOrder(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: SendOrderDto,
+  ) {
+    const data = await this.orderSendingService.send(
+      req.tenantId,
+      id,
+      req.user?.id,
+      dto.channel,
+    );
+    return { success: true, data };
+  }
+
+  @Get("pedidos/:id/pdf")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "PDF del pedido" })
+  async getOrderPdf(@Req() req: any, @Param("id") id: string, @Res() res: any) {
+    const order = await this.purchaseOrderService.findOne(req.tenantId, id);
+    const pdf = await this.purchaseOrderPdfService.generate(req.tenantId, id);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${order.orderNumber}.pdf"`,
+      "Content-Length": pdf.length,
+    });
+    res.send(pdf);
   }
 
   @Patch("pedidos/:id/estado")

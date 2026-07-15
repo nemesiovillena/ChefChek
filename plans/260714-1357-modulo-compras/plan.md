@@ -21,7 +21,7 @@ Cada fase termina con su **Checking** (checklist en el phase file) y un informe 
 |---|-------|--------|--------|-------------|
 | 0 | [Fundaciones: módulo `compras`, retirada de `orders`, `Location`, modelos de pedido](phase-00-fundaciones-modulo-location-modelos.md) | [x] | 10-12h | None |
 | 1 | [Listas de compra (checklist) y pedidos manuales con sugerencias mín/máx](phase-01-listas-checklist-pedidos-manuales.md) | [x] | 16-18h | 0 |
-| 2 | [Envío multicanal: PDF, wa.me, SMTP por tenant, tel:, eventos](phase-02-envio-multicanal-pdf-whatsapp-smtp.md) | [ ] | 14-16h | 1 |
+| 2 | [Envío multicanal: PDF, wa.me, SMTP por tenant, tel:, eventos](phase-02-envio-multicanal-pdf-whatsapp-smtp.md) | [x] | 14-16h | 1 |
 | 3 | [Recepción: conciliación pedido↔albarán y factura mínima](phase-03-recepcion-conciliacion-albaran-factura.md) | [ ] | 12-14h | 1 |
 | 4 | [Precios pactados y panel de desviaciones con notificación](phase-04-precios-pactados-desviaciones.md) | [ ] | 10-12h | 3 |
 | 5 | [Catálogos/tarifas con IA, comparativa de proveedores y activación por local](phase-05-catalogos-ia-comparativa-por-local.md) | [ ] | 18-20h | 0 (integra 4 si está) |
