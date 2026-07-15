@@ -162,6 +162,120 @@ describe("ProductSupplierOffersService", () => {
         }),
       );
     });
+
+    describe("agreedPrice (precio pactado)", () => {
+      const existingOffer = {
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 12,
+        previousPurchasePrice: 10,
+        netPrice: 12,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
+        profitMargin: 0,
+        isPreferred: false,
+        agreedPrice: null,
+        agreedAt: null,
+        agreedUntil: null,
+      };
+
+      it("no enviar agreedPrice no toca el pacto existente", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+          ...existingOffer,
+          agreedPrice: 9.5,
+        });
+        (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({});
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 12,
+        });
+
+        const data = (prisma.productSupplierOffer.update as jest.Mock).mock
+          .calls[0][0].data;
+        expect(data).not.toHaveProperty("agreedPrice");
+        expect(data).not.toHaveProperty("agreedAt");
+      });
+
+      it("fijar un agreedPrice nuevo estampa agreedAt", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          existingOffer,
+        );
+        (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({});
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 12,
+          agreedPrice: 10.4,
+        });
+
+        const data = (prisma.productSupplierOffer.update as jest.Mock).mock
+          .calls[0][0].data;
+        expect(data.agreedPrice).toBe(10.4);
+        expect(data.agreedAt).toBeInstanceOf(Date);
+      });
+
+      it("reenviar el mismo agreedPrice sin cambios no reestampa agreedAt", async () => {
+        const oldAgreedAt = new Date("2026-01-01");
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+          ...existingOffer,
+          agreedPrice: 10.4,
+          agreedAt: oldAgreedAt,
+        });
+        (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({});
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 12,
+          agreedPrice: 10.4,
+        });
+
+        const data = (prisma.productSupplierOffer.update as jest.Mock).mock
+          .calls[0][0].data;
+        expect(data.agreedAt).toBe(oldAgreedAt);
+      });
+
+      it("enviar agreedPrice: null limpia el pacto (agreedPrice y agreedAt)", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+          ...existingOffer,
+          agreedPrice: 10.4,
+          agreedAt: new Date("2026-01-01"),
+        });
+        (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({});
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 12,
+          agreedPrice: null,
+        });
+
+        const data = (prisma.productSupplierOffer.update as jest.Mock).mock
+          .calls[0][0].data;
+        expect(data.agreedPrice).toBeNull();
+        expect(data.agreedAt).toBeNull();
+      });
+
+      it("agreedUntil se pasa como Date; ausente no lo toca", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          existingOffer,
+        );
+        (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({});
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 12,
+          agreedUntil: "2026-12-31",
+        });
+
+        const data = (prisma.productSupplierOffer.update as jest.Mock).mock
+          .calls[0][0].data;
+        expect(data.agreedUntil).toEqual(new Date("2026-12-31"));
+      });
+    });
   });
 
   describe("setPreferred", () => {

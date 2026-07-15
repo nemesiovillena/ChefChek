@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsString,
   IsNumber,
   IsOptional,
@@ -42,6 +43,17 @@ export class CreateProductSupplierOfferDto {
   @IsNumber()
   @Min(0)
   profitMargin?: number;
+
+  // Precio pactado con el proveedor (control de desviaciones, módulo Compras).
+  // null limpia un pacto existente; ausente = no tocar.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  agreedPrice?: number | null;
+
+  @IsOptional()
+  @IsDateString()
+  agreedUntil?: string | null;
 }
 
 export class UpdateProductSupplierOfferDto {
@@ -76,4 +88,15 @@ export class UpdateProductSupplierOfferDto {
   @IsNumber()
   @Min(0)
   profitMargin?: number;
+
+  // Precio pactado con el proveedor (control de desviaciones, módulo Compras).
+  // null limpia un pacto existente; ausente = no tocar.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  agreedPrice?: number | null;
+
+  @IsOptional()
+  @IsDateString()
+  agreedUntil?: string | null;
 }

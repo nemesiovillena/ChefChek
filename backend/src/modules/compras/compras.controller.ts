@@ -26,11 +26,17 @@ import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
 import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
+import { PriceAgreementService } from "./services/price-agreement.service";
 import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { SendOrderDto } from "./dto/send-order.dto";
 import { SmtpConfigDto, SmtpTestDto } from "../mail/dto/smtp-config.dto";
 import { CreateInvoiceDto, InvoicesQueryDto } from "./dto/invoice.dto";
+import {
+  PriceDeviationsQueryDto,
+  UpdatePriceDeviationDto,
+  UpdatePriceToleranceDto,
+} from "./dto/price-deviation.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -63,6 +69,7 @@ export class ComprasController {
     private readonly orderSendingService: OrderSendingService,
     private readonly orderReconciliationService: OrderReconciliationService,
     private readonly invoiceService: InvoiceService,
+    private readonly priceAgreementService: PriceAgreementService,
     private readonly mailService: MailService,
   ) {}
 
@@ -321,6 +328,64 @@ export class ComprasController {
   @ApiOperation({ summary: "Eliminar (soft) una factura" })
   async removeInvoice(@Req() req: any, @Param("id") id: string) {
     const data = await this.invoiceService.remove(req.tenantId, id);
+    return { success: true, data };
+  }
+
+  // ── Precios pactados: tolerancia global y desviaciones ──
+
+  @Get("tolerancia")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Tolerancia % global de desviación de precio pactado",
+  })
+  async getTolerance(@Req() req: any) {
+    const tolerancePercent = await this.priceAgreementService.getTolerance(
+      req.tenantId,
+    );
+    return { success: true, data: { tolerancePercent } };
+  }
+
+  @Put("tolerancia")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Actualizar la tolerancia % global" })
+  async setTolerance(@Req() req: any, @Body() dto: UpdatePriceToleranceDto) {
+    const data = await this.priceAgreementService.setTolerance(
+      req.tenantId,
+      dto.tolerancePercent,
+      req.user?.id,
+    );
+    return { success: true, data };
+  }
+
+  @Get("desviaciones")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Listar desviaciones de precio pactado (filtrable)",
+  })
+  async findAllDeviations(
+    @Req() req: any,
+    @Query() query: PriceDeviationsQueryDto,
+  ) {
+    const data = await this.priceAgreementService.findAll(req.tenantId, query);
+    return { success: true, data };
+  }
+
+  @Patch("desviaciones/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Cambiar estado de una desviación (pendiente/reclamada/resuelta)",
+  })
+  @ApiResponse({ status: 404, description: "Desviación no encontrada" })
+  async updateDeviation(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdatePriceDeviationDto,
+  ) {
+    const data = await this.priceAgreementService.updateStatus(
+      req.tenantId,
+      id,
+      dto,
+    );
     return { success: true, data };
   }
 

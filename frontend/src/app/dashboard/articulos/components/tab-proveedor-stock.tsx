@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Star, Trash2 } from 'lucide-react';
+import { Plus, Star, Trash2, Tags, Check, X } from 'lucide-react';
 import {
   useProductSupplierOffers,
   useCreateSupplierOffer,
   useDeleteSupplierOffer,
   useSetPreferredSupplierOffer,
+  useUpdateSupplierOffer,
+  type ProductSupplierOffer,
 } from '@/hooks/use-products';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -151,6 +153,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   const createOffer = useCreateSupplierOffer();
   const deleteOffer = useDeleteSupplierOffer();
   const setPreferred = useSetPreferredSupplierOffer();
+  const updateOffer = useUpdateSupplierOffer();
   const confirm = useConfirm();
   const addNotification = useNotification();
 
@@ -161,6 +164,9 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierId, setNewSupplierId] = useState('');
   const [newPrice, setNewPrice] = useState('');
+  // Edición inline del precio pactado (control de desviaciones, módulo Compras)
+  const [editingAgreedId, setEditingAgreedId] = useState<string | null>(null);
+  const [agreedPriceInput, setAgreedPriceInput] = useState('');
 
   const existingSupplierIds = new Set((offers ?? []).map((o) => o.supplierId));
   const availableSuppliers = suppliers.filter((s) => !existingSupplierIds.has(s.id));
@@ -213,6 +219,32 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
     }
   };
 
+  const startEditAgreed = (offer: ProductSupplierOffer) => {
+    setEditingAgreedId(offer.id);
+    setAgreedPriceInput(offer.agreedPrice != null ? String(offer.agreedPrice) : '');
+  };
+
+  const handleSaveAgreed = async (offer: ProductSupplierOffer) => {
+    const trimmed = agreedPriceInput.trim();
+    const agreedPrice = trimmed === '' ? null : parseFloat(trimmed);
+    if (agreedPrice !== null && (isNaN(agreedPrice) || agreedPrice < 0)) {
+      addNotification({ type: 'error', title: 'Error', message: 'Precio pactado inválido' });
+      return;
+    }
+    try {
+      await updateOffer.mutateAsync({
+        productId,
+        offerId: offer.id,
+        purchasePrice: offer.purchasePrice,
+        agreedPrice,
+      });
+      setEditingAgreedId(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al guardar el precio pactado';
+      addNotification({ type: 'error', title: 'Error', message });
+    }
+  };
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">Proveedores</label>
@@ -224,28 +256,80 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
         {offers?.map((offer) => (
           <div
             key={offer.id}
-            className="flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2"
+            className="rounded-md border border-gray-300 px-3 py-2"
           >
-            <button
-              type="button"
-              onClick={() => handleSetPreferred(offer.id)}
-              disabled={offer.isPreferred || setPreferred.isPending}
-              title={offer.isPreferred ? 'Proveedor preferente' : 'Marcar como preferente'}
-              className={`shrink-0 ${offer.isPreferred ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
-            >
-              <Star className="h-4 w-4" fill={offer.isPreferred ? 'currentColor' : 'none'} />
-            </button>
-            <span className="flex-1 truncate text-sm text-gray-900">{offer.supplier?.name ?? 'Proveedor'}</span>
-            <span className="text-sm text-gray-600">{formatEuro(offer.purchasePrice)}</span>
-            <button
-              type="button"
-              onClick={() => handleDelete(offer.id)}
-              disabled={deleteOffer.isPending}
-              className="shrink-0 text-gray-400 hover:text-red-600"
-              title="Eliminar oferta"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleSetPreferred(offer.id)}
+                disabled={offer.isPreferred || setPreferred.isPending}
+                title={offer.isPreferred ? 'Proveedor preferente' : 'Marcar como preferente'}
+                className={`shrink-0 ${offer.isPreferred ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
+              >
+                <Star className="h-4 w-4" fill={offer.isPreferred ? 'currentColor' : 'none'} />
+              </button>
+              <span className="flex-1 truncate text-sm text-gray-900">{offer.supplier?.name ?? 'Proveedor'}</span>
+              <span className="text-sm text-gray-600">{formatEuro(offer.purchasePrice)}</span>
+              <button
+                type="button"
+                onClick={() => handleDelete(offer.id)}
+                disabled={deleteOffer.isPending}
+                className="shrink-0 text-gray-400 hover:text-red-600"
+                title="Eliminar oferta"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Precio pactado (control de desviaciones, módulo Compras) */}
+            <div className="mt-1.5 flex items-center gap-2 pl-6">
+              <Tags className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              {editingAgreedId === offer.id ? (
+                <>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    autoFocus
+                    value={agreedPriceInput}
+                    onChange={(e) => setAgreedPriceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveAgreed(offer);
+                      if (e.key === 'Escape') setEditingAgreedId(null);
+                    }}
+                    placeholder="Sin pactar"
+                    className="w-24 rounded border border-gray-300 px-1.5 py-0.5 text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAgreed(offer)}
+                    disabled={updateOffer.isPending}
+                    className="text-green-600 hover:text-green-700"
+                    title="Guardar"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingAgreedId(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                    title="Cancelar"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startEditAgreed(offer)}
+                  className="text-xs text-gray-500 hover:text-indigo-600"
+                >
+                  {offer.agreedPrice != null
+                    ? `Pactado: ${formatEuro(offer.agreedPrice)}`
+                    : 'Fijar precio pactado'}
+                </button>
+              )}
+            </div>
           </div>
         ))}
 

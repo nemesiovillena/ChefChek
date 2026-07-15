@@ -3,6 +3,7 @@ import { AlbaranStockService } from "./albaran-stock.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
+import { PriceAgreementService } from "../../compras/services/price-agreement.service";
 import { LineStatus, LineMatchStatus, AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranStockService", () => {
@@ -10,6 +11,7 @@ describe("AlbaranStockService", () => {
   let prisma: jest.Mocked<PrismaService>;
   let notifications: jest.Mocked<NotificationsService>;
   let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
+  let priceAgreementService: { evaluateAndRecord: jest.Mock };
 
   const mockTenantId = "tenant-123";
   const mockAlbaranId = "albaran-123";
@@ -48,6 +50,9 @@ describe("AlbaranStockService", () => {
                 productPriceHistory: {
                   create: jest.fn(),
                 },
+                productSupplierOffer: {
+                  findFirst: jest.fn().mockResolvedValue(null),
+                },
               }),
             ),
           },
@@ -64,6 +69,12 @@ describe("AlbaranStockService", () => {
             upsertOffer: jest.fn(),
           },
         },
+        {
+          provide: PriceAgreementService,
+          useValue: {
+            evaluateAndRecord: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -71,6 +82,7 @@ describe("AlbaranStockService", () => {
     prisma = module.get(PrismaService);
     notifications = module.get(NotificationsService);
     productSupplierOffersService = module.get(ProductSupplierOffersService);
+    priceAgreementService = module.get(PriceAgreementService);
   });
 
   it("should be defined", () => {
@@ -87,6 +99,7 @@ describe("AlbaranStockService", () => {
         product: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -106,6 +119,7 @@ describe("AlbaranStockService", () => {
         product: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -147,6 +161,7 @@ describe("AlbaranStockService", () => {
         product: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -201,6 +216,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -278,6 +294,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -346,6 +363,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -423,6 +441,7 @@ describe("AlbaranStockService", () => {
           create: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -486,6 +505,7 @@ describe("AlbaranStockService", () => {
         albaranLine: {
           update: jest.fn().mockResolvedValue({}),
         },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -564,6 +584,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -627,6 +648,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -683,6 +705,7 @@ describe("AlbaranStockService", () => {
           create: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
@@ -756,6 +779,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 
@@ -814,6 +838,7 @@ describe("AlbaranStockService", () => {
           update: jest.fn(),
         },
         albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
         productPriceHistory: { create: jest.fn() },
       };
 

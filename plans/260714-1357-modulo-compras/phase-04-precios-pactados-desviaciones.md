@@ -1,8 +1,12 @@
 ---
 phase: 4
 title: "Precios pactados por oferta y panel de desviaciones con notificación instantánea"
-status: pending
+status: done
 ---
+
+> Completado 2026-07-15. Informe: [reports/sprint-4-checking-report.md](reports/sprint-4-checking-report.md)
+> **Bug crítico preexistente descubierto y arreglado**: `NotificationsService.createNotification` escribía campos inexistentes en `Alert` (mock/prod divergence) → cualquier albarán con cambio de precio >10% daba 500. Fijado antes de construir la notificación de desviaciones.
+> Decisión: pacto se evalúa en TODA entrega con proveedor (no solo cuando cambia el precio plano), corrigiendo un hueco de cobertura del enunciado original. Edición del pactado vive en la ficha de artículo, no duplicada en Compras.
 
 ## Context
 
@@ -39,11 +43,11 @@ status: pending
 
 ## Checking (criterios de aceptación)
 
-- [ ] Fijar pactado 10€, confirmar albarán a 12€ → notificación instantánea + fila en panel con +20%
-- [ ] Precio dentro de tolerancia (p. ej. tolerancia 5%, recibido 10,40€) → NO genera desviación
-- [ ] `agreedUntil` pasado → no evalúa (pacto caducado)
-- [ ] Cambio de estado de desviación persiste (pendiente→reclamada→resuelta) con nota
-- [ ] Oferta sin `agreedPrice` → comportamiento actual intacto (solo aviso >10% existente)
-- [ ] Filtros del panel correctos; tenant-scoped
-- [ ] Specs pasan; sin errores TS; regresión de confirmación de albarán OK
-- [ ] Informe en `reports/sprint-4-checking-report.md`
+- [x] Fijar pactado 10€, confirmar albarán a 12€ → notificación instantánea + fila en panel con +20% (verificado exacto por curl)
+- [x] Precio dentro de tolerancia (tolerancia 5%, recibido 10,40€) → NO genera desviación
+- [x] `agreedUntil` pasado → no evalúa (pacto caducado), incluso con precio +50%
+- [x] Cambio de estado de desviación persiste (pendiente→reclamada→resuelta) con nota
+- [x] Oferta sin `agreedPrice` → comportamiento actual intacto (confirmado con cambio de precio de 50€ sin pacto)
+- [x] Filtros del panel correctos; tenant-scoped (endpoints con `req.tenantId`)
+- [x] Specs pasan (122/122 compras+core); sin errores TS; regresión de confirmación de albarán OK (cero fallos nuevos, verificado con stash)
+- [x] Informe en `reports/sprint-4-checking-report.md`

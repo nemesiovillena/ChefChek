@@ -274,6 +274,10 @@ export interface ProductSupplierOffer {
   netPrice: number;
   profitMargin: number;
   isPreferred: boolean;
+  // Precio pactado con el proveedor (control de desviaciones, módulo Compras)
+  agreedPrice: number | null;
+  agreedAt: string | null;
+  agreedUntil: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -286,6 +290,9 @@ export interface SupplierOfferInput {
   unitsPerFormat?: number;
   referenceUnitSize?: number;
   profitMargin?: number;
+  /** null limpia un pacto existente; ausente = no tocar. */
+  agreedPrice?: number | null;
+  agreedUntil?: string | null;
 }
 
 function invalidateSupplierOffers(

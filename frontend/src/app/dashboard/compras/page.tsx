@@ -30,6 +30,7 @@ import {
 } from '@/hooks/use-locations';
 import { PedidosTab } from './components/pedidos-tab';
 import { ListasTab } from './components/listas-tab';
+import { PriceDeviationPanel } from './components/price-deviation-panel';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -56,7 +57,6 @@ const TABS: { id: TabId; label: string; icon: typeof ShoppingCart }[] = [
 const PENDING_TABS: Partial<Record<TabId, string>> = {
   programaciones: 'La programación de pedidos estará disponible próximamente (Sprint 6).',
   catalogos: 'La importación de catálogos y tarifas con IA estará disponible próximamente (Sprint 5).',
-  precios: 'El control de precios pactados estará disponible próximamente (Sprint 4).',
   analitica: 'La analítica de compras estará disponible próximamente (Sprint 7).',
 };
 
@@ -119,6 +119,8 @@ export default function ComprasPage() {
         <PedidosTab />
       ) : activeTab === 'listas' ? (
         <ListasTab canManage={canManage || user?.role === 'USER'} />
+      ) : activeTab === 'precios' ? (
+        <PriceDeviationPanel canManage={canManage} />
       ) : activeTab === 'locales' ? (
         <LocationsPanel canManage={canManage} />
       ) : (

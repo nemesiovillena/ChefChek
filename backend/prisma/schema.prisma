@@ -15,13 +15,13 @@ datasource db {
 
 // Core - Multi-tenancy
 model Tenant {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  slug      String   @unique
-  domain    String?  @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug      String    @unique
+  domain    String?   @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   // Datos de contacto del cliente (gestión superadmin)
@@ -78,6 +78,7 @@ model Tenant {
   locations              Location[]
   purchaseOrders         PurchaseOrder[]
   purchaseLists          PurchaseList[]
+  priceDeviations        PriceDeviation[]
 
   @@map("tenants")
 }
@@ -179,14 +180,14 @@ model Product {
 
   manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
 
-  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category          Category?             @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier          Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients RecipeIngredient[]
-  stockMovements    StockMovement[]
-  stocks            Stock[]
-  purchaseFormats   PurchaseFormat[]
-  nutritionalInfo   NutritionalInfo?
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier           Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients  RecipeIngredient[]
+  stockMovements     StockMovement[]
+  stocks             Stock[]
+  purchaseFormats    PurchaseFormat[]
+  nutritionalInfo    NutritionalInfo?
   albaranLines       AlbaranLine[]
   priceHistory       ProductPriceHistory[]
   supplierOffers     ProductSupplierOffer[]
@@ -224,7 +225,7 @@ model PurchaseFormat {
 // índices únicos parciales creados a mano en la migración (Prisma no soporta
 // índices parciales de forma declarativa).
 model ProductSupplierOffer {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   tenantId   String
   productId  String
   supplierId String
@@ -240,14 +241,20 @@ model ProductSupplierOffer {
   netPrice              Float
   profitMargin          Float @default(0)
 
+  // Precio pactado con el proveedor (control de desviaciones, módulo Compras)
+  agreedPrice Float? // Precio acordado; null = sin pacto, comportamiento actual intacto
+  agreedAt    DateTime? // Se estampa automáticamente al fijar/cambiar agreedPrice
+  agreedUntil DateTime? // Vigencia opcional; pasada esta fecha no se evalúa
+
   isPreferred Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product    Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier   Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  deviations PriceDeviation[]
 
   @@index([tenantId])
   @@index([productId])
@@ -1630,13 +1637,14 @@ model Albaran {
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
 
-  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier      Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  warehouse     Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  purchaseOrder PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
-  lines         AlbaranLine[]
-  priceHistory  ProductPriceHistory[]
-  invoices      Invoice[]
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier        Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse       Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  lines           AlbaranLine[]
+  priceHistory    ProductPriceHistory[]
+  invoices        Invoice[]
+  priceDeviations PriceDeviation[]
 
   @@unique([tenantId, internalNumber])
   @@index([tenantId])
@@ -1847,13 +1855,14 @@ model PurchaseOrder {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier  Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  location  Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  lines     PurchaseOrderLine[]
-  events    PurchaseOrderEvent[]
-  albaranes Albaran[]
-  invoices  Invoice[]
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier        Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location        Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  lines           PurchaseOrderLine[]
+  events          PurchaseOrderEvent[]
+  albaranes       Albaran[]
+  invoices        Invoice[]
+  priceDeviations PriceDeviation[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId, status])
@@ -1939,4 +1948,41 @@ model PurchaseOrderEvent {
 
   @@index([orderId])
   @@map("purchase_order_events")
+}
+
+enum PriceDeviationStatus {
+  PENDIENTE
+  RECLAMADA
+  RESUELTA
+}
+
+// Desviación detectada entre el precio pactado de una oferta y el precio
+// realmente recibido (albarán o catálogo importado). Histórico gestionable,
+// no se recalcula: cada desviación es la fotografía del momento en que se
+// detectó.
+model PriceDeviation {
+  id               String               @id @default(cuid())
+  tenantId         String
+  offerId          String
+  albaranId        String?
+  purchaseOrderId  String?
+  agreedPrice      Float
+  receivedPrice    Float
+  deviationPercent Float
+  status           PriceDeviationStatus @default(PENDIENTE)
+  note             String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  deletedAt        DateTime?
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  offer         ProductSupplierOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  albaran       Albaran?             @relation(fields: [albaranId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?       @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([offerId])
+  @@index([albaranId])
+  @@index([purchaseOrderId])
+  @@map("price_deviations")
 }

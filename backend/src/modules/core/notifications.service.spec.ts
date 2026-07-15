@@ -41,14 +41,17 @@ describe("NotificationsService", () => {
   });
 
   describe("createNotification", () => {
-    it("should create a notification", async () => {
+    it("should create a notification mapped to the real Alert schema", async () => {
+      // Alert solo tiene type/alertType/severity/message/createdBy — no
+      // title/description/userId (bug preexistente arreglado 2026-07-15)
       const mockAlert = {
         id: "alert-1",
         tenantId: "tenant-1",
         type: "INFO",
         alertType: "INFO",
-        title: "Test",
-        description: "Test message",
+        severity: "INFO",
+        message: "Test: Test message",
+        createdBy: "system",
       };
 
       mockPrismaService.alert.create.mockResolvedValue(mockAlert);
@@ -65,18 +68,19 @@ describe("NotificationsService", () => {
         message: "Notification created successfully",
       });
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
+        data: {
+          tenantId: "tenant-1",
           type: "INFO",
           alertType: "INFO",
-          title: "Test",
-          description: "Test message",
-          tenantId: "tenant-1",
-        }),
+          severity: "INFO",
+          message: "Test: Test message",
+          createdBy: "system",
+        },
       });
     });
 
     it("should create notification with severity", async () => {
-      const mockAlert = { id: "alert-1", alertType: "WARNING" };
+      const mockAlert = { id: "alert-1", severity: "WARNING" };
 
       mockPrismaService.alert.create.mockResolvedValue(mockAlert);
 
@@ -89,13 +93,13 @@ describe("NotificationsService", () => {
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          alertType: "WARNING",
+          severity: "WARNING",
         }),
       });
     });
 
-    it("should create notification with userId", async () => {
-      const mockAlert = { id: "alert-1", userId: "user-1" };
+    it("should default createdBy to 'system' when no userId is given, and to userId otherwise", async () => {
+      const mockAlert = { id: "alert-1", createdBy: "user-1" };
 
       mockPrismaService.alert.create.mockResolvedValue(mockAlert);
 
@@ -108,30 +112,23 @@ describe("NotificationsService", () => {
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          userId: "user-1",
+          createdBy: "user-1",
         }),
       });
     });
 
-    it("should create notification with metadata", async () => {
-      const mockAlert = { id: "alert-1" };
-      const metadata = { priority: "high", category: "system" };
-
-      mockPrismaService.alert.create.mockResolvedValue(mockAlert);
+    it("folds title into message (Alert has no title column)", async () => {
+      mockPrismaService.alert.create.mockResolvedValue({ id: "alert-1" });
 
       await service.createNotification("tenant-1", {
         type: "INFO",
-        title: "Test",
+        title: "Cambio de precio",
         message: "Test message",
-        metadata,
       });
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          tenantId: "tenant-1",
-          title: "Test",
-          type: "INFO",
-          alertType: "INFO",
+          message: "Cambio de precio: Test message",
         }),
       });
     });

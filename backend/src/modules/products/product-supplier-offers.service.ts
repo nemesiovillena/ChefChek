@@ -14,6 +14,9 @@ export interface UpsertSupplierOfferData {
   unitsPerFormat?: number;
   referenceUnitSize?: number;
   profitMargin?: number;
+  /** Precio pactado (control de desviaciones); null limpia el pacto existente. */
+  agreedPrice?: number | null;
+  agreedUntil?: string | null;
 }
 
 type PrismaClientOrTx = PrismaService | Prisma.TransactionClient;
@@ -91,6 +94,7 @@ export class ProductSupplierOffersService {
           referenceUnitSize,
           unitSize,
           profitMargin: data.profitMargin ?? existingOffer.profitMargin,
+          ...this.buildAgreedFields(data, existingOffer),
         },
       });
 
@@ -128,6 +132,7 @@ export class ProductSupplierOffersService {
           unitSize,
           profitMargin: data.profitMargin ?? 0,
           isPreferred: offerCount === 0,
+          ...this.buildAgreedFields(data, null),
         },
       });
     }
@@ -233,6 +238,37 @@ export class ProductSupplierOffersService {
         await this.syncProductFromOffer(tx, offer.productId, promoted);
       }
     });
+  }
+
+  /**
+   * Campos de precio pactado a fusionar en el create/update de la oferta.
+   * Ausente (`undefined`) = no tocar; `null` explícito = limpiar el pacto.
+   * `agreedAt` se estampa solo cuando `agreedPrice` cambia de verdad, para no
+   * "reactivar" un pacto sin cambios reales en cada guardado del formulario.
+   */
+  private buildAgreedFields(
+    data: UpsertSupplierOfferData,
+    existingOffer: ProductSupplierOffer | null,
+  ) {
+    const fields: {
+      agreedPrice?: number | null;
+      agreedAt?: Date | null;
+      agreedUntil?: Date | null;
+    } = {};
+
+    if (data.agreedPrice !== undefined) {
+      fields.agreedPrice = data.agreedPrice;
+      fields.agreedAt =
+        data.agreedPrice === null
+          ? null
+          : data.agreedPrice !== existingOffer?.agreedPrice
+            ? new Date()
+            : existingOffer.agreedAt;
+    }
+    if (data.agreedUntil !== undefined) {
+      fields.agreedUntil = data.agreedUntil ? new Date(data.agreedUntil) : null;
+    }
+    return fields;
   }
 
   private async syncProductFromOffer(

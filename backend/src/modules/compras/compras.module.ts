@@ -9,6 +9,7 @@ import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
 import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
+import { PriceAgreementService } from "./services/price-agreement.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { UsersModule } from "../users/users.module";
@@ -39,12 +40,14 @@ import { MailModule } from "../mail/mail.module";
     OrderSendingService,
     OrderReconciliationService,
     InvoiceService,
+    PriceAgreementService,
   ],
   exports: [
     LocationsService,
     PurchaseListService,
     PurchaseOrderService,
     OrderReconciliationService,
+    PriceAgreementService,
   ],
 })
 export class ComprasModule {}

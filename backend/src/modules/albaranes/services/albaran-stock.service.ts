@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
+import { PriceAgreementService } from "../../compras/services/price-agreement.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
 function normalizeUnit(unit: string): string {
@@ -26,6 +27,7 @@ export class AlbaranStockService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly priceAgreementService: PriceAgreementService,
   ) {}
 
   /**
@@ -161,6 +163,31 @@ export class AlbaranStockService {
                   percentageChange,
                 );
               }
+            }
+          }
+
+          // Control de precios pactados (módulo Compras): se evalúa en TODA
+          // entrega con proveedor, no solo cuando cambia el precio plano del
+          // producto — un pacto se compara contra cada recepción, incluso si
+          // el precio coincide con el vigente (que puede venir de la oferta
+          // preferente de OTRO proveedor). No-op si no hay oferta o pacto.
+          if (albaran.supplierId) {
+            const offerForDeviation = await tx.productSupplierOffer.findFirst({
+              where: { productId: product.id, supplierId: albaran.supplierId },
+            });
+            if (offerForDeviation) {
+              await this.priceAgreementService.evaluateAndRecord(
+                tenantId,
+                offerForDeviation.id,
+                lineUnitPrice,
+                {
+                  albaranId: albaran.id,
+                  productName: product.name,
+                  supplierName: albaran.supplier?.name ?? "Proveedor",
+                  albaranLabel: albaran.internalNumber,
+                },
+                tx,
+              );
             }
           }
 

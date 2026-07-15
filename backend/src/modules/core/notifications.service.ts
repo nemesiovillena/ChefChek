@@ -16,17 +16,22 @@ export class NotificationsService {
       metadata?: any;
     },
   ) {
-    // Crear notificación en Alert model (reutilizando schema existente)
+    // El modelo Alert no tiene columnas title/description/userId (solo type,
+    // alertType, severity, message, createdBy) — bug preexistente detectado
+    // 2026-07-15: esta llamada lanzaba PrismaClientValidationError en runtime
+    // (severity/message/createdBy son requeridos y no se enviaban), lo que
+    // abortaba la transacción entera de confirmación de albarán en cualquier
+    // cambio de precio >10%. El spec anterior mockeaba Prisma y no lo
+    // detectó. Mapeo correcto: mismo patrón que appcc.service.ts.
     const notification = await this.prisma.alert.create({
       data: {
         tenantId,
         type: data.type,
-        alertType: data.severity || "INFO",
-        title: data.title,
-        description: data.message,
-        userId: data.userId,
-        createdAt: new Date(),
-      } as any,
+        alertType: data.type,
+        severity: data.severity || "INFO",
+        message: data.title ? `${data.title}: ${data.message}` : data.message,
+        createdBy: data.userId || "system",
+      },
     });
 
     return {
