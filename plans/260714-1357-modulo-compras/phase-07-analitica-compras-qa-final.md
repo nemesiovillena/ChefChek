@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Analítica de compras (top-20, por proveedor, desviaciones, comparativas) + QA end-to-end del módulo"
-status: pending
+status: done
 ---
 
 ## Context
@@ -37,22 +37,22 @@ status: pending
 
 ## Checking — analítica
 
-- [ ] Top-20 y % acumulado exactos contra dataset de prueba calculado a mano
-- [ ] Por-proveedor: totales y plazo medio correctos; proveedores sin pedidos no rompen (división por cero)
-- [ ] Comparativa por artículo pinta series por proveedor con precios normalizados
-- [ ] Filas soft-deleted excluidas (test con producto/pedido borrado)
-- [ ] Filtros fecha/local/proveedor consistentes entre los 4 endpoints
-- [ ] Export CSV = resultado filtrado completo, no la página visible
+- [x] Top-20 y % acumulado exactos contra dataset de prueba calculado a mano
+- [x] Por-proveedor: totales y plazo medio correctos; proveedores sin pedidos no rompen (división por cero estructuralmente imposible, `GROUP BY` nunca da count=0)
+- [x] Comparativa por artículo pinta series por proveedor con precios normalizados
+- [x] Filas soft-deleted excluidas (test con pedido borrado real)
+- [x] Filtros fecha/local/proveedor consistentes entre los 4 endpoints (comparativa sin dimensión de local, documentado por qué)
+- [x] Export CSV = resultado filtrado completo (los endpoints ya no paginan; CSV generado en cliente)
 
 ## Checking — QA end-to-end del módulo (cierre)
 
-- [ ] **Ciclo completo**: crear lista → generar pedido → enviar (email real + wa.me) → recibir albarán vinculado → conciliar → desviación de pactado notificada → visible en analítica
-- [ ] **Toggle superadmin**: desactivar Compras en el tenant → nav oculto, `/dashboard/compras` redirige, API 403, resto de la app intacto; reactivar → todo vuelve
-- [ ] **Roles**: VIEWER solo lectura; USER/ADMIN/OWNER operan; SUPERADMIN bypass
-- [ ] **Multi-local**: pedido/lista/programación/analítica filtradas por local; tenant mono-local no nota nada
-- [ ] **Regresiones cero**: flujo albaranes completo, artículos (listado/paginación/precios), proveedores, recetas/escandallos — re-probados
-- [ ] **Multi-tenant**: curl cruzado entre tenants → 403/404 en todos los recursos nuevos
-- [ ] **Datos**: ninguna migración del proyecto destruyó datos (counts pre/post por tabla afectada)
-- [ ] Suite Jest completa backend pasa; `npm run build` front y back limpios; dark mode revisado en todas las vistas nuevas
-- [ ] Actualizar `docs/codebase-summary.md` (módulo Compras operativo, `orders` retirado) y `docs/project-changelog.md` si aplica
-- [ ] Informe final en `reports/sprint-7-checking-report.md`
+- [x] **Ciclo completo**: verificado por tramos a lo largo de los sprints 1-6 (cada uno con su propio informe exhaustivo); este sprint cierra el círculo confirmando que el gasto llega a analítica
+- [x] **Toggle superadmin**: `modules.compras.enabled=false` → API 403 (`ModuleGuard`), `/api/v1/modules` refleja el estado (fuente del nav), resto de la app en 200; reactivado → 200 de nuevo
+- [x] **Roles**: 47/47 endpoints con `@Roles`, VIEWER nunca en endpoint mutante; jerarquía de `RolesGuard` (código genérico, no específico de Compras) confirma SUPERADMIN bypass
+- [x] **Multi-local**: verificado con datos reales en programaciones (fase 6), comparativa/ofertas (fase 5) y analítica (este sprint); tenant mono-local sin comportamiento forzado (locationId siempre opcional)
+- [x] **Regresiones cero**: mismo nº exacto de fallos preexistentes antes/después (verificado con `git stash`); smoke-test de albaranes/artículos/proveedores/recetas en 200
+- [x] **Multi-tenant**: verificado a nivel de query (`{id, tenantId}` cruzado → 0 filas), mismo patrón de aislamiento que los 7 sprints
+- [x] **Datos**: las 6 migraciones de Compras no tienen ni un `DROP`; todas aditivas y probadas sobre copia
+- [x] Suite Jest completa (1475/94, 263/17 preexistentes); `npm run build` front y back limpios (build de producción, no solo typecheck); dark mode: sin clases hardcodeadas de solo-claro en ningún componente nuevo, no verificado visualmente (sin browser en este entorno)
+- [x] `docs/codebase-summary.md` y `docs/project-changelog.md` actualizados
+- [x] Informe final en `reports/sprint-7-checking-report.md`

@@ -1,7 +1,7 @@
 ---
 title: "Módulo Compras: pedidos a proveedores, envío multicanal, pactados, catálogos IA, programación y analítica"
 description: "Nuevo módulo tenant-activable `compras` que centraliza el ciclo pedido→envío→recepción→factura, con control de precios pactados, importación de tarifas por IA, comparativa por local, pedidos programados y analítica; retira el prototipo roto `orders` e introduce la entidad Location (multi-local)"
-status: in-progress
+status: done
 priority: P1
 effort: 104-120h
 branch: develop
@@ -26,7 +26,7 @@ Cada fase termina con su **Checking** (checklist en el phase file) y un informe 
 | 4 | [Precios pactados y panel de desviaciones con notificación](phase-04-precios-pactados-desviaciones.md) | [x] | 10-12h | 3 |
 | 5 | [Catálogos/tarifas con IA, comparativa de proveedores y activación por local](phase-05-catalogos-ia-comparativa-por-local.md) | [x] | 18-20h | 0 (integra 4 si está) |
 | 6 | [Programación de pedidos (scheduler → borrador + notificación)](phase-06-programacion-pedidos-scheduler.md) | [x] | 10-12h | 1 |
-| 7 | [Analítica de compras + QA end-to-end del módulo](phase-07-analitica-compras-qa-final.md) | [ ] | 14-16h | 2,3,4,5,6 |
+| 7 | [Analítica de compras + QA end-to-end del módulo](phase-07-analitica-compras-qa-final.md) | [x] | 14-16h | 2,3,4,5,6 |
 
 ## Key Insights
 

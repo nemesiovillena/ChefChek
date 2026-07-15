@@ -15,7 +15,7 @@ Backend NestJS + Prisma + PostgreSQL; frontend Next.js (App Router) + React 19.
 - **Authentication**: Lucia Auth 3.2 (session-based, sesiones en DB) con RBAC granular. Ya NO usa JWT.
 - **API**: RESTful con Swagger/OpenAPI en `http://localhost:3001/api/docs`
 - **Multi-tenancy**: aislamiento estricto por `tenantId` en cada modelo
-- **Módulos**: 26 directorios bajo `backend/src/modules/`
+- **Módulos**: 30 directorios bajo `backend/src/modules/`
 - **Migrations**: 2 (`init`, `add_owner_role`)
 
 ### Frontend (Next.js 16.2.6 + React 19.2.4)
@@ -26,16 +26,17 @@ Backend NestJS + Prisma + PostgreSQL; frontend Next.js (App Router) + React 19.
 - **Datos**: axios + React Query 5; estado con Zustand
 - **Rutas**: dashboard con 22 submódulos navegables + login/register. Verifica estado real en `docs/codebase-summary.md` vs. el changelog histórico.
 
-## Modules (26)
+## Modules (30)
 Organizados por dominio bajo `backend/src/modules/`:
 
 - **Core / Auth**: `auth`, `tenants`, `users`, `core`, `modules`
 - **Escandallos (costos)**: `products`, `recipes`, `menus`, `technical-sheets`, `escandallos`, `categories`
 - **Seguridad / cumplimiento**: `allergens`, `appcc`, `seguridad`
-- **Producción**: `production`, `produccion`, `orders`, `sprint`
+- **Producción**: `production`, `produccion`, `sprint`
 - **Almacenes**: `almacenes`
 - **Sala / carta digital**: `digital-menu`, `qr`, `sala`
 - **Albaranes + OCR**: `albaranes` (gestión, alta manual y upload de albaranes) + `ocr` (motor OCR/IA compartido para lectura de albaranes)
+- **Compras** (2026-07-15, tenant-activable): `compras` — pedidos a proveedores, listas de compra, envío multicanal (wa.me/SMTP/tel/PDF), precios pactados con detección de desviaciones, catálogos/tarifas con IA, comparativa de proveedores, activación de oferta por local, programación de pedidos (`@nestjs/schedule`) y analítica (top-20 gasto, por proveedor, desviaciones, comparativa de precios). Retira el prototipo roto `orders` del registro/nav/`app.module.ts` (la carpeta y sus tablas stub se conservan sin usar). Nueva entidad `Location` (multi-local). PDR: `docs/pdr-modulo-compras.md`; plan y sprints: `plans/260714-1357-modulo-compras/`.
 - **Conocimiento**: `conocimiento` (wiki/procedimientos)
 - **Visión**: `dashboard`
 
@@ -44,7 +45,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 
 ## Database Schema
 
-- **Total models**: 69 (catálogo completo en `backend/prisma/schema.prisma`)
+- **Total models**: 83 (catálogo completo en `backend/prisma/schema.prisma`)
 - **Multi-tenant**: todos los modelos aislados por `tenantId`
 - **Performance**: índices en `tenantId` y campos de consulta frecuente
 - **Seed**: seed coherente multi-módulo (56+ modelos encadenados). Ver `docs/QUICKSTART.md`.
@@ -69,10 +70,10 @@ Organizados por dominio bajo `backend/src/modules/`:
 | Frente | Estado |
 |---|---|
 | CI (`develop` + `main`) | 🟢 Verde (Backend CI, Frontend CI, Release) |
-| Backend | 🟢 Compila (`nest build`), 69 modelos, 26 módulos, seed coherente |
+| Backend | 🟢 Compila (`nest build`), 83 modelos, 30 módulos, seed coherente |
 | Frontend | 🟢 Compila (`next build`), 24+ rutas; 0 errores de tipo |
 | Lint frontend | 🟡 0 errores, ~125 warnings (cosmético, `unused-vars`) |
-| Tests backend (unit) | 🟢 1340 tests, 79 suites (medido 2026-06-29) |
+| Tests backend (unit) | 🟡 1475 tests, 94 suites (medido 2026-07-15); 263 tests/17 suites fallan — preexistentes, no relacionados con Compras (mismo nº antes/después, verificado con `git stash`) |
 | E2E backend | 🟢 29/29 (Supertest) |
 | Docs | 🟢 Sincronizados (2026-06-29) |
 
@@ -84,7 +85,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 - Consolidar versión NestJS (common 10 vs core 11) en el backend.
 - Cerrar warnings de lint del frontend (~125, mayoría `unused-vars`).
 - Cobertura de tests backend: última medición formalizada 2026-06-04 (85.15%); revalidar antes de citar.
-- **Módulo Compras planificado** (PDR aprobado 2026-07-14): `docs/pdr-modulo-compras.md` + sprints en `plans/260714-1357-modulo-compras/`. Incluye retirada del prototipo `orders` (su servicio referencia modelos Prisma inexistentes; tablas stub se conservan) y nueva entidad `Location` (multi-local).
+- **Módulo Compras implementado** (2026-07-14 a 2026-07-15, sprints 0-7 completos): ver entrada en "Modules" arriba. Pendiente de futuro: analítica de escandallos IVA con PVP no cubierta; credenciales SMTP por tenant sin cifrar en `Configuration` (riesgo anotado en el PDR, fase 2).
 
 ---
 **Última verificación**: 2026-06-29 · **Rama**: `develop` · **Versión**: 0.2.0

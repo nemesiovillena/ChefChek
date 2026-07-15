@@ -13,6 +13,7 @@ import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
 import { PurchaseScheduleService } from "./services/purchase-schedule.service";
+import { PurchaseAnalyticsService } from "./services/purchase-analytics.service";
 import { LineMatchingService } from "../albaranes/services/line-matching.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
@@ -56,6 +57,7 @@ import { OcrModule } from "../ocr/ocr.module";
     LineMatchingService,
     CatalogImportService,
     PurchaseScheduleService,
+    PurchaseAnalyticsService,
   ],
   exports: [
     LocationsService,

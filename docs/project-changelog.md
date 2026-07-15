@@ -5,8 +5,36 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 **Version:** 0.2.0
 **Status:** Development
-**Backend:** NestJS + Prisma + PostgreSQL (69 modelos, 26 módulos)
+**Backend:** NestJS + Prisma + PostgreSQL (83 modelos, 30 módulos)
 **Frontend:** Next.js 16.2.6 + React 19.2.4 (implementado, compila)
+
+---
+
+## Estado real — 2026-07-15 (módulo Compras completo, sprints 0-7)
+
+- **Módulo Compras** activable por tenant desde superadmin (igual que el resto):
+  pedidos a proveedores, listas de compra (checklist), envío multicanal
+  (wa.me + SMTP por tenant + tel: + PDF), conciliación pedido↔albarán, precios
+  pactados con detección/notificación de desviaciones, catálogos/tarifas de
+  proveedor con extracción por IA (revisión humana obligatoria, nunca escribe
+  sin aplicar), comparativa de proveedores con activación de oferta por local,
+  programación de pedidos (`@nestjs/schedule`, genera BORRADOR + notificación,
+  nunca envía solo) y analítica (top-20 gasto, por proveedor, evolución de
+  desviaciones, comparativa de precios). Retira el prototipo roto `orders`.
+  PDR: `docs/pdr-modulo-compras.md`; plan/sprints/informes: `plans/260714-1357-modulo-compras/`.
+- **Modelos Prisma**: 83 (11 nuevos de Compras: `Location`, `PurchaseOrder`,
+  `PurchaseOrderLine`, `PurchaseOrderEvent`, `PurchaseList`, `PurchaseListItem`,
+  `PriceDeviation`, `CatalogImport`, `CatalogImportLine`, `OfferLocationSetting`,
+  `PurchaseSchedule`). Todas las migraciones puramente aditivas (sin `DROP`),
+  probadas sobre copia de la BD antes de aplicarse.
+- **Tests backend**: 1475 tests / 94 suites; 263 tests/17 suites fallan —
+  preexistentes al módulo Compras (mismo nº antes/después del cambio,
+  verificado con `git stash`), no introducidos por este trabajo.
+- **Bug de entorno corregido**: el microservicio OCR (`backend/ocr-microservice/`)
+  llevaba corriendo con el entorno Python equivocado (`python_env`, sin SDKs de
+  IA instalados) — cualquier extracción con IA fallaba con un error de módulo
+  ausente en vez de un error real de la API. Corregido usando `venv` (el que
+  aprovisiona `start.sh`).
 
 ---
 

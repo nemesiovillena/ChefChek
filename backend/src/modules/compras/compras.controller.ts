@@ -35,6 +35,7 @@ import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
 import { PurchaseScheduleService } from "./services/purchase-schedule.service";
+import { PurchaseAnalyticsService } from "./services/purchase-analytics.service";
 import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { SendOrderDto } from "./dto/send-order.dto";
@@ -50,6 +51,10 @@ import {
   CreatePurchaseScheduleDto,
   UpdatePurchaseScheduleDto,
 } from "./dto/purchase-schedule.dto";
+import {
+  AnalyticsQueryDto,
+  PriceComparisonQueryDto,
+} from "./dto/purchase-analytics.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -86,6 +91,7 @@ export class ComprasController {
     private readonly offerResolutionService: OfferResolutionService,
     private readonly catalogImportService: CatalogImportService,
     private readonly purchaseScheduleService: PurchaseScheduleService,
+    private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
   ) {}
 
@@ -619,6 +625,67 @@ export class ComprasController {
   async removePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
     await this.purchaseScheduleService.remove(req.tenantId, id);
     return { success: true };
+  }
+
+  // ── Analítica de compras (Sprint 7) ──
+
+  @Get("analitica/top-gasto")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Top-20 artículos por gasto real, con % individual y acumulado",
+  })
+  async analyticsTopSpend(@Req() req: any, @Query() query: AnalyticsQueryDto) {
+    const data = await this.purchaseAnalyticsService.topSpend(
+      req.tenantId,
+      query,
+    );
+    return { success: true, data };
+  }
+
+  @Get("analitica/por-proveedor")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Totales, ticket medio y plazo medio de entrega por proveedor",
+  })
+  async analyticsBySupplier(
+    @Req() req: any,
+    @Query() query: AnalyticsQueryDto,
+  ) {
+    const data = await this.purchaseAnalyticsService.bySupplier(
+      req.tenantId,
+      query,
+    );
+    return { success: true, data };
+  }
+
+  @Get("analitica/desviaciones")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Evolución semanal de desviaciones de precio pactado",
+  })
+  async analyticsDeviations(
+    @Req() req: any,
+    @Query() query: AnalyticsQueryDto,
+  ) {
+    const data = await this.purchaseAnalyticsService.deviationsOverTime(
+      req.tenantId,
+      query,
+    );
+    return { success: true, data };
+  }
+
+  @Get("analitica/comparativa")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Serie de precios por proveedor para un artículo" })
+  async analyticsPriceComparison(
+    @Req() req: any,
+    @Query() query: PriceComparisonQueryDto,
+  ) {
+    const data = await this.purchaseAnalyticsService.priceComparison(
+      req.tenantId,
+      query,
+    );
+    return { success: true, data };
   }
 
   // ── Locales (multi-local) ──
