@@ -5,6 +5,7 @@ import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard } from "../../guards/module.guard";
 
 describe("RecipesController", () => {
   let controller: RecipesController;
@@ -50,6 +51,8 @@ describe("RecipesController", () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<RecipesController>(RecipesController);
@@ -86,7 +89,8 @@ describe("RecipesController", () => {
   describe("findAll", () => {
     it("should return all recipes for tenant", async () => {
       const recipes = [mockRecipe];
-      mockRecipesService.findAll.mockResolvedValue(recipes);
+      const meta = { total: 1, page: 1, limit: 20 };
+      mockRecipesService.findAll.mockResolvedValue({ data: recipes, meta });
 
       const result = await controller.findAll(mockReq as any, {});
 
@@ -94,6 +98,7 @@ describe("RecipesController", () => {
       expect(result).toEqual({
         success: true,
         data: recipes,
+        meta,
         message: "Recipes retrieved successfully",
       });
     });

@@ -178,6 +178,10 @@ describe("AlbaranStockService", () => {
         name: "Test Product",
         purchasePrice: 4.5,
         netPrice: 4.5,
+        // Ya tiene proveedor asignado: evita disparar la asignación
+        // automática de proveedor (product.update) y mantiene el foco de
+        // este test en que el precio plano no se sobreescribe directamente.
+        supplierId: "supplier-123",
       };
 
       const mockAlbaran = {
@@ -256,6 +260,11 @@ describe("AlbaranStockService", () => {
         name: "Mozzarella",
         purchasePrice: 10,
         netPrice: 10,
+        // Ya tiene proveedor asignado (uno distinto a Dialvi): evita
+        // disparar la asignación automática de proveedor (product.update)
+        // y mantiene el foco de este test en que el precio plano no cambia
+        // cuando la oferta actualizada no es la preferente.
+        supplierId: "supplier-original",
       };
 
       const mockAlbaran = {

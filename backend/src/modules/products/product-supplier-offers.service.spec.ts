@@ -52,6 +52,7 @@ describe("ProductSupplierOffersService", () => {
               findMany: jest.fn(),
               create: jest.fn(),
               update: jest.fn(),
+              count: jest.fn(),
             },
             productPriceHistory: { create: jest.fn() },
             $transaction: jest.fn((fn) => fn(makeTx())),
@@ -74,6 +75,10 @@ describe("ProductSupplierOffersService", () => {
       (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
         null,
       );
+      // Ya existe una oferta previa (de otro proveedor) -> la nueva no es
+      // la primera, así que no se marca preferente (offerCount === 0 sería
+      // el único caso que sí la marca).
+      (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(1);
       (prisma.productSupplierOffer.create as jest.Mock).mockResolvedValue({
         id: "offer-dialvi",
         productId,

@@ -4,6 +4,7 @@ import { AppccService } from "./appcc.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard } from "../../guards/module.guard";
 
 describe("AppccController", () => {
   let controller: AppccController;
@@ -44,6 +45,8 @@ describe("AppccController", () => {
       .overrideGuard(TenantGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

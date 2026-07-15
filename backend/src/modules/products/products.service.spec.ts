@@ -10,6 +10,7 @@ describe("ProductsService", () => {
   let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
 
   const mockPrismaService = {
+    $queryRaw: jest.fn(),
     product: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -322,6 +323,16 @@ describe("ProductsService", () => {
   });
 
   describe("findAll", () => {
+    // findAll ahora resuelve ids+total con $queryRaw (SQL crudo parametrizado,
+    // ver products.service.ts) y solo hidrata los productos vía product.findMany
+    // por id — los filtros (categoría/proveedor/búsqueda/activo) viven en el
+    // WHERE de esa consulta cruda, no en el `where` de Prisma ORM.
+    function mockIdsAndCount(ids: string[], total: number) {
+      prismaService.$queryRaw
+        .mockResolvedValueOnce(ids.map((id) => ({ id })))
+        .mockResolvedValueOnce([{ count: BigInt(total) }]);
+    }
+
     it("should return paginated products list", async () => {
       const mockProducts = [
         {
@@ -356,8 +367,8 @@ describe("ProductsService", () => {
         },
       ];
 
+      mockIdsAndCount(["prod-1", "prod-2"], 2);
       prismaService.product.findMany.mockResolvedValue(mockProducts);
-      prismaService.product.count.mockResolvedValue(2);
 
       const query = { page: 1, limit: 20 };
       const result = await service.findAll(query, tenantId);
@@ -371,86 +382,64 @@ describe("ProductsService", () => {
     });
 
     it("should filter by category", async () => {
+      mockIdsAndCount([], 0);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { category: "cat-1" };
       await service.findAll(query, tenantId);
 
-      expect(prismaService.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            categoryId: "cat-1",
-          }),
-        }),
-      );
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      expect(idsQuery.sql).toContain('p."categoryId" = ANY');
+      expect(idsQuery.values).toContainEqual(["cat-1"]);
     });
 
     it("should filter by supplier", async () => {
+      mockIdsAndCount([], 0);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { supplier: "supp-1" };
       await service.findAll(query, tenantId);
 
-      expect(prismaService.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            supplierId: "supp-1",
-          }),
-        }),
-      );
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      expect(idsQuery.sql).toContain('p."supplierId" = ');
+      expect(idsQuery.values).toContain("supp-1");
     });
 
     it("should filter by search term including barcode and brand", async () => {
+      mockIdsAndCount([], 0);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { search: "Tomate" };
       await service.findAll(query, tenantId);
 
-      expect(prismaService.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            OR: [
-              { name: { contains: "Tomate", mode: "insensitive" } },
-              { description: { contains: "Tomate", mode: "insensitive" } },
-              { barcode: { contains: "Tomate", mode: "insensitive" } },
-              { brand: { contains: "Tomate", mode: "insensitive" } },
-            ],
-          }),
-        }),
-      );
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      expect(idsQuery.sql).toContain("p.name ILIKE");
+      expect(idsQuery.sql).toContain("p.barcode ILIKE");
+      expect(idsQuery.sql).toContain("p.brand ILIKE");
+      expect(idsQuery.values).toContain("%Tomate%");
     });
 
     it("should filter by isActive status", async () => {
+      mockIdsAndCount([], 0);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { isActive: true };
       await service.findAll(query, tenantId);
 
-      expect(prismaService.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            isActive: true,
-          }),
-        }),
-      );
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      expect(idsQuery.sql).toContain('p."isActive" = ');
+      expect(idsQuery.values).toContain(true);
     });
 
     it("should sort by specified field and order", async () => {
+      mockIdsAndCount([], 0);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { sortBy: "name", sortOrder: "desc" as const };
       await service.findAll(query, tenantId);
 
-      expect(prismaService.product.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderBy: { name: "desc" },
-        }),
-      );
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      expect(idsQuery.sql).toContain("ORDER BY p.name DESC");
     });
   });
 
@@ -487,7 +476,13 @@ describe("ProductsService", () => {
       const result = await service.findOne("prod-1", tenantId);
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockProduct);
+      // findOne deriva lastPurchaseDate/purchaseDateSource de albaranLines +
+      // manualPurchaseDate (ambos ausentes aquí -> null/null).
+      expect(result.data).toEqual({
+        ...mockProduct,
+        lastPurchaseDate: null,
+        purchaseDateSource: null,
+      });
       expect(result.message).toBe("Product retrieved successfully");
     });
 
@@ -972,8 +967,10 @@ describe("ProductsService", () => {
 
   describe("edge cases", () => {
     it("should handle large page numbers gracefully", async () => {
+      prismaService.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ count: BigInt(0) }]);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { page: 100, limit: 20 };
       const result = await service.findAll(query, tenantId);
@@ -984,8 +981,10 @@ describe("ProductsService", () => {
     });
 
     it("should handle zero limit by using default", async () => {
+      prismaService.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ count: BigInt(0) }]);
       prismaService.product.findMany.mockResolvedValue([]);
-      prismaService.product.count.mockResolvedValue(0);
 
       const query = { limit: 0 } as any;
       const result = await service.findAll(query, tenantId);

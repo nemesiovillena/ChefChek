@@ -4,6 +4,7 @@ import { OrdersService } from "./orders.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { ModuleGuard } from "../../guards/module.guard";
 
 describe("OrdersController", () => {
   let controller: OrdersController;
@@ -40,6 +41,8 @@ describe("OrdersController", () => {
       .overrideGuard(TenantGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ModuleGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
