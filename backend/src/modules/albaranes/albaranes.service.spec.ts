@@ -226,8 +226,34 @@ describe("AlbaranesService", () => {
       expect(prisma.albaran.update).toHaveBeenCalledWith({
         where: { id: "alb-1" },
         data: expect.objectContaining({ notes: "updated" }),
-        include: { lines: true, supplier: true },
+        include: { lines: true, supplier: true, purchaseOrder: true },
       });
+    });
+
+    it("permite vincular un pedido de compra (purchaseOrderId)", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaran.update.mockResolvedValue({ id: "alb-1" });
+
+      await service.update("alb-1", { purchaseOrderId: "o1" } as any, "t1");
+
+      expect(prisma.albaran.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ purchaseOrderId: "o1" }),
+        }),
+      );
+    });
+
+    it("permite desvincular el pedido enviando purchaseOrderId null", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaran.update.mockResolvedValue({ id: "alb-1" });
+
+      await service.update("alb-1", { purchaseOrderId: null } as any, "t1");
+
+      expect(prisma.albaran.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ purchaseOrderId: null }),
+        }),
+      );
     });
   });
 

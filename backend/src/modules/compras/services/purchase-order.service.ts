@@ -93,6 +93,17 @@ export class PurchaseOrderService {
       include: {
         ...ORDER_INCLUDE,
         events: { orderBy: { createdAt: "asc" } },
+        albaranes: {
+          select: {
+            id: true,
+            internalNumber: true,
+            albaranNumber: true,
+            status: true,
+            date: true,
+          },
+          orderBy: { date: "asc" },
+        },
+        invoices: { orderBy: { issuedAt: "desc" } },
       },
     });
     if (!order) {

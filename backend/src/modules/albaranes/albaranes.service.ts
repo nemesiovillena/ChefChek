@@ -49,6 +49,7 @@ export class AlbaranesService {
         vatBreakdown: dto.vatBreakdown ?? undefined,
         total: dto.total ?? 0,
         warehouseId: dto.warehouseId,
+        purchaseOrderId: dto.purchaseOrderId,
         notes: dto.notes,
         lines: {
           create: dto.lines.map((line) => ({
@@ -131,6 +132,9 @@ export class AlbaranesService {
       include: {
         supplier: true,
         warehouse: true,
+        purchaseOrder: {
+          select: { id: true, orderNumber: true, status: true },
+        },
         lines: {
           include: { matchedProduct: true },
           orderBy: { createdAt: "asc" },
@@ -164,8 +168,10 @@ export class AlbaranesService {
         albaranNumber: dto.albaranNumber,
         notes: dto.notes,
         warehouseId: dto.warehouseId,
+        // undefined (no viene en el body) no toca el campo; null desvincula
+        purchaseOrderId: dto.purchaseOrderId,
       },
-      include: { lines: true, supplier: true },
+      include: { lines: true, supplier: true, purchaseOrder: true },
     });
   }
 

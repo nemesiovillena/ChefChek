@@ -24,10 +24,13 @@ import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
 import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
 import { OrderSendingService } from "./services/order-sending.service";
+import { OrderReconciliationService } from "./services/order-reconciliation.service";
+import { InvoiceService } from "./services/invoice.service";
 import { MailService } from "../mail/mail.service";
 import { CreateLocationDto, UpdateLocationDto } from "./dto/location.dto";
 import { SendOrderDto } from "./dto/send-order.dto";
 import { SmtpConfigDto, SmtpTestDto } from "../mail/dto/smtp-config.dto";
+import { CreateInvoiceDto, InvoicesQueryDto } from "./dto/invoice.dto";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -58,6 +61,8 @@ export class ComprasController {
     private readonly purchaseOrderStatusService: PurchaseOrderStatusService,
     private readonly purchaseOrderPdfService: PurchaseOrderPdfService,
     private readonly orderSendingService: OrderSendingService,
+    private readonly orderReconciliationService: OrderReconciliationService,
+    private readonly invoiceService: InvoiceService,
     private readonly mailService: MailService,
   ) {}
 
@@ -178,6 +183,25 @@ export class ComprasController {
     return { success: true, data };
   }
 
+  @Get("pedidos/pendientes-recepcion")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Pedidos enviados/parciales de un proveedor cercanos a una fecha, para vincular un albarán",
+  })
+  async findPendingReception(
+    @Req() req: any,
+    @Query("supplierId") supplierId: string,
+    @Query("date") date?: string,
+  ) {
+    const data = await this.orderReconciliationService.suggestOrders(
+      req.tenantId,
+      supplierId,
+      date ? new Date(date) : undefined,
+    );
+    return { success: true, data };
+  }
+
   @Get("pedidos/:id")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Detalle de pedido con líneas y eventos" })
@@ -271,6 +295,32 @@ export class ComprasController {
   @ApiResponse({ status: 400, description: "Estado no eliminable" })
   async removeOrder(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseOrderService.remove(req.tenantId, id);
+    return { success: true, data };
+  }
+
+  // ── Facturas (registro mínimo, enlazado a albarán/pedido) ──
+
+  @Get("facturas")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar facturas (filtrable por albarán o pedido)" })
+  async findAllInvoices(@Req() req: any, @Query() query: InvoicesQueryDto) {
+    const data = await this.invoiceService.findAll(req.tenantId, query);
+    return { success: true, data };
+  }
+
+  @Post("facturas")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Registrar factura mínima" })
+  async createInvoice(@Req() req: any, @Body() dto: CreateInvoiceDto) {
+    const data = await this.invoiceService.create(req.tenantId, dto);
+    return { success: true, data };
+  }
+
+  @Delete("facturas/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Eliminar (soft) una factura" })
+  async removeInvoice(@Req() req: any, @Param("id") id: string) {
+    const data = await this.invoiceService.remove(req.tenantId, id);
     return { success: true, data };
   }
 

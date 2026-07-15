@@ -71,6 +71,13 @@ export class CreateAlbaranDto {
   @IsString()
   albaranNumber?: string;
 
+  @ApiPropertyOptional({
+    description: "Pedido de compra que este albarán recibe (conciliación)",
+  })
+  @IsOptional()
+  @IsString()
+  purchaseOrderId?: string;
+
   @ApiPropertyOptional({ description: "Fecha del albarán" })
   @IsOptional()
   @IsDateString()

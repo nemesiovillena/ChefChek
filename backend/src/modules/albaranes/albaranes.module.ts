@@ -12,6 +12,7 @@ import { AuthModule } from "../auth/auth.module";
 import { OcrModule } from "../ocr/ocr.module";
 import { CoreModule } from "../core/core.module";
 import { ProductsModule } from "../products/products.module";
+import { ComprasModule } from "../compras/compras.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ProductsModule } from "../products/products.module";
     OcrModule,
     CoreModule,
     ProductsModule,
+    ComprasModule,
   ],
   controllers: [AlbaranesController],
   providers: [

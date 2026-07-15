@@ -16,6 +16,7 @@ const modelsWithSoftDelete = [
   "location",
   "purchaseorder",
   "purchaselist",
+  "invoice",
 ];
 
 @Injectable()

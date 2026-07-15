@@ -13,6 +13,14 @@ export class UpdateAlbaranDto {
   @IsString()
   albaranNumber?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Pedido de compra que este albarán recibe (null para desvincular)",
+  })
+  @IsOptional()
+  @IsString()
+  purchaseOrderId?: string | null;
+
   @ApiPropertyOptional({ description: "Notas" })
   @IsOptional()
   @IsString()

@@ -25,6 +25,8 @@ import {
 } from '@/hooks/use-purchase-orders';
 import { ProductSearchInput } from '../../components/product-search-input';
 import { SendOrderDialog } from '../../components/send-order-dialog';
+import { ReceptionSection } from '../../components/reception-section';
+import { InvoicesSection } from '../../components/invoices-section';
 import { openOrderPdf } from '@/hooks/use-order-sending';
 
 const euro = new Intl.NumberFormat('es-ES', {
@@ -113,6 +115,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const deleteMut = useDeletePurchaseOrder();
 
   const isDraft = order.status === 'BORRADOR';
+  const hasReception = ['ENVIADO', 'RECIBIDO_PARCIAL', 'RECIBIDO'].includes(
+    order.status,
+  );
   const meta = ORDER_STATUS_META[order.status];
 
   const [lines, setLines] = useState(
@@ -399,6 +404,10 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       </footer>
 
       <SendOrderDialog order={order} open={sendOpen} onOpenChange={setSendOpen} />
+
+      {hasReception && <ReceptionSection order={order} />}
+
+      <InvoicesSection order={order} />
 
       {(order.events ?? []).length > 0 && (
         <section>

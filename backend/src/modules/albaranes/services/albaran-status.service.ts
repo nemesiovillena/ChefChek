@@ -10,6 +10,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 // Note: PrismaService path resolves relative to dist/ after compilation
 import { AlbaranStatus, LineMatchStatus, LineStatus } from "@prisma/client";
 import { AlbaranStockService } from "./albaran-stock.service";
+import { OrderReconciliationService } from "../../compras/services/order-reconciliation.service";
 
 /** Valid status transitions and their preconditions */
 const VALID_TRANSITIONS: Record<AlbaranStatus, AlbaranStatus[]> = {
@@ -27,6 +28,7 @@ export class AlbaranStatusService {
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => AlbaranStockService))
     private readonly stockService: AlbaranStockService,
+    private readonly orderReconciliationService: OrderReconciliationService,
   ) {}
 
   /** Transition albaran to a new status with validation */
@@ -66,6 +68,12 @@ export class AlbaranStatusService {
     // Process stock on CONFIRMADO transition
     if (newStatus === AlbaranStatus.CONFIRMADO) {
       await this.stockService.processStockOnConfirmation(albaranId, tenantId);
+      // No-op si el albarán no tiene purchaseOrderId vinculado: el flujo de
+      // albarán sin pedido queda intacto.
+      await this.orderReconciliationService.reconcileFromAlbaran(
+        albaranId,
+        tenantId,
+      );
     }
   }
 

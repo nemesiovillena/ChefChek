@@ -10,9 +10,10 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
+import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
 export default function AlbaranResumenPage() {
@@ -23,6 +24,7 @@ export default function AlbaranResumenPage() {
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+  const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const addNotification = useNotification();
   const confirm = useConfirm();
 
@@ -213,6 +215,30 @@ export default function AlbaranResumenPage() {
                     <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-500">Pedido vinculado</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">
+                        {albaran.purchaseOrder?.orderNumber || 'Sin vincular'}
+                      </p>
+                      {canChangeSupplier && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setOrderPickerOpen(true)}
+                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {albaran.notes && (
@@ -291,6 +317,17 @@ export default function AlbaranResumenPage() {
         onOpenChange={setSupplierPickerOpen}
         albaranId={id}
         currentSupplierId={albaran.supplier?.id}
+        onSuccess={refetch}
+      />
+
+      {/* Purchase Order Picker Dialog */}
+      <PurchaseOrderPickerDialog
+        open={orderPickerOpen}
+        onOpenChange={setOrderPickerOpen}
+        albaranId={id}
+        supplierId={albaran.supplier?.id}
+        albaranDate={albaran.date}
+        currentPurchaseOrderId={albaran.purchaseOrderId}
         onSuccess={refetch}
       />
     </div>

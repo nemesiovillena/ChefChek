@@ -616,19 +616,27 @@ model MenuItem {
 
 // Facturación
 model Invoice {
-  id            String    @id @default(cuid())
-  tenantId      String
-  invoiceNumber String
-  supplier      String
-  totalAmount   Float
-  status        String
-  issuedAt      DateTime
-  dueDate       DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  tenantId        String
+  invoiceNumber   String
+  supplier        String
+  totalAmount     Float
+  status          String
+  issuedAt        DateTime
+  dueDate         DateTime?
+  albaranId       String? // Albarán de recepción asociado (registro mínimo, módulo Compras)
+  purchaseOrderId String? // Pedido de compra asociado
+  fileUrl         String? // Archivo de la factura (opcional)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  albaran       Albaran?       @relation(fields: [albaranId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
 
+  @@index([albaranId])
+  @@index([purchaseOrderId])
   @@map("invoices")
 }
 
@@ -1615,17 +1623,20 @@ model Albaran {
   ocrConfidence   Float         @default(0) // 0-1 confianza global OCR
   ocrRawData      Json? // Respuesta cruda del OCR para re-procesado
   warehouseId     String? // Almacén seleccionado para la entrada de stock
+  purchaseOrderId String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
   notes           String?
   createdBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
 
-  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier     Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  warehouse    Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  lines        AlbaranLine[]
-  priceHistory ProductPriceHistory[]
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier      Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouse     Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  lines         AlbaranLine[]
+  priceHistory  ProductPriceHistory[]
+  invoices      Invoice[]
 
   @@unique([tenantId, internalNumber])
   @@index([tenantId])
@@ -1633,6 +1644,7 @@ model Albaran {
   @@index([status])
   @@index([date])
   @@index([warehouseId])
+  @@index([purchaseOrderId])
   @@map("albaranes")
 }
 
@@ -1835,11 +1847,13 @@ model PurchaseOrder {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  supplier Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  location Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  lines    PurchaseOrderLine[]
-  events   PurchaseOrderEvent[]
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier  Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location  Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  lines     PurchaseOrderLine[]
+  events    PurchaseOrderEvent[]
+  albaranes Albaran[]
+  invoices  Invoice[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId, status])

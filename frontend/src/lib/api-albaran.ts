@@ -41,6 +41,8 @@ export interface Albaran {
   status: AlbaranStatus;
   warehouseId: string | null;
   warehouse: { id: string; name: string } | null;
+  purchaseOrderId: string | null;
+  purchaseOrder: { id: string; orderNumber: string; status: string } | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -118,7 +120,14 @@ export async function getAlbaran(id: string): Promise<Albaran> {
 // Update albaran header
 export async function updateAlbaran(
   id: string,
-  data: { supplierId?: string; albaranNumber?: string; notes?: string; warehouseId?: string }
+  data: {
+    supplierId?: string;
+    albaranNumber?: string;
+    notes?: string;
+    warehouseId?: string;
+    /** Vincula un pedido de compra (conciliación); null para desvincular */
+    purchaseOrderId?: string | null;
+  }
 ): Promise<Albaran> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}`, {
     method: 'PUT',

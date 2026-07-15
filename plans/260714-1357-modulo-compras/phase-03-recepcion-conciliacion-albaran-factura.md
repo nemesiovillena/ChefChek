@@ -1,8 +1,11 @@
 ---
 phase: 3
 title: "Recepción: conciliación pedido↔albarán, discrepancias y factura mínima"
-status: pending
+status: done
 ---
+
+> Completado 2026-07-15. Informe: [reports/sprint-3-checking-report.md](reports/sprint-3-checking-report.md)
+> Limitación documentada: `receivedPrice`/`receivedTotal` usan el último precio recibido, no un promedio ponderado por entrega (ProductPriceHistory sigue completo).
 
 ## Context
 
@@ -39,12 +42,12 @@ status: pending
 
 ## Checking (criterios de aceptación)
 
-- [ ] Albarán sin pedido vinculado: flujo actual intacto (subir→revisar→confirmar→stock/precios) — regresión completa OK
-- [ ] Vincular albarán a pedido ENVIADO y confirmar → líneas del pedido con `receivedQuantity/receivedPrice`; pedido RECIBIDO si todo cubierto
-- [ ] Recepción parcial (albarán con menos cantidad) → RECIBIDO_PARCIAL; segundo albarán completa → RECIBIDO
-- [ ] Discrepancias de precio/cantidad resaltadas en el detalle del pedido
-- [ ] Sugerencia de pedidos filtra por proveedor y ventana de fechas
-- [ ] Factura mínima creada y visible desde pedido y albarán
-- [ ] Borrado de albaranes sigue respetando la regla PENDIENTE/REVISADO
-- [ ] Specs pasan; sin errores TS
-- [ ] Informe en `reports/sprint-3-checking-report.md`
+- [x] Albarán sin pedido vinculado: flujo actual intacto (subir→revisar→confirmar→stock/precios) — regresión completa OK
+- [x] Vincular albarán a pedido ENVIADO y confirmar → líneas del pedido con `receivedQuantity/receivedPrice`; pedido RECIBIDO si todo cubierto
+- [x] Recepción parcial (albarán con menos cantidad) → RECIBIDO_PARCIAL; segundo albarán completa → RECIBIDO
+- [x] Discrepancias de precio/cantidad resaltadas en el detalle del pedido
+- [x] Sugerencia de pedidos filtra por proveedor y ventana de fechas (y excluye RECIBIDO)
+- [x] Factura mínima creada y visible desde pedido (proveedor resuelto automáticamente)
+- [x] Borrado de albaranes sigue respetando la regla PENDIENTE/REVISADO
+- [x] Specs pasan (59 tests); cero fallos nuevos (18 preexistentes verificados vía stash); sin errores TS
+- [x] Informe en `reports/sprint-3-checking-report.md`

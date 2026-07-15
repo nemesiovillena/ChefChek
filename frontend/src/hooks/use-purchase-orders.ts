@@ -37,6 +37,27 @@ export interface PurchaseOrderEvent {
   createdAt: string;
 }
 
+export interface LinkedAlbaran {
+  id: string;
+  internalNumber: string;
+  albaranNumber?: string | null;
+  status: string;
+  date: string;
+}
+
+export interface PurchaseInvoice {
+  id: string;
+  invoiceNumber: string;
+  supplier: string;
+  totalAmount: number;
+  status: string;
+  issuedAt: string;
+  dueDate?: string | null;
+  fileUrl?: string | null;
+  albaranId?: string | null;
+  purchaseOrderId?: string | null;
+}
+
 export interface PurchaseOrder {
   id: string;
   orderNumber: string;
@@ -53,6 +74,8 @@ export interface PurchaseOrder {
   location?: { id: string; name: string } | null;
   lines?: PurchaseOrderLine[];
   events?: PurchaseOrderEvent[];
+  albaranes?: LinkedAlbaran[];
+  invoices?: PurchaseInvoice[];
   _count?: { lines: number };
 }
 

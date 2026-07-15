@@ -7,6 +7,8 @@ import { PurchaseOrderNumberService } from "./services/purchase-order-number.ser
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
 import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
 import { OrderSendingService } from "./services/order-sending.service";
+import { OrderReconciliationService } from "./services/order-reconciliation.service";
+import { InvoiceService } from "./services/invoice.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { UsersModule } from "../users/users.module";
@@ -35,7 +37,14 @@ import { MailModule } from "../mail/mail.module";
     PurchaseOrderStatusService,
     PurchaseOrderPdfService,
     OrderSendingService,
+    OrderReconciliationService,
+    InvoiceService,
   ],
-  exports: [LocationsService, PurchaseListService, PurchaseOrderService],
+  exports: [
+    LocationsService,
+    PurchaseListService,
+    PurchaseOrderService,
+    OrderReconciliationService,
+  ],
 })
 export class ComprasModule {}
