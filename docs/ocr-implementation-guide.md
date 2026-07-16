@@ -92,22 +92,16 @@ enable_validation: true
 
 ### Local Development
 
+El repo tiene varias carpetas de entorno virtual (`venv`, `.venv`, `python_env`) de distintas épocas. **Solo `venv` tiene instaladas las dependencias de IA** (`openai`, `google-generativeai`, `anthropic`) que pide `requirements.txt` — es la que activa `start.sh` y la única que hay que usar. `python_env` en particular no tiene ningún SDK de IA instalado: cualquier extracción con IA falla ahí con `No module named 'google'` (u otro proveedor) sin importar si la API key es válida — verificado empíricamente 2026-07-15.
+
 ```bash
 cd backend/ocr-microservice
-
-# Crear entorno virtual
-python -m venv .venv
-source .venv/bin/activate
-
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Configurar variables de entorno
-cp .env.example .env
-
-# Iniciar servicio
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+./start.sh
+# o equivalente manual:
+./venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+**Importante:** este microservicio es un proceso Python independiente. NO lo arranca `npm run start:dev` del backend ni Docker en dev — hay que lanzarlo a mano en cada sesión de desarrollo (o dejarlo como servicio persistente, ver Troubleshooting). Si se cierra la terminal donde corre o se reinicia la máquina, se detiene.
 
 ### Production Deployment
 
@@ -129,7 +123,7 @@ pm2 save
 ## NestJS Integration
 
 ### PythonOcrService
-`backend/src/modules/ingesta/python-ocr.service.ts`
+`backend/src/modules/ocr/python-ocr.service.ts`
 
 ```typescript
 // Configuración
@@ -275,15 +269,29 @@ curl http://localhost:8000/config
 ## Troubleshooting
 
 ### Service Not Running
-```bash
-# Verificar servicio
-curl http://localhost:8000/health
 
-# Iniciar manualmente
+**Síntoma:** al subir un albarán, se crea igualmente pero con 0 líneas, `albaranNumber` con prefijo `FALLBACK-{timestamp}` y `notes` = "Error en OCR: ... Requiere revisión manual". El backend NO devuelve error al frontend — el catch en `AlbaranesService.createFromUpload` (`backend/src/modules/albaranes/albaranes.service.ts`) absorbe el fallo del microservicio y crea el albarán vacío como fallback. Esto es fácil de confundir con un bug del backend o de un módulo recién tocado (p.ej. Compras) cuando en realidad el microservicio Python simplemente no está levantado.
+
+```bash
+# 1. Verificar servicio
+curl http://localhost:8000/health
+# Si no responde -> confirmar la causa buscando albaranes FALLBACK:
+#   SELECT "albaranNumber", "createdAt", notes FROM albaranes
+#   WHERE "albaranNumber" LIKE 'FALLBACK-%' ORDER BY "createdAt" DESC;
+
+# 2. Iniciar manualmente con el venv correcto (NO python_env: le faltan los SDKs de IA)
 cd backend/ocr-microservice
-source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+nohup ./venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 >> logs/uvicorn_stdout.log 2>&1 &
+
+# 3. Confirmar arranque (puede tardar unos segundos en cargar PaddleOCR)
+curl http://localhost:8000/health
 ```
+
+Log activo: `backend/ocr-microservice/logs/ocr_service.log` (el `ocr_service.log` en la raíz del microservicio es un log viejo, no confiar en su fecha).
+
+Es un proceso manual que no sobrevive a reinicios de la máquina ni al cierre de la terminal — no hay autoarranque configurado en dev. Si esto se vuelve recurrente, considerar un `launchd`/`pm2` persistente (ver sección "Production Deployment" arriba, opción PM2 aplica igual en dev).
+
+**Ojo con el entorno Python equivocado:** si una extracción con IA falla con `No module named 'google'` (o `openai`/`anthropic`), no es una API key inválida — es que el proceso se lanzó con `python_env` en vez de `venv`. Solo `venv` tiene instalados los SDKs de IA que pide `requirements.txt`; `python_env` no tiene ninguno. Mata el proceso y relánzalo con `./venv/bin/uvicorn` (o `./start.sh`).
 
 ### Low Confidence Issues
 - Verificar calidad de imagen

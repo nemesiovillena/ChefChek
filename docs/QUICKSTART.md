@@ -46,6 +46,18 @@ npm run dev
 
 Frontend ejecutará en: `http://localhost:3000`
 
+### 3b. Microservicio OCR (necesario para leer albaranes)
+
+Proceso Python independiente, no lo arranca ni el backend ni Docker. Sin él, subir un albarán crea un registro `FALLBACK-*` vacío en vez de leer los productos (ver [ocr-implementation-guide.md](./ocr-implementation-guide.md#troubleshooting)).
+
+```bash
+cd backend/ocr-microservice
+./start.sh
+# o equivalente manual: ./venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+OCR ejecutará en: `http://localhost:8000` (verificar con `curl http://localhost:8000/health`)
+
 ### 4. Primer Login
 
 1. Navegar a `http://localhost:3000/login`
