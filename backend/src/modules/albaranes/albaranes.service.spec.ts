@@ -28,6 +28,7 @@ describe("AlbaranesService", () => {
     },
     product: { findFirst: jest.fn() },
     supplier: { findFirst: jest.fn() },
+    $queryRaw: jest.fn(),
   };
   const numberService = {
     generateInternalNumber: jest.fn().mockResolvedValue("ALB-0001"),
@@ -478,6 +479,34 @@ describe("AlbaranesService", () => {
       expect(prisma.albaran.delete).toHaveBeenCalledWith({
         where: { id: "alb-1" },
       });
+    });
+
+    it("is idempotent: returns success when already soft-deleted", async () => {
+      // findOne (findFirst) filtra los soft-deleted → lanza NotFound aun existiendo
+      prisma.albaran.findFirst.mockResolvedValue(null);
+      // SQL crudo salta el soft-delete y confirma que SÍ está en la papelera
+      const deletedAt = new Date("2026-07-16T14:36:16.999Z");
+      prisma.$queryRaw.mockResolvedValue([{ deletedAt }]);
+
+      const result = await service.remove("alb-1", "t1");
+
+      expect(result).toEqual({
+        id: "alb-1",
+        alreadyDeleted: true,
+        deletedAt,
+      });
+      // No se ejecuta un segundo borrado sobre algo ya borrado
+      expect(prisma.albaran.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFound when the albaran does not exist at all", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(null);
+      // SQL crudo no encuentra la fila: no existe (ni viva ni borrada)
+      prisma.$queryRaw.mockResolvedValue([]);
+
+      await expect(service.remove("alb-1", "t1")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

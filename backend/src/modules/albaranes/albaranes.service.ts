@@ -306,7 +306,25 @@ export class AlbaranesService {
 
   /** Delete albaran (only PENDIENTE or REVISADO) */
   async remove(id: string, tenantId: string) {
-    const albaran = await this.findOne(id, tenantId);
+    let albaran;
+    try {
+      albaran = await this.findOne(id, tenantId);
+    } catch (err) {
+      // findOne() usa findFirst, que el middleware de soft-delete filtra por
+      // deletedAt = null, así que NO distingue "no existe" de "ya borrado".
+      // Hacemos el borrado idempotente: si el albarán ya está en la papelera,
+      // respondemos éxito en vez de 404, para que un reintento (timeout de red,
+      // doble-clic o pestaña con caché de React Query) no se traduzca en error.
+      if (err instanceof NotFoundException) {
+        const [existing] = await this.prisma.$queryRaw<
+          { deletedAt: Date | null }[]
+        >`SELECT "deletedAt" FROM albaranes WHERE id = ${id} AND "tenantId" = ${tenantId} LIMIT 1`;
+        if (existing) {
+          return { id, alreadyDeleted: true, deletedAt: existing.deletedAt };
+        }
+      }
+      throw err;
+    }
 
     if (
       albaran.status === AlbaranStatus.CONFIRMADO ||
