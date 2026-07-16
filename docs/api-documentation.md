@@ -2652,6 +2652,8 @@ Gestión de tenants para la arquitectura multi-tenant de ChefChek.
 
 **Endpoint:** `POST /api/v1/tenants`
 
+**Autorización:** solo `SUPERADMIN`.
+
 **Request Body:**
 ```json
 {
@@ -2748,6 +2750,8 @@ const createTenant = async (tenantData) => {
 
 **Endpoint:** `GET /api/v1/tenants`
 
+**Autorización:** solo `SUPERADMIN` (listado cross-tenant).
+
 **Query Parameters:**
 - `page` (number, opcional): Número de página (default: 1)
 - `limit` (number, opcional): Resultados por página (default: 20)
@@ -2807,6 +2811,8 @@ const getTenants = async (page = 1, limit = 20) => {
 
 **Endpoint:** `GET /api/v1/tenants/:id`
 
+**Autorización:** `ADMIN`+ del propio tenant (`:id` == `user.tenantId`), o `SUPERADMIN` para cualquier tenant.
+
 **Response (200 OK):**
 ```json
 {
@@ -2845,6 +2851,8 @@ curl -X GET http://localhost:3001/api/v1/tenants/tenant-uuid-123 \
 #### 2.6.4 Actualizar Tenant
 
 **Endpoint:** `PATCH /api/v1/tenants/:id`
+
+**Autorización:** `ADMIN`+ del propio tenant (`:id` == `user.tenantId`), o `SUPERADMIN` para cualquier tenant.
 
 **Request Body (parcial):**
 ```json
@@ -2912,6 +2920,8 @@ const updateTenant = async (tenantId, updates) => {
 #### 2.6.5 Eliminar Tenant
 
 **Endpoint:** `DELETE /api/v1/tenants/:id`
+
+**Autorización:** solo `SUPERADMIN`.
 
 **Response (204 No Content):**
 ```

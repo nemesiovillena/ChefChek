@@ -2,7 +2,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { TenantsController } from "./tenants.controller";
 import { TenantsService } from "./tenants.service";
 import { CreateTenantDto, UpdateTenantDto } from "./dto/create-tenant.dto";
-import { NotFoundException, ConflictException } from "@nestjs/common";
+import {
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
@@ -208,6 +212,11 @@ describe("TenantsController", () => {
     });
   });
 
+  const reqAsOwnTenant = (tenantId: string) =>
+    ({ user: { id: "user-1", role: "ADMIN", tenantId } }) as any;
+  const reqAsSuperadmin = () =>
+    ({ user: { id: "super-1", role: "SUPERADMIN", tenantId: null } }) as any;
+
   describe("findOne", () => {
     it("should return a tenant by ID", async () => {
       const tenantId = "tenant-1";
@@ -228,7 +237,10 @@ describe("TenantsController", () => {
 
       mockTenantsService.findOne.mockResolvedValue(expectedResult);
 
-      const result = await controller.findOne(tenantId);
+      const result = await controller.findOne(
+        tenantId,
+        reqAsOwnTenant(tenantId),
+      );
 
       expect(mockTenantsService.findOne).toHaveBeenCalledWith(tenantId);
       expect(result.success).toBe(true);
@@ -242,10 +254,28 @@ describe("TenantsController", () => {
         new NotFoundException("Tenant not found"),
       );
 
-      await expect(controller.findOne(tenantId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne(tenantId, reqAsOwnTenant(tenantId)),
+      ).rejects.toThrow(NotFoundException);
       expect(mockTenantsService.findOne).toHaveBeenCalledWith(tenantId);
+    });
+
+    it("should throw ForbiddenException when requesting another tenant's data", async () => {
+      await expect(
+        controller.findOne("tenant-1", reqAsOwnTenant("tenant-2")),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTenantsService.findOne).not.toHaveBeenCalled();
+    });
+
+    it("should allow SUPERADMIN to fetch any tenant", async () => {
+      const tenantId = "tenant-1";
+      const expectedResult = { success: true, data: { id: tenantId } };
+      mockTenantsService.findOne.mockResolvedValue(expectedResult);
+
+      const result = await controller.findOne(tenantId, reqAsSuperadmin());
+
+      expect(mockTenantsService.findOne).toHaveBeenCalledWith(tenantId);
+      expect(result.success).toBe(true);
     });
   });
 
@@ -273,7 +303,11 @@ describe("TenantsController", () => {
 
       mockTenantsService.update.mockResolvedValue(expectedResult);
 
-      const result = await controller.update(tenantId, updateTenantDto);
+      const result = await controller.update(
+        tenantId,
+        updateTenantDto,
+        reqAsOwnTenant(tenantId),
+      );
 
       expect(mockTenantsService.update).toHaveBeenCalledWith(
         tenantId,
@@ -292,7 +326,7 @@ describe("TenantsController", () => {
       );
 
       await expect(
-        controller.update(tenantId, updateTenantDto),
+        controller.update(tenantId, updateTenantDto, reqAsOwnTenant(tenantId)),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -305,7 +339,7 @@ describe("TenantsController", () => {
       );
 
       await expect(
-        controller.update(tenantId, updateTenantDto),
+        controller.update(tenantId, updateTenantDto, reqAsOwnTenant(tenantId)),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -320,8 +354,19 @@ describe("TenantsController", () => {
       );
 
       await expect(
-        controller.update(tenantId, updateTenantDto),
+        controller.update(tenantId, updateTenantDto, reqAsOwnTenant(tenantId)),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it("should throw ForbiddenException when updating another tenant", async () => {
+      await expect(
+        controller.update(
+          "tenant-1",
+          { name: "x" },
+          reqAsOwnTenant("tenant-2"),
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockTenantsService.update).not.toHaveBeenCalled();
     });
   });
 

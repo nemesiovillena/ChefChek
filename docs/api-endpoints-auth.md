@@ -241,7 +241,9 @@ X-Tenant-Slug: {tenant-slug}
 
 **Endpoint:** `POST /api/v1/tenants`
 
-**Headers:** Ninguno (excluido de middleware de tenant)
+**Autorización:** solo `SUPERADMIN`.
+
+**Headers:** Sin `X-Tenant-Slug` (excluido de middleware de tenant), pero requiere `Authorization: Bearer {session-token}` de un SUPERADMIN.
 
 **Body:**
 ```json
@@ -281,6 +283,8 @@ X-Tenant-Slug: {tenant-slug}
 ### Get All Tenants - Listar Todos los Tenants
 
 **Endpoint:** `GET /api/v1/tenants?page=1&limit=20`
+
+**Autorización:** solo `SUPERADMIN` (listado cross-tenant).
 
 **Headers:**
 ```
@@ -329,6 +333,8 @@ X-Tenant-Slug: {tenant-slug}
 
 **Endpoint:** `GET /api/v1/tenants/:id`
 
+**Autorización:** `ADMIN`+ del propio tenant (`:id` debe coincidir con `user.tenantId`), o `SUPERADMIN` para cualquier tenant. Usado por la página `/dashboard/settings` para mostrar los datos del tenant.
+
 **Headers:**
 ```
 Authorization: Bearer {session-token}
@@ -371,6 +377,8 @@ X-Tenant-Slug: {tenant-slug}
 
 **Endpoint:** `PATCH /api/v1/tenants/:id`
 
+**Autorización:** `ADMIN`+ del propio tenant (`:id` debe coincidir con `user.tenantId`), o `SUPERADMIN` para cualquier tenant.
+
 **Headers:**
 ```
 Authorization: Bearer {session-token}
@@ -412,6 +420,8 @@ X-Tenant-Slug: {tenant-slug}
 ### Delete Tenant - Eliminar Tenant
 
 **Endpoint:** `DELETE /api/v1/tenants/:id`
+
+**Autorización:** solo `SUPERADMIN`.
 
 **Headers:**
 ```
