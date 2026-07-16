@@ -13,7 +13,7 @@ import {
   IsIn,
   IsDateString,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 
 export class NutritionalInfoDto {
   @IsOptional() @IsNumber() @Min(0) energyKj?: number;
@@ -353,7 +353,13 @@ export class ProductsQueryDto {
   @IsString()
   supplier?: string;
 
+  // Llega como string en querystring ('true'/'false'); sin @Transform,
+  // @IsBoolean() rechaza cualquier valor con 400 (ValidationPipe transform:true
+  // no aplica conversión implícita sin @Type/@Transform explícito).
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value === "true" : value,
+  )
   @IsBoolean()
   isActive?: boolean;
 

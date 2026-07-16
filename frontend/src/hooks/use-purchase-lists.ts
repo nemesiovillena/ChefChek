@@ -33,8 +33,29 @@ export interface PurchaseListItemInput {
   defaultQuantity?: number;
 }
 
+export interface SupplierCatalogProduct {
+  id: string;
+  name: string;
+  referenceUnit?: string;
+  purchaseFormat?: string;
+}
+
 const BASE_URL = '/v1/compras/listas';
 const QUERY_KEY = ['purchase-lists'];
+
+/**
+ * Catálogo completo (sin paginar) de artículos de un proveedor — principal o
+ * con oferta activa en ProductSupplierOffer. Mismo patrón que el export CSV
+ * de Artículos (`?export=true`).
+ */
+export async function fetchSupplierCatalogProducts(
+  supplierId: string,
+): Promise<SupplierCatalogProduct[]> {
+  const response = await apiClient.get<{ data: SupplierCatalogProduct[] }>('/v1/products', {
+    params: { supplier: supplierId, isActive: true, export: 'true' },
+  });
+  return response.data?.data ?? [];
+}
 
 export function usePurchaseLists() {
   return useApiQuery<PurchaseList[]>(QUERY_KEY, BASE_URL);

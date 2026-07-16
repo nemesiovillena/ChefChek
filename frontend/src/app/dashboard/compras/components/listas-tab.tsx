@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Loader2,
   Plus,
+  RefreshCw,
   Send,
   Trash2,
   Wand2,
@@ -14,12 +15,14 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import { useSuppliers } from '@/hooks/use-suppliers';
 import {
+  fetchSupplierCatalogProducts,
   useCreatePurchaseList,
   useDeletePurchaseList,
   useGenerateOrderFromList,
   usePurchaseLists,
   useUpdatePurchaseList,
   type PurchaseList,
+  type SupplierCatalogProduct,
 } from '@/hooks/use-purchase-lists';
 import { ProductSearchInput } from './product-search-input';
 
@@ -32,25 +35,50 @@ export function ListasTab({ canManage }: { canManage: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newSupplierId, setNewSupplierId] = useState('');
+  const [isPrefillingCatalog, setIsPrefillingCatalog] = useState(false);
+  // Catálogo del proveedor recién traído para la lista creada, aún sin
+  // guardar: se muestra como propuesta sin marcar (el usuario elige qué
+  // incluir). No se persiste nada hasta "Guardar checklist".
+  const [pendingCatalog, setPendingCatalog] = useState<{
+    listId: string;
+    products: SupplierCatalogProduct[];
+  } | null>(null);
 
   const list = (lists ?? []).find((l) => l.id === selectedId) ?? null;
 
   const handleCreate = async () => {
     if (!newName.trim() || !newSupplierId) return;
+    setIsPrefillingCatalog(true);
     try {
+      const catalog = await fetchSupplierCatalogProducts(newSupplierId);
       const created = await createMut.mutateAsync({
         name: newName.trim(),
         supplierId: newSupplierId,
       });
       setNewName('');
       setSelectedId(created.id);
-      addNotification({ type: 'success', title: 'Lista creada', message: created.name });
+      setPendingCatalog({ listId: created.id, products: catalog });
+      if (catalog.length === 0) {
+        addNotification({
+          type: 'warning',
+          title: 'Lista creada vacía',
+          message: 'El proveedor no tiene artículos asignados todavía.',
+        });
+      } else {
+        addNotification({
+          type: 'success',
+          title: 'Lista creada',
+          message: `${catalog.length} artículos del catálogo de ${created.supplier?.name ?? 'el proveedor'}. Marca los que quieras pedir y guarda el checklist.`,
+        });
+      }
     } catch (e) {
       addNotification({
         type: 'error',
         title: 'No se pudo crear la lista',
         message: e instanceof Error ? e.message : 'Error desconocido',
       });
+    } finally {
+      setIsPrefillingCatalog(false);
     }
   };
 
@@ -95,10 +123,10 @@ export function ListasTab({ canManage }: { canManage: boolean }) {
             </select>
             <button
               onClick={handleCreate}
-              disabled={!newName.trim() || !newSupplierId || createMut.isPending}
+              disabled={!newName.trim() || !newSupplierId || createMut.isPending || isPrefillingCatalog}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              {createMut.isPending ? (
+              {createMut.isPending || isPrefillingCatalog ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="h-4 w-4" />
@@ -139,7 +167,15 @@ export function ListasTab({ canManage }: { canManage: boolean }) {
 
       {list ? (
         // key fuerza remontar el editor al cambiar de lista (estado limpio)
-        <ListEditor key={list.id} list={list} canManage={canManage} />
+        <ListEditor
+          key={list.id}
+          list={list}
+          canManage={canManage}
+          pendingCatalog={
+            pendingCatalog?.listId === list.id ? pendingCatalog.products : undefined
+          }
+          onSaved={() => setPendingCatalog(null)}
+        />
       ) : (
         <div className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-10 text-center text-[var(--on-surface-variant)]">
           Selecciona una lista para ver su checklist o crea una nueva.
@@ -157,7 +193,18 @@ interface EditorRow {
   checked: boolean;
 }
 
-function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolean }) {
+function ListEditor({
+  list,
+  canManage,
+  pendingCatalog,
+  onSaved,
+}: {
+  list: PurchaseList;
+  canManage: boolean;
+  /** Catálogo recién traído para una lista creada sin guardar todavía. */
+  pendingCatalog?: SupplierCatalogProduct[];
+  onSaved: () => void;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   const addNotification = useNotification();
@@ -165,14 +212,26 @@ function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolea
   const deleteMut = useDeletePurchaseList();
   const generateMut = useGenerateOrderFromList();
 
+  // Si hay catálogo pendiente (lista recién creada, sin artículos guardados
+  // aún), se muestra como propuesta sin marcar: el usuario elige qué
+  // incluir. Si la lista ya tiene artículos guardados, esos son la verdad y
+  // aparecen marcados.
   const [rows, setRows] = useState<EditorRow[]>(
-    list.items.map((item) => ({
-      productId: item.productId,
-      name: item.product?.name ?? item.productId,
-      unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
-      quantity: item.defaultQuantity,
-      checked: true,
-    })),
+    pendingCatalog && list.items.length === 0
+      ? pendingCatalog.map((p) => ({
+          productId: p.id,
+          name: p.name,
+          unitHint: p.purchaseFormat || p.referenceUnit || '',
+          quantity: 1,
+          checked: false,
+        }))
+      : list.items.map((item) => ({
+          productId: item.productId,
+          name: item.product?.name ?? item.productId,
+          unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
+          quantity: item.defaultQuantity,
+          checked: true,
+        })),
   );
 
   const notifyError = (e: unknown, fallback: string) =>
@@ -182,20 +241,64 @@ function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolea
       message: e instanceof Error ? e.message : fallback,
     });
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // El check determina pertenencia a la lista: solo se persiste lo marcado.
   const handleSave = async () => {
     try {
       await updateMut.mutateAsync({
         id: list.id,
         data: {
-          items: rows.map((r) => ({
-            productId: r.productId,
-            defaultQuantity: r.quantity,
-          })),
+          items: rows
+            .filter((r) => r.checked)
+            .map((r) => ({
+              productId: r.productId,
+              defaultQuantity: r.quantity,
+            })),
         },
       });
       addNotification({ type: 'success', title: 'Lista guardada', message: list.name });
+      onSaved();
     } catch (e) {
       notifyError(e, 'No se pudo guardar la lista');
+    }
+  };
+
+  // Trae el catálogo del proveedor y añade como filas nuevas (sin marcar) los
+  // artículos que aún no están en el checklist; no toca las filas existentes.
+  const handleSyncCatalog = async () => {
+    setIsSyncing(true);
+    try {
+      const catalog = await fetchSupplierCatalogProducts(list.supplierId);
+      const existingIds = new Set(rows.map((r) => r.productId));
+      const missing = catalog.filter((p) => !existingIds.has(p.id));
+      if (missing.length === 0) {
+        addNotification({
+          type: 'info',
+          title: 'Sin artículos nuevos',
+          message: 'El checklist ya cubre todo el catálogo del proveedor.',
+        });
+        return;
+      }
+      setRows((prev) => [
+        ...prev,
+        ...missing.map((p) => ({
+          productId: p.id,
+          name: p.name,
+          unitHint: p.purchaseFormat || p.referenceUnit || '',
+          quantity: 1,
+          checked: false,
+        })),
+      ]);
+      addNotification({
+        type: 'success',
+        title: 'Catálogo sincronizado',
+        message: `${missing.length} artículo(s) nuevo(s) añadidos. Guarda el checklist para persistirlos.`,
+      });
+    } catch (e) {
+      notifyError(e, 'No se pudo sincronizar con el catálogo del proveedor');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -248,7 +351,8 @@ function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolea
 
   return (
     <section className="space-y-4 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      {/* div, no <header>: la regla global header:not(.fixed){display:none} oculta cualquier <header> que no sea el navbar fijo */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-[var(--on-surface)]">{list.name}</h2>
           <p className="text-sm text-[var(--on-surface-variant)]">
@@ -264,7 +368,7 @@ function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolea
             <Trash2 className="h-4 w-4" /> Eliminar lista
           </button>
         )}
-      </header>
+      </div>
 
       <ul className="space-y-2">
         {rows.map((row, index) => (
@@ -354,6 +458,19 @@ function ListEditor({ list, canManage }: { list: PurchaseList; canManage: boolea
             className="rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
           >
             Guardar checklist
+          </button>
+          <button
+            onClick={handleSyncCatalog}
+            disabled={isSyncing}
+            title="Añade al checklist los artículos que el proveedor haya incorporado desde que se creó la lista"
+            className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+          >
+            {isSyncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Sincronizar con catálogo
           </button>
           <button
             onClick={() => generate(true)}
