@@ -50,6 +50,7 @@ export const MORE_SECTIONS: NavSection[] = [
     items: [
       { label: 'Almacén', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
       { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
+      { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: 'local_shipping' },
     ],
   },
   {
@@ -102,6 +103,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/recipes', moduleId: 'recipes' },
   { prefix: '/dashboard/menus', moduleId: 'menus' },
   { prefix: '/dashboard/compras', moduleId: 'compras' },
+  { prefix: '/dashboard/proveedores', moduleId: 'proveedores' },
   { prefix: '/dashboard/users', moduleId: 'sala' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
 ];

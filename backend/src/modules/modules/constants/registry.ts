@@ -148,6 +148,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: true,
   },
   {
+    id: "proveedores",
+    name: "Proveedores",
+    description:
+      "Gestión de proveedores: datos fiscales, contacto, condiciones y productos asociados",
+    dependencies: ["articulos"],
+    alwaysActive: false,
+    defaultEnabled: true,
+  },
+  {
     id: "conocimiento",
     name: "Conocimiento",
     description: "Base de conocimiento y documentación",

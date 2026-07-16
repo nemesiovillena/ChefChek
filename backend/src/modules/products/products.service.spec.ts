@@ -935,10 +935,10 @@ describe("ProductsService", () => {
   });
 
   describe("getSuppliers", () => {
-    it("should return active suppliers for tenant from Supplier table", async () => {
+    it("should return all suppliers (active and inactive) for tenant with full fields by default", async () => {
       const mockSuppliers = [
-        { id: "supp-1", name: "Proveedor A" },
-        { id: "supp-2", name: "Proveedor B" },
+        { id: "supp-1", name: "Proveedor A", isActive: true },
+        { id: "supp-2", name: "Proveedor B", isActive: false },
       ];
 
       prismaService.supplier.findMany.mockResolvedValue(mockSuppliers);
@@ -949,8 +949,23 @@ describe("ProductsService", () => {
       expect(result.data).toEqual(mockSuppliers);
       expect(result.message).toBe("Suppliers retrieved successfully");
       expect(prismaService.supplier.findMany).toHaveBeenCalledWith({
+        where: { tenantId },
+        orderBy: { name: "asc" },
+      });
+    });
+
+    it("should filter by isActive when explicitly provided", async () => {
+      const mockSuppliers = [
+        { id: "supp-1", name: "Proveedor A", isActive: true },
+      ];
+
+      prismaService.supplier.findMany.mockResolvedValue(mockSuppliers);
+
+      const result = await service.getSuppliers(tenantId, undefined, true);
+
+      expect(result.data).toEqual(mockSuppliers);
+      expect(prismaService.supplier.findMany).toHaveBeenCalledWith({
         where: { tenantId, isActive: true },
-        select: { id: true, name: true },
         orderBy: { name: "asc" },
       });
     });

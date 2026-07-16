@@ -1127,6 +1127,9 @@ model Supplier {
   whatsapp            String?
   website             String?
   sanitaryRegistry    String? // Nº registro sanitario RGSA
+  iban                String? // IBAN para pagos
+  paymentTerms        String? // Condiciones de pago en texto libre, p.ej. "30 días fecha factura"
+  notes               String?   @db.Text // Notas internas sobre el proveedor
   averageDeliveryTime Int       @default(3) // días
   reliabilityScore    Float     @default(85) // 0-100
   priceTier           String    @default("MEDIUM") // LOW, MEDIUM, HIGH

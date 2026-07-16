@@ -4,11 +4,17 @@ import type { Supplier } from './use-suppliers';
 
 interface CreateSupplierDto {
   name: string;
+  cifNif?: string;
+  address?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
   whatsapp?: string;
   website?: string;
+  sanitaryRegistry?: string;
+  iban?: string;
+  paymentTerms?: string;
+  notes?: string;
   averageDeliveryTime: number;
   reliabilityScore: number;
   priceTier: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -19,11 +25,17 @@ interface CreateSupplierDto {
 
 interface UpdateSupplierDto {
   name?: string;
+  cifNif?: string;
+  address?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
   whatsapp?: string;
   website?: string;
+  sanitaryRegistry?: string;
+  iban?: string;
+  paymentTerms?: string;
+  notes?: string;
   averageDeliveryTime?: number;
   reliabilityScore?: number;
   priceTier?: 'LOW' | 'MEDIUM' | 'HIGH';

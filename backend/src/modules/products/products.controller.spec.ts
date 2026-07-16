@@ -202,10 +202,15 @@ describe("ProductsController", () => {
         data: mockSuppliers,
       });
 
-      const result = await controller.getSuppliers(undefined as any, mockReq);
+      const result = await controller.getSuppliers(
+        undefined as any,
+        undefined as any,
+        mockReq,
+      );
 
       expect(mockProductsService.getSuppliers).toHaveBeenCalledWith(
         mockReq.tenantId,
+        undefined,
         undefined,
       );
       expect(result.success).toBe(true);

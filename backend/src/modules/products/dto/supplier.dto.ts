@@ -48,6 +48,18 @@ export class CreateSupplierDto {
   sanitaryRegistry?: string;
 
   @IsOptional()
+  @IsString()
+  iban?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(30)
@@ -118,6 +130,18 @@ export class UpdateSupplierDto {
   sanitaryRegistry?: string;
 
   @IsOptional()
+  @IsString()
+  iban?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(30)
@@ -162,6 +186,9 @@ export class SupplierResponseDto {
   whatsapp?: string;
   website?: string;
   sanitaryRegistry?: string;
+  iban?: string;
+  paymentTerms?: string;
+  notes?: string;
   averageDeliveryTime: number;
   reliabilityScore: number;
   priceTier: string;

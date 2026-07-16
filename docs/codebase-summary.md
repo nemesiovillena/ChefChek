@@ -24,7 +24,7 @@ Backend NestJS + Prisma + PostgreSQL; frontend Next.js (App Router) + React 19.
 - **Internationalization**: next-intl 4
 - **Editor**: TipTap 3 (contenido enriquecido)
 - **Datos**: axios + React Query 5; estado con Zustand
-- **Rutas**: dashboard con 22 submódulos navegables + login/register. Verifica estado real en `docs/codebase-summary.md` vs. el changelog histórico.
+- **Rutas**: dashboard con 23 submódulos navegables + login/register. Verifica estado real en `docs/codebase-summary.md` vs. el changelog histórico.
 
 ## Modules (30)
 Organizados por dominio bajo `backend/src/modules/`:
@@ -37,6 +37,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 - **Sala / carta digital**: `digital-menu`, `qr`, `sala`
 - **Albaranes + OCR**: `albaranes` (gestión, alta manual y upload de albaranes) + `ocr` (motor OCR/IA compartido para lectura de albaranes)
 - **Compras** (2026-07-15, tenant-activable): `compras` — pedidos a proveedores, listas de compra, envío multicanal (wa.me/SMTP/tel/PDF), precios pactados con detección de desviaciones, catálogos/tarifas con IA, comparativa de proveedores, activación de oferta por local, programación de pedidos (`@nestjs/schedule`) y analítica (top-20 gasto, por proveedor, desviaciones, comparativa de precios). Retira el prototipo roto `orders` del registro/nav/`app.module.ts` (la carpeta y sus tablas stub se conservan sin usar). Nueva entidad `Location` (multi-local). PDR: `docs/pdr-modulo-compras.md`; plan y sprints: `plans/260714-1357-modulo-compras/`.
+- **Proveedores** (2026-07-16, tenant-activable, `dependencies: ["articulos"]`): apartado propio `dashboard/proveedores` con CRUD completo — datos fiscales (CIF/NIF, dirección, registro sanitario), contacto, condiciones comerciales (IBAN, condiciones de pago, notas internas), plazo de entrega, fiabilidad, nivel de precio, estado preferente, métodos de pedido, histórico de precios y productos asociados. No es un módulo NestJS nuevo: el CRUD sigue viviendo en `products` (`ProductsController`/`ProductsService`, gateado por `@RequireModule("articulos")`); el nuevo moduleId `proveedores` solo gatea la navegación/ruta frontend. Sustituye a un modal de gestión completo que existía en el código pero nunca estuvo enlazado a ningún botón (código muerto desde su creación).
 - **Conocimiento**: `conocimiento` (wiki/procedimientos)
 - **Visión**: `dashboard`
 
@@ -73,7 +74,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 | Backend | 🟢 Compila (`nest build`), 83 modelos, 30 módulos, seed coherente |
 | Frontend | 🟢 Compila (`next build`), 24+ rutas; 0 errores de tipo |
 | Lint frontend | 🟡 0 errores, ~125 warnings (cosmético, `unused-vars`) |
-| Tests backend (unit) | 🟡 1475 tests, 94 suites (medido 2026-07-15); 263 tests/17 suites fallan — preexistentes, no relacionados con Compras (mismo nº antes/después, verificado con `git stash`) |
+| Tests backend (unit) | 🟢 1476 tests, 94 suites — todos en verde (medido 2026-07-16, tras la corrección de los 263 tests preexistentes en `84b57b1`) |
 | E2E backend | 🟢 29/29 (Supertest) |
 | Docs | 🟢 Sincronizados (2026-06-29) |
 
@@ -86,6 +87,7 @@ Organizados por dominio bajo `backend/src/modules/`:
 - Cerrar warnings de lint del frontend (~125, mayoría `unused-vars`).
 - Cobertura de tests backend: última medición formalizada 2026-06-04 (85.15%); revalidar antes de citar.
 - **Módulo Compras implementado** (2026-07-14 a 2026-07-15, sprints 0-7 completos): ver entrada en "Modules" arriba. Pendiente de futuro: analítica de escandallos IVA con PVP no cubierta; credenciales SMTP por tenant sin cifrar en `Configuration` (riesgo anotado en el PDR, fase 2).
+- **Apartado Proveedores implementado** (2026-07-16): ver entrada en "Modules" arriba. `globals.css` tiene una regla `header:not(.fixed){display:none!important}` (pensada para ocultar headers antiguos duplicados) que también oculta cualquier `<header>` de página nueva — usar `<div>` para títulos de página, no `<header>` (afecta también a `compras/page.tsx`, sin corregir por estar fuera de alcance).
 
 ---
 **Última verificación**: 2026-06-29 · **Rama**: `develop` · **Versión**: 0.2.0

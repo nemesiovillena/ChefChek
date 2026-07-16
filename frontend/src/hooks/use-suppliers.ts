@@ -1,13 +1,20 @@
 import { useApiQuery } from './use-api';
+import { PaginatedResponse } from '@/types/api.types';
 
 export interface Supplier {
   id: string;
   name: string;
+  cifNif?: string;
+  address?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
   whatsapp?: string;
   website?: string;
+  sanitaryRegistry?: string;
+  iban?: string;
+  paymentTerms?: string;
+  notes?: string;
   isActive: boolean;
   averageDeliveryTime: number;
   reliabilityScore: number;
@@ -62,6 +69,20 @@ export function useSupplierPriceHistory(supplierId: string, limit: number = 30) 
   return useApiQuery<SupplierPriceHistoryEntry[]>(
     ['supplier-price-history', supplierId],
     `/v1/products/suppliers/${supplierId}/price-history?limit=${limit}`,
+    { enabled: !!supplierId },
+  );
+}
+
+export interface SupplierProduct {
+  id: string;
+  name: string;
+  category?: { id: string; name: string } | null;
+}
+
+export function useSupplierProducts(supplierId: string, page: number = 1, limit: number = 20) {
+  return useApiQuery<PaginatedResponse<SupplierProduct>>(
+    ['supplier-products', supplierId, String(page), String(limit)],
+    `/v1/products/suppliers/${supplierId}/products?page=${page}&limit=${limit}`,
     { enabled: !!supplierId },
   );
 }

@@ -807,16 +807,19 @@ export class ProductsService {
     };
   }
 
-  async getSuppliers(requestTenantId: string, search?: string) {
+  async getSuppliers(
+    requestTenantId: string,
+    search?: string,
+    isActive?: boolean,
+  ) {
     const suppliers = await this.prisma.supplier.findMany({
       where: {
         tenantId: requestTenantId,
-        isActive: true,
+        ...(isActive !== undefined ? { isActive } : {}),
         ...(search?.trim()
           ? { name: { contains: search.trim(), mode: "insensitive" as const } }
           : {}),
       },
-      select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
 
@@ -832,11 +835,16 @@ export class ProductsService {
     data: {
       name: string;
       cifNif?: string;
+      address?: string;
       contactPerson?: string;
       email?: string;
       phone?: string;
       whatsapp?: string;
       website?: string;
+      sanitaryRegistry?: string;
+      iban?: string;
+      paymentTerms?: string;
+      notes?: string;
       averageDeliveryTime?: number;
       reliabilityScore?: number;
       priceTier?: string;
@@ -862,11 +870,16 @@ export class ProductsService {
         tenantId,
         name: data.name.trim(),
         cifNif: data.cifNif || null,
+        address: data.address || null,
         contactPerson: data.contactPerson || null,
         email: data.email || null,
         phone: data.phone || null,
         whatsapp: data.whatsapp || null,
         website: data.website || null,
+        sanitaryRegistry: data.sanitaryRegistry || null,
+        iban: data.iban || null,
+        paymentTerms: data.paymentTerms || null,
+        notes: data.notes || null,
         averageDeliveryTime: data.averageDeliveryTime ?? 3,
         reliabilityScore: data.reliabilityScore ?? 85,
         priceTier: data.priceTier || "MEDIUM",

@@ -2,51 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  whatsapp?: string;
-  website?: string;
-  averageDeliveryTime: number;
-  reliabilityScore: number;
-  priceTier: 'LOW' | 'MEDIUM' | 'HIGH';
-  preferredStatus: 'PREFERRED' | 'ALTERNATIVE' | 'EXCLUDED';
-  orderMethods: string[];
-  isActive: boolean;
-}
-
-interface CreateSupplierDto {
-  name: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  whatsapp?: string;
-  website?: string;
-  averageDeliveryTime: number;
-  reliabilityScore: number;
-  priceTier: 'LOW' | 'MEDIUM' | 'HIGH';
-  preferredStatus: 'PREFERRED' | 'ALTERNATIVE' | 'EXCLUDED';
-  orderMethods: string[];
-  isActive: boolean;
-}
-
-interface UpdateSupplierDto {
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  whatsapp?: string;
-  website?: string;
-  averageDeliveryTime?: number;
-  reliabilityScore?: number;
-  priceTier?: 'LOW' | 'MEDIUM' | 'HIGH';
-  preferredStatus?: 'PREFERRED' | 'ALTERNATIVE' | 'EXCLUDED';
-  orderMethods?: string[];
-  isActive?: boolean;
-}
+import type { Supplier } from '@/hooks/use-suppliers';
+import type { CreateSupplierDto, UpdateSupplierDto } from '@/hooks/use-supplier-mutations';
 
 interface Props {
   supplier?: Supplier | null;
@@ -56,14 +13,20 @@ interface Props {
 }
 
 export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Props) {
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm({
-    defaultValues: supplier || {
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<CreateSupplierDto>({
+    defaultValues: (supplier as CreateSupplierDto) || {
       name: '',
+      cifNif: '',
+      address: '',
       contactPerson: '',
       email: '',
       phone: '',
       whatsapp: '',
       website: '',
+      sanitaryRegistry: '',
+      iban: '',
+      paymentTerms: '',
+      notes: '',
       averageDeliveryTime: 3,
       reliabilityScore: 85,
       priceTier: 'MEDIUM',
@@ -91,6 +54,26 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
         {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message as string}</p>}
       </div>
 
+      <div className="pt-2 border-t">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Datos fiscales y contacto</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">CIF/NIF</label>
+          <Input {...register('cifNif')} placeholder="B12345678" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Registro sanitario</label>
+          <Input {...register('sanitaryRegistry')} placeholder="RGSA 12/34567/M" />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Dirección</label>
+        <Input {...register('address')} placeholder="Calle Mayor 1, 28001 Madrid" />
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Persona de contacto</label>
@@ -116,6 +99,10 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
       <div>
         <label className="block text-sm font-medium mb-1">Website</label>
         <Input {...register('website')} placeholder="https://..." />
+      </div>
+
+      <div className="pt-2 border-t">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Condiciones comerciales</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -154,6 +141,17 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">IBAN</label>
+          <Input {...register('iban')} placeholder="ES00 0000 0000 0000 0000 0000" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Condiciones de pago</label>
+          <Input {...register('paymentTerms')} placeholder="30 días fecha factura" />
+        </div>
+      </div>
+
       <div>
         <label className="block text-sm font-medium mb-2">Métodos de pedido</label>
         <div className="flex gap-3 flex-wrap">
@@ -175,6 +173,16 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
           ))}
         </div>
         <input type="hidden" {...register('orderMethods')} />
+      </div>
+
+      <div className="pt-2 border-t">
+        <label className="block text-sm font-medium mb-1">Notas internas</label>
+        <textarea
+          {...register('notes')}
+          rows={3}
+          placeholder="Observaciones internas sobre este proveedor..."
+          className="w-full px-3 py-2 border rounded-md text-sm"
+        />
       </div>
 
       <div className="flex items-center gap-2 pt-4 border-t">
