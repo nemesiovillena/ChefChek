@@ -26,6 +26,7 @@ interface AlbaranLine {
   category: string;
   // Categoría/subcategoría del catálogo para productos nuevos
   categoryId: string;
+  lot: string;
 }
 
 interface ManualAlbaranFormProps {
@@ -42,7 +43,7 @@ const UNITS = [
 
 let lineCounter = 0;
 function newLine(): AlbaranLine {
-  return { id: `line-${++lineCounter}`, productId: '', name: '', quantity: 1, unit: 'und', price: 0, category: '', categoryId: '' };
+  return { id: `line-${++lineCounter}`, productId: '', name: '', quantity: 1, unit: 'und', price: 0, category: '', categoryId: '', lot: '' };
 }
 
 export default function ManualAlbaranForm({ suppliers, products, onComplete }: ManualAlbaranFormProps) {
@@ -129,6 +130,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
         price: l.price,
         category: l.category || undefined,
         categoryId: l.categoryId || undefined,
+        lot: l.lot?.trim() || undefined,
       })),
     };
 
@@ -296,6 +298,17 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Lote */}
+            <div className="mt-1 max-w-xs">
+              <input
+                type="text"
+                value={line.lot}
+                onChange={(e) => updateLine(line.id, { lot: e.target.value })}
+                placeholder="Nº de lote (opcional)"
+                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
             </div>
 
             {/* Category (shown for new products) */}

@@ -3,6 +3,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { AlbaranNumberService } from "./albaran-number.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
+import { LotService } from "./lot.service";
 import { ManualAlbaranDto } from "../dto/manual-albaran.dto";
 
 /**
@@ -26,6 +27,7 @@ export class ManualAlbaranService {
     private readonly albaranNumberService: AlbaranNumberService,
     private readonly notificationsService: NotificationsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly lotService: LotService,
   ) {}
 
   async process(
@@ -123,6 +125,12 @@ export class ManualAlbaranService {
           }
           results.updated++;
         }
+        if (existing && line.lot) {
+          await this.prisma.product.update({
+            where: { id: existing.id },
+            data: { lot: line.lot },
+          });
+        }
       } else {
         // Check if product with same name already exists
         const existingByName = await this.prisma.product.findFirst({
@@ -145,6 +153,12 @@ export class ManualAlbaranService {
                 data: { purchasePrice: line.price, netPrice: line.price },
               });
             }
+          }
+          if (line.lot) {
+            await this.prisma.product.update({
+              where: { id: existingByName.id },
+              data: { lot: line.lot },
+            });
           }
           results.updated++;
         } else {
@@ -175,6 +189,7 @@ export class ManualAlbaranService {
               wastePercentage: 0,
               yieldFactor: 1.0,
               allergens: [],
+              lot: line.lot || null,
             },
           });
           productId = product.id;
@@ -185,9 +200,10 @@ export class ManualAlbaranService {
       processedLines.push({ line, productId });
     }
 
-    // 2ª pasada: crear el albarán con líneas enlazadas a producto, para que
-    // aparezca en el listado y sea consultable/editable como los de OCR.
-    // REVISADO (no CONFIRMADO) para permitir edición posterior.
+    // 2ª pasada: crear la cabecera del albarán, para que aparezca en el
+    // listado y sea consultable/editable como los de OCR. REVISADO (no
+    // CONFIRMADO) para permitir edición posterior. Las líneas se crean en
+    // la 3ª pasada, una a una.
     const internalNumber =
       await this.albaranNumberService.generateInternalNumber(tenantId);
     const baseTotal = processedLines.reduce(
@@ -207,33 +223,51 @@ export class ManualAlbaranService {
         total: baseTotal,
         status: "REVISADO",
         notes: "Entrada manual de mercancía",
-        lines: {
-          create: processedLines.map(({ line, productId }) => ({
-            description: line.name,
-            quantity: line.quantity,
-            unit: line.unit,
-            unitPrice: line.price,
-            vatPercent: 0,
-            lineAmount: line.quantity * line.price,
-            matchedProductId: productId,
-            matchStatus: "MATCH_ALTO",
-            lineStatus: "CONFIRMADO",
-            confidence: 1.0,
-          })),
-        },
       },
     });
 
-    // 3ª pasada: movimientos de stock. `reason` incluye el id del albarán:
-    // es lo que usa AlbaranStockService como clave de idempotencia.
+    // 3ª pasada: crea cada línea individualmente (id real disponible al
+    // instante, sin depender del orden en que Prisma devolvería un
+    // `include` tras un `create` anidado en lote — no garantizado) y, si
+    // aplica, movimientos de stock/lote. `reason` incluye el id del
+    // albarán: es lo que usa AlbaranStockService como clave de idempotencia.
     for (const { line, productId } of processedLines) {
+      const createdLine = await this.prisma.albaranLine.create({
+        data: {
+          albaranId: albaran.id,
+          description: line.name,
+          quantity: line.quantity,
+          unit: line.unit,
+          unitPrice: line.price,
+          vatPercent: 0,
+          lineAmount: line.quantity * line.price,
+          matchedProductId: productId,
+          matchStatus: "MATCH_ALTO",
+          lineStatus: "CONFIRMADO",
+          confidence: 1.0,
+          lot: line.lot || null,
+        },
+      });
+
       if (!productId || line.quantity <= 0) {
         continue;
       }
 
+      const lot = line.lot
+        ? await this.lotService.createLotFromReception(this.prisma, {
+            tenantId,
+            productId,
+            albaranLineId: createdLine.id,
+            lotNumber: line.lot,
+            quantity: line.quantity,
+            supplierId,
+          })
+        : null;
+
       await this.prisma.stockMovement.create({
         data: {
           productId,
+          lotId: lot?.id,
           type: "ENTRANCE",
           quantity: line.quantity,
           unit: line.unit,

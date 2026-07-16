@@ -415,9 +415,13 @@ class DocumentProcessor:
             products.append(ExtractedProduct(
                 name=p.get('name', ''),
                 description=p.get('description'),
+                article_number=p.get('article_number'),
+                lot=p.get('lot'),
                 quantity=p.get('quantity', 0),
                 unit=p.get('unit', 'ud'),
                 unit_price=p.get('unit_price', 0),
+                vat_percent=p.get('vat_percent'),
+                price_with_vat=p.get('price_with_vat'),
                 total_price=p.get('total_price', 0),
                 confidence=ocr_results.get('confidence', 0.7),  # Usar confianza OCR como base
             ))

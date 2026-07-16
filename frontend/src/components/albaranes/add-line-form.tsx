@@ -26,6 +26,7 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
   const [unit, setUnit] = useState('und');
   const [unitPrice, setUnitPrice] = useState('');
   const [vatPercent] = useState('10');
+  const [lot, setLot] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +48,7 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
         unit,
         unitPrice: parseFloat(unitPrice) || 0,
         vatPercent: parseFloat(vatPercent) || 10,
+        lot: lot.trim() || undefined,
       });
       onSuccess();
     } catch (err: unknown) {
@@ -131,6 +133,16 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
           <div className="h-8 px-3 flex items-center text-sm font-medium bg-gray-100 rounded-md border">
             {formatEuro(lineTotal)}
           </div>
+        </div>
+        <div>
+          <Label htmlFor="line-lot" className="text-xs">Lote</Label>
+          <Input
+            id="line-lot"
+            value={lot}
+            onChange={(e) => setLot(e.target.value)}
+            placeholder="Nº de lote (opcional)"
+            className="h-8 text-sm"
+          />
         </div>
       </div>
 

@@ -9,6 +9,7 @@ export interface ManualAlbaranLineInput {
   price: number;
   category?: string;
   categoryId?: string;
+  lot?: string;
 }
 
 export interface ManualAlbaranInput {

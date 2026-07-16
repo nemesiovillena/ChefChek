@@ -5,8 +5,33 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 **Version:** 0.2.0
 **Status:** Development
-**Backend:** NestJS + Prisma + PostgreSQL (83 modelos, 30 módulos)
+**Backend:** NestJS + Prisma + PostgreSQL (84 modelos, 30 módulos)
 **Frontend:** Next.js 16.2.6 + React 19.2.4 (implementado, compila)
+
+---
+
+## Estado real — 2026-07-17 (modelo Lot para trazabilidad de albaranes)
+
+- **Modelo `Lot`** (tabla `lots`): nuevo modelo Prisma 100% aditivo que captura un
+  número de lote (`lotNumber`) por línea de albarán recibida (granularidad = evento
+  de recepción, no acumulado). Contiene: `id, tenantId, productId, albaranLineId
+  (FK única), lotNumber, quantity, warehouseId?, supplierId?, receivedAt, notes?`
+  (expiryDate reservado, sin captura UI aún). Especificado en PDR `docs/pdr-modulo-compras.md`.
+- **StockMovement.lotId** (FK opcional, `SetNull`): enlaza cada movimiento de
+  entrada de mercancía (`ENTRY`) al lote que lo originó (trazabilidad real).
+- **Wiring en flujos de albarán**: un registro `Lot` se crea al confirmar un
+  albarán (OCR y manual) con líneas que incluyen número de lote. Ambos flujos
+  usan el servicio compartido `LotService`.
+- **Fix OCR microservice** (`document_processor.py`): se descartaban `lot`,
+  `article_number`, `vat_percent`, `price_with_vat` al construir respuesta de IA
+  (keyError en formato prompt, imagen binarizada vs original). Corregido.
+- **UI**: columna "Lote" editable en tabla de líneas (`dashboard/albaranes/[id]`),
+  input de lote en alta manual de línea y en albarán 100% manual (`dashboard/compras`).
+- **Modelos Prisma**: 84 (era 83, +1 nuevo `Lot`).
+- **Fuera de alcance (YAGNI)**: consumo/decremento de `Lot.quantity` por receta,
+  impresión de etiquetas, integración con módulo APPCC existente — infraestructura
+  lista para construirse cuando se aborde cada módulo.
+- **Tests backend**: 1488 tests / 95 suites (95/95 verdes, sin regresiones).
 
 ---
 

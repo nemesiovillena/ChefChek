@@ -82,6 +82,7 @@ model Tenant {
   catalogImports         CatalogImport[]
   offerLocationSettings  OfferLocationSetting[]
   purchaseSchedules      PurchaseSchedule[]
+  lots                   Lot[]
 
   @@map("tenants")
 }
@@ -197,6 +198,7 @@ model Product {
   purchaseOrderLines PurchaseOrderLine[]
   purchaseListItems  PurchaseListItem[]
   catalogImportLines CatalogImportLine[]
+  lots               Lot[]
 
   @@index([tenantId])
   @@index([name])
@@ -692,6 +694,7 @@ model Warehouse {
   stocks      Stock[]
   inventories Inventory[]
   albaranes   Albaran[]
+  lots        Lot[]
 
   @@index([locationId])
   @@map("warehouses")
@@ -702,6 +705,7 @@ model StockMovement {
   id          String   @id @default(cuid())
   productId   String
   warehouseId String?
+  lotId       String?
   type        String // ENTRANCE, EXIT, ADJUSTMENT
   quantity    Float
   unit        String
@@ -710,6 +714,7 @@ model StockMovement {
 
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   warehouse Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  lot       Lot?       @relation(fields: [lotId], references: [id], onDelete: SetNull)
 
   @@map("stock_movements")
 }
@@ -1152,6 +1157,7 @@ model Supplier {
   purchaseLists         PurchaseList[]
   catalogImports        CatalogImport[]
   purchaseSchedules     PurchaseSchedule[]
+  lots                  Lot[]
 
   @@index([tenantId])
   @@index([name])
@@ -1708,11 +1714,41 @@ model AlbaranLine {
 
   albaran        Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
   matchedProduct Product? @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
+  lotRecord      Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
 
   @@index([albaranId])
   @@index([matchedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
+}
+
+model Lot {
+  id            String    @id @default(cuid())
+  tenantId      String
+  productId     String
+  albaranLineId String?   @unique // línea de origen; 1 lote por línea recibida
+  lotNumber     String
+  quantity      Float // cantidad recibida en este lote (no se decrementa en este plan)
+  warehouseId   String?
+  supplierId    String?
+  receivedAt    DateTime  @default(now())
+  expiryDate    DateTime? // reservado para captura futura (OCR no lo extrae hoy)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  albaranLine AlbaranLine? @relation(fields: [albaranLineId], references: [id], onDelete: SetNull)
+  warehouse   Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  stockMovements StockMovement[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([lotNumber])
+  @@map("lots")
 }
 
 // Unidades de medida configurables por tenant

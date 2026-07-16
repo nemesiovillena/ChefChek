@@ -7,6 +7,7 @@ import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { AlbaranStockService } from "./services/albaran-stock.service";
 import { ManualAlbaranService } from "./services/manual-albaran.service";
+import { LotService } from "./services/lot.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { OcrModule } from "../ocr/ocr.module";
@@ -32,6 +33,7 @@ import { ComprasModule } from "../compras/compras.module";
     LineMatchingService,
     AlbaranStockService,
     ManualAlbaranService,
+    LotService,
   ],
   exports: [
     AlbaranesService,

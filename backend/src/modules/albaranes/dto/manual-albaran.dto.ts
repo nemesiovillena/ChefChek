@@ -38,6 +38,10 @@ export class ManualAlbaranLineDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  lot?: string;
 }
 
 export class ManualAlbaranDto {

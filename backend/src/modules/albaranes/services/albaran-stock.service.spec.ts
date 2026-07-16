@@ -4,6 +4,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { PriceAgreementService } from "../../compras/services/price-agreement.service";
+import { LotService } from "./lot.service";
 import { LineStatus, LineMatchStatus, AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranStockService", () => {
@@ -73,6 +74,12 @@ describe("AlbaranStockService", () => {
           provide: PriceAgreementService,
           useValue: {
             evaluateAndRecord: jest.fn(),
+          },
+        },
+        {
+          provide: LotService,
+          useValue: {
+            createLotFromReception: jest.fn().mockResolvedValue(null),
           },
         },
       ],
@@ -537,6 +544,7 @@ describe("AlbaranStockService", () => {
           wastePercentage: 0,
           yieldFactor: 1.0,
           allergens: [],
+          lot: null,
         },
       });
 

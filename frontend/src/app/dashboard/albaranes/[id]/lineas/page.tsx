@@ -360,6 +360,7 @@ export default function AlbaranLineasPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Descripción</TableHead>
+                      <TableHead>Lote</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Precio</TableHead>
                       <TableHead>IVA</TableHead>
@@ -409,6 +410,19 @@ export default function AlbaranLineasPage() {
                               </p>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {isEditable(line) ? (
+                            <EditableLineCell
+                              albaranId={id}
+                              lineId={line.id}
+                              field="lot"
+                              value={line.lot ?? ''}
+                              onSave={refetch}
+                            />
+                          ) : (
+                            line.lot || '—'
+                          )}
                         </TableCell>
                         <TableCell>
                           {isEditable(line) ? (

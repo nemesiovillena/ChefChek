@@ -3,6 +3,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { PriceAgreementService } from "../../compras/services/price-agreement.service";
+import { LotService } from "./lot.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
 function normalizeUnit(unit: string): string {
@@ -28,6 +29,7 @@ export class AlbaranStockService {
     private readonly notificationsService: NotificationsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
     private readonly priceAgreementService: PriceAgreementService,
+    private readonly lotService: LotService,
   ) {}
 
   /**
@@ -191,11 +193,32 @@ export class AlbaranStockService {
             }
           }
 
+          // Lote (si la línea trae número de lote)
+          const lot = line.lot
+            ? await this.lotService.createLotFromReception(tx, {
+                tenantId,
+                productId: product.id,
+                albaranLineId: line.id,
+                lotNumber: line.lot,
+                quantity: lineQuantity,
+                warehouseId: albaran.warehouseId,
+                supplierId: albaran.supplierId,
+              })
+            : null;
+
+          if (lot) {
+            await tx.product.update({
+              where: { id: product.id },
+              data: { lot: line.lot },
+            });
+          }
+
           // Create stock movement
           await tx.stockMovement.create({
             data: {
               productId: product.id,
               warehouseId: albaran.warehouseId,
+              lotId: lot?.id,
               type: "ENTRANCE",
               quantity: lineQuantity,
               unit: normalizeUnit(lineUnit),
@@ -249,6 +272,7 @@ export class AlbaranStockService {
               wastePercentage: 0,
               yieldFactor: 1.0,
               allergens: [],
+              lot: line.lot || null,
             },
           });
 
@@ -261,11 +285,25 @@ export class AlbaranStockService {
             },
           });
 
+          // Lote (si la línea trae número de lote)
+          const newProductLot = line.lot
+            ? await this.lotService.createLotFromReception(tx, {
+                tenantId,
+                productId: newProduct.id,
+                albaranLineId: line.id,
+                lotNumber: line.lot,
+                quantity: lineQuantity,
+                warehouseId: albaran.warehouseId,
+                supplierId: albaran.supplierId,
+              })
+            : null;
+
           // Create stock movement
           await tx.stockMovement.create({
             data: {
               productId: newProduct.id,
               warehouseId: albaran.warehouseId,
+              lotId: newProductLot?.id,
               type: "ENTRANCE",
               quantity: lineQuantity,
               unit: normalizeUnit(lineUnit),

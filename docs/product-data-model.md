@@ -91,6 +91,69 @@ El campo `Product.netPrice` está **sobrecargado**: significa cosas distintas se
 
 Si en el futuro se quiere una semántica única de **escritura**, el objetivo razonable es `netPrice = purchasePrice × (1 − waste%)` ("precio neto limpio", sin margen) en todas las escrituras. Es un refactor deliberado, no un fix rápido.
 
+## Trazabilidad de Lotes (Batch Tracking)
+
+### Modelo Lot
+
+Cada línea de albarán recibida con número de lote genera un registro en la tabla `lots` (modelo `Lot`), capturando la trazabilidad de **qué lote llegó, cuándo, de qué proveedor** — la base para integración futura con APPCC, impresión de etiquetas y consumo de lote en recetas.
+
+```prisma
+model Lot {
+  id             String   @id @default(cuid())
+  tenantId       String
+  productId      String
+  albaranLineId  String   @unique                    // FK a AlbaranLine, 1:1
+  lotNumber      String                              // Número de lote del proveedor
+  quantity       Float                               // Cantidad recibida en lote
+  warehouseId    String?                             // Almacén destino (opcional)
+  supplierId     String?                             // Proveedor origen
+  receivedAt     DateTime @default(now())            // Timestamp de recepción
+  expiryDate     DateTime?                           // Caducidad (reservado, sin UI aún)
+  notes          String?                             // Anotaciones libres
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product        Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  albaranLine    AlbaranLine              @relation(fields: [albaranLineId], references: [id], onDelete: Cascade)
+  warehouse      Warehouse?               @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  supplier       Supplier?                @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  stockMovements StockMovement[]          // Línea para cada movimiento que consume este lote
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([albaranLineId])
+  @@index([supplierId])
+  @@map("lots")
+}
+```
+
+### Relación con StockMovement
+
+`StockMovement.lotId` (FK opcional, `SetNull`) enlaza cada entrada de mercancía (tipo `ENTRY`) al lote que la originó:
+
+```prisma
+model StockMovement {
+  // ... campos existentes ...
+  lotId    String?   // FK a Lot, opcional, SetNull en borrado
+  
+  lot      Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+}
+```
+
+**Resultado**: un movimiento de entrada de stock referencia el lote específico que entró, permitiendo:
+- Rastreo de origen (albarán → línea → lote)
+- Impresión de etiquetas con información de lote
+- Consumo selectivo por lote en APPCC/recetas (fuera de alcance actual)
+
+### Semántica de Captura
+
+Un registro `Lot` se crea **una vez** al confirmar un albarán (OCR o manual) con una línea que incluye `lot` no vacío. Granularidad = **evento de recepción**, no acumulado: dos recepción del mismo lote de diferentes albaranes generan dos registros `Lot` distintos (mejor trazabilidad de origen).
+
+El campo `Product.lot` (ya existente) se actualiza como "último lote conocido" — **conveniencia de visualización**, no autoritativo. La fuente de verdad es la tabla `Lot` + `StockMovement`.
+
+Si en el futuro se necesita consumo de lote selectivo (FIFO por lote en recetas), se construirá consultando `Lot` + `StockMovement` con lógica de disponibilidad por lote y expiración.
+
 ## Campos Detallados
 
 ### Identificación y Contexto
