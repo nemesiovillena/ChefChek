@@ -543,11 +543,30 @@ export class RecipesService {
     let ingredientsCost = 0;
     let subRecipesCost = 0;
 
-    // OPTIMIZED: Fetch all products in a single query
+    // SQL crudo a propósito: el middleware global de soft-delete de
+    // PrismaService inyecta `deletedAt: null` en todo findMany/findFirst,
+    // lo que excluiría a los artículos dados de baja que la receta aún
+    // referencia y haría el guardado fallar con "Product not found". Un
+    // artículo borrado conserva precio/alérgenos válidos, así que el costeo
+    // debe poder usarlos. $queryRaw no pasa por el middleware.
+    // Seleccionamos solo los campos que necesita calculateProductCostPerUnit
+    // y se mantiene el alcance por tenant: un id inexistente o de otro
+    // tenant sigue ausente del mapa y lanza NotFoundException abajo.
     const productIds = ingredients.map((ing) => ing.productId);
-    const products = await (this.prisma as any).product.findMany({
-      where: { id: { in: productIds }, tenantId, isActive: true },
-    });
+    const products = (await this.prisma.$queryRaw`
+      SELECT id,
+             "purchasePrice"::float8 AS "purchasePrice",
+             "unitSize"::float8       AS "unitSize",
+             "referenceUnit"
+      FROM products
+      WHERE id = ANY(${productIds}::text[])
+        AND "tenantId" = ${tenantId}
+    `) as Array<{
+      id: string;
+      purchasePrice: number;
+      unitSize: number;
+      referenceUnit: string;
+    }>;
     const productMap = new Map<string, any>(
       products.map((p: any) => [p.id, p]),
     );

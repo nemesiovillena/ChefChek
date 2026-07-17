@@ -37,6 +37,9 @@ describe("RecipesService", () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
     },
+    // calculateCost usa $queryRaw (SQL crudo) para leer los productos fuera
+    // del middleware de soft-delete; se mockea aquí en lugar de product.findMany.
+    $queryRaw: jest.fn(),
   };
 
   const tenantId = "test-tenant-id";
@@ -120,7 +123,7 @@ describe("RecipesService", () => {
     service = module.get<RecipesService>(RecipesService);
 
     // Default mocks for optimized queries
-    mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
+    mockPrismaService.$queryRaw.mockResolvedValue([mockProduct]);
   });
 
   afterEach(() => {
@@ -169,7 +172,7 @@ describe("RecipesService", () => {
 
     it("should throw NotFoundException if product not found", async () => {
       mockPrismaService.product.findFirst.mockResolvedValue(null);
-      mockPrismaService.product.findMany.mockResolvedValue([]);
+      mockPrismaService.$queryRaw.mockResolvedValue([]);
 
       await expect(service.create(tenantId, createRecipeDto)).rejects.toThrow(
         NotFoundException,
@@ -737,7 +740,7 @@ describe("RecipesService", () => {
       });
       mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
       mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
-      mockPrismaService.product.findMany.mockResolvedValue([mockProduct]);
+      mockPrismaService.$queryRaw.mockResolvedValue([mockProduct]);
 
       await service.update(tenantId, recipeId, { ingredients: [] });
 
