@@ -214,7 +214,17 @@ export function useCreateProduct() {
 }
 
 export function useUpdateProduct() {
-  return useUpdate();
+  const queryClient = useQueryClient();
+  return useUpdate({
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['products', variables.id] });
+      // Coste de recetas: el backend lo calcula en vivo, pero el frontend
+      // cachea /recipes/:id/calculate 5 min (staleTime). Sin esto, un
+      // cambio de precio no se refleja hasta que expira la caché.
+      queryClient.invalidateQueries({ queryKey: ['recipe-cost'] });
+    },
+  });
 }
 
 export function useDeleteProduct() {
