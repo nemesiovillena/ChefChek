@@ -301,9 +301,15 @@ export class EscandallosService {
     quantity: number,
     productId: string,
   ): Promise<any> {
-    const product = await this.prisma.product.findFirst({
-      where: { id: productId, tenantId, isActive: true },
-    });
+    // SQL crudo a propósito: el middleware global de soft-delete filtraría
+    // con deletedAt:null y excluiría artículos dados de baja. Aquí el
+    // producto solo se usa para validar existencia + alcance por tenant
+    // (performUnitConversion no lee sus campos), así que consultamos vía
+    // $queryRaw. Un id inexistente o de otro tenant sigue lanzando
+    // NotFoundException.
+    const [product] = (await this.prisma.$queryRaw`
+      SELECT id FROM products WHERE id = ${productId} AND "tenantId" = ${tenantId}
+    `) as Array<{ id: string }>;
 
     if (!product) {
       throw new NotFoundException("Product not found");

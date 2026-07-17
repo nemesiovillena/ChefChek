@@ -756,6 +756,61 @@ describe("RecipesService", () => {
       });
     });
 
+    it("should cost a soft-deleted sub-recipe (bypasses soft-delete middleware)", async () => {
+      const mockRecipe = {
+        id: recipeId,
+        tenantId,
+        name: "Recipe",
+        ingredients: [
+          {
+            productId: "product-1",
+            quantity: 100,
+            unit: "g",
+            product: mockProduct,
+          },
+        ],
+        subRecipes: [],
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      // Sin el fix, recipe.findMany (filtrado por el middleware) devolvería
+      // [] para la sub-receta borrada y el guardado fallaría con
+      // "Sub-recipe not found". El fix usa $queryRaw y la costea igualmente.
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+      mockPrismaService.$queryRaw
+        .mockResolvedValueOnce([mockProduct])
+        .mockResolvedValueOnce([
+          {
+            id: "sub-recipe-1",
+            totalCost: 20,
+            totalCostPerUnit: 0.2,
+            portions: 4,
+          },
+        ]);
+      mockPrismaService.recipeIngredient.deleteMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrismaService.recipeIngredient.createMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrismaService.recipeSubRecipe.deleteMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrismaService.recipeSubRecipe.createMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      const result = await service.update(tenantId, recipeId, {
+        ingredients: [{ productId: "product-1", quantity: 100, unit: "g" }],
+        subRecipes: [{ subRecipeId: "sub-recipe-1", quantity: 50, unit: "g" }],
+      });
+
+      expect(result).toBeDefined();
+      expect(mockPrismaService.$queryRaw).toHaveBeenCalled();
+    });
+
     it("should handle recipe with mixed ingredient and sub-recipe costs", async () => {
       const mockRecipeWithBoth = {
         ...mockRecipe,

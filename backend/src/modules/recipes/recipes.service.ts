@@ -585,13 +585,28 @@ export class RecipesService {
       ingredientsCost += ingredient.quantity * costPerUnit;
     }
 
-    // OPTIMIZED: Fetch all sub-recipes in a single query
+    // Mismo motivo que el fetch de productos: $queryRaw para saltar el
+    // middleware de soft-delete. Una sub-receta dada de baja sigue teniendo
+    // totalCost/totalCostPerUnit válidos, así que debe poder costearse.
+    // Se mantiene el alcance por tenant; un id inexistente o de otro tenant
+    // sigue ausente del mapa y lanza NotFoundException abajo.
     const subRecipeIds = subRecipes.map((sub) => sub.subRecipeId);
     const subRecipeDataList =
       subRecipeIds.length > 0
-        ? await this.prisma.recipe.findMany({
-            where: { id: { in: subRecipeIds }, tenantId, isActive: true },
-          })
+        ? ((await this.prisma.$queryRaw`
+            SELECT id,
+                   "totalCost"::float8        AS "totalCost",
+                   "totalCostPerUnit"::float8 AS "totalCostPerUnit",
+                   "portions"::float8         AS "portions"
+            FROM recipes
+            WHERE id = ANY(${subRecipeIds}::text[])
+              AND "tenantId" = ${tenantId}
+          `) as Array<{
+            id: string;
+            totalCost: number;
+            totalCostPerUnit: number;
+            portions: number;
+          }>)
         : [];
     const subRecipeMap = new Map(subRecipeDataList.map((r: any) => [r.id, r]));
 

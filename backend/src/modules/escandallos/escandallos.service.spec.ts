@@ -19,6 +19,9 @@ describe("EscandallosService", () => {
     recipeSubRecipe: {
       findMany: jest.fn(),
     },
+    // convertUnits usa $queryRaw (SQL crudo) para validar existencia fuera
+    // del middleware de soft-delete; se mockea aquí en lugar de product.findFirst.
+    $queryRaw: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -175,9 +178,7 @@ describe("EscandallosService", () => {
         yieldFactor: 0.95,
       };
 
-      mockPrismaService.product.findFirst = jest
-        .fn()
-        .mockResolvedValue(mockProduct);
+      mockPrismaService.$queryRaw.mockResolvedValue([mockProduct]);
 
       const result = await service.convertUnits(
         "tenant-1",
@@ -199,13 +200,19 @@ describe("EscandallosService", () => {
 
     it("should throw BadRequestException when conversion is invalid", async () => {
       const mockProduct = { id: "p-1", name: "Product" };
-      mockPrismaService.product.findFirst = jest
-        .fn()
-        .mockResolvedValue(mockProduct);
+      mockPrismaService.$queryRaw.mockResolvedValue([mockProduct]);
 
       await expect(
         service.convertUnits("tenant-1", "kg", "l", 1, "p-1"),
       ).rejects.toThrow();
+    });
+
+    it("should throw NotFoundException if product not found", async () => {
+      mockPrismaService.$queryRaw.mockResolvedValue([]);
+
+      await expect(
+        service.convertUnits("tenant-1", "kg", "g", 1, "missing-product"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
