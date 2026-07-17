@@ -5,7 +5,10 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
-import { getReferencePrice } from "../../common/utils/unit-conversions";
+import {
+  getReferencePrice,
+  referencePriceChanged,
+} from "../../common/utils/unit-conversions";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import {
   CreateProductDto,
@@ -422,6 +425,8 @@ export class ProductsService {
               previousPrice: latest.previousPrice,
               newPrice: latest.newPrice,
               recordedAt: latest.recordedAt,
+              previousUnitSize: latest.previousUnitSize,
+              newUnitSize: latest.newUnitSize,
             }
           : null;
         return {
@@ -531,10 +536,18 @@ export class ProductsService {
       delete data.unitSize;
     }
 
-    // Flag: ¿cambia realmente el precio de compra? Si es así hay que registrar
-    // una fila en ProductPriceHistory (igual que hace el flujo de albaranes),
-    // para que las ediciones manuales también dejen traza en el historial.
-    let priceChanged = false;
+    // Invariante: el trigger de historial de abajo solo evalúa €/kg cuando el DTO
+    // incluye `purchasePrice` (formulario actual siempre lo manda). Un cambio de
+    // formato/unitSize SIN `purchasePrice` en el mismo DTO no registra fila de
+    // historial aunque el €/kg real cambie — si en el futuro se permite editar
+    // solo el formato, extender `refPriceChanged` para cubrir ese caso también.
+
+    // Flag: ¿cambia el precio normalizado €/kg? Gobierna si se registra una fila en
+    // ProductPriceHistory (igual que hace el flujo de albaranes), para que las
+    // ediciones manuales también dejen traza — pero sin variaciones falsas cuando
+    // solo cambia el tamaño de caja/formato.
+    let refPriceChanged = false;
+    let newUnitSizeForHistory: number | null = existingProduct.unitSize;
 
     // Recalcular precios si se modifican
     if (
@@ -542,13 +555,23 @@ export class ProductsService {
       updateData.wastePercentage !== undefined ||
       updateData.profitMargin !== undefined
     ) {
-      // Save previous price before updating
+      // Save previous price before updating (campo plano previousPurchasePrice:
+      // sigue disparándose con el precio crudo, sin cambios).
       if (
         updateData.purchasePrice !== undefined &&
         updateData.purchasePrice !== existingProduct.purchasePrice
       ) {
         data.previousPurchasePrice = existingProduct.purchasePrice;
-        priceChanged = true;
+      }
+
+      if (updateData.purchasePrice !== undefined) {
+        newUnitSizeForHistory = data.unitSize ?? existingProduct.unitSize;
+        refPriceChanged = referencePriceChanged(
+          existingProduct.purchasePrice,
+          existingProduct.unitSize,
+          updateData.purchasePrice,
+          newUnitSizeForHistory,
+        );
       }
 
       const purchasePrice =
@@ -627,7 +650,7 @@ export class ProductsService {
         delete data.referenceUnitSize;
         delete data.unitSize;
         delete data.profitMargin;
-        priceChanged = false;
+        refPriceChanged = false;
       }
     }
 
@@ -677,9 +700,9 @@ export class ProductsService {
       },
     };
 
-    // Si el precio de compra cambió, registrar la traza de historial en la misma
-    // transacción que la actualización del producto (consistencia garantizada).
-    const product = priceChanged
+    // Si el precio normalizado €/kg cambió, registrar la traza de historial en la
+    // misma transacción que la actualización del producto (consistencia garantizada).
+    const product = refPriceChanged
       ? await this.prisma.$transaction(async (tx) => {
           const updated = await tx.product.update({
             where: { id },
@@ -694,6 +717,8 @@ export class ProductsService {
               albaranId: null,
               previousPrice: existingProduct.purchasePrice,
               newPrice: updateData.purchasePrice as number,
+              previousUnitSize: existingProduct.unitSize,
+              newUnitSize: newUnitSizeForHistory,
             },
           });
           return updated;

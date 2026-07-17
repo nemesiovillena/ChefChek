@@ -77,6 +77,31 @@ export function getReferencePrice(
   return purchasePrice / unitSize;
 }
 
+/** Tolerancia relativa para considerar dos precios de referencia "iguales" al
+ * comparar €/kg entre dos compras. Absorbe el ruido de redondeo que aparece al
+ * dividir precio/cantidad introducidos con precisión limitada (p.ej. cantidad
+ * redondeada a kg enteros) — sin esto, dos compras con el mismo precio real
+ * por kg pueden diferir en la última cifra decimal y disparar una fila de
+ * historial/badge falsos (la misma clase de bug que esta función corrige). */
+const REFERENCE_PRICE_EPSILON = 0.005; // 0.5%
+
+/** ¿Cambió de verdad el precio por unidad de referencia entre dos compras? */
+export function referencePriceChanged(
+  previousPrice: number,
+  previousUnitSize: number,
+  newPrice: number,
+  newUnitSize: number,
+): boolean {
+  const prevRef = getReferencePrice(previousPrice, previousUnitSize);
+  const newRef = getReferencePrice(newPrice, newUnitSize);
+  if (prevRef === 0) {
+    return newRef !== 0;
+  }
+  return (
+    Math.abs(newRef - prevRef) / Math.abs(prevRef) > REFERENCE_PRICE_EPSILON
+  );
+}
+
 /** Format reference price for display: "€5.00/kg" */
 export function formatRefPrice(price: number, unit: string): string {
   return `€${price.toFixed(2)}/${unit}`;

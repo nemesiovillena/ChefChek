@@ -66,6 +66,8 @@ export interface Product {
     previousPrice: number;
     newPrice: number;
     recordedAt: string;
+    previousUnitSize?: number | null;
+    newUnitSize?: number | null;
   } | null;
   profitMargin: number;
   discountPercentage: number;
@@ -79,6 +81,7 @@ export interface Product {
   iva: number;
   qr?: string;
   barcode?: string;
+  lot?: string | null;
   brand?: string;
   hideAllergens: boolean;
   imageUrl?: string;
@@ -132,6 +135,7 @@ export interface CreateProductData {
   iva?: number;
   qr?: string;
   barcode?: string;
+  lot?: string;
   brand?: string;
   hideAllergens?: boolean;
   imageUrl?: string;
@@ -242,6 +246,27 @@ export function useUploadProductImage() {
 export function getReferencePrice(product: Product): number {
   const size = product.unitSize || 1;
   return product.purchasePrice / size;
+}
+
+/**
+ * Precio por unidad de referencia (€/kg-L-ud) a partir de un precio y un
+ * unitSize sueltos. Usado por el historial de precios para comparar entradas
+ * normalizadas en vez de purchasePrice crudo (evita variaciones falsas cuando
+ * cambia el tamaño de caja/formato entre compras).
+ */
+export function normalizePrice(price: number, unitSize?: number | null): number {
+  return unitSize ? price / unitSize : price;
+}
+
+/** Tolerancia relativa para considerar dos precios normalizados "iguales" —
+ * misma constante que el backend (unit-conversions.ts), absorbe ruido de
+ * redondeo al introducir cantidad/precio con precisión limitada. */
+const REFERENCE_PRICE_EPSILON = 0.005; // 0.5%
+
+/** ¿Cambió de verdad el precio entre dos valores ya normalizados a €/kg? */
+export function referencePriceChanged(previous: number, current: number): boolean {
+  if (previous === 0) return current !== 0;
+  return Math.abs(current - previous) / Math.abs(previous) > REFERENCE_PRICE_EPSILON;
 }
 
 /** Format reference price for display: "5,00 €/kg" */

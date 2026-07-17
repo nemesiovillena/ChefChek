@@ -1,6 +1,7 @@
 'use client';
 
 import { useProductPriceHistory } from '@/hooks/use-product-price-history';
+import { normalizePrice, referencePriceChanged } from '@/hooks/use-products';
 import { Loader2, TrendingUp, TrendingDown, Minus, FileText } from 'lucide-react';
 
 interface ProductPriceHistoryTableProps {
@@ -52,12 +53,27 @@ export function ProductPriceHistoryTable({ productId, supplierId }: ProductPrice
         </thead>
         <tbody>
           {history.map((entry) => {
-            const change = entry.newPrice - entry.previousPrice;
-            const pctChange = entry.previousPrice > 0
-              ? ((change / entry.previousPrice) * 100).toFixed(1)
+            // Normalizado a €/kg cuando hay snapshot de unitSize en ambos extremos
+            // (entradas nuevas); fallback a precio crudo para filas legacy.
+            const canNormalize =
+              entry.previousUnitSize != null && entry.newUnitSize != null;
+            const previousRef = canNormalize
+              ? normalizePrice(entry.previousPrice, entry.previousUnitSize)
+              : entry.previousPrice;
+            const newRef = canNormalize
+              ? normalizePrice(entry.newPrice, entry.newUnitSize)
+              : entry.newPrice;
+            const change = newRef - previousRef;
+            const pctChange = previousRef > 0
+              ? ((change / previousRef) * 100).toFixed(1)
               : '—';
-            const isUp = change > 0;
-            const isDown = change < 0;
+            // Normalizado: tolerancia de redondeo (evita iconos +/- por ruido de
+            // división); crudo (fila legacy): comportamiento exacto de siempre.
+            const isRealChange = canNormalize
+              ? referencePriceChanged(previousRef, newRef)
+              : change !== 0;
+            const isUp = isRealChange && change > 0;
+            const isDown = isRealChange && change < 0;
 
             return (
               <tr key={entry.id} className="border-b border-gray-100 hover:bg-gray-50">

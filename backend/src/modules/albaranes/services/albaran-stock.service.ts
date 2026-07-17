@@ -153,6 +153,11 @@ export class AlbaranStockService {
                   albaranId: albaran.id,
                   previousPrice: currentPrice,
                   newPrice: lineUnitPrice,
+                  // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
+                  // que antes/después es el mismo — se snapshotea igual para que
+                  // el frontend pueda calcular €/kg normalizado con datos completos.
+                  previousUnitSize: product.unitSize,
+                  newUnitSize: product.unitSize,
                 },
               });
 

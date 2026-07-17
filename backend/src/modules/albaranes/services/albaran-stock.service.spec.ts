@@ -341,6 +341,7 @@ describe("AlbaranStockService", () => {
         name: "Test Product",
         purchasePrice: 4.5,
         netPrice: 4.5,
+        unitSize: 1,
       };
 
       const mockAlbaran = {
@@ -400,6 +401,9 @@ describe("AlbaranStockService", () => {
           albaranId: mockAlbaranId,
           previousPrice: 4.5,
           newPrice: 5,
+          // Esta rama no toca unitSize: antes/después es el mismo snapshot.
+          previousUnitSize: 1,
+          newUnitSize: 1,
         },
       });
     });

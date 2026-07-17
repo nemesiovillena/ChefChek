@@ -644,6 +644,7 @@ export default function ArticulosPage() {
                             &euro;{product.purchasePrice.toFixed(2)}
                             <ProductPriceTrendBadge
                               current={product.purchasePrice}
+                              currentUnitSize={product.unitSize}
                               latestPriceChange={product.latestPriceChange ?? null}
                               productId={product.id}
                               productName={product.name}

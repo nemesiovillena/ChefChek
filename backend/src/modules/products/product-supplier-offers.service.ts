@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { Prisma, ProductSupplierOffer } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
+import { referencePriceChanged } from "../../common/utils/unit-conversions";
 
 export interface UpsertSupplierOfferData {
   purchasePrice: number;
@@ -79,11 +80,23 @@ export class ProductSupplierOffersService {
 
     let offer: ProductSupplierOffer;
     if (existingOffer) {
-      const priceChanged = existingOffer.purchasePrice !== data.purchasePrice;
+      // Contrato del campo plano `previousPurchasePrice` (fuera de alcance de este
+      // fix): sigue disparándose con el precio crudo, como siempre.
+      const rawPriceChanged =
+        existingOffer.purchasePrice !== data.purchasePrice;
+      // Trigger del historial: normalizado a €/kg (con tolerancia) — evita filas/
+      // badges falsos cuando solo cambia el tamaño de caja/formato pero el precio
+      // real por kg es el mismo.
+      const refPriceChanged = referencePriceChanged(
+        existingOffer.purchasePrice,
+        existingOffer.unitSize,
+        data.purchasePrice,
+        unitSize,
+      );
       offer = await client.productSupplierOffer.update({
         where: { id: existingOffer.id },
         data: {
-          previousPurchasePrice: priceChanged
+          previousPurchasePrice: rawPriceChanged
             ? existingOffer.purchasePrice
             : existingOffer.previousPurchasePrice,
           purchasePrice: data.purchasePrice,
@@ -98,7 +111,7 @@ export class ProductSupplierOffersService {
         },
       });
 
-      if (priceChanged) {
+      if (refPriceChanged) {
         await client.productPriceHistory.create({
           data: {
             tenantId,
@@ -107,6 +120,8 @@ export class ProductSupplierOffersService {
             albaranId,
             previousPrice: existingOffer.purchasePrice,
             newPrice: data.purchasePrice,
+            previousUnitSize: existingOffer.unitSize,
+            newUnitSize: unitSize,
           },
         });
       }
@@ -174,7 +189,17 @@ export class ProductSupplierOffersService {
       const product = await tx.product.findFirst({
         where: { id: productId, tenantId },
       });
-      if (product && product.purchasePrice !== updated.purchasePrice) {
+      // Dos ofertas de proveedor distintas pueden tener unitSize distinto (cajas de
+      // tamaño diferente): comparar €/kg normalizado, no purchasePrice crudo.
+      if (
+        product &&
+        referencePriceChanged(
+          product.purchasePrice,
+          product.unitSize,
+          updated.purchasePrice,
+          updated.unitSize,
+        )
+      ) {
         await tx.productPriceHistory.create({
           data: {
             tenantId,
@@ -182,6 +207,8 @@ export class ProductSupplierOffersService {
             supplierId: updated.supplierId,
             previousPrice: product.purchasePrice,
             newPrice: updated.purchasePrice,
+            previousUnitSize: product.unitSize,
+            newUnitSize: updated.unitSize,
           },
         });
       }

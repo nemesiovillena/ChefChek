@@ -9,6 +9,8 @@ export interface PriceHistoryEntry {
   albaranId: string | null;
   previousPrice: number;
   newPrice: number;
+  previousUnitSize: number | null;
+  newUnitSize: number | null;
   recordedAt: string;
   supplier: { id: string; name: string } | null;
   albaran: { id: string; internalNumber: string; albaranNumber: string } | null;

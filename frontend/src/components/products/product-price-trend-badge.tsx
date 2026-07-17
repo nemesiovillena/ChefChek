@@ -12,16 +12,21 @@ import {
 } from '@/components/ui/dialog';
 import { ProductPriceHistoryChart } from './product-price-history-chart';
 import { ProductPriceHistoryTable } from './product-price-history-table';
+import { normalizePrice, referencePriceChanged } from '@/hooks/use-products';
 
 export interface LatestPriceChange {
   previousPrice: number;
   newPrice: number;
   recordedAt: string;
+  previousUnitSize?: number | null;
+  newUnitSize?: number | null;
 }
 
 interface ProductPriceTrendBadgeProps {
   /** Precio de compra actual (el que se muestra en la celda junto al badge). */
   current: number;
+  /** unitSize vigente del producto (para normalizar `current` a €/kg). */
+  currentUnitSize?: number | null;
   /** Delta del último cambio con traza, sourceado de ProductPriceHistory. */
   latestPriceChange: LatestPriceChange | null;
   productId: string;
@@ -41,6 +46,7 @@ interface ProductPriceTrendBadgeProps {
  */
 export function ProductPriceTrendBadge({
   current,
+  currentUnitSize,
   latestPriceChange,
   productId,
   productName,
@@ -48,11 +54,26 @@ export function ProductPriceTrendBadge({
 }: ProductPriceTrendBadgeProps) {
   if (!latestPriceChange) return null;
 
-  const previous = latestPriceChange.previousPrice;
+  // Normalizado a €/kg cuando hay snapshot de unitSize en ambos extremos
+  // (entradas nuevas); fallback a precio crudo idéntico al de antes para
+  // filas legacy sin unitSize histórico.
+  const canNormalize =
+    latestPriceChange.previousUnitSize != null && currentUnitSize != null;
+  const previous = canNormalize
+    ? normalizePrice(latestPriceChange.previousPrice, latestPriceChange.previousUnitSize)
+    : latestPriceChange.previousPrice;
+  const currentValue = canNormalize
+    ? normalizePrice(current, currentUnitSize)
+    : current;
   if (!previous || previous <= 0) return null;
 
-  const change = current - previous;
-  if (change === 0) return null;
+  const change = currentValue - previous;
+  // Normalizado: tolerancia de redondeo (evita badges "+0.0%" por ruido de
+  // división); crudo (fila legacy): comportamiento exacto de siempre.
+  const isNoChange = canNormalize
+    ? !referencePriceChanged(previous, currentValue)
+    : change === 0;
+  if (isNoChange) return null;
 
   const pct = (change / previous) * 100;
   const isUp = change > 0;
@@ -65,7 +86,7 @@ export function ProductPriceTrendBadge({
     <Dialog>
       <DialogTrigger
         type="button"
-        title={`Precio anterior: ${previous.toFixed(2)} € (${dateLabel}) — click para ver el historial`}
+        title={`${canNormalize ? 'Precio ref. anterior' : 'Precio anterior'}: ${previous.toFixed(2)} € (${dateLabel}) — click para ver el historial`}
         className={cn(
           'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
           isUp ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',

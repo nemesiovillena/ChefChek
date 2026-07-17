@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { useProductPriceHistory, PriceHistoryEntry } from '@/hooks/use-product-price-history';
+import { normalizePrice } from '@/hooks/use-products';
 
 interface ProductPriceHistoryChartProps {
   productId: string;
@@ -52,14 +53,24 @@ export function ProductPriceHistoryChart({ productId, supplierId }: ProductPrice
     return <p className="text-sm text-gray-500 py-4">Sin historial de precios</p>;
   }
 
-  // Cronológico (antiguo → reciente) para la línea de evolución
+  // Cronológico (antiguo → reciente) para la línea de evolución. Normalizado a
+  // €/kg cuando la entrada tiene snapshot de unitSize en ambos extremos
+  // (entradas nuevas); fallback a precio crudo para filas legacy.
   const points = [...history]
     .reverse()
-    .map((entry: PriceHistoryEntry) => ({
-      date: entry.recordedAt,
-      price: entry.newPrice,
-      previous: entry.previousPrice,
-    }));
+    .map((entry: PriceHistoryEntry) => {
+      const canNormalize =
+        entry.previousUnitSize != null && entry.newUnitSize != null;
+      return {
+        date: entry.recordedAt,
+        price: canNormalize
+          ? normalizePrice(entry.newPrice, entry.newUnitSize)
+          : entry.newPrice,
+        previous: canNormalize
+          ? normalizePrice(entry.previousPrice, entry.previousUnitSize)
+          : entry.previousPrice,
+      };
+    });
 
   return (
     <div className="w-full h-[240px] bg-white border border-gray-200 rounded-lg p-3">

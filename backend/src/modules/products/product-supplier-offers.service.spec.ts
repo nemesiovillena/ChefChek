@@ -168,6 +168,151 @@ describe("ProductSupplierOffersService", () => {
       );
     });
 
+    it("mismo €/kg con distinto tamaño de caja NO crea fila de historial", async () => {
+      (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+      (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 100,
+        previousPurchasePrice: 0,
+        netPrice: 100,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+      (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 50,
+        previousPurchasePrice: 0,
+        netPrice: 50,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 5,
+        unitSize: 5,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+
+      // Caja más pequeña (10kg -> 5kg) a mitad de precio (100€ -> 50€): mismo
+      // €/kg (10€/kg) — no debe registrar variación falsa en el histórico.
+      await service.upsertOffer(productId, supplierId, tenantId, {
+        purchasePrice: 50,
+        referenceUnitSize: 5,
+      });
+
+      expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
+      // El campo plano previousPurchasePrice sigue disparándose con el precio
+      // crudo (contrato sin cambios, fuera de alcance de la normalización).
+      expect(prisma.productSupplierOffer.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ previousPurchasePrice: 100 }),
+        }),
+      );
+    });
+
+    it("ruido de redondeo en €/kg (caso real: jarrete de cordero) NO crea fila de historial", async () => {
+      (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+      (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 80.91,
+        previousPurchasePrice: 0,
+        netPrice: 80.91,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 6.5,
+        unitSize: 6.5,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+      (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 49.79,
+        previousPurchasePrice: 80.91,
+        netPrice: 49.79,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 4,
+        unitSize: 4,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+
+      // 80.91/6.5 = 12.4477€/kg vs 49.79/4 = 12.4475€/kg: mismo precio real por
+      // kg, la diferencia es solo redondeo de cantidad/precio a 2 decimales —
+      // no debe registrarse como variación (tolerancia epsilon).
+      await service.upsertOffer(productId, supplierId, tenantId, {
+        purchasePrice: 49.79,
+        referenceUnitSize: 4,
+      });
+
+      expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
+    });
+
+    it("€/kg realmente distinto SÍ crea fila de historial con unitSize snapshoteado", async () => {
+      (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+      (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 100,
+        previousPurchasePrice: 0,
+        netPrice: 100,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+      (prisma.productSupplierOffer.update as jest.Mock).mockResolvedValue({
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 60,
+        previousPurchasePrice: 100,
+        netPrice: 60,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 5,
+        unitSize: 5,
+        profitMargin: 0,
+        isPreferred: false,
+      });
+
+      // 10€/kg -> 12€/kg: variación real, sí debe registrarse.
+      await service.upsertOffer(productId, supplierId, tenantId, {
+        purchasePrice: 60,
+        referenceUnitSize: 5,
+      });
+
+      expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            previousPrice: 100,
+            newPrice: 60,
+            previousUnitSize: 10,
+            newUnitSize: 5,
+          }),
+        }),
+      );
+    });
+
     describe("agreedPrice (precio pactado)", () => {
       const existingOffer = {
         id: "offer-a",
@@ -329,6 +474,37 @@ describe("ProductSupplierOffersService", () => {
         }),
       );
       expect(tx.productPriceHistory.create).toHaveBeenCalled();
+    });
+
+    it("cambiar a una oferta con mismo €/kg pero distinto unitSize NO crea historial", async () => {
+      const tx = makeTx();
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(tx));
+      tx.productSupplierOffer.findFirst.mockResolvedValue({
+        id: "offer-b",
+        productId,
+        supplierId: "supplier-b",
+        isPreferred: false,
+      });
+      tx.productSupplierOffer.update.mockResolvedValue({
+        id: "offer-b",
+        productId,
+        supplierId: "supplier-b",
+        purchasePrice: 20, // baseProduct: 10€ / unitSize 1 = 10€/kg
+        previousPurchasePrice: 0,
+        netPrice: 20,
+        purchaseFormat: "Caja",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 2,
+        unitSize: 2, // 20€ / 2kg = 10€/kg — mismo €/kg que baseProduct
+        profitMargin: 0,
+        isPreferred: true,
+      });
+      tx.product.findFirst.mockResolvedValue(baseProduct);
+
+      await service.setPreferred(productId, "offer-b", tenantId);
+
+      expect(tx.productPriceHistory.create).not.toHaveBeenCalled();
     });
 
     it("throws if the offer does not exist", async () => {

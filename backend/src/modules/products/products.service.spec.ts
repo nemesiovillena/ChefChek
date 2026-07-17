@@ -590,6 +590,86 @@ describe("ProductsService", () => {
       );
     });
 
+    it("mismo €/kg con distinto tamaño de caja NO registra historial (sin proveedor)", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 100,
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10, // 100€ / 10kg = 10€/kg
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      // Caja más pequeña (10kg -> 5kg) a mitad de precio (100€ -> 50€): mismo
+      // €/kg (10€/kg) — no debe crear fila de historial ni variación falsa.
+      const updateDto = { purchasePrice: 50, referenceUnitSize: 5 };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchasePrice: 50,
+        referenceUnitSize: 5,
+        unitSize: 5,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(prismaService.productPriceHistory.create).not.toHaveBeenCalled();
+    });
+
+    it("€/kg realmente distinto SÍ registra historial con unitSize snapshoteado (sin proveedor)", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 100,
+        unitsPerFormat: 1,
+        referenceUnitSize: 10,
+        unitSize: 10, // 100€ / 10kg = 10€/kg
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      // 10€/kg -> 12€/kg: variación real, sí debe registrarse.
+      const updateDto = { purchasePrice: 60, referenceUnitSize: 5 };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchasePrice: 60,
+        referenceUnitSize: 5,
+        unitSize: 5,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(prismaService.productPriceHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            previousPrice: 100,
+            newPrice: 60,
+            previousUnitSize: 10,
+            newUnitSize: 5,
+          }),
+        }),
+      );
+    });
+
     it("should map category to categoryId", async () => {
       const existingProduct = {
         id: "prod-1",

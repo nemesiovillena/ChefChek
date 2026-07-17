@@ -1775,9 +1775,11 @@ model ProductPriceHistory {
   productId     String
   supplierId    String? // Proveedor asociado al cambio de precio
   albaranId     String? // Albarán que originó el cambio
-  previousPrice Float // Precio anterior
-  newPrice      Float // Precio nuevo
-  recordedAt    DateTime @default(now())
+  previousPrice    Float // Precio anterior
+  newPrice         Float // Precio nuevo
+  previousUnitSize Float? // unitSize vigente al registrar previousPrice; null en filas legacy
+  newUnitSize      Float? // unitSize vigente al registrar newPrice; null en filas legacy
+  recordedAt       DateTime @default(now())
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
