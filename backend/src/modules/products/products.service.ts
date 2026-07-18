@@ -786,6 +786,271 @@ export class ProductsService {
     };
   }
 
+  /**
+   * Fusiona `sourceId` en `targetId`: reasigna todas las referencias del
+   * artículo origen (recetas, stock, histórico de precios, líneas de
+   * albarán, alias de proveedor, lotes, pedidos, listas de compra...) al
+   * artículo destino y da de baja (soft-delete) el origen. Recuperable
+   * desde Papelera igual que un remove() normal — nada se borra físicamente
+   * salvo filas que quedan sumadas/duplicadas en el destino.
+   *
+   * Colisiones con restricciones únicas (mismo almacén, misma receta, mismo
+   * proveedor+alias, misma lista de compra) se resuelven sumando cantidades
+   * en la fila del destino y retirando la del origen — decisión de producto:
+   * fusionar no debe perder cantidades ya registradas.
+   */
+  async merge(sourceId: string, targetId: string, requestTenantId: string) {
+    if (sourceId === targetId) {
+      throw new BadRequestException(
+        "No se puede fusionar un artículo consigo mismo",
+      );
+    }
+
+    const [source, target] = await Promise.all([
+      this.prisma.product.findFirst({
+        where: { id: sourceId, tenantId: requestTenantId },
+      }),
+      this.prisma.product.findFirst({
+        where: { id: targetId, tenantId: requestTenantId },
+      }),
+    ]);
+
+    if (!source) {
+      throw new NotFoundException("Artículo origen no encontrado");
+    }
+    if (!target) {
+      throw new NotFoundException("Artículo destino no encontrado");
+    }
+
+    const warnings: string[] = [];
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Tablas sin restricción única sobre productId: reasignación directa.
+        await tx.purchaseFormat.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+        await tx.stockMovement.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+        await tx.albaranLine.updateMany({
+          where: { matchedProductId: sourceId },
+          data: { matchedProductId: targetId },
+        });
+        await tx.lot.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+        await tx.productPriceHistory.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+        await tx.purchaseOrderLine.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+        await tx.catalogImportLine.updateMany({
+          where: { matchedProductId: sourceId },
+          data: { matchedProductId: targetId },
+        });
+        await tx.inventoryItem.updateMany({
+          where: { productId: sourceId },
+          data: { productId: targetId },
+        });
+
+        // NutritionalInfo (1:1 vía productId único): si el destino ya tiene
+        // ficha nutricional, la del origen se queda huérfana junto al
+        // artículo dado de baja (no se pierde, solo deja de ser la vigente).
+        const [sourceNutrition, targetNutrition] = await Promise.all([
+          tx.nutritionalInfo.findUnique({ where: { productId: sourceId } }),
+          tx.nutritionalInfo.findUnique({ where: { productId: targetId } }),
+        ]);
+        if (sourceNutrition && !targetNutrition) {
+          await tx.nutritionalInfo.update({
+            where: { id: sourceNutrition.id },
+            data: { productId: targetId },
+          });
+        } else if (sourceNutrition && targetNutrition) {
+          warnings.push(
+            "Ambos artículos tenían ficha nutricional; se mantuvo la del artículo destino.",
+          );
+        }
+
+        // Stock (único por productId+warehouseId): suma cantidad/reserva en el
+        // almacén ya existente en destino; si el destino no tiene stock en ese
+        // almacén, reasigna la fila directamente.
+        const sourceStocks = await tx.stock.findMany({
+          where: { productId: sourceId },
+        });
+        for (const stock of sourceStocks) {
+          const targetStock = await tx.stock.findFirst({
+            where: { productId: targetId, warehouseId: stock.warehouseId },
+          });
+          if (targetStock) {
+            await tx.stock.update({
+              where: { id: targetStock.id },
+              data: {
+                quantity: targetStock.quantity + stock.quantity,
+                reservedStock: targetStock.reservedStock + stock.reservedStock,
+              },
+            });
+            await tx.stock.delete({ where: { id: stock.id } });
+          } else {
+            await tx.stock.update({
+              where: { id: stock.id },
+              data: { productId: targetId },
+            });
+          }
+        }
+
+        // RecipeIngredient (único por recipeId+productId): si la receta ya usa
+        // el destino, suma cantidades cuando la unidad coincide; si no
+        // coincide, conserva la línea del destino y avisa (no se puede sumar
+        // sin conversión de unidad).
+        const sourceIngredients = await tx.recipeIngredient.findMany({
+          where: { productId: sourceId },
+          include: { recipe: { select: { name: true } } },
+        });
+        for (const ingredient of sourceIngredients) {
+          const targetIngredient = await tx.recipeIngredient.findFirst({
+            where: { recipeId: ingredient.recipeId, productId: targetId },
+          });
+          if (targetIngredient) {
+            if (targetIngredient.unit === ingredient.unit) {
+              await tx.recipeIngredient.update({
+                where: { id: targetIngredient.id },
+                data: {
+                  quantity: targetIngredient.quantity + ingredient.quantity,
+                },
+              });
+            } else {
+              warnings.push(
+                `La receta "${ingredient.recipe.name}" ya usaba el artículo destino con otra unidad; se mantuvo su cantidad y se descartó la del origen.`,
+              );
+            }
+            await tx.recipeIngredient.delete({ where: { id: ingredient.id } });
+          } else {
+            await tx.recipeIngredient.update({
+              where: { id: ingredient.id },
+              data: { productId: targetId },
+            });
+          }
+        }
+
+        // PurchaseListItem (único por listId+productId): suma defaultQuantity.
+        const sourceListItems = await tx.purchaseListItem.findMany({
+          where: { productId: sourceId },
+        });
+        for (const item of sourceListItems) {
+          const targetItem = await tx.purchaseListItem.findFirst({
+            where: { listId: item.listId, productId: targetId },
+          });
+          if (targetItem) {
+            await tx.purchaseListItem.update({
+              where: { id: targetItem.id },
+              data: {
+                defaultQuantity:
+                  targetItem.defaultQuantity + item.defaultQuantity,
+              },
+            });
+            await tx.purchaseListItem.delete({ where: { id: item.id } });
+          } else {
+            await tx.purchaseListItem.update({
+              where: { id: item.id },
+              data: { productId: targetId },
+            });
+          }
+        }
+
+        // SupplierProductAlias (único por tenantId+supplierId+normalizedDescription):
+        // si el destino ya tiene ese mismo alias, retira el del origen (mismo
+        // texto, no hay nada que sumar).
+        const sourceAliases = await tx.supplierProductAlias.findMany({
+          where: { productId: sourceId },
+        });
+        for (const alias of sourceAliases) {
+          const targetAlias = await tx.supplierProductAlias.findFirst({
+            where: {
+              productId: targetId,
+              supplierId: alias.supplierId,
+              normalizedDescription: alias.normalizedDescription,
+            },
+          });
+          if (targetAlias) {
+            await tx.supplierProductAlias.delete({ where: { id: alias.id } });
+          } else {
+            await tx.supplierProductAlias.update({
+              where: { id: alias.id },
+              data: { productId: targetId },
+            });
+          }
+        }
+
+        // ProductSupplierOffer: únicos parciales "1 activa por producto+proveedor"
+        // y "1 preferente por producto". Si el destino ya tiene oferta de ese
+        // proveedor, retira (soft-delete) la del origen; si no, reasigna pero
+        // sin isPreferred (evita chocar con la preferente del destino, si la
+        // hay). El precio/proveedor "de verdad" de Product no se toca aquí.
+        const [sourceOffers, targetOffers] = await Promise.all([
+          tx.productSupplierOffer.findMany({
+            where: { productId: sourceId, deletedAt: null },
+          }),
+          tx.productSupplierOffer.findMany({
+            where: { productId: targetId, deletedAt: null },
+          }),
+        ]);
+        const targetSupplierIds = new Set(
+          targetOffers.map((o) => o.supplierId),
+        );
+        const targetHadPreferredOffer = targetOffers.some((o) => o.isPreferred);
+        let reassignedOfferCount = 0;
+        for (const offer of sourceOffers) {
+          if (targetSupplierIds.has(offer.supplierId)) {
+            // ProductSupplierOffer tiene soft-delete, pero el interceptor de
+            // Prisma que lo implementa (prisma.service.ts) captura el cliente
+            // base fuera de la transacción activa — usar `.delete()` aquí
+            // confirmaría el cambio antes de tiempo, rompiendo la atomicidad
+            // del merge. Se escribe `deletedAt` directamente vía `.update()`
+            // para que quede dentro de `tx`.
+            await tx.productSupplierOffer.update({
+              where: { id: offer.id },
+              data: { deletedAt: new Date() },
+            });
+          } else {
+            await tx.productSupplierOffer.update({
+              where: { id: offer.id },
+              data: { productId: targetId, isPreferred: false },
+            });
+            reassignedOfferCount++;
+          }
+        }
+        if (
+          !targetHadPreferredOffer &&
+          targetOffers.length + reassignedOfferCount > 0
+        ) {
+          warnings.push(
+            "El artículo destino quedó sin oferta de proveedor preferente; márcala manualmente en la pestaña Proveedor y Stock.",
+          );
+        }
+
+        // Dar de baja el artículo origen (soft-delete, recuperable en Papelera).
+        await tx.product.update({
+          where: { id: sourceId },
+          data: { deletedAt: new Date() },
+        });
+      },
+      { timeout: 15000 },
+    );
+
+    return {
+      success: true,
+      data: { mergedInto: targetId, warnings },
+      message: `"${source.name}" se fusionó con "${target.name}"`,
+    };
+  }
+
   async calculateProductCost(id: string, requestTenantId: string) {
     const product = await this.prisma.product.findFirst({
       where: { id, tenantId: requestTenantId },

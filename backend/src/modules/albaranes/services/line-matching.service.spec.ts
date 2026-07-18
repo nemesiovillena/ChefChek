@@ -24,6 +24,10 @@ describe("LineMatchingService", () => {
       albaranLine: {
         update: jest.fn(),
       },
+      supplierProductAlias: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
     };
 
     mockProductRecognition = {
@@ -257,6 +261,76 @@ describe("LineMatchingService", () => {
       });
     });
 
+    describe("supplier alias matching", () => {
+      const mockSupplierId = "supplier-321";
+
+      it("should return MATCH_ALTO from a confirmed alias without calling recognition", async () => {
+        mockPrisma.supplierProductAlias.findUnique.mockResolvedValue({
+          productId: mockProductId,
+        });
+
+        const result = await service.matchLine({
+          description: "JARRETE CORD. 1RA",
+          tenantId: mockTenantId,
+          supplierId: mockSupplierId,
+        });
+
+        expect(result).toEqual({
+          matchedProductId: mockProductId,
+          matchStatus: LineMatchStatus.MATCH_ALTO,
+          confidence: 1.0,
+          suggestions: [],
+        });
+        expect(mockPrisma.supplierProductAlias.findUnique).toHaveBeenCalledWith(
+          {
+            where: {
+              tenantId_supplierId_normalizedDescription: {
+                tenantId: mockTenantId,
+                supplierId: mockSupplierId,
+                normalizedDescription: "jarrete cord 1ra",
+              },
+            },
+          },
+        );
+        expect(mockProductRecognition.recognizeProduct).not.toHaveBeenCalled();
+      });
+
+      it("should fall back to recognition when no alias matches", async () => {
+        mockPrisma.supplierProductAlias.findUnique.mockResolvedValue(null);
+        mockProductRecognition.recognizeProduct.mockResolvedValue({
+          recognizedProduct: null,
+          confidence: 0.3,
+          suggestions: [],
+        });
+
+        const result = await service.matchLine({
+          description: "Producto nuevo",
+          tenantId: mockTenantId,
+          supplierId: mockSupplierId,
+        });
+
+        expect(result.matchStatus).toBe(LineMatchStatus.NUEVO);
+        expect(mockProductRecognition.recognizeProduct).toHaveBeenCalled();
+      });
+
+      it("should skip alias lookup when no supplierId is provided", async () => {
+        mockProductRecognition.recognizeProduct.mockResolvedValue({
+          recognizedProduct: null,
+          confidence: 0.3,
+          suggestions: [],
+        });
+
+        await service.matchLine({
+          description: "Producto sin proveedor",
+          tenantId: mockTenantId,
+        });
+
+        expect(
+          mockPrisma.supplierProductAlias.findUnique,
+        ).not.toHaveBeenCalled();
+      });
+    });
+
     describe("product ID resolution", () => {
       it("should find product ID by name for recognized product", async () => {
         const description = "Tomate frito";
@@ -430,6 +504,67 @@ describe("LineMatchingService", () => {
       await service.matchAllLines(mockAlbaranId, mockTenantId);
 
       expect(mockPrisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("rememberAlias", () => {
+    const mockSupplierId = "supplier-321";
+
+    it("should upsert a normalized alias for the supplier", async () => {
+      await service.rememberAlias({
+        tenantId: mockTenantId,
+        supplierId: mockSupplierId,
+        description: "  JARRETE   Córd. 1ra  ",
+        productId: mockProductId,
+        confirmedBy: "user-1",
+      });
+
+      expect(mockPrisma.supplierProductAlias.upsert).toHaveBeenCalledWith({
+        where: {
+          tenantId_supplierId_normalizedDescription: {
+            tenantId: mockTenantId,
+            supplierId: mockSupplierId,
+            normalizedDescription: "jarrete cord 1ra",
+          },
+        },
+        create: {
+          tenantId: mockTenantId,
+          supplierId: mockSupplierId,
+          normalizedDescription: "jarrete cord 1ra",
+          productId: mockProductId,
+          confirmedBy: "user-1",
+        },
+        update: {
+          productId: mockProductId,
+          confirmedBy: "user-1",
+        },
+      });
+    });
+
+    it("should not throw when the upsert fails (best-effort)", async () => {
+      mockPrisma.supplierProductAlias.upsert.mockRejectedValue(
+        new Error("db error"),
+      );
+
+      await expect(
+        service.rememberAlias({
+          tenantId: mockTenantId,
+          supplierId: mockSupplierId,
+          description: "Jarrete de cordero",
+          productId: mockProductId,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("should skip the upsert for an empty description", async () => {
+      await service.rememberAlias({
+        tenantId: mockTenantId,
+        supplierId: mockSupplierId,
+        description: "   ",
+        productId: mockProductId,
+      });
+
+      expect(mockPrisma.supplierProductAlias.upsert).not.toHaveBeenCalled();
     });
   });
 });

@@ -73,3 +73,21 @@ export function calculateSimilarity(str1: string, str2: string): number {
 export function normalizeCifNif(cifNif: string): string {
   return cifNif.toUpperCase().replace(/[-\s]/g, "").trim();
 }
+
+/**
+ * Normalizes a product description for alias lookup: lowercase, sin acentos,
+ * puntuación colapsada a espacios. Dos descripciones que un mismo proveedor
+ * escribe con distinta capitalización/puntuación producen la misma clave.
+ *
+ * @param text - Description text to normalize
+ * @returns Normalized description
+ */
+export function normalizeProductDescription(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}

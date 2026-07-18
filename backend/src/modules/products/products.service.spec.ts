@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
@@ -30,15 +30,45 @@ describe("ProductsService", () => {
     stock: {
       create: jest.fn(),
       update: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      delete: jest.fn(),
     },
     recipeIngredient: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     productPriceHistory: {
       create: jest.fn(),
+      updateMany: jest.fn(),
     },
     productSupplierOffer: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    purchaseFormat: { updateMany: jest.fn() },
+    stockMovement: { updateMany: jest.fn() },
+    albaranLine: { updateMany: jest.fn() },
+    lot: { updateMany: jest.fn() },
+    purchaseOrderLine: { updateMany: jest.fn() },
+    catalogImportLine: { updateMany: jest.fn() },
+    inventoryItem: { updateMany: jest.fn() },
+    nutritionalInfo: { findUnique: jest.fn(), update: jest.fn() },
+    purchaseListItem: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    supplierProductAlias: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
   };
   (mockPrismaService as any).$transaction = jest.fn((fn: any) =>
@@ -940,6 +970,314 @@ describe("ProductsService", () => {
       await expect(service.remove("nonexistent", tenantId)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe("merge", () => {
+    const source = { id: "prod-src", tenantId, name: "Tomate Duplicado" };
+    const target = { id: "prod-tgt", tenantId, name: "Tomate" };
+
+    beforeEach(() => {
+      prismaService.product.findFirst.mockImplementation(({ where }: any) => {
+        if (where.id === source.id) {
+          return Promise.resolve(source);
+        }
+        if (where.id === target.id) {
+          return Promise.resolve(target);
+        }
+        return Promise.resolve(null);
+      });
+      prismaService.purchaseFormat.updateMany.mockResolvedValue({ count: 0 });
+      prismaService.stockMovement.updateMany.mockResolvedValue({ count: 0 });
+      prismaService.albaranLine.updateMany.mockResolvedValue({ count: 0 });
+      prismaService.lot.updateMany.mockResolvedValue({ count: 0 });
+      prismaService.productPriceHistory.updateMany.mockResolvedValue({
+        count: 0,
+      });
+      prismaService.purchaseOrderLine.updateMany.mockResolvedValue({
+        count: 0,
+      });
+      prismaService.catalogImportLine.updateMany.mockResolvedValue({
+        count: 0,
+      });
+      prismaService.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
+      prismaService.nutritionalInfo.findUnique.mockResolvedValue(null);
+      prismaService.stock.findMany.mockResolvedValue([]);
+      prismaService.recipeIngredient.findMany.mockResolvedValue([]);
+      prismaService.purchaseListItem.findMany.mockResolvedValue([]);
+      prismaService.supplierProductAlias.findMany.mockResolvedValue([]);
+      prismaService.productSupplierOffer.findMany.mockResolvedValue([]);
+      prismaService.product.update.mockResolvedValue({});
+    });
+
+    it("should throw BadRequestException when merging a product with itself", async () => {
+      await expect(
+        service.merge(source.id, source.id, tenantId),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw NotFoundException when source product does not exist", async () => {
+      await expect(
+        service.merge("nonexistent", target.id, tenantId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw NotFoundException when target product does not exist", async () => {
+      await expect(
+        service.merge(source.id, "nonexistent", tenantId),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should reassign simple FK tables and soft-delete the source product", async () => {
+      const result = await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.purchaseFormat.updateMany).toHaveBeenCalledWith({
+        where: { productId: source.id },
+        data: { productId: target.id },
+      });
+      expect(prismaService.albaranLine.updateMany).toHaveBeenCalledWith({
+        where: { matchedProductId: source.id },
+        data: { matchedProductId: target.id },
+      });
+      expect(prismaService.product.update).toHaveBeenCalledWith({
+        where: { id: source.id },
+        data: { deletedAt: expect.any(Date) },
+      });
+      expect(result.success).toBe(true);
+      expect(result.data.mergedInto).toBe(target.id);
+      expect(result.message).toContain(source.name);
+      expect(result.message).toContain(target.name);
+    });
+
+    it("should sum stock quantities when both products have stock in the same warehouse", async () => {
+      prismaService.stock.findMany.mockResolvedValue([
+        {
+          id: "stock-src",
+          productId: source.id,
+          warehouseId: "wh-1",
+          quantity: 5,
+          reservedStock: 1,
+        },
+      ]);
+      prismaService.stock.findFirst.mockResolvedValue({
+        id: "stock-tgt",
+        productId: target.id,
+        warehouseId: "wh-1",
+        quantity: 10,
+        reservedStock: 2,
+      });
+
+      await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.stock.update).toHaveBeenCalledWith({
+        where: { id: "stock-tgt" },
+        data: { quantity: 15, reservedStock: 3 },
+      });
+      expect(prismaService.stock.delete).toHaveBeenCalledWith({
+        where: { id: "stock-src" },
+      });
+    });
+
+    it("should sum purchase list item quantities when both products are on the same list", async () => {
+      prismaService.purchaseListItem.findMany.mockResolvedValue([
+        {
+          id: "item-src",
+          listId: "list-1",
+          productId: source.id,
+          defaultQuantity: 2,
+        },
+      ]);
+      prismaService.purchaseListItem.findFirst.mockResolvedValue({
+        id: "item-tgt",
+        listId: "list-1",
+        productId: target.id,
+        defaultQuantity: 3,
+      });
+
+      await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.purchaseListItem.update).toHaveBeenCalledWith({
+        where: { id: "item-tgt" },
+        data: { defaultQuantity: 5 },
+      });
+      expect(prismaService.purchaseListItem.delete).toHaveBeenCalledWith({
+        where: { id: "item-src" },
+      });
+    });
+
+    it("should warn and keep the target nutritional info when both products already have one", async () => {
+      prismaService.nutritionalInfo.findUnique.mockImplementation(
+        ({ where }: any) => {
+          if (where.productId === source.id) {
+            return Promise.resolve({ id: "ni-src", productId: source.id });
+          }
+          return Promise.resolve({ id: "ni-tgt", productId: target.id });
+        },
+      );
+
+      const result = await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.nutritionalInfo.update).not.toHaveBeenCalled();
+      expect(
+        result.data.warnings.some((w: string) => w.includes("nutricional")),
+      ).toBe(true);
+    });
+
+    it("should sum recipe ingredient quantities when the same recipe already uses the target with matching unit", async () => {
+      prismaService.recipeIngredient.findMany.mockResolvedValue([
+        {
+          id: "ri-src",
+          recipeId: "recipe-1",
+          productId: source.id,
+          quantity: 2,
+          unit: "kg",
+          recipe: { name: "Ensalada" },
+        },
+      ]);
+      prismaService.recipeIngredient.findFirst.mockResolvedValue({
+        id: "ri-tgt",
+        recipeId: "recipe-1",
+        productId: target.id,
+        quantity: 3,
+        unit: "kg",
+      });
+
+      await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.recipeIngredient.update).toHaveBeenCalledWith({
+        where: { id: "ri-tgt" },
+        data: { quantity: 5 },
+      });
+      expect(prismaService.recipeIngredient.delete).toHaveBeenCalledWith({
+        where: { id: "ri-src" },
+      });
+    });
+
+    it("should warn and discard the source quantity when the same recipe uses a different unit", async () => {
+      prismaService.recipeIngredient.findMany.mockResolvedValue([
+        {
+          id: "ri-src",
+          recipeId: "recipe-1",
+          productId: source.id,
+          quantity: 2,
+          unit: "und",
+          recipe: { name: "Ensalada" },
+        },
+      ]);
+      prismaService.recipeIngredient.findFirst.mockResolvedValue({
+        id: "ri-tgt",
+        recipeId: "recipe-1",
+        productId: target.id,
+        quantity: 3,
+        unit: "kg",
+      });
+
+      const result = await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.recipeIngredient.update).not.toHaveBeenCalled();
+      expect(prismaService.recipeIngredient.delete).toHaveBeenCalledWith({
+        where: { id: "ri-src" },
+      });
+      expect(result.data.warnings[0]).toContain("Ensalada");
+    });
+
+    it("should soft-delete the source supplier offer via update() (not delete()) when the target already has that supplier", async () => {
+      // productSupplierOffer tiene soft-delete vía middleware, pero ese
+      // middleware captura el cliente base fuera de la transacción activa —
+      // `.delete()` aquí confirmaría el cambio antes de tiempo. El servicio
+      // debe usar `.update({data:{deletedAt}})` para quedar dentro de `tx`.
+      prismaService.productSupplierOffer.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.productId === source.id) {
+            return Promise.resolve([
+              {
+                id: "offer-src",
+                productId: source.id,
+                supplierId: "sup-1",
+                isPreferred: false,
+                deletedAt: null,
+              },
+            ]);
+          }
+          return Promise.resolve([
+            {
+              id: "offer-tgt",
+              productId: target.id,
+              supplierId: "sup-1",
+              isPreferred: true,
+              deletedAt: null,
+            },
+          ]);
+        },
+      );
+
+      await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.productSupplierOffer.delete).not.toHaveBeenCalled();
+      expect(prismaService.productSupplierOffer.update).toHaveBeenCalledWith({
+        where: { id: "offer-src" },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it("should reassign a non-colliding supplier offer to the target forcing isPreferred false", async () => {
+      prismaService.productSupplierOffer.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.productId === source.id) {
+            return Promise.resolve([
+              {
+                id: "offer-src",
+                productId: source.id,
+                supplierId: "sup-1",
+                isPreferred: true,
+                deletedAt: null,
+              },
+            ]);
+          }
+          return Promise.resolve([
+            {
+              id: "offer-tgt",
+              productId: target.id,
+              supplierId: "sup-2",
+              isPreferred: true,
+              deletedAt: null,
+            },
+          ]);
+        },
+      );
+
+      const result = await service.merge(source.id, target.id, tenantId);
+
+      expect(prismaService.productSupplierOffer.update).toHaveBeenCalledWith({
+        where: { id: "offer-src" },
+        data: { productId: target.id, isPreferred: false },
+      });
+      expect(result.data.warnings).toEqual([]);
+    });
+
+    it("should warn when the target ends up with no preferred supplier offer", async () => {
+      prismaService.productSupplierOffer.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.productId === source.id) {
+            return Promise.resolve([
+              {
+                id: "offer-src",
+                productId: source.id,
+                supplierId: "sup-1",
+                isPreferred: true,
+                deletedAt: null,
+              },
+            ]);
+          }
+          return Promise.resolve([]);
+        },
+      );
+
+      const result = await service.merge(source.id, target.id, tenantId);
+
+      expect(
+        result.data.warnings.some((w: string) => w.includes("preferente")),
+      ).toBe(true);
     });
   });
 

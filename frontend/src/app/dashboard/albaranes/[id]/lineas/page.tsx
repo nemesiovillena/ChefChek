@@ -554,6 +554,7 @@ export default function AlbaranLineasPage() {
       {/* Product Picker Dialog */}
       {selectedLine && (
         <ProductPickerDialog
+          key={selectedLine.id}
           open={pickerOpen}
           onOpenChange={setPickerOpen}
           albaranId={id}

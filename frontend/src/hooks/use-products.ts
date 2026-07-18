@@ -235,6 +235,32 @@ export function useDeleteProduct() {
   return useDelete();
 }
 
+/**
+ * Fusiona `sourceId` en `targetId`: el artículo origen queda dado de baja
+ * (recuperable en Papelera) y todas sus referencias (recetas, stock,
+ * histórico de precios...) pasan al destino.
+ */
+export interface MergeProductResult {
+  mergedInto: string;
+  warnings: string[];
+}
+
+export function useMergeProduct() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sourceId, targetId }: { sourceId: string; targetId: string }) => {
+      const response = await apiClient.post<MergeProductResult>(`/v1/products/${sourceId}/merge/${targetId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['recipe-cost'] });
+      queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+    },
+  });
+}
+
 export function useUploadProductImage() {
   return useApiMutation<{ url: string }, FormData>(
     '/v1/products/upload-image',

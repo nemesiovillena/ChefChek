@@ -398,6 +398,35 @@ export class ProductsController {
     return this.productsService.remove(id, tenantId);
   }
 
+  @Post(":id/merge/:targetId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Fusionar un artículo duplicado (:id) en otro (:targetId); el origen queda dado de baja",
+  })
+  @ApiParam({ name: "id", description: "ID del artículo origen (desaparece)" })
+  @ApiParam({
+    name: "targetId",
+    description: "ID del artículo destino (sobrevive)",
+  })
+  @ApiResponse({
+    status: 201,
+    description: "Artículos fusionados exitosamente",
+  })
+  @ApiResponse({ status: 400, description: "IDs iguales" })
+  @ApiResponse({
+    status: 404,
+    description: "Artículo origen o destino no encontrado",
+  })
+  async merge(
+    @Param("id") id: string,
+    @Param("targetId") targetId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.tenantId;
+    return this.productsService.merge(id, targetId, tenantId);
+  }
+
   @Get("suppliers/stats/active-count")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Contador de proveedores activos" })

@@ -42,6 +42,7 @@ describe("AlbaranesService", () => {
   };
   const lineMatching = {
     matchAllLines: jest.fn().mockResolvedValue(undefined),
+    rememberAlias: jest.fn().mockResolvedValue(undefined),
   };
   const pythonOcrService = {
     processImage: jest.fn(),
@@ -380,8 +381,17 @@ describe("AlbaranesService", () => {
   });
 
   describe("matchLine", () => {
-    it("throws NotFound when product does not exist", async () => {
+    const line = { id: "l1", description: "Jarrete de cordero" };
+
+    it("throws NotFound when the line does not belong to the albaran", async () => {
       prisma.albaran.findFirst.mockResolvedValue(albaran());
+      await expect(
+        service.matchLine("alb-1", "l1", "p1", "t1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("throws NotFound when product does not exist", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran({ lines: [line] }));
       prisma.product.findFirst.mockResolvedValue(null);
       await expect(
         service.matchLine("alb-1", "l1", "p1", "t1"),
@@ -389,7 +399,7 @@ describe("AlbaranesService", () => {
     });
 
     it("assigns product match with high confidence", async () => {
-      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaran.findFirst.mockResolvedValue(albaran({ lines: [line] }));
       prisma.product.findFirst.mockResolvedValue({ id: "p1" });
       prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
 
@@ -402,6 +412,25 @@ describe("AlbaranesService", () => {
           matchStatus: "MATCH_ALTO",
           confidence: 1.0,
         },
+      });
+      expect(lineMatching.rememberAlias).not.toHaveBeenCalled();
+    });
+
+    it("remembers a supplier alias when the albaran has a resolved supplier", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ lines: [line], supplierId: "sup-1" }),
+      );
+      prisma.product.findFirst.mockResolvedValue({ id: "p1" });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.matchLine("alb-1", "l1", "p1", "t1", "user-1");
+
+      expect(lineMatching.rememberAlias).toHaveBeenCalledWith({
+        tenantId: "t1",
+        supplierId: "sup-1",
+        description: "Jarrete de cordero",
+        productId: "p1",
+        confirmedBy: "user-1",
       });
     });
   });

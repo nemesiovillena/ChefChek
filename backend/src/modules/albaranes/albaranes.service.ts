@@ -249,8 +249,14 @@ export class AlbaranesService {
     lineId: string,
     productId: string,
     tenantId: string,
+    userId?: string,
   ) {
-    await this.findOne(albaranId, tenantId);
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
 
     // Verify product exists and belongs to tenant
     const product = await this.prisma.product.findFirst({
@@ -260,7 +266,7 @@ export class AlbaranesService {
       throw new NotFoundException("Producto no encontrado");
     }
 
-    return this.prisma.albaranLine.update({
+    const updatedLine = await this.prisma.albaranLine.update({
       where: { id: lineId },
       data: {
         matchedProductId: productId,
@@ -268,6 +274,20 @@ export class AlbaranesService {
         confidence: 1.0,
       },
     });
+
+    // Recuerda esta corrección para el mismo proveedor: la próxima vez que
+    // escriba el mismo texto no hará falta repetir el match a mano.
+    if (albaran.supplierId) {
+      await this.lineMatching.rememberAlias({
+        tenantId,
+        supplierId: albaran.supplierId,
+        description: line.description,
+        productId,
+        confirmedBy: userId,
+      });
+    }
+
+    return updatedLine;
   }
 
   /** Confirm or reject a line */

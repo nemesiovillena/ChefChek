@@ -83,6 +83,7 @@ model Tenant {
   offerLocationSettings  OfferLocationSetting[]
   purchaseSchedules      PurchaseSchedule[]
   lots                   Lot[]
+  supplierProductAliases SupplierProductAlias[]
 
   @@map("tenants")
 }
@@ -199,6 +200,7 @@ model Product {
   purchaseListItems  PurchaseListItem[]
   catalogImportLines CatalogImportLine[]
   lots               Lot[]
+  supplierAliases    SupplierProductAlias[]
 
   @@index([tenantId])
   @@index([name])
@@ -1158,6 +1160,7 @@ model Supplier {
   catalogImports        CatalogImport[]
   purchaseSchedules     PurchaseSchedule[]
   lots                  Lot[]
+  productAliases        SupplierProductAlias[]
 
   @@index([tenantId])
   @@index([name])
@@ -1720,6 +1723,30 @@ model AlbaranLine {
   @@index([matchedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
+}
+
+// Alias aprendido: texto crudo con el que un proveedor concreto describe un
+// artículo (abreviaturas, orden de palabras distinto...) → producto real.
+// Se escribe cuando el usuario confirma manualmente el match de una línea
+// (matchLine) y se consulta antes del match exacto/fuzzy en futuros albaranes
+// del mismo proveedor, para no repetir la misma corrección cada vez.
+model SupplierProductAlias {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  supplierId            String
+  normalizedDescription String // texto de línea normalizado (minúsculas, sin acentos/espacios extra)
+  productId             String
+  confirmedBy           String? // userId que confirmó el match origen del alias
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, supplierId, normalizedDescription])
+  @@index([productId])
+  @@map("supplier_product_aliases")
 }
 
 model Lot {

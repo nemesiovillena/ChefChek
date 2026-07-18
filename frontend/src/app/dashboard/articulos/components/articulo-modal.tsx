@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateProduct, useUpdateProduct, useUploadProductImage, Product, CreateProductData } from '@/hooks/use-products';
+import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, Product, CreateProductData } from '@/hooks/use-products';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
+import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
 import TabAlergenos from './tab-alergenos';
@@ -52,6 +53,7 @@ const emptyFormData = {
   qr: '',
   brand: '',
   barcode: '',
+  lot: '',
   supplierId: '',
   categoryId: '',
   minimumStock: '',
@@ -82,6 +84,7 @@ function deriveFormData(article: Product | null | undefined) {
     qr: article.qr || '',
     brand: article.brand || '',
     barcode: article.barcode || '',
+    lot: article.lot || '',
     supplierId: article.supplierId || '',
     categoryId: article.categoryId || '',
     minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
@@ -134,9 +137,11 @@ interface ArticuloModalFormProps {
 
 function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalFormProps) {
   const addNotification = useNotification();
+  const confirm = useConfirm();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
+  const mergeMutation = useMergeProduct();
 
   // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
   const [activeTab, setActiveTab] = useState('formato-precio');
@@ -199,6 +204,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       iva: parseFloat(formData.iva) || undefined,
       qr: formData.qr || undefined,
       barcode: formData.barcode || undefined,
+      lot: formData.lot || undefined,
       brand: formData.brand || undefined,
       allergens,
       hideAllergens,
@@ -219,6 +225,37 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       onClose();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al guardar artículo';
+      addNotification({ type: 'error', title: 'Error', message });
+    }
+  };
+
+  const handleMerge = async (targetId: string, targetName: string) => {
+    if (!article?.id) return;
+    const ok = await confirm({
+      title: 'Fusionar artículos',
+      description: `Se moverán recetas, stock, histórico de precios y demás datos de «${article.name}» a «${targetName}». «${article.name}» quedará dado de baja (recuperable desde Papelera). Esta acción no se puede deshacer directamente.`,
+      confirmText: 'Fusionar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+
+    try {
+      const result = await mergeMutation.mutateAsync({ sourceId: article.id, targetId });
+      addNotification({
+        type: 'success',
+        title: 'Artículos fusionados',
+        message: `«${article.name}» se fusionó con «${targetName}»`,
+      });
+      if (result?.warnings?.length) {
+        addNotification({
+          type: 'warning',
+          title: 'Revisa la fusión',
+          message: result.warnings.join(' '),
+        });
+      }
+      onClose();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al fusionar artículos';
       addNotification({ type: 'error', title: 'Error', message });
     }
   };
@@ -264,6 +301,21 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
                 ))}
                 {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}{' '}
                 Puedes continuar si es un artículo distinto.
+                {article?.id && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {duplicateNameMatches.slice(0, 3).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => handleMerge(m.id, m.name)}
+                        disabled={mergeMutation.isPending}
+                        className="px-2 py-1 text-xs font-medium rounded border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+                      >
+                        Fusionar con «{m.name}»
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

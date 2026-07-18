@@ -4,6 +4,7 @@
 export interface CodigosFormData {
   qr: string;
   barcode: string;
+  lot: string;
 }
 
 interface TabCodigosProps {
@@ -38,6 +39,20 @@ export default function TabCodigos({ formData, setFormData }: TabCodigosProps) {
           placeholder="Ej: 8412345678901"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Lote</label>
+        <input
+          type="text"
+          value={formData.lot}
+          onChange={(e) => update('lot', e.target.value)}
+          placeholder="Último lote recibido"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Se actualiza automáticamente al confirmar un albarán con lote. Editable manualmente.
+        </p>
       </div>
     </div>
   );

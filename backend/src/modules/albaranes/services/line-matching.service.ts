@@ -2,11 +2,21 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { ProductRecognitionService } from "../../ocr/product-recognition.service";
 import { LineMatchStatus } from "@prisma/client";
+import { normalizeProductDescription } from "../../../common/utils/string-similarity";
 
 export interface MatchLineInput {
   description: string;
   articleNumber?: string;
   tenantId: string;
+  supplierId?: string;
+}
+
+export interface RememberAliasInput {
+  tenantId: string;
+  supplierId: string;
+  description: string;
+  productId: string;
+  confirmedBy?: string;
 }
 
 export interface MatchSuggestion {
@@ -77,6 +87,29 @@ export class LineMatchingService {
         confidence: 0,
         suggestions: [],
       };
+    }
+
+    // 2.1 Alias aprendido: mismo proveedor ya escribió este texto antes y el
+    // usuario confirmó a qué producto corresponde (ver rememberAlias). Evita
+    // repetir la misma corrección manual en cada albarán del proveedor.
+    if (input.supplierId) {
+      const alias = await this.findAlias(
+        input.tenantId,
+        input.supplierId,
+        input.description,
+      );
+
+      if (alias) {
+        this.logger.log(
+          `Alias match for supplier ${input.supplierId}: "${input.description}" -> ${alias.productId}`,
+        );
+        return {
+          matchedProductId: alias.productId,
+          matchStatus: LineMatchStatus.MATCH_ALTO,
+          confidence: 1.0,
+          suggestions: [],
+        };
+      }
     }
 
     const recognitionResult = await this.productRecognition.recognizeProduct(
@@ -156,6 +189,7 @@ export class LineMatchingService {
           description: line.description,
           articleNumber: line.articleNumber || undefined,
           tenantId,
+          supplierId: albaran.supplierId || undefined,
         });
 
         await this.prisma.albaranLine.update({
@@ -180,6 +214,69 @@ export class LineMatchingService {
     }
 
     this.logger.log(`Completed matching all lines for albaran ${albaranId}`);
+  }
+
+  /**
+   * Look up a previously confirmed supplier alias for this description.
+   */
+  private async findAlias(
+    tenantId: string,
+    supplierId: string,
+    description: string,
+  ) {
+    const normalizedDescription = normalizeProductDescription(description);
+    if (!normalizedDescription) {
+      return null;
+    }
+
+    return this.prisma.supplierProductAlias.findUnique({
+      where: {
+        tenantId_supplierId_normalizedDescription: {
+          tenantId,
+          supplierId,
+          normalizedDescription,
+        },
+      },
+    });
+  }
+
+  /**
+   * Record (or refresh) a supplier alias after a user manually confirms which
+   * product a raw line description corresponds to. Best-effort: a failure
+   * here must not break the caller's primary action (assigning the product).
+   */
+  async rememberAlias(input: RememberAliasInput): Promise<void> {
+    const normalizedDescription = normalizeProductDescription(
+      input.description,
+    );
+    if (!normalizedDescription) {
+      return;
+    }
+
+    try {
+      await this.prisma.supplierProductAlias.upsert({
+        where: {
+          tenantId_supplierId_normalizedDescription: {
+            tenantId: input.tenantId,
+            supplierId: input.supplierId,
+            normalizedDescription,
+          },
+        },
+        create: {
+          tenantId: input.tenantId,
+          supplierId: input.supplierId,
+          normalizedDescription,
+          productId: input.productId,
+          confirmedBy: input.confirmedBy,
+        },
+        update: {
+          productId: input.productId,
+          confirmedBy: input.confirmedBy,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(`Failed to remember alias: ${error.message}`);
+    }
   }
 
   /**

@@ -52,6 +52,22 @@ export function CreateProductInline({
   // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
   // No bloquea: solo informa para evitar crear un artículo paralelo.
   const { matches: duplicateNameMatches } = useProductNameCheck(name);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Vincular directamente a un duplicado detectado, sin salir a "Elegir".
+  const handleLinkExisting = async (productId: string) => {
+    setLinkingId(productId);
+    setLinkError(null);
+    try {
+      await matchLine(albaranId, line.id, productId);
+      onSuccess();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al vincular producto';
+      setLinkError(message);
+      setLinkingId(null);
+    }
+  };
 
   // Subtotal de la línea = cantidad × precio. Sirve para verificar que el
   // precio introducido cuadra con el total que el OCR leyó en el albarán.
@@ -156,15 +172,26 @@ export function CreateProductInline({
               <span className="font-medium">Posible duplicado.</span> Ya existe:{' '}
               {duplicateNameMatches.slice(0, 3).map((m, idx) => (
                 <span key={m.id}>
-                  <span className="font-semibold">«{m.name}»</span>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkExisting(m.id)}
+                    disabled={linkingId !== null}
+                    className="font-semibold underline decoration-dotted underline-offset-2 hover:text-amber-950 disabled:opacity-50 dark:hover:text-amber-100"
+                  >
+                    «{m.name}»
+                  </button>
                   {!m.isActive && <span className="italic"> (inactivo)</span>}
+                  {linkingId === m.id && <Loader2 className="inline h-3 w-3 animate-spin ml-1" />}
                   {idx < Math.min(duplicateNameMatches.length, 3) - 1 ? ', ' : ''}
                 </span>
               ))}
               {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}
+              {' '}
+              <span className="italic">(clic en el nombre para vincular esta línea a ese artículo)</span>
             </span>
           </div>
         )}
+        {linkError && <p className="mt-1 text-xs text-red-600">{linkError}</p>}
       </div>
 
       {/* Campos core idénticos a la pestaña "Formato y Precio" de Artículos */}

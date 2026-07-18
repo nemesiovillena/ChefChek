@@ -187,7 +187,13 @@ export class AlbaranesController {
     @Req() req: any,
   ) {
     const tenantId = req.user?.tenantId;
-    return this.albaranesService.matchLine(id, lineId, dto.productId, tenantId);
+    return this.albaranesService.matchLine(
+      id,
+      lineId,
+      dto.productId,
+      tenantId,
+      req.user?.id,
+    );
   }
 
   @Put(":id/lines/:lineId/confirm")
