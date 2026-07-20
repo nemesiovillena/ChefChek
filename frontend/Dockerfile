@@ -8,6 +8,16 @@ WORKDIR /app
 ARG BACKEND_URL=http://localhost:3001
 ENV BACKEND_URL=$BACKEND_URL
 
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time by
+# Next.js — setting them as a runtime container env var has no effect on
+# already-compiled JS. Must be passed as Docker build args.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api
+ARG NEXT_PUBLIC_APP_URL=http://localhost:3000
+ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+
 # Copy manifest + lockfile for reproducible install
 COPY package.json bun.lock ./
 
