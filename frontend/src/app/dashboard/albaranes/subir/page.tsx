@@ -85,7 +85,7 @@ export default function SubirAlbaranPage() {
   const needsApiKey = aiModel && aiModel !== 'regex';
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 max-w-2xl">
+    <div className="container mx-auto p-4 sm:p-6 max-w-2xl pb-12">
       {/* Back + title */}
       <Link
         href="/dashboard/albaranes"

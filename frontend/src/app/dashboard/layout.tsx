@@ -256,8 +256,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      {/* Main content wrapper to push content below the header (height 64px) */}
-      <div className="pt-16 min-h-screen">
+      {/* Main content wrapper with bottom padding on mobile to clear fixed bottom nav */}
+      <div className="pt-16 pb-28 md:pb-8 min-h-screen">
         {children}
       </div>
 
@@ -268,17 +268,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
             onClick={() => setShowMore(false)}
           />
-          <div className="fixed bottom-22 left-4 right-4 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
+          <div className="fixed bottom-16 left-3 right-3 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-border">
               <span className="text-xs font-bold text-primary uppercase tracking-wider">Menú Principal</span>
               <button
                 onClick={() => setShowMore(false)}
                 className="text-on-surface-variant hover:text-primary p-1 flex items-center justify-center cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               {visibleSections.map((section, idx) => (
                 <div key={section.title ?? `sec-${idx}`} className="space-y-1">
                   {section.title && (
@@ -286,13 +286,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       {section.title}
                     </p>
                   )}
-                  <div className="grid grid-cols-1 gap-1">
+                  <div className="grid grid-cols-1 gap-0.5">
                     {section.items.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
                         onClick={() => setShowMore(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
+                        className="flex items-center gap-3 px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
                       >
                         <span className="material-symbols-outlined text-[18px] text-secondary">{item.icon}</span>
                         <span className="font-medium">{item.label}</span>
@@ -306,21 +306,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </>
       )}
 
-      {/* Bottom Nav Shell for Mobile */}
-      <nav className="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-base pb-safe bg-surface-container-high border-t border-border rounded-t-xl md:hidden">
+      {/* Sleek, Compact Bottom Nav Shell for Mobile */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-14 px-2 pb-safe bg-surface-container-high/95 backdrop-blur-md border-t border-border/80 shadow-lg md:hidden">
         {MOBILE_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out"
+            className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1 px-2"
           >
-            <span className="material-symbols-outlined">{item.icon}</span>
-            <span className="font-label-md text-label-md mt-1 text-[10px]">{item.label}</span>
+            <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+            <span className="text-[9px] font-medium tracking-tight mt-0.5">{item.label}</span>
           </Link>
         ))}
-        <button onClick={() => setShowMore(!showMore)} className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out cursor-pointer">
-          <span className="material-symbols-outlined">apps</span>
-          <span className="font-label-md text-label-md mt-1 text-[10px]">Más</span>
+        <button
+          onClick={() => setShowMore(!showMore)}
+          className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1 px-2 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[20px]">apps</span>
+          <span className="text-[9px] font-medium tracking-tight mt-0.5">Más</span>
         </button>
       </nav>
     </div>
