@@ -70,6 +70,10 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application with dumb-init
+# Start application with dumb-init. Runner stage is node (no bun), so the
+# local prisma bin is invoked directly rather than via bunx/npx.
+# Applies pending migrations before serving traffic -- without this, schema
+# drift between the Prisma Client (built from the latest schema) and the
+# actual production DB causes 500s on any query touching a new column.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node dist/main"]
