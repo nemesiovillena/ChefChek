@@ -46,5 +46,9 @@ ENV OCR_LANGUAGE=es
 ENV OCR_USE_GPU=False
 ENV OCR_CONFIDENCE_THRESHOLD=0.7
 
+# Health check (wget ya está disponible vía apt; evita depender de curl)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget -qO- http://localhost:8000/health || exit 1
+
 # Comando de inicio
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

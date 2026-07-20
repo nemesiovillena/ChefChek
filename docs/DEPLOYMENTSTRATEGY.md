@@ -405,8 +405,8 @@ jobs:
 ### Pendiente
 
 - Endurecer lint del frontend (quitar `continue-on-error`) tras saldar la deuda.
-- Añadir job `deploy` a `deploy.yml` cuando se active Dokploy (webhook o SSH compose).
-- Migrar `backend/Dockerfile` de npm a bun para consistencia (actualmente usa `npm ci`).
+- ~~Añadir job `deploy` a `deploy.yml` cuando se active Dokploy~~ — Dokploy ya está activo (2026-07-19): project "ChefChek" en el VPS Hostinger con 3 apps (`backend`, `frontend`, `ocr-microservice`) + Postgres gestionado, auto-deploy en push a `main`. Detalle en `docs/deployment.md`. Falta añadir el job `deploy` explícito a `deploy.yml` si se quiere que el pipeline de GitHub Actions dispare el deploy en vez de depender solo del webhook de Dokploy.
+- Migrar `backend/Dockerfile` de npm a bun para consistencia — **ya hecho**, el Dockerfile actual usa `oven/bun:1.3.14` multi-stage (ver `backend/Dockerfile`).
 - Scripts de tests E2E/integración/rendimiento reales (los referenciados en "Estrategia de Pruebas" son planeados).
 
 ## Monitoreo y Alertas
