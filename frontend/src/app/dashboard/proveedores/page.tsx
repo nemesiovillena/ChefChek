@@ -24,7 +24,7 @@ import {
   type CreateSupplierDto,
   type UpdateSupplierDto,
 } from '@/hooks/use-supplier-mutations';
-import { SupplierForm } from '@/app/dashboard/articulos/components/supplier-form';
+import SupplierModal from './components/supplier-modal';
 import { SupplierTable } from './components/supplier-table';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
@@ -50,7 +50,7 @@ export default function ProveedoresPage() {
   const deleteMutation = useDeleteSupplier();
   const toggleMutation = useToggleSupplierActive();
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   const [reassignOpen, setReassignOpen] = useState(false);
@@ -75,12 +75,12 @@ export default function ProveedoresPage() {
 
   const handleCreate = () => {
     setEditingSupplier(null);
-    setSheetOpen(true);
+    setModalOpen(true);
   };
 
   const handleEdit = (supplier: Supplier) => {
     setEditingSupplier(supplier);
-    setSheetOpen(true);
+    setModalOpen(true);
   };
 
   const handleSubmit = async (data: CreateSupplierDto | UpdateSupplierDto) => {
@@ -90,7 +90,7 @@ export default function ProveedoresPage() {
       } else {
         await createMutation.mutateAsync(data as CreateSupplierDto);
       }
-      setSheetOpen(false);
+      setModalOpen(false);
       setEditingSupplier(null);
       addNotification({
         type: 'success',
@@ -220,21 +220,13 @@ export default function ProveedoresPage() {
         />
       )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>{editingSupplier ? `Editar: ${editingSupplier.name}` : 'Nuevo proveedor'}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">
-            <SupplierForm
-              supplier={editingSupplier}
-              onSubmit={handleSubmit}
-              onCancel={() => setSheetOpen(false)}
-              isSubmitting={createMutation.isPending || updateMutation.isPending}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <SupplierModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        supplier={editingSupplier}
+        onSubmit={handleSubmit}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
 
       <Sheet open={reassignOpen} onOpenChange={setReassignOpen}>
         <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
