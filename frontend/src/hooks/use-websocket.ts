@@ -1,5 +1,6 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
+import { useAlerts } from './use-alerts';
 import {
   getWebSocketClient,
   type NotificationEvent,
@@ -48,8 +49,15 @@ interface StockAlertItem extends StockAlertEvent {
 export function useWebSocketNotifications() {
   const auth = useAuth();
   const { isAuthenticated, sessionId } = auth;
-  const [notifications, setNotifications] = useState<NotificationEvent[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { alerts, markAsRead: persistMarkAsRead } = useAlerts(50);
+  // Solo las recibidas en vivo por WebSocket durante esta sesión — el
+  // histórico persistido llega vía `alerts` (React Query) y se combina más
+  // abajo como estado derivado, sin duplicarlo en un useState propio.
+  const [wsNotifications, setWsNotifications] = useState<NotificationEvent[]>([]);
+  // Overlay optimista de "leído": solo lo puebla el usuario al hacer click
+  // (nunca un efecto), cubre tanto notificaciones ya persistidas como las
+  // recién llegadas por WebSocket que aún no reflejó el próximo GET /alerts.
+  const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isAuthenticated || !sessionId) {
@@ -60,12 +68,13 @@ export function useWebSocketNotifications() {
 
     // Listen for new notifications
     const notificationHandler = (notification: NotificationEvent) => {
-      setNotifications((prev) => {
+      setWsNotifications((prev) => {
+        if (prev.some((n) => n.id === notification.id)) {
+          return prev;
+        }
         // Limit to last 50 notifications to prevent memory leaks
-        const updated = [notification, ...prev];
-        return updated.slice(0, 50);
+        return [notification, ...prev].slice(0, 50);
       });
-      setUnreadCount((prev) => Math.min(prev + 1, 99)); // Limit to 99
 
       // Show browser notification if permission granted
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -83,28 +92,59 @@ export function useWebSocketNotifications() {
     // Clean up listeners on unmount
     return () => {
       wsClient.off('notification', asOffHandler(notificationHandler));
-      setNotifications([]); // Clear notifications on unmount
-      setUnreadCount(0);
+      setWsNotifications([]);
+      setLocallyReadIds(new Set());
     };
   }, [auth, isAuthenticated, sessionId]);
 
+  // Combina lo recibido en vivo con el histórico persistido (GET /alerts,
+  // sobrevive a un refresh) y aplica el overlay optimista de lectura.
+  // Puramente derivado del render — nada de esto vive en un efecto.
+  const notifications = useMemo(() => {
+    const wsIds = new Set(wsNotifications.map((n) => n.id));
+    const persisted: NotificationEvent[] = alerts
+      .filter((a) => !wsIds.has(a.id))
+      .map((a) => ({
+        id: a.id,
+        type: a.type,
+        title: a.title,
+        message: a.message,
+        createdAt: new Date(a.createdAt),
+        tenantId: a.tenantId,
+        read: a.read,
+        timestamp: new Date(a.createdAt),
+      }));
+
+    return [...wsNotifications, ...persisted]
+      .map((n) => (locallyReadIds.has(n.id) ? { ...n, read: true } : n))
+      .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
+      .slice(0, 50);
+  }, [wsNotifications, alerts, locallyReadIds]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications],
+  );
+
   const markAsRead = useCallback((notificationId: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  }, []);
+    setLocallyReadIds((prev) => (prev.has(notificationId) ? prev : new Set(prev).add(notificationId)));
+    persistMarkAsRead(notificationId).catch(() => {
+      // Best-effort: si falla la persistencia, la campana sigue mostrando
+      // "leído" localmente hasta el próximo refresh (no bloquea la UI).
+    });
+  }, [persistMarkAsRead]);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((notif) => ({ ...notif, read: true })));
-    setUnreadCount(0);
-  }, []);
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    setLocallyReadIds((prev) => new Set([...prev, ...unreadIds]));
+    unreadIds.forEach((id) => {
+      persistMarkAsRead(id).catch(() => {});
+    });
+  }, [notifications, persistMarkAsRead]);
 
   const clearNotifications = useCallback(() => {
-    setNotifications([]);
-    setUnreadCount(0);
+    setWsNotifications([]);
+    setLocallyReadIds(new Set());
   }, []);
 
   return {

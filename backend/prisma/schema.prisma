@@ -874,8 +874,11 @@ model Alert {
   tenantId   String
   type       String
   alertType  String
+  title      String?
   severity   String // INFO, WARNING, ERROR, CRITICAL
   message    String
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
   isResolved Boolean   @default(false)
   resolvedBy String?
   resolvedAt DateTime?

@@ -1,14 +1,17 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotificationsService } from "./notifications.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { WebSocketService } from "../../websocket/websocket.service";
 
 describe("NotificationsService", () => {
   let service: NotificationsService;
   let prismaService: PrismaService;
+  let websocketService: jest.Mocked<WebSocketService>;
 
   const mockPrismaService = {
     alert: {
       create: jest.fn(),
+      update: jest.fn(),
       findMany: jest.fn(),
       findFirst: jest.fn(),
     },
@@ -25,11 +28,18 @@ describe("NotificationsService", () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          provide: WebSocketService,
+          useValue: {
+            broadcastNotification: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<NotificationsService>(NotificationsService);
     prismaService = module.get<PrismaService>(PrismaService);
+    websocketService = module.get(WebSocketService);
   });
 
   afterEach(() => {
@@ -41,17 +51,17 @@ describe("NotificationsService", () => {
   });
 
   describe("createNotification", () => {
-    it("should create a notification mapped to the real Alert schema", async () => {
-      // Alert solo tiene type/alertType/severity/message/createdBy — no
-      // title/description/userId (bug preexistente arreglado 2026-07-15)
+    it("should create a notification mapped to the real Alert schema, with title and message stored separately", async () => {
       const mockAlert = {
         id: "alert-1",
         tenantId: "tenant-1",
         type: "INFO",
         alertType: "INFO",
+        title: "Test",
         severity: "INFO",
-        message: "Test: Test message",
+        message: "Test message",
         createdBy: "system",
+        createdAt: new Date("2026-07-20T10:00:00Z"),
       };
 
       mockPrismaService.alert.create.mockResolvedValue(mockAlert);
@@ -72,11 +82,55 @@ describe("NotificationsService", () => {
           tenantId: "tenant-1",
           type: "INFO",
           alertType: "INFO",
+          title: "Test",
           severity: "INFO",
-          message: "Test: Test message",
+          message: "Test message",
           createdBy: "system",
         },
       });
+    });
+
+    it("emits a WebSocket 'notification' broadcast to the tenant room after persisting", async () => {
+      const mockAlert = {
+        id: "alert-1",
+        title: "Test",
+        message: "Test message",
+        createdAt: new Date("2026-07-20T10:00:00Z"),
+      };
+      mockPrismaService.alert.create.mockResolvedValue(mockAlert);
+
+      await service.createNotification("tenant-1", {
+        type: "WARNING",
+        title: "Test",
+        message: "Test message",
+        severity: "WARNING",
+      });
+
+      expect(websocketService.broadcastNotification).toHaveBeenCalledWith({
+        id: "alert-1",
+        type: "WARNING",
+        title: "Test",
+        message: "Test message",
+        createdAt: mockAlert.createdAt,
+        tenantId: "tenant-1",
+      });
+    });
+
+    it("does not fail notification creation if the WebSocket broadcast throws", async () => {
+      mockPrismaService.alert.create.mockResolvedValue({ id: "alert-1" });
+      (websocketService.broadcastNotification as jest.Mock).mockImplementation(
+        () => {
+          throw new Error("socket down");
+        },
+      );
+
+      await expect(
+        service.createNotification("tenant-1", {
+          type: "INFO",
+          title: "Test",
+          message: "Test message",
+        }),
+      ).resolves.toEqual(expect.objectContaining({ success: true }));
     });
 
     it("should create notification with severity", async () => {
@@ -117,7 +171,7 @@ describe("NotificationsService", () => {
       });
     });
 
-    it("folds title into message (Alert has no title column)", async () => {
+    it("stores title and message as separate columns (no concatenation)", async () => {
       mockPrismaService.alert.create.mockResolvedValue({ id: "alert-1" });
 
       await service.createNotification("tenant-1", {
@@ -128,7 +182,37 @@ describe("NotificationsService", () => {
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          message: "Cambio de precio: Test message",
+          title: "Cambio de precio",
+          message: "Test message",
+        }),
+      });
+    });
+  });
+
+  describe("notifyPriceChange", () => {
+    it("uses WARNING severity for a change up to 25%", async () => {
+      mockPrismaService.alert.create.mockResolvedValue({ id: "alert-1" });
+
+      await service.notifyPriceChange("tenant-1", "Aceite", 10, 12, 20);
+
+      expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          severity: "WARNING",
+          title: "Cambio de precio: Aceite",
+          message: "Precio aumentado 20.0%. De 10.00€ a 12.00€.",
+        }),
+      });
+    });
+
+    it("uses ERROR severity for a change over 25%", async () => {
+      mockPrismaService.alert.create.mockResolvedValue({ id: "alert-1" });
+
+      await service.notifyPriceChange("tenant-1", "Aceite", 10, 4, 60);
+
+      expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          severity: "ERROR",
+          message: "Precio disminuido 60.0%. De 10.00€ a 4.00€.",
         }),
       });
     });
@@ -198,20 +282,26 @@ describe("NotificationsService", () => {
   });
 
   describe("markAsRead", () => {
-    it("should mark notification as read", async () => {
-      const mockAlert = { id: "alert-1", tenantId: "tenant-1" };
+    it("should persist isRead:true and readAt in the Alert row", async () => {
+      const existing = { id: "alert-1", tenantId: "tenant-1", isRead: false };
+      const updated = { ...existing, isRead: true, readAt: new Date() };
 
-      mockPrismaService.alert.findFirst.mockResolvedValue(mockAlert);
+      mockPrismaService.alert.findFirst.mockResolvedValue(existing);
+      mockPrismaService.alert.update.mockResolvedValue(updated);
 
       const result = await service.markAsRead("alert-1", "tenant-1");
 
       expect(result).toEqual({
         success: true,
-        data: mockAlert,
+        data: updated,
         message: "Notification marked as read",
       });
       expect(mockPrismaService.alert.findFirst).toHaveBeenCalledWith({
         where: { id: "alert-1", tenantId: "tenant-1" },
+      });
+      expect(mockPrismaService.alert.update).toHaveBeenCalledWith({
+        where: { id: "alert-1" },
+        data: { isRead: true, readAt: expect.any(Date) },
       });
     });
 

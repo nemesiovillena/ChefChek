@@ -33,8 +33,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const savedTheme = localStorage.getItem('theme');
     return savedTheme ? savedTheme === 'dark' : true;
   });
-  const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
+  const { unreadCount, markAsRead, markAllAsRead, notifications } = useWebSocketNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
   // Load module activation states for the current tenant once authenticated.
@@ -206,29 +207,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={markAllAsRead}
                   className="text-secondary text-[11px] hover:underline cursor-pointer"
                 >
-                  Marcar todas como leídas
+                  Marcar Todas
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-on-surface-variant text-xs">
-                    No hay notificaciones
-                  </p>
-                ) : (
-                  notifications.slice(0, 5).map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
-                    >
-                      <p className="text-xs text-primary font-medium">{notif.title}</p>
-                      <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
-                      <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
-                        {new Date(notif.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  ))
-                )}
+                {(() => {
+                  const visibleNotifications = showAllNotifications
+                    ? notifications
+                    : notifications.filter((notif) => !notif.read);
+                  return visibleNotifications.length === 0 ? (
+                    <p className="p-4 text-center text-on-surface-variant text-xs">
+                      {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
+                    </p>
+                  ) : (
+                    visibleNotifications.slice(0, showAllNotifications ? 20 : 5).map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => markAsRead(notif.id)}
+                        className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
+                      >
+                        <p className="text-xs text-primary font-medium">{notif.title}</p>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
+                        <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
+                          {new Date(notif.createdAt).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    ))
+                  );
+                })()}
               </div>
+              <button
+                onClick={() => setShowAllNotifications((prev) => !prev)}
+                className="w-full p-2 text-center text-secondary text-[11px] hover:underline cursor-pointer border-t border-border"
+              >
+                {showAllNotifications ? 'Ver no leídas' : 'Ver Todas'}
+              </button>
             </div>
           )}
           <button

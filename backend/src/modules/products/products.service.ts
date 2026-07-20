@@ -10,6 +10,7 @@ import {
   referencePriceChanged,
 } from "../../common/utils/unit-conversions";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { NotificationsService } from "../core/notifications.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -21,6 +22,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private resolveLastPurchase(
@@ -640,6 +642,37 @@ export class ProductsService {
           );
         }
 
+        // Notificar en €/kg normalizado (no precio crudo) para no reintroducir
+        // variaciones falsas por cambio de tamaño de caja — mismo criterio que
+        // el histórico de precios (plans/260718-0056-historico-precio-normalizado-kg).
+        if (
+          referencePriceChanged(
+            existingProduct.purchasePrice,
+            existingProduct.unitSize,
+            offer.purchasePrice,
+            offer.unitSize,
+          )
+        ) {
+          const refBefore = getReferencePrice(
+            existingProduct.purchasePrice,
+            existingProduct.unitSize,
+          );
+          const refAfter = getReferencePrice(
+            offer.purchasePrice,
+            offer.unitSize,
+          );
+          const pct = refBefore
+            ? Math.abs(((refAfter - refBefore) / refBefore) * 100)
+            : 100;
+          await this.notificationsService.notifyPriceChange(
+            requestTenantId,
+            existingProduct.name,
+            refBefore,
+            refAfter,
+            pct,
+          );
+        }
+
         delete data.supplierId;
         delete data.purchasePrice;
         delete data.previousPurchasePrice;
@@ -728,6 +761,29 @@ export class ProductsService {
           data,
           include: productInclude,
         });
+
+    // Fuera de la transacción: no debe bloquear el commit de BD si falla el
+    // envío de la notificación (WS/BD de alerts es secundaria al cambio real).
+    if (refPriceChanged) {
+      const refBefore = getReferencePrice(
+        existingProduct.purchasePrice,
+        existingProduct.unitSize,
+      );
+      const refAfter = getReferencePrice(
+        updateData.purchasePrice as number,
+        newUnitSizeForHistory ?? existingProduct.unitSize,
+      );
+      const pct = refBefore
+        ? Math.abs(((refAfter - refBefore) / refBefore) * 100)
+        : 100;
+      await this.notificationsService.notifyPriceChange(
+        requestTenantId,
+        existingProduct.name,
+        refBefore,
+        refAfter,
+        pct,
+      );
+    }
 
     // Update stock min/max if provided
     if (minimumStock !== undefined || maximumStock !== undefined) {

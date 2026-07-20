@@ -62,6 +62,7 @@ describe("AlbaranStockService", () => {
           provide: NotificationsService,
           useValue: {
             createNotification: jest.fn(),
+            notifyPriceChange: jest.fn(),
           },
         },
         {
@@ -332,7 +333,7 @@ describe("AlbaranStockService", () => {
         mockAlbaranId,
       );
       expect(mockTx.product.update).not.toHaveBeenCalled();
-      expect(notifications.createNotification).not.toHaveBeenCalled();
+      expect(notifications.notifyPriceChange).not.toHaveBeenCalled();
     });
 
     it("falls back to a direct Product update when the albarán has no supplier assigned", async () => {
@@ -616,12 +617,12 @@ describe("AlbaranStockService", () => {
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
-      expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect(notifications.notifyPriceChange).toHaveBeenCalledWith(
         mockTenantId,
-        expect.objectContaining({
-          type: "WARNING",
-          title: "Cambio de precio: Test Product",
-        }),
+        "Test Product",
+        4,
+        5,
+        25,
       );
     });
 
@@ -680,12 +681,12 @@ describe("AlbaranStockService", () => {
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
 
-      expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect(notifications.notifyPriceChange).toHaveBeenCalledWith(
         mockTenantId,
-        expect.objectContaining({
-          type: "ERROR",
-          severity: "ERROR",
-        }),
+        "Test Product",
+        3,
+        5,
+        expect.closeTo(66.67, 1),
       );
     });
 

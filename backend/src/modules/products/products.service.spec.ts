@@ -3,11 +3,13 @@ import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { NotificationsService } from "../core/notifications.service";
 
 describe("ProductsService", () => {
   let service: ProductsService;
   let prismaService: any;
   let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
+  let notificationsService: jest.Mocked<NotificationsService>;
 
   const mockPrismaService = {
     $queryRaw: jest.fn(),
@@ -92,12 +94,19 @@ describe("ProductsService", () => {
             setPreferred: jest.fn(),
           },
         },
+        {
+          provide: NotificationsService,
+          useValue: {
+            notifyPriceChange: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
     prismaService = mockPrismaService;
     productSupplierOffersService = module.get(ProductSupplierOffersService);
+    notificationsService = module.get(NotificationsService);
   });
 
   afterEach(() => {
@@ -620,10 +629,11 @@ describe("ProductsService", () => {
       );
     });
 
-    it("mismo €/kg con distinto tamaño de caja NO registra historial (sin proveedor)", async () => {
+    it("mismo €/kg con distinto tamaño de caja NO registra historial ni notifica (sin proveedor)", async () => {
       const existingProduct = {
         id: "prod-1",
         tenantId,
+        name: "Test Product",
         purchasePrice: 100,
         unitsPerFormat: 1,
         referenceUnitSize: 10,
@@ -654,12 +664,14 @@ describe("ProductsService", () => {
       await service.update("prod-1", updateDto, tenantId);
 
       expect(prismaService.productPriceHistory.create).not.toHaveBeenCalled();
+      expect(notificationsService.notifyPriceChange).not.toHaveBeenCalled();
     });
 
-    it("€/kg realmente distinto SÍ registra historial con unitSize snapshoteado (sin proveedor)", async () => {
+    it("€/kg realmente distinto SÍ registra historial con unitSize snapshoteado y notifica (sin proveedor)", async () => {
       const existingProduct = {
         id: "prod-1",
         tenantId,
+        name: "Test Product",
         purchasePrice: 100,
         unitsPerFormat: 1,
         referenceUnitSize: 10,
@@ -669,7 +681,7 @@ describe("ProductsService", () => {
         stocks: [],
       };
 
-      // 10€/kg -> 12€/kg: variación real, sí debe registrarse.
+      // 10€/kg -> 12€/kg: variación real, sí debe registrarse y notificarse.
       const updateDto = { purchasePrice: 60, referenceUnitSize: 5 };
 
       prismaService.product.findFirst.mockResolvedValue(existingProduct);
@@ -697,6 +709,14 @@ describe("ProductsService", () => {
             newUnitSize: 5,
           }),
         }),
+      );
+      // Precio normalizado €/kg: 10€/kg -> 12€/kg (+20%), no el crudo 100->60.
+      expect(notificationsService.notifyPriceChange).toHaveBeenCalledWith(
+        tenantId,
+        "Test Product",
+        10,
+        12,
+        20,
       );
     });
 
@@ -896,6 +916,82 @@ describe("ProductsService", () => {
       await service.update("prod-1", updateDto, tenantId);
 
       expect(productSupplierOffersService.setPreferred).not.toHaveBeenCalled();
+    });
+
+    it("notifica cambio de precio normalizado cuando la edición se enruta a la oferta preferente", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        name: "Test Product",
+        purchasePrice: 10,
+        unitSize: 1,
+        netPrice: 10,
+        supplierId: "supplier-a",
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      const updateDto = { supplier: "supplier-a", purchasePrice: 12 };
+
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { id: "offer-a", isPreferred: true, purchasePrice: 12, unitSize: 1 },
+      );
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(notificationsService.notifyPriceChange).toHaveBeenCalledWith(
+        tenantId,
+        "Test Product",
+        10,
+        12,
+        20,
+      );
+    });
+
+    it("NO notifica cuando la edición vía oferta preferente mantiene el mismo €/kg (solo cambia el formato)", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        name: "Test Product",
+        purchasePrice: 100,
+        unitSize: 10, // 10€/kg
+        netPrice: 100,
+        supplierId: "supplier-a",
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      const updateDto = { supplier: "supplier-a", purchasePrice: 50 };
+
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { id: "offer-a", isPreferred: true, purchasePrice: 50, unitSize: 5 }, // 50/5 = 10€/kg, sin cambio
+      );
+      prismaService.productSupplierOffer.findFirst.mockResolvedValue(null);
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+        stocks: [],
+      });
+
+      await service.update("prod-1", updateDto, tenantId);
+
+      expect(notificationsService.notifyPriceChange).not.toHaveBeenCalled();
     });
 
     it("routes a price edit to the CURRENTLY preferred offer, ignoring a stale supplier in the DTO (regression: modal reverting the preferred supplier on save)", async () => {

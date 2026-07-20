@@ -435,14 +435,12 @@ export class AlbaranStockService {
     newPrice: number,
     percentageChange: number,
   ): Promise<void> {
-    const direction = newPrice > oldPrice ? "aumentado" : "disminuido";
-    const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
-
-    await this.notificationsService.createNotification(tenantId, {
-      type: alertType,
-      title: `Cambio de precio: ${productName}`,
-      message: `Precio ${direction} ${percentageChange.toFixed(1)}%. De ${oldPrice.toFixed(2)}€ a ${newPrice.toFixed(2)}€.`,
-      severity: alertType,
-    });
+    await this.notificationsService.notifyPriceChange(
+      tenantId,
+      productName,
+      oldPrice,
+      newPrice,
+      percentageChange,
+    );
   }
 }

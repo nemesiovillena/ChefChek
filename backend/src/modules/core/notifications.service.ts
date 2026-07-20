@@ -1,9 +1,16 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { WebSocketService } from "../../websocket/websocket.service";
+import { NotificationEvent } from "../../websocket/types/events";
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly websocketService: WebSocketService,
+  ) {}
 
   async createNotification(
     tenantId: string,
@@ -16,29 +23,64 @@ export class NotificationsService {
       metadata?: any;
     },
   ) {
-    // El modelo Alert no tiene columnas title/description/userId (solo type,
-    // alertType, severity, message, createdBy) — bug preexistente detectado
-    // 2026-07-15: esta llamada lanzaba PrismaClientValidationError en runtime
-    // (severity/message/createdBy son requeridos y no se enviaban), lo que
-    // abortaba la transacción entera de confirmación de albarán en cualquier
-    // cambio de precio >10%. El spec anterior mockeaba Prisma y no lo
-    // detectó. Mapeo correcto: mismo patrón que appcc.service.ts.
+    // Alert es tenant-wide: no tiene columna userId, así que data.userId solo
+    // se usa para createdBy (auditoría de quién generó la alerta), nunca como
+    // destinatario. Bug preexistente detectado 2026-07-15: mapeo correcto,
+    // mismo patrón que appcc.service.ts.
     const notification = await this.prisma.alert.create({
       data: {
         tenantId,
         type: data.type,
         alertType: data.type,
+        title: data.title,
         severity: data.severity || "INFO",
-        message: data.title ? `${data.title}: ${data.message}` : data.message,
+        message: data.message,
         createdBy: data.userId || "system",
       },
     });
+
+    // No debe abortar la creación de la alerta si el broadcast en vivo falla
+    // (la fila en BD ya es la fuente de verdad; la campana la recogerá igual
+    // en el próximo GET /alerts).
+    try {
+      this.websocketService.broadcastNotification({
+        id: notification.id,
+        type: (data.severity || "INFO") as NotificationEvent["type"],
+        title: notification.title ?? data.type,
+        message: notification.message,
+        createdAt: notification.createdAt,
+        tenantId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Error emitiendo notificación por WebSocket: ${err.message}`,
+      );
+    }
 
     return {
       success: true,
       data: notification,
       message: "Notification created successfully",
     };
+  }
+
+  /** Notificación compartida de cambio de precio (albaranes, albarán manual, edición manual en Artículos). */
+  async notifyPriceChange(
+    tenantId: string,
+    productName: string,
+    oldPrice: number,
+    newPrice: number,
+    percentageChange: number,
+  ): Promise<void> {
+    const direction = newPrice > oldPrice ? "aumentado" : "disminuido";
+    const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
+
+    await this.createNotification(tenantId, {
+      type: alertType,
+      title: `Cambio de precio: ${productName}`,
+      message: `Precio ${direction} ${Math.abs(percentageChange).toFixed(1)}%. De ${oldPrice.toFixed(2)}€ a ${newPrice.toFixed(2)}€.`,
+      severity: alertType,
+    });
   }
 
   async getUserNotifications(
@@ -66,16 +108,19 @@ export class NotificationsService {
   }
 
   async markAsRead(notificationId: string, tenantId: string) {
-    // Schema no tiene isRead, así que simulamos actualizando metadata
-    const notification = await this.prisma.alert.findFirst({
+    const existing = await this.prisma.alert.findFirst({
       where: { id: notificationId, tenantId },
     });
 
-    if (!notification) {
+    if (!existing) {
       throw new Error("Notification not found");
     }
 
-    // En una implementación real, tendríamos un campo isRead
+    const notification = await this.prisma.alert.update({
+      where: { id: notificationId },
+      data: { isRead: true, readAt: new Date() },
+    });
+
     return {
       success: true,
       data: notification,
