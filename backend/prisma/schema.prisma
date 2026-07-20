@@ -3,9 +3,9 @@ generator client {
   // The image is built in the `oven/bun` stage (Debian 12 / OpenSSL 3.0) but the
   // runtime is `node:20-bullseye-slim` (Debian 11 / OpenSSL 1.1). Without an
   // explicit target, Prisma generates only the builder's native engine, which the
-  // runtime cannot load. Generate both so dev-on-host (native) and the container
-  // runtime (bullseye/arm64) each find a matching query engine.
-  binaryTargets = ["native", "linux-arm64-openssl-1.1.x"]
+  // runtime cannot load. Generate for both x86_64 (Dokploy/Hostinger VPS, amd64)
+  // and arm64 (local Docker Desktop on Apple Silicon) container runtimes.
+  binaryTargets = ["native", "debian-openssl-1.1.x", "linux-arm64-openssl-1.1.x"]
 }
 
 datasource db {
