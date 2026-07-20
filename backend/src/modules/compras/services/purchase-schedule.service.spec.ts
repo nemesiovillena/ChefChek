@@ -156,18 +156,26 @@ describe("PurchaseScheduleService", () => {
 
   describe("runTick", () => {
     it("no genera nada si ninguna programación toca ahora", async () => {
-      prismaMock.purchaseSchedule.findMany.mockResolvedValue([
-        {
-          id: "sch-1",
-          enabled: true,
-          daysOfWeek: [1],
-          timeOfDay: "09:00",
-          lastRunAt: null,
-        },
-      ]);
-      await service.runTick();
-      expect(prismaMock.purchaseSchedule.updateMany).not.toHaveBeenCalled();
-      expect(purchaseListServiceMock.generateOrder).not.toHaveBeenCalled();
+      // runTick() usa `new Date()` real internamente; fijamos el reloj a un
+      // miércoles para que sea determinista frente a schedules de lunes (sin
+      // esto, el test fallaba cada vez que se ejecutaba en lunes real).
+      jest.useFakeTimers().setSystemTime(WED_12_00_MADRID);
+      try {
+        prismaMock.purchaseSchedule.findMany.mockResolvedValue([
+          {
+            id: "sch-1",
+            enabled: true,
+            daysOfWeek: [1],
+            timeOfDay: "09:00",
+            lastRunAt: null,
+          },
+        ]);
+        await service.runTick();
+        expect(prismaMock.purchaseSchedule.updateMany).not.toHaveBeenCalled();
+        expect(purchaseListServiceMock.generateOrder).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("genera pedido BORRADOR + evento + notificación cuando toca y reclama el claim", async () => {
