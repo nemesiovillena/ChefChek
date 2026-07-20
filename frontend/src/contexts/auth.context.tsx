@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
 import { slugify } from '@/lib/utils';
@@ -228,20 +228,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const value: AuthContextType = {
-    user,
-    tenantId,
-    tenantSlug,
-    sessionId,
-    isLoading,
-    isAuthenticated,
-    login,
-    loginSuperadmin,
-    register,
-    logout,
-    refreshSession,
-    refreshUser,
-  };
+  // Without memoizing, this object gets a new reference on every render of
+  // AuthProvider (e.g. from unrelated children re-rendering), which makes
+  // every consumer's `useEffect(..., [auth, ...])` (see use-websocket.ts)
+  // tear down and recreate on each render — churning the WebSocket
+  // connection and cascading re-renders through the tree.
+  const value: AuthContextType = useMemo(
+    () => ({
+      user,
+      tenantId,
+      tenantSlug,
+      sessionId,
+      isLoading,
+      isAuthenticated,
+      login,
+      loginSuperadmin,
+      register,
+      logout,
+      refreshSession,
+      refreshUser,
+    }),
+    [user, tenantId, tenantSlug, sessionId, isLoading, isAuthenticated],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

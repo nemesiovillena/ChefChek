@@ -63,14 +63,41 @@ test("hard reload to /dashboard keeps the session", async ({ page }) => {
 });
 
 test("menu navigation keeps the session", async ({ page }) => {
+  // The generic beforeEach catch-all fulfills every endpoint with
+  // `data: []`, including the module-activation catalog — the layout reads
+  // that as "no modules enabled" and correctly (by design) bounces back to
+  // /dashboard when navigating to a disabled module's route. Mock it with
+  // "recipes" enabled so this test can actually reach it.
+  await page.route("**/api/v1/modules", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        data: [
+          {
+            id: "recipes",
+            name: "Recetas",
+            description: "",
+            dependencies: [],
+            alwaysActive: false,
+            enabled: true,
+          },
+        ],
+      }),
+    }),
+  );
+
   await page.goto("/login");
   await seedSession(page);
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/dashboard/);
 
   // The menu links are <Link> (client-side nav). Navigating to a module
-  // must not bounce back to /login.
-  await page.click('a[href="/dashboard/recipes"]');
+  // must not bounce back to /login. Both the desktop nav and the mobile
+  // bottom nav render a link to the same href (toggled via CSS, not
+  // conditional rendering), so scope to the one actually visible.
+  await page.click('a[href="/dashboard/recipes"]:visible');
 
   await expect(page).toHaveURL(/\/dashboard\/recipes/);
   await expect(page).not.toHaveURL(/\/login/);

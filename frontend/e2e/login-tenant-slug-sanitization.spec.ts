@@ -85,6 +85,11 @@ test("un login fallido no deja tenant_slug envenenado", async ({ page }) => {
   // Sigue en /login y el slug del intento fallido no queda en sessionStorage,
   // donde rompería los headers de todas las peticiones posteriores del tab.
   await expect(page).toHaveURL(/\/login/);
+  // El dev server (Fast Refresh) puede disparar un reload transitorio justo
+  // tras el submit; esperar a que la carga se asiente evita leer
+  // sessionStorage en mitad de una navegación y que evaluate() falle con
+  // "Execution context was destroyed".
+  await page.waitForLoadState("load");
   const storedSlug = await page.evaluate(() =>
     sessionStorage.getItem("tenant_slug"),
   );
