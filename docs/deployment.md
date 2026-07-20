@@ -38,12 +38,20 @@ Historial de lo que hizo falta resolver (por si se repite):
 3. Con HTTPS ya real, el backend daba `502 Bad Gateway`: `PrismaClientInitializationError` en runtime — `binaryTargets` en `schema.prisma` apuntaba a `linux-arm64-openssl-1.1.x` (para Mac Apple Silicon) pero el VPS de Hostinger es **amd64**. Fix: añadir `debian-openssl-1.1.x` a `binaryTargets`.
 4. `main` estaba ~110 commits por detrás de `develop` (Dokploy se activó antes de que hubiera un merge real a producción) — se hizo merge completo `develop → main` tras arreglar el fix de Prisma, un lockfile desincronizado y 2 tests preexistentes rotos (no relacionados) en CI.
 
-Verificado: `https://api.chefchek.com/health` → `{"status":"ok"}`, `https://app.chefchek.com` → 200, ambos con certificado Let's Encrypt real.
+Verificado: `https://api.chefchek.com/health` → `{"status":"ok"}`, `https://app.chefchek.com` → 200, ambos con certificado Let's Encrypt real. Login end-to-end probado y funcionando desde el navegador.
+
+Dos bugs más encontrados al probar el login real (no bastaba con `curl`, que ignora CORS y no compila el bundle):
+
+5. **CORS**: el backend usa `ALLOWED_ORIGINS` (no `FRONTEND_URL`) para `app.enableCors()`; sin esa env var, caía al default `localhost:3000/3001` y el navegador bloqueaba la petición (`curl` no lo detecta porque no aplica CORS). Fix: añadir `ALLOWED_ORIGINS=https://app.chefchek.com` en Dokploy.
+6. **`NEXT_PUBLIC_*` no llegaban al bundle**: Next.js inlinea las env vars `NEXT_PUBLIC_*` en el JS del cliente **en build time**, no en runtime — configurarlas como env var normal en Dokploy no tiene efecto. El navegador llamaba a `localhost:3001` (fallback hardcodeado). Fix: añadir `ARG`/`ENV` para `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_APP_URL`/`NEXT_PUBLIC_BACKEND_URL` en `frontend/Dockerfile` y pasarlas como `buildArgs` en Dokploy (no como `env`).
+
+## Datos iniciales de producción
+
+Tenant real `warynessy` + admin (OWNER) + superadmin creados a mano vía script Node ejecutado en la terminal del contenedor `backend` (sin exec/SSH disponible por MCP, se hizo pegando un script en base64). Catálogo de alérgenos UE-1169 (14) poblado igual. El seed de desarrollo (`prisma/seed.ts`) **no se usó** — crea un tenant demo y contraseñas públicas, no apto para producción.
 
 ## Pendiente
 
-- [ ] `bunx prisma migrate deploy` contra el Postgres de Dokploy (desde la terminal del contenedor `backend` en el dashboard — sin acceso SSH/exec vía MCP no se pudo automatizar).
-- [ ] Crear usuario admin inicial (upsert quirúrgico, no seed con reset).
+- [ ] Nada bloqueante. Login y flujo básico verificados end-to-end.
 
 ## Rollback
 
