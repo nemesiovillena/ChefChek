@@ -1715,6 +1715,7 @@ model AlbaranLine {
   lineStatus       LineStatus      @default(PENDIENTE)
   matchedProductId String? // FK a Product si hay match
   confidence       Float           @default(0) // 0-1 confianza del match
+  lineOrder        Int             @default(0) // Posición en el documento origen; createdAt no sirve de desempate (mismo now() en creación anidada)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 

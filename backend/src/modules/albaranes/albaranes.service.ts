@@ -137,7 +137,7 @@ export class AlbaranesService {
         },
         lines: {
           include: { matchedProduct: true },
-          orderBy: { createdAt: "asc" },
+          orderBy: [{ lineOrder: "asc" }, { createdAt: "asc" }],
         },
       },
     });
@@ -470,7 +470,11 @@ export class AlbaranesService {
           ocrRawData: document as any,
           notes: `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`,
           lines: {
-            create: extractedProducts.map((product: any) => ({
+            // lineOrder preserva el orden del documento: createdAt no sirve de
+            // desempate (create anidado = misma transacción = mismo now() para
+            // todas las líneas), y el matching en segundo plano reordena
+            // físicamente las filas al hacer UPDATE por línea.
+            create: extractedProducts.map((product: any, index: number) => ({
               articleNumber: product.article_number || null,
               lot: product.lot || null,
               description: product.name || product.description || "",
@@ -480,6 +484,7 @@ export class AlbaranesService {
               vatPercent: product.vat_percent ?? 10,
               priceWithVat: product.price_with_vat ?? null,
               lineAmount: (product.quantity || 0) * (product.unit_price || 0),
+              lineOrder: index,
             })),
           },
         },
@@ -564,6 +569,8 @@ export class AlbaranesService {
         lineAmount,
         articleNumber: dto.articleNumber || null,
         lot: dto.lot || null,
+        // Añadida al final del documento, detrás de las líneas existentes
+        lineOrder: albaran.lines.length,
       },
     });
 
