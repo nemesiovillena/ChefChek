@@ -120,7 +120,7 @@ export function AddLineForm({ albaranId, onSuccess, onCancel }: AddLineFormProps
           <Input
             id="line-price"
             type="number"
-            step="0.01"
+            step="0.001"
             min="0"
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
