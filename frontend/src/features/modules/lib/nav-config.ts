@@ -31,7 +31,6 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'RECETAS', href: '/dashboard/recipes', moduleId: 'recipes' },
   { label: 'ARTÍCULOS', href: '/dashboard/articulos', moduleId: 'articulos' },
   { label: 'ALBARANES', href: '/dashboard/albaranes', moduleId: 'albaranes' },
-  { label: 'MENÚS', href: '/dashboard/menus', moduleId: 'menus' },
   { label: 'PRODUCCIÓN', href: '/dashboard/production', moduleId: 'production' },
   { label: 'EQUIPO', href: '/dashboard/users', moduleId: 'sala' },
 ];
@@ -57,6 +56,7 @@ export const MORE_SECTIONS: NavSection[] = [
     title: 'Contenido',
     items: [
       { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
+      { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
       { label: 'Menú digital', href: '/dashboard/digital-menu', moduleId: 'digital-menu', icon: 'qr_code' },
       { label: 'Wiki', href: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento', icon: 'menu_book' },
     ],

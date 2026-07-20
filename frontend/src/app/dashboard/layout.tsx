@@ -119,7 +119,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Top Navigation Shell */}
       <header className="fixed top-0 w-full z-50 bg-surface-container flex justify-between items-center px-margin-desktop h-stack-xl border-b border-border">
         <div className="flex items-center gap-gutter">
-          <span className="material-symbols-outlined text-primary cursor-pointer active:scale-95 duration-200" onClick={() => router.push('/dashboard')}>menu</span>
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
         <div className="hidden md:flex items-center gap-stack-lg">
@@ -192,38 +191,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 flex items-center justify-center"
             title="Notificaciones"
           >
-            <span className="material-symbols-outlined text-[24px]">notifications</span>
+            <span className="material-symbols-outlined text-[22px]">notifications</span>
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-error text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+              <span className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
           {showNotifications && (
-            <div className="absolute right-16 top-14 w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
-              <div className="p-4 border-b border-border flex justify-between items-center">
-                <h3 className="font-label-md text-label-md text-primary">Notificaciones</h3>
+            <div className="absolute right-4 sm:right-16 top-14 w-72 sm:w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
+              <div className="p-3 border-b border-border flex justify-between items-center">
+                <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">Notificaciones</h3>
                 <button
                   onClick={markAllAsRead}
-                  className="text-secondary text-xs hover:underline cursor-pointer"
+                  className="text-secondary text-[11px] hover:underline cursor-pointer"
                 >
                   Marcar todas como leídas
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-on-surface-variant font-label-sm text-label-sm">
+                  <p className="p-4 text-center text-on-surface-variant text-xs">
                     No hay notificaciones
                   </p>
                 ) : (
                   notifications.slice(0, 5).map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-3 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
+                      className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
                     >
-                      <p className="font-label-sm text-label-sm text-primary font-semibold">{notif.title}</p>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm mt-1">{notif.message}</p>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-xs mt-1">
+                      <p className="text-xs text-primary font-medium">{notif.title}</p>
+                      <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
+                      <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
                         {new Date(notif.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
@@ -262,6 +261,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </div>
 
+      {/* Mobile "Más" Menu Overlay & Drawer */}
+      {showMore && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
+            onClick={() => setShowMore(false)}
+          />
+          <div className="fixed bottom-22 left-4 right-4 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Menú Principal</span>
+              <button
+                onClick={() => setShowMore(false)}
+                className="text-on-surface-variant hover:text-primary p-1 flex items-center justify-center cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="space-y-4">
+              {visibleSections.map((section, idx) => (
+                <div key={section.title ?? `sec-${idx}`} className="space-y-1">
+                  {section.title && (
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold px-2 py-0.5">
+                      {section.title}
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 gap-1">
+                    {section.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setShowMore(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-secondary">{item.icon}</span>
+                        <span className="font-medium">{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-base pb-safe bg-surface-container-high border-t border-border rounded-t-xl md:hidden">
         {MOBILE_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
@@ -274,7 +318,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-label-md text-label-md mt-1 text-[10px]">{item.label}</span>
           </Link>
         ))}
-        <button onClick={() => setShowMore(!showMore)} className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out">
+        <button onClick={() => setShowMore(!showMore)} className="flex flex-col items-center justify-center text-on-surface-variant px-3 py-1 hover:text-primary transition-all duration-300 ease-in-out cursor-pointer">
           <span className="material-symbols-outlined">apps</span>
           <span className="font-label-md text-label-md mt-1 text-[10px]">Más</span>
         </button>

@@ -187,33 +187,33 @@ export default function DashboardPage() {
           {/* Real-time Alerts */}
           <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
             <div className="flex justify-between items-center mb-stack-md">
-              <p className="font-label-md text-label-md text-on-surface-variant uppercase">Alertas en Tiempo Real</p>
-              <span className="material-symbols-outlined text-secondary">notifications_active</span>
+              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
+              <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
             </div>
             <div className="space-y-stack-sm">
               {productionAlerts && productionAlerts.length > 0 ? (
                 productionAlerts.slice(0, 3).map((alert, idx) => (
                   <div key={idx} className="flex items-start gap-stack-sm p-2 bg-error/10 rounded border border-error/20">
-                    <span className="material-symbols-outlined text-error text-[18px]">warning</span>
+                    <span className="material-symbols-outlined text-error text-[16px]">warning</span>
                     <div>
-                      <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.title || 'Alerta de Producción'}</p>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">{alert.message || 'Orden de producción requiere atención'}</p>
+                      <p className="text-xs text-primary font-medium">{alert.title || 'Alerta de Producción'}</p>
+                      <p className="text-[11px] text-on-surface-variant leading-tight">{alert.message || 'Orden de producción requiere atención'}</p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
-                  <span className="material-symbols-outlined text-secondary text-[18px]">check_circle</span>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">No hay alertas de producción</p>
+                  <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+                  <p className="text-xs text-on-surface-variant">No hay notificaciones de producción</p>
                 </div>
               )}
               {stockAlerts && stockAlerts.length > 0 ? (
                 stockAlerts.slice(0, 2).map((alert, idx) => (
                   <div key={idx} className="flex items-start gap-stack-sm p-2 bg-warning/10 rounded border border-warning/20">
-                    <span className="material-symbols-outlined text-warning text-[18px]">inventory_2</span>
+                    <span className="material-symbols-outlined text-warning text-[16px]">inventory_2</span>
                     <div>
-                      <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.productName || 'Stock Bajo'}</p>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">
+                      <p className="text-xs text-primary font-medium">{alert.productName || 'Stock Bajo'}</p>
+                      <p className="text-[11px] text-on-surface-variant leading-tight">
                         {alert.quantity || 0} unidades restantes (mínimo: {alert.minimum || 0})
                       </p>
                     </div>

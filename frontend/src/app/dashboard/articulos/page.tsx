@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice } from '@/hooks/use-products';
+import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import apiClient from '@/lib/api-client';
@@ -288,12 +288,50 @@ export default function ArticulosPage() {
   }, [isLoading, isAuthenticated, router]);
 
   const handleDelete = async (product: Product) => {
+    // Aviso advisory (no bloqueante): recetas/escandallos vivos que usan el artículo.
+    // Si el fetch falla, se omite el aviso y se sigue permitiendo el borrado.
+    let affected: ProductUsageRecipe[] = [];
+    try {
+      const usage = await getProductUsage(product.id);
+      affected = usage.count > 0 ? usage.recipes : [];
+    } catch {
+      affected = [];
+    }
+    const shown = affected.slice(0, 8);
+    const extra = affected.length - shown.length;
+
     const ok = await confirm({
       title: 'Eliminar artículo',
-      description: 'Esta acción no se puede deshacer.',
+      description:
+        affected.length > 0
+          ? `Se usa en ${affected.length} receta(s)/escandallo(s). Al eliminarlo, esas recetas quedarán con el ingrediente apuntando a un artículo en papelera.`
+          : 'El artículo se enviará a la Papelera; podrás restaurarlo.',
       confirmText: 'Eliminar',
       variant: 'destructive',
-      children: <ArticleContextCard product={product} />,
+      children: (
+        <>
+          <ArticleContextCard product={product} />
+          {shown.length > 0 && (
+            <div className="mt-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3 text-sm">
+              <p className="mb-1 font-medium text-[var(--error)]">
+                Recetas/escandallos afectados:
+              </p>
+              <ul className="space-y-0.5 text-[var(--on-surface-variant)]">
+                {shown.map((r) => (
+                  <li key={r.id} className="truncate">
+                    • {r.name}
+                  </li>
+                ))}
+              </ul>
+              {extra > 0 && (
+                <p className="mt-1 text-xs italic text-[var(--on-surface-variant)]">
+                  y {extra} más…
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      ),
     });
     if (!ok) return;
     try {
@@ -504,6 +542,45 @@ export default function ArticulosPage() {
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
             <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
+              <input type="text" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={
+                  !searchTerm &&
+                  !selectedParentCategory &&
+                  !selectedSubcategory &&
+                  !selectedSupplier &&
+                  dateFilterType === 'createdAt' &&
+                  !startDate &&
+                  !endDate
+                }
+                onClick={() => {
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                  setSearchTerm('');
+                  setDebouncedSearch('');
+                  setSelectedParentCategory('');
+                  setSelectedSubcategory('');
+                  setSelectedSupplier('');
+                  setDateFilterType('createdAt');
+                  setStartDate('');
+                  setEndDate('');
+                  setPage(1);
+                }}
+                className="w-full px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] font-medium text-sm select-none
+                  disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
+                  dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
+                  enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
+                  dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
+                  enabled:cursor-pointer"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Limpiar filtros
+              </button>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
               <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                 <option value="">Todas</option>
@@ -545,45 +622,6 @@ export default function ArticulosPage() {
                   </button>
                 )}
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
-              <input type="text" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                disabled={
-                  !searchTerm &&
-                  !selectedParentCategory &&
-                  !selectedSubcategory &&
-                  !selectedSupplier &&
-                  dateFilterType === 'createdAt' &&
-                  !startDate &&
-                  !endDate
-                }
-                onClick={() => {
-                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-                  setSearchTerm('');
-                  setDebouncedSearch('');
-                  setSelectedParentCategory('');
-                  setSelectedSubcategory('');
-                  setSelectedSupplier('');
-                  setDateFilterType('createdAt');
-                  setStartDate('');
-                  setEndDate('');
-                  setPage(1);
-                }}
-                className="w-full px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] font-medium text-sm select-none
-                  disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
-                  dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
-                  enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
-                  dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
-                  enabled:cursor-pointer"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Limpiar filtros
-              </button>
             </div>
           </div>
         </div>

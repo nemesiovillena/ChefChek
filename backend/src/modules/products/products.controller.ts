@@ -249,6 +249,25 @@ export class ProductsController {
     return this.productsService.calculateProductCost(id, tenantId);
   }
 
+  // Advisory pre-borrado: recetas/escandallos vivos que usan este artículo.
+  // No bloquea el borrado; el frontend lo muestra como aviso en el diálogo.
+  @Get(":id/usage")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Recetas/escandallos que usan este artículo (aviso pre-borrado)",
+  })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  @ApiResponse({
+    status: 200,
+    description: "{ count, recipes: [{ id, name }] }",
+  })
+  @ApiResponse({ status: 404, description: "Producto no encontrado" })
+  async getUsage(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    const data = await this.productsService.getUsage(id, tenantId);
+    return { success: true, data };
+  }
+
   // ─── Ofertas de proveedor por artículo ──────────────────────────
 
   @Get(":id/supplier-offers")

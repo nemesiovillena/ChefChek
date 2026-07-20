@@ -236,6 +236,29 @@ export function useDeleteProduct() {
 }
 
 /**
+ * Aviso advisory pre-borrado: recetas/escandallos vivos que usan este artículo.
+ * Llamada puntual (no react-query): se invoca al abrir el diálogo de borrado.
+ * El interceptor global de apiClient desenvuelve { success, data } →
+ * response.data ya es { count, recipes }.
+ */
+export interface ProductUsageRecipe {
+  id: string;
+  name: string;
+}
+
+export interface ProductUsage {
+  count: number;
+  recipes: ProductUsageRecipe[];
+}
+
+export async function getProductUsage(productId: string): Promise<ProductUsage> {
+  const response = await apiClient.get<ProductUsage>(
+    `/v1/products/${productId}/usage`,
+  );
+  return response.data;
+}
+
+/**
  * Fusiona `sourceId` en `targetId`: el artículo origen queda dado de baja
  * (recuperable en Papelera) y todas sus referencias (recetas, stock,
  * histórico de precios...) pasan al destino.

@@ -787,6 +787,39 @@ export class ProductsService {
   }
 
   /**
+   * Aviso advisory pre-borrado: lista recetas/escandallos VIVOS que usan este
+   * producto como ingrediente. Ambos comparten la tabla recipe_ingredients.
+   * No bloquea el borrado (soft-delete): solo informa para que el usuario sepa
+   * que dejará recetas con el ingrediente apuntando a un artículo en papelera.
+   * El filtro explícito recipe.deletedAt=null es necesario porque los includes
+   * anidados no son filtrados por el middleware de soft-delete.
+   */
+  async getUsage(id: string, requestTenantId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id, tenantId: requestTenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException("Product not found");
+    }
+
+    const ingredients = await this.prisma.recipeIngredient.findMany({
+      where: {
+        productId: id,
+        recipe: { deletedAt: null, tenantId: requestTenantId },
+      },
+      select: { recipe: { select: { id: true, name: true } } },
+    });
+
+    const recipes = ingredients
+      .map((i) => i.recipe)
+      .filter((r): r is { id: string; name: string } => r !== null)
+      .map((r) => ({ id: r.id, name: r.name }));
+
+    return { count: recipes.length, recipes };
+  }
+
+  /**
    * Fusiona `sourceId` en `targetId`: reasigna todas las referencias del
    * artículo origen (recetas, stock, histórico de precios, líneas de
    * albarán, alias de proveedor, lotes, pedidos, listas de compra...) al
