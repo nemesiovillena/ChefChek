@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
@@ -174,39 +174,29 @@ export default function AlbaranLineasPage() {
           </Button>
         )}
 
-        {line.matchStatus === 'NUEVO' && (
-          creatingLine === line.id ? (
-            <CreateProductInline
-              albaranId={id}
-              line={line}
-              supplierId={albaran?.supplierId}
-              onSuccess={handleCreateSuccess}
-              onCancel={() => setCreatingLine(null)}
-            />
-          ) : (
-            <>
-              {/* Puede ser un existente que el OCR no casó: ofrecer vincular
-                  antes de crear un artículo paralelo (duplicado). */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleOpenPicker(line)}
-                className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
-              >
-                <Search className="h-3 w-3 mr-1" />
-                Elegir
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleOpenCreate(line)}
-                className="text-red-700 border-red-300 hover:bg-red-50"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Crear
-              </Button>
-            </>
-          )
+        {line.matchStatus === 'NUEVO' && creatingLine !== line.id && (
+          <>
+            {/* Puede ser un existente que el OCR no casó: ofrecer vincular
+                antes de crear un artículo paralelo (duplicado). */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenPicker(line)}
+              className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+            >
+              <Search className="h-3 w-3 mr-1" />
+              Elegir
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenCreate(line)}
+              className="text-red-700 border-red-300 hover:bg-red-50"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Crear
+            </Button>
+          </>
         )}
 
         {line.matchStatus === 'MATCH_ALTO' && line.matchedProduct && (
@@ -372,7 +362,8 @@ export default function AlbaranLineasPage() {
                   </TableHeader>
                   <TableBody>
                     {lines.map((line) => (
-                      <TableRow key={line.id} className={line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}>
+                      <Fragment key={line.id}>
+                      <TableRow className={line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}>
                         <TableCell>
                           <div>
                             {isEditable(line) ? (
@@ -493,6 +484,22 @@ export default function AlbaranLineasPage() {
                         <TableCell>{getLineStatusBadge(line.lineStatus)}</TableCell>
                         <TableCell>{renderLineActions(line)}</TableCell>
                       </TableRow>
+                      {creatingLine === line.id && (
+                        <TableRow>
+                          {/* Fila a ancho completo: el formulario (varios campos por fila)
+                              no cabe en la columna "Acciones" sin solaparse. */}
+                          <TableCell colSpan={9} className="bg-gray-50 p-0">
+                            <CreateProductInline
+                              albaranId={id}
+                              line={line}
+                              supplierId={albaran?.supplierId}
+                              onSuccess={handleCreateSuccess}
+                              onCancel={() => setCreatingLine(null)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
