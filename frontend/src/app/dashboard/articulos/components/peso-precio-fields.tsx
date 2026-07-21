@@ -120,7 +120,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
           <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra (&euro;)</label>
           <input
             type="number"
-            step="0.01"
+            step="0.001"
             min="0"
             value={formData.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}

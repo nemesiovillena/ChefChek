@@ -288,7 +288,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
                 <>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     autoFocus
                     value={agreedPriceInput}
@@ -345,7 +345,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
             </div>
             <input
               type="number"
-              step="0.01"
+              step="0.001"
               min="0"
               value={effectivePrice}
               onChange={(e) => setNewPrice(e.target.value)}
