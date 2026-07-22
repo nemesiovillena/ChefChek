@@ -11,6 +11,8 @@ interface UseSupplierSearchReturn {
   search: string;
   setSearch: (value: string) => void;
   error: string | null;
+  /** Re-runs the current search so the list reflects external changes (e.g. a newly created supplier). */
+  refresh: () => void;
 }
 
 export function useSupplierSearch(debounceMs: number = 300): UseSupplierSearchReturn {
@@ -52,5 +54,11 @@ export function useSupplierSearch(debounceMs: number = 300): UseSupplierSearchRe
     return () => clearTimeout(timer);
   }, [search, debounceMs, searchSuppliers]);
 
-  return { suppliers, loading, search, setSearch, error };
+  // Re-run the current query on demand — used after creating a supplier so the
+  // picker list (kept in local state, not React Query) picks up the new entry.
+  const refresh = useCallback(() => {
+    searchSuppliers(search);
+  }, [search, searchSuppliers]);
+
+  return { suppliers, loading, search, setSearch, error, refresh };
 }

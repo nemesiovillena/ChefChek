@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import { useSupplierSearch } from '@/hooks/use-supplier-search';
+import { useCreateSupplier, type CreateSupplierDto, type UpdateSupplierDto } from '@/hooks/use-supplier-mutations';
+import { useNotification } from '@/components/notification-system';
 import { updateAlbaran } from '@/lib/api-albaran';
-import { CreateSupplierSheet } from '@/components/albaranes/create-supplier-sheet';
+// Reuse the canonical supplier modal used by the Proveedores page so the
+// "Nuevo proveedor" experience is identical across the app.
+import SupplierModal from '@/app/dashboard/proveedores/components/supplier-modal';
 import {
   Dialog,
   DialogContent,
@@ -30,10 +34,12 @@ export function SupplierPickerDialog({
   currentSupplierId,
   onSuccess,
 }: SupplierPickerDialogProps) {
-  const { suppliers, loading, search, setSearch, error } = useSupplierSearch();
+  const { suppliers, loading, search, setSearch, error, refresh } = useSupplierSearch();
+  const addNotification = useNotification();
+  const createMutation = useCreateSupplier();
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
-  const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const handleSelectSupplier = async (supplierId: string) => {
     if (supplierId === currentSupplierId) {
@@ -55,15 +61,30 @@ export function SupplierPickerDialog({
     }
   };
 
-  const handleSupplierCreated = (supplierId: string) => {
-    // Close both the sheet and the dialog, assign supplier to albaran
-    setShowCreateSheet(false);
-    handleSelectSupplier(supplierId);
+  // Create a supplier through the canonical modal, then refresh the picker list
+  // (kept in local state, not React Query) and auto-assign it to this albarán.
+  const handleCreateSupplier = async (data: CreateSupplierDto | UpdateSupplierDto) => {
+    try {
+      const result = await createMutation.mutateAsync(data as CreateSupplierDto);
+      // apiClient's response interceptor unwraps { success, data } → result is the supplier itself.
+      const newId = result?.id;
+      setCreateOpen(false);
+      refresh();
+      if (newId) {
+        await handleSelectSupplier(newId);
+      }
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo crear el proveedor',
+        message: err instanceof Error ? err.message : 'Error al crear el proveedor',
+      });
+    }
   };
 
   return (
     <>
-      <Dialog open={open && !showCreateSheet} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
+      <Dialog open={open && !createOpen} onOpenChange={(v) => { if (!v) onOpenChange(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Cambiar Proveedor</DialogTitle>
@@ -128,10 +149,10 @@ export function SupplierPickerDialog({
             )}
           </ScrollArea>
 
-          {/* Crear proveedor — abre Sheet lateral */}
+          {/* Abrir el mismo modal de "Nuevo proveedor" que usa la página Proveedores */}
           <button
             type="button"
-            onClick={() => setShowCreateSheet(true)}
+            onClick={() => setCreateOpen(true)}
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -140,11 +161,13 @@ export function SupplierPickerDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Sheet fuera del Dialog para evitar conflictos de focus trapping */}
-      <CreateSupplierSheet
-        open={showCreateSheet}
-        onOpenChange={setShowCreateSheet}
-        onSuccess={handleSupplierCreated}
+      {/* Modal canónico (overlay propio, sin Radix) — no choca con el focus trap del Dialog */}
+      <SupplierModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        supplier={null}
+        onSubmit={handleCreateSupplier}
+        isSubmitting={createMutation.isPending}
       />
     </>
   );
