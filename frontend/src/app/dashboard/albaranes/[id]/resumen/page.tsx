@@ -74,8 +74,14 @@ export default function AlbaranResumenPage() {
     try {
       await updateStatus(id, newStatus);
       // El estado cambió en BD: invalida la caché del listado para que al
-      // volver se muestre el nuevo estado, y refresca el detalle en pantalla.
+      // volver se muestre el nuevo estado.
       invalidateList();
+      // Al confirmar, el usuario vuelve directamente al listado en vez de
+      // quedarse en el resumen del albarán ya confirmado.
+      if (newStatus === 'CONFIRMADO') {
+        router.push('/dashboard/albaranes');
+        return;
+      }
       refetch();
     } catch (err) {
       console.error('Error updating status:', err);
