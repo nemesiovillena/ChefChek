@@ -6,6 +6,7 @@ import {
   IsArray,
   ValidateNested,
   IsEnum,
+  IsBoolean,
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -53,7 +54,16 @@ export class CreateAlbaranLineDto {
   @Min(0)
   priceWithVat?: number;
 
-  @ApiPropertyOptional({ description: "Importe de línea (sin IVA)" })
+  @ApiPropertyOptional({
+    description:
+      "Importe neto de la línea leído del papel (sin IVA, con descuento si lo hay)",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number;
+
+  @ApiPropertyOptional({ description: "Importe de línea bruto (sin IVA)" })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -112,6 +122,14 @@ export class CreateAlbaranDto {
   @IsNumber()
   @Min(0)
   total?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Opt-in: al confirmar, aplicar el descuento de línea al coste/escandallos",
+  })
+  @IsOptional()
+  @IsBoolean()
+  applyDiscountToCost?: boolean;
 
   @ApiPropertyOptional({ description: "ID del almacén para entrada de stock" })
   @IsOptional()

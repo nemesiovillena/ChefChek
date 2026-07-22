@@ -71,7 +71,18 @@ export class AlbaranStockService {
 
       for (const line of confirmedLines) {
         const lineQuantity = Number(line.quantity);
-        const lineUnitPrice = Number(line.unitPrice);
+        let lineUnitPrice = Number(line.unitPrice);
+        // Opt-in del usuario: si activó "aplicar descuento al coste" y la línea
+        // trae el importe neto del papel (con descuento), el coste real por
+        // unidad es totalPrice/qty, no el bruto. Sin descuento o sin opt-in,
+        // comportamiento idéntico al anterior (precio bruto).
+        if (
+          albaran.applyDiscountToCost &&
+          line.totalPrice !== null &&
+          lineQuantity > 0
+        ) {
+          lineUnitPrice = Number(line.totalPrice) / lineQuantity;
+        }
         const lineUnit = line.unit || "und";
 
         if (line.matchedProductId) {

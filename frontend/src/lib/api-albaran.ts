@@ -19,6 +19,9 @@ export interface AlbaranLine {
   unitPrice: number;
   vatPercent: number;
   priceWithVat: number | null;
+  /** Importe neto de la línea leído del papel (sin IVA, con descuento). null si el OCR no lo trajo. */
+  totalPrice: number | null;
+  /** Importe bruto de línea = cantidad × precio unidad (sin IVA, sin descuento). */
   lineAmount: number;
   matchStatus: MatchStatus;
   lineStatus: LineStatus;
@@ -38,6 +41,8 @@ export interface Albaran {
   base: number;
   vatTotal: number;
   total: number;
+  /** Opt-in: al confirmar, aplicar el descuento de línea al precio de compra/escandallos. */
+  applyDiscountToCost?: boolean;
   status: AlbaranStatus;
   warehouseId: string | null;
   warehouse: { id: string; name: string } | null;
@@ -127,6 +132,8 @@ export async function updateAlbaran(
     warehouseId?: string;
     /** Vincula un pedido de compra (conciliación); null para desvincular */
     purchaseOrderId?: string | null;
+    /** Opt-in: aplicar el descuento de línea al coste al confirmar */
+    applyDiscountToCost?: boolean;
   }
 ): Promise<Albaran> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}`, {

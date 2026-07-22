@@ -103,7 +103,9 @@ export class AlbaranesController {
         quantity: line.quantity,
         unit: line.unit,
         unit_price: line.unitPrice,
-        total_price: (line.quantity || 0) * (line.unitPrice || 0),
+        // Neto del papel si el OCR lo trajo; si no, se recalcula del bruto.
+        total_price:
+          line.totalPrice ?? (line.quantity || 0) * (line.unitPrice || 0),
         supplier: (albaran as any).supplier?.name || "IMPORTADO",
         category: "",
         allergens: [],

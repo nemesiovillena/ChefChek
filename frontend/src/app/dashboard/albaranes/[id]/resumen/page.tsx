@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
+import { updateStatus, deleteAlbaran, updateAlbaran } from '@/lib/api-albaran';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -41,6 +41,25 @@ export default function AlbaranResumenPage() {
   const handleDetailMutationSuccess = () => {
     invalidateList();
     refetch();
+  };
+
+  // Opt-in "aplicar descuento al coste": solo visible si alguna línea trae un
+  // neto del papel inferior al bruto (descuento real). Persiste el flag en la
+  // cabecera; el stock service lo lee al confirmar para usar el precio neto.
+  const handleToggleDiscount = async (checked: boolean) => {
+    setUpdating(true);
+    try {
+      await updateAlbaran(id, { applyDiscountToCost: checked });
+      handleDetailMutationSuccess();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err instanceof Error ? err.message : 'Error al actualizar el albarán',
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
   useEffect(() => {
@@ -287,6 +306,29 @@ export default function AlbaranResumenPage() {
                 <span className="text-gray-500">IVA</span>
                 <span className="font-medium">{formatCurrency(albaran.vatTotal)}</span>
               </div>
+              {(albaran.lines || []).some(
+                (l) =>
+                  l.totalPrice !== null &&
+                  l.totalPrice < l.lineAmount &&
+                  Math.abs(l.totalPrice - l.lineAmount) > 0.005,
+              ) &&
+                albaran.status !== 'CONFIRMADO' &&
+                albaran.status !== 'ARCHIVADO' && (
+                  <label className="flex items-start gap-2 pt-2 text-xs text-gray-600 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      checked={!!albaran.applyDiscountToCost}
+                      disabled={updating}
+                      onChange={(e) => handleToggleDiscount(e.target.checked)}
+                    />
+                    <span>
+                      Aplicar el descuento al <strong>coste</strong> al confirmar:
+                      el precio de compra y los escandallos usarán el neto del papel
+                      en vez del bruto.
+                    </span>
+                  </label>
+                )}
               <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
                 <span>Total</span>
                 <span className="text-indigo-600">{formatCurrency(albaran.total)}</span>

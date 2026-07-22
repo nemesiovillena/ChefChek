@@ -51,6 +51,7 @@ export class AlbaranesService {
         warehouseId: dto.warehouseId,
         purchaseOrderId: dto.purchaseOrderId,
         notes: dto.notes,
+        applyDiscountToCost: dto.applyDiscountToCost ?? false,
         lines: {
           create: dto.lines.map((line) => ({
             articleNumber: line.articleNumber,
@@ -61,6 +62,10 @@ export class AlbaranesService {
             unitPrice: line.unitPrice,
             vatPercent: line.vatPercent ?? 10,
             priceWithVat: line.priceWithVat,
+            // Importe neto del papel (con descuento si lo hay). Se persiste para
+            // mostrarlo y, si el usuario activa applyDiscountToCost, usarlo de base
+            // de coste al confirmar. lineAmount sigue siendo el bruto qty × precio.
+            totalPrice: line.totalPrice ?? null,
             lineAmount: line.lineAmount ?? line.quantity * line.unitPrice,
           })),
         },
@@ -170,6 +175,7 @@ export class AlbaranesService {
         warehouseId: dto.warehouseId,
         // undefined (no viene en el body) no toca el campo; null desvincula
         purchaseOrderId: dto.purchaseOrderId,
+        applyDiscountToCost: dto.applyDiscountToCost,
       },
       include: { lines: true, supplier: true, purchaseOrder: true },
     });
@@ -483,6 +489,10 @@ export class AlbaranesService {
               unitPrice: product.unit_price || 0,
               vatPercent: product.vat_percent ?? 10,
               priceWithVat: product.price_with_vat ?? null,
+              // Importe neto leído del papel por el OCR (sin IVA, con descuento).
+              // El OCR puede traer qty/unit_price que no cuadran con este total
+              // cuando hay un descuento; el papel manda para mostrar el neto.
+              totalPrice: product.total_price ?? null,
               lineAmount: (product.quantity || 0) * (product.unit_price || 0),
               lineOrder: index,
             })),

@@ -1675,6 +1675,7 @@ model Albaran {
   warehouseId     String? // Almacén seleccionado para la entrada de stock
   purchaseOrderId String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
   notes           String?
+  applyDiscountToCost Boolean @default(false) // Opt-in: al confirmar, el coste/escandallos usa el precio neto (con descuento) en vez del bruto
   createdBy       String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -1710,7 +1711,8 @@ model AlbaranLine {
   unitPrice        Float
   vatPercent       Float           @default(10)
   priceWithVat     Float? // Precio unidad con IVA (unit_price × (1 + vat%))
-  lineAmount       Float // Cantidad × precio unidad (sin IVA)
+  totalPrice       Float? // Importe neto de la línea leído del papel (sin IVA, con descuento si lo hay). El OCR lo trae pero qty×precio puede no cuadrar cuando hay dto.
+  lineAmount       Float // Cantidad × precio unidad bruto (sin IVA, sin descuento)
   matchStatus      LineMatchStatus @default(NUEVO)
   lineStatus       LineStatus      @default(PENDIENTE)
   matchedProductId String? // FK a Product si hay match

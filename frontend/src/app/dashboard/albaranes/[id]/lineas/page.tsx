@@ -477,7 +477,45 @@ export default function AlbaranLineasPage() {
                             `${line.vatPercent}%`
                           )}
                         </TableCell>
-                        <TableCell className="font-semibold">{formatCurrency(line.lineAmount)}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            // lineAmount = bruto (qty × precio). totalPrice = neto
+                            // del papel (con descuento). Mostramos el neto cuando
+                            // el proveedor aplicó descuento y no cuadra con el bruto.
+                            const gross = line.lineAmount;
+                            const net = line.totalPrice;
+                            const hasNet =
+                              net !== null && Math.abs(net - gross) > 0.005;
+                            const isDiscount = hasNet && net! < gross && gross > 0;
+                            if (!hasNet) {
+                              return (
+                                <span className="font-semibold">
+                                  {formatCurrency(gross)}
+                                </span>
+                              );
+                            }
+                            const discountPct = isDiscount
+                              ? Math.round((1 - (net! / gross)) * 1000) / 10
+                              : 0;
+                            return (
+                              <div className="flex flex-col leading-tight">
+                                <span className="font-semibold">
+                                  {formatCurrency(net!)}
+                                </span>
+                                {isDiscount && (
+                                  <>
+                                    <span className="text-xs text-gray-400 line-through">
+                                      {formatCurrency(gross)}
+                                    </span>
+                                    <span className="text-[10px] font-medium text-emerald-700">
+                                      −{discountPct}% dto
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />
                         </TableCell>
