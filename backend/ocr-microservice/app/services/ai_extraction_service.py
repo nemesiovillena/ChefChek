@@ -116,8 +116,10 @@ SUPPORTED_MODELS = {
     "gpt-4o-mini": "openai",
     "gpt-4o": "openai",
     # Google
+    # gemini-2.5-flash retirado: Google devuelve 404 "no longer available to
+    # new users" para keys nuevas (ver logs 2026-07-22). Gemini Flash sigue
+    # disponible vía OpenRouter (openrouter-gemini-flash abajo).
     "gemini-2.0-flash": "google",
-    "gemini-2.5-flash": "google",
     "gemini-2.5-pro": "google",
     # Anthropic
     "claude-haiku-4-5-20251001": "anthropic",

@@ -30,9 +30,11 @@ export const AI_PROVIDERS: AIProvider[] = [
     // Google migra las keys de Gemini de 'AIza...' al nuevo formato 'AQ.Ab...' (2026)
     keyPrefixes: ['AIza', 'AQ.'],
     keyPlaceholder: 'AIza... o AQ.Ab...',
+    // gemini-2.5-flash retirado: Google devuelve 404 "no longer available to
+    // new users" para keys nuevas. Google Flash sigue disponible vía
+    // OpenRouter (openrouter-gemini-flash), que usa su propia cuenta/cuota.
     models: [
       { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
     ],
   },
   {
