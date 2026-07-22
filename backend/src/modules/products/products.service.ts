@@ -171,11 +171,16 @@ export class ProductsService {
       return [];
     }
 
-    // Matching "exacto + contiene" (accent-insensitive): avisa no solo si el
-    // nombre es idéntico, sino si lo escrito está contenido en uno existente o
-    // viceversa. Así "aceite girasol" coincide con "Aceite girasol alto oleico"
-    // o "Aceite de girasol (Ruiz)". NO detecta typos ("grasol"≠"girasol").
-    // Se normaliza una sola vez (CTE + subquery) para no repetir translate().
+    // Matching "exacto + contiene + primera palabra" (accent-insensitive):
+    // avisa si el nombre es idéntico, si lo escrito está contenido en uno
+    // existente (o viceversa: "aceite girasol" ⊂ "Aceite girasol alto
+    // oleico"), o si ambos empiezan por la misma palabra (≥3 letras: evita
+    // ruido con "de/el/la"). Este último caso cubre líneas OCR de albarán
+    // largas que solo comparten el género del producto con el artículo ya
+    // existente, ej. "Lejía caja 6ud x 2L" vs "Lejía alimentaria 2L
+    // sanitaria" — mismo inicio, cero contención mutua. NO detecta typos
+    // ("grasol"≠"girasol"). Se normaliza una sola vez (CTE + subquery) para
+    // no repetir translate().
     const matches = await this.prisma.$queryRaw<
       { id: string; name: string; isActive: boolean }[]
     >(Prisma.sql`
@@ -194,6 +199,10 @@ export class ProductsService {
       CROSS JOIN norm
       WHERE strpos(q.pn, norm.input) > 0
          OR strpos(norm.input, q.pn) > 0
+         OR (
+           LENGTH(split_part(q.pn, ' ', 1)) >= 3
+           AND split_part(q.pn, ' ', 1) = split_part(norm.input, ' ', 1)
+         )
       ORDER BY (q.pn = norm.input) DESC, LENGTH(q.name), q.name
       LIMIT 5
     `);
