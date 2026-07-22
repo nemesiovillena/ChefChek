@@ -20,7 +20,7 @@ export class ProductResponseDto {
     previousPurchasePrice: number;
     netPrice: number;
     profitMargin: number;
-    discountPercentage: number; // Descuento informativo del proveedor (no recalcula precios)
+    discountPercentage: number; // Descuento fijo del proveedor aplicado al coste (sobre purchasePrice)
     referencePrice: number; // purchasePrice / unitSize
 
     // Último cambio de precio con traza (delta del historial). null si no hay

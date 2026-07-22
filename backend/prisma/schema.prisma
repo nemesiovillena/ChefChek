@@ -155,7 +155,7 @@ model Product {
   previousPurchasePrice Float @default(0)
   netPrice              Float
   profitMargin          Float @default(0)
-  discountPercentage    Float @default(0) // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  discountPercentage    Float @default(0) // Descuento fijo del proveedor: descuenta sobre purchasePrice en el cálculo de coste (bruto × (1 − dto/100))
 
   // Rendimiento
   wastePercentage Float @default(0)

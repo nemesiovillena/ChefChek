@@ -557,7 +557,8 @@ export class RecipesService {
       SELECT id,
              "purchasePrice"::float8 AS "purchasePrice",
              "unitSize"::float8       AS "unitSize",
-             "referenceUnit"
+             "referenceUnit",
+             "discountPercentage"::float8 AS "discountPercentage"
       FROM products
       WHERE id = ANY(${productIds}::text[])
         AND "tenantId" = ${tenantId}
@@ -566,6 +567,7 @@ export class RecipesService {
       purchasePrice: number;
       unitSize: number;
       referenceUnit: string;
+      discountPercentage: number;
     }>;
     const productMap = new Map<string, any>(
       products.map((p: any) => [p.id, p]),
@@ -738,8 +740,13 @@ export class RecipesService {
             ? product.yieldFactor
             : 1;
         const unitSize = product?.unitSize > 0 ? product.unitSize : 1;
+        // Mismo descuento fijo del proveedor que calculateProductCostPerUnit:
+        // el precio de referencia mostrado debe ser el efectivo (bruto × dto),
+        // no el bruto, para no driftear del coste de la línea.
+        const discountFactor =
+          1 - Number(product?.discountPercentage ?? 0) / 100;
         const referencePurchasePrice = product
-          ? product.purchasePrice / unitSize
+          ? (product.purchasePrice / unitSize) * discountFactor
           : 0;
         const yieldPercentage = yieldFactor * 100;
 
