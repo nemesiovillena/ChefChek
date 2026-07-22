@@ -351,7 +351,14 @@ export class ProductSupplierOffersService {
         }
       }
 
-      await tx.productSupplierOffer.delete({ where: { id: offerId } });
+      // NUNCA `tx.productSupplierOffer.delete(...)`: el middleware de soft-delete
+      // extiende el cliente base (`this.prisma`), no el cliente de transacción
+      // (`tx`) — un delete aquí sería un borrado físico real pese al comentario
+      // de este método. Ver PrismaService (modelsWithSoftDelete).
+      await tx.productSupplierOffer.update({
+        where: { id: offerId },
+        data: { deletedAt: new Date() },
+      });
 
       if (offer.isPreferred && promoteOfferId) {
         const promoted = await tx.productSupplierOffer.update({

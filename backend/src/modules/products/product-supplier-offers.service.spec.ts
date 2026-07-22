@@ -532,7 +532,7 @@ describe("ProductSupplierOffersService", () => {
       await expect(service.removeOffer("offer-a", tenantId)).rejects.toThrow(
         BadRequestException,
       );
-      expect(tx.productSupplierOffer.delete).not.toHaveBeenCalled();
+      expect(tx.productSupplierOffer.update).not.toHaveBeenCalled();
     });
 
     it("allows removing the only offer of a product", async () => {
@@ -547,8 +547,11 @@ describe("ProductSupplierOffersService", () => {
 
       await service.removeOffer("offer-a", tenantId);
 
-      expect(tx.productSupplierOffer.delete).toHaveBeenCalledWith({
+      // Soft-delete: nunca `.delete()` dentro de una transacción (el middleware
+      // de soft-delete no cubre el cliente `tx`, sería borrado físico real).
+      expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-a" },
+        data: { deletedAt: expect.any(Date) },
       });
     });
 
@@ -579,8 +582,9 @@ describe("ProductSupplierOffersService", () => {
 
       await service.removeOffer("offer-a", tenantId, "offer-dialvi");
 
-      expect(tx.productSupplierOffer.delete).toHaveBeenCalledWith({
+      expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-a" },
+        data: { deletedAt: expect.any(Date) },
       });
       expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-dialvi" },
