@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
@@ -27,6 +28,20 @@ export default function AlbaranResumenPage() {
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const addNotification = useNotification();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
+
+  // Marca el query del listado como stale. Sin esto, al volver a /albaranes
+  // react-query sirve la caché anterior (staleTime global de 5 min) y el badge
+  // de estado queda congelado en el valor previo hasta un refresco manual.
+  const invalidateList = () => {
+    void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+  };
+  // Mutaciones que afectan al detalle Y al listado (proveedor, pedido):
+  // refresca el detalle visible y marca el listado como stale.
+  const handleDetailMutationSuccess = () => {
+    invalidateList();
+    refetch();
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -39,6 +54,9 @@ export default function AlbaranResumenPage() {
     setUpdating(true);
     try {
       await updateStatus(id, newStatus);
+      // El estado cambió en BD: invalida la caché del listado para que al
+      // volver se muestre el nuevo estado, y refresca el detalle en pantalla.
+      invalidateList();
       refetch();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -68,6 +86,9 @@ export default function AlbaranResumenPage() {
     setUpdating(true);
     try {
       await deleteAlbaran(id);
+      // Marca el listado stale antes de navegar: sin esto, el albarán borrado
+      // seguiría apareciendo en la caché hasta un refresco manual.
+      invalidateList();
       router.push('/dashboard/albaranes');
     } catch (err) {
       console.error('Error deleting albaran:', err);
@@ -317,7 +338,7 @@ export default function AlbaranResumenPage() {
         onOpenChange={setSupplierPickerOpen}
         albaranId={id}
         currentSupplierId={albaran.supplier?.id}
-        onSuccess={refetch}
+        onSuccess={handleDetailMutationSuccess}
       />
 
       {/* Purchase Order Picker Dialog */}
@@ -328,7 +349,7 @@ export default function AlbaranResumenPage() {
         supplierId={albaran.supplier?.id}
         albaranDate={albaran.date}
         currentPurchaseOrderId={albaran.purchaseOrderId}
-        onSuccess={refetch}
+        onSuccess={handleDetailMutationSuccess}
       />
     </div>
   );
