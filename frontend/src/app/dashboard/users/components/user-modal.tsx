@@ -205,8 +205,8 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
               <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-gray-300 dark:border-zinc-700 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800">
                 Subir foto
               </button>
-              <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF)</span>
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarFileChange} className="hidden" />
+              <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF, HEIC)</span>
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleAvatarFileChange} className="hidden" />
             </div>
             {avatarUrl && (
               <div className="mt-3">
