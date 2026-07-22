@@ -110,68 +110,32 @@ export class AlbaranStockService {
             );
           }
 
-          // Update purchase price if different
           const currentPrice = Number(product.purchasePrice);
-          if (lineUnitPrice !== currentPrice) {
-            const percentageChange =
-              currentPrice > 0
-                ? Math.abs(
-                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
-                  )
-                : 100;
 
-            if (albaran.supplierId) {
-              // Upsert de la oferta de ESTE proveedor concreto. Si es la
-              // oferta preferente del producto, sincroniza los campos planos
-              // (comportamiento legacy preservado); si es un proveedor
-              // distinto al preferente, solo actualiza su oferta — el precio
-              // vigente del producto no se sobreescribe.
-              const offer = await this.productSupplierOffersService.upsertOffer(
-                product.id,
-                albaran.supplierId,
-                tenantId,
-                { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
-                tx,
-                albaran.id,
-              );
+          if (albaran.supplierId) {
+            // Upsert de la oferta de ESTE proveedor: toda compra confirmada
+            // lo marca preferente (regla de negocio — el último proveedor al
+            // que se le compró rige el coste/escandallos), pisando cualquier
+            // estrella manual anterior. Se llama siempre, no solo cuando
+            // cambia el precio plano, para que un proveedor distinto al
+            // preferente actual tome la estrella aunque el precio coincida.
+            const offer = await this.productSupplierOffersService.upsertOffer(
+              product.id,
+              albaran.supplierId,
+              tenantId,
+              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+              tx,
+              albaran.id,
+              true,
+            );
 
-              if (offer.isPreferred && percentageChange > 10) {
-                await this.notifyPriceChange(
-                  tenantId,
-                  product.name,
-                  currentPrice,
-                  lineUnitPrice,
-                  percentageChange,
-                );
-              }
-            } else {
-              // Fallback legacy: albarán sin proveedor asignado, no se puede
-              // crear una oferta (supplierId es obligatorio en el modelo).
-              await tx.product.update({
-                where: { id: product.id },
-                data: {
-                  previousPurchasePrice: currentPrice,
-                  purchasePrice: lineUnitPrice,
-                  netPrice: lineUnitPrice,
-                },
-              });
-
-              await tx.productPriceHistory.create({
-                data: {
-                  tenantId,
-                  productId: product.id,
-                  supplierId: null,
-                  albaranId: albaran.id,
-                  previousPrice: currentPrice,
-                  newPrice: lineUnitPrice,
-                  // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
-                  // que antes/después es el mismo — se snapshotea igual para que
-                  // el frontend pueda calcular €/kg normalizado con datos completos.
-                  previousUnitSize: product.unitSize,
-                  newUnitSize: product.unitSize,
-                },
-              });
-
+            if (lineUnitPrice !== currentPrice) {
+              const percentageChange =
+                currentPrice > 0
+                  ? Math.abs(
+                      ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                    )
+                  : 100;
               if (percentageChange > 10) {
                 await this.notifyPriceChange(
                   tenantId,
@@ -181,6 +145,50 @@ export class AlbaranStockService {
                   percentageChange,
                 );
               }
+            }
+          } else if (lineUnitPrice !== currentPrice) {
+            // Fallback legacy: albarán sin proveedor asignado, no se puede
+            // crear una oferta (supplierId es obligatorio en el modelo).
+            const percentageChange =
+              currentPrice > 0
+                ? Math.abs(
+                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                  )
+                : 100;
+
+            await tx.product.update({
+              where: { id: product.id },
+              data: {
+                previousPurchasePrice: currentPrice,
+                purchasePrice: lineUnitPrice,
+                netPrice: lineUnitPrice,
+              },
+            });
+
+            await tx.productPriceHistory.create({
+              data: {
+                tenantId,
+                productId: product.id,
+                supplierId: null,
+                albaranId: albaran.id,
+                previousPrice: currentPrice,
+                newPrice: lineUnitPrice,
+                // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
+                // que antes/después es el mismo — se snapshotea igual para que
+                // el frontend pueda calcular €/kg normalizado con datos completos.
+                previousUnitSize: product.unitSize,
+                newUnitSize: product.unitSize,
+              },
+            });
+
+            if (percentageChange > 10) {
+              await this.notifyPriceChange(
+                tenantId,
+                product.name,
+                currentPrice,
+                lineUnitPrice,
+                percentageChange,
+              );
             }
           }
 

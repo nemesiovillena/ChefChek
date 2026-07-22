@@ -247,6 +247,7 @@ describe("AlbaranStockService", () => {
         { purchasePrice: 5, netPrice: 5 },
         mockTx,
         mockAlbaranId,
+        true,
       );
       // El precio plano ya no se sobreescribe directamente: lo hace
       // ProductSupplierOffersService cuando la oferta es la preferente.
@@ -262,16 +263,14 @@ describe("AlbaranStockService", () => {
       });
     });
 
-    it("does not overwrite Product's flat price when the line's supplier offer is not the preferred one", async () => {
+    it("promotes the delivering supplier's offer to preferred even if it wasn't before, and still notifies on a real price change", async () => {
       const mockProduct = {
         id: mockProductId,
         name: "Mozzarella",
         purchasePrice: 10,
         netPrice: 10,
         // Ya tiene proveedor asignado (uno distinto a Dialvi): evita
-        // disparar la asignación automática de proveedor (product.update)
-        // y mantiene el foco de este test en que el precio plano no cambia
-        // cuando la oferta actualizada no es la preferente.
+        // disparar la asignación automática de proveedor (product.update).
         supplierId: "supplier-original",
       };
 
@@ -316,10 +315,11 @@ describe("AlbaranStockService", () => {
       };
 
       (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
-      // Dialvi no es el proveedor preferente de este producto: su oferta se
-      // actualiza, pero el precio plano vigente del producto no cambia.
+      // Toda compra confirmada pasa `promoteToPreferred: true` — es
+      // ProductSupplierOffersService (mockeado aquí) quien decide isPreferred
+      // internamente; el resultado siempre lo marca preferente.
       (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
-        { isPreferred: false, purchasePrice: 6.53 },
+        { isPreferred: true, purchasePrice: 6.53 },
       );
 
       await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
@@ -331,9 +331,19 @@ describe("AlbaranStockService", () => {
         { purchasePrice: 6.53, netPrice: 6.53 },
         mockTx,
         mockAlbaranId,
+        true,
       );
+      // AlbaranStockService nunca toca Product.purchasePrice directamente en
+      // este flujo: lo hace ProductSupplierOffersService (mockeado).
       expect(mockTx.product.update).not.toHaveBeenCalled();
-      expect(notifications.notifyPriceChange).not.toHaveBeenCalled();
+      // 10 → 6.53 = -34.7%, por encima del umbral de notificación (10%).
+      expect(notifications.notifyPriceChange).toHaveBeenCalledWith(
+        mockTenantId,
+        "Mozzarella",
+        10,
+        6.53,
+        expect.any(Number),
+      );
     });
 
     it("falls back to a direct Product update when the albarán has no supplier assigned", async () => {

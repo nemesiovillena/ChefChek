@@ -57,6 +57,14 @@ export class ProductSupplierOffersService {
     data: UpsertSupplierOfferData,
     tx?: PrismaClientOrTx,
     albaranId?: string,
+    /**
+     * Compra confirmada (albarán): este proveedor pasa a ser el preferente
+     * SIEMPRE — regla de negocio "el último proveedor comprado manda en el
+     * coste", pisa cualquier elección manual anterior. false para ediciones
+     * manuales (modal Artículos, vincular duplicado), donde `isPreferred`
+     * sigue siendo una elección explícita del usuario.
+     */
+    promoteToPreferred = false,
   ): Promise<ProductSupplierOffer> {
     const client = tx ?? this.prisma;
 
@@ -78,21 +86,19 @@ export class ProductSupplierOffersService {
     const unitSize = unitsPerFormat * referenceUnitSize;
     const netPrice = data.netPrice ?? data.purchasePrice;
 
+    if (promoteToPreferred) {
+      await client.productSupplierOffer.updateMany({
+        where: { productId, isPreferred: true },
+        data: { isPreferred: false },
+      });
+    }
+
     let offer: ProductSupplierOffer;
     if (existingOffer) {
       // Contrato del campo plano `previousPurchasePrice` (fuera de alcance de este
       // fix): sigue disparándose con el precio crudo, como siempre.
       const rawPriceChanged =
         existingOffer.purchasePrice !== data.purchasePrice;
-      // Trigger del historial: normalizado a €/kg (con tolerancia) — evita filas/
-      // badges falsos cuando solo cambia el tamaño de caja/formato pero el precio
-      // real por kg es el mismo.
-      const refPriceChanged = referencePriceChanged(
-        existingOffer.purchasePrice,
-        existingOffer.unitSize,
-        data.purchasePrice,
-        unitSize,
-      );
       offer = await client.productSupplierOffer.update({
         where: { id: existingOffer.id },
         data: {
@@ -107,24 +113,10 @@ export class ProductSupplierOffersService {
           referenceUnitSize,
           unitSize,
           profitMargin: data.profitMargin ?? existingOffer.profitMargin,
+          ...(promoteToPreferred ? { isPreferred: true } : {}),
           ...this.buildAgreedFields(data, existingOffer),
         },
       });
-
-      if (refPriceChanged) {
-        await client.productPriceHistory.create({
-          data: {
-            tenantId,
-            productId,
-            supplierId,
-            albaranId,
-            previousPrice: existingOffer.purchasePrice,
-            newPrice: data.purchasePrice,
-            previousUnitSize: existingOffer.unitSize,
-            newUnitSize: unitSize,
-          },
-        });
-      }
     } else {
       // Primera oferta del producto: se marca preferente para que sincronice
       // Product.supplierId/purchasePrice (de lo contrario el listado de
@@ -149,61 +141,111 @@ export class ProductSupplierOffersService {
           referenceUnitSize,
           unitSize,
           profitMargin: data.profitMargin ?? 0,
-          isPreferred: offerCount === 0,
+          isPreferred: promoteToPreferred || offerCount === 0,
           ...this.buildAgreedFields(data, null),
         },
       });
+    }
 
-      // Sin este bloque, ninguna oferta nueva quedaba en el Histórico de
-      // precios (las demás ramas de esta función sí lo escriben) — solo el
-      // primer proveedor que llegara a cambiar SU precio se veía reflejado.
-      if (offer.isPreferred) {
-        // Primera oferta del producto (aún no había ninguna, de ningún
-        // proveedor): comparamos contra el precio plano vigente del artículo
-        // (normalizado a €/kg) para no crear una fila si coincide con lo que
-        // ya tenía (ej. producto creado con un precio estimado igual al real).
-        if (
-          referencePriceChanged(
-            product.purchasePrice,
-            product.unitSize,
-            data.purchasePrice,
-            unitSize,
-          )
-        ) {
-          await client.productPriceHistory.create({
-            data: {
-              tenantId,
-              productId,
-              supplierId,
-              albaranId,
-              previousPrice: product.purchasePrice,
-              newPrice: data.purchasePrice,
-              previousUnitSize: product.unitSize,
-              newUnitSize: unitSize,
-            },
-          });
-        }
-      } else {
-        // Segundo (o siguiente) proveedor para un artículo que ya tenía
-        // preferente de otro: no hay "precio anterior" de ESTE proveedor con
-        // el que comparar (nunca ofertó antes) — comparar contra
-        // product.purchasePrice sería contra el precio de OTRO proveedor y
-        // generaría una fila engañosa ("cambió de X a Y" cuando en realidad
-        // son dos proveedores distintos). Se registra sin comparación, igual
-        // que `previousPurchasePrice: 0` en la propia oferta.
+    // Sin este bloque, ninguna oferta nueva/actualizada quedaba en el
+    // Histórico de precios salvo la que ya era preferente de siempre.
+    if (promoteToPreferred) {
+      // Baseline única: el precio plano vigente del artículo ANTES de esta
+      // compra (sea de quien sea el proveedor que lo tenía) — así el badge de
+      // tendencia del listado compara contra lo que el usuario veía antes,
+      // no contra el histórico interno de ESTE proveedor (que puede ser 0 si
+      // nunca había comprado aquí).
+      if (
+        referencePriceChanged(
+          product.purchasePrice,
+          product.unitSize,
+          data.purchasePrice,
+          unitSize,
+        )
+      ) {
         await client.productPriceHistory.create({
           data: {
             tenantId,
             productId,
             supplierId,
             albaranId,
-            previousPrice: 0,
+            previousPrice: product.purchasePrice,
             newPrice: data.purchasePrice,
-            previousUnitSize: null,
+            previousUnitSize: product.unitSize,
             newUnitSize: unitSize,
           },
         });
       }
+    } else if (existingOffer) {
+      // Trigger del historial: normalizado a €/kg (con tolerancia) — evita filas/
+      // badges falsos cuando solo cambia el tamaño de caja/formato pero el precio
+      // real por kg es el mismo.
+      if (
+        referencePriceChanged(
+          existingOffer.purchasePrice,
+          existingOffer.unitSize,
+          data.purchasePrice,
+          unitSize,
+        )
+      ) {
+        await client.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId,
+            supplierId,
+            albaranId,
+            previousPrice: existingOffer.purchasePrice,
+            newPrice: data.purchasePrice,
+            previousUnitSize: existingOffer.unitSize,
+            newUnitSize: unitSize,
+          },
+        });
+      }
+    } else if (offer.isPreferred) {
+      // Primera oferta del producto (aún no había ninguna, de ningún
+      // proveedor): comparamos contra el precio plano vigente del artículo
+      // (normalizado a €/kg) para no crear una fila si coincide con lo que
+      // ya tenía (ej. producto creado con un precio estimado igual al real).
+      if (
+        referencePriceChanged(
+          product.purchasePrice,
+          product.unitSize,
+          data.purchasePrice,
+          unitSize,
+        )
+      ) {
+        await client.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId,
+            supplierId,
+            albaranId,
+            previousPrice: product.purchasePrice,
+            newPrice: data.purchasePrice,
+            previousUnitSize: product.unitSize,
+            newUnitSize: unitSize,
+          },
+        });
+      }
+    } else {
+      // Segundo (o siguiente) proveedor para un artículo que ya tenía
+      // preferente de otro, SIN promoteToPreferred (alta manual): no hay
+      // "precio anterior" de ESTE proveedor con el que comparar (nunca
+      // ofertó antes) — comparar contra product.purchasePrice sería contra
+      // el precio de OTRO proveedor y generaría una fila engañosa. Se
+      // registra sin comparación, igual que `previousPurchasePrice: 0`.
+      await client.productPriceHistory.create({
+        data: {
+          tenantId,
+          productId,
+          supplierId,
+          albaranId,
+          previousPrice: 0,
+          newPrice: data.purchasePrice,
+          previousUnitSize: null,
+          newUnitSize: unitSize,
+        },
+      });
     }
 
     if (offer.isPreferred) {

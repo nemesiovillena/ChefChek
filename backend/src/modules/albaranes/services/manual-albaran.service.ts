@@ -90,14 +90,17 @@ export class ManualAlbaranService {
               : 0;
 
           if (supplierId) {
-            // Upsert de la oferta de este proveedor. Si es la preferente del
-            // producto, sincroniza el precio plano; si es otro proveedor,
-            // solo actualiza su oferta sin tocar el precio vigente.
+            // Alta manual de albarán = compra confirmada igual que la vía
+            // OCR: el proveedor pasa a ser el preferente (regla de negocio),
+            // pisando cualquier estrella manual anterior.
             const offer = await this.productSupplierOffersService.upsertOffer(
               existing.id,
               supplierId,
               tenantId,
               { purchasePrice: line.price, netPrice: line.price },
+              undefined,
+              undefined,
+              true,
             );
             if (offer.isPreferred && priceChangePercentage > 10) {
               await this.notifyPriceChange(
@@ -146,6 +149,9 @@ export class ManualAlbaranService {
                 supplierId,
                 tenantId,
                 { purchasePrice: line.price, netPrice: line.price },
+                undefined,
+                undefined,
+                true,
               );
             } else {
               await this.prisma.product.update({

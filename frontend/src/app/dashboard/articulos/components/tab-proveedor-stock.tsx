@@ -66,35 +66,44 @@ function OfferFormatFields({
         />
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <input
-          type="number"
-          step="1"
-          min="1"
-          value={value.unitsPerFormat}
-          onChange={(e) => update('unitsPerFormat', e.target.value)}
-          placeholder="Uds/formato"
-          title="Unidades por formato (ej: 6 botellas por caja)"
-          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-        />
-        <input
-          type="number"
-          step="0.001"
-          min="0.001"
-          value={value.referenceUnitSize}
-          onChange={(e) => update('referenceUnitSize', e.target.value)}
-          placeholder="Cantidad/ud"
-          title="Cantidad por unidad (ej: 2 litros por botella)"
-          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-        />
-        <input
-          type="number"
-          step="0.001"
-          min="0"
-          value={value.purchasePrice}
-          onChange={(e) => update('purchasePrice', e.target.value)}
-          placeholder="Precio €"
-          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-        />
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Uds/formato</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            value={value.unitsPerFormat}
+            onChange={(e) => update('unitsPerFormat', e.target.value)}
+            placeholder="Ej: 6"
+            title="Unidades por formato (ej: 6 botellas por caja)"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Cantidad/ud</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0.001"
+            value={value.referenceUnitSize}
+            onChange={(e) => update('referenceUnitSize', e.target.value)}
+            placeholder="Ej: 2"
+            title="Cantidad por unidad (ej: 2 litros por botella)"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Precio €</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={value.purchasePrice}
+            onChange={(e) => update('purchasePrice', e.target.value)}
+            placeholder="Ej: 12.50"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
       </div>
       {price > 0 && totalUnitSize > 0 && (
         <p className="text-xs text-indigo-600">
