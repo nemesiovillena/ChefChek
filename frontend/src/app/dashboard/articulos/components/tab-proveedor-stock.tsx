@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Star, Trash2, Tags, Check, X } from 'lucide-react';
+import { Plus, Star, Trash2, Tags, Check, X, Pencil } from 'lucide-react';
 import {
   useProductSupplierOffers,
   useCreateSupplierOffer,
@@ -13,8 +13,98 @@ import {
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import { formatEuro } from '@/lib/utils';
+import { UnitSelector } from '@/components/shared/unit-selector';
 import SupplierCombobox from './supplier-combobox';
 import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
+
+/** Formato/cantidad por unidad + precio: mismo shape para alta y edición de oferta. */
+interface OfferFormatState {
+  purchasePrice: string;
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: string;
+  referenceUnitSize: string;
+}
+
+const emptyOfferFormat = (referenceUnit = ''): OfferFormatState => ({
+  purchasePrice: '',
+  purchaseFormat: '',
+  referenceUnit,
+  unitsPerFormat: '1',
+  referenceUnitSize: '1',
+});
+
+/** Campos de formato/cantidad-por-unidad + precio, compartidos por alta y edición de oferta. */
+function OfferFormatFields({
+  value,
+  onChange,
+}: {
+  value: OfferFormatState;
+  onChange: (data: OfferFormatState) => void;
+}) {
+  const update = (field: keyof OfferFormatState, v: string) => onChange({ ...value, [field]: v });
+  const unitsPerFormat = parseInt(value.unitsPerFormat) || 1;
+  const referenceUnitSize = parseFloat(value.referenceUnitSize) || 1;
+  const price = parseFloat(value.purchasePrice) || 0;
+  const totalUnitSize = unitsPerFormat * referenceUnitSize;
+  const refPrice = totalUnitSize > 0 ? price / totalUnitSize : 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="text"
+          value={value.purchaseFormat}
+          onChange={(e) => update('purchaseFormat', e.target.value)}
+          placeholder="Formato (ej: Caja 6x2L)"
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <UnitSelector
+          value={value.referenceUnit}
+          onChange={(symbol) => update('referenceUnit', symbol)}
+          placeholder="Unidad ref."
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          type="number"
+          step="1"
+          min="1"
+          value={value.unitsPerFormat}
+          onChange={(e) => update('unitsPerFormat', e.target.value)}
+          placeholder="Uds/formato"
+          title="Unidades por formato (ej: 6 botellas por caja)"
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <input
+          type="number"
+          step="0.001"
+          min="0.001"
+          value={value.referenceUnitSize}
+          onChange={(e) => update('referenceUnitSize', e.target.value)}
+          placeholder="Cantidad/ud"
+          title="Cantidad por unidad (ej: 2 litros por botella)"
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <input
+          type="number"
+          step="0.001"
+          min="0"
+          value={value.purchasePrice}
+          onChange={(e) => update('purchasePrice', e.target.value)}
+          placeholder="Precio €"
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+      </div>
+      {price > 0 && totalUnitSize > 0 && (
+        <p className="text-xs text-indigo-600">
+          ≈ {formatEuro(refPrice)}/{value.referenceUnit || 'ud'}
+          {totalUnitSize !== 1 ? ` (total ${totalUnitSize} ${value.referenceUnit || 'ud'} por formato)` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface SupplierOption {
   id: string;
@@ -38,6 +128,8 @@ interface TabProveedorStockProps {
   onSupplierCreated?: (supplier: SupplierOption) => void;
   /** Precio Compra ya introducido en "Formato y Precio", para sugerirlo como precio de la primera oferta. */
   basePurchasePrice?: string;
+  /** Unidad de referencia del artículo (pestaña "Formato y Precio"), por defecto para nuevas ofertas. */
+  baseReferenceUnit?: string;
 }
 
 export default function TabProveedorStock({
@@ -48,6 +140,7 @@ export default function TabProveedorStock({
   currentStock,
   onSupplierCreated,
   basePurchasePrice,
+  baseReferenceUnit,
 }: TabProveedorStockProps) {
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
@@ -65,6 +158,7 @@ export default function TabProveedorStock({
           suppliers={suppliers}
           onSupplierCreated={onSupplierCreated}
           basePurchasePrice={basePurchasePrice}
+          baseReferenceUnit={baseReferenceUnit}
         />
       ) : (
         // Alta de artículo: todavía no existe un producto al que asociar
@@ -145,10 +239,11 @@ interface SupplierOffersSectionProps {
   suppliers: SupplierOption[];
   onSupplierCreated?: (supplier: SupplierOption) => void;
   basePurchasePrice?: string;
+  baseReferenceUnit?: string;
 }
 
 /** Lista de ofertas de proveedor de un artículo existente: precio por proveedor + preferente. */
-function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePurchasePrice }: SupplierOffersSectionProps) {
+function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePurchasePrice, baseReferenceUnit }: SupplierOffersSectionProps) {
   const { data: offers, isLoading } = useProductSupplierOffers(productId);
   const createOffer = useCreateSupplierOffer();
   const deleteOffer = useDeleteSupplierOffer();
@@ -163,10 +258,13 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   const addVisible = showAdd ?? (!isLoading && (offers?.length ?? 0) === 0);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierId, setNewSupplierId] = useState('');
-  const [newPrice, setNewPrice] = useState('');
+  const [newOffer, setNewOffer] = useState<OfferFormatState>(() => emptyOfferFormat(baseReferenceUnit));
   // Edición inline del precio pactado (control de desviaciones, módulo Compras)
   const [editingAgreedId, setEditingAgreedId] = useState<string | null>(null);
   const [agreedPriceInput, setAgreedPriceInput] = useState('');
+  // Edición inline de formato/cantidad-por-unidad/precio de una oferta ya creada
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [editOffer, setEditOffer] = useState<OfferFormatState>(emptyOfferFormat());
 
   const existingSupplierIds = new Set((offers ?? []).map((o) => o.supplierId));
   const availableSuppliers = suppliers.filter((s) => !existingSupplierIds.has(s.id));
@@ -175,8 +273,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   // "Formato y Precio" en vez de pedirlo de nuevo en blanco. Para proveedores
   // adicionales (ya hay al menos una oferta) no se sugiere nada — puede variar.
   const isFirstOffer = !isLoading && (offers?.length ?? 0) === 0;
-  const suggestedPrice = isFirstOffer ? (basePurchasePrice ?? '') : '';
-  const effectivePrice = newPrice || suggestedPrice;
+  const effectivePrice = newOffer.purchasePrice || (isFirstOffer ? (basePurchasePrice ?? '') : '');
 
   const handleAdd = async () => {
     const price = parseFloat(effectivePrice);
@@ -185,12 +282,54 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
       return;
     }
     try {
-      await createOffer.mutateAsync({ productId, supplierId: newSupplierId, purchasePrice: price });
+      await createOffer.mutateAsync({
+        productId,
+        supplierId: newSupplierId,
+        purchasePrice: price,
+        purchaseFormat: newOffer.purchaseFormat || undefined,
+        referenceUnit: newOffer.referenceUnit || undefined,
+        unitsPerFormat: parseInt(newOffer.unitsPerFormat) || undefined,
+        referenceUnitSize: parseFloat(newOffer.referenceUnitSize) || undefined,
+      });
       setNewSupplierId('');
-      setNewPrice('');
+      setNewOffer(emptyOfferFormat(baseReferenceUnit));
       setShowAdd(false);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al añadir la oferta';
+      addNotification({ type: 'error', title: 'Error', message });
+    }
+  };
+
+  const startEditOffer = (offer: ProductSupplierOffer) => {
+    setEditingOfferId(offer.id);
+    setEditOffer({
+      purchasePrice: String(offer.purchasePrice),
+      purchaseFormat: offer.purchaseFormat || '',
+      referenceUnit: offer.referenceUnit || baseReferenceUnit || '',
+      unitsPerFormat: String(offer.unitsPerFormat || 1),
+      referenceUnitSize: String(offer.referenceUnitSize || 1),
+    });
+  };
+
+  const handleSaveOfferEdit = async (offer: ProductSupplierOffer) => {
+    const price = parseFloat(editOffer.purchasePrice);
+    if (isNaN(price) || price < 0) {
+      addNotification({ type: 'error', title: 'Error', message: 'Precio inválido' });
+      return;
+    }
+    try {
+      await updateOffer.mutateAsync({
+        productId,
+        offerId: offer.id,
+        purchasePrice: price,
+        purchaseFormat: editOffer.purchaseFormat || undefined,
+        referenceUnit: editOffer.referenceUnit || undefined,
+        unitsPerFormat: parseInt(editOffer.unitsPerFormat) || undefined,
+        referenceUnitSize: parseFloat(editOffer.referenceUnitSize) || undefined,
+      });
+      setEditingOfferId(null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al actualizar la oferta';
       addNotification({ type: 'error', title: 'Error', message });
     }
   };
@@ -272,6 +411,14 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               <span className="text-sm text-gray-600">{formatEuro(offer.purchasePrice)}</span>
               <button
                 type="button"
+                onClick={() => (editingOfferId === offer.id ? setEditingOfferId(null) : startEditOffer(offer))}
+                className="shrink-0 text-gray-400 hover:text-indigo-600"
+                title="Editar formato/precio"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
                 onClick={() => handleDelete(offer.id)}
                 disabled={deleteOffer.isPending}
                 className="shrink-0 text-gray-400 hover:text-red-600"
@@ -280,6 +427,38 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Formato/cantidad por unidad: propio de CADA oferta — no lo
+                sincroniza "Formato y Precio" (eso es solo del preferente).
+                Sin esto no había forma de comparar €/ref.unit entre
+                proveedores con distinto formato (ej. caja 6x2L vs botella 2L). */}
+            {editingOfferId === offer.id ? (
+              <div className="mt-2 pl-6 space-y-2">
+                <OfferFormatFields value={editOffer} onChange={setEditOffer} />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveOfferEdit(offer)}
+                    disabled={updateOffer.isPending}
+                    className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOfferId(null)}
+                    className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : offer.unitsPerFormat * offer.referenceUnitSize !== 1 ? (
+              <p className="mt-1 pl-6 text-xs text-gray-500">
+                {offer.purchaseFormat || `${offer.unitsPerFormat}×${offer.referenceUnitSize}${offer.referenceUnit}`}
+                {' — '}≈ {formatEuro(offer.purchasePrice / (offer.unitsPerFormat * offer.referenceUnitSize))}/{offer.referenceUnit}
+              </p>
+            ) : null}
 
             {/* Precio pactado (control de desviaciones, módulo Compras) */}
             <div className="mt-1.5 flex items-center gap-2 pl-6">
@@ -334,39 +513,34 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
         ))}
 
         {addVisible ? (
-          <div className="flex items-end gap-2 rounded-md border border-dashed border-gray-300 p-2">
-            <div className="flex-1">
-              <SupplierCombobox
-                suppliers={availableSuppliers}
-                value={newSupplierId}
-                onValueChange={setNewSupplierId}
-                placeholder="Proveedor..."
-              />
-            </div>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              value={effectivePrice}
-              onChange={(e) => setNewPrice(e.target.value)}
-              placeholder="Precio €"
-              className="w-28 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
+            <SupplierCombobox
+              suppliers={availableSuppliers}
+              value={newSupplierId}
+              onValueChange={setNewSupplierId}
+              placeholder="Proveedor..."
             />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={createOffer.isPending}
-              className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-            >
-              Añadir
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Cancelar
-            </button>
+            <OfferFormatFields
+              value={{ ...newOffer, purchasePrice: effectivePrice }}
+              onChange={setNewOffer}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={createOffer.isPending}
+                className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Añadir
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">

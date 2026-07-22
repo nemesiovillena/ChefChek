@@ -382,6 +382,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
               basePurchasePrice={formData.purchasePrice}
+              baseReferenceUnit={formData.referenceUnit}
               onSupplierCreated={(supplier) => {
                 setAddedSuppliers((prev) => [...prev, supplier]);
               }}
