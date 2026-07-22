@@ -60,7 +60,7 @@ export default function UsersPage() {
   if (!isAuthenticated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
@@ -117,12 +117,12 @@ export default function UsersPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Users Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Gestión de usuarios</h1>
           <button
             onClick={handleCreate}
             className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-            Create User
+            Crear usuario
           </button>
         </div>
 
@@ -137,13 +137,13 @@ export default function UsersPage() {
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
+                  Rol
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created At
+                  Fecha de creación
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
@@ -160,7 +160,7 @@ export default function UsersPage() {
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    No users found
+                    No se encontraron usuarios
                   </td>
                 </tr>
               ) : (
