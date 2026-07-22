@@ -102,10 +102,15 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
       return;
     }
 
+    // Only send role when it actually changed from the original. The edited
+    // user may have a role (OWNER/SUPERADMIN) outside the backend enum, and
+    // echoing it back would 400 and block saving unrelated profile fields.
+    const roleChanged = !targetUser || formData.role !== targetUser.role;
+
     const commonData = {
       email: formData.email,
       name: formData.name,
-      role: formData.role,
+      ...(roleChanged ? { role: formData.role } : {}),
       isActive: formData.isActive,
       avatarUrl: avatarUrl || undefined,
       street: formData.street || undefined,
@@ -183,6 +188,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
                 <option value="USER">USER</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="VIEWER">VIEWER</option>
+                {targetUser?.role && !["USER", "ADMIN", "VIEWER"].includes(targetUser.role) && (
+                  <option value={targetUser.role} disabled>
+                    {targetUser.role} (rol actual, no editable)
+                  </option>
+                )}
               </select>
             </div>
           </div>

@@ -40,10 +40,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
-      exception instanceof HttpException
-        ? exception.message
-        : "Internal server error";
+    // Surface the real failure detail. HttpException.getResponse() carries
+    // the specifics: ValidationPipe returns { message: string[] }, a manual
+    // `throw new BadRequestException("x")` returns { message: "x" }. Using
+    // exception.message here instead loses all of that and every validation
+    // error shows up as an opaque "Bad Request Exception".
+    let message = "Internal server error";
+    if (exception instanceof HttpException) {
+      const res = exception.getResponse();
+      if (res && typeof res === "object" && "message" in res) {
+        const detail = (res as { message: unknown }).message;
+        message = Array.isArray(detail)
+          ? detail.join("; ")
+          : typeof detail === "string"
+            ? detail
+            : exception.message;
+      } else if (typeof res === "string") {
+        message = res;
+      } else {
+        message = exception.message;
+      }
+    }
 
     const errorResponse: ErrorResponse = {
       success: false,
