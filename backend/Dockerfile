@@ -60,6 +60,11 @@ RUN groupadd -g 1001 -r nodejs && \
 # Set proper permissions
 RUN chown -R nodejs:nodejs /app
 
+# Pre-create the uploads dir owned by nodejs so a named volume mounted here
+# inherits the right ownership. Otherwise Docker creates the mount target as
+# root and the non-root app gets EACCES on every upload.
+RUN mkdir -p /app/uploads && chown -R nodejs:nodejs /app/uploads
+
 # Switch to non-root user
 USER nodejs
 
