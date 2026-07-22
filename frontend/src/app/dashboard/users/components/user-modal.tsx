@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { useNotification } from '@/components/notification-system';
 import { useCreateUser, useUpdateUser, useUploadUserAvatar, User } from '@/hooks/use-users';
+import { processImageForUpload } from '@/lib/image-processing';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -61,18 +62,25 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification({ type: 'error', title: 'Error', message: 'El archivo no puede superar los 2 MB' });
-      return;
-    }
-    const form = new FormData();
-    form.append('file', file);
     try {
+      // Re-encode to a resized JPEG first: normalizes non-standard source
+      // mimetypes (the image/jpg JPEG alias, HEIC where the browser can
+      // decode it) and shrinks phone photos so they stay under the limit.
+      const processed = await processImageForUpload(file);
+      if (processed.size > 2 * 1024 * 1024) {
+        addNotification({ type: 'error', title: 'Error', message: 'El archivo no puede superar los 2 MB' });
+        return;
+      }
+      const form = new FormData();
+      form.append('file', processed);
       const result = await uploadAvatarMutation.mutateAsync(form);
       setAvatarUrl(result.avatarUrl);
-    } catch {
-      addNotification({ type: 'error', title: 'Error', message: 'Error al subir la foto' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al subir la foto';
+      addNotification({ type: 'error', title: 'Error', message });
     }
   };
 

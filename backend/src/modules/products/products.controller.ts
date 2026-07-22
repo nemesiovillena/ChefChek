@@ -24,6 +24,7 @@ import {
   ApiConsumes,
 } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import {
@@ -193,12 +194,7 @@ export class ProductsController {
     if (!file) {
       throw new BadRequestException("No se proporcionó archivo");
     }
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowed.includes(file.mimetype)) {
-      throw new BadRequestException(
-        "Tipo de archivo no permitido. Use JPEG, PNG, WebP o GIF",
-      );
-    }
+    assertAllowedImageType(file);
 
     const uploadsDir = path.join(process.cwd(), "uploads", "products");
     if (!fs.existsSync(uploadsDir)) {
