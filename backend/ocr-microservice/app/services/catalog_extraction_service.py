@@ -8,10 +8,21 @@ archivo a una imagen y se delega en el modelo de IA multimodal, que lee la
 imagen directamente — el texto OCR es opcional/no crítico para este caso.
 """
 import base64
+import concurrent.futures
 import io
 import logging
 import time
 from typing import Optional
+
+# Tope de llamadas IA simultáneas por catálogo multi-página: paraleliza sin
+# disparar un aluvión de requests contra el proveedor (rate limits) cuando
+# el documento tiene muchas páginas (ej. revistas/tarifas largas).
+# Bajado de 5 a 2 tras observar en logs reales que OpenRouter empieza a
+# devolver "Connection error" en cadena (conexiones rechazadas) pasado un
+# pequeño burst inicial de peticiones simultáneas — el límite de conexiones
+# concurrentes de estos proveedores (sobre todo en planes gratuitos/bajos)
+# es más estricto de lo esperado.
+MAX_PARALLEL_PAGES = 2
 
 import cv2
 import numpy as np
@@ -69,9 +80,10 @@ class CatalogExtractionService:
                 return self._error_result(
                     "No se pudieron extraer imágenes del PDF", start_time
                 )
-            # Solo la primera página (catálogos de una página en esta versión)
-            image_base64 = _pil_to_base64_jpeg(images[0])
-            return self._run_extraction(image_base64, ai_model, ai_api_key, start_time)
+            if len(images) == 1:
+                image_base64 = _pil_to_base64_jpeg(images[0])
+                return self._run_extraction(image_base64, ai_model, ai_api_key, start_time)
+            return self._run_extraction_multi_page(images, ai_model, ai_api_key, start_time)
         except Exception as e:
             logger.error(f"Error procesando PDF de catálogo: {e}", exc_info=True)
             return self._error_result(str(e), start_time)
@@ -101,7 +113,7 @@ class CatalogExtractionService:
                 start_time,
             )
 
-        products = result.get("products", [])
+        products = self._sanitize_products(result.get("products", []))
         return {
             "success": True,
             "supplier_name": result.get("supplier_name"),
@@ -109,6 +121,90 @@ class CatalogExtractionService:
             "processing_time": time.time() - start_time,
             "error_message": None,
         }
+
+    def _run_extraction_multi_page(
+        self, images: list, ai_model: str, ai_api_key: str, start_time: float
+    ) -> dict:
+        """Catálogo de varias páginas: la IA multimodal recibe una sola
+        imagen por llamada, así que se extrae página a página y se fusionan
+        los artículos. Las llamadas se lanzan en paralelo (ThreadPoolExecutor:
+        son requests de red, no cómputo, así que hilos bastan) para que el
+        tiempo total no escale linealmente con el nº de páginas. Si una
+        página falla se omite (con aviso en el log); solo se devuelve error
+        si fallan todas."""
+        if not ai_model or not ai_api_key:
+            return self._error_result(
+                "Se requiere un modelo de IA y su API key para leer catálogos "
+                "(a diferencia de los albaranes, no hay fallback por regex).",
+                start_time,
+            )
+
+        def extract_page(page_image) -> Optional[dict]:
+            image_base64 = _pil_to_base64_jpeg(page_image)
+            return self.ai_service.extract(
+                ocr_text="",
+                image_base64=image_base64,
+                model=ai_model,
+                api_key=ai_api_key,
+                document_type="catalog",
+            )
+
+        max_workers = min(len(images), MAX_PARALLEL_PAGES)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # executor.map preserva el orden de entrada, no el de finalización
+            page_results = list(executor.map(extract_page, images))
+
+        supplier_name = None
+        products = []
+        failed_pages = 0
+        for page_number, result in enumerate(page_results, start=1):
+            if not result:
+                failed_pages += 1
+                logger.warning(
+                    f"Página {page_number}/{len(images)} del catálogo no se pudo "
+                    "extraer, se omite"
+                )
+                continue
+            supplier_name = supplier_name or result.get("supplier_name")
+            products.extend(result.get("products", []))
+
+        if failed_pages == len(images):
+            return self._error_result(
+                f"La IA ({ai_model}) no pudo extraer datos de ninguna página del "
+                "catálogo. Revisa que la API key sea válida para este proveedor.",
+                start_time,
+            )
+
+        return {
+            "success": True,
+            "supplier_name": supplier_name,
+            "products": self._sanitize_products(products),
+            "processing_time": time.time() - start_time,
+            "error_message": None,
+        }
+
+    @staticmethod
+    def _sanitize_products(products: list) -> list:
+        """Sanea artículos antes de devolver el resultado: en catálogos
+        largos (cientos de artículos), un único renglón mal formado por la
+        IA (ej. name=null en una fila fantasma de tabla) no debe invalidar
+        el resto de la extracción, que sí es buena — CatalogProduct exige
+        `name: str` y `unit_price: float` sin aceptar null explícito."""
+        valid = []
+        dropped = 0
+        for product in products:
+            name = product.get("name")
+            if not isinstance(name, str) or not name.strip():
+                dropped += 1
+                continue
+            if not isinstance(product.get("unit_price"), (int, float)):
+                product["unit_price"] = 0.0
+            valid.append(product)
+        if dropped:
+            logger.warning(
+                f"{dropped} artículo(s) descartado(s) por no traer un nombre válido"
+            )
+        return valid
 
     @staticmethod
     def _error_result(message: str, start_time: float) -> dict:

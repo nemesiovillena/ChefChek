@@ -2121,9 +2121,11 @@ model PriceDeviation {
 }
 
 enum CatalogImportStatus {
+  PROCESANDO
   PENDIENTE
   APLICADO
   DESCARTADO
+  ERROR
 }
 
 enum CatalogLineStatus {
@@ -2135,16 +2137,18 @@ enum CatalogLineStatus {
 // Importación de tarifa/catálogo de un proveedor (foto/PDF) vía IA: líneas
 // propuestas que exigen revisión humana antes de tocar ninguna oferta real.
 model CatalogImport {
-  id         String              @id @default(cuid())
-  tenantId   String
-  supplierId String
-  fileUrl    String?
-  aiModel    String?
-  status     CatalogImportStatus @default(PENDIENTE)
-  createdBy  String?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  deletedAt  DateTime?
+  id           String              @id @default(cuid())
+  tenantId     String
+  supplierId   String
+  fileUrl      String?
+  aiModel      String?
+  status       CatalogImportStatus @default(PENDIENTE)
+  // Mensaje de fallo si la extracción en background terminó en ERROR.
+  errorMessage String?
+  createdBy    String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  deletedAt    DateTime?
 
   tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)

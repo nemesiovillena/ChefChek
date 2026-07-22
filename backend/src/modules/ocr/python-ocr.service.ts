@@ -350,6 +350,12 @@ export class PythonOcrService implements IOcrService {
 
       const response = await this.axiosInstance.post("/ocr/catalog", formData, {
         headers: {},
+        // CatalogImportService.createFromUpload ya no espera esta llamada
+        // (se lanza en background, ver processInBackground) — el único
+        // límite real es este timeout. Catálogos de decenas de páginas con
+        // concurrencia limitada (MAX_PARALLEL_PAGES) pueden tardar varios
+        // minutos; 15 min de margen.
+        timeout: 900000,
       });
 
       const result = response.data;

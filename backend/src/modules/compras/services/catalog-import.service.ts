@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { CatalogImportStatus, CatalogLineStatus } from "@prisma/client";
@@ -16,8 +17,19 @@ const IMPORT_INCLUDE = {
   lines: {
     orderBy: { createdAt: "asc" as const },
     include: {
+      // purchasePrice/unitSize/referenceUnit: para poder comparar el precio
+      // del catálogo contra el precio actual del artículo ya emparejado, sin
+      // necesidad de aceptar/aplicar la línea primero (comparativa de solo
+      // lectura en la revisión).
       matchedProduct: {
-        select: { id: true, name: true, purchaseFormat: true },
+        select: {
+          id: true,
+          name: true,
+          purchaseFormat: true,
+          purchasePrice: true,
+          unitSize: true,
+          referenceUnit: true,
+        },
       },
     },
   },
@@ -33,6 +45,8 @@ const IMPORT_INCLUDE = {
  */
 @Injectable()
 export class CatalogImportService {
+  private readonly logger = new Logger(CatalogImportService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pythonOcrService: PythonOcrService,
@@ -63,6 +77,12 @@ export class CatalogImportService {
     return catalogImport;
   }
 
+  /**
+   * Crea el registro en estado PROCESANDO y devuelve al instante: la
+   * extracción real (potencialmente varios minutos en catálogos de decenas
+   * de páginas) se lanza en background sin bloquear la respuesta HTTP. El
+   * frontend hace polling de `findOne` mientras el estado sea PROCESANDO.
+   */
   async createFromUpload(
     tenantId: string,
     supplierId: string,
@@ -78,51 +98,100 @@ export class CatalogImportService {
       throw new NotFoundException("Proveedor no encontrado");
     }
 
-    const extraction = await this.pythonOcrService.processCatalog(
-      file.buffer,
-      file.filename,
-      file.mimetype,
-      aiModel,
-      aiApiKey,
-    );
-
-    if (!extraction.success) {
-      throw new BadRequestException(
-        extraction.error_message ||
-          "No se pudo extraer el catálogo. Comprueba el modelo y la API key de IA.",
-      );
-    }
-    if (extraction.products.length === 0) {
-      throw new BadRequestException(
-        "La IA no encontró artículos en el documento.",
-      );
-    }
-
     const catalogImport = await this.prisma.catalogImport.create({
-      data: { tenantId, supplierId, aiModel, createdBy: userId },
+      data: {
+        tenantId,
+        supplierId,
+        aiModel,
+        createdBy: userId,
+        status: CatalogImportStatus.PROCESANDO,
+      },
     });
 
-    for (const product of extraction.products) {
-      const match = await this.lineMatchingService.matchLine({
-        description: product.name,
-        articleNumber: product.article_number ?? undefined,
-        tenantId,
-      });
-      await this.prisma.catalogImportLine.create({
-        data: {
-          catalogImportId: catalogImport.id,
-          rawName: product.name,
-          articleNumber: product.article_number,
-          purchaseFormat: product.purchase_format,
-          unitPrice: product.unit_price,
-          matchedProductId: match.matchedProductId,
-          matchStatus: match.matchStatus,
-          confidence: match.confidence,
-        },
-      });
-    }
+    this.processInBackground(
+      tenantId,
+      catalogImport.id,
+      file,
+      aiModel,
+      aiApiKey,
+    ).catch((error) => {
+      this.logger.error(
+        `Fallo no controlado procesando catálogo ${catalogImport.id}: ${error}`,
+      );
+    });
 
     return this.findOne(tenantId, catalogImport.id);
+  }
+
+  private async processInBackground(
+    tenantId: string,
+    catalogImportId: string,
+    file: { buffer: Buffer; filename: string; mimetype: string },
+    aiModel: string,
+    aiApiKey: string,
+  ) {
+    try {
+      const extraction = await this.pythonOcrService.processCatalog(
+        file.buffer,
+        file.filename,
+        file.mimetype,
+        aiModel,
+        aiApiKey,
+      );
+
+      if (!extraction.success) {
+        await this.markError(
+          catalogImportId,
+          extraction.error_message ||
+            "No se pudo extraer el catálogo. Comprueba el modelo y la API key de IA.",
+        );
+        return;
+      }
+      if (extraction.products.length === 0) {
+        await this.markError(
+          catalogImportId,
+          "La IA no encontró artículos en el documento.",
+        );
+        return;
+      }
+
+      for (const product of extraction.products) {
+        const match = await this.lineMatchingService.matchLine({
+          description: product.name,
+          articleNumber: product.article_number ?? undefined,
+          tenantId,
+        });
+        await this.prisma.catalogImportLine.create({
+          data: {
+            catalogImportId,
+            rawName: product.name,
+            articleNumber: product.article_number,
+            purchaseFormat: product.purchase_format,
+            unitPrice: product.unit_price,
+            matchedProductId: match.matchedProductId,
+            matchStatus: match.matchStatus,
+            confidence: match.confidence,
+          },
+        });
+      }
+
+      await this.prisma.catalogImport.update({
+        where: { id: catalogImportId },
+        data: { status: CatalogImportStatus.PENDIENTE, errorMessage: null },
+      });
+    } catch (error: any) {
+      await this.markError(
+        catalogImportId,
+        error?.message || "Error inesperado procesando el catálogo",
+      );
+    }
+  }
+
+  private async markError(catalogImportId: string, message: string) {
+    await this.prisma.catalogImport.update({
+      where: { id: catalogImportId },
+      data: { status: CatalogImportStatus.ERROR, errorMessage: message },
+    });
   }
 
   /** Acepta/rechaza una línea propuesta, o reasigna manualmente su artículo. */
@@ -157,7 +226,14 @@ export class CatalogImportService {
       },
       include: {
         matchedProduct: {
-          select: { id: true, name: true, purchaseFormat: true },
+          select: {
+            id: true,
+            name: true,
+            purchaseFormat: true,
+            purchasePrice: true,
+            unitSize: true,
+            referenceUnit: true,
+          },
         },
       },
     });
@@ -239,6 +315,16 @@ export class CatalogImportService {
       where: { id: catalogImportId },
       data: { status: CatalogImportStatus.DESCARTADO },
     });
+  }
+
+  /**
+   * Borra (soft-delete) el registro de la importación, sea cual sea su
+   * estado. No afecta a las ofertas de proveedor ya aplicadas: eso vive en
+   * `ProductSupplierOffer`, no en el `CatalogImport`.
+   */
+  async remove(tenantId: string, catalogImportId: string) {
+    await this.findOne(tenantId, catalogImportId);
+    await this.prisma.catalogImport.delete({ where: { id: catalogImportId } });
   }
 
   private async assertEditable(tenantId: string, catalogImportId: string) {

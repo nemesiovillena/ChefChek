@@ -20,6 +20,7 @@ import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -34,6 +35,7 @@ import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
+import { CatalogComparisonService } from "./services/catalog-comparison.service";
 import { PurchaseScheduleService } from "./services/purchase-schedule.service";
 import { PurchaseAnalyticsService } from "./services/purchase-analytics.service";
 import { MailService } from "../mail/mail.service";
@@ -90,6 +92,7 @@ export class ComprasController {
     private readonly priceAgreementService: PriceAgreementService,
     private readonly offerResolutionService: OfferResolutionService,
     private readonly catalogImportService: CatalogImportService,
+    private readonly catalogComparisonService: CatalogComparisonService,
     private readonly purchaseScheduleService: PurchaseScheduleService,
     private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
@@ -466,6 +469,28 @@ export class ComprasController {
     return { success: true, data };
   }
 
+  @Get("catalogos/comparar")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Comparar líneas en crudo entre 2+ catálogos ya extraídos (sin aplicar)",
+  })
+  @ApiQuery({
+    name: "ids",
+    description: "IDs de importación de catálogo separados por coma",
+  })
+  async compareCatalogImports(@Req() req: any, @Query("ids") ids?: string) {
+    const catalogImportIds = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const data = await this.catalogComparisonService.compare(
+      req.tenantId,
+      catalogImportIds,
+    );
+    return { success: true, data };
+  }
+
   @Get("catalogos/:id")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Detalle de una importación con sus líneas" })
@@ -519,6 +544,16 @@ export class ComprasController {
   async discardCatalogImport(@Req() req: any, @Param("id") id: string) {
     const data = await this.catalogImportService.discard(req.tenantId, id);
     return { success: true, data };
+  }
+
+  @Delete("catalogos/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Borrar el registro de una importación de catálogo",
+  })
+  async removeCatalogImport(@Req() req: any, @Param("id") id: string) {
+    await this.catalogImportService.remove(req.tenantId, id);
+    return { success: true };
   }
 
   // ── Comparativa de proveedores y activación de oferta por local ──

@@ -58,14 +58,14 @@ export function CatalogImportUploader({ onCreated }: { onCreated: (id: string) =
       if (fileInputRef.current) fileInputRef.current.value = '';
       addNotification({
         type: 'success',
-        title: 'Catálogo procesado',
-        message: `${created.lines.length} línea(s) extraída(s) para revisar`,
+        title: 'Catálogo en proceso',
+        message: 'La IA está extrayendo los artículos en segundo plano; puede tardar varios minutos en catálogos largos.',
       });
       onCreated(created.id);
     } catch (e) {
       addNotification({
         type: 'error',
-        title: 'No se pudo procesar el catálogo',
+        title: 'No se pudo iniciar el procesado del catálogo',
         message: e instanceof Error ? e.message : 'Error desconocido',
       });
     }
