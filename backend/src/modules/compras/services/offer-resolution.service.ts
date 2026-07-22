@@ -65,10 +65,10 @@ export class OfferResolutionService {
   }
 
   /**
-   * Comparativa de ofertas de un artículo: precio normalizado a unidad de
-   * referencia (purchasePrice/unitSize, mismo criterio que getReferencePrice
-   * en el frontend) para poder comparar €/caja con €/kg. `locationId`
-   * opcional marca cuál está activa para ese local (§F7).
+   * Comparativa de ofertas de un artículo: precio normalizado a la unidad de
+   * referencia CANÓNICA DEL ARTÍCULO (product.referenceUnit — mismo criterio
+   * que getReferencePrice en el frontend), no a la de cada oferta individual.
+   * `locationId` opcional marca cuál está activa para ese local (§F7).
    */
   async compareOffers(
     tenantId: string,
@@ -106,7 +106,11 @@ export class OfferResolutionService {
       supplierName: offer.supplier.name,
       purchasePrice: offer.purchasePrice,
       purchaseFormat: offer.purchaseFormat,
-      referenceUnit: offer.referenceUnit,
+      // Unidad canónica del artículo, NUNCA la de la oferta individual: dos
+      // ofertas del mismo producto pueden llevar un referenceUnit propio
+      // distinto (kg vs L) y compararlas así sería inválido (nº distintas
+      // magnitudes). El artículo manda.
+      referenceUnit: product.referenceUnit,
       referencePrice: referencePrices[index],
       isPreferred: offer.isPreferred,
       isBestPrice: referencePrices[index] === bestReferencePrice,

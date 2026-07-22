@@ -141,7 +141,10 @@ export class ProductSupplierOffersService {
           previousPurchasePrice: 0,
           netPrice,
           purchaseFormat: data.purchaseFormat ?? "",
-          referenceUnit: data.referenceUnit ?? "kg",
+          // Unidad canónica del artículo por defecto, no "kg" a ciegas: evita
+          // que una oferta creada sin especificar unidad (ej. aplicar un
+          // catálogo) quede en una unidad distinta a la del propio artículo.
+          referenceUnit: data.referenceUnit ?? product.referenceUnit,
           unitsPerFormat,
           referenceUnitSize,
           unitSize,
@@ -311,7 +314,9 @@ export class ProductSupplierOffersService {
         previousPurchasePrice: offer.previousPurchasePrice,
         netPrice: offer.netPrice,
         purchaseFormat: offer.purchaseFormat,
-        referenceUnit: offer.referenceUnit,
+        // NO se sincroniza referenceUnit: es la unidad canónica del artículo
+        // (rige costeo/recetas/comparativa) y nunca debe cambiar por marcar
+        // preferente una oferta que llegó con una unidad distinta.
         unitsPerFormat: offer.unitsPerFormat,
         referenceUnitSize: offer.referenceUnitSize,
         unitSize: offer.unitSize,
