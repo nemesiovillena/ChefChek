@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useCategoryTree } from '@/hooks/use-categories';
+import { useCreateSupplierOffer } from '@/hooks/use-products';
 // Reutiliza el mismo componente de "campos core" que usa el modal de Artículos
 // → paridad de campos y precio de referencia sin mantener dos formularios (DRY).
 import PesoPrecioFields, { PesoPrecioFormData } from '@/app/dashboard/articulos/components/peso-precio-fields';
@@ -48,6 +49,7 @@ export function CreateProductInline({
   const { data: tree = [] } = useCategoryTree();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createSupplierOffer = useCreateSupplierOffer();
 
   // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
   // No bloquea: solo informa para evitar crear un artículo paralelo.
@@ -60,6 +62,25 @@ export function CreateProductInline({
     setLinkingId(productId);
     setLinkError(null);
     try {
+      // El usuario ya pudo rellenar formato/cantidad-por-unidad en este
+      // formulario (ej. caja 6×2L) antes de descubrir que era un duplicado.
+      // Sin esto, ese dato se perdía en silencio al vincular a un artículo
+      // existente: la oferta del proveedor quedaba con formato por defecto
+      // (1 unidad = 1 ref. unit), inflando su €/ref. unit frente a otros
+      // proveedores. Solo se puede crear oferta si el albarán ya tiene
+      // proveedor asignado (igual que en la confirmación normal de línea).
+      if (supplierId) {
+        const price = parseFloat(formData.purchasePrice);
+        await createSupplierOffer.mutateAsync({
+          productId,
+          supplierId,
+          purchasePrice: !Number.isNaN(price) ? price : line.unitPrice,
+          purchaseFormat: formData.purchaseFormat || undefined,
+          referenceUnit: formData.referenceUnit || undefined,
+          unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
+          referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
+        });
+      }
       await matchLine(albaranId, line.id, productId);
       onSuccess();
     } catch (err: unknown) {

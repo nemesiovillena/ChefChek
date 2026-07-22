@@ -153,6 +153,57 @@ export class ProductSupplierOffersService {
           ...this.buildAgreedFields(data, null),
         },
       });
+
+      // Sin este bloque, ninguna oferta nueva quedaba en el Histórico de
+      // precios (las demás ramas de esta función sí lo escriben) — solo el
+      // primer proveedor que llegara a cambiar SU precio se veía reflejado.
+      if (offer.isPreferred) {
+        // Primera oferta del producto (aún no había ninguna, de ningún
+        // proveedor): comparamos contra el precio plano vigente del artículo
+        // (normalizado a €/kg) para no crear una fila si coincide con lo que
+        // ya tenía (ej. producto creado con un precio estimado igual al real).
+        if (
+          referencePriceChanged(
+            product.purchasePrice,
+            product.unitSize,
+            data.purchasePrice,
+            unitSize,
+          )
+        ) {
+          await client.productPriceHistory.create({
+            data: {
+              tenantId,
+              productId,
+              supplierId,
+              albaranId,
+              previousPrice: product.purchasePrice,
+              newPrice: data.purchasePrice,
+              previousUnitSize: product.unitSize,
+              newUnitSize: unitSize,
+            },
+          });
+        }
+      } else {
+        // Segundo (o siguiente) proveedor para un artículo que ya tenía
+        // preferente de otro: no hay "precio anterior" de ESTE proveedor con
+        // el que comparar (nunca ofertó antes) — comparar contra
+        // product.purchasePrice sería contra el precio de OTRO proveedor y
+        // generaría una fila engañosa ("cambió de X a Y" cuando en realidad
+        // son dos proveedores distintos). Se registra sin comparación, igual
+        // que `previousPurchasePrice: 0` en la propia oferta.
+        await client.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId,
+            supplierId,
+            albaranId,
+            previousPrice: 0,
+            newPrice: data.purchasePrice,
+            previousUnitSize: null,
+            newUnitSize: unitSize,
+          },
+        });
+      }
     }
 
     if (offer.isPreferred) {
