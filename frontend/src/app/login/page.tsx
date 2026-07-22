@@ -157,12 +157,6 @@ export default function LoginPage() {
             </div>
 
             <div className="text-center pt-2 border-t border-border/50 space-y-2">
-              <a
-                href="/register"
-                className="block font-label-md text-label-sm text-secondary hover:text-secondary/80 transition-colors uppercase tracking-wider"
-              >
-                ¿No tienes cuenta? Regístrate
-              </a>
               <button
                 type="button"
                 onClick={() => { setIsSuperadminMode(true); setError(''); }}

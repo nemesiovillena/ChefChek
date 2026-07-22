@@ -8,13 +8,6 @@ export interface LoginCredentials {
   tenantSlug: string;
 }
 
-export interface RegisterData {
-  tenantName: string;
-  email: string;
-  name: string;
-  password: string;
-}
-
 export interface AuthResponse {
   user: {
     id: string;
@@ -67,28 +60,6 @@ class AuthService {
         ? (error.response?.data as ErrorResponse | undefined)
         : undefined;
       throw new Error(errorResponse?.message || 'Error al iniciar sesión');
-    }
-  }
-
-  async register(data: RegisterData): Promise<AuthResponse> {
-    try {
-      const response = await apiClient.post<AuthResponse>('/v1/auth/register', data);
-
-      // Store session ID and tenant slug
-      const tenantSlug = slugify(data.tenantName);
-      sessionStorage.setItem('session_id', response.data.session.id);
-      sessionStorage.setItem('tenant_slug', tenantSlug);
-      sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      if (response.data.user.tenantId) {
-        sessionStorage.setItem('tenant_id', response.data.user.tenantId);
-      }
-
-      return response.data;
-    } catch (error: unknown) {
-      const errorResponse = error instanceof AxiosError
-        ? (error.response?.data as ErrorResponse | undefined)
-        : undefined;
-      throw new Error(errorResponse?.message || 'Error al registrarse');
     }
   }
 

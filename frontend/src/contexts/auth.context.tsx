@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import authService, { AuthResponse, LoginCredentials, RegisterData } from '@/services/auth.service';
+import authService, { AuthResponse, LoginCredentials } from '@/services/auth.service';
 import { getWebSocketClient, resetWebSocketClient } from '@/lib/websocket-client';
 import { slugify } from '@/lib/utils';
 
@@ -14,7 +14,6 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
   loginSuperadmin: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
   /** Re-valida la sesión contra el backend y refresca `user` (p. ej. tras editar el propio perfil). */
@@ -150,20 +149,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const register = async (data: RegisterData) => {
-    setIsLoading(true);
-    try {
-      const response = await authService.register(data);
-      setUser(response.user);
-      setTenantId(response.user.tenantId);
-      setTenantSlug(authService.getCurrentTenantSlug());
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -243,7 +228,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated,
       login,
       loginSuperadmin,
-      register,
       logout,
       refreshSession,
       refreshUser,
