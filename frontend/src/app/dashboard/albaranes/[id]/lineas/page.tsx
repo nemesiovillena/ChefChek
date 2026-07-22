@@ -49,7 +49,6 @@ export default function AlbaranLineasPage() {
     setStatusUpdating(true);
     try {
       await updateStatus(id, nextStatus);
-      refetch();
       addNotification({
         type: 'success',
         title: nextStatus === 'CONFIRMADO' ? 'Albarán confirmado' : 'Albarán revisado',
@@ -58,6 +57,14 @@ export default function AlbaranLineasPage() {
             ? 'Stock actualizado y productos nuevos creados en el catálogo'
             : 'Ya puedes confirmar el albarán para asentar el stock',
       });
+      // Confirmado = fin del flujo de revisión: vuelve directo al listado
+      // (paridad con la pestaña Resumen) en vez de dejar al usuario varado
+      // en Líneas con que tenga que navegar manualmente.
+      if (nextStatus === 'CONFIRMADO') {
+        router.push('/dashboard/albaranes');
+        return;
+      }
+      refetch();
     } catch (err) {
       addNotification({
         type: 'error',
