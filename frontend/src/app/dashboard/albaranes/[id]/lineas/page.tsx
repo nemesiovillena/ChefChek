@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
@@ -30,6 +31,7 @@ export default function AlbaranLineasPage() {
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState<string | null>(null);
   const addNotification = useNotification();
+  const queryClient = useQueryClient();
 
   // Product picker dialog state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -49,6 +51,10 @@ export default function AlbaranLineasPage() {
     setStatusUpdating(true);
     try {
       await updateStatus(id, nextStatus);
+      // El estado cambió en BD: invalida la caché del listado (staleTime
+      // global 5min) para que al volver muestre el badge actualizado en vez
+      // del valor anterior congelado.
+      void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
       addNotification({
         type: 'success',
         title: nextStatus === 'CONFIRMADO' ? 'Albarán confirmado' : 'Albarán revisado',
