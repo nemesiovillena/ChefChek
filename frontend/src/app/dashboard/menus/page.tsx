@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
+import { apiClient } from '@/lib/api-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ interface Menu {
 }
 
 export default function MenusPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -33,25 +34,8 @@ export default function MenusPage() {
 
   const fetchMenus = useCallback(async () => {
     try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-
-      if (!sessionId || !tenantSlug) {
-        setPageLoading(false);
-        return;
-      }
-
-      const response = await fetch('http://localhost:3001/api/v1/menus', {
-        headers: {
-          'Authorization': `Bearer ${sessionId}`,
-          'X-Tenant-Slug': tenantSlug,
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setMenus(data.data);
-      }
+      const response = await apiClient.get<Menu[]>('/v1/menus');
+      setMenus(response.data);
     } catch (_error) {
       addNotification({
         type: 'error',
@@ -88,27 +72,15 @@ export default function MenusPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/v1/menus', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.id}`,
-          'X-Tenant-Slug': 'default',
-        },
-        body: JSON.stringify(menuData),
+      await apiClient.post('/v1/menus', menuData);
+      addNotification({
+        type: 'success',
+        title: 'Success',
+        message: 'Menu created successfully',
       });
-
-      const data = await response.json();
-      if (data.success) {
-        addNotification({
-          type: 'success',
-          title: 'Success',
-          message: 'Menu created successfully',
-        });
-        setShowCreateForm(false);
-        fetchMenus();
-        e.currentTarget.reset();
-      }
+      setShowCreateForm(false);
+      fetchMenus();
+      e.currentTarget.reset();
     } catch (_error) {
       addNotification({
         type: 'error',
@@ -120,17 +92,8 @@ export default function MenusPage() {
 
   const handleViewDetails = async (menuId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/v1/menus/${menuId}`, {
-        headers: {
-          'Authorization': `Bearer ${user?.id}`,
-          'X-Tenant-Slug': 'default',
-        },
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSelectedMenu(data.data);
-      }
+      const response = await apiClient.get<Menu>(`/v1/menus/${menuId}`);
+      setSelectedMenu(response.data);
     } catch (_error) {
       addNotification({
         type: 'error',
@@ -142,43 +105,13 @@ export default function MenusPage() {
 
   const handleToggleStatus = async (menu: Menu) => {
     try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-
-      if (!sessionId || !tenantSlug) {
-        addNotification({
-          type: 'error',
-          title: 'Error',
-          message: 'No se encontró una sesión activa.',
-        });
-        return;
-      }
-
-      const response = await fetch(`http://localhost:3001/api/v1/menus/${menu.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionId}`,
-          'X-Tenant-Slug': tenantSlug,
-        },
-        body: JSON.stringify({ isActive: !menu.isActive }),
+      await apiClient.patch(`/v1/menus/${menu.id}`, { isActive: !menu.isActive });
+      addNotification({
+        type: 'success',
+        title: 'Estado actualizado',
+        message: `El menú "${menu.name}" ha sido ${!menu.isActive ? 'activado' : 'desactivado'}`,
       });
-
-      const data = await response.json();
-      if (data.success) {
-        addNotification({
-          type: 'success',
-          title: 'Estado actualizado',
-          message: `El menú "${menu.name}" ha sido ${!menu.isActive ? 'activado' : 'desactivado'}`,
-        });
-        fetchMenus();
-      } else {
-        addNotification({
-          type: 'error',
-          title: 'Error',
-          message: data.message || 'Error al cambiar el estado del menú',
-        });
-      }
+      fetchMenus();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al cambiar el estado del menú';
       addNotification({
@@ -192,7 +125,7 @@ export default function MenusPage() {
   if (isLoading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }

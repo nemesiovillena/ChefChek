@@ -66,8 +66,6 @@ export class TenantsController {
   }
 
   @Get(":id")
-  @UseGuards(RolesGuard)
-  @Roles("ADMIN")
   @ApiOperation({ summary: "Obtener un tenant por ID" })
   @ApiParam({ name: "id", description: "ID del tenant" })
   @ApiResponse({ status: 200, description: "Tenant encontrado" })

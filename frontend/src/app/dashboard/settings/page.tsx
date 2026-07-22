@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
 import { AI_PROVIDERS, getApiKey, sanitizeApiKey, setApiKey } from '@/lib/ai-api-keys';
+import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
@@ -59,31 +60,14 @@ export default function SettingsPage() {
     const tenantId = user.tenantId;
     let cancelled = false;
     const fetchData = async () => {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-
-      if (!sessionId || !tenantSlug) {
-        if (!cancelled) setPageLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`http://localhost:3001/api/v1/tenants/${tenantId}`, {
-          headers: {
-            'Authorization': `Bearer ${sessionId}`,
-            'X-Tenant-Slug': tenantSlug,
-          },
-        });
-
-        const data = await response.json();
+        const response = await apiClient.get<TenantConfig>(`/v1/tenants/${tenantId}`);
         if (cancelled) return;
-        if (data.success) {
-          setConfig(data.data);
-          setFormData({
-            name: data.data.name,
-            domain: data.data.domain || '',
-          });
-        }
+        setConfig(response.data);
+        setFormData({
+          name: response.data.name,
+          domain: response.data.domain || '',
+        });
       } catch (error) {
         console.error('Error fetching tenant config:', error);
       } finally {
@@ -98,7 +82,7 @@ export default function SettingsPage() {
   if (!isAuthenticated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
@@ -133,31 +117,12 @@ export default function SettingsPage() {
     if (!config) return;
 
     try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-
-      if (!sessionId || !tenantSlug) {
-        addNotification({ type: 'error', title: 'Sesión no encontrada', message: 'No hay sesión activa. Por favor, inicia sesión de nuevo.' });
-        return;
-      }
-
-      const response = await fetch(`http://localhost:3001/api/v1/tenants/${config.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionId}`,
-          'X-Tenant-Slug': tenantSlug,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setConfig(data.data);
-        setEditing(false);
-      }
+      const response = await apiClient.patch<TenantConfig>(`/v1/tenants/${config.id}`, formData);
+      setConfig(response.data);
+      setEditing(false);
     } catch (error) {
       console.error('Error saving tenant config:', error);
+      addNotification({ type: 'error', title: 'Error al guardar', message: 'No se pudieron guardar los cambios. Inténtalo de nuevo.' });
     }
   };
 
@@ -174,7 +139,7 @@ export default function SettingsPage() {
   if (isLoading || pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
@@ -184,16 +149,16 @@ export default function SettingsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Configuración</h1>
 
-        {/* Tenant Information */}
+        {/* Datos del negocio */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Tenant Information</h2>
+            <h2 className="text-xl font-semibold">Datos del negocio</h2>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                Edit
+                Editar
               </button>
             )}
           </div>
@@ -202,7 +167,7 @@ export default function SettingsPage() {
             <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tenant Name
+                  Nombre del negocio
                 </label>
                 <input
                   type="text"
@@ -214,14 +179,14 @@ export default function SettingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Custom Domain (Optional)
+                  Dominio personalizado (opcional)
                 </label>
                 <input
                   type="text"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="yourdomain.com"
+                  placeholder="tudominio.com"
                 />
               </div>
               <div className="flex space-x-4">
@@ -229,47 +194,47 @@ export default function SettingsPage() {
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                  Save Changes
+                  Guardar cambios
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
                   className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
                 >
-                  Cancel
+                  Cancelar
                 </button>
               </div>
             </form>
           ) : (
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Tenant ID:</span>
+                <span className="text-gray-600">ID:</span>
                 <span className="font-mono text-sm">{config?.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Tenant Slug:</span>
+                <span className="text-gray-600">Slug:</span>
                 <span className="font-mono text-sm">{config?.slug}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Name:</span>
+                <span className="text-gray-600">Nombre:</span>
                 <span className="font-medium">{config?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Custom Domain:</span>
-                <span className="font-medium">{config?.domain || 'Not configured'}</span>
+                <span className="text-gray-600">Dominio personalizado:</span>
+                <span className="font-medium">{config?.domain || 'No configurado'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Status:</span>
+                <span className="text-gray-600">Estado:</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                   config?.isActive
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
                 }`}>
-                  {config?.isActive ? 'Active' : 'Inactive'}
+                  {config?.isActive ? 'Activo' : 'Inactivo'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Created:</span>
+                <span className="text-gray-600">Creado:</span>
                 <span className="font-medium">
                   {config?.createdAt ? new Date(config.createdAt).toLocaleDateString() : ''}
                 </span>
@@ -278,12 +243,12 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Language Settings */}
+        {/* Idioma */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">
-          <h2 className="text-xl font-semibold mb-4">Language Settings</h2>
+          <h2 className="text-xl font-semibold mb-4">Idioma</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Default Language
+              Idioma por defecto
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -298,12 +263,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Currency Settings */}
+        {/* Moneda */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">
-          <h2 className="text-xl font-semibold mb-4">Currency Settings</h2>
+          <h2 className="text-xl font-semibold mb-4">Moneda</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Default Currency
+              Moneda por defecto
             </label>
             <select
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -342,11 +307,11 @@ export default function SettingsPage() {
           <SmtpConfigSection />
         </div>
 
-        {/* API Keys */}
+        {/* Claves API */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
             <Key className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-xl font-semibold">APIs</h2>
+            <h2 className="text-xl font-semibold">Claves API</h2>
           </div>
           <p className="text-sm text-gray-500 mb-6">
             Configura las claves API de los proveedores de IA para la extracción de datos de albaranes.
