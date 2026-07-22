@@ -94,7 +94,7 @@ export class CreateProductDto {
   @Max(100)
   profitMargin?: number;
 
-  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  // Descuento fijo del proveedor: descuenta sobre purchasePrice en el coste
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -243,7 +243,7 @@ export class UpdateProductDto {
   @Max(100)
   profitMargin?: number;
 
-  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  // Descuento fijo del proveedor: descuenta sobre purchasePrice en el coste
   @IsOptional()
   @IsNumber()
   @Min(0)

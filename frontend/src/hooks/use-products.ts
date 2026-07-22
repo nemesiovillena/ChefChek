@@ -291,10 +291,25 @@ export function useUploadProductImage() {
   );
 }
 
+/**
+ * Factor de descuento fijo del proveedor (bruto × (1 − dto/100)). Espejo del
+ * backend (product-costing.util.ts): el descuento reduce el precio de compra a
+ * efectos de coste. Usado por getReferencePrice/getRealPrice para que el
+ * listado y los exports muestren el precio efectivo, consistente con el
+ * escandallo. No aplica a normalizePrice (histórico: compara purchasePrice
+ * crudo) ni a price-history.
+ */
+export function applyPurchaseDiscount(
+  price: number,
+  discountPercentage?: number | null,
+): number {
+  return price * (1 - (Number(discountPercentage ?? 0) / 100));
+}
+
 /** Calculate reference price: price per kg/L/und */
 export function getReferencePrice(product: Product): number {
   const size = product.unitSize || 1;
-  return product.purchasePrice / size;
+  return applyPurchaseDiscount(product.purchasePrice / size, product.discountPercentage);
 }
 
 /**
@@ -333,7 +348,10 @@ export function getRealPrice(product: Product): number | null {
   const hasYieldInfo = (!!product.grossWeight && !!product.netWeight) || product.wastePercentage > 0;
   if (!hasYieldInfo) return null;
   const unitSize = product.unitSize || 1;
-  return product.purchasePrice / unitSize / (product.yieldFactor || 1);
+  return applyPurchaseDiscount(
+    product.purchasePrice / unitSize / (product.yieldFactor || 1),
+    product.discountPercentage,
+  );
 }
 
 /**

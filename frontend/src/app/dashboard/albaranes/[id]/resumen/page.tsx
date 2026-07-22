@@ -30,6 +30,15 @@ export default function AlbaranResumenPage() {
   const confirm = useConfirm();
   const queryClient = useQueryClient();
 
+  // Mutex de doble descuento: si algún producto vinculado tiene descuento
+  // fijo (discountPercentage), deshabilitamos "aplicar descuento al coste".
+  // Razón: Fase 2 hornearía el neto del papel en purchasePrice al confirmar y
+  // el motor de coste volvería a aplicar discountPercentage → descuento x2.
+  // El usuario elige uno u otro, no ambos (decisión de producto: mutex en UI).
+  const hasStandingDiscount = (albaran?.lines ?? []).some(
+    (l) => (l.matchedProduct?.discountPercentage ?? 0) > 0,
+  );
+
   // Marca el query del listado como stale. Sin esto, al volver a /albaranes
   // react-query sirve la caché anterior (staleTime global de 5 min) y el badge
   // de estado queda congelado en el valor previo hasta un refresco manual.
@@ -320,18 +329,40 @@ export default function AlbaranResumenPage() {
               ) &&
                 albaran.status !== 'CONFIRMADO' &&
                 albaran.status !== 'ARCHIVADO' && (
-                  <label className="flex items-start gap-2 pt-2 text-xs text-gray-600 cursor-pointer">
+                  <label
+                    className={`flex items-start gap-2 pt-2 text-xs text-gray-600 ${
+                      hasStandingDiscount
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer"
+                    }`}
+                    title={
+                      hasStandingDiscount
+                        ? "Uno o más artículos tienen descuento fijo: aplicarlo al coste duplicaría el descuento. Quítalo de esos artículos para usar esta opción."
+                        : undefined
+                    }
+                  >
                     <input
                       type="checkbox"
                       className="mt-0.5 h-4 w-4 rounded border-gray-300"
                       checked={!!albaran.applyDiscountToCost}
-                      disabled={updating}
+                      disabled={updating || hasStandingDiscount}
                       onChange={(e) => handleToggleDiscount(e.target.checked)}
                     />
                     <span>
-                      Aplicar el descuento al <strong>coste</strong> al confirmar:
-                      el precio de compra y los escandallos usarán el neto del papel
-                      en vez del bruto.
+                      {hasStandingDiscount ? (
+                        <>
+                          No se puede aplicar el descuento al{" "}
+                          <strong>coste</strong>: uno o más artículos tienen
+                          descuento fijo y se duplicaría. Quítalo de esos
+                          artículos para usar esta opción.
+                        </>
+                      ) : (
+                        <>
+                          Aplicar el descuento al <strong>coste</strong> al
+                          confirmar: el precio de compra y los escandallos usarán
+                          el neto del papel en vez del bruto.
+                        </>
+                      )}
                     </span>
                   </label>
                 )}

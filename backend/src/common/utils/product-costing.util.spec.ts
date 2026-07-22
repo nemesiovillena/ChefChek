@@ -54,4 +54,44 @@ describe("calculateProductCostPerUnit", () => {
 
     expect(cost).toBeCloseTo(1.872, 3);
   });
+
+  it("aplica el descuento fijo del proveedor sobre el precio de referencia", () => {
+    // purchasePrice=20€/kg bruto, dto fijo 12% → coste efectivo 17,6€/kg.
+    const sinDto = { purchasePrice: 20, unitSize: 1, referenceUnit: "kilo" };
+    const conDto = {
+      purchasePrice: 20,
+      unitSize: 1,
+      referenceUnit: "kilo",
+      discountPercentage: 12,
+    };
+
+    expect(calculateProductCostPerUnit(sinDto, "kg")).toBeCloseTo(20, 3);
+    expect(calculateProductCostPerUnit(conDto, "kg")).toBeCloseTo(17.6, 3);
+
+    // unitSize distinto de 1: 10€ por caja de 2kg con 10% de dto → 4,5€/kg.
+    expect(
+      calculateProductCostPerUnit(
+        {
+          purchasePrice: 10,
+          unitSize: 2,
+          referenceUnit: "kilo",
+          discountPercentage: 10,
+        },
+        "kg",
+      ),
+    ).toBeCloseTo(4.5, 3);
+
+    // discountPercentage ausente o 0 = sin descuento (back-compat).
+    expect(
+      calculateProductCostPerUnit(
+        {
+          purchasePrice: 20,
+          unitSize: 1,
+          referenceUnit: "kilo",
+          discountPercentage: 0,
+        },
+        "kg",
+      ),
+    ).toBeCloseTo(20, 3);
+  });
 });

@@ -63,17 +63,25 @@ export function getUnitToReferenceFactor(
 
 /**
  * Costo del ingrediente por unidad usada en la receta (€/g, €/ml o €/ud).
+ *
+ * El descuento fijo del proveedor (`discountPercentage`) se aplica sobre el
+ * precio de referencia bruto: el coste efectivo es el bruto × (1 − dto/100).
+ * Si `applyDiscountToCost` (albarán) ya ha horneado el neto en `purchasePrice`,
+ * `discountPercentage` debe ser 0 para no descontar dos veces — el mutex UI lo
+ * garantiza a nivel de uso.
  */
 export function calculateProductCostPerUnit(
   product: {
     purchasePrice: number;
     unitSize: number;
     referenceUnit: string;
+    discountPercentage?: number | null;
   },
   ingredientUnit: string,
 ): number {
   const unitSize = product.unitSize > 0 ? product.unitSize : 1;
-  const referencePrice = product.purchasePrice / unitSize;
+  const discountFactor = 1 - Number(product.discountPercentage ?? 0) / 100;
+  const referencePrice = (product.purchasePrice / unitSize) * discountFactor;
 
   return (
     referencePrice *
