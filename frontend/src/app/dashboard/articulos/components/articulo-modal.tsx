@@ -17,12 +17,12 @@ import { ProductPriceHistoryTable } from '@/components/products/product-price-hi
 
 const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'formato-precio', label: 'Formato y Precio' },
+  { id: 'proveedor-stock', label: 'Proveedor y Stock' },
+  { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
   { id: 'codigos', label: 'Códigos' },
   { id: 'mermas', label: 'Mermas' },
   { id: 'alergenos', label: 'Alérgenos' },
-  { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'nutricion', label: 'Nutrición' },
-  { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
 ];
 
 interface SupplierOption {
