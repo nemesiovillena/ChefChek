@@ -15,6 +15,24 @@ import { useCreateSupplierOffer } from '@/hooks/use-products';
 import PesoPrecioFields, { PesoPrecioFormData } from '@/app/dashboard/articulos/components/peso-precio-fields';
 import { Loader2, Plus } from 'lucide-react';
 import type { AlbaranLine } from '@/lib/api-albaran';
+import { normalizeUnitSymbol } from '@/lib/unit-symbols';
+
+// El símbolo real de cada unidad en el catálogo del tenant (kilo/litro/unida,
+// no kg/L/und): sin esto, un line.unit de OCR como "Kg" o "UD" pasaría
+// intacto y no coincidiría con ninguna opción real del selector.
+const CATALOG_SYMBOL: Record<'kg' | 'L' | 'und', string> = {
+  kg: 'kilo',
+  L: 'litro',
+  und: 'unida',
+};
+
+/** La mayoría de artículos van por kilos: si la línea no trae una unidad
+ * reconocible (litro/unidad), se asume kilo por defecto. */
+function resolveDefaultUnit(lineUnit: string | null | undefined): string {
+  if (!lineUnit) return 'kilo';
+  const normalized = normalizeUnitSymbol(lineUnit);
+  return normalized ? CATALOG_SYMBOL[normalized] : lineUnit;
+}
 
 interface CreateProductInlineProps {
   albaranId: string;
@@ -37,7 +55,7 @@ export function CreateProductInline({
   // ref, precio, descuento, IVA, categoría, marca). Precios desde la línea OCR.
   const [formData, setFormData] = useState<PesoPrecioFormData>({
     purchaseFormat: '',
-    referenceUnit: line.unit || 'kilo',
+    referenceUnit: resolveDefaultUnit(line.unit),
     unitsPerFormat: '1',
     referenceUnitSize: '1',
     purchasePrice: line.unitPrice != null ? String(line.unitPrice) : '',
