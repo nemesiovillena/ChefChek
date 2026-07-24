@@ -94,12 +94,21 @@ export function CreateProductInline({
   };
 
   // Subtotal de la línea = cantidad × precio. Sirve para verificar que el
-  // precio introducido cuadra con el total que el OCR leyó en el albarán.
+  // precio introducido cuadra con el Total real de la línea: el neto del
+  // papel (con descuento del proveedor si lo hay), igual que la columna
+  // "Total" de la pestaña Líneas. Comparar contra lineAmount (bruto) daba
+  // "coincide" siempre que el usuario no tocara el precio, porque ambos se
+  // calculan igual (qty × unitPrice) — nunca detectaba el descuento real.
   const parsedPrice = parseFloat(formData.purchasePrice);
   const lineQuantity = Number(line.quantity) || 0;
   const lineSubtotal =
     !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? lineQuantity * parsedPrice : null;
-  const originalTotal = Number(line.lineAmount) || 0;
+  const grossTotal = Number(line.lineAmount) || 0;
+  const originalTotal = line.totalPrice !== null ? Number(line.totalPrice) : grossTotal;
+  const discountPct =
+    line.totalPrice !== null && grossTotal > 0 && originalTotal < grossTotal
+      ? Math.round((1 - originalTotal / grossTotal) * 1000) / 10
+      : 0;
   const subtotalMatches =
     lineSubtotal !== null && originalTotal > 0
       ? Math.abs(lineSubtotal - originalTotal) < 0.01
@@ -233,7 +242,9 @@ export function CreateProductInline({
             <span className={subtotalMatches ? 'text-green-600' : 'text-amber-600'}>
               {subtotalMatches
                 ? '✓ coincide con el total del albarán'
-                : `≠ total albarán (${fmtEuro(originalTotal)} €)`}
+                : `≠ total albarán (${fmtEuro(originalTotal)} €${
+                    discountPct > 0 ? `, con −${discountPct}% dto` : ''
+                  })`}
             </span>
           )}
         </div>
