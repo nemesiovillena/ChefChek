@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine, updateStatus } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus, updateAlbaran } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
@@ -46,6 +46,39 @@ export default function AlbaranLineasPage() {
   // Albaran status transition (Marcar Revisado / Confirmar desde esta pestaña)
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+
+  // Mismo toggle "aplicar descuento al coste" que la pestaña Resumen, pero
+  // aquí también: si el usuario confirma desde el CTA de Líneas (el camino
+  // más natural tras revisar las líneas) sin haber pasado por Resumen, nunca
+  // veía la opción y el descuento del papel no se aplicaba al coste sin que
+  // lo decidiera. Mismo mutex: deshabilitado si algún producto ya vinculado
+  // tiene descuento fijo propio (se duplicaría).
+  const hasStandingDiscount = (albaran?.lines ?? []).some(
+    (l) => (l.matchedProduct?.discountPercentage ?? 0) > 0,
+  );
+  const hasLineDiscount = (albaran?.lines ?? []).some(
+    (l) =>
+      l.totalPrice !== null &&
+      l.totalPrice < l.lineAmount &&
+      Math.abs(l.totalPrice - l.lineAmount) > 0.005,
+  );
+
+  const handleToggleDiscount = async (checked: boolean) => {
+    setStatusUpdating(true);
+    try {
+      await updateAlbaran(id, { applyDiscountToCost: checked });
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      refetch();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err instanceof Error ? err.message : 'Error al actualizar el albarán',
+      });
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const handleAlbaranStatusChange = async (nextStatus: AlbaranStatus) => {
     setStatusUpdating(true);
@@ -582,31 +615,60 @@ export default function AlbaranLineasPage() {
                 </Button>
               </div>
             ) : (
-              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
-                <div className="flex items-center gap-2 flex-1">
-                  <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                  <p className="text-sm text-green-800">
-                    {albaran.status === 'PENDIENTE'
-                      ? 'Todas las líneas están revisadas. Puedes marcar el albarán como revisado.'
-                      : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
-                  </p>
+              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
+                {hasLineDiscount && (
+                  <label
+                    className={`flex items-start gap-2 text-xs text-green-800 ${
+                      hasStandingDiscount ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                    }`}
+                    title={
+                      hasStandingDiscount
+                        ? 'Uno o más artículos tienen descuento fijo: aplicarlo al coste duplicaría el descuento. Quítalo de esos artículos para usar esta opción.'
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-green-300"
+                      checked={!!albaran.applyDiscountToCost}
+                      disabled={statusUpdating || hasStandingDiscount}
+                      onChange={(e) => handleToggleDiscount(e.target.checked)}
+                    />
+                    <span>
+                      {hasStandingDiscount ? (
+                        <>No se puede aplicar el descuento al <strong>coste</strong>: uno o más artículos tienen descuento fijo y se duplicaría.</>
+                      ) : (
+                        <>Aplicar el descuento del papel al <strong>coste</strong> al confirmar: el precio de compra y los escandallos usarán el neto en vez del bruto.</>
+                      )}
+                    </span>
+                  </label>
+                )}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                    <p className="text-sm text-green-800">
+                      {albaran.status === 'PENDIENTE'
+                        ? 'Todas las líneas están revisadas. Puedes marcar el albarán como revisado.'
+                        : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() =>
+                      handleAlbaranStatusChange(
+                        albaran.status === 'PENDIENTE' ? 'REVISADO' : 'CONFIRMADO',
+                      )
+                    }
+                    disabled={statusUpdating}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                    )}
+                    {albaran.status === 'PENDIENTE' ? 'Marcar Revisado' : 'Confirmar Albarán'}
+                  </Button>
                 </div>
-                <Button
-                  onClick={() =>
-                    handleAlbaranStatusChange(
-                      albaran.status === 'PENDIENTE' ? 'REVISADO' : 'CONFIRMADO',
-                    )
-                  }
-                  disabled={statusUpdating}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {statusUpdating ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                  )}
-                  {albaran.status === 'PENDIENTE' ? 'Marcar Revisado' : 'Confirmar Albarán'}
-                </Button>
               </div>
             ))}
         </>
