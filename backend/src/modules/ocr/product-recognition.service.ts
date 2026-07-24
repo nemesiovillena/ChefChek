@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ExtractedProductDto } from "./dto/extracted-product.dto";
-import { calculateSimilarity } from "../../common/utils/string-similarity";
+import {
+  calculateSimilarity,
+  normalizeProductDescription,
+} from "../../common/utils/string-similarity";
 
 @Injectable()
 export class ProductRecognitionService {
@@ -54,11 +57,17 @@ export class ProductRecognitionService {
     });
 
     if (fuzzyMatches.length > 0) {
-      // Calculate similarity scores
+      // Calculate similarity scores over normalized text (sin acentos, sin
+      // mayúsculas, puntuación colapsada) para que diferencias de formato
+      // entre la línea OCR y el nombre del artículo no penalicen el score.
+      const normalizedName = normalizeProductDescription(productName);
       const matchesWithScore = fuzzyMatches
         .map((product) => ({
           product: this.mapToExtractedProduct(product),
-          similarity: calculateSimilarity(productName, product.name),
+          similarity: calculateSimilarity(
+            normalizedName,
+            normalizeProductDescription(product.name),
+          ),
         }))
         .sort((a, b) => b.similarity - a.similarity);
 
