@@ -765,7 +765,7 @@ export class RecipesService {
           wastePercentage: 100 - yieldPercentage,
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
-          referenceUnit: product?.referenceUnit || "kg",
+          referenceUnit: product?.referenceUnit || "kilo",
         };
       }) || [];
 

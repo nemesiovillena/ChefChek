@@ -1930,7 +1930,7 @@ export class ProductsService {
           name,
           description = "",
           purchaseFormat = "",
-          referenceUnit = "kg",
+          referenceUnit = "kilo",
           unitsPerFormat = 1,
           referenceUnitSize = 1,
           purchasePrice = 0,

@@ -549,7 +549,7 @@ describe("AlbaranStockService", () => {
           name: "New Product",
           description: "Creado desde albarán ALB-001",
           purchaseFormat: "L",
-          referenceUnit: "L",
+          referenceUnit: "litro",
           unitsPerFormat: 1,
           referenceUnitSize: 1,
           unitSize: 1,

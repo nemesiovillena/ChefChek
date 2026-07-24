@@ -66,13 +66,16 @@ export class ManualAlbaranService {
     for (const line of dto.lines) {
       let productId = line.productId || null;
 
-      // Normalize unit for referenceUnit
+      // El selector del formulario manual solo ofrece 'kg'/'L'/'und' (ver
+      // manual-albaran-form.tsx), que no son símbolos reales del catálogo del
+      // tenant (kilo/litro/unidad) — se mapean para que el producto creado
+      // coincida con el selector de "Unidad de referencia" al editarlo.
       const normalizedUnit =
         line.unit === "kg"
-          ? "kg"
+          ? "kilo"
           : line.unit === "L" || line.unit === "l"
-            ? "L"
-            : "und";
+            ? "litro"
+            : "unidad";
 
       if (productId) {
         // Update existing product price

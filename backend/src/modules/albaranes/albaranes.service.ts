@@ -573,7 +573,7 @@ export class AlbaranesService {
         albaranId,
         description: dto.description,
         quantity,
-        unit: dto.unit || "und",
+        unit: dto.unit || "kilo",
         unitPrice,
         vatPercent,
         lineAmount,

@@ -52,7 +52,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
   const totalCost = hasYieldData ? pricePerUnit * grossWeight : null;
   const realPrice = hasAnyYieldInfo ? pricePerUnit / (yieldPercentage! / 100) : null;
 
-  const unit = formData.referenceUnit || 'kg';
+  const unit = formData.referenceUnit || 'kilo';
 
   return (
     <div className="space-y-4">

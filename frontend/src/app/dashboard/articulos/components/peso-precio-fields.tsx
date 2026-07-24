@@ -162,7 +162,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
       {price > 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 flex items-center justify-between">
           <span className="text-sm text-indigo-700">
-            Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kg'}</strong>
+            Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kilo'}</strong>
           </span>
           {unitsPerFormat > 1 && (
             <span className="text-xs text-indigo-500">

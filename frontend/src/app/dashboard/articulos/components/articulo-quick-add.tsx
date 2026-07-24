@@ -112,7 +112,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
         >
           <option value="kilo">kg</option>
           <option value="litro">L</option>
-          <option value="unida">und</option>
+          <option value="unidad">und</option>
         </select>
       </div>
       <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()} className="h-8 gap-1">

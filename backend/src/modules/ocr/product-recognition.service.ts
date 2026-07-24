@@ -274,7 +274,7 @@ export class ProductRecognitionService {
       product: {
         name: productName,
         category,
-        unit: "kg",
+        unit: "kilo",
         confidence: 0.85,
       },
       confidence: 0.85,

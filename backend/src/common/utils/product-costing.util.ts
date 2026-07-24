@@ -35,6 +35,7 @@ const UNIT_ALIASES: { [alias: string]: { category: string; toBase: number } } =
     ud: { category: "unidad", toBase: 1 },
     und: { category: "unidad", toBase: 1 },
     u: { category: "unidad", toBase: 1 },
+    unida: { category: "unidad", toBase: 1 },
     unidad: { category: "unidad", toBase: 1 },
     unidades: { category: "unidad", toBase: 1 },
     units: { category: "unidad", toBase: 1 },

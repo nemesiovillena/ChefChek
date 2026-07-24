@@ -6,18 +6,38 @@ import { PriceAgreementService } from "../../compras/services/price-agreement.se
 import { LotService } from "./lot.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
+/**
+ * Normaliza cualquier variante de unidad leída del OCR (kg, Kg, kilo, L,
+ * litro, UD...) al símbolo real usado en el catálogo de unidades del tenant
+ * (kilo/litro/unidad — no kg/L/und, que no coinciden con ningún símbolo real
+ * y dejan el selector de "Unidad de referencia" en blanco al editar el
+ * artículo). Espejo de frontend/src/lib/unit-symbols.ts +
+ * create-product-inline.tsx resolveDefaultUnit — mismo criterio en ambos
+ * lados. Si no reconoce nada, cae a "kilo" (la mayoría de artículos van por
+ * kilos); si el valor ya es un símbolo custom del tenant (ej. "caja",
+ * "bote"), se respeta tal cual.
+ */
 function normalizeUnit(unit: string): string {
   if (!unit) {
-    return "und";
+    return "kilo";
   }
   const u = unit.toLowerCase().trim();
-  if (u === "kg") {
-    return "kg";
+  if (u === "kg" || u === "kilo" || u === "kilogramo" || u === "kilogramos") {
+    return "kilo";
   }
   if (u === "l" || u === "litro" || u === "litros") {
-    return "L";
+    return "litro";
   }
-  return "und";
+  if (
+    u === "und" ||
+    u === "ud" ||
+    u === "unida" ||
+    u === "unidad" ||
+    u === "unidades"
+  ) {
+    return "unidad";
+  }
+  return unit;
 }
 
 @Injectable()
@@ -83,7 +103,7 @@ export class AlbaranStockService {
         ) {
           lineUnitPrice = Number(line.totalPrice) / lineQuantity;
         }
-        const lineUnit = line.unit || "und";
+        const lineUnit = line.unit || "kilo";
 
         if (line.matchedProductId) {
           // Existing product - update price and stock

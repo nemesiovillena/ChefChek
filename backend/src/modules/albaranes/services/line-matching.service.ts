@@ -341,7 +341,10 @@ export class LineMatchingService {
         id: `suggestion-${index}`, // Placeholder ID (would need actual product lookup)
         name: s.name,
         netPrice: s.unitPrice || 0,
-        referenceUnit: s.unit || "kg",
+        // "kilo", no "kg": símbolo real del catálogo del tenant, para que si
+        // se acepta la sugerencia el producto creado coincida con el
+        // selector de "Unidad de referencia" (ver unit-symbols.ts, frontend).
+        referenceUnit: s.unit || "kilo",
         similarity: 0.7 - index * 0.1, // Decreasing similarity
       }));
   }

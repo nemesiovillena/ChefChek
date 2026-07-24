@@ -17,13 +17,13 @@ import { Loader2, Plus } from 'lucide-react';
 import type { AlbaranLine } from '@/lib/api-albaran';
 import { normalizeUnitSymbol } from '@/lib/unit-symbols';
 
-// El símbolo real de cada unidad en el catálogo del tenant (kilo/litro/unida,
+// El símbolo real de cada unidad en el catálogo del tenant (kilo/litro/unidad,
 // no kg/L/und): sin esto, un line.unit de OCR como "Kg" o "UD" pasaría
 // intacto y no coincidiría con ninguna opción real del selector.
 const CATALOG_SYMBOL: Record<'kg' | 'L' | 'und', string> = {
   kg: 'kilo',
   L: 'litro',
-  und: 'unida',
+  und: 'unidad',
 };
 
 /** La mayoría de artículos van por kilos: si la línea no trae una unidad
