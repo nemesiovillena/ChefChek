@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, Product, CreateProductData } from '@/hooks/use-products';
+import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, useDismissDuplicate, Product, CreateProductData } from '@/hooks/use-products';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
@@ -142,12 +142,25 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
   const mergeMutation = useMergeProduct();
+  const dismissDuplicateMutation = useDismissDuplicate();
 
   // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
   const [activeTab, setActiveTab] = useState('formato-precio');
   const [formData, setFormData] = useState(() => deriveFormData(article));
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye el propio id.
-  const { matches: duplicateNameMatches } = useProductNameCheck(formData.name, article?.id);
+  const { matches: rawDuplicateMatches } = useProductNameCheck(formData.name, article?.id);
+  // Descartes locales inmediatos: el backend ya no volverá a devolver estos
+  // ids (persistido vía dismissDuplicateMutation), pero el hook de arriba no
+  // refetchea solo al pulsar la X, así que se filtran aquí también.
+  const [dismissedMatchIds, setDismissedMatchIds] = useState<Set<string>>(new Set());
+  const duplicateNameMatches = rawDuplicateMatches.filter((m) => !dismissedMatchIds.has(m.id));
+
+  const handleDismissDuplicate = (matchId: string) => {
+    setDismissedMatchIds((prev) => new Set(prev).add(matchId));
+    if (article?.id) {
+      dismissDuplicateMutation.mutate({ productId: article.id, dismissedProductId: matchId });
+    }
+  };
   const [allergens, setAllergens] = useState<number[]>(() => article?.allergens ?? []);
   const [hideAllergens, setHideAllergens] = useState(() => article?.hideAllergens ?? false);
   const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
@@ -301,21 +314,31 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
                 ))}
                 {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}{' '}
                 Puedes continuar si es un artículo distinto.
-                {article?.id && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {duplicateNameMatches.slice(0, 3).map((m) => (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {duplicateNameMatches.slice(0, 3).map((m) => (
+                    <span key={m.id} className="inline-flex items-stretch overflow-hidden rounded border border-amber-400 dark:border-amber-700">
+                      {article?.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleMerge(m.id, m.name)}
+                          disabled={mergeMutation.isPending}
+                          className="px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+                        >
+                          Fusionar con «{m.name}»
+                        </button>
+                      )}
                       <button
-                        key={m.id}
                         type="button"
-                        onClick={() => handleMerge(m.id, m.name)}
-                        disabled={mergeMutation.isPending}
-                        className="px-2 py-1 text-xs font-medium rounded border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+                        onClick={() => handleDismissDuplicate(m.id)}
+                        title="No es el mismo artículo: descartar este aviso"
+                        aria-label={`No es el mismo artículo que «${m.name}»: descartar aviso`}
+                        className="px-1.5 py-1 text-amber-700 hover:bg-amber-200 dark:text-amber-400 dark:hover:bg-amber-900/60 border-l border-amber-400 dark:border-amber-700 transition-colors"
                       >
-                        Fusionar con «{m.name}»
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
-                    ))}
-                  </div>
-                )}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}

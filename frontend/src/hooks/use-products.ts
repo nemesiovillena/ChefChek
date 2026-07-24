@@ -284,6 +284,22 @@ export function useMergeProduct() {
   });
 }
 
+/**
+ * Descarta el aviso de "posible duplicado" entre dos artículos concretos.
+ * El backend lo persiste en ambos sentidos: no vuelve a avisar al editar
+ * ninguno de los dos contra el otro.
+ */
+export function useDismissDuplicate() {
+  return useMutation({
+    mutationFn: async ({ productId, dismissedProductId }: { productId: string; dismissedProductId: string }) => {
+      const response = await apiClient.post<{ success: boolean }>(
+        `/v1/products/${productId}/duplicate-dismissals/${dismissedProductId}`
+      );
+      return response.data;
+    },
+  });
+}
+
 export function useUploadProductImage() {
   return useApiMutation<{ url: string }, FormData>(
     '/v1/products/upload-image',

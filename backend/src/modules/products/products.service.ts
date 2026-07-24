@@ -195,6 +195,16 @@ export class ProductsService {
         WHERE p."tenantId" = ${tenantId}
           AND p."deletedAt" IS NULL
           ${excludeId ? Prisma.sql`AND p.id <> ${excludeId}` : Prisma.empty}
+          ${
+            excludeId
+              ? Prisma.sql`AND NOT EXISTS (
+                  SELECT 1 FROM product_duplicate_dismissals d
+                  WHERE d."tenantId" = ${tenantId}
+                    AND d."productId" = ${excludeId}
+                    AND d."dismissedProductId" = p.id
+                )`
+              : Prisma.empty
+          }
       ) q
       CROSS JOIN norm
       WHERE strpos(q.pn, norm.input) > 0
@@ -207,6 +217,46 @@ export class ProductsService {
       LIMIT 5
     `);
     return matches;
+  }
+
+  // Guarda el descarte en ambos sentidos: al editar cualquiera de los dos
+  // artículos, el aviso de duplicado ya no debe mostrar al otro.
+  async dismissDuplicate(
+    tenantId: string,
+    productId: string,
+    dismissedProductId: string,
+  ): Promise<void> {
+    if (productId === dismissedProductId) {
+      return;
+    }
+    await this.prisma.$transaction([
+      this.prisma.productDuplicateDismissal.upsert({
+        where: {
+          tenantId_productId_dismissedProductId: {
+            tenantId,
+            productId,
+            dismissedProductId,
+          },
+        },
+        create: { tenantId, productId, dismissedProductId },
+        update: {},
+      }),
+      this.prisma.productDuplicateDismissal.upsert({
+        where: {
+          tenantId_productId_dismissedProductId: {
+            tenantId,
+            productId: dismissedProductId,
+            dismissedProductId: productId,
+          },
+        },
+        create: {
+          tenantId,
+          productId: dismissedProductId,
+          dismissedProductId: productId,
+        },
+        update: {},
+      }),
+    ]);
   }
 
   // Debe reflejar exactamente resolveLastPurchase(): el más reciente entre

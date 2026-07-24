@@ -62,6 +62,7 @@ model Tenant {
   unitsOfMeasure         UnitOfMeasure[]
   productPriceHistories  ProductPriceHistory[]
   productSupplierOffers  ProductSupplierOffer[]
+  productDuplicateDismissals ProductDuplicateDismissal[]
   configurations         Configuration[]
   categories             Category[]
   stocks                 Stock[]
@@ -201,6 +202,8 @@ model Product {
   catalogImportLines CatalogImportLine[]
   lots               Lot[]
   supplierAliases    SupplierProductAlias[]
+  duplicateDismissals  ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
+  duplicateDismissedBy ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
 
   @@index([tenantId])
   @@index([name])
@@ -221,6 +224,25 @@ model PurchaseFormat {
 
   @@index([productId])
   @@map("purchase_formats")
+}
+
+// Descarte manual del aviso "posible duplicado" (products.check-name) entre
+// dos artículos concretos. Se guarda en ambos sentidos (product<->dismissed)
+// al crearla para que el aviso no reaparezca al editar cualquiera de los dos.
+model ProductDuplicateDismissal {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  productId          String
+  dismissedProductId String
+  createdAt          DateTime @default(now())
+
+  tenant           Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product          Product @relation("ProductDuplicateDismissalProduct", fields: [productId], references: [id], onDelete: Cascade)
+  dismissedProduct Product @relation("ProductDuplicateDismissalDismissed", fields: [dismissedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, dismissedProductId])
+  @@index([tenantId, dismissedProductId])
+  @@map("product_duplicate_dismissals")
 }
 
 // Oferta de un proveedor concreto para un artículo. Un Product puede tener

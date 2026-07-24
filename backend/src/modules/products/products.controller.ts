@@ -442,6 +442,31 @@ export class ProductsController {
     return this.productsService.merge(id, targetId, tenantId);
   }
 
+  @Post(":id/duplicate-dismissals/:dismissedProductId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Descartar el aviso de posible duplicado entre dos artículos (no vuelve a avisar en ninguno de los dos)",
+  })
+  @ApiParam({ name: "id", description: "ID del artículo que se está editando" })
+  @ApiParam({
+    name: "dismissedProductId",
+    description: "ID del artículo marcado como no-duplicado",
+  })
+  @ApiResponse({ status: 201, description: "Descarte guardado" })
+  async dismissDuplicate(
+    @Param("id") id: string,
+    @Param("dismissedProductId") dismissedProductId: string,
+    @Req() req: any,
+  ) {
+    await this.productsService.dismissDuplicate(
+      req.tenantId,
+      id,
+      dismissedProductId,
+    );
+    return { success: true };
+  }
+
   @Get("suppliers/stats/active-count")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Contador de proveedores activos" })
