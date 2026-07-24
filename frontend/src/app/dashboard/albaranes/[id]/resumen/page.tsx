@@ -85,6 +85,10 @@ export default function AlbaranResumenPage() {
       // El estado cambió en BD: invalida la caché del listado para que al
       // volver se muestre el nuevo estado.
       invalidateList();
+      // Y la del propio detalle: sin esto, reabrir este albarán dentro del
+      // staleTime global (5min) sirve el snapshot de antes de confirmar y la
+      // pestaña Líneas sigue mostrando el CTA "Confirmar Albarán".
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
       // Al confirmar, el usuario vuelve directamente al listado en vez de
       // quedarse en el resumen del albarán ya confirmado.
       if (newStatus === 'CONFIRMADO') {

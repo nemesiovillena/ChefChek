@@ -51,10 +51,13 @@ export default function AlbaranLineasPage() {
     setStatusUpdating(true);
     try {
       await updateStatus(id, nextStatus);
-      // El estado cambió en BD: invalida la caché del listado (staleTime
-      // global 5min) para que al volver muestre el badge actualizado en vez
-      // del valor anterior congelado.
+      // El estado cambió en BD: invalida la caché del listado Y del detalle
+      // (staleTime global 5min) para que tanto el badge del listado como el
+      // propio detalle (si se reabre este albarán) muestren el estado nuevo
+      // en vez de servir el snapshot congelado de antes de confirmar — sin
+      // esto el CTA "Confirmar Albarán" seguía apareciendo tras confirmar.
       void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
       addNotification({
         type: 'success',
         title: nextStatus === 'CONFIRMADO' ? 'Albarán confirmado' : 'Albarán revisado',
