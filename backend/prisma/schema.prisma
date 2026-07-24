@@ -1281,7 +1281,7 @@ model Category {
   products Product[]
   recipes  RecipeCategory[]
 
-  @@unique([tenantId, context, slug])
+  @@unique([tenantId, context, parentId, slug])
   @@index([tenantId])
   @@index([tenantId, context])
   @@index([name])

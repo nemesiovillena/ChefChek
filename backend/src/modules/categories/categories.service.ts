@@ -16,25 +16,43 @@ export class CategoriesService {
 
   constructor(private prisma: PrismaService) {}
 
+  /** Busca otra categoría con el mismo slug en el mismo tenant+context+padre. */
+  private findSlugConflict(
+    tenantId: string,
+    context: CategoryContext,
+    parentId: string | null,
+    slug: string,
+    excludeId?: string,
+  ) {
+    return this.prisma.category.findFirst({
+      where: {
+        tenantId,
+        context,
+        parentId,
+        slug,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+  }
+
   async create(tenantId: string, createCategoryDto: CreateCategoryDto) {
     this.logger.log(
       `Creating category "${createCategoryDto.name}" for tenant ${tenantId}`,
     );
 
-    // Check if slug already exists for this tenant+context
-    const existing = await this.prisma.category.findUnique({
-      where: {
-        tenantId_context_slug: {
-          tenantId,
-          context: createCategoryDto.context,
-          slug: createCategoryDto.slug,
-        },
-      },
-    });
+    // Slug único por padre: dos ramas distintas pueden tener una subcategoría
+    // con el mismo nombre (ej. "Pescado" bajo "Fresco" y bajo "Congelado").
+    const parentId = createCategoryDto.parentId ?? null;
+    const existing = await this.findSlugConflict(
+      tenantId,
+      createCategoryDto.context,
+      parentId,
+      createCategoryDto.slug,
+    );
 
     if (existing) {
       throw new ConflictException(
-        `Category with slug "${createCategoryDto.slug}" already exists in context "${createCategoryDto.context}"`,
+        `Category with slug "${createCategoryDto.slug}" already exists ${parentId ? "under this parent" : "at the root level"} in context "${createCategoryDto.context}"`,
       );
     }
 
@@ -137,22 +155,32 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
-    // If updating slug, check for conflicts (scoped to tenant+context)
-    if (updateCategoryDto.slug && updateCategoryDto.slug !== existing.slug) {
-      const targetContext = updateCategoryDto.context || existing.context;
-      const slugConflict = await this.prisma.category.findUnique({
-        where: {
-          tenantId_context_slug: {
-            tenantId,
-            context: targetContext,
-            slug: updateCategoryDto.slug,
-          },
-        },
-      });
+    // Si cambia slug, contexto o padre, el ámbito de unicidad cambia: hay que
+    // re-comprobar conflicto en el nuevo ámbito (scoped a tenant+context+padre).
+    const targetContext = updateCategoryDto.context ?? existing.context;
+    const targetParentId =
+      updateCategoryDto.parentId !== undefined
+        ? (updateCategoryDto.parentId ?? null)
+        : existing.parentId;
+    const targetSlug = updateCategoryDto.slug ?? existing.slug;
+
+    const scopeChanged =
+      targetContext !== existing.context ||
+      targetParentId !== existing.parentId ||
+      targetSlug !== existing.slug;
+
+    if (scopeChanged) {
+      const slugConflict = await this.findSlugConflict(
+        tenantId,
+        targetContext,
+        targetParentId,
+        targetSlug,
+        id,
+      );
 
       if (slugConflict) {
         throw new ConflictException(
-          `Category with slug "${updateCategoryDto.slug}" already exists in context "${targetContext}"`,
+          `Category with slug "${targetSlug}" already exists ${targetParentId ? "under this parent" : "at the root level"} in context "${targetContext}"`,
         );
       }
     }

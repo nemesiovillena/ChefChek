@@ -31,8 +31,8 @@ describe("CategoriesService", () => {
   afterEach(() => jest.clearAllMocks());
 
   describe("create", () => {
-    it("throws Conflict when slug already exists for tenant+context", async () => {
-      prisma.category.findUnique.mockResolvedValue({ id: "existing" });
+    it("throws Conflict when slug already exists under the same parent", async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: "existing" });
 
       await expect(
         service.create("t1", {
@@ -42,11 +42,42 @@ describe("CategoriesService", () => {
         } as any),
       ).rejects.toThrow(ConflictException);
 
+      expect(prisma.category.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenantId: "t1",
+          context: "articles",
+          parentId: null,
+          slug: "dup",
+        },
+      });
       expect(prisma.category.create).not.toHaveBeenCalled();
     });
 
+    it("allows the same slug under a different parent", async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+      prisma.category.create.mockResolvedValue({ id: "c2" });
+
+      const dto = {
+        name: "Pescado",
+        slug: "pescado",
+        context: "articles",
+        parentId: "congelado",
+      } as any;
+      const result = await service.create("t1", dto);
+
+      expect(result).toEqual({ id: "c2" });
+      expect(prisma.category.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenantId: "t1",
+          context: "articles",
+          parentId: "congelado",
+          slug: "pescado",
+        },
+      });
+    });
+
     it("creates the category when slug is free", async () => {
-      prisma.category.findUnique.mockResolvedValue(null);
+      prisma.category.findFirst.mockResolvedValue(null);
       prisma.category.create.mockResolvedValue({ id: "c1" });
 
       const dto = { name: "C", slug: "new", context: "articles" } as any;
@@ -105,26 +136,33 @@ describe("CategoriesService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("updates without slug conflict check when slug is unchanged", async () => {
-      prisma.category.findFirst.mockResolvedValue({ id: "c1", slug: "same" });
+    it("updates without slug conflict check when nothing in scope changed", async () => {
+      prisma.category.findFirst.mockResolvedValueOnce({
+        id: "c1",
+        slug: "same",
+        context: "articles",
+        parentId: null,
+      });
       prisma.category.update.mockResolvedValue({ id: "c1" });
 
       await service.update("t1", "c1", { slug: "same" } as any);
 
-      expect(prisma.category.findUnique).not.toHaveBeenCalled();
+      expect(prisma.category.findFirst).toHaveBeenCalledTimes(1);
       expect(prisma.category.update).toHaveBeenCalledWith({
         where: { id: "c1" },
         data: { slug: "same" },
       });
     });
 
-    it("uses dto context for slug conflict check when changing slug", async () => {
-      prisma.category.findFirst.mockResolvedValue({
-        id: "c1",
-        slug: "old",
-        context: "articles",
-      });
-      prisma.category.findUnique.mockResolvedValue(null);
+    it("checks conflict scoped to parent when changing slug", async () => {
+      prisma.category.findFirst
+        .mockResolvedValueOnce({
+          id: "c1",
+          slug: "old",
+          context: "articles",
+          parentId: "fresco",
+        })
+        .mockResolvedValueOnce(null);
       prisma.category.update.mockResolvedValue({ id: "c1" });
 
       await service.update("t1", "c1", {
@@ -132,41 +170,69 @@ describe("CategoriesService", () => {
         context: "recipes",
       } as any);
 
-      expect(prisma.category.findUnique).toHaveBeenCalledWith({
+      expect(prisma.category.findFirst).toHaveBeenNthCalledWith(2, {
         where: {
-          tenantId_context_slug: {
-            tenantId: "t1",
-            context: "recipes",
-            slug: "new",
-          },
+          tenantId: "t1",
+          context: "recipes",
+          parentId: "fresco",
+          slug: "new",
+          NOT: { id: "c1" },
+        },
+      });
+    });
+
+    it("checks conflict scoped to the new parent when moving categories", async () => {
+      prisma.category.findFirst
+        .mockResolvedValueOnce({
+          id: "c1",
+          slug: "pescado",
+          context: "articles",
+          parentId: "fresco",
+        })
+        .mockResolvedValueOnce({ id: "other" });
+
+      await expect(
+        service.update("t1", "c1", { parentId: "congelado" } as any),
+      ).rejects.toThrow(ConflictException);
+
+      expect(prisma.category.findFirst).toHaveBeenNthCalledWith(2, {
+        where: {
+          tenantId: "t1",
+          context: "articles",
+          parentId: "congelado",
+          slug: "pescado",
+          NOT: { id: "c1" },
         },
       });
     });
 
     it("falls back to existing context when dto omits it", async () => {
-      prisma.category.findFirst.mockResolvedValue({
-        id: "c1",
-        slug: "old",
-        context: "articles",
-      });
-      prisma.category.findUnique.mockResolvedValue(null);
+      prisma.category.findFirst
+        .mockResolvedValueOnce({
+          id: "c1",
+          slug: "old",
+          context: "articles",
+          parentId: null,
+        })
+        .mockResolvedValueOnce(null);
       prisma.category.update.mockResolvedValue({ id: "c1" });
 
       await service.update("t1", "c1", { slug: "new" } as any);
 
-      expect(
-        prisma.category.findUnique.mock.calls[0][0].where.tenantId_context_slug
-          .context,
-      ).toBe("articles");
+      expect(prisma.category.findFirst.mock.calls[1][0].where.context).toBe(
+        "articles",
+      );
     });
 
-    it("throws Conflict when the new slug is taken", async () => {
-      prisma.category.findFirst.mockResolvedValue({
-        id: "c1",
-        slug: "old",
-        context: "articles",
-      });
-      prisma.category.findUnique.mockResolvedValue({ id: "other" });
+    it("throws Conflict when the new slug is taken under the same parent", async () => {
+      prisma.category.findFirst
+        .mockResolvedValueOnce({
+          id: "c1",
+          slug: "old",
+          context: "articles",
+          parentId: null,
+        })
+        .mockResolvedValueOnce({ id: "other" });
 
       await expect(
         service.update("t1", "c1", { slug: "taken" } as any),
