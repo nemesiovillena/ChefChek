@@ -301,7 +301,7 @@ export default function RecipesPage() {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
-  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number) => {
+  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number | undefined) => {
     const newIngredients = [...ingredients];
     newIngredients[index] = { ...newIngredients[index], [field]: value };
     setIngredients(newIngredients);
@@ -311,13 +311,21 @@ export default function RecipesPage() {
   // producto completo para resolver nombre y alérgenos sin el listado en cliente.
   const handleProductSelect = (
     index: number,
-    product: { id: string; name: string; allergens?: number[] },
+    product: { id: string; name: string; allergens?: number[]; wastePercentage?: number },
   ) => {
+    const hasArticleWaste = (product.wastePercentage ?? 0) > 0;
     const newIngredients = [...ingredients];
     newIngredients[index] = {
       ...newIngredients[index],
       productId: product.id,
       productName: product.name,
+      hasArticleWaste,
+      wastePercentage: product.wastePercentage,
+      // Prefill con la merma del artículo (editable/sobreescribible después);
+      // si el artículo no trae ninguna, se deja lo que hubiera escrito el usuario.
+      wastePercentageOverride: hasArticleWaste
+        ? product.wastePercentage
+        : newIngredients[index].wastePercentageOverride,
     };
     setIngredients(newIngredients);
     if (product.allergens?.length) {
@@ -356,7 +364,15 @@ export default function RecipesPage() {
       elaboration: filledSteps.length > 0 ? serializeSteps(filledSteps) : undefined,
       portions: parseInt(formData.portions, 10) || 1,
       portionSize: parseInt(formData.portionSize, 10) || 250,
-      ingredients: ingredients.filter((ing) => ing.productId && ing.quantity > 0),
+      ingredients: ingredients
+        .filter((ing) => ing.productId && ing.quantity > 0)
+        .map((ing) => ({
+          productId: ing.productId,
+          productName: ing.productName,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
+        })),
       subRecipes: subRecipes.filter((s) => s.subRecipeId && s.quantity > 0),
       categoryIds: selectedCategoryIds,
       allergens: selectedAllergenIds,
@@ -411,7 +427,15 @@ export default function RecipesPage() {
       portionSize: recipe.portionSize?.toString() || '250',
     });
     setElaborationSteps(parseSteps(recipe.elaboration));
-    setIngredients(recipe.ingredients);
+    // El backend solo persiste wastePercentageOverride cuando se fijó
+    // explícitamente; para que el campo muestre algo editable desde ya
+    // (en vez de vacío) se prefilla con la merma efectiva ya calculada.
+    setIngredients(
+      recipe.ingredients.map((ing) => ({
+        ...ing,
+        wastePercentageOverride: ing.wastePercentageOverride ?? ing.wastePercentage,
+      })),
+    );
     setSubRecipes(
       recipe.subRecipes?.map((s) => ({
         subRecipeId: s.subRecipeId,
@@ -806,7 +830,7 @@ export default function RecipesPage() {
                       </div>
 
                       <div>
-                        <label className={m3Label}>Descripción</label>
+                        <label className={m3Label}>Notas</label>
                         <textarea
                           name="description"
                           value={formData.description}
@@ -859,6 +883,13 @@ export default function RecipesPage() {
                             Peso total: {totalIngredientsWeightKg.toFixed(3)} kg
                           </p>
                         )}
+                        <div className="flex gap-2 px-0.5 text-xs text-[var(--muted-foreground)]">
+                          <span className="flex-1">Artículo</span>
+                          <span className="w-24">Cantidad</span>
+                          <span className="w-20">Unidad</span>
+                          <span className="w-20">Merma %</span>
+                          {ingredients.length > 1 && <span className="w-6" />}
+                        </div>
                         <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                           {ingredients.map((ingredient, index) => (
                             <div key={index} className="flex gap-2 items-center">
@@ -887,6 +918,27 @@ export default function RecipesPage() {
                                 <option value="ml">ml</option>
                                 <option value="units">u</option>
                               </select>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                title={
+                                  ingredient.hasArticleWaste
+                                    ? 'Merma % del artículo — puedes sobreescribirla solo para esta receta'
+                                    : 'Merma % manual de esta receta (el artículo no tiene una definida)'
+                                }
+                                placeholder="Merma %"
+                                value={ingredient.wastePercentageOverride ?? ''}
+                                onChange={(e) =>
+                                  handleIngredientChange(
+                                    index,
+                                    'wastePercentageOverride',
+                                    e.target.value === '' ? undefined : parseFloat(e.target.value),
+                                  )
+                                }
+                                className={`w-20 text-sm ${m3InputBase}`}
+                              />
                               {ingredients.length > 1 && (
                                 <button
                                   type="button"

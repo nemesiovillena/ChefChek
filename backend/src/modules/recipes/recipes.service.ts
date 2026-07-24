@@ -147,6 +147,7 @@ export class RecipesService {
             productId: ing.productId,
             quantity: ing.quantity,
             unit: ing.unit,
+            wastePercentageOverride: ing.wastePercentageOverride,
           })),
         },
         subRecipes:
@@ -429,6 +430,7 @@ export class RecipesService {
           productId: ing.productId,
           quantity: ing.quantity,
           unit: ing.unit,
+          wastePercentageOverride: ing.wastePercentageOverride,
         })),
       });
     }
@@ -507,6 +509,7 @@ export class RecipesService {
         productId: ing.productId,
         quantity: ing.quantity,
         unit: ing.unit,
+        wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
       })),
       subRecipes: originalRecipe.subRecipes?.map((sub) => ({
         subRecipeId: sub.subRecipeId,
@@ -735,10 +738,16 @@ export class RecipesService {
     const ingredients: IngredientResponse[] =
       recipe.ingredients?.map((ing: any) => {
         const product = ing.product;
+        // La merma manual de la receta (wastePercentageOverride) siempre
+        // manda sobre la del artículo cuando está fijada — permite corregir
+        // la línea sin tener que ir a editar el artículo. hasArticleWaste
+        // solo indica si el artículo trae una propia (para la UI).
+        const articleWastePercentage = product?.wastePercentage ?? 0;
+        const hasArticleWaste = articleWastePercentage > 0;
+        const wastePercentage =
+          ing.wastePercentageOverride ?? articleWastePercentage;
         const yieldFactor =
-          product?.yieldFactor && product.yieldFactor > 0
-            ? product.yieldFactor
-            : 1;
+          wastePercentage > 0 ? (100 - wastePercentage) / 100 : 1;
         const unitSize = product?.unitSize > 0 ? product.unitSize : 1;
         // Mismo descuento fijo del proveedor que calculateProductCostPerUnit:
         // el precio de referencia mostrado debe ser el efectivo (bruto × dto),
@@ -762,7 +771,9 @@ export class RecipesService {
           grossWeight: ing.quantity,
           netWeight: ing.quantity * yieldFactor,
           yieldPercentage,
-          wastePercentage: 100 - yieldPercentage,
+          wastePercentage,
+          hasArticleWaste,
+          wastePercentageOverride: ing.wastePercentageOverride ?? null,
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
           referenceUnit: product?.referenceUnit || "kilo",
