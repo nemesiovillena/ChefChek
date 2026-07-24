@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { UnitSelector } from '@/components/shared/unit-selector';
 import { formatEuro } from '@/lib/utils';
+import { normalizeUnitSymbol } from '@/lib/unit-symbols';
 import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
 import CategoryCombobox from '@/components/shared/category-combobox';
 import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
@@ -34,19 +35,6 @@ const UNIT_LABELS: Record<string, { size: string; sizePlaceholder: string; total
   und: { size: '', sizePlaceholder: '', total: 'und' },
 };
 
-/**
- * Datos legacy guardan `referenceUnit` con variantes no normalizadas (kilo,
- * litro, ud, unida...) además de los símbolos canónicos (kg, L, und). Solo
- * afecta qué etiqueta/placeholder se muestra aquí — no toca el valor
- * guardado ni el cálculo de unitSize.
- */
-function labelKeyForUnit(unit: string): keyof typeof UNIT_LABELS | null {
-  const u = unit.toLowerCase();
-  if (u === 'kg' || u === 'kilo' || u === 'kilogramo' || u === 'kilogramos') return 'kg';
-  if (u === 'l' || u === 'litro' || u === 'litros') return 'L';
-  if (u === 'und' || u === 'ud' || u === 'unida' || u === 'unidad' || u === 'unidades') return 'und';
-  return null;
-}
 
 export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPrecioFieldsProps) {
   const update = (field: string, value: string) => {
@@ -71,7 +59,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
   const calculatedUnitSize = unitsPerFormat * referenceUnitSize;
   const refPrice = calculatedUnitSize > 0 ? price / calculatedUnitSize : 0;
 
-  const unitLabelKey = labelKeyForUnit(formData.referenceUnit);
+  const unitLabelKey = normalizeUnitSymbol(formData.referenceUnit);
   const unitLabels = (unitLabelKey && UNIT_LABELS[unitLabelKey]) || {
     size: 'Cantidad por unidad',
     sizePlaceholder: 'Ej: 1',

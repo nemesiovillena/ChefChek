@@ -37,7 +37,7 @@ export function CreateProductInline({
   // ref, precio, descuento, IVA, categoría, marca). Precios desde la línea OCR.
   const [formData, setFormData] = useState<PesoPrecioFormData>({
     purchaseFormat: '',
-    referenceUnit: line.unit || 'kg',
+    referenceUnit: line.unit || 'kilo',
     unitsPerFormat: '1',
     referenceUnitSize: '1',
     purchasePrice: line.unitPrice != null ? String(line.unitPrice) : '',

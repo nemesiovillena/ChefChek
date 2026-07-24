@@ -8,6 +8,7 @@ import { Product } from '@/hooks/use-products';
 import { useCategoryTree } from '@/hooks/use-categories';
 import CategoryCombobox from '@/components/shared/category-combobox';
 import { formatEuro } from '@/lib/utils';
+import { normalizeUnitSymbol } from '@/lib/unit-symbols';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2, Package } from 'lucide-react';
 
@@ -93,7 +94,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
     updateLine(lineId, {
       productId: product.id,
       name: product.name,
-      unit: product.referenceUnit === 'kg' ? 'kg' : product.referenceUnit === 'L' ? 'L' : 'und',
+      unit: normalizeUnitSymbol(product.referenceUnit) || 'und',
       price: product.purchasePrice,
       category: product.category?.name || '',
     });

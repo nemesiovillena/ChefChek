@@ -23,7 +23,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
 
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [referenceUnit, setReferenceUnit] = useState('kg');
+  const [referenceUnit, setReferenceUnit] = useState('kilo');
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showCreateCategory, setShowCreateCategory] = useState(false);
@@ -110,9 +110,9 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
           onChange={(e) => setReferenceUnit(e.target.value)}
           className="w-full h-8 text-sm border rounded-md px-2"
         >
-          <option value="kg">kg</option>
-          <option value="L">L</option>
-          <option value="und">und</option>
+          <option value="kilo">kg</option>
+          <option value="litro">L</option>
+          <option value="unida">und</option>
         </select>
       </div>
       <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()} className="h-8 gap-1">

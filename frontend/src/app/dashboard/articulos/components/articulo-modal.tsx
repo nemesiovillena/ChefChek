@@ -41,7 +41,7 @@ interface ArticuloModalProps {
 const emptyFormData = {
   name: '',
   purchaseFormat: '',
-  referenceUnit: 'kg',
+  referenceUnit: 'kilo',
   unitsPerFormat: '1',
   referenceUnitSize: '1',
   grossWeight: '',
@@ -72,7 +72,7 @@ function deriveFormData(article: Product | null | undefined) {
   return {
     name: article.name,
     purchaseFormat: article.purchaseFormat || '',
-    referenceUnit: article.referenceUnit || 'kg',
+    referenceUnit: article.referenceUnit || 'kilo',
     unitsPerFormat: String(article.unitsPerFormat || 1),
     referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
     grossWeight: article.grossWeight?.toString() || '',
