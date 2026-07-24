@@ -8,18 +8,20 @@ interface SupplierModalProps {
   isOpen: boolean;
   onClose: () => void;
   supplier?: Supplier | null;
+  initialName?: string;
   onSubmit: (data: CreateSupplierDto | UpdateSupplierDto) => Promise<void>;
   isSubmitting: boolean;
 }
 
 /** Centered dialog matching the app's other entity modals (Artículos, Usuarios), replacing the previous side sheet. */
-export default function SupplierModal({ isOpen, onClose, supplier, onSubmit, isSubmitting }: SupplierModalProps) {
+export default function SupplierModal({ isOpen, onClose, supplier, initialName, onSubmit, isSubmitting }: SupplierModalProps) {
   if (!isOpen) return null;
   // Keyed remount resets form state when switching between create/edit targets.
   return (
     <SupplierModalForm
-      key={supplier?.id ?? 'new'}
+      key={supplier?.id ?? initialName ?? 'new'}
       supplier={supplier}
+      initialName={initialName}
       onClose={onClose}
       onSubmit={onSubmit}
       isSubmitting={isSubmitting}
@@ -29,12 +31,13 @@ export default function SupplierModal({ isOpen, onClose, supplier, onSubmit, isS
 
 interface SupplierModalFormProps {
   supplier?: Supplier | null;
+  initialName?: string;
   onClose: () => void;
   onSubmit: (data: CreateSupplierDto | UpdateSupplierDto) => Promise<void>;
   isSubmitting: boolean;
 }
 
-function SupplierModalForm({ supplier, onClose, onSubmit, isSubmitting }: SupplierModalFormProps) {
+function SupplierModalForm({ supplier, initialName, onClose, onSubmit, isSubmitting }: SupplierModalFormProps) {
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-2xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
@@ -49,6 +52,7 @@ function SupplierModalForm({ supplier, onClose, onSubmit, isSubmitting }: Suppli
 
         <SupplierForm
           supplier={supplier}
+          initialName={initialName}
           onSubmit={onSubmit}
           onCancel={onClose}
           isSubmitting={isSubmitting}

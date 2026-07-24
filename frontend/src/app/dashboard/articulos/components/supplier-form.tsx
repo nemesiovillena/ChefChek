@@ -7,15 +7,16 @@ import type { CreateSupplierDto, UpdateSupplierDto } from '@/hooks/use-supplier-
 
 interface Props {
   supplier?: Supplier | null;
+  initialName?: string;
   onSubmit: (data: CreateSupplierDto | UpdateSupplierDto) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
 }
 
-export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Props) {
+export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubmitting }: Props) {
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<CreateSupplierDto>({
     defaultValues: (supplier as CreateSupplierDto) || {
-      name: '',
+      name: initialName || '',
       cifNif: '',
       address: '',
       contactPerson: '',

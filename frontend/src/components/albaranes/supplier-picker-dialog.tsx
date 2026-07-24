@@ -166,6 +166,7 @@ export function SupplierPickerDialog({
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         supplier={null}
+        initialName={search.trim()}
         onSubmit={handleCreateSupplier}
         isSubmitting={createMutation.isPending}
       />
