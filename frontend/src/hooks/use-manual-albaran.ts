@@ -32,6 +32,7 @@ export function useCreateManualAlbaran() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['stock'] });
+      queryClient.invalidateQueries({ queryKey: ['albaranes'] });
     },
   });
 }
