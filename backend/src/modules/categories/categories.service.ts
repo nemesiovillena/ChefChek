@@ -251,7 +251,7 @@ export class CategoriesService {
               },
             },
           },
-          orderBy: { sortOrder: "asc" },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         },
         _count: {
           select: {
@@ -260,7 +260,7 @@ export class CategoriesService {
           },
         },
       },
-      orderBy: { sortOrder: "asc" },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     })) as any;
 
     this.logger.log(`Found ${categories.length} root categories`);
