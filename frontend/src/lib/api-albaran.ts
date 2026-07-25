@@ -28,6 +28,10 @@ export interface AlbaranLine {
   matchedProductId: string | null;
   matchedProduct: { id: string; name: string; netPrice: number; discountPercentage: number } | null;
   confidence: number | null;
+  /** Mejor candidato cuando NO hubo auto-match (MATCH_DUDOSO o NUEVO). Descartable con dismissSuggestion. */
+  suggestedProductId: string | null;
+  suggestedProduct: { id: string; name: string } | null;
+  suggestionDismissed: boolean;
 }
 
 export interface Albaran {
@@ -224,6 +228,19 @@ export async function rejectLine(albaranId: string, lineId: string): Promise<Alb
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error rejecting line' }));
     throw new Error(error.message || 'Error rejecting line');
+  }
+  return response.json();
+}
+
+// Dismiss the auto-suggested product for a line (persists: won't resurface on re-match)
+export async function dismissSuggestion(albaranId: string, lineId: string): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/dismiss-suggestion`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error dismissing suggestion' }));
+    throw new Error(error.message || 'Error dismissing suggestion');
   }
   return response.json();
 }

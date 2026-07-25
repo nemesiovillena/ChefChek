@@ -215,6 +215,18 @@ export class AlbaranesController {
     );
   }
 
+  @Put(":id/lines/:lineId/dismiss-suggestion")
+  @ApiOperation({ summary: "Descartar la sugerencia automática de una línea" })
+  @ApiResponse({ status: 200, description: "Sugerencia descartada" })
+  async dismissSuggestion(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.dismissSuggestion(id, lineId, tenantId);
+  }
+
   @Put(":id/lines/:lineId/reject")
   @ApiOperation({ summary: "Rechazar línea del albarán" })
   @ApiResponse({ status: 200, description: "Línea rechazada" })

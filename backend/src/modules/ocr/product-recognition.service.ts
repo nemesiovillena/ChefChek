@@ -4,6 +4,7 @@ import { ExtractedProductDto } from "./dto/extracted-product.dto";
 import {
   calculateSimilarity,
   normalizeProductDescription,
+  extractFirstSignificantWord,
 } from "../../common/utils/string-similarity";
 
 @Injectable()
@@ -45,12 +46,18 @@ export class ProductRecognitionService {
     }
 
     // Strategy 2: Fuzzy matching (contains)
+    // Se toma la primera palabra SIGNIFICATIVA (≥3 letras, separadores como
+    // guion/paréntesis normalizados a espacio) en vez del primer token
+    // literal: "DEMI-GLACE DE BUEY..." con split(" ")[0] buscaba el string
+    // "DEMI-GLACE" completo, que no aparece en "X-DEMI GLACE BUEY..." (ahí
+    // el guion separa "X" de "DEMI"). Con la palabra normalizada ("demi")
+    // el contains sí encuentra el candidato real.
     const fuzzyMatches = await this.prisma.product.findMany({
       where: {
         tenantId,
         name: {
           mode: "insensitive",
-          contains: productName.split(" ")[0], // Match first word
+          contains: extractFirstSignificantWord(productName),
         },
       },
       take: 5,
@@ -292,6 +299,7 @@ export class ProductRecognitionService {
 
   private mapToExtractedProduct(product: any): ExtractedProductDto {
     return {
+      id: product.id,
       name: product.name,
       description: product.description,
       quantity: 0,

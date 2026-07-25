@@ -472,6 +472,33 @@ describe("AlbaranesService", () => {
     });
   });
 
+  describe("dismissSuggestion", () => {
+    it("throws NotFound when line does not exist", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaranLine.findFirst.mockResolvedValue(null);
+      await expect(
+        service.dismissSuggestion("alb-1", "l1", "t1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("clears the suggestion and marks it as dismissed", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaranLine.findFirst.mockResolvedValue({
+        id: "l1",
+        suggestedProductId: "p1",
+        suggestionDismissed: false,
+      });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.dismissSuggestion("alb-1", "l1", "t1");
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: { suggestedProductId: null, suggestionDismissed: true },
+      });
+    });
+  });
+
   describe("updateStatus", () => {
     it("delegates to statusService and reloads the albaran", async () => {
       prisma.albaran.findFirst.mockResolvedValue({

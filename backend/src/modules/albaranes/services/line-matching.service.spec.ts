@@ -74,6 +74,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.MATCH_ALTO,
           confidence: 1.0,
           suggestions: [],
+          suggestedProductId: null,
         });
 
         expect(mockPrisma.product.findFirst).toHaveBeenCalledWith({
@@ -151,6 +152,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.MATCH_ALTO,
           confidence: 0.92,
           suggestions: [],
+          suggestedProductId: null,
         });
       });
 
@@ -159,6 +161,7 @@ describe("LineMatchingService", () => {
 
         mockProductRecognition.recognizeProduct.mockResolvedValue({
           recognizedProduct: {
+            id: "product-generic",
             name: "Aceite genérico",
             unit: "L",
             unitPrice: 15.0,
@@ -166,8 +169,18 @@ describe("LineMatchingService", () => {
           },
           confidence: 0.65,
           suggestions: [
-            { name: "Aceite de oliva", unitPrice: 25.0, unit: "L" },
-            { name: "Aceite de girasol", unitPrice: 12.0, unit: "L" },
+            {
+              id: "product-oliva",
+              name: "Aceite de oliva",
+              unitPrice: 25.0,
+              unit: "L",
+            },
+            {
+              id: "product-girasol",
+              name: "Aceite de girasol",
+              unitPrice: 12.0,
+              unit: "L",
+            },
           ],
         });
 
@@ -181,6 +194,9 @@ describe("LineMatchingService", () => {
         expect(result.confidence).toBe(0.65);
         expect(result.suggestions).toHaveLength(2);
         expect(result.suggestions[0].name).toBe("Aceite de oliva");
+        // El candidato recognizedProduct (aunque no auto-asignable a esta
+        // confianza) se conserva como sugerencia descartable en la línea.
+        expect(result.suggestedProductId).toBe("product-generic");
       });
 
       it("should return NUEVO for low confidence (< 0.5)", async () => {
@@ -202,6 +218,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.NUEVO,
           confidence: 0.3,
           suggestions: [],
+          suggestedProductId: null,
         });
       });
 
@@ -216,6 +233,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.NUEVO,
           confidence: 0,
           suggestions: [],
+          suggestedProductId: null,
         });
 
         expect(mockProductRecognition.recognizeProduct).not.toHaveBeenCalled();
@@ -232,6 +250,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.NUEVO,
           confidence: 0,
           suggestions: [],
+          suggestedProductId: null,
         });
       });
 
@@ -242,13 +261,13 @@ describe("LineMatchingService", () => {
           recognizedProduct: null,
           confidence: 0.6,
           suggestions: [
-            { name: "Aceite 1", unitPrice: 10, unit: "L" },
-            { name: "Aceite 2", unitPrice: 11, unit: "L" },
-            { name: "Aceite 3", unitPrice: 12, unit: "L" },
-            { name: "Aceite 4", unitPrice: 13, unit: "L" },
-            { name: "Aceite 5", unitPrice: 14, unit: "L" },
-            { name: "Aceite 6", unitPrice: 15, unit: "L" },
-            { name: "Aceite 7", unitPrice: 16, unit: "L" },
+            { id: "product-1", name: "Aceite 1", unitPrice: 10, unit: "L" },
+            { id: "product-2", name: "Aceite 2", unitPrice: 11, unit: "L" },
+            { id: "product-3", name: "Aceite 3", unitPrice: 12, unit: "L" },
+            { id: "product-4", name: "Aceite 4", unitPrice: 13, unit: "L" },
+            { id: "product-5", name: "Aceite 5", unitPrice: 14, unit: "L" },
+            { id: "product-6", name: "Aceite 6", unitPrice: 15, unit: "L" },
+            { id: "product-7", name: "Aceite 7", unitPrice: 16, unit: "L" },
           ],
         });
 
@@ -280,6 +299,7 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.MATCH_ALTO,
           confidence: 1.0,
           suggestions: [],
+          suggestedProductId: null,
         });
         expect(mockPrisma.supplierProductAlias.findUnique).toHaveBeenCalledWith(
           {
@@ -448,6 +468,35 @@ describe("LineMatchingService", () => {
           matchStatus: LineMatchStatus.MATCH_ALTO,
         }),
       });
+    });
+
+    it("should not overwrite suggestedProductId for a line whose suggestion was already dismissed by the user", async () => {
+      const mockLines = [
+        {
+          id: "line-1",
+          description: "Producto desconocido XYZ",
+          articleNumber: null,
+          suggestionDismissed: true,
+        },
+      ];
+
+      mockPrisma.albaran.findFirst.mockResolvedValue({
+        id: mockAlbaranId,
+        lines: mockLines,
+      });
+
+      mockProductRecognition.recognizeProduct.mockResolvedValue({
+        recognizedProduct: null,
+        confidence: 0.3,
+        suggestions: [{ id: "product-9", name: "Candidato", unit: "kg" }],
+      });
+
+      mockPrisma.albaranLine.update.mockResolvedValue({});
+
+      await service.matchAllLines(mockAlbaranId, mockTenantId);
+
+      const updateArgs = mockPrisma.albaranLine.update.mock.calls[0][0];
+      expect(updateArgs.data).not.toHaveProperty("suggestedProductId");
     });
 
     it("should handle albaran not found gracefully", async () => {

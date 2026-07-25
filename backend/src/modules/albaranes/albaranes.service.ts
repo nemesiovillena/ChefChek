@@ -141,7 +141,7 @@ export class AlbaranesService {
           select: { id: true, orderNumber: true, status: true },
         },
         lines: {
-          include: { matchedProduct: true },
+          include: { matchedProduct: true, suggestedProduct: true },
           orderBy: [{ lineOrder: "asc" }, { createdAt: "asc" }],
         },
       },
@@ -294,6 +294,27 @@ export class AlbaranesService {
     }
 
     return updatedLine;
+  }
+
+  /**
+   * Discard the auto-suggested product for a line (user says "not this
+   * one"). Persiste el descarte: matchAllLines no debe volver a rellenar
+   * suggestedProductId para esta línea en un re-match futuro.
+   */
+  async dismissSuggestion(albaranId: string, lineId: string, tenantId: string) {
+    await this.findOne(albaranId, tenantId);
+
+    const line = await this.prisma.albaranLine.findFirst({
+      where: { id: lineId, albaranId },
+    });
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+
+    return this.prisma.albaranLine.update({
+      where: { id: lineId },
+      data: { suggestedProductId: null, suggestionDismissed: true },
+    });
   }
 
   /** Confirm or reject a line */

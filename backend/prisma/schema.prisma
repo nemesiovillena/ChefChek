@@ -34,57 +34,57 @@ model Tenant {
   addressPostalCode String?
   cifNif            String?
 
-  users                  User[]
-  products               Product[]
-  recipes                Recipe[]
-  menus                  Menu[]
-  invoices               Invoice[]
-  temperatureControls    TemperatureControl[]
-  cleaningPlans          CleaningPlan[]
-  pestControls           PestControl[]
-  goodsReceptions        GoodsReception[]
-  alerts                 Alert[]
-  staffMembers           StaffMember[]
-  workBatches            WorkBatch[]
-  taskAssignments        TaskAssignment[]
-  productionAlerts       ProductionAlert[]
-  productionOrders       ProductionOrder[]
-  miseEnPlaceSheets      MiseEnPlaceSheet[]
-  warehouses             Warehouse[]
-  orders                 Order[]
-  appccControls          AppccControl[]
-  documents              Document[]
-  telegramBots           TelegramBot[]
-  telegramUsers          TelegramUser[]
-  suppliers              Supplier[]
-  supplierPriceHistories SupplierPriceHistory[]
-  albaranes              Albaran[]
-  unitsOfMeasure         UnitOfMeasure[]
-  productPriceHistories  ProductPriceHistory[]
-  productSupplierOffers  ProductSupplierOffer[]
+  users                      User[]
+  products                   Product[]
+  recipes                    Recipe[]
+  menus                      Menu[]
+  invoices                   Invoice[]
+  temperatureControls        TemperatureControl[]
+  cleaningPlans              CleaningPlan[]
+  pestControls               PestControl[]
+  goodsReceptions            GoodsReception[]
+  alerts                     Alert[]
+  staffMembers               StaffMember[]
+  workBatches                WorkBatch[]
+  taskAssignments            TaskAssignment[]
+  productionAlerts           ProductionAlert[]
+  productionOrders           ProductionOrder[]
+  miseEnPlaceSheets          MiseEnPlaceSheet[]
+  warehouses                 Warehouse[]
+  orders                     Order[]
+  appccControls              AppccControl[]
+  documents                  Document[]
+  telegramBots               TelegramBot[]
+  telegramUsers              TelegramUser[]
+  suppliers                  Supplier[]
+  supplierPriceHistories     SupplierPriceHistory[]
+  albaranes                  Albaran[]
+  unitsOfMeasure             UnitOfMeasure[]
+  productPriceHistories      ProductPriceHistory[]
+  productSupplierOffers      ProductSupplierOffer[]
   productDuplicateDismissals ProductDuplicateDismissal[]
-  configurations         Configuration[]
-  categories             Category[]
-  stocks                 Stock[]
-  documentTemplates      DocumentTemplate[]
-  inventories            Inventory[]
-  knowledgeCategories    KnowledgeCategory[]
-  knowledgeArticles      KnowledgeArticle[]
-  knowledgeTags          KnowledgeTag[]
-  auditLogs              AuditLog[]
-  digitalMenuConfigs     DigitalMenuConfig[]
-  dashboardMetrics       DashboardMetric[]
-  dashboardAlerts        DashboardAlert[]
-  qrcodes                QRCode[]
-  locations              Location[]
-  purchaseOrders         PurchaseOrder[]
-  purchaseLists          PurchaseList[]
-  priceDeviations        PriceDeviation[]
-  catalogImports         CatalogImport[]
-  offerLocationSettings  OfferLocationSetting[]
-  purchaseSchedules      PurchaseSchedule[]
-  lots                   Lot[]
-  supplierProductAliases SupplierProductAlias[]
+  configurations             Configuration[]
+  categories                 Category[]
+  stocks                     Stock[]
+  documentTemplates          DocumentTemplate[]
+  inventories                Inventory[]
+  knowledgeCategories        KnowledgeCategory[]
+  knowledgeArticles          KnowledgeArticle[]
+  knowledgeTags              KnowledgeTag[]
+  auditLogs                  AuditLog[]
+  digitalMenuConfigs         DigitalMenuConfig[]
+  dashboardMetrics           DashboardMetric[]
+  dashboardAlerts            DashboardAlert[]
+  qrcodes                    QRCode[]
+  locations                  Location[]
+  purchaseOrders             PurchaseOrder[]
+  purchaseLists              PurchaseList[]
+  priceDeviations            PriceDeviation[]
+  catalogImports             CatalogImport[]
+  offerLocationSettings      OfferLocationSetting[]
+  purchaseSchedules          PurchaseSchedule[]
+  lots                       Lot[]
+  supplierProductAliases     SupplierProductAlias[]
 
   @@map("tenants")
 }
@@ -186,24 +186,25 @@ model Product {
 
   manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
 
-  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category           Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier           Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients  RecipeIngredient[]
-  stockMovements     StockMovement[]
-  stocks             Stock[]
-  purchaseFormats    PurchaseFormat[]
-  nutritionalInfo    NutritionalInfo?
-  albaranLines       AlbaranLine[]
-  priceHistory       ProductPriceHistory[]
-  supplierOffers     ProductSupplierOffer[]
-  purchaseOrderLines PurchaseOrderLine[]
-  purchaseListItems  PurchaseListItem[]
-  catalogImportLines CatalogImportLine[]
-  lots               Lot[]
-  supplierAliases    SupplierProductAlias[]
-  duplicateDismissals  ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
-  duplicateDismissedBy ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
+  tenant                 Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category               Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier               Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients      RecipeIngredient[]
+  stockMovements         StockMovement[]
+  stocks                 Stock[]
+  purchaseFormats        PurchaseFormat[]
+  nutritionalInfo        NutritionalInfo?
+  albaranLines           AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
+  albaranLineSuggestions AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
+  priceHistory           ProductPriceHistory[]
+  supplierOffers         ProductSupplierOffer[]
+  purchaseOrderLines     PurchaseOrderLine[]
+  purchaseListItems      PurchaseListItem[]
+  catalogImportLines     CatalogImportLine[]
+  lots                   Lot[]
+  supplierAliases        SupplierProductAlias[]
+  duplicateDismissals    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
+  duplicateDismissedBy   ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
 
   @@index([tenantId])
   @@index([name])
@@ -1683,29 +1684,29 @@ model SupplierPriceHistory {
 
 // Albaranes — Documentos de entrada persistente
 model Albaran {
-  id              String        @id @default(cuid())
-  tenantId        String
-  supplierId      String? // Proveedor asociado (null si no hay match)
-  internalNumber  String // Número interno auto-generado por tenant
-  albaranNumber   String? // Número del albarán del proveedor
-  date            DateTime      @default(now())
-  base            Float         @default(0) // Base imponible
-  vatTotal        Float         @default(0) // Total IVA
-  total           Float         @default(0) // Total con IVA
-  grossAmount     Float         @default(0) // Total bruto (antes de IVA)
-  vatBreakdown    Json? // Desglose de IVA por tipo: [{rate, base, amount}]
-  status          AlbaranStatus @default(PENDIENTE)
-  originalFileUrl String? // URL del archivo original subido
-  ocrConfidence   Float         @default(0) // 0-1 confianza global OCR
-  ocrRawData      Json? // Respuesta cruda del OCR para re-procesado
-  warehouseId     String? // Almacén seleccionado para la entrada de stock
-  purchaseOrderId String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
-  notes           String?
-  applyDiscountToCost Boolean @default(false) // Opt-in: al confirmar, el coste/escandallos usa el precio neto (con descuento) en vez del bruto
-  createdBy       String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  deletedAt       DateTime?
+  id                  String        @id @default(cuid())
+  tenantId            String
+  supplierId          String? // Proveedor asociado (null si no hay match)
+  internalNumber      String // Número interno auto-generado por tenant
+  albaranNumber       String? // Número del albarán del proveedor
+  date                DateTime      @default(now())
+  base                Float         @default(0) // Base imponible
+  vatTotal            Float         @default(0) // Total IVA
+  total               Float         @default(0) // Total con IVA
+  grossAmount         Float         @default(0) // Total bruto (antes de IVA)
+  vatBreakdown        Json? // Desglose de IVA por tipo: [{rate, base, amount}]
+  status              AlbaranStatus @default(PENDIENTE)
+  originalFileUrl     String? // URL del archivo original subido
+  ocrConfidence       Float         @default(0) // 0-1 confianza global OCR
+  ocrRawData          Json? // Respuesta cruda del OCR para re-procesado
+  warehouseId         String? // Almacén seleccionado para la entrada de stock
+  purchaseOrderId     String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
+  notes               String?
+  applyDiscountToCost Boolean       @default(false) // Opt-in: al confirmar, el coste/escandallos usa el precio neto (con descuento) en vez del bruto
+  createdBy           String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
 
   tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier        Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
@@ -1727,32 +1728,41 @@ model Albaran {
 }
 
 model AlbaranLine {
-  id               String          @id @default(cuid())
-  albaranId        String
-  articleNumber    String? // Código de artículo del proveedor
-  lot              String? // Lote (opcional)
-  description      String
-  quantity         Float
-  unit             String          @default("ud")
-  unitPrice        Float
-  vatPercent       Float           @default(10)
-  priceWithVat     Float? // Precio unidad con IVA (unit_price × (1 + vat%))
-  totalPrice       Float? // Importe neto de la línea leído del papel (sin IVA, con descuento si lo hay). El OCR lo trae pero qty×precio puede no cuadrar cuando hay dto.
-  lineAmount       Float // Cantidad × precio unidad bruto (sin IVA, sin descuento)
-  matchStatus      LineMatchStatus @default(NUEVO)
-  lineStatus       LineStatus      @default(PENDIENTE)
-  matchedProductId String? // FK a Product si hay match
-  confidence       Float           @default(0) // 0-1 confianza del match
-  lineOrder        Int             @default(0) // Posición en el documento origen; createdAt no sirve de desempate (mismo now() en creación anidada)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                  String          @id @default(cuid())
+  albaranId           String
+  articleNumber       String? // Código de artículo del proveedor
+  lot                 String? // Lote (opcional)
+  description         String
+  quantity            Float
+  unit                String          @default("ud")
+  unitPrice           Float
+  vatPercent          Float           @default(10)
+  priceWithVat        Float? // Precio unidad con IVA (unit_price × (1 + vat%))
+  totalPrice          Float? // Importe neto de la línea leído del papel (sin IVA, con descuento si lo hay). El OCR lo trae pero qty×precio puede no cuadrar cuando hay dto.
+  lineAmount          Float // Cantidad × precio unidad bruto (sin IVA, sin descuento)
+  matchStatus         LineMatchStatus @default(NUEVO)
+  lineStatus          LineStatus      @default(PENDIENTE)
+  matchedProductId    String? // FK a Product si hay match
+  confidence          Float           @default(0) // 0-1 confianza del match
+  // Candidato de menor confianza (MATCH_DUDOSO o incluso NUEVO) que el
+  // matching automático encontró pero no fue suficiente para auto-asignar.
+  // Se muestra como sugerencia descartable en vez de perderse (antes se
+  // calculaba y se tiraba sin persistir). suggestionDismissed sobrevive a
+  // re-ejecuciones de matchAllLines para no resucitar un descarte del usuario.
+  suggestedProductId  String?
+  suggestionDismissed Boolean         @default(false)
+  lineOrder           Int             @default(0) // Posición en el documento origen; createdAt no sirve de desempate (mismo now() en creación anidada)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  albaran        Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
-  matchedProduct Product? @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
-  lotRecord      Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
+  albaran          Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  matchedProduct   Product? @relation("AlbaranLineMatchedProduct", fields: [matchedProductId], references: [id], onDelete: SetNull)
+  suggestedProduct Product? @relation("AlbaranLineSuggestedProduct", fields: [suggestedProductId], references: [id], onDelete: SetNull)
+  lotRecord        Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
 
   @@index([albaranId])
   @@index([matchedProductId])
+  @@index([suggestedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
 }
@@ -1829,11 +1839,11 @@ model UnitOfMeasure {
 
 // Historial de precios por producto (con/sin proveedor)
 model ProductPriceHistory {
-  id            String   @id @default(cuid())
-  tenantId      String
-  productId     String
-  supplierId    String? // Proveedor asociado al cambio de precio
-  albaranId     String? // Albarán que originó el cambio
+  id               String   @id @default(cuid())
+  tenantId         String
+  productId        String
+  supplierId       String? // Proveedor asociado al cambio de precio
+  albaranId        String? // Albarán que originó el cambio
   previousPrice    Float // Precio anterior
   newPrice         Float // Precio nuevo
   previousUnitSize Float? // unitSize vigente al registrar previousPrice; null en filas legacy

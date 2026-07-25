@@ -21,6 +21,7 @@ describe("AlbaranesController", () => {
     addLine: jest.fn(),
     matchLine: jest.fn(),
     setLineStatus: jest.fn(),
+    dismissSuggestion: jest.fn(),
     remove: jest.fn(),
   };
 
@@ -220,6 +221,16 @@ describe("AlbaranesController", () => {
       "alb-1",
       "l1",
       "RECHAZADO",
+      "t1",
+    );
+  });
+
+  it("dismissSuggestion delegates to the service", async () => {
+    mockService.dismissSuggestion.mockResolvedValue({ id: "l1" });
+    await controller.dismissSuggestion("alb-1", "l1", mockReq);
+    expect(mockService.dismissSuggestion).toHaveBeenCalledWith(
+      "alb-1",
+      "l1",
       "t1",
     );
   });

@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine, updateStatus, updateAlbaran } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
@@ -152,6 +152,39 @@ export default function AlbaranLineasPage() {
         type: 'error',
         title: 'No se pudo rechazar',
         message: err instanceof Error ? err.message : 'Error al rechazar línea',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleAcceptSuggestion = async (line: AlbaranLine) => {
+    if (!line.suggestedProductId) return;
+    setUpdating(line.id);
+    try {
+      await assignMatchedProduct(id, line.id, line.suggestedProductId);
+      refetch();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo asignar',
+        message: err instanceof Error ? err.message : 'Error al asignar la sugerencia',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const handleDismissSuggestion = async (line: AlbaranLine) => {
+    setUpdating(line.id);
+    try {
+      await dismissSuggestion(id, line.id);
+      refetch();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo descartar',
+        message: err instanceof Error ? err.message : 'Error al descartar la sugerencia',
       });
     } finally {
       setUpdating(null);
@@ -442,6 +475,36 @@ export default function AlbaranLineasPage() {
                                 → {line.matchedProduct.name}
                               </p>
                             )}
+                            {/* Candidato de baja confianza (MATCH_DUDOSO o NUEVO): antes se
+                                calculaba y se tiraba sin mostrar nada. Aceptar reutiliza el
+                                mismo endpoint que "Elegir"; descartar persiste (no vuelve a
+                                aparecer en un re-match del mismo documento). */}
+                            {!line.matchedProduct &&
+                              line.suggestedProduct &&
+                              !line.suggestionDismissed &&
+                              isEditable(line) && (
+                                <div className="mt-1 flex items-center gap-1.5 text-xs text-amber-700">
+                                  <span>¿Es &quot;{line.suggestedProduct.name}&quot;?</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAcceptSuggestion(line)}
+                                    disabled={updating === line.id}
+                                    className="rounded p-0.5 text-green-600 hover:bg-green-50"
+                                    title="Usar este artículo"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDismissSuggestion(line)}
+                                    disabled={updating === line.id}
+                                    className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                    title="No es este artículo"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
                           </div>
                         </TableCell>
                         <TableCell>
