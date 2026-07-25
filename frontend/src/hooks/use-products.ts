@@ -502,3 +502,16 @@ export function useSetPreferredSupplierOffer() {
     onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
   });
 }
+
+/** Oferta de un proveedor vista desde el lado del proveedor (Ficha de Proveedor): incluye el producto asociado. */
+export interface SupplierOfferWithProduct extends ProductSupplierOffer {
+  product: { id: string; name: string; category?: { id: string; name: string } | null };
+}
+
+export function useSupplierOffers(supplierId: string | null) {
+  return useApiQuery<SupplierOfferWithProduct[]>(
+    ['suppliers', supplierId ?? '', 'offers'],
+    `/v1/products/suppliers/${supplierId}/offers`,
+    { enabled: !!supplierId }
+  );
+}

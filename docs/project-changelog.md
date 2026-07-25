@@ -10,6 +10,24 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 ---
 
+## Estado real — 2026-07-25 (precio pactado simplificado: Artículos ↔ Proveedores)
+
+- **Endpoint nuevo**: `GET /api/v1/products/suppliers/:id/offers` — lista todas las ofertas (productos + precios pactados) de un proveedor con acceso multi-rol (ADMIN, USER, VIEWER).
+- **UI Artículos** (tab "Proveedor y Stock"): 
+  - Nuevo botón "usar precio actual" (1-clic) junto al editor manual de precio pactado — guarda directo sin confirmación intermedia.
+  - Nombre de proveedor ahora es clickable y abre ficha de proveedor (modal).
+- **UI Proveedores**:
+  - Reemplaza el patrón "expandible oculto" por una ficha de proveedor en modal centrado.
+  - Dos pestañas visibles: "Precios pactados" (nuevo — lista productos con `agreedPrice` editable/limpiable, VIEWER en modo solo-lectura) y "Productos e histórico" (existente).
+  - Reutiliza componente `AgreedPriceCell` en ambas interfaces.
+- **Decisiones de alcance (confirmadas con usuario)**:
+  - Sin ruta nueva `/dashboard/proveedores/[id]` — modal/drawer reutilizado.
+  - Sin exportación masiva de precios pactados.
+  - Sin edición masiva de ofertas.
+- **Documentación**: API endpoint en `docs/api-documentation.md`; modelo `ProductSupplierOffer` con campo `agreedPrice` documentado en `docs/product-data-model.md`.
+
+---
+
 ## Estado real — 2026-07-17 (modelo Lot para trazabilidad de albaranes)
 
 - **Modelo `Lot`** (tabla `lots`): nuevo modelo Prisma 100% aditivo que captura un

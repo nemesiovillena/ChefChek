@@ -1,24 +1,21 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Trash2, Loader2 } from 'lucide-react';
+import { ChevronRight, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Supplier } from '@/hooks/use-suppliers';
 import { SupplierPriceTrendBadge } from '@/app/dashboard/articulos/components/supplier-price-trend-badge';
-import { SupplierDetailPanel } from './supplier-detail-panel';
 
 interface Props {
   suppliers: Supplier[];
   onEdit: (supplier: Supplier) => void;
   onDelete: (supplier: Supplier) => void;
   onToggleActive: (supplier: Supplier) => void;
+  onOpenFicha: (id: string, name: string) => void;
   isToggling: boolean;
   isDeleting: boolean;
 }
 
-export function SupplierTable({ suppliers, onEdit, onDelete, onToggleActive, isToggling, isDeleting }: Props) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
+export function SupplierTable({ suppliers, onEdit, onDelete, onToggleActive, onOpenFicha, isToggling, isDeleting }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--outline-variant)]">
       <table className="w-full text-sm">
@@ -34,22 +31,18 @@ export function SupplierTable({ suppliers, onEdit, onDelete, onToggleActive, isT
           </tr>
         </thead>
         <tbody>
-          {suppliers.map((supplier) => {
-            const isExpanded = expandedId === supplier.id;
-            return (
-              <SupplierRow
-                key={supplier.id}
-                supplier={supplier}
-                isExpanded={isExpanded}
-                onToggleExpand={() => setExpandedId((prev) => (prev === supplier.id ? null : supplier.id))}
-                onToggleActive={() => onToggleActive(supplier)}
-                onEdit={() => onEdit(supplier)}
-                onDelete={() => onDelete(supplier)}
-                isToggling={isToggling}
-                isDeleting={isDeleting}
-              />
-            );
-          })}
+          {suppliers.map((supplier) => (
+            <SupplierRow
+              key={supplier.id}
+              supplier={supplier}
+              onOpenFicha={() => onOpenFicha(supplier.id, supplier.name)}
+              onToggleActive={() => onToggleActive(supplier)}
+              onEdit={() => onEdit(supplier)}
+              onDelete={() => onDelete(supplier)}
+              isToggling={isToggling}
+              isDeleting={isDeleting}
+            />
+          ))}
         </tbody>
       </table>
     </div>
@@ -58,8 +51,7 @@ export function SupplierTable({ suppliers, onEdit, onDelete, onToggleActive, isT
 
 function SupplierRow({
   supplier,
-  isExpanded,
-  onToggleExpand,
+  onOpenFicha,
   onToggleActive,
   onEdit,
   onDelete,
@@ -67,8 +59,7 @@ function SupplierRow({
   isDeleting,
 }: {
   supplier: Supplier;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
+  onOpenFicha: () => void;
   onToggleActive: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -80,15 +71,11 @@ function SupplierRow({
       <tr className="border-t border-[var(--outline-variant)] transition-colors hover:bg-[var(--surface-container-low)]">
         <td className="px-2 py-3">
           <button
-            onClick={onToggleExpand}
+            onClick={onOpenFicha}
             className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--surface-container-high)]"
-            title={isExpanded ? 'Ocultar detalle' : 'Ver histórico y productos'}
+            title="Ver ficha del proveedor"
           >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4 text-[var(--on-surface-variant)]" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-[var(--on-surface-variant)]" />
-            )}
+            <ChevronRight className="h-4 w-4 text-[var(--on-surface-variant)]" />
           </button>
         </td>
         <td className="px-4 py-3">
@@ -149,14 +136,6 @@ function SupplierRow({
           </div>
         </td>
       </tr>
-
-      {isExpanded && (
-        <tr className="border-t border-[var(--outline-variant)]">
-          <td colSpan={7} className="border-l-4 border-[var(--primary)]/40 bg-[var(--surface-container-lowest)] px-8 py-5">
-            <SupplierDetailPanel supplierId={supplier.id} supplierName={supplier.name} />
-          </td>
-        </tr>
-      )}
     </>
   );
 }

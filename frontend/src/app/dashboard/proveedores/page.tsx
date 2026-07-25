@@ -26,6 +26,7 @@ import {
 } from '@/hooks/use-supplier-mutations';
 import SupplierModal from './components/supplier-modal';
 import { SupplierTable } from './components/supplier-table';
+import { SupplierOffersFichaDialog } from './components/supplier-offers-ficha-dialog';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -52,6 +53,7 @@ export default function ProveedoresPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [fichaSupplier, setFichaSupplier] = useState<{ id: string; name: string } | null>(null);
 
   const [reassignOpen, setReassignOpen] = useState(false);
   const [reassignSupplier, setReassignSupplier] = useState<{ id: string; name: string; productCount: number } | null>(null);
@@ -215,8 +217,17 @@ export default function ProveedoresPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleActive={handleToggleActive}
+          onOpenFicha={(id, name) => setFichaSupplier({ id, name })}
           isToggling={toggleMutation.isPending}
           isDeleting={deleteMutation.isPending}
+        />
+      )}
+
+      {fichaSupplier && (
+        <SupplierOffersFichaDialog
+          supplierId={fichaSupplier.id}
+          supplierName={fichaSupplier.name}
+          onClose={() => setFichaSupplier(null)}
         />
       )}
 

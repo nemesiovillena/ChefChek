@@ -38,6 +38,7 @@ describe("ProductsController", () => {
     getProductPriceHistory: jest.fn(),
     getSupplierProducts: jest.fn(),
     getSupplierPriceHistory: jest.fn(),
+    getSupplierOffers: jest.fn(),
   };
 
   const mockProductSupplierOffersService = {
@@ -446,6 +447,25 @@ describe("ProductsController", () => {
         mockReq.tenantId,
         10,
       );
+    });
+  });
+
+  describe("getSupplierOffers", () => {
+    it("delegates to productsService with supplier id and tenantId", async () => {
+      const expected = {
+        success: true,
+        data: [],
+        message: "Ofertas obtenidas",
+      };
+      mockProductsService.getSupplierOffers.mockResolvedValue(expected);
+
+      const result = await controller.getSupplierOffers("supplier-1", mockReq);
+
+      expect(mockProductsService.getSupplierOffers).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+      );
+      expect(result).toBe(expected);
     });
   });
 

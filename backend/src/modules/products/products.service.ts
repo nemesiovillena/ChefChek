@@ -171,26 +171,32 @@ export class ProductsService {
       return [];
     }
 
-    // Matching "exacto + contiene + primera palabra" (accent-insensitive):
-    // avisa si el nombre es idéntico, si lo escrito está contenido en uno
-    // existente (o viceversa: "aceite girasol" ⊂ "Aceite girasol alto
-    // oleico"), o si ambos empiezan por la misma palabra (≥3 letras: evita
-    // ruido con "de/el/la"). Este último caso cubre líneas OCR de albarán
-    // largas que solo comparten el género del producto con el artículo ya
-    // existente, ej. "Lejía caja 6ud x 2L" vs "Lejía alimentaria 2L
-    // sanitaria" — mismo inicio, cero contención mutua. NO detecta typos
-    // ("grasol"≠"girasol"). Se normaliza una sola vez (CTE + subquery) para
+    // Matching "exacto + contiene + primera palabra significativa"
+    // (accent-insensitive): avisa si el nombre es idéntico, si lo escrito
+    // está contenido en uno existente (o viceversa: "aceite girasol" ⊂
+    // "Aceite girasol alto oleico"), o si ambos empiezan por la misma
+    // palabra significativa (≥3 letras: evita ruido con "de/el/la"). Este
+    // último caso cubre líneas OCR de albarán largas que solo comparten el
+    // género del producto con el artículo ya existente, ej. "Lejía caja
+    // 6ud x 2L" vs "Lejía alimentaria 2L sanitaria" — mismo inicio, cero
+    // contención mutua. Los separadores (-/(),.) se normalizan a espacio
+    // ANTES de tomar "la primera palabra": sin esto, un guion pegado al
+    // inicio ("X-Demi glace...") o dentro de una palabra compuesta
+    // ("Demi-glace...") cambia el primer token literal y el match se
+    // pierde aunque ambos nombres compartan la misma palabra real ("demi").
+    // NO detecta typos ("grasol"≠"girasol") ni reordenamiento sin palabra
+    // inicial compartida. Se normaliza una sola vez (CTE + subquery) para
     // no repetir translate().
     const matches = await this.prisma.$queryRaw<
       { id: string; name: string; isActive: boolean }[]
     >(Prisma.sql`
       WITH norm AS (
-        SELECT translate(lower(trim(${trimmed})), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS input
+        SELECT translate(lower(trim(regexp_replace(${trimmed}, '[-/(),.]', ' ', 'g'))), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS input
       )
       SELECT q.id, q.name, q."isActive"
       FROM (
         SELECT p.id, p.name, p."isActive",
-               translate(lower(trim(p.name)), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS pn
+               translate(lower(trim(regexp_replace(p.name, '[-/(),.]', ' ', 'g'))), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS pn
         FROM products p
         WHERE p."tenantId" = ${tenantId}
           AND p."deletedAt" IS NULL
@@ -210,8 +216,9 @@ export class ProductsService {
       WHERE strpos(q.pn, norm.input) > 0
          OR strpos(norm.input, q.pn) > 0
          OR (
-           LENGTH(split_part(q.pn, ' ', 1)) >= 3
-           AND split_part(q.pn, ' ', 1) = split_part(norm.input, ' ', 1)
+           (SELECT w FROM unnest(string_to_array(q.pn, ' ')) WITH ORDINALITY AS t(w, ord) WHERE length(w) >= 3 ORDER BY ord LIMIT 1)
+           =
+           (SELECT w FROM unnest(string_to_array(norm.input, ' ')) WITH ORDINALITY AS t(w, ord) WHERE length(w) >= 3 ORDER BY ord LIMIT 1)
          )
       ORDER BY (q.pn = norm.input) DESC, LENGTH(q.name), q.name
       LIMIT 5
@@ -1454,6 +1461,29 @@ export class ProductsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Ofertas (precio pactado) de un proveedor, con su producto asociado.
+   * A diferencia de getSupplierProducts (que usa el FK legacy product.supplierId),
+   * lee ProductSupplierOffer directamente: incluye ofertas no-preferentes y trae
+   * agreedPrice/agreedAt/agreedUntil.
+   */
+  async getSupplierOffers(supplierId: string, tenantId: string) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    const offers = await this.prisma.productSupplierOffer.findMany({
+      where: { supplierId, tenantId, product: { deletedAt: null } },
+      include: { product: { include: { category: true } } },
+      orderBy: [{ product: { name: "asc" } }],
+    });
+
+    return { success: true, data: offers, message: "Ofertas obtenidas" };
   }
 
   async getSupplierPriceTrend(supplierId: string, tenantId: string) {

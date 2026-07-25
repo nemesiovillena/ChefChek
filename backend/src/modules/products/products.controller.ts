@@ -539,6 +539,16 @@ export class ProductsController {
     );
   }
 
+  @Get("suppliers/:id/offers")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Ofertas (precio pactado) de un proveedor" })
+  @ApiParam({ name: "id", description: "ID del proveedor" })
+  @ApiResponse({ status: 200, description: "Lista de ofertas" })
+  async getSupplierOffers(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    return this.productsService.getSupplierOffers(id, tenantId);
+  }
+
   @Get("suppliers/:id/price-trend")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Tendencia de precio del proveedor" })

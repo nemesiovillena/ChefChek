@@ -859,7 +859,79 @@ curl -X GET http://localhost:3001/api/v1/products/categories \
 }
 ```
 
-#### 2.1.8 Calcular Costo de Producto
+#### 2.1.8 Obtener Ofertas de un Proveedor
+
+**Endpoint:** `GET /api/v1/products/suppliers/:id/offers`
+
+Obtiene todas las ofertas (productos y precios pactados) de un proveedor específico.
+
+**Parámetros:**
+- `id` (string, requerido): ID del proveedor
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "offer-uuid-123",
+      "tenantId": "tenant-uuid-456",
+      "productId": "prod-uuid-789",
+      "supplierId": "supp-uuid-123",
+      "purchaseFormat": "Caja 10kg",
+      "referenceUnit": "kg",
+      "unitsPerFormat": 1,
+      "referenceUnitSize": 10,
+      "unitSize": 10,
+      "purchasePrice": 25.50,
+      "previousPurchasePrice": 24.00,
+      "netPrice": 23.00,
+      "profitMargin": 9.0,
+      "agreedPrice": 22.50,
+      "agreedAt": "2026-07-25T10:30:00.000Z",
+      "agreedUntil": null,
+      "isPreferred": true,
+      "createdAt": "2026-07-10T08:15:00.000Z",
+      "updatedAt": "2026-07-25T10:30:00.000Z",
+      "deletedAt": null,
+      "product": {
+        "id": "prod-uuid-789",
+        "tenantId": "tenant-uuid-456",
+        "name": "Tomates Frescos",
+        "description": "Tomates de calidad premium",
+        "category": {
+          "id": "cat-uuid-111",
+          "tenantId": "tenant-uuid-456",
+          "name": "Verduras"
+        }
+      }
+    }
+  ],
+  "message": "Ofertas obtenidas"
+}
+```
+
+**Campos principales:**
+- `agreedPrice` (float, nullable): Precio pactado con el proveedor. `null` indica sin acuerdo de precio.
+- `agreedAt` (datetime, nullable): Timestamp de cuándo se fijó el precio pactado.
+- `agreedUntil` (datetime, nullable): Fecha de vencimiento opcional del acuerdo de precio.
+- `isPreferred` (boolean): Indica si esta es la oferta preferente del producto.
+- `purchasePrice` (float): Precio actual de compra.
+- `netPrice` (float): Precio neto (con ajustes de merma/margen).
+
+**Ejemplo cURL:**
+```bash
+curl -X GET http://localhost:3001/api/v1/products/suppliers/supp-uuid-123/offers \
+  -H "Authorization: Bearer {token}" \
+  -H "X-Tenant-Id: tenant-uuid-456"
+```
+
+**Notas:**
+- El endpoint está disponible para roles ADMIN, USER y VIEWER.
+- Los resultados se ordenan por nombre de producto (ascendente).
+- Solo se devuelven ofertas de productos no eliminados (soft-delete).
+
+#### 2.1.9 Calcular Costo de Producto
 
 **Endpoint:** `GET /api/v1/products/:id/calculate`
 

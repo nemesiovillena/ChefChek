@@ -1,0 +1,43 @@
+{
+  "commands": [
+    {
+      "command": "bun run build (backend)",
+      "status": "pass",
+      "exitCode": 0,
+      "timestamp": "2026-07-25T00:00:00.000Z",
+      "summary": "nest build clean, no errors."
+    },
+    {
+      "command": "npx tsc --noEmit -p tsconfig.json (frontend)",
+      "status": "pass",
+      "exitCode": 0,
+      "timestamp": "2026-07-25T00:00:00.000Z",
+      "summary": "No type errors across all touched files, including after the cache-invalidation fix."
+    },
+    {
+      "command": "npx eslint <touched files> (frontend)",
+      "status": "pass",
+      "exitCode": 0,
+      "timestamp": "2026-07-25T00:00:00.000Z",
+      "summary": "No lint errors on any touched or created file."
+    },
+    {
+      "command": "bun run test (backend jest, via tester subagent)",
+      "status": "pass",
+      "exitCode": 0,
+      "timestamp": "2026-07-25T00:00:00.000Z",
+      "summary": "96 suites / 1531 tests passed, including products.service.spec.ts, products.controller.spec.ts, product-supplier-offers.service.spec.ts."
+    },
+    {
+      "command": "npx jest src/modules/products/products.controller.spec.ts (post-review addition)",
+      "status": "pass",
+      "exitCode": 0,
+      "timestamp": "2026-07-25T00:00:00.000Z",
+      "summary": "Added getSupplierOffers describe block mirroring getSupplierPriceHistory pattern; 25/25 tests pass in this spec file."
+    }
+  ],
+  "beforeAfter": {
+    "before": "Precio pactado required manual price re-entry; no link from Articulos to supplier ficha; supplier ficha was a hidden expandable row with no agreedPrice visibility.",
+    "after": "1-click 'usar precio actual' saves agreedPrice directly; supplier name in Articulos opens a tabbed supplier ficha dialog; that same dialog is reachable from Proveedores and shows a 'Precios pactados' tab with edit/clear/1-click, read-only for VIEWER."
+  }
+}

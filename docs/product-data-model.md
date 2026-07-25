@@ -154,6 +154,95 @@ El campo `Product.lot` (ya existente) se actualiza como "último lote conocido" 
 
 Si en el futuro se necesita consumo de lote selectivo (FIFO por lote en recetas), se construirá consultando `Lot` + `StockMovement` con lógica de disponibilidad por lote y expiración.
 
+## Ofertas de Proveedor (ProductSupplierOffer)
+
+### Modelo ProductSupplierOffer
+
+Cada oferta de un proveedor representa un acuerdo comercial sobre un producto específico, incluyendo precios, formato de compra, y el **precio pactado** (agreedPrice) para control de desviaciones en el módulo de Compras.
+
+```prisma
+model ProductSupplierOffer {
+  id                String    @id @default(cuid())
+  tenantId          String
+  productId         String
+  supplierId        String
+
+  // Formato y conversión de unidades
+  purchaseFormat    String    @default("")        // Ej: "Caja 10kg"
+  referenceUnit     String    @default("kg")      // Unidad de referencia
+  unitsPerFormat    Int       @default(1)         // Cantidad de reference units por purchase format
+  referenceUnitSize Float    @default(1)         // Tamaño de una unidad de referencia
+  unitSize          Float     @default(1)         // Tamaño total del purchase format
+
+  // Precios
+  purchasePrice         Float
+  previousPurchasePrice Float @default(0)
+  netPrice              Float
+  profitMargin          Float @default(0)
+
+  // Precio pactado (nuevo — 2026-07-25)
+  agreedPrice Float?       // Precio acordado con proveedor; null = sin pacto
+  agreedAt    DateTime?    // Timestamp de cuándo se fijó el acuerdo
+  agreedUntil DateTime?    // Vigencia opcional del acuerdo
+
+  isPreferred Boolean      @default(false)       // Oferta preferente
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?                          // Soft-delete
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier    Supplier             @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  deviations  PriceDeviation[]     // Histórico de desviaciones de precio
+}
+```
+
+### Campos Principales
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `agreedPrice` | Float \| null | **Nuevo (2026-07-25)** Precio pactado con el proveedor. `null` indica sin acuerdo. |
+| `agreedAt` | DateTime \| null | Timestamp de cuándo se estableció el agreedPrice actual. |
+| `agreedUntil` | DateTime \| null | Fecha de vencimiento opcional del acuerdo (reservado para control de vigencia). |
+| `purchasePrice` | Float | Precio actual de compra del proveedor. |
+| `unitSize` | Float | Tamaño total en unidades de referencia de un purchase format (ej: 10kg para una caja). |
+| `isPreferred` | Boolean | Marca esta oferta como la preferente para el producto (usada en albaranes y comparativa). |
+
+### Semántica de Precio Pactado
+
+El campo `agreedPrice` permite fijar un precio objetivo con el proveedor:
+- **Cuando es `null`**: Sin acuerdo de precio. Los albaranes usan `purchasePrice` tal cual.
+- **Cuando tiene valor**: El módulo de Compras detecta desviaciones si el precio de línea en albarán diverge de `agreedPrice`, y genera `PriceDeviation` para alertar.
+- **`agreedAt`** se estampa automáticamente al crear o cambiar `agreedPrice` (grabación automática, no manual).
+- **`agreedUntil`** es opcional; si la fecha actual es posterior, el precio pactado se considera vencido (implementación futura).
+
+### Acceso a Ofertas por Proveedor
+
+**Endpoint:** `GET /api/v1/products/suppliers/:id/offers`
+
+Devuelve todas las ofertas de un proveedor, ordenadas por nombre de producto, con el producto incluido (incluyendo categoría). Disponible para roles ADMIN, USER y VIEWER.
+
+```typescript
+// Ejemplo de respuesta
+{
+  success: true,
+  data: [
+    {
+      id: "offer-123",
+      productId: "prod-456",
+      supplierId: "supp-789",
+      purchasePrice: 25.50,
+      agreedPrice: 22.50,
+      agreedAt: "2026-07-25T10:30:00.000Z",
+      agreedUntil: null,
+      isPreferred: true,
+      product: { id: "prod-456", name: "Tomates Frescos", ... }
+    }
+  ],
+  message: "Ofertas obtenidas"
+}
+```
+
 ## Campos Detallados
 
 ### Identificación y Contexto
