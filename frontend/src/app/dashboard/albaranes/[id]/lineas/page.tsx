@@ -211,42 +211,35 @@ export default function AlbaranLineasPage() {
     // PENDIENTE lines - show actions based on matchStatus
     return (
       <div className="flex items-center gap-2">
-        {line.matchStatus === 'MATCH_DUDOSO' && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleOpenPicker(line)}
-            className="text-yellow-700 border-yellow-300 hover:bg-yellow-50"
-          >
-            <Search className="h-3 w-3 mr-1" />
-            Elegir
-          </Button>
-        )}
-
-        {line.matchStatus === 'NUEVO' && creatingLine !== line.id && (
-          <>
-            {/* Puede ser un existente que el OCR no casó: ofrecer vincular
-                antes de crear un artículo paralelo (duplicado). */}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleOpenPicker(line)}
-              className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
-            >
-              <Search className="h-3 w-3 mr-1" />
-              Elegir
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleOpenCreate(line)}
-              className="text-red-700 border-red-300 hover:bg-red-50"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Crear
-            </Button>
-          </>
-        )}
+        {(line.matchStatus === 'MATCH_DUDOSO' || line.matchStatus === 'NUEVO') &&
+          creatingLine !== line.id && (
+            <>
+              {/* Puede ser un existente que el OCR no casó (o casó mal): ofrecer
+                  vincular antes de crear un artículo paralelo (duplicado). */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenPicker(line)}
+                className={
+                  line.matchStatus === 'MATCH_DUDOSO'
+                    ? 'text-yellow-700 border-yellow-300 hover:bg-yellow-50'
+                    : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'
+                }
+              >
+                <Search className="h-3 w-3 mr-1" />
+                Elegir
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleOpenCreate(line)}
+                className="text-red-700 border-red-300 hover:bg-red-50"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Crear
+              </Button>
+            </>
+          )}
 
         {line.matchStatus === 'MATCH_ALTO' && line.matchedProduct && (
           <div className="flex items-center gap-1 text-green-600">
