@@ -231,21 +231,27 @@ export function CreateProductInline({
       <PesoPrecioFields formData={formData} setFormData={setFormData} tree={tree} />
 
       {lineSubtotal !== null && (
-        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/30">
+          <div className="text-gray-600 dark:text-gray-300">
             Subtotal línea:{' '}
-            <span className="font-medium text-gray-700">
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
               {lineQuantity.toLocaleString('es-ES')} {formData.referenceUnit} × {fmtEuro(parsedPrice)} € = {fmtEuro(lineSubtotal)} €
             </span>
-          </span>
+          </div>
           {subtotalMatches !== null && (
-            <span className={subtotalMatches ? 'text-green-600' : 'text-amber-600'}>
+            <div
+              className={
+                subtotalMatches
+                  ? 'mt-1 font-medium text-green-700 dark:text-green-400'
+                  : 'mt-1 font-medium text-amber-700 dark:text-amber-400'
+              }
+            >
               {subtotalMatches
                 ? '✓ coincide con el total del albarán'
                 : `≠ total albarán (${fmtEuro(originalTotal)} €${
                     discountPct > 0 ? `, con −${discountPct}% dto` : ''
                   })`}
-            </span>
+            </div>
           )}
         </div>
       )}
@@ -254,16 +260,21 @@ export function CreateProductInline({
         <p className="text-xs text-red-600">{error}</p>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={loading}>
+      <div className="flex gap-2 pt-1">
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading}
+          className="flex-1 bg-green-600 text-white hover:bg-green-700"
+        >
           {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Plus className="h-3 w-3" />
+            <Plus className="h-4 w-4" />
           )}
           <span className="ml-1">Crear y asignar</span>
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+        <Button type="button" size="lg" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
       </div>
