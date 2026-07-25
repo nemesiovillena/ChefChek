@@ -108,6 +108,56 @@ describe("ProductSupplierOffersService", () => {
       });
     });
 
+    it("primera oferta sin unitsPerFormat explícito hereda el unitSize del producto (caso real: caja de 105 uds) en vez de resetear a 1", async () => {
+      // Regresión: producto creado desde el alta manual con unitSize=105
+      // (caja de 105 unidades). Al confirmar el albarán, upsertOffer recibe
+      // el precio SIN unitsPerFormat/referenceUnitSize (la línea del albarán
+      // no lleva ese dato) — antes del fix, la primera oferta de un
+      // proveedor nuevo caía a unitSize=1 y comparaba 42€/105 vs 42€/1,
+      // generando un falso "subió el precio" y pisando el unitSize real.
+      const productWith105Units = {
+        ...baseProduct,
+        purchasePrice: 42,
+        netPrice: 42,
+        unitsPerFormat: 105,
+        referenceUnitSize: 1,
+        unitSize: 105,
+      };
+      (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+        productWith105Units,
+      );
+      (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+      (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+        ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+      );
+
+      await service.upsertOffer(productId, supplierId, tenantId, {
+        purchasePrice: 42,
+        netPrice: 42,
+      });
+
+      expect(prisma.productSupplierOffer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            unitsPerFormat: 105,
+            referenceUnitSize: 1,
+            unitSize: 105,
+          }),
+        }),
+      );
+      // Mismo €/ud (42/105) antes y después: no debe registrar variación
+      // falsa ni pisar el Product con unitSize=1.
+      expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ unitSize: 105 }),
+        }),
+      );
+    });
+
     it("throws if the product does not exist", async () => {
       (prisma.product.findFirst as jest.Mock).mockResolvedValue(null);
 

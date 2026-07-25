@@ -7,13 +7,18 @@ import { Loader2, TrendingUp, TrendingDown, Minus, FileText } from 'lucide-react
 interface ProductPriceHistoryTableProps {
   productId: string;
   supplierId?: string;
+  discountPercentage?: number | null;
 }
 
 /**
  * Tabla de historial de precios de un producto.
  * Muestra cambios de precio con fecha, proveedor, variación y albarán asociado.
  */
-export function ProductPriceHistoryTable({ productId, supplierId }: ProductPriceHistoryTableProps) {
+export function ProductPriceHistoryTable({
+  productId,
+  supplierId,
+  discountPercentage,
+}: ProductPriceHistoryTableProps) {
   const { data: history, isLoading, error } = useProductPriceHistory(productId, supplierId);
 
   if (isLoading) {
@@ -58,10 +63,10 @@ export function ProductPriceHistoryTable({ productId, supplierId }: ProductPrice
             const canNormalize =
               entry.previousUnitSize != null && entry.newUnitSize != null;
             const previousRef = canNormalize
-              ? normalizePrice(entry.previousPrice, entry.previousUnitSize)
+              ? normalizePrice(entry.previousPrice, entry.previousUnitSize, discountPercentage)
               : entry.previousPrice;
             const newRef = canNormalize
-              ? normalizePrice(entry.newPrice, entry.newUnitSize)
+              ? normalizePrice(entry.newPrice, entry.newUnitSize, discountPercentage)
               : entry.newPrice;
             const change = newRef - previousRef;
             const pctChange = previousRef > 0

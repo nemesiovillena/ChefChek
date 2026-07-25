@@ -27,6 +27,8 @@ interface ProductPriceTrendBadgeProps {
   current: number;
   /** unitSize vigente del producto (para normalizar `current` a €/kg). */
   currentUnitSize?: number | null;
+  /** Descuento fijo del proveedor (0-100), igual que en el listado/coste. */
+  discountPercentage?: number | null;
   /** Delta del último cambio con traza, sourceado de ProductPriceHistory. */
   latestPriceChange: LatestPriceChange | null;
   productId: string;
@@ -47,6 +49,7 @@ interface ProductPriceTrendBadgeProps {
 export function ProductPriceTrendBadge({
   current,
   currentUnitSize,
+  discountPercentage,
   latestPriceChange,
   productId,
   productName,
@@ -56,14 +59,20 @@ export function ProductPriceTrendBadge({
 
   // Normalizado a €/kg cuando hay snapshot de unitSize en ambos extremos
   // (entradas nuevas); fallback a precio crudo idéntico al de antes para
-  // filas legacy sin unitSize histórico.
+  // filas legacy sin unitSize histórico. Descuento fijo aplicado a ambos
+  // lados por igual (no cambia el % mostrado, pero deja el € de referencia
+  // consistente con el listado de artículos).
   const canNormalize =
     latestPriceChange.previousUnitSize != null && currentUnitSize != null;
   const previous = canNormalize
-    ? normalizePrice(latestPriceChange.previousPrice, latestPriceChange.previousUnitSize)
+    ? normalizePrice(
+        latestPriceChange.previousPrice,
+        latestPriceChange.previousUnitSize,
+        discountPercentage,
+      )
     : latestPriceChange.previousPrice;
   const currentValue = canNormalize
-    ? normalizePrice(current, currentUnitSize)
+    ? normalizePrice(current, currentUnitSize, discountPercentage)
     : current;
   if (!previous || previous <= 0) return null;
 
@@ -103,8 +112,16 @@ export function ProductPriceTrendBadge({
             Evolución del precio de compra y cambios registrados.
           </DialogDescription>
         </DialogHeader>
-        <ProductPriceHistoryChart productId={productId} supplierId={supplierId} />
-        <ProductPriceHistoryTable productId={productId} supplierId={supplierId} />
+        <ProductPriceHistoryChart
+          productId={productId}
+          supplierId={supplierId}
+          discountPercentage={discountPercentage}
+        />
+        <ProductPriceHistoryTable
+          productId={productId}
+          supplierId={supplierId}
+          discountPercentage={discountPercentage}
+        />
       </DialogContent>
     </Dialog>
   );

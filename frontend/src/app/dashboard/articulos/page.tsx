@@ -686,6 +686,7 @@ export default function ArticulosPage() {
                             <ProductPriceTrendBadge
                               current={product.purchasePrice}
                               currentUnitSize={product.unitSize}
+                              discountPercentage={product.discountPercentage}
                               latestPriceChange={product.latestPriceChange ?? null}
                               productId={product.id}
                               productName={product.name}

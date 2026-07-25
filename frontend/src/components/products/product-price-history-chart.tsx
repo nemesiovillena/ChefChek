@@ -16,6 +16,7 @@ import { normalizePrice } from '@/hooks/use-products';
 interface ProductPriceHistoryChartProps {
   productId: string;
   supplierId?: string;
+  discountPercentage?: number | null;
 }
 
 const euroShort = (n: number) =>
@@ -34,7 +35,11 @@ const shortDate = (value: string) =>
  * puntuales de la tabla. Los datos llegan en orden descendente y se invierten
  * para pintar la línea de izquierda (más antiguo) a derecha (más reciente).
  */
-export function ProductPriceHistoryChart({ productId, supplierId }: ProductPriceHistoryChartProps) {
+export function ProductPriceHistoryChart({
+  productId,
+  supplierId,
+  discountPercentage,
+}: ProductPriceHistoryChartProps) {
   const { data: history, isLoading, error } = useProductPriceHistory(productId, supplierId);
 
   if (isLoading) {
@@ -64,10 +69,10 @@ export function ProductPriceHistoryChart({ productId, supplierId }: ProductPrice
       return {
         date: entry.recordedAt,
         price: canNormalize
-          ? normalizePrice(entry.newPrice, entry.newUnitSize)
+          ? normalizePrice(entry.newPrice, entry.newUnitSize, discountPercentage)
           : entry.newPrice,
         previous: canNormalize
-          ? normalizePrice(entry.previousPrice, entry.previousUnitSize)
+          ? normalizePrice(entry.previousPrice, entry.previousUnitSize, discountPercentage)
           : entry.previousPrice,
       };
     });

@@ -79,10 +79,23 @@ export class ProductSupplierOffersService {
       where: { productId, supplierId },
     });
 
+    // Ni el albarán OCR ni el alta manual llevan "unidades por caja" en la
+    // línea: si esta es la primera oferta de este proveedor y no viene el
+    // dato explícito, hereda el unitSize que el producto YA tenía correcto
+    // (ej. fijado al crearlo desde el formulario) en vez de resetear a 1 —
+    // sin este fallback, la primera compra confirmada de un proveedor nuevo
+    // pisaba el unitSize real del producto con 1, disparando un falso "subió
+    // el precio" en el badge de tendencia (precio/1 vs precio/105).
     const unitsPerFormat =
-      data.unitsPerFormat ?? existingOffer?.unitsPerFormat ?? 1;
+      data.unitsPerFormat ??
+      existingOffer?.unitsPerFormat ??
+      product.unitsPerFormat ??
+      1;
     const referenceUnitSize =
-      data.referenceUnitSize ?? existingOffer?.referenceUnitSize ?? 1;
+      data.referenceUnitSize ??
+      existingOffer?.referenceUnitSize ??
+      product.referenceUnitSize ??
+      1;
     const unitSize = unitsPerFormat * referenceUnitSize;
     const netPrice = data.netPrice ?? data.purchasePrice;
 

@@ -312,8 +312,8 @@ export function useUploadProductImage() {
  * backend (product-costing.util.ts): el descuento reduce el precio de compra a
  * efectos de coste. Usado por getReferencePrice/getRealPrice para que el
  * listado y los exports muestren el precio efectivo, consistente con el
- * escandallo. No aplica a normalizePrice (histórico: compara purchasePrice
- * crudo) ni a price-history.
+ * escandallo. También lo aplica normalizePrice (histórico/badge de tendencia)
+ * para que el precio de referencia mostrado sea consistente con el listado.
  */
 export function applyPurchaseDiscount(
   price: number,
@@ -334,8 +334,13 @@ export function getReferencePrice(product: Product): number {
  * normalizadas en vez de purchasePrice crudo (evita variaciones falsas cuando
  * cambia el tamaño de caja/formato entre compras).
  */
-export function normalizePrice(price: number, unitSize?: number | null): number {
-  return unitSize ? price / unitSize : price;
+export function normalizePrice(
+  price: number,
+  unitSize?: number | null,
+  discountPercentage?: number | null,
+): number {
+  const perUnit = unitSize ? price / unitSize : price;
+  return applyPurchaseDiscount(perUnit, discountPercentage);
 }
 
 /** Tolerancia relativa para considerar dos precios normalizados "iguales" —
