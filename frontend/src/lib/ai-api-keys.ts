@@ -99,3 +99,37 @@ export function getApiKeyForModel(modelId: string): string {
 export function getProviderForModel(modelId: string): string | undefined {
   return AI_PROVIDERS.find(p => p.models.some(m => m.id === modelId))?.id;
 }
+
+export interface OcrModelOption {
+  id: string;
+  name: string;
+  cost: string;
+  desc: string;
+}
+
+/** Motores de extracción disponibles para el OCR de albaranes, con info de coste. Se elige en Configuración. */
+export const OCR_MODELS: OcrModelOption[] = [
+  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0 €', desc: 'Regex básico, sin coste' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0,01 €', desc: 'Rápido y barato, buena precisión' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0,005 €', desc: 'El más barato, muy buena visión' },
+  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0,05 €', desc: 'Máxima precisión, más caro' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0,01 €', desc: 'Buen balance calidad/precio' },
+  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'OpenRouter — GPT-4o Mini' },
+  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'OpenRouter — Claude Haiku' },
+  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'OpenRouter — Gemini Flash' },
+  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'OpenRouter — Llama 4 Maverick' },
+];
+
+const OCR_MODEL_STORAGE_KEY = 'ocr_ai_model';
+
+/** Obtener el motor de extracción configurado (elegido en Configuración). Por defecto "regex" (solo OCR, gratis). */
+export function getOcrModel(): string {
+  if (typeof window === 'undefined') return 'regex';
+  return localStorage.getItem(OCR_MODEL_STORAGE_KEY) || 'regex';
+}
+
+/** Guardar el motor de extracción elegido */
+export function setOcrModel(modelId: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(OCR_MODEL_STORAGE_KEY, modelId);
+}

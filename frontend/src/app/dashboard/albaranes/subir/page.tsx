@@ -22,25 +22,9 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
-import { getApiKeyForModel } from '@/lib/ai-api-keys';
+import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
-
-/** Modelos IA disponibles con info de coste */
-const AI_MODELS = [
-  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0 €', desc: 'Regex básico, sin coste' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0,01 €', desc: 'Rápido y barato, buena precisión' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0,005 €', desc: 'El más barato, muy buena visión' },
-  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0,05 €', desc: 'Máxima precisión, más caro' },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0,01 €', desc: 'Buen balance calidad/precio' },
-  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'OpenRouter — GPT-4o Mini' },
-  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'OpenRouter — Claude Haiku' },
-  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'OpenRouter — Gemini Flash' },
-  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'OpenRouter — Llama 4 Maverick' },
-];
-
-/** Storage key para persistir modelo seleccionado */
-const STORAGE_KEY_MODEL = 'ocr_ai_model';
 
 /** Results may include an albaranId when the backend created an albaran record. */
 type ResultsWithAlbaran = AlbaranUploadResult & { albaranId?: string };
@@ -52,15 +36,8 @@ function getAlbaranId(results: AlbaranUploadResult): string | undefined {
 export default function SubirAlbaranPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const [aiModel, setAiModel] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem(STORAGE_KEY_MODEL) || '';
-  });
-
-  const handleModelChange = (model: string) => {
-    setAiModel(model);
-    localStorage.setItem(STORAGE_KEY_MODEL, model);
-  };
+  // Motor de extracción y API key se eligen en /dashboard/settings
+  const [aiModel] = useState<string>(() => getOcrModel());
 
   // API key se lee del store centralizado (configurado en /dashboard/settings)
   const aiApiKey = aiModel && aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
@@ -81,7 +58,7 @@ export default function SubirAlbaranPage() {
     aiApiKey: aiModel && aiModel !== 'regex' ? aiApiKey : undefined,
   });
 
-  const selectedModelInfo = AI_MODELS.find((m) => m.id === aiModel);
+  const selectedModelInfo = OCR_MODELS.find((m) => m.id === aiModel);
   const needsApiKey = aiModel && aiModel !== 'regex';
 
   return (
@@ -103,35 +80,27 @@ export default function SubirAlbaranPage() {
 
       <Card>
         <CardContent className="space-y-5">
-          {/* AI Model Selector */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium">Motor de extracción</h3>
+          {/* Motor de extracción — elegido en /dashboard/settings, solo lectura aquí */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  Motor de extracción: {selectedModelInfo?.name || 'Solo OCR (gratis)'}
+                </span>
+              </div>
+              <Link
+                href="/dashboard/settings"
+                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 shrink-0"
+              >
+                <Settings className="h-3 w-3" />
+                Cambiar
+              </Link>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {AI_MODELS.map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => handleModelChange(model.id)}
-                  className={`p-2 rounded-lg border text-left transition-colors ${
-                    aiModel === model.id
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-muted hover:border-primary/50'
-                  }`}
-                >
-                  <div className="text-xs font-medium truncate">{model.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{model.cost}/img</div>
-                </button>
-              ))}
-            </div>
-            {selectedModelInfo && (
-              <p className="text-xs text-muted-foreground">{selectedModelInfo.desc}</p>
-            )}
 
             {/* API Key status — enlace a settings si no hay key */}
             {needsApiKey && (
-              <div className="space-y-1">
+              <div>
                 {aiApiKey ? (
                   <p className="text-xs text-green-600 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />

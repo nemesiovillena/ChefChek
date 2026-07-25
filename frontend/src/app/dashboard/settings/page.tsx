@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
-import { AI_PROVIDERS, getApiKey, sanitizeApiKey, setApiKey } from '@/lib/ai-api-keys';
+import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
 import { apiClient } from '@/lib/api-client';
-import { Key, Eye, EyeOff, Check, AlertTriangle, Percent } from 'lucide-react';
+import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2 } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
@@ -47,6 +47,16 @@ export default function SettingsPage() {
 
   // Costeo de recetas: coste objetivo máximo (%) global del tenant
   const { data: costingConfig } = useCostingConfig();
+
+  // Motor de extracción (OCR de albaranes): modelo IA elegido, persistido en localStorage
+  const [ocrModel, setOcrModelState] = useState<string>(() => getOcrModel());
+  const handleOcrModelChange = (modelId: string) => {
+    setOcrModelState(modelId);
+    setOcrModel(modelId);
+  };
+  const selectedOcrModel = OCR_MODELS.find((m) => m.id === ocrModel);
+  const ocrModelNeedsApiKey = ocrModel && ocrModel !== 'regex';
+  const ocrModelHasApiKey = ocrModelNeedsApiKey && !!getApiKeyForModel(ocrModel);
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -299,8 +309,51 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* Module Configuration */}
-        <ModuleListWidget />
+        {/* Motor de extracción (OCR de albaranes) */}
+        <div className="bg-white shadow rounded-lg mb-6 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-xl font-semibold">Motor de extracción</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Modelo IA usado para extraer los productos al subir un albarán.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+            {OCR_MODELS.map((model) => (
+              <button
+                key={model.id}
+                type="button"
+                onClick={() => handleOcrModelChange(model.id)}
+                className={`p-2 rounded-lg border text-left transition-colors ${
+                  ocrModel === model.id
+                    ? 'border-indigo-600 bg-gray-100 ring-1 ring-indigo-600'
+                    : 'border-gray-200 hover:border-indigo-300'
+                }`}
+              >
+                <div className="text-xs font-medium text-gray-900 truncate">{model.name}</div>
+                <div className="text-[10px] text-gray-500">{model.cost}/img</div>
+              </button>
+            ))}
+          </div>
+          {selectedOcrModel && (
+            <p className="text-xs text-gray-500 mt-3">{selectedOcrModel.desc}</p>
+          )}
+          {ocrModelNeedsApiKey && (
+            <p className="text-xs mt-1 flex items-center gap-1">
+              {ocrModelHasApiKey ? (
+                <span className="text-green-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  API Key configurada
+                </span>
+              ) : (
+                <span className="text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Configura la clave en Claves API, más abajo
+                </span>
+              )}
+            </p>
+          )}
+        </div>
 
         {/* SMTP para envío de pedidos (módulo Compras) */}
         <div className="mb-6 mt-6">
@@ -398,6 +451,11 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* Module Configuration */}
+        <div className="mt-6">
+          <ModuleListWidget />
         </div>
       </div>
     </div>
