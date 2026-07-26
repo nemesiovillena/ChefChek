@@ -425,8 +425,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           )}
           {activeTab === 'historial-precios' && article?.id && (
             <div className="space-y-4">
-              <ProductPriceHistoryChart productId={article.id} supplierId={article.supplierId ?? undefined} />
-              <ProductPriceHistoryTable productId={article.id} supplierId={article.supplierId ?? undefined} />
+              {/* Sin supplierId: histórico de TODOS los proveedores del
+                  artículo, no solo el preferente actual — la tabla ya tiene
+                  columna "Proveedor" para distinguirlos. */}
+              <ProductPriceHistoryChart productId={article.id} />
+              <ProductPriceHistoryTable productId={article.id} />
             </div>
           )}
         </div>
