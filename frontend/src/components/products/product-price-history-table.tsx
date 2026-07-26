@@ -93,8 +93,11 @@ export function ProductPriceHistoryTable({
                   {formatPrice(entry.newPrice)}
                 </td>
                 <td className="py-2 px-3 text-right">
-                  <span className={`inline-flex items-center gap-1 ${
-                    isUp ? 'text-red-700' : isDown ? 'text-green-600' : 'text-gray-500'
+                  {/* Mismo pill que el badge de tendencia del listado de artículos
+                      (product-price-trend-badge.tsx) — consistencia visual entre
+                      ambos puntos donde se muestra la variación de precio. */}
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                    isUp ? 'bg-red-100 text-red-700' : isDown ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                   }`}>
                     {isUp ? <TrendingUp className="h-3 w-3" /> : isDown ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                     {isUp ? '+' : ''}{pctChange}%
