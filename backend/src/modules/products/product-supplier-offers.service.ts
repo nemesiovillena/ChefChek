@@ -163,12 +163,41 @@ export class ProductSupplierOffersService {
     // Sin este bloque, ninguna oferta nueva/actualizada quedaba en el
     // Histórico de precios salvo la que ya era preferente de siempre.
     if (promoteToPreferred) {
-      // Baseline única: el precio plano vigente del artículo ANTES de esta
-      // compra (sea de quien sea el proveedor que lo tenía) — así el badge de
-      // tendencia del listado compara contra lo que el usuario veía antes,
-      // no contra el histórico interno de ESTE proveedor (que puede ser 0 si
-      // nunca había comprado aquí).
-      if (
+      // ¿Primera compra real del artículo? Una fila previa de historial
+      // vinculada a un albarán (albaranId not null = compra confirmada) es la
+      // señal de que ya hubo una compra con traza. Sin ella, ESTA compra es la
+      // línea base: se registra con previousPrice=0 para que el badge de
+      // tendencia del listado no renderice (su guarda `previous<=0 → null`).
+      //
+      // Sin esta línea base, un artículo recién creado desde albarán porta un
+      // purchasePrice = bruto de la creación inline (create-product-inline
+      // prefija con line.unitPrice); al confirmar con applyDiscountToCost
+      // activo, lineUnitPrice pasa a ser el neto (totalPrice/qty) y la
+      // comparación bruto→neto genera un badge espurio -X% igual al
+      // descuento de la factura, aunque no exista compra previa real.
+      const priorPurchase = await client.productPriceHistory.findFirst({
+        where: { productId, albaranId: { not: null } },
+        select: { id: true },
+      });
+
+      if (!priorPurchase) {
+        // Primera compra: baseline. newPrice queda como precio de arranque
+        // para que la SIGUIENTE compra sí tenga contra qué comparar.
+        await client.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId,
+            supplierId,
+            albaranId,
+            previousPrice: 0,
+            newPrice: data.purchasePrice,
+            previousUnitSize: null,
+            newUnitSize: unitSize,
+          },
+        });
+      } else if (
+        // Compras posteriores: tendencia real contra el precio plano vigente
+        // del artículo ANTES de esta compra (sea de quien sea el proveedor).
         referencePriceChanged(
           product.purchasePrice,
           product.unitSize,
