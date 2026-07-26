@@ -201,6 +201,15 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       : undefined;
 
     const parsedPrice = parseFloat(formData.purchasePrice);
+    // `formData.purchasePrice` se congela al abrir el modal (key={article?.id},
+    // sin refetch mientras está abierto) y NO se sincroniza con los precios en
+    // vivo de "Proveedor y Stock". El backend reenvía cualquier purchasePrice
+    // presente en el DTO a la oferta que sea preferente EN ESE MOMENTO — si el
+    // proveedor preferente cambió (ej. albarán confirmado) mientras el modal
+    // seguía abierto, reenviar este valor obsoleto pisaba silenciosamente el
+    // precio real de la nueva oferta preferente. Solo se envía si el usuario
+    // lo tocó de verdad (difiere del valor con el que se precargó el campo).
+    const priceEditedByUser = !article || (!isNaN(parsedPrice) && parsedPrice !== article.purchasePrice);
     const productData: CreateProductData = {
       name: formData.name,
       category: formData.categoryId || undefined,
@@ -209,7 +218,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       referenceUnit: formData.referenceUnit || undefined,
       unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
       referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
-      purchasePrice: isNaN(parsedPrice) ? undefined : parsedPrice,
+      purchasePrice: priceEditedByUser && !isNaN(parsedPrice) ? parsedPrice : undefined,
       discountPercentage: parseFloat(formData.discountPercentage) || 0,
       grossWeight: parseFloat(formData.grossWeight) || 0,
       netWeight: parseFloat(formData.netWeight) || 0,
