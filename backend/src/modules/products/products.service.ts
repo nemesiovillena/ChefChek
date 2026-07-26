@@ -133,6 +133,29 @@ export class ProductsService {
       },
     });
 
+    // Alta con proveedor: crear la oferta preferente inicial. Sin esto el
+    // artículo queda con Product.supplierId plano pero sin ninguna fila en
+    // ProductSupplierOffer, y la pestaña "Proveedor y Stock" del modal de
+    // edición (que lee offers, no el campo plano) lo mostraría "sin
+    // proveedor" hasta que se editara el precio. No es una compra confirmada,
+    // así que promoteToPreferred=false: upsertOffer la marca preferente
+    // igualmente por ser la primera oferta del producto (offerCount === 0).
+    if (supplier) {
+      await this.productSupplierOffersService.upsertOffer(
+        product.id,
+        supplier,
+        requestTenantId,
+        {
+          purchasePrice: product.purchasePrice,
+          netPrice: product.netPrice,
+          purchaseFormat: product.purchaseFormat,
+          referenceUnit: product.referenceUnit,
+          unitsPerFormat: product.unitsPerFormat,
+          referenceUnitSize: product.referenceUnitSize,
+        },
+      );
+    }
+
     // Create stock record with min/max if provided
     if (minimumStock !== undefined || maximumStock !== undefined) {
       await this.prisma.stock.create({

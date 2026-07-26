@@ -365,6 +365,25 @@ export class AlbaranStockService {
             },
           });
 
+          // Oferta preferente inicial del producto recién creado. Sin este
+          // bloque, el artículo nacía con Product.supplierId plano pero SIN
+          // ninguna fila en ProductSupplierOffer; la pestaña "Proveedor y
+          // Stock" del modal de edición (y el módulo Compras) leen offers, no
+          // el campo plano, así que aparecía "sin proveedor" al editarlo
+          // pese a que el listado sí lo mostraba. Patrón idéntico al del
+          // producto existente (bloque if line.matchedProductId más arriba).
+          if (albaran.supplierId) {
+            await this.productSupplierOffersService.upsertOffer(
+              newProduct.id,
+              albaran.supplierId,
+              tenantId,
+              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+              tx,
+              albaran.id,
+              true,
+            );
+          }
+
           this.logger.log(
             `Producto creado: ${newProduct.name} con stock ${lineQuantity} ${lineUnit}`,
           );

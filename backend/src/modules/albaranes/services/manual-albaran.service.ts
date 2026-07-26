@@ -202,6 +202,21 @@ export class ManualAlbaranService {
             },
           });
           productId = product.id;
+          // Crear la oferta preferente inicial (espejo de la rama
+          // existingByName más arriba). Sin esto, el producto nace con
+          // supplierId plano pero sin ProductSupplierOffer y aparece "sin
+          // proveedor" al editarlo en el modal, pese a tenerlo en el listado.
+          if (supplierId && line.price > 0) {
+            await this.productSupplierOffersService.upsertOffer(
+              product.id,
+              supplierId,
+              tenantId,
+              { purchasePrice: line.price, netPrice: line.price },
+              undefined,
+              undefined,
+              true,
+            );
+          }
           results.created++;
         }
       }
