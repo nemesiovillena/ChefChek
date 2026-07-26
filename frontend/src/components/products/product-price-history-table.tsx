@@ -94,7 +94,7 @@ export function ProductPriceHistoryTable({
                 </td>
                 <td className="py-2 px-3 text-right">
                   <span className={`inline-flex items-center gap-1 ${
-                    isUp ? 'text-red-600' : isDown ? 'text-green-600' : 'text-gray-500'
+                    isUp ? 'text-red-700' : isDown ? 'text-green-600' : 'text-gray-500'
                   }`}>
                     {isUp ? <TrendingUp className="h-3 w-3" /> : isDown ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                     {isUp ? '+' : ''}{pctChange}%
