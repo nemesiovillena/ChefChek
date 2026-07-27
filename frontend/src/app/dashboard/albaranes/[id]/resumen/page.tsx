@@ -14,7 +14,7 @@ import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dia
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart, ArrowUpRight } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
 export default function AlbaranResumenPage() {
@@ -269,9 +269,19 @@ export default function AlbaranResumenPage() {
                   <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                     <FileText className="h-5 w-5 text-purple-600" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm text-gray-500">Líneas</p>
-                    <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => router.push(`/dashboard/albaranes/${id}/lineas`)}
+                        className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                      >
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
