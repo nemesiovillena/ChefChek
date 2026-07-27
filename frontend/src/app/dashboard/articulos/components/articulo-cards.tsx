@@ -1,12 +1,12 @@
 'use client';
 
 import { Product } from '@/hooks/use-products';
-import Image from 'next/image';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import { cn, formatEuro } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
+import ProductThumbnail from './product-thumbnail';
 
 interface ArticuloCardsProps {
   products: Product[];
@@ -88,15 +88,7 @@ export default function ArticuloCards({
             </div>
 
             {/* Image */}
-            {product.imageUrl && (
-              <Image
-                src={product.imageUrl}
-                alt=""
-                width={48}
-                height={48}
-                className="h-12 w-12 rounded object-cover mb-2"
-              />
-            )}
+            <ProductThumbnail imageUrl={product.imageUrl} size={48} className="mb-2" />
 
             {/* Name + brand */}
             <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>

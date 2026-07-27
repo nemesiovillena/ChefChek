@@ -11,9 +11,10 @@ import apiClient from '@/lib/api-client';
 import { PaginatedResponse } from '@/types/api.types';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { useConfirm } from '@/contexts/confirm.context';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag, RotateCcw } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
+import ProductThumbnail from './components/product-thumbnail';
 import PaginationControls from '@/components/shared/pagination-controls';
 import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
 
@@ -648,6 +649,7 @@ export default function ArticulosPage() {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
               <thead className="bg-gray-50 dark:bg-zinc-800/50">
                 <tr>
+                  <th className="w-12 px-3 py-3"></th>
                   {renderSortableHeader('Nombre', 'name')}
                   {renderSortableHeader('Categoría', 'category')}
                   {renderSortableHeader('Subcategoría', 'subcategory')}
@@ -662,9 +664,9 @@ export default function ArticulosPage() {
               </thead>
               <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
                 {productsLoading ? (
-                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
+                  <tr><td colSpan={11} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
                 ) : products.length === 0 ? (
-                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
+                  <tr><td colSpan={11} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
                 ) : (
                   products.map((product: Product) => {
                     // Nombre propio de la categoría del producto. Si es raíz (sin
@@ -676,6 +678,7 @@ export default function ArticulosPage() {
                     const hasParent = Boolean(parentCat);
                     return (
                       <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                        <td className="px-3 py-2"><ProductThumbnail imageUrl={product.imageUrl} size={32} /></td>
                         <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div></td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? parentCat!.name : productCatName}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? productCatName : '-'}</td>
@@ -848,14 +851,7 @@ function ArticleContextCard({ product }: { product: Product }) {
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--surface-container-highest)]">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <Tag className="h-5 w-5 text-[var(--on-surface-variant)]" />
-        )}
-      </div>
+      <ProductThumbnail imageUrl={product.imageUrl} size={44} className="rounded-xl" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--on-surface)]">{product.name}</p>
         {meta && <p className="truncate text-xs text-[var(--on-surface-variant)]">{meta}</p>}

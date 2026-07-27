@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { GoogleImageSearchService } from "./google-image-search.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -48,6 +49,10 @@ describe("ProductsController", () => {
     removeOffer: jest.fn(),
   };
 
+  const mockGoogleImageSearchService = {
+    search: jest.fn(),
+  };
+
   const mockReq = {
     tenantId: "tenant-test-123",
     user: { id: "user-1", role: "ADMIN" },
@@ -61,6 +66,10 @@ describe("ProductsController", () => {
         {
           provide: ProductSupplierOffersService,
           useValue: mockProductSupplierOffersService,
+        },
+        {
+          provide: GoogleImageSearchService,
+          useValue: mockGoogleImageSearchService,
         },
       ],
     })
@@ -521,6 +530,35 @@ describe("ProductsController", () => {
 
       expect(result.success).toBe(true);
       expect(fs.mkdirSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("searchImage", () => {
+    it("throws BadRequestException when q is missing", async () => {
+      await expect(controller.searchImage("")).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockGoogleImageSearchService.search).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException when q is blank spaces", async () => {
+      await expect(controller.searchImage("   ")).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("returns candidate images for a valid query", async () => {
+      const results = [
+        { url: "https://a.com/full.jpg", thumbnailUrl: "https://a.com/t.jpg" },
+      ];
+      mockGoogleImageSearchService.search.mockResolvedValue(results);
+
+      const result = await controller.searchImage("Aceite Girasol 5L");
+
+      expect(mockGoogleImageSearchService.search).toHaveBeenCalledWith(
+        "Aceite Girasol 5L",
+      );
+      expect(result).toEqual({ success: true, data: results });
     });
   });
 });

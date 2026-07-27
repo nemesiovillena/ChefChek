@@ -27,6 +27,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { GoogleImageSearchService } from "./google-image-search.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -58,6 +59,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly googleImageSearchService: GoogleImageSearchService,
   ) {}
 
   @Post()
@@ -103,6 +105,24 @@ export class ProductsController {
       excludeId,
     );
     return { success: true, data: matches };
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  @Get("image-search")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Buscar imágenes de un artículo en internet" })
+  @ApiResponse({ status: 200, description: "Lista de imágenes candidatas" })
+  @ApiResponse({ status: 400, description: "Falta el término de búsqueda" })
+  @ApiResponse({
+    status: 503,
+    description: "Búsqueda no disponible (sin configurar o cuota agotada)",
+  })
+  async searchImage(@Query("q") q: string) {
+    if (!q?.trim()) {
+      throw new BadRequestException("El término de búsqueda es obligatorio");
+    }
+    const data = await this.googleImageSearchService.search(q.trim());
+    return { success: true, data };
   }
 
   @Get("categories")

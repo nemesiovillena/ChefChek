@@ -1,9 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
-import Image from 'next/image';
 import AllergenIcon from '@/components/shared/allergen-icon';
-import { useNotification } from '@/components/notification-system';
 import { useAllergens } from '@/hooks/use-allergens';
 
 interface TabAlergenosProps {
@@ -11,15 +8,11 @@ interface TabAlergenosProps {
   setAllergens: (allergens: number[]) => void;
   hideAllergens: boolean;
   setHideAllergens: (value: boolean) => void;
-  imageUrl: string;
-  onImageUpload: (file: File) => void;
 }
 
-export default function TabAlergenos({ allergens, setAllergens, hideAllergens, setHideAllergens, imageUrl, onImageUpload }: TabAlergenosProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export default function TabAlergenos({ allergens, setAllergens, hideAllergens, setHideAllergens }: TabAlergenosProps) {
   // Catálogo BD: fuente de ids y nombres; los pictogramas UE los resuelve AllergenIcon.
   const { allergens: allergenCatalog } = useAllergens();
-  const addNotification = useNotification();
 
   const toggleAllergen = (id: number) => {
     if (allergens.includes(id)) {
@@ -27,16 +20,6 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
     } else {
       setAllergens([...allergens, id]);
     }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification({ type: 'warning', title: 'Archivo demasiado grande', message: 'La imagen no puede superar los 2 MB.' });
-      return;
-    }
-    onImageUpload(file);
   };
 
   return (
@@ -78,32 +61,6 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
           Ocultar en etiquetado
         </label>
         <span className="text-xs text-gray-400 ml-2">Los alérgenos no se mostrarán en el etiquetado</span>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Imagen de ficha técnica o etiqueta</label>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Subir imagen
-          </button>
-          <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF)</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </div>
-        {imageUrl && (
-          <div className="mt-3">
-            <Image src={imageUrl} alt="Ficha técnica" width={128} height={128} className="w-32 h-32 object-cover rounded-lg border" />
-          </div>
-        )}
       </div>
     </div>
   );

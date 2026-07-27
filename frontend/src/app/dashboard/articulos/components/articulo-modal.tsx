@@ -7,6 +7,7 @@ import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
+import ProductImagePicker from './product-image-picker';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
@@ -297,6 +298,17 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           </button>
         </div>
 
+        {/* Foto del artículo */}
+        <div className="mb-4">
+          <ProductImagePicker
+            imageUrl={imageUrl}
+            onChange={setImageUrl}
+            defaultQuery={[formData.name, formData.brand].filter(Boolean).join(' ')}
+            onUploadFile={handleImageUpload}
+            uploading={uploadImageMutation.isPending}
+          />
+        </div>
+
         {/* Name field */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
@@ -402,8 +414,6 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               setAllergens={setAllergens}
               hideAllergens={hideAllergens}
               setHideAllergens={setHideAllergens}
-              imageUrl={imageUrl}
-              onImageUpload={handleImageUpload}
             />
           )}
           {activeTab === 'proveedor-stock' && (
