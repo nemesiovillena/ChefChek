@@ -25,7 +25,7 @@ import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import { useInvalidateQueries } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -867,15 +867,19 @@ export default function RecipesPage() {
                       </div>
 
                       {/* Ingredientes */}
-                      <div>
+                      <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
                         <div className="flex justify-between items-center mb-2">
-                          <label className={m3Label}>Ingredientes</label>
+                          <div className="flex items-center gap-1.5">
+                            <ListChecks className="h-4 w-4 text-[var(--primary)]" />
+                            <span className="text-sm font-semibold text-[var(--on-surface)]">Ingredientes</span>
+                          </div>
                           <button
                             type="button"
                             onClick={handleAddIngredient}
-                            className="text-sm font-medium text-[var(--primary)] hover:brightness-110"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-2.5 py-1.5 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20"
                           >
-                            + Agregar ingrediente
+                            <Plus className="h-4 w-4" />
+                            Agregar ingrediente
                           </button>
                         </div>
                         {totalIngredientsWeightKg > 0 && (
@@ -954,15 +958,19 @@ export default function RecipesPage() {
                       </div>
 
                       {/* Sub-recetas */}
-                      <div>
+                      <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
                         <div className="flex justify-between items-center mb-2">
-                          <label className={m3Label}>Sub-recetas</label>
+                          <div className="flex items-center gap-1.5">
+                            <Layers className="h-4 w-4 text-[var(--primary)]" />
+                            <span className="text-sm font-semibold text-[var(--on-surface)]">Sub-recetas</span>
+                          </div>
                           <button
                             type="button"
                             onClick={handleAddSubRecipe}
-                            className="text-sm font-medium text-[var(--primary)] hover:brightness-110"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-2.5 py-1.5 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20"
                           >
-                            + Agregar sub-receta
+                            <Plus className="h-4 w-4" />
+                            Agregar sub-receta
                           </button>
                         </div>
                         {subRecipes.length > 0 && (
