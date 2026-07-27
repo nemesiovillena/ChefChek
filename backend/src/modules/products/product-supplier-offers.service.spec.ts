@@ -36,7 +36,8 @@ describe("ProductSupplierOffersService", () => {
       count: jest.fn(),
       delete: jest.fn(),
     },
-    productPriceHistory: { create: jest.fn() },
+    productPriceHistory: { create: jest.fn(), findFirst: jest.fn() },
+    albaran: { findUnique: jest.fn() },
   });
 
   beforeEach(async () => {
@@ -52,9 +53,11 @@ describe("ProductSupplierOffersService", () => {
               findMany: jest.fn(),
               create: jest.fn(),
               update: jest.fn(),
+              updateMany: jest.fn(),
               count: jest.fn(),
             },
-            productPriceHistory: { create: jest.fn() },
+            productPriceHistory: { create: jest.fn(), findFirst: jest.fn() },
+            albaran: { findUnique: jest.fn() },
             $transaction: jest.fn((fn) => fn(makeTx())),
           },
         },
@@ -361,6 +364,141 @@ describe("ProductSupplierOffersService", () => {
           }),
         }),
       );
+    });
+
+    describe("promoteToPreferred (compra confirmada por albarán)", () => {
+      const albaranId = "albaran-a505";
+
+      it("regresión: producto con precio previo real (creado días antes, sin ProductPriceHistory) SÍ registra la variación en vez de caer a baseline 0", async () => {
+        // Caso real: "Tubo Finamar M x5" creado el 24/07 con purchasePrice=7.25
+        // (alta manual/oferta sin histórico). El 27/07 se confirma su primera
+        // compra por albarán (proveedor Romeu, 9.5€) — antes del fix, la
+        // ausencia de un ProductPriceHistory previo hacía caer siempre en la
+        // rama "primera compra: baseline" y el cambio real 7.25→9.5 se perdía
+        // (previousPrice quedaba en 0, sin traza para el badge/histórico).
+        const oldProduct = {
+          ...baseProduct,
+          purchasePrice: 7.25,
+          netPrice: 7.25,
+          unitSize: 1,
+          createdAt: new Date("2026-07-24T11:49:12.065Z"),
+        };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(oldProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-romeu", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.albaran.findUnique as jest.Mock).mockResolvedValue({
+          createdAt: new Date("2026-07-27T16:05:33.982Z"),
+        });
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 9.5, netPrice: 9.5 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              previousPrice: 7.25,
+              newPrice: 9.5,
+              previousUnitSize: 1,
+              newUnitSize: 1,
+            }),
+          }),
+        );
+      });
+
+      it("producto creado como parte de ESTE MISMO albarán mantiene la baseline (evita el falso badge bruto→neto)", async () => {
+        const inlineCreatedProduct = {
+          ...baseProduct,
+          purchasePrice: 10.45, // bruto de la creación inline
+          netPrice: 10.45,
+          unitSize: 1,
+          createdAt: new Date("2026-07-27T16:06:00.000Z"),
+        };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          inlineCreatedProduct,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        // El albarán ya existía (fila creada) antes de que se procesara esta
+        // línea inline — mismo momento/transacción de confirmación.
+        (prisma.albaran.findUnique as jest.Mock).mockResolvedValue({
+          createdAt: new Date("2026-07-27T16:05:33.982Z"),
+        });
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 9.5, netPrice: 9.5 }, // neto tras applyDiscountToCost
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              previousPrice: 0,
+              newPrice: 9.5,
+              previousUnitSize: null,
+            }),
+          }),
+        );
+      });
+
+      it("producto sin precio previo (0) mantiene la baseline sin consultar el albarán", async () => {
+        const freshProduct = { ...baseProduct, purchasePrice: 0, netPrice: 0 };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(freshProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 5, netPrice: 5 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.albaran.findUnique).not.toHaveBeenCalled();
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ previousPrice: 0, newPrice: 5 }),
+          }),
+        );
+      });
     });
 
     describe("agreedPrice (precio pactado)", () => {

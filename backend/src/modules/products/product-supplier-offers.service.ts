@@ -165,24 +165,42 @@ export class ProductSupplierOffersService {
     if (promoteToPreferred) {
       // ¿Primera compra real del artículo? Una fila previa de historial
       // vinculada a un albarán (albaranId not null = compra confirmada) es la
-      // señal de que ya hubo una compra con traza. Sin ella, ESTA compra es la
-      // línea base: se registra con previousPrice=0 para que el badge de
-      // tendencia del listado no renderice (su guarda `previous<=0 → null`).
-      //
-      // Sin esta línea base, un artículo recién creado desde albarán porta un
-      // purchasePrice = bruto de la creación inline (create-product-inline
-      // prefija con line.unitPrice); al confirmar con applyDiscountToCost
-      // activo, lineUnitPrice pasa a ser el neto (totalPrice/qty) y la
-      // comparación bruto→neto genera un badge espurio -X% igual al
-      // descuento de la factura, aunque no exista compra previa real.
+      // señal de que ya hubo una compra con traza.
       const priorPurchase = await client.productPriceHistory.findFirst({
         where: { productId, albaranId: { not: null } },
         select: { id: true },
       });
 
-      if (!priorPurchase) {
-        // Primera compra: baseline. newPrice queda como precio de arranque
-        // para que la SIGUIENTE compra sí tenga contra qué comparar.
+      // Sin priorPurchase no basta para decidir "sin precio previo real": un
+      // producto creado días/semanas antes (manual, catálogo, oferta sin
+      // histórico) puede llevar un product.purchasePrice > 0 perfectamente
+      // válido aunque nunca haya tenido una compra confirmada por albarán —
+      // bug real detectado (precio 7.25→9.5 de una compra se perdía porque
+      // caía siempre en la rama baseline). Solo tratamos como línea base sin
+      // comparación cuando el producto de verdad no tiene precio (0) o fue
+      // creado como parte de ESTE MISMO albarán: un artículo recién creado
+      // desde el propio albarán porta un purchasePrice = bruto de la creación
+      // inline (create-product-inline prefija con line.unitPrice); al
+      // confirmar con applyDiscountToCost activo, lineUnitPrice pasa a ser el
+      // neto (totalPrice/qty) y la comparación bruto→neto generaría un badge
+      // espurio -X% igual al descuento de la factura, aunque no exista compra
+      // previa real distinta de esta.
+      let isSameAlbaranInlineCreation = false;
+      if (!priorPurchase && product.purchasePrice > 0 && albaranId) {
+        const currentAlbaran = await client.albaran.findUnique({
+          where: { id: albaranId },
+          select: { createdAt: true },
+        });
+        isSameAlbaranInlineCreation =
+          !!currentAlbaran && product.createdAt >= currentAlbaran.createdAt;
+      }
+
+      if (
+        !priorPurchase &&
+        (product.purchasePrice <= 0 || isSameAlbaranInlineCreation)
+      ) {
+        // Sin precio previo real: baseline. newPrice queda como precio de
+        // arranque para que la SIGUIENTE compra sí tenga contra qué comparar.
         await client.productPriceHistory.create({
           data: {
             tenantId,
