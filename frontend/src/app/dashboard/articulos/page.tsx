@@ -691,6 +691,7 @@ export default function ArticulosPage() {
                               productId={product.id}
                               productName={product.name}
                               supplierId={product.supplierId ?? undefined}
+                              referenceUnit={product.referenceUnit}
                             />
                           </span>
                         </td>

@@ -428,8 +428,8 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               {/* Sin supplierId: histórico de TODOS los proveedores del
                   artículo, no solo el preferente actual — la tabla ya tiene
                   columna "Proveedor" para distinguirlos. */}
-              <ProductPriceHistoryChart productId={article.id} />
-              <ProductPriceHistoryTable productId={article.id} />
+              <ProductPriceHistoryChart productId={article.id} referenceUnit={article.referenceUnit} />
+              <ProductPriceHistoryTable productId={article.id} referenceUnit={article.referenceUnit} />
             </div>
           )}
         </div>

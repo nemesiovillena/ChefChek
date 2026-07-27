@@ -1,13 +1,15 @@
 'use client';
 
 import { useProductPriceHistory } from '@/hooks/use-product-price-history';
-import { normalizePrice, referencePriceChanged } from '@/hooks/use-products';
+import { normalizePrice, referencePriceChanged, formatRefPrice } from '@/hooks/use-products';
 import { Loader2, TrendingUp, TrendingDown, Minus, FileText } from 'lucide-react';
 
 interface ProductPriceHistoryTableProps {
   productId: string;
   supplierId?: string;
   discountPercentage?: number | null;
+  /** Unidad de referencia del producto (kg/litro/ud) para etiquetar el precio ref. */
+  referenceUnit?: string;
 }
 
 /**
@@ -18,6 +20,7 @@ export function ProductPriceHistoryTable({
   productId,
   supplierId,
   discountPercentage,
+  referenceUnit,
 }: ProductPriceHistoryTableProps) {
   const { data: history, isLoading, error } = useProductPriceHistory(productId, supplierId);
 
@@ -88,9 +91,19 @@ export function ProductPriceHistoryTable({
                 </td>
                 <td className="py-2 px-3 text-right text-gray-500">
                   {formatPrice(entry.previousPrice)}
+                  {canNormalize && referenceUnit && (
+                    <div className="text-xs text-gray-400">
+                      {formatRefPrice(previousRef, referenceUnit)}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-right font-medium">
                   {formatPrice(entry.newPrice)}
+                  {canNormalize && referenceUnit && (
+                    <div className="text-xs font-normal text-gray-400">
+                      {formatRefPrice(newRef, referenceUnit)}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-right">
                   {/* Mismo pill que el badge de tendencia del listado de artículos

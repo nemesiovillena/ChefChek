@@ -17,6 +17,8 @@ interface ProductPriceHistoryChartProps {
   productId: string;
   supplierId?: string;
   discountPercentage?: number | null;
+  /** Unidad de referencia del producto (kg/litro/ud) para el tooltip. */
+  referenceUnit?: string;
 }
 
 const euroShort = (n: number) =>
@@ -39,6 +41,7 @@ export function ProductPriceHistoryChart({
   productId,
   supplierId,
   discountPercentage,
+  referenceUnit,
 }: ProductPriceHistoryChartProps) {
   const { data: history, isLoading, error } = useProductPriceHistory(productId, supplierId);
 
@@ -116,7 +119,8 @@ export function ProductPriceHistoryChart({
               const delta = prev && prev > 0 ? ((v - prev) / prev) * 100 : null;
               const deltaTxt =
                 delta !== null ? ` (${delta > 0 ? '+' : ''}${delta.toFixed(1)}%)` : '';
-              return [`${euroShort(v)}${deltaTxt}`, 'Precio'];
+              const unitTxt = referenceUnit ? `/${referenceUnit}` : '';
+              return [`${euroShort(v)}${unitTxt}${deltaTxt}`, 'Precio ref.'];
             }}
           />
           <Area

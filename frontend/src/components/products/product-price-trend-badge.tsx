@@ -34,6 +34,8 @@ interface ProductPriceTrendBadgeProps {
   productId: string;
   productName: string;
   supplierId?: string;
+  /** Unidad de referencia del producto (kg/litro/ud) para el histórico. */
+  referenceUnit?: string;
 }
 
 /**
@@ -54,6 +56,7 @@ export function ProductPriceTrendBadge({
   productId,
   productName,
   supplierId,
+  referenceUnit,
 }: ProductPriceTrendBadgeProps) {
   if (!latestPriceChange) return null;
 
@@ -116,11 +119,13 @@ export function ProductPriceTrendBadge({
           productId={productId}
           supplierId={supplierId}
           discountPercentage={discountPercentage}
+          referenceUnit={referenceUnit}
         />
         <ProductPriceHistoryTable
           productId={productId}
           supplierId={supplierId}
           discountPercentage={discountPercentage}
+          referenceUnit={referenceUnit}
         />
       </DialogContent>
     </Dialog>
