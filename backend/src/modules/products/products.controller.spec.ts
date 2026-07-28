@@ -3,6 +3,7 @@ import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import { PexelsImageSearchService } from "./pexels-image-search.service";
+import { ProductImageBackfillService } from "./product-image-backfill.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -53,6 +54,10 @@ describe("ProductsController", () => {
     search: jest.fn(),
   };
 
+  const mockProductImageBackfillService = {
+    backfillImages: jest.fn(),
+  };
+
   const mockReq = {
     tenantId: "tenant-test-123",
     user: { id: "user-1", role: "ADMIN" },
@@ -70,6 +75,10 @@ describe("ProductsController", () => {
         {
           provide: PexelsImageSearchService,
           useValue: mockPexelsImageSearchService,
+        },
+        {
+          provide: ProductImageBackfillService,
+          useValue: mockProductImageBackfillService,
         },
       ],
     })
@@ -559,6 +568,42 @@ describe("ProductsController", () => {
         "Aceite Girasol 5L",
       );
       expect(result).toEqual({ success: true, data: results });
+    });
+  });
+
+  describe("backfillImages", () => {
+    it("delegates to the backfill service with the request tenant and parsed limit", async () => {
+      const summary = {
+        processed: 10,
+        updated: 8,
+        skipped: 2,
+        failed: [],
+        remaining: 0,
+      };
+      mockProductImageBackfillService.backfillImages.mockResolvedValue(summary);
+
+      const result = await controller.backfillImages("25", mockReq);
+
+      expect(
+        mockProductImageBackfillService.backfillImages,
+      ).toHaveBeenCalledWith(mockReq.tenantId, 25);
+      expect(result).toEqual({ success: true, data: summary });
+    });
+
+    it("passes undefined limit when not provided (service applies its default)", async () => {
+      mockProductImageBackfillService.backfillImages.mockResolvedValue({
+        processed: 0,
+        updated: 0,
+        skipped: 0,
+        failed: [],
+        remaining: 0,
+      });
+
+      await controller.backfillImages(undefined as unknown as string, mockReq);
+
+      expect(
+        mockProductImageBackfillService.backfillImages,
+      ).toHaveBeenCalledWith(mockReq.tenantId, undefined);
     });
   });
 });

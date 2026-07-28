@@ -175,12 +175,16 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Surface the backend's real error message (Nest's exception filter body
-    // is { statusCode, message, error }) instead of axios's generic "Request
-    // failed with status code N" — callers show error.message in toasts.
-    const data = error.response?.data as { message?: string | string[] } | undefined;
-    if (data?.message) {
-      error.message = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+    // Surface the backend's real error message instead of axios's generic
+    // "Request failed with status code N" — callers show error.message in
+    // toasts. GlobalExceptionFilter nests it under `error.message`; fall back
+    // to a flat `message` in case some response bypasses that filter.
+    const data = error.response?.data as
+      | { error?: { message?: string | string[] }; message?: string | string[] }
+      | undefined;
+    const backendMessage = data?.error?.message ?? data?.message;
+    if (backendMessage) {
+      error.message = Array.isArray(backendMessage) ? backendMessage.join(', ') : backendMessage;
     }
 
     return Promise.reject(error);

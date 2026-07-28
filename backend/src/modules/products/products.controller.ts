@@ -28,6 +28,7 @@ import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import { PexelsImageSearchService } from "./pexels-image-search.service";
+import { ProductImageBackfillService } from "./product-image-backfill.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -60,6 +61,7 @@ export class ProductsController {
     private readonly productsService: ProductsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
     private readonly pexelsImageSearchService: PexelsImageSearchService,
+    private readonly productImageBackfillService: ProductImageBackfillService,
   ) {}
 
   @Post()
@@ -122,6 +124,22 @@ export class ProductsController {
       throw new BadRequestException("El término de búsqueda es obligatorio");
     }
     const data = await this.pexelsImageSearchService.search(q.trim());
+    return { success: true, data };
+  }
+
+  @Post("backfill-images")
+  @Roles("ADMIN")
+  @ApiOperation({
+    summary:
+      "Asignar automáticamente (Pexels, primer resultado) una imagen a los artículos sin imageUrl",
+  })
+  @ApiResponse({ status: 200, description: "Resumen del lote procesado" })
+  async backfillImages(@Query("limit") limit: string, @Req() req: any) {
+    const parsedLimit = parseInt(limit, 10);
+    const data = await this.productImageBackfillService.backfillImages(
+      req.tenantId,
+      Number.isNaN(parsedLimit) ? undefined : parsedLimit,
+    );
     return { success: true, data };
   }
 
