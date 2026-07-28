@@ -381,7 +381,7 @@ export default function RecipesPage() {
     try {
       if (selectedRecipe) {
         await updateRecipeMutation.mutateAsync({ id: selectedRecipe.id, ...recipeData });
-        invalidateQueries([['recipe-cost', selectedRecipe.id]]);
+        invalidateQueries([['recipe-cost', selectedRecipe.id], ['recipe-options']]);
         addNotification({
           type: 'success',
           title: 'Receta actualizada',
@@ -389,6 +389,7 @@ export default function RecipesPage() {
         });
       } else {
         await createRecipeMutation.mutateAsync(recipeData);
+        invalidateQueries([['recipe-options']]);
         addNotification({
           type: 'success',
           title: 'Receta creada',
