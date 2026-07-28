@@ -149,10 +149,25 @@ class DocumentProcessor:
             # Cargar imagen
             import cv2
             import io
-            from PIL import Image
+            from PIL import Image, ImageOps
 
             logger.info(f"Iniciando carga de imagen, tamaño datos: {len(image_data)} bytes")
             pil_image = Image.open(io.BytesIO(image_data))
+
+            # Las cámaras de móvil (iPhone/Android) guardan la rotación como tag
+            # EXIF (0x0112) en lugar de girar los píxeles al disparar. PIL no
+            # aplica ese tag al decodificar, así que una foto de albarán tomada
+            # en vertical llegaba girada 90° a EasyOCR y a la IA, produciendo
+            # líneas basura o ausentes. exif_transpose aplica la rotación a los
+            # píxeles; es un no-op si no hay tag (imágenes ya verticales del
+            # ordenador o escaneos). Se conserva .format porque transpose puede
+            # perderlo y hace falta para la rama HEIC de abajo.
+            img_format = pil_image.format
+            exif_tag = pil_image.getexif().get(0x0112)
+            pil_image = ImageOps.exif_transpose(pil_image)
+            pil_image.format = img_format
+            if exif_tag and exif_tag != 1:
+                logger.info(f"Orientación EXIF {exif_tag} aplicada: size ahora {pil_image.size}")
             logger.info(f"PIL Image cargado: mode={pil_image.mode}, size={pil_image.size}")
 
             # Convertir HEIC a JPEG si es necesario
