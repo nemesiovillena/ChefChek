@@ -285,29 +285,39 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   const isFirstOffer = !isLoading && (offers?.length ?? 0) === 0;
   const effectivePrice = newOffer.purchasePrice || (isFirstOffer ? (basePurchasePrice ?? '') : '');
 
-  const handleAdd = async () => {
+  // Crea la oferta preferente para `supplierId` con el precio/formato actuales.
+  // Devuelve false (sin lanzar) si falta proveedor o precio válido, para que
+  // el llamador decida si notifica error o queda a la espera de "Añadir".
+  const commitOffer = async (supplierId: string): Promise<boolean> => {
     const price = parseFloat(effectivePrice);
-    if (!newSupplierId || isNaN(price) || price < 0) {
-      addNotification({ type: 'error', title: 'Error', message: 'Selecciona un proveedor e indica un precio válido' });
-      return;
-    }
+    if (!supplierId || isNaN(price) || price < 0) return false;
     try {
       await createOffer.mutateAsync({
         productId,
-        supplierId: newSupplierId,
+        supplierId,
         purchasePrice: price,
         purchaseFormat: newOffer.purchaseFormat || undefined,
         referenceUnit: newOffer.referenceUnit || undefined,
         unitsPerFormat: parseInt(newOffer.unitsPerFormat) || undefined,
         referenceUnitSize: parseFloat(newOffer.referenceUnitSize) || undefined,
       });
-      setNewSupplierId('');
-      setNewOffer(emptyOfferFormat(baseReferenceUnit));
-      setShowAdd(false);
+      return true;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al añadir la oferta';
       addNotification({ type: 'error', title: 'Error', message });
+      return false;
     }
+  };
+
+  const handleAdd = async () => {
+    const ok = await commitOffer(newSupplierId);
+    if (!ok) {
+      addNotification({ type: 'error', title: 'Error', message: 'Selecciona un proveedor e indica un precio válido' });
+      return;
+    }
+    setNewSupplierId('');
+    setNewOffer(emptyOfferFormat(baseReferenceUnit));
+    setShowAdd(false);
   };
 
   const startEditOffer = (offer: ProductSupplierOffer) => {
@@ -540,11 +550,24 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
       <SupplierQuickCreateDialog
         isOpen={showCreateSupplier}
         onClose={() => setShowCreateSupplier(false)}
-        onCreated={(supplier) => {
+        onCreated={async (supplier) => {
           onSupplierCreated?.(supplier);
-          setNewSupplierId(supplier.id);
           setShowCreateSupplier(false);
-          setShowAdd(true);
+          // Crea la oferta preferente de inmediato (mismo precio/formato del
+          // formulario) para que el proveedor nuevo quede vinculado al
+          // artículo y aparezca en listado y ficha. Sin esto, "Proveedor
+          // creado" engañaba: la entidad existía pero sin oferta que la
+          // enlazara, y el usuario creía que ya estaba asignada. Si no hay
+          // precio disponible, cae al flujo manual: deja el proveedor
+          // seleccionado para que el usuario introduzca precio y pulse Añadir.
+          const linked = await commitOffer(supplier.id);
+          if (linked) {
+            setShowAdd(false);
+            setNewOffer(emptyOfferFormat(baseReferenceUnit));
+          } else {
+            setNewSupplierId(supplier.id);
+            setShowAdd(true);
+          }
         }}
       />
 
