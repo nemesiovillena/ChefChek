@@ -2,24 +2,23 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
 import { ServiceUnavailableException } from "@nestjs/common";
 import axios from "axios";
-import { GoogleImageSearchService } from "./google-image-search.service";
+import { PexelsImageSearchService } from "./pexels-image-search.service";
 
 jest.mock("axios");
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe("GoogleImageSearchService", () => {
-  let service: GoogleImageSearchService;
+describe("PexelsImageSearchService", () => {
+  let service: PexelsImageSearchService;
   let configValues: Record<string, string>;
 
   beforeEach(async () => {
     configValues = {
-      GOOGLE_CSE_API_KEY: "test-key",
-      GOOGLE_CSE_ENGINE_ID: "test-cx",
+      PEXELS_API_KEY: "test-key",
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        GoogleImageSearchService,
+        PexelsImageSearchService,
         {
           provide: ConfigService,
           useValue: { get: (key: string) => configValues[key] },
@@ -27,23 +26,23 @@ describe("GoogleImageSearchService", () => {
       ],
     }).compile();
 
-    service = module.get<GoogleImageSearchService>(GoogleImageSearchService);
+    service = module.get<PexelsImageSearchService>(PexelsImageSearchService);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it("maps a successful Google response to ImageSearchResult[]", async () => {
+  it("maps a successful Pexels response to ImageSearchResult[]", async () => {
     mockedAxios.get.mockResolvedValue({
       data: {
-        items: [
+        photos: [
           {
-            link: "https://tienda.com/foto-full.jpg",
-            title: "Producto X",
-            image: {
-              thumbnailLink: "https://tienda.com/thumb.jpg",
-              contextLink: "https://tienda.com/pagina",
+            alt: "Producto X",
+            url: "https://www.pexels.com/photo/producto-x-123",
+            src: {
+              large2x: "https://images.pexels.com/full.jpg",
+              medium: "https://images.pexels.com/medium.jpg",
             },
           },
         ],
@@ -54,15 +53,15 @@ describe("GoogleImageSearchService", () => {
 
     expect(result).toEqual([
       {
-        url: "https://tienda.com/foto-full.jpg",
-        thumbnailUrl: "https://tienda.com/thumb.jpg",
+        url: "https://images.pexels.com/full.jpg",
+        thumbnailUrl: "https://images.pexels.com/medium.jpg",
         title: "Producto X",
-        sourcePage: "https://tienda.com/pagina",
+        sourcePage: "https://www.pexels.com/photo/producto-x-123",
       },
     ]);
   });
 
-  it("returns [] when Google responds without items", async () => {
+  it("returns [] when Pexels responds without photos", async () => {
     mockedAxios.get.mockResolvedValue({ data: {} });
 
     const result = await service.search("artículo sin resultados");
@@ -70,11 +69,23 @@ describe("GoogleImageSearchService", () => {
     expect(result).toEqual([]);
   });
 
-  it("throws ServiceUnavailableException on Google 403 (quota exceeded)", async () => {
+  it("throws ServiceUnavailableException on Pexels 429 (rate limit)", async () => {
     mockedAxios.isAxiosError = jest.fn().mockReturnValue(true) as any;
     mockedAxios.get.mockRejectedValue({
       isAxiosError: true,
-      response: { status: 403 },
+      response: { status: 429 },
+    });
+
+    await expect(service.search("cualquier cosa")).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
+
+  it("throws ServiceUnavailableException on Pexels 401 (invalid key)", async () => {
+    mockedAxios.isAxiosError = jest.fn().mockReturnValue(true) as any;
+    mockedAxios.get.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 401 },
     });
 
     await expect(service.search("cualquier cosa")).rejects.toThrow(
@@ -83,8 +94,7 @@ describe("GoogleImageSearchService", () => {
   });
 
   it("throws ServiceUnavailableException when credentials are missing", async () => {
-    configValues.GOOGLE_CSE_API_KEY = "";
-    configValues.GOOGLE_CSE_ENGINE_ID = "";
+    configValues.PEXELS_API_KEY = "";
 
     await expect(service.search("cualquier cosa")).rejects.toThrow(
       ServiceUnavailableException,

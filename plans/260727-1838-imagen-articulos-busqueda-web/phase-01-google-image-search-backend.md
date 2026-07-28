@@ -1,4 +1,11 @@
-# Fase 1 — Backend: integración Google Custom Search
+# Fase 1 — Backend: integración de búsqueda de imagen
+
+> **Nota (2026-07-28):** implementado con **Pexels API**, no Google Custom Search — ver
+> "Cambio de proveedor" en `plan.md`. El archivo conserva el nombre original; la clase real es
+> `PexelsImageSearchService` (`pexels-image-search.service.ts`), el endpoint sigue siendo
+> `GET /products/image-search`. El resto de este documento describe el diseño original con
+> Google, útil como referencia de la forma (endpoint, mapeo, manejo de errores) pero no del
+> proveedor real.
 
 ## Contexto
 - Ya existe un patrón de integración con Google (`GOOGLE_CLOUD_VISION_API_KEY` en `backend/.env.example`) para el OCR de albaranes.

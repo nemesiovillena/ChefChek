@@ -27,7 +27,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
-import { GoogleImageSearchService } from "./google-image-search.service";
+import { PexelsImageSearchService } from "./pexels-image-search.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -59,7 +59,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
-    private readonly googleImageSearchService: GoogleImageSearchService,
+    private readonly pexelsImageSearchService: PexelsImageSearchService,
   ) {}
 
   @Post()
@@ -121,7 +121,7 @@ export class ProductsController {
     if (!q?.trim()) {
       throw new BadRequestException("El término de búsqueda es obligatorio");
     }
-    const data = await this.googleImageSearchService.search(q.trim());
+    const data = await this.pexelsImageSearchService.search(q.trim());
     return { success: true, data };
   }
 

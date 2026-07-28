@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
-import { GoogleImageSearchService } from "./google-image-search.service";
+import { PexelsImageSearchService } from "./pexels-image-search.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -49,7 +49,7 @@ describe("ProductsController", () => {
     removeOffer: jest.fn(),
   };
 
-  const mockGoogleImageSearchService = {
+  const mockPexelsImageSearchService = {
     search: jest.fn(),
   };
 
@@ -68,8 +68,8 @@ describe("ProductsController", () => {
           useValue: mockProductSupplierOffersService,
         },
         {
-          provide: GoogleImageSearchService,
-          useValue: mockGoogleImageSearchService,
+          provide: PexelsImageSearchService,
+          useValue: mockPexelsImageSearchService,
         },
       ],
     })
@@ -538,7 +538,7 @@ describe("ProductsController", () => {
       await expect(controller.searchImage("")).rejects.toThrow(
         BadRequestException,
       );
-      expect(mockGoogleImageSearchService.search).not.toHaveBeenCalled();
+      expect(mockPexelsImageSearchService.search).not.toHaveBeenCalled();
     });
 
     it("throws BadRequestException when q is blank spaces", async () => {
@@ -551,11 +551,11 @@ describe("ProductsController", () => {
       const results = [
         { url: "https://a.com/full.jpg", thumbnailUrl: "https://a.com/t.jpg" },
       ];
-      mockGoogleImageSearchService.search.mockResolvedValue(results);
+      mockPexelsImageSearchService.search.mockResolvedValue(results);
 
       const result = await controller.searchImage("Aceite Girasol 5L");
 
-      expect(mockGoogleImageSearchService.search).toHaveBeenCalledWith(
+      expect(mockPexelsImageSearchService.search).toHaveBeenCalledWith(
         "Aceite Girasol 5L",
       );
       expect(result).toEqual({ success: true, data: results });

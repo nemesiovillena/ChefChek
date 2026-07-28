@@ -150,6 +150,15 @@ export default function ProductImagePicker({
                 ))}
               </div>
             )}
+
+            {results && results.length > 0 && (
+              <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                Fotos proporcionadas por{' '}
+                <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">
+                  Pexels
+                </a>
+              </p>
+            )}
           </div>
         )}
       </div>
