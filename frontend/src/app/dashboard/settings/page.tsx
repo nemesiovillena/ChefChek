@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
-import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
+import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, getProviderForModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
 import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2 } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
+import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 
 export const dynamic = 'force-dynamic';
@@ -48,15 +49,46 @@ export default function SettingsPage() {
   // Costeo de recetas: coste objetivo máximo (%) global del tenant
   const { data: costingConfig } = useCostingConfig();
 
-  // Motor de extracción (OCR de albaranes): modelo IA elegido, persistido en localStorage
-  const [ocrModel, setOcrModelState] = useState<string>(() => getOcrModel());
+  // Motor de extracción (OCR de albaranes): modelo IA + API key por tenant en
+  // el servidor (compartido entre dispositivos). Se cachea también en
+  // localStorage para compatibilidad con clientes antiguos.
+  const { data: ocrServerConfig } = useOcrConfig();
+  const updateOcrConfig = useUpdateOcrConfig();
+  // Selección explícita del usuario (null = usar la config del servidor/localStorage).
+  const [userOcrModel, setUserOcrModel] = useState<string | null>(null);
+  const ocrModel =
+    userOcrModel ??
+    (ocrServerConfig?.model && ocrServerConfig.model !== 'regex'
+      ? ocrServerConfig.model
+      : getOcrModel());
+
+  // Migración una sola vez: si el servidor aún no tiene config pero este
+  // navegador sí (cliente previo a esta función), subirla. Efecto externo puro:
+  // no llama a setState (evita renders en cascada).
+  const ocrMigratedRef = useRef(false);
+  useEffect(() => {
+    if (!ocrServerConfig || ocrMigratedRef.current) return;
+    ocrMigratedRef.current = true;
+    const hasServer = ocrServerConfig.model && ocrServerConfig.model !== 'regex';
+    if (hasServer) return;
+    const localModel = getOcrModel();
+    const localKey =
+      localModel && localModel !== 'regex' ? getApiKeyForModel(localModel) : '';
+    if (localModel && localModel !== 'regex' && localKey) {
+      updateOcrConfig.mutate({ model: localModel, apiKey: localKey });
+    }
+  }, [ocrServerConfig, updateOcrConfig]);
+
   const handleOcrModelChange = (modelId: string) => {
-    setOcrModelState(modelId);
-    setOcrModel(modelId);
+    setUserOcrModel(modelId);
+    setOcrModel(modelId); // cache local
+    updateOcrConfig.mutate({ model: modelId, apiKey: getApiKeyForModel(modelId) });
   };
   const selectedOcrModel = OCR_MODELS.find((m) => m.id === ocrModel);
   const ocrModelNeedsApiKey = ocrModel && ocrModel !== 'regex';
-  const ocrModelHasApiKey = ocrModelNeedsApiKey && !!getApiKeyForModel(ocrModel);
+  // Hay key si está en localStorage (este navegador) o en el servidor (otro dispositivo).
+  const ocrModelHasApiKey =
+    ocrModelNeedsApiKey && (!!getApiKeyForModel(ocrModel) || !!ocrServerConfig?.hasApiKey);
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -103,11 +135,18 @@ export default function SettingsPage() {
   };
 
   const handleApiKeySave = (providerId: string) => {
-    setApiKey(providerId, apiKeys[providerId] || '');
+    const key = apiKeys[providerId] || '';
+    setApiKey(providerId, key); // cache local
     setSavedKeys(prev => ({ ...prev, [providerId]: true }));
     setTimeout(() => {
       setSavedKeys(prev => ({ ...prev, [providerId]: false }));
     }, 2000);
+    // Si la key pertenece al modelo OCR activo, persistirla en el servidor
+    // (multi-device). El resto de providers se guardan solo en localStorage
+    // hasta que se seleccionen como motor OCR.
+    if (getProviderForModel(ocrModel) === providerId && ocrModel && ocrModel !== 'regex') {
+      updateOcrConfig.mutate({ model: ocrModel, apiKey: key });
+    }
   };
 
   const toggleShowKey = (providerId: string) => {
@@ -368,7 +407,8 @@ export default function SettingsPage() {
           </div>
           <p className="text-sm text-gray-500 mb-6">
             Configura las claves API de los proveedores de IA para la extracción de datos de albaranes.
-            Las claves se guardan solo en tu navegador y nunca se envían al servidor.
+            La clave del motor de extracción seleccionado se guarda en el servidor (cifrada) y se
+            comparte entre todos tus dispositivos; el resto quedan solo en este navegador.
           </p>
           <div className="space-y-6">
             {AI_PROVIDERS.map((provider) => {

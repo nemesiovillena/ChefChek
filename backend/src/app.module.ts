@@ -55,6 +55,7 @@ import { ModulesModule } from "./modules/modules/modules.module";
 import { SuperadminModule } from "./modules/superadmin/superadmin.module";
 import { CostingConfigModule } from "./modules/costing-config/costing-config.module";
 import { BackupModule } from "./modules/backup/backup.module";
+import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { BackupModule } from "./modules/backup/backup.module";
     SprintModule,
     QRModule,
     AlbaranesModule,
+    OcrConfigModule,
     TrashModule,
     GuardsModule,
     WebSocketModule,

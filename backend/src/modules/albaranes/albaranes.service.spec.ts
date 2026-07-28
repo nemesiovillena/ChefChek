@@ -7,6 +7,7 @@ import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ocr/python-ocr.service";
+import { OcrConfigService } from "../ocr-config/ocr-config.service";
 import { AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranesService", () => {
@@ -48,8 +49,17 @@ describe("AlbaranesService", () => {
     processImage: jest.fn(),
     refineExtraction: jest.fn(),
   };
+  const ocrConfigService = {
+    resolveForUpload: jest.fn(),
+  };
 
   beforeEach(async () => {
+    // Por defecto la resolución no aporta modelo/key (path regex), igual que
+    // las llamadas existentes a createFromUpload sin aiModel/aiApiKey.
+    ocrConfigService.resolveForUpload.mockResolvedValue({
+      aiModel: undefined,
+      aiApiKey: undefined,
+    });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AlbaranesService,
@@ -59,6 +69,7 @@ describe("AlbaranesService", () => {
         { provide: SupplierMatchingService, useValue: supplierMatching },
         { provide: LineMatchingService, useValue: lineMatching },
         { provide: PythonOcrService, useValue: pythonOcrService },
+        { provide: OcrConfigService, useValue: ocrConfigService },
       ],
     }).compile();
 

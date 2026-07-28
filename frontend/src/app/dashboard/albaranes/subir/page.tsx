@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import {
   Upload,
   Camera,
@@ -22,6 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
+import { useOcrConfig } from '@/hooks/use-ocr-config';
 import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
@@ -36,11 +37,15 @@ function getAlbaranId(results: AlbaranUploadResult): string | undefined {
 export default function SubirAlbaranPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Motor de extracción y API key se eligen en /dashboard/settings
-  const [aiModel] = useState<string>(() => getOcrModel());
-
-  // API key se lee del store centralizado (configurado en /dashboard/settings)
-  const aiApiKey = aiModel && aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
+  // Motor de extracción: la config vive en el servidor (por tenant, compartida
+  // entre dispositivos). El backend resuelve modelo+key al subir aunque este
+  // dispositivo no los tenga; aquí se leen solo para mostrar el modelo activo y,
+  // si la key está en este navegador, enviarla (backward compat).
+  const { data: ocrConfig } = useOcrConfig();
+  const serverModel = ocrConfig?.model && ocrConfig.model !== 'regex' ? ocrConfig.model : null;
+  const localModel = getOcrModel();
+  const aiModel = serverModel ?? (localModel && localModel !== 'regex' ? localModel : 'regex');
+  const aiApiKey = aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
 
   const {
     fileInputRef,
@@ -54,8 +59,8 @@ export default function SubirAlbaranPage() {
     processFiles,
     reset,
   } = useAlbaranUpload({
-    aiModel: aiModel && aiModel !== 'regex' ? aiModel : undefined,
-    aiApiKey: aiModel && aiModel !== 'regex' ? aiApiKey : undefined,
+    aiModel: aiModel !== 'regex' ? aiModel : undefined,
+    aiApiKey: aiModel !== 'regex' ? aiApiKey : undefined,
   });
 
   const selectedModelInfo = OCR_MODELS.find((m) => m.id === aiModel);

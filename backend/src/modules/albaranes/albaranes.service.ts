@@ -10,6 +10,7 @@ import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ocr/python-ocr.service";
+import { OcrConfigService } from "../ocr-config/ocr-config.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
 import {
   UpdateAlbaranDto,
@@ -29,6 +30,7 @@ export class AlbaranesService {
     private readonly supplierMatching: SupplierMatchingService,
     private readonly lineMatching: LineMatchingService,
     private readonly pythonOcrService: PythonOcrService,
+    private readonly ocrConfigService: OcrConfigService,
   ) {}
 
   /** Create albaran with lines from manual entry */
@@ -402,13 +404,22 @@ export class AlbaranesService {
     }
 
     try {
-      // 1. Process file via Python OCR microservice (buffer directly, no disk save needed)
+      // 1. Resolver motor IA + API key: prioriza lo que envíe el cliente
+      //    (backward compat con localStorage) y, si no trae nada, usa la config
+      //    guardada del tenant (multi-device: un móvil sin key usa la IA igual).
+      const { aiModel: effModel, aiApiKey: effKey } =
+        await this.ocrConfigService.resolveForUpload(tenantId, {
+          aiModel,
+          aiApiKey,
+        });
+
+      // 2. Process file via Python OCR microservice (buffer directly, no disk save needed)
       const ocrResult = await this.pythonOcrService.processImage(
         file.buffer,
         file.originalname,
         file.mimetype,
-        aiModel,
-        aiApiKey,
+        effModel,
+        effKey,
       );
 
       if (!ocrResult.success || !ocrResult.document) {

@@ -14,12 +14,14 @@ import { OcrModule } from "../ocr/ocr.module";
 import { CoreModule } from "../core/core.module";
 import { ProductsModule } from "../products/products.module";
 import { ComprasModule } from "../compras/compras.module";
+import { OcrConfigModule } from "../ocr-config/ocr-config.module";
 
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => AuthModule),
     OcrModule,
+    OcrConfigModule,
     CoreModule,
     ProductsModule,
     ComprasModule,
