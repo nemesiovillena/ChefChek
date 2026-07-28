@@ -515,3 +515,24 @@ export function useSupplierOffers(supplierId: string | null) {
     { enabled: !!supplierId }
   );
 }
+
+/** Resumen que devuelve el endpoint de relleno automático de imagen (Pexels). */
+export interface BackfillImagesResult {
+  processed: number;
+  updated: number;
+  skipped: number;
+  failed: Array<{ id: string; name: string; reason: string }>;
+  remaining: number;
+}
+
+/**
+ * Mutación para asignar automáticamente la primera imagen de Pexels a los
+ * artículos activos sin imageUrl. Procesa un lote por llamada; el llamador
+ * itera hasta `remaining === 0`. El backend ya filtra por tenant.
+ */
+export function useBackfillProductImages() {
+  return useApiMutation<BackfillImagesResult, void>(
+    '/v1/products/backfill-images?limit=40',
+    'POST'
+  );
+}

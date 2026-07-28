@@ -4,14 +4,14 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe } from '@/hooks/use-products';
+import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe, useBackfillProductImages } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import apiClient from '@/lib/api-client';
 import { PaginatedResponse } from '@/types/api.types';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { useConfirm } from '@/contexts/confirm.context';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, RotateCcw } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, RotateCcw, Sparkles } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
 import ProductThumbnail from './components/product-thumbnail';
@@ -24,10 +24,12 @@ interface Supplier {
 }
 
 export default function ArticulosPage() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
+  const backfillMutation = useBackfillProductImages();
+  const [backfillStatus, setBackfillStatus] = useState<{ running: boolean; done: number; remaining: number } | null>(null);
 
   const { data: categoryTree } = useCategoryTree("articles");
   const { data: categoriesData } = useCategories("articles");
@@ -379,6 +381,49 @@ export default function ArticulosPage() {
     setShowModal(true);
   };
 
+  /**
+   * Relleno masivo de imagen: asigna la primera foto de Pexels a cada
+   * artículo activo sin imageUrl, iterando lotes hasta que no queden.
+   * Sin revisión humana (petición explícita del usuario); nunca pisa
+   * imágenes ya asignadas. El backend filtra por tenant y limita el lote.
+   */
+  const handleBackfillImages = async () => {
+    const ok = await confirm({
+      title: 'Rellenar imágenes automáticamente',
+      description: 'Se buscará en internet (Pexels) y asignará la primera imagen candidata a cada artículo activo que aún no tenga imagen. No se sobrescriben imágenes ya asignadas. El proceso va por lotes hasta completar; puede tardar un par de minutos.',
+      confirmText: 'Rellenar',
+      variant: 'info',
+    });
+    if (!ok) return;
+
+    setBackfillStatus({ running: true, done: 0, remaining: -1 });
+    let totalDone = 0;
+    let totalFailed = 0;
+    try {
+      // Itera hasta que el backend informe remaining === 0 (o tope de seguridad).
+      for (let i = 0; i < 50; i++) {
+        const result = await backfillMutation.mutateAsync();
+        totalDone += result.updated;
+        totalFailed += result.failed.length;
+        setBackfillStatus({ running: true, done: totalDone, remaining: result.remaining });
+        if (result.processed === 0 || result.remaining === 0) break;
+      }
+      addNotification({
+        type: 'success',
+        title: 'Imágenes asignadas',
+        message: totalFailed > 0
+          ? `Se asignaron ${totalDone} imágenes. ${totalFailed} artículos sin resultado en la búsqueda.`
+          : `Se asignaron ${totalDone} imágenes correctamente.`,
+      });
+      refetch();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al rellenar imágenes';
+      addNotification({ type: 'error', title: 'Error', message });
+    } finally {
+      setBackfillStatus(null);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedProduct(null);
@@ -536,6 +581,19 @@ export default function ArticulosPage() {
                 </button>
               </div>
             </div>
+            {user?.role === 'ADMIN' && (
+              <button
+                onClick={handleBackfillImages}
+                disabled={!!backfillStatus}
+                title="Busca en internet (Pexels) y asigna la primera imagen candidata a cada artículo sin imagen"
+                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkles className="h-4 w-4" />
+                {backfillStatus?.running
+                  ? `Rellenando… ${backfillStatus.done}${backfillStatus.remaining >= 0 ? `/${backfillStatus.done + backfillStatus.remaining}` : ''}`
+                  : 'Rellenar imágenes'}
+              </button>
+            )}
             <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
               Crear Artículo
             </button>
