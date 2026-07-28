@@ -477,12 +477,24 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
 
         {addVisible ? (
           <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
-            <SupplierCombobox
-              suppliers={availableSuppliers}
-              value={newSupplierId}
-              onValueChange={setNewSupplierId}
-              placeholder="Proveedor..."
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SupplierCombobox
+                  suppliers={availableSuppliers}
+                  value={newSupplierId}
+                  onValueChange={setNewSupplierId}
+                  placeholder="Proveedor..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateSupplier(true)}
+                className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+                title="Añadir nuevo proveedor"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
             <OfferFormatFields
               value={{ ...newOffer, purchasePrice: effectivePrice }}
               onChange={setNewOffer}
