@@ -30,6 +30,8 @@ export default function ArticulosPage() {
   const confirm = useConfirm();
   const backfillMutation = useBackfillProductImages();
   const [backfillStatus, setBackfillStatus] = useState<{ running: boolean; done: number; remaining: number } | null>(null);
+  // Roles con permisos de gestión (mismo criterio que el módulo Compras).
+  const canManageArticles = ['ADMIN', 'OWNER', 'SUPERADMIN'].includes(user?.role ?? '');
 
   const { data: categoryTree } = useCategoryTree("articles");
   const { data: categoriesData } = useCategories("articles");
@@ -581,7 +583,7 @@ export default function ArticulosPage() {
                 </button>
               </div>
             </div>
-            {user?.role === 'ADMIN' && (
+            {canManageArticles && (
               <button
                 onClick={handleBackfillImages}
                 disabled={!!backfillStatus}

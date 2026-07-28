@@ -128,7 +128,7 @@ export class ProductsController {
   }
 
   @Post("backfill-images")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "OWNER", "SUPERADMIN")
   @ApiOperation({
     summary:
       "Asignar automáticamente (Pexels, primer resultado) una imagen a los artículos sin imageUrl",
