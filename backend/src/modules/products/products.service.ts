@@ -108,6 +108,11 @@ export class ProductsService {
       ...productData,
     };
 
+    // imageUrl "" → null (mismo motivo que en update(): borrar/coherente).
+    if (createData.imageUrl === "") {
+      createData.imageUrl = null;
+    }
+
     if (category) {
       createData.categoryId = category;
     }
@@ -598,6 +603,13 @@ export class ProductsService {
     } = updateProductDto as any;
 
     const data: any = { ...updateData };
+
+    // imageUrl: el frontend envía "" para borrar la imagen (no `null`, que el
+    // DTO @IsString rechazaría; ni `undefined`, que Prisma ignora y dejaría la
+    // imagen antigua). Coercer "" → null para que el borrado surta efecto.
+    if (data.imageUrl === "") {
+      data.imageUrl = null;
+    }
 
     if (category) {
       data.categoryId = category;

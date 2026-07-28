@@ -231,7 +231,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       brand: formData.brand || undefined,
       allergens,
       hideAllergens,
-      imageUrl: imageUrl || undefined,
+      // Enviar siempre imageUrl (aunque sea "") para que el backend pueda
+      // distinguir "borrar imagen" de "no tocar este campo". El backend
+      // coerce "" → null. Usar undefined aquí haría que JSON.stringify omita
+      // la clave y la imagen antigua nunca se borraría.
+      imageUrl,
       nutritionalInfo,
       minimumStock: parseFloat(formData.minimumStock) || undefined,
       maximumStock: parseFloat(formData.maximumStock) || undefined,
