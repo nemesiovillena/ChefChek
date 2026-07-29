@@ -597,6 +597,47 @@ describe("ProductSupplierOffersService", () => {
         expect(data.agreedAt).toBeNull();
       });
 
+      it("primera oferta sin agreedPrice explícito lo fija al purchasePrice de esa compra", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+
+        const offer = await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 6.53 },
+        );
+
+        expect(offer.agreedPrice).toBe(6.53);
+        expect(offer.agreedAt).toBeInstanceOf(Date);
+      });
+
+      it("primera oferta con agreedPrice explícito respeta el valor enviado, no el purchasePrice", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+
+        const offer = await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 6.53, agreedPrice: 5.9 },
+        );
+
+        expect(offer.agreedPrice).toBe(5.9);
+      });
+
       it("agreedUntil se pasa como Date; ausente no lo toca", async () => {
         (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
         (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(

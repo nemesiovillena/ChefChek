@@ -155,7 +155,14 @@ export class ProductSupplierOffersService {
           unitSize,
           profitMargin: data.profitMargin ?? 0,
           isPreferred: promoteToPreferred || offerCount === 0,
-          ...this.buildAgreedFields(data, null),
+          // Primera compra de este proveedor a este artículo: si no viene un
+          // pacto explícito, el precio de esta compra ES el precio pactado
+          // (así el control de desviaciones queda activo desde el día 1 en
+          // vez de depender de que alguien lo fije a mano más tarde).
+          ...this.buildAgreedFields(
+            { ...data, agreedPrice: data.agreedPrice ?? data.purchasePrice },
+            null,
+          ),
         },
       });
     }
