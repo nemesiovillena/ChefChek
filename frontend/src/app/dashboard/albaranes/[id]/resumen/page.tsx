@@ -10,6 +10,7 @@ import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
+import { SupplierMatchBadge } from '@/components/albaranes/supplier-match-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { Button } from '@/components/ui/button';
@@ -240,6 +241,11 @@ export default function AlbaranResumenPage() {
                     {albaran.supplier?.cifNif && (
                       <p className="text-xs text-gray-400">CIF: {albaran.supplier.cifNif}</p>
                     )}
+                    <SupplierMatchBadge
+                      hasSupplier={!!albaran.supplier}
+                      hasOcrData={!!albaran.ocrRawData}
+                      ocrSupplierName={albaran.ocrRawData?.supplier_name}
+                    />
                   </div>
                 </div>
 

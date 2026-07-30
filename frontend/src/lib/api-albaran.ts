@@ -62,6 +62,8 @@ export interface Albaran {
     extraction_method?: string;
     extraction_model?: string;
     confidence?: number;
+    /** Nombre de proveedor tal como lo leyó el OCR, antes de intentar hacer match contra la BD */
+    supplier_name?: string | null;
   } | null;
 }
 
