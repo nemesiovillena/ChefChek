@@ -26,7 +26,7 @@ export interface AlbaranLine {
   matchStatus: MatchStatus;
   lineStatus: LineStatus;
   matchedProductId: string | null;
-  matchedProduct: { id: string; name: string; netPrice: number; discountPercentage: number } | null;
+  matchedProduct: { id: string; name: string; netPrice: number; discountPercentage: number; purchasePrice: number } | null;
   confidence: number | null;
   /** Mejor candidato cuando NO hubo auto-match (MATCH_DUDOSO o NUEVO). Descartable con dismissSuggestion. */
   suggestedProductId: string | null;

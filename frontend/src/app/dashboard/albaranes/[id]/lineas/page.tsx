@@ -8,6 +8,7 @@ import { useNotification } from '@/components/notification-system';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
+import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
 import { LineActionsToolbar } from '@/components/albaranes/line-actions-toolbar';
@@ -430,6 +431,7 @@ export default function AlbaranLineasPage() {
                       <TableHead>Precio</TableHead>
                       <TableHead>IVA</TableHead>
                       <TableHead>Total</TableHead>
+                      <TableHead>Variación</TableHead>
                       <TableHead>Match</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -622,6 +624,22 @@ export default function AlbaranLineasPage() {
                           })()}
                         </TableCell>
                         <TableCell>
+                          {(() => {
+                            if (!line.matchedProduct) return null;
+                            const lineQuantity = Number(line.quantity);
+                            const effectivePrice =
+                              albaran?.applyDiscountToCost && line.totalPrice !== null && lineQuantity > 0
+                                ? line.totalPrice / lineQuantity
+                                : line.unitPrice;
+                            return (
+                              <LinePriceChangeBadge
+                                effectivePrice={effectivePrice}
+                                previousPrice={line.matchedProduct.purchasePrice}
+                              />
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
                           <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />
                         </TableCell>
                         <TableCell>{getLineStatusBadge(line.lineStatus)}</TableCell>
@@ -631,7 +649,7 @@ export default function AlbaranLineasPage() {
                         <TableRow>
                           {/* Fila a ancho completo: el formulario (varios campos por fila)
                               no cabe en la columna "Acciones" sin solaparse. */}
-                          <TableCell colSpan={9} className="bg-gray-50 p-0">
+                          <TableCell colSpan={10} className="bg-gray-50 p-0">
                             <CreateProductInline
                               albaranId={id}
                               line={line}
