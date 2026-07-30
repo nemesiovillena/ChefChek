@@ -79,15 +79,6 @@ export class SupplierMatchingService {
   private async matchByCif(cifNif: string, tenantId: string) {
     const normalizedCif = normalizeCifNif(cifNif);
 
-    const supplier = await this.prisma.supplier.findFirst({
-      where: {
-        tenantId,
-        cifNif: {
-          not: null,
-        },
-      },
-    });
-
     // Fetch all suppliers with CIF and compare normalized values
     const suppliers = await this.prisma.supplier.findMany({
       where: {
@@ -116,33 +107,43 @@ export class SupplierMatchingService {
     name: string,
     tenantId: string,
   ): Promise<SupplierMatchResult | null> {
-    // Get suppliers where name contains the search term
+    // Comparamos contra todos los proveedores activos del tenant (volumen bajo
+    // por tenant): un `contains` SQL direccional descartaba candidatos válidos
+    // cuando el nombre OCR (razón social larga) no era substring del nombre
+    // comercial corto guardado en BD, o viceversa.
     const suppliers = await this.prisma.supplier.findMany({
       where: {
         tenantId,
         isActive: true,
-        name: {
-          mode: "insensitive",
-          contains: name,
-        },
       },
-      select: { id: true, name: true, cifNif: true },
-      take: 10,
+      select: { id: true, name: true, cifNif: true, legalName: true },
     });
 
     if (suppliers.length === 0) {
       return null;
     }
 
-    // Calculate similarity scores
+    // El OCR extrae la razón social completa del papel, que se parece mucho
+    // más a legalName (cuando ya se conoce) que al nombre comercial corto
+    // (name); usamos el mejor de los dos por si legalName aún no está relleno.
+    const normalizedInput = name.toLowerCase();
     const matchesWithScore = suppliers
-      .map((supplier) => ({
-        ...supplier,
-        similarity: calculateSimilarity(
-          name.toLowerCase(),
+      .map((supplier) => {
+        const nameSimilarity = calculateSimilarity(
+          normalizedInput,
           supplier.name.toLowerCase(),
-        ),
-      }))
+        );
+        const legalNameSimilarity = supplier.legalName
+          ? calculateSimilarity(
+              normalizedInput,
+              supplier.legalName.toLowerCase(),
+            )
+          : 0;
+        return {
+          ...supplier,
+          similarity: Math.max(nameSimilarity, legalNameSimilarity),
+        };
+      })
       .sort((a, b) => b.similarity - a.similarity);
 
     const bestMatch = matchesWithScore[0];
@@ -194,6 +195,7 @@ export class SupplierMatchingService {
   async enrichSupplierFromOcr(
     supplierId: string,
     ocrData: {
+      legalName?: string | null;
       address?: string | null;
       phone?: string | null;
       email?: string | null;
@@ -203,6 +205,7 @@ export class SupplierMatchingService {
     const supplier = await this.prisma.supplier.findUnique({
       where: { id: supplierId },
       select: {
+        legalName: true,
         address: true,
         phone: true,
         email: true,
@@ -215,6 +218,9 @@ export class SupplierMatchingService {
     }
 
     const updates: Record<string, string> = {};
+    if (ocrData.legalName && !supplier.legalName) {
+      updates.legalName = ocrData.legalName;
+    }
     if (ocrData.address && !supplier.address) {
       updates.address = ocrData.address;
     }

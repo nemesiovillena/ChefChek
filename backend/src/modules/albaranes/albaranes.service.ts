@@ -448,6 +448,7 @@ export class AlbaranesService {
         await this.supplierMatching.enrichSupplierFromOcr(
           supplierMatch.supplierId,
           {
+            legalName: document.supplier_name,
             address: document.supplier_address,
             phone: document.supplier_phone,
             email: document.supplier_email,

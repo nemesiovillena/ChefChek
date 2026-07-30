@@ -4,6 +4,7 @@ import { PaginatedResponse } from '@/types/api.types';
 export interface Supplier {
   id: string;
   name: string;
+  legalName?: string;
   cifNif?: string;
   address?: string;
   contactPerson?: string;

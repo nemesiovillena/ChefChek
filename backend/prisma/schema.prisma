@@ -1156,6 +1156,7 @@ model Supplier {
   id                  String    @id @default(cuid())
   tenantId            String
   name                String
+  legalName           String? // Razón social/nombre fiscal tal como aparece en el papel; usado para auto-matching OCR cuando no hay CIF
   cifNif              String? // CIF/NIF para auto-matching con OCR
   address             String? // Dirección del proveedor
   contactPerson       String?

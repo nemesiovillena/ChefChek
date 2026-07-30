@@ -1314,6 +1314,7 @@ export class ProductsService {
     tenantId: string,
     data: {
       name: string;
+      legalName?: string;
       cifNif?: string;
       address?: string;
       contactPerson?: string;
@@ -1349,6 +1350,7 @@ export class ProductsService {
       data: {
         tenantId,
         name: data.name.trim(),
+        legalName: data.legalName?.trim() || null,
         cifNif: data.cifNif || null,
         address: data.address || null,
         contactPerson: data.contactPerson || null,
