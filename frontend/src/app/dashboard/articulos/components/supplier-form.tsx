@@ -14,28 +14,55 @@ interface Props {
 }
 
 export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubmitting }: Props) {
+  // Whitelist explícito de campos editables: el objeto `supplier` que llega de
+  // la API trae también id/tenantId/createdAt/updatedAt/deletedAt/ocrLayoutHints,
+  // y como react-hook-form conserva en el submit cualquier clave presente en
+  // defaultValues aunque no tenga un input registrado, pasar `supplier` entero
+  // colaba esos campos y el backend (forbidNonWhitelisted) rechazaba el update.
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<CreateSupplierDto>({
-    defaultValues: (supplier as CreateSupplierDto) || {
-      name: initialName || '',
-      legalName: '',
-      cifNif: '',
-      address: '',
-      contactPerson: '',
-      email: '',
-      phone: '',
-      whatsapp: '',
-      website: '',
-      sanitaryRegistry: '',
-      iban: '',
-      paymentTerms: '',
-      notes: '',
-      averageDeliveryTime: 3,
-      reliabilityScore: 85,
-      priceTier: 'MEDIUM',
-      preferredStatus: 'ALTERNATIVE',
-      orderMethods: ['EMAIL'],
-      isActive: true
-    }
+    defaultValues: supplier
+      ? {
+          name: supplier.name,
+          legalName: supplier.legalName || '',
+          cifNif: supplier.cifNif || '',
+          address: supplier.address || '',
+          contactPerson: supplier.contactPerson || '',
+          email: supplier.email || '',
+          phone: supplier.phone || '',
+          whatsapp: supplier.whatsapp || '',
+          website: supplier.website || '',
+          sanitaryRegistry: supplier.sanitaryRegistry || '',
+          iban: supplier.iban || '',
+          paymentTerms: supplier.paymentTerms || '',
+          notes: supplier.notes || '',
+          averageDeliveryTime: supplier.averageDeliveryTime,
+          reliabilityScore: supplier.reliabilityScore,
+          priceTier: supplier.priceTier as CreateSupplierDto['priceTier'],
+          preferredStatus: supplier.preferredStatus as CreateSupplierDto['preferredStatus'],
+          orderMethods: supplier.orderMethods,
+          isActive: supplier.isActive,
+        }
+      : {
+          name: initialName || '',
+          legalName: '',
+          cifNif: '',
+          address: '',
+          contactPerson: '',
+          email: '',
+          phone: '',
+          whatsapp: '',
+          website: '',
+          sanitaryRegistry: '',
+          iban: '',
+          paymentTerms: '',
+          notes: '',
+          averageDeliveryTime: 3,
+          reliabilityScore: 85,
+          priceTier: 'MEDIUM',
+          preferredStatus: 'ALTERNATIVE',
+          orderMethods: ['EMAIL'],
+          isActive: true
+        }
   });
 
   const [selectedMethods, setSelectedMethods] = useState<string[]>(supplier?.orderMethods || ['EMAIL']);
