@@ -49,7 +49,7 @@ export function CreateProductInline({
     brand: '',
     categoryId: '',
   });
-  const { data: tree = [] } = useCategoryTree();
+  const { data: tree = [] } = useCategoryTree('articles');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const createSupplierOffer = useCreateSupplierOffer();
