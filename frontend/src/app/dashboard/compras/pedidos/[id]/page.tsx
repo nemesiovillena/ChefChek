@@ -131,6 +131,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   );
   const [dirty, setDirty] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [notes, setNotes] = useState(order.notes ?? '');
 
   const canSend = order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
 
@@ -165,6 +166,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             expectedPrice: l.expectedPrice ?? undefined,
             unit: l.unit || undefined,
           })),
+          notes,
         },
       });
       setDirty(false);
@@ -207,7 +209,8 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      {/* div, no <header>: la regla global header:not(.fixed){display:none} oculta cualquier <header> que no sea el navbar fijo */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--on-surface)]">
             {order.orderNumber}
@@ -217,16 +220,29 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {order.location?.name ? ` · ${order.location.name}` : ''} ·{' '}
             {new Date(order.createdAt).toLocaleDateString('es-ES')}
           </p>
-          {order.notes && (
-            <p className="mt-1 text-sm italic text-[var(--on-surface-variant)]">
-              {order.notes}
-            </p>
+          {isDraft ? (
+            <textarea
+              value={notes}
+              onChange={(e) => {
+                setNotes(e.target.value);
+                setDirty(true);
+              }}
+              rows={2}
+              placeholder="Notas para el proveedor (aparecen en el PDF y en el mensaje de envío)..."
+              className="mt-2 w-full max-w-md resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm italic text-[var(--on-surface-variant)] outline-none focus:border-[var(--primary)]"
+            />
+          ) : (
+            order.notes && (
+              <p className="mt-1 text-sm italic text-[var(--on-surface-variant)]">
+                {order.notes}
+              </p>
+            )
           )}
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-medium ${meta.className}`}>
           {meta.label}
         </span>
-      </header>
+      </div>
 
       <section className="overflow-x-auto rounded-2xl border border-[var(--outline-variant)]">
         <table className="w-full min-w-[560px] text-sm">
