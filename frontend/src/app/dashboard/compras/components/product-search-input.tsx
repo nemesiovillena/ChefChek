@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { useProductSearch } from '@/hooks/use-product-search';
+import { useNotification } from '@/components/notification-system';
 
 export interface PickedProduct {
   id: string;
@@ -35,12 +36,32 @@ export function ProductSearchInput({
     supplierId,
   });
   const [open, setOpen] = useState(false);
+  const addNotification = useNotification();
 
   const visible = products.filter((p) => !excludeIds.includes(p.id));
   const topMatch = visible[0];
 
   const addTopMatch = () => {
-    if (!topMatch) return;
+    const query = search.trim();
+    if (!query) return;
+    if (loading) {
+      // Búsqueda todavía en curso (debounce/red): no añadir con datos
+      // obsoletos, pero avisar en vez de quedarse callado.
+      addNotification({
+        type: 'info',
+        title: 'Buscando...',
+        message: 'Espera un instante a que termine la búsqueda y vuelve a pulsar +.',
+      });
+      return;
+    }
+    if (!topMatch) {
+      addNotification({
+        type: 'warning',
+        title: 'Artículo no encontrado',
+        message: `No hay ningún artículo del catálogo llamado "${query}". Créalo primero en Artículos.`,
+      });
+      return;
+    }
     onSelect({
       id: topMatch.id,
       name: topMatch.name,
@@ -81,9 +102,9 @@ export function ProductSearchInput({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={addTopMatch}
-          disabled={!topMatch}
+          disabled={!search.trim()}
           aria-label="Añadir artículo a la lista"
-          title={topMatch ? `Añadir "${topMatch.name}"` : 'Escribe para buscar un artículo'}
+          title={topMatch ? `Añadir "${topMatch.name}"` : 'Escribe el nombre de un artículo y pulsa para añadirlo'}
           className="absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg bg-[var(--primary)] text-primary-foreground transition disabled:opacity-30"
         >
           <Plus className="h-4 w-4" />

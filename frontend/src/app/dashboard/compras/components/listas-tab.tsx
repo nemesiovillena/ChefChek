@@ -470,7 +470,10 @@ function ListEditor({
 
       {canManage && (
         <ProductSearchInput
-          supplierId={list.supplierId}
+          // Sin supplierId a propósito: el checklist puede incluir artículos que
+          // no se compran habitualmente a este proveedor (compra puntual). El
+          // precio en el pedido generado queda a null si no hay oferta de este
+          // proveedor para ese artículo (ver purchase-order.service buildLines).
           excludeIds={rows.map((r) => r.productId)}
           placeholder="Escribe el nombre del artículo y pulsa + para añadirlo..."
           showAddButton
