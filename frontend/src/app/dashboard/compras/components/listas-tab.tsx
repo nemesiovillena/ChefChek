@@ -243,6 +243,10 @@ function ListEditor({
 
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const checkedCount = rows.filter((r) => r.checked).length;
+  const allChecked = rows.length > 0 && checkedCount === rows.length;
+  const someChecked = checkedCount > 0;
+
   // El check determina pertenencia a la lista: solo se persiste lo marcado.
   const handleSave = async () => {
     if (!rows.some((r) => r.checked)) {
@@ -380,6 +384,29 @@ function ListEditor({
         )}
       </div>
 
+      {rows.length > 0 && canManage && (
+        <div className="flex items-center justify-between px-1">
+          <label className="flex items-center gap-2 text-sm text-[var(--on-surface-variant)]">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = someChecked && !allChecked;
+              }}
+              onChange={(e) =>
+                setRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))
+              }
+              aria-label="Seleccionar todos los artículos"
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            Seleccionar todos
+          </label>
+          <span className="text-xs text-[var(--on-surface-variant)]">
+            {checkedCount} / {rows.length} seleccionados
+          </span>
+        </div>
+      )}
+
       <ul className="space-y-2">
         {rows.map((row, index) => (
           <li
@@ -445,6 +472,8 @@ function ListEditor({
         <ProductSearchInput
           supplierId={list.supplierId}
           excludeIds={rows.map((r) => r.productId)}
+          placeholder="Escribe el nombre del artículo y pulsa + para añadirlo..."
+          showAddButton
           onSelect={(product) =>
             setRows((prev) => [
               ...prev,
