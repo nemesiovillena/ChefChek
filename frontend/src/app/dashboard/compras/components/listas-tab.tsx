@@ -245,6 +245,16 @@ function ListEditor({
 
   // El check determina pertenencia a la lista: solo se persiste lo marcado.
   const handleSave = async () => {
+    if (!rows.some((r) => r.checked)) {
+      const ok = await confirm({
+        title: 'Guardar checklist vacío',
+        description:
+          'No has marcado ningún artículo. Si continúas, la lista se guardará sin artículos.',
+        confirmText: 'Guardar vacío',
+        variant: 'warning',
+      });
+      if (!ok) return;
+    }
     try {
       await updateMut.mutateAsync({
         id: list.id,
