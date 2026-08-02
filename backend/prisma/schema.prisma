@@ -2044,6 +2044,10 @@ model PurchaseList {
   supplierId String
   locationId String?
   name       String
+  // Notas libres del usuario (artículos sueltos a recordar, instrucciones al
+  // proveedor, etc.). Texto plano, no estructurado: no genera líneas de
+  // pedido ni afecta a stock/coste/reconciliación.
+  notes      String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?

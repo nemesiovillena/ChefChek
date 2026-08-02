@@ -26,6 +26,8 @@ export interface PurchaseList {
   supplier?: { id: string; name: string };
   location?: { id: string; name: string } | null;
   items: PurchaseListItem[];
+  /** Notas libres del usuario: no genera líneas de pedido ni afecta al coste. */
+  notes?: string | null;
 }
 
 export interface PurchaseListItemInput {
@@ -90,7 +92,12 @@ export function useUpdatePurchaseList() {
     Error,
     {
       id: string;
-      data: { name?: string; locationId?: string; items?: PurchaseListItemInput[] };
+      data: {
+        name?: string;
+        locationId?: string;
+        items?: PurchaseListItemInput[];
+        notes?: string;
+      };
     }
   >({
     mutationFn: async ({ id, data }) =>

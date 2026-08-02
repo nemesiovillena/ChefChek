@@ -242,6 +242,16 @@ function ListEditor({
     });
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [notes, setNotes] = useState(list.notes ?? '');
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateMut.mutateAsync({ id: list.id, data: { notes } });
+      addNotification({ type: 'success', title: 'Notas guardadas', message: list.name });
+    } catch (e) {
+      notifyError(e, 'No se pudieron guardar las notas');
+    }
+  };
 
   const checkedCount = rows.filter((r) => r.checked).length;
   const allChecked = rows.length > 0 && checkedCount === rows.length;
@@ -490,6 +500,32 @@ function ListEditor({
             ])
           }
         />
+      )}
+
+      {(canManage || notes.trim()) && (
+        <div className="space-y-2">
+          <label htmlFor="list-notes" className="text-sm font-medium text-[var(--on-surface)]">
+            Notas / artículos sueltos
+          </label>
+          <textarea
+            id="list-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            readOnly={!canManage}
+            rows={3}
+            placeholder="Escribe aquí cualquier cosa que quieras pedir o recordar, sin que tenga que ser un artículo del catálogo..."
+            className="w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)] read-only:bg-[var(--surface-container-low)]"
+          />
+          {canManage && (
+            <button
+              onClick={handleSaveNotes}
+              disabled={updateMut.isPending || notes === (list.notes ?? '')}
+              className="rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+            >
+              Guardar notas
+            </button>
+          )}
+        </div>
       )}
 
       {canManage && (

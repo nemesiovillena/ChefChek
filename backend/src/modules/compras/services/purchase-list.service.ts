@@ -68,6 +68,7 @@ export class PurchaseListService {
         name: dto.name,
         supplierId: dto.supplierId,
         locationId: dto.locationId,
+        notes: dto.notes,
         items: {
           create: (dto.items ?? []).map((item, index) => ({
             productId: item.productId,
@@ -88,6 +89,7 @@ export class PurchaseListService {
       data: {
         name: dto.name,
         locationId: dto.locationId,
+        notes: dto.notes,
         ...(dto.items
           ? {
               items: {
