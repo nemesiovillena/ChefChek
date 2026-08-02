@@ -148,7 +148,15 @@ export class PurchaseListService {
       {
         supplierId: list.supplierId,
         locationId: dto.locationId ?? list.locationId ?? undefined,
-        notes: "Si no dispone de algún artículo, por favor, comuníquelo.",
+        // Instrucción fija al proveedor + notas libres de la lista (artículos
+        // sueltos, aclaraciones) si las hay, para que lleguen en el pedido
+        // enviado (PDF / email / WhatsApp) tras el listado de artículos.
+        notes: [
+          "Si no dispone de algún artículo, por favor, comuníquelo.",
+          list.notes?.trim() || null,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         lines,
       },
       list.id,
