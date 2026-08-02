@@ -43,7 +43,8 @@ export class OrderSendingService {
   /** Vista previa: texto del pedido, canales disponibles y enlaces. */
   async getSendPreview(tenantId: string, orderId: string) {
     const order = await this.findSendableOrder(tenantId, orderId, false);
-    const text = this.buildMessage(order);
+    const restaurantName = await this.getRestaurantName(tenantId);
+    const text = this.buildMessage(order, restaurantName);
     const whatsappNumber = this.normalizePhone(order.supplier.whatsapp);
 
     return {
@@ -84,10 +85,11 @@ export class OrderSendingService {
         throw new BadRequestException("El proveedor no tiene email.");
       }
       const pdf = await this.pdfService.generate(tenantId, orderId);
+      const restaurantName = await this.getRestaurantName(tenantId);
       await this.mailService.sendMail(tenantId, {
         to: order.supplier.email,
         subject: `Pedido ${order.orderNumber}`,
-        text: this.buildMessage(order),
+        text: this.buildMessage(order, restaurantName),
         attachments: [
           {
             filename: `${order.orderNumber}.pdf`,
@@ -124,25 +126,37 @@ export class OrderSendingService {
   }
 
   /** Texto plano del pedido (cuerpo de email y mensaje de WhatsApp). */
-  buildMessage(order: {
-    orderNumber: string;
-    notes?: string | null;
-    supplier: { name: string };
-    location?: { name: string } | null;
-    lines: {
-      quantity: number;
-      unit?: string | null;
-      product?: { name: string } | null;
-      productId: string;
-    }[];
-  }): string {
+  buildMessage(
+    order: {
+      orderNumber: string;
+      notes?: string | null;
+      supplier: { name: string };
+      location?: { name: string } | null;
+      lines: {
+        quantity: number;
+        unit?: string | null;
+        product?: { name: string } | null;
+        productId: string;
+      }[];
+    },
+    restaurantName: string,
+  ): string {
     const header = `Pedido ${order.orderNumber}${order.location?.name ? ` (${order.location.name})` : ""}`;
     const lines = order.lines.map(
       (l) =>
         `• ${l.product?.name ?? l.productId}: ${l.quantity}${l.unit ? ` ${l.unit}` : ""}`,
     );
     const notes = order.notes ? `\nNotas: ${order.notes}` : "";
-    return `Hola ${order.supplier.name},\n\n${header}:\n${lines.join("\n")}${notes}\n\nGracias.`;
+    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${notes}\n\nMuchas gracias.`;
+  }
+
+  /** Nombre del tenant (restaurante) para el saludo del mensaje. */
+  private async getRestaurantName(tenantId: string): Promise<string> {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    return tenant?.name ?? "";
   }
 
   /** Teléfono a dígitos para wa.me; asume prefijo 34 si son 9 dígitos (ES). */

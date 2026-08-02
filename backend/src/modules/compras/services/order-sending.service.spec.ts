@@ -12,6 +12,7 @@ describe("OrderSendingService", () => {
   const prismaMock = {
     purchaseOrder: { findFirst: jest.fn(), update: jest.fn() },
     purchaseOrderEvent: { create: jest.fn() },
+    tenant: { findFirst: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
   const mailMock = { sendMail: jest.fn() };
@@ -44,6 +45,7 @@ describe("OrderSendingService", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.tenant.findFirst.mockResolvedValue({ name: "Warynessy" });
     const module = await Test.createTestingModule({
       providers: [
         OrderSendingService,
@@ -61,8 +63,13 @@ describe("OrderSendingService", () => {
       const preview = await service.getSendPreview(tenantId, "o1");
 
       expect(preview.channels).toEqual(["EMAIL", "WHATSAPP", "PHONE"]);
+      expect(preview.text).toContain("Hola Pescados SA.");
+      expect(preview.text).toContain(
+        "Le adjunto pedido de restaurante Warynessy:",
+      );
       expect(preview.text).toContain("Pedido PED-0001");
       expect(preview.text).toContain("• Salmón: 3 Caja 5kg");
+      expect(preview.text).toContain("Muchas gracias.");
       expect(preview.whatsappUrl).toMatch(
         /^https:\/\/wa\.me\/34612345678\?text=/,
       );
