@@ -146,7 +146,7 @@ export class PurchaseListService {
       {
         supplierId: list.supplierId,
         locationId: dto.locationId ?? list.locationId ?? undefined,
-        notes: `Generado desde la lista "${list.name}"`,
+        notes: "Si no dispone de algún artículo, por favor, comuníquelo.",
         lines,
       },
       list.id,
