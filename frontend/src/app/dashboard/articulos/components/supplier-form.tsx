@@ -19,7 +19,7 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
   // y como react-hook-form conserva en el submit cualquier clave presente en
   // defaultValues aunque no tenga un input registrado, pasar `supplier` entero
   // colaba esos campos y el backend (forbidNonWhitelisted) rechazaba el update.
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<CreateSupplierDto>({
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<CreateSupplierDto>({
     defaultValues: supplier
       ? {
           name: supplier.name,
@@ -66,6 +66,16 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
   });
 
   const [selectedMethods, setSelectedMethods] = useState<string[]>(supplier?.orderMethods || ['EMAIL']);
+
+  const whatsappValue = watch('whatsapp');
+  const phoneValue = watch('phone');
+  const unmarkedContactMethods: string[] = [];
+  if (whatsappValue?.trim() && !selectedMethods.includes('WHATSAPP')) {
+    unmarkedContactMethods.push('WhatsApp');
+  }
+  if (phoneValue?.trim() && !selectedMethods.includes('PHONE')) {
+    unmarkedContactMethods.push('teléfono');
+  }
 
   const toggleMethod = (method: string) => {
     const newMethods = selectedMethods.includes(method)
@@ -208,6 +218,12 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
           ))}
         </div>
         <input type="hidden" {...register('orderMethods')} />
+        {unmarkedContactMethods.length > 0 && (
+          <p className="mt-2 text-xs text-amber-600">
+            Tienes {unmarkedContactMethods.join(' y ')} guardado pero no marcado como método de
+            pedido — el proveedor no mostrará esta opción al enviar pedidos.
+          </p>
+        )}
       </div>
 
       <div className="pt-2 border-t">

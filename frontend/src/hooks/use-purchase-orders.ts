@@ -182,6 +182,15 @@ export function useTransitionPurchaseOrder() {
   });
 }
 
+export function useRevertPurchaseOrderStatus() {
+  const invalidate = useInvalidateOrders();
+  return useMutation<PurchaseOrder, Error, { id: string; reason: string }>({
+    mutationFn: async ({ id, reason }) =>
+      (await apiClient.patch(`${BASE_URL}/${id}/revertir`, { reason })).data,
+    onSuccess: invalidate,
+  });
+}
+
 export function useDeletePurchaseOrder() {
   const invalidate = useInvalidateOrders();
   return useMutation<PurchaseOrder, Error, string>({

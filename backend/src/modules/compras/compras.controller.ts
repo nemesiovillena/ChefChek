@@ -66,6 +66,7 @@ import {
 import {
   CreatePurchaseOrderDto,
   PurchaseOrdersQueryDto,
+  RevertPurchaseOrderDto,
   TransitionPurchaseOrderDto,
   UpdatePurchaseOrderDto,
 } from "./dto/purchase-order.dto";
@@ -334,6 +335,35 @@ export class ComprasController {
       id,
       dto.status,
       req.user?.id,
+    );
+    return { success: true, data };
+  }
+
+  @Patch("pedidos/:id/revertir")
+  @Roles("ADMIN")
+  @ApiOperation({
+    summary:
+      "Corrección administrativa: fuerza la vuelta a BORRADOR desde ENVIADO/RECIBIDO_PARCIAL/RECIBIDO/CANCELADO",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "El estado actual no admite revertir",
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      "Hay recepción o albarán vinculado, requiere corrección manual",
+  })
+  async revertOrder(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: RevertPurchaseOrderDto,
+  ) {
+    const data = await this.purchaseOrderStatusService.revertToDraft(
+      req.tenantId,
+      id,
+      req.user?.id,
+      dto.reason,
     );
     return { success: true, data };
   }

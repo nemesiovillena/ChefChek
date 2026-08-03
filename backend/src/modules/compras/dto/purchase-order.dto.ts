@@ -11,6 +11,7 @@ import {
   IsString,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from "class-validator";
 import { PurchaseOrderStatus } from "@prisma/client";
@@ -83,6 +84,12 @@ export class UpdatePurchaseOrderDto {
 export class TransitionPurchaseOrderDto {
   @IsEnum(PurchaseOrderStatus)
   status: PurchaseOrderStatus;
+}
+
+export class RevertPurchaseOrderDto {
+  @IsString()
+  @MinLength(10)
+  reason: string;
 }
 
 export class PurchaseOrdersQueryDto {

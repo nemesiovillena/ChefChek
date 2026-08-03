@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -11,13 +11,16 @@ import {
   PackageCheck,
   Send,
   Trash2,
+  Undo2,
 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
+import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import {
   ORDER_STATUS_META,
   useDeletePurchaseOrder,
   usePurchaseOrder,
+  useRevertPurchaseOrderStatus,
   useTransitionPurchaseOrder,
   useUpdatePurchaseOrder,
   type PurchaseOrder,
@@ -69,6 +72,15 @@ const EVENT_LABELS: Record<string, string> = {
   SENT: 'Enviado al proveedor',
 };
 
+/** Estados desde los que un ADMIN puede forzar la vuelta a Borrador (espejo de REVERTIBLE_STATUSES backend). */
+const REVERTIBLE_STATUSES: PurchaseOrderStatus[] = [
+  'ENVIADO',
+  'RECIBIDO_PARCIAL',
+  'RECIBIDO',
+  'CANCELADO',
+];
+const REVERT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+
 export default function PedidoDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? null;
@@ -110,9 +122,17 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const router = useRouter();
   const confirm = useConfirm();
   const addNotification = useNotification();
+  const { user } = useAuth();
   const updateMut = useUpdatePurchaseOrder();
   const transitionMut = useTransitionPurchaseOrder();
   const deleteMut = useDeletePurchaseOrder();
+  const revertMut = useRevertPurchaseOrderStatus();
+  const revertReasonRef = useRef<HTMLTextAreaElement>(null);
+
+  const canRevert =
+    REVERTIBLE_STATUSES.includes(order.status) &&
+    !!user?.role &&
+    REVERT_ROLES.includes(user.role);
 
   const isDraft = order.status === 'BORRADOR';
   const hasReception = ['ENVIADO', 'RECIBIDO_PARCIAL', 'RECIBIDO'].includes(
@@ -190,6 +210,41 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
     } catch (e) {
       notifyError(e, 'No se pudo cambiar el estado');
     }
+  };
+
+  const handleRevert = async () => {
+    await confirm({
+      title: `Revertir ${order.orderNumber} a Borrador`,
+      description:
+        'Corrección administrativa: el pedido volverá a Borrador (podrás editarlo y reenviarlo). No usar si ya hubo una recepción real.',
+      variant: 'destructive',
+      confirmText: 'Revertir a Borrador',
+      children: (
+        <textarea
+          ref={revertReasonRef}
+          rows={3}
+          placeholder="Motivo (mínimo 10 caracteres)..."
+          className="w-full rounded-xl border border-[var(--outline-variant)] bg-transparent px-3 py-2 text-sm text-[var(--on-surface)]"
+        />
+      ),
+      onConfirm: async () => {
+        const reason = revertReasonRef.current?.value.trim() ?? '';
+        if (reason.length < 10) {
+          addNotification({
+            type: 'error',
+            title: 'Motivo requerido',
+            message: 'Escribe al menos 10 caracteres explicando el motivo.',
+          });
+          throw new Error('reason too short');
+        }
+        try {
+          await revertMut.mutateAsync({ id: order.id, reason });
+        } catch (e) {
+          notifyError(e, 'No se pudo revertir el pedido');
+          throw e;
+        }
+      },
+    });
   };
 
   const handleDelete = async () => {
@@ -413,6 +468,16 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {label}
           </button>
         ))}
+        {canRevert && (
+          <button
+            onClick={handleRevert}
+            disabled={revertMut.isPending}
+            title="Corrección administrativa: vuelve a Borrador"
+            className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+          >
+            <Undo2 className="h-4 w-4" /> Deshacer (volver a Borrador)
+          </button>
+        )}
         {(order.status === 'BORRADOR' || order.status === 'CANCELADO') && (
           <button
             onClick={handleDelete}
