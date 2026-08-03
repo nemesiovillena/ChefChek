@@ -356,4 +356,12 @@
   nav:not(.fixed) {
     display: none !important;
   }
+
+  /* Ancho de contenido único en toda la app (docs/code-standards.md §4).
+     Usar en el contenedor raíz de cada página en vez de max-w-Nxl ad-hoc. */
+  .content-container {
+    width: 100%;
+    max-width: var(--spacing-container-max-width);
+    margin-inline: auto;
+  }
 }

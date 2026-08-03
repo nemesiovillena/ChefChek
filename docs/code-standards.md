@@ -59,6 +59,14 @@ El ancho del contenido principal es **idéntico en toda la aplicación**. No pue
 - Si una sección necesita más ancho, se rediseña para encajar en el estándar
 - Sin excepciones sin aprobación explícita
 
+**Implementación (frontend/dashboard):** el token vive en `globals.css` (`.content-container`, usa `--spacing-container-max-width: 1280px`). Toda página nueva bajo `/dashboard` debe envolver su contenido con:
+
+- `PageContainer` (`frontend/src/components/shared/page-container.tsx`) — sustituye a `max-w-Nxl mx-auto px-...` ad-hoc
+- `PageHeader` (`frontend/src/components/shared/page-header.tsx`) — título/subtítulo/acciones con tipografía `headline-lg`
+- Para tablas de listado, las clases de `frontend/src/components/shared/data-table-classes.ts` (padding `px-3 py-3`, sin `overflow-hidden` en el contenedor con scroll — solo `overflow-x-auto`)
+
+Migrado a la fecha: Artículos, Recetas, Usuarios. El resto de páginas del dashboard se migra progresivamente al tocarlas.
+
 ## 5. Reutilización de clases, variables y componentes
 
 Prioridad absoluta a la reutilización siguiendo DRY:

@@ -35,6 +35,12 @@ import apiClient from '@/lib/api-client';
 import { formatEuro } from '@/lib/utils';
 import { CategoriesManagementModal } from '@/components/shared/categories-management-modal';
 import PaginationControls from '@/components/shared/pagination-controls';
+import PageContainer from '@/components/shared/page-container';
+import PageHeader from '@/components/shared/page-header';
+import {
+  tableCardClass, tableScrollClass, tableClass, theadClass, thBaseClass, thSortableClass, thActionsClass,
+  tbodyClass, trHoverClass, tdBaseClass, tdActionsClass, actionButtonClass,
+} from '@/components/shared/data-table-classes';
 
 export const dynamic = 'force-dynamic';
 
@@ -465,7 +471,7 @@ export default function RecipesPage() {
     return (
       <th
         onClick={() => handleSort(field)}
-        className="group px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-150"
+        className={thSortableClass}
       >
         <div className="flex items-center space-x-1">
           <span>{label}</span>
@@ -483,32 +489,27 @@ export default function RecipesPage() {
     );
   };
 
+  const headerActions = (
+    <>
+      <button
+        onClick={() => setShowCategoriesModal(true)}
+        className="px-4 py-2 bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+      >
+        Gestionar categorías
+      </button>
+      <button
+        onClick={() => { setActiveTab('general'); setShowCreateForm(true); }}
+        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+      >
+        Crear Receta
+      </button>
+    </>
+  );
+
   return (
     <div className="w-full">
-      {/* Main Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Recetas</h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Gestión de recetas y escandallos
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowCategoriesModal(true)}
-              className="px-4 py-2 bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
-            >
-              Gestionar categorías
-            </button>
-            <button
-              onClick={() => { setActiveTab('general'); setShowCreateForm(true); }}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
-            >
-              Crear Receta
-            </button>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader title="Recetas" subtitle="Gestión de recetas y escandallos" actions={headerActions} />
 
         <CategoriesManagementModal
           isOpen={showCategoriesModal}
@@ -585,49 +586,41 @@ export default function RecipesPage() {
         </div>
 
         {/* Recipes Table */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-800/50">
+        <div className={tableCardClass}>
+          <div className={tableScrollClass}>
+            <table className={tableClass}>
+              <thead className={theadClass}>
                 <tr>
                   {renderSortableHeader('Nombre', 'name')}
                   {renderSortableHeader('Categorías', 'category')}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Alérgenos
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Raciones
-                  </th>
+                  <th className={thBaseClass}>Alérgenos</th>
+                  <th className={thBaseClass}>Raciones</th>
                   {renderSortableHeader('Costo/Ración', 'costPerUnit')}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Acciones
-                  </th>
+                  <th className={thBaseClass}>Estado</th>
+                  <th className={thActionsClass}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+              <tbody className={tbodyClass}>
                 {sortedRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       No hay recetas
                     </td>
                   </tr>
                 ) : (
                   sortedRecipes.map((recipe: Recipe) => (
-                    <tr key={recipe.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    <tr key={recipe.id} className={trHoverClass}>
+                      <td className="px-3 py-3 max-w-[260px]">
+                        <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={recipe.name}>
                           {recipe.name}
                         </div>
                         {recipe.description && (
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="truncate text-sm text-[var(--on-surface-variant)]" title={recipe.description}>
                             {recipe.description}
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className={`${tdBaseClass} max-w-[160px]`}>
                         {recipe.categories && recipe.categories.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {recipe.categories.map((cat) => (
@@ -640,10 +633,10 @@ export default function RecipesPage() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-600">Sin categorías</span>
+                          <span className="text-[var(--outline)]">Sin categorías</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         {recipe.allergens && recipe.allergens.length > 0 ? (
                           <div className="flex flex-wrap gap-1 items-center">
                             {recipe.allergens.map((id) => (
@@ -651,16 +644,16 @@ export default function RecipesPage() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-400 dark:text-gray-600">Sin alérgenos</span>
+                          <span className="text-sm text-[var(--outline)]">Sin alérgenos</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className={tdBaseClass}>
                         {recipe.portions} ({recipe.portionSize}g)
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className={tdBaseClass}>
                         {formatEuro(costPerPortionOf(recipe))}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <button
                           onClick={() => handleToggleStatus(recipe)}
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
@@ -672,13 +665,13 @@ export default function RecipesPage() {
                           {recipe.isActive ? 'Activo' : 'Desactivado'}
                         </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                      <td className={tdActionsClass}>
                         <button
                           onClick={() => handleViewRecipeCard(recipe)}
                           disabled={generatingSheetId === recipe.id}
                           title="Receta (imprimir)"
                           aria-label="Receta (imprimir)"
-                          className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-wait dark:border-purple-900/30 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          className={`${actionButtonClass} border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-wait dark:border-purple-900/30 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-950/40`}
                         >
                           <BookOpen className="h-4 w-4" />
                         </button>
@@ -687,7 +680,7 @@ export default function RecipesPage() {
                           disabled={generatingSheetId === recipe.id}
                           title="Ficha técnica"
                           aria-label="Ficha técnica"
-                          className="inline-flex items-center justify-center p-2 border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          className={`${actionButtonClass} border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40`}
                         >
                           <FileText className="h-4 w-4" />
                         </button>
@@ -695,7 +688,7 @@ export default function RecipesPage() {
                           onClick={() => handleViewCost(recipe)}
                           title="Costo"
                           aria-label="Costo"
-                          className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40`}
                         >
                           <Calculator className="h-4 w-4" />
                         </button>
@@ -703,7 +696,7 @@ export default function RecipesPage() {
                           onClick={() => handleEdit(recipe)}
                           title="Editar receta"
                           aria-label="Editar receta"
-                          className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -711,7 +704,7 @@ export default function RecipesPage() {
                           onClick={() => handleDelete(recipe.id, recipe.name)}
                           title="Eliminar receta"
                           aria-label="Eliminar receta"
-                          className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                          className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -1133,7 +1126,7 @@ export default function RecipesPage() {
             }}
           />
         )}
-      </main>
+      </PageContainer>
     </div>
   );
 }

@@ -17,6 +17,12 @@ import ImportModal from './components/import-modal';
 import ProductThumbnail from './components/product-thumbnail';
 import PaginationControls from '@/components/shared/pagination-controls';
 import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
+import PageContainer from '@/components/shared/page-container';
+import PageHeader from '@/components/shared/page-header';
+import {
+  tableCardClass, tableScrollClass, tableClass, theadClass, thSortableClass, thActionsClass,
+  tbodyClass, trHoverClass, tdActionsClass, actionButtonClass,
+} from '@/components/shared/data-table-classes';
 
 interface Supplier {
   id: string;
@@ -519,7 +525,7 @@ export default function ArticulosPage() {
     return (
       <th
         onClick={() => handleSort(field)}
-        className="group px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100 transition-colors duration-150"
+        className={thSortableClass}
       >
         <div className="flex items-center space-x-1">
           <span>{label}</span>
@@ -554,53 +560,51 @@ export default function ArticulosPage() {
     );
   }
 
+  const headerActions = (
+    <>
+      <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
+        Importar
+      </button>
+      <div className="relative group">
+        <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
+          {isExporting ? 'Exportando…' : 'Exportar'}
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
+          <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a CSV
+          </button>
+          <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a Excel
+          </button>
+          <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a PDF
+          </button>
+        </div>
+      </div>
+      {canManageArticles && (
+        <button
+          onClick={handleBackfillImages}
+          disabled={!!backfillStatus}
+          title="Busca en internet (Pexels) y asigna la primera imagen candidata a cada artículo sin imagen"
+          className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <Sparkles className="h-4 w-4" />
+          {backfillStatus?.running
+            ? `Rellenando… ${backfillStatus.done}${backfillStatus.remaining >= 0 ? `/${backfillStatus.done + backfillStatus.remaining}` : ''}`
+            : 'Rellenar imágenes'}
+        </button>
+      )}
+      <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+        Crear Artículo
+      </button>
+    </>
+  );
+
   return (
     <div className="w-full">
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Artículos</h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Gestión de artículos e inventario</p>
-          </div>
-          <div className="flex gap-2 relative">
-            <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
-              Importar
-            </button>
-            <div className="relative group">
-              <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
-                {isExporting ? 'Exportando…' : 'Exportar'}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
-                <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a CSV
-                </button>
-                <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a Excel
-                </button>
-                <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a PDF
-                </button>
-              </div>
-            </div>
-            {canManageArticles && (
-              <button
-                onClick={handleBackfillImages}
-                disabled={!!backfillStatus}
-                title="Busca en internet (Pexels) y asigna la primera imagen candidata a cada artículo sin imagen"
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4" />
-                {backfillStatus?.running
-                  ? `Rellenando… ${backfillStatus.done}${backfillStatus.remaining >= 0 ? `/${backfillStatus.done + backfillStatus.remaining}` : ''}`
-                  : 'Rellenar imágenes'}
-              </button>
-            )}
-            <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
-              Crear Artículo
-            </button>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader title="Artículos" subtitle="Gestión de artículos e inventario" actions={headerActions} />
 
         {/* Chained Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
@@ -704,29 +708,28 @@ export default function ArticulosPage() {
         </div>
 
         {/* Articles Table */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-800/50">
+        <div className={tableCardClass}>
+          <div className={tableScrollClass}>
+            <table className={tableClass}>
+              <thead className={theadClass}>
                 <tr>
                   <th className="w-12 px-3 py-3"></th>
                   {renderSortableHeader('Nombre', 'name')}
                   {renderSortableHeader('Categoría', 'category')}
-                  {renderSortableHeader('Subcategoría', 'subcategory')}
                   {renderSortableHeader('Proveedor', 'supplier')}
-                  {renderSortableHeader('Precio Compra', 'purchasePrice')}
-                  {renderSortableHeader('Precio Real', 'realPrice')}
-                  {renderSortableHeader('Precio Ref.', 'referencePrice')}
-                  {renderSortableHeader('Última Compra', 'lastPurchaseDate')}
+                  {renderSortableHeader('P. Compra', 'purchasePrice')}
+                  {renderSortableHeader('P. Real', 'realPrice')}
+                  {renderSortableHeader('P. Ref.', 'referencePrice')}
+                  {renderSortableHeader('Últ. Compra', 'lastPurchaseDate')}
                   {renderSortableHeader('Estado', 'status')}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">Acciones</th>
+                  <th className={thActionsClass}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+              <tbody className={tbodyClass}>
                 {productsLoading ? (
-                  <tr><td colSpan={11} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">Cargando...</td></tr>
                 ) : products.length === 0 ? (
-                  <tr><td colSpan={11} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">No hay artículos</td></tr>
                 ) : (
                   products.map((product: Product) => {
                     // Nombre propio de la categoría del producto. Si es raíz (sin
@@ -737,13 +740,25 @@ export default function ArticulosPage() {
                     const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
                     const hasParent = Boolean(parentCat);
                     return (
-                      <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                      <tr key={product.id} className={trHoverClass}>
                         <td className="px-3 py-2"><ProductThumbnail imageUrl={product.imageUrl} size={32} /></td>
-                        <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div></td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? parentCat!.name : productCatName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? productCatName : '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-3 py-3 max-w-[190px]">
+                          <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={product.name}>{product.name}</div>
+                        </td>
+                        <td className="px-3 py-3 max-w-[160px] text-sm text-[var(--on-surface-variant)]">
+                          <div className="truncate" title={hasParent ? `${parentCat!.name} › ${productCatName}` : productCatName}>
+                            {hasParent ? (
+                              <>
+                                <span className="text-[var(--outline)]">{parentCat!.name} › </span>
+                                {productCatName}
+                              </>
+                            ) : productCatName}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 max-w-[140px] text-sm text-[var(--on-surface-variant)]">
+                          <div className="truncate" title={product.supplier?.name || undefined}>{product.supplier?.name || '-'}</div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">
                           <span className="inline-flex items-center gap-1.5">
                             &euro;{product.purchasePrice.toFixed(2)}
                             <ProductPriceTrendBadge
@@ -758,13 +773,13 @@ export default function ArticulosPage() {
                             />
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">
                           {getRealPrice(product) !== null
                             ? formatRefPrice(getRealPrice(product)!, product.referenceUnit)
-                            : <span className="text-gray-400 dark:text-gray-600">—</span>}
+                            : <span className="text-[var(--outline)]">—</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm">
                           {editingDateId === product.id ? (
                             <input
                               type="date"
@@ -796,7 +811,7 @@ export default function ArticulosPage() {
                                   {formatLastPurchaseDate(product.lastPurchaseDate)}
                                 </span>
                               ) : (
-                                <span className="text-gray-400 dark:text-gray-500">
+                                <span className="text-[var(--outline)]">
                                   {formatLastPurchaseDate(product.createdAt)}
                                 </span>
                               )}
@@ -806,7 +821,7 @@ export default function ArticulosPage() {
                             </button>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleStatus(product)}
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
@@ -818,12 +833,12 @@ export default function ArticulosPage() {
                             {product.isActive ? 'Activo' : 'Desactivado'}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <td className={tdActionsClass}>
                           <button
                             onClick={() => handleEdit(product)}
                             title="Editar artículo"
                             aria-label="Editar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -834,7 +849,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Descargar código QR"
                                 aria-label="Descargar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 disabled:opacity-50`}
                               >
                                 <Download className="h-4 w-4" />
                               </button>
@@ -843,7 +858,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Eliminar código QR"
                                 aria-label="Eliminar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 disabled:opacity-50`}
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -854,7 +869,7 @@ export default function ArticulosPage() {
                               disabled={qrLoading}
                               title="Generar código QR"
                               aria-label="Generar código QR"
-                              className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                              className={`${actionButtonClass} border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 disabled:opacity-50`}
                             >
                               <QrCode className="h-4 w-4" />
                             </button>
@@ -863,7 +878,7 @@ export default function ArticulosPage() {
                             onClick={() => handleDelete(product)}
                             title="Eliminar artículo"
                             aria-label="Eliminar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -886,7 +901,7 @@ export default function ArticulosPage() {
             emptyLabel="Sin artículos"
           />
         </div>
-      </main>
+      </PageContainer>
 
       <ArticuloModal
         isOpen={showModal}
