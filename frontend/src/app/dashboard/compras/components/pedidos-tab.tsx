@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { useSuppliers } from '@/hooks/use-suppliers';
@@ -20,7 +20,9 @@ export function PedidosTab() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<PurchaseOrderStatus | ''>('');
   const [supplierId, setSupplierId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [search, setSearch] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: suppliers } = useSuppliers({ isActive: true });
   const { data, isLoading, error } = usePurchaseOrders({
@@ -36,17 +38,23 @@ export function PedidosTab() {
 
   const resetPage = () => setPage(1);
 
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearch(value);
+      resetPage();
+    }, 300);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--on-surface-variant)]" />
           <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetPage();
-            }}
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Buscar por número (PED-...)"
             className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] py-2 pl-9 pr-3 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)]"
           />
