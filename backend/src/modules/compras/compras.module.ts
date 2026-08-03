@@ -6,6 +6,7 @@ import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderNumberService } from "./services/purchase-order-number.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
 import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
+import { PurchaseOrderConfigService } from "./services/purchase-order-config.service";
 import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
@@ -47,6 +48,7 @@ import { OcrModule } from "../ocr/ocr.module";
     PurchaseOrderNumberService,
     PurchaseOrderStatusService,
     PurchaseOrderPdfService,
+    PurchaseOrderConfigService,
     OrderSendingService,
     OrderReconciliationService,
     InvoiceService,

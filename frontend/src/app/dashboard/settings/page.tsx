@@ -6,9 +6,10 @@ import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
 import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, getProviderForModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
 import { apiClient } from '@/lib/api-client';
-import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2, MessageSquare } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
+import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 
@@ -48,6 +49,9 @@ export default function SettingsPage() {
 
   // Costeo de recetas: coste objetivo máximo (%) global del tenant
   const { data: costingConfig } = useCostingConfig();
+
+  // Texto fijo añadido a los pedidos generados desde una lista de compra
+  const { data: purchaseOrderConfig } = usePurchaseOrderConfig();
 
   // Motor de extracción (OCR de albaranes): modelo IA + API key por tenant en
   // el servidor (compartido entre dispositivos). Se cachea también en
@@ -399,6 +403,21 @@ export default function SettingsPage() {
           <SmtpConfigSection />
         </div>
 
+        {/* Texto fijo del pedido al proveedor */}
+        <div className="bg-white shadow rounded-lg mb-6 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="h-5 w-5 text-indigo-600" />
+            <h2 className="text-xl font-semibold">Mensaje al proveedor</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Texto que se añade a todo pedido generado desde una lista de compra (PDF, email y WhatsApp), después del listado de artículos.
+          </p>
+          <PurchaseOrderNoteForm
+            key={purchaseOrderConfig?.supplierNote ?? 'loading'}
+            initialSupplierNote={purchaseOrderConfig?.supplierNote ?? ''}
+          />
+        </div>
+
         {/* Claves API */}
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
@@ -498,6 +517,41 @@ export default function SettingsPage() {
           <ModuleListWidget />
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Formulario del texto fijo del pedido al proveedor; se remonta (via key) cuando llega un nuevo valor del servidor. */
+function PurchaseOrderNoteForm({ initialSupplierNote }: { initialSupplierNote: string }) {
+  const updateMutation = useUpdatePurchaseOrderConfig();
+  const [supplierNote, setSupplierNote] = useState(initialSupplierNote);
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = async () => {
+    await updateMutation.mutateAsync({ supplierNote });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="space-y-3">
+      <textarea
+        value={supplierNote}
+        onChange={(e) => setSupplierNote(e.target.value)}
+        rows={3}
+        placeholder="Si no dispone de algún artículo, por favor, comuníquelo."
+        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={updateMutation.isPending}
+        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        } disabled:opacity-50`}
+      >
+        {saved ? '✓ Guardado' : 'Guardar'}
+      </button>
     </div>
   );
 }

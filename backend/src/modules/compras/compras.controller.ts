@@ -29,6 +29,7 @@ import { PurchaseListService } from "./services/purchase-list.service";
 import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
 import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
+import { PurchaseOrderConfigService } from "./services/purchase-order-config.service";
 import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
@@ -68,6 +69,7 @@ import {
   TransitionPurchaseOrderDto,
   UpdatePurchaseOrderDto,
 } from "./dto/purchase-order.dto";
+import { UpdatePurchaseOrderConfigDto } from "./dto/purchase-order-config.dto";
 import { Roles } from "../../decorators/roles.decorator";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -86,6 +88,7 @@ export class ComprasController {
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly purchaseOrderStatusService: PurchaseOrderStatusService,
     private readonly purchaseOrderPdfService: PurchaseOrderPdfService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
     private readonly orderSendingService: OrderSendingService,
     private readonly orderReconciliationService: OrderReconciliationService,
     private readonly invoiceService: InvoiceService,
@@ -97,6 +100,33 @@ export class ComprasController {
     private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
   ) {}
+
+  // ── Texto fijo del pedido al proveedor (generado desde lista) ──
+
+  @Get("config-pedido")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Texto fijo añadido a los pedidos generados desde lista",
+  })
+  async getPurchaseOrderConfig(@Req() req: any) {
+    const data = await this.purchaseOrderConfigService.getConfig(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Patch("config-pedido")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Editar el texto fijo del pedido al proveedor" })
+  async updatePurchaseOrderConfig(
+    @Req() req: any,
+    @Body() dto: UpdatePurchaseOrderConfigDto,
+  ) {
+    const data = await this.purchaseOrderConfigService.updateConfig(
+      req.tenantId,
+      dto,
+      req.user?.id,
+    );
+    return { success: true, data };
+  }
 
   // ── Configuración SMTP del tenant (envío de pedidos por email) ──
 
