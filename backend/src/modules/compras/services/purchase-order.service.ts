@@ -218,6 +218,37 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Registra una incidencia (texto + foto opcional) sin cambiar el estado del
+   * pedido. Sustituye al antiguo botón manual "Recibido parcial" (que solo
+   * cambiaba el estado sin dejar constancia de qué había ido mal).
+   */
+  async reportIncident(
+    tenantId: string,
+    id: string,
+    userId: string | undefined,
+    description: string,
+    photoUrl?: string,
+  ) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenantId },
+    });
+    if (!order) {
+      throw new NotFoundException("Pedido no encontrado");
+    }
+
+    await this.prisma.purchaseOrderEvent.create({
+      data: {
+        orderId: id,
+        type: "INCIDENT_REPORTED",
+        userId,
+        payload: { description, photoUrl: photoUrl ?? null },
+      },
+    });
+
+    return this.findOne(tenantId, id);
+  }
+
+  /**
    * Resuelve el precio unitario esperado de cada línea: oferta del proveedor
    * para el producto (preferida primero) o, si el proveedor es el principal
    * del producto, su purchasePrice. Sin dato → null (se rellena al conciliar).

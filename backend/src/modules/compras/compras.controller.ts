@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import {
   BadRequestException,
   Body,
@@ -16,6 +18,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -335,6 +338,50 @@ export class ComprasController {
       id,
       dto.status,
       req.user?.id,
+    );
+    return { success: true, data };
+  }
+
+  @Post("pedidos/:id/incidencias")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Reportar una incidencia/error del pedido (texto + foto opcional); no cambia el estado",
+  })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async reportOrderIncident(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body("description") description: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!description || description.trim().length < 10) {
+      throw new BadRequestException(
+        "Describe el error (mínimo 10 caracteres).",
+      );
+    }
+
+    let photoUrl: string | undefined;
+    if (file) {
+      assertAllowedImageType(file);
+      const uploadsDir = path.join(process.cwd(), "uploads", "pedidos-compra");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+      fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
+      photoUrl = `/uploads/pedidos-compra/${fileName}`;
+    }
+
+    const data = await this.purchaseOrderService.reportIncident(
+      req.tenantId,
+      id,
+      req.user?.id,
+      description.trim(),
+      photoUrl,
     );
     return { success: true, data };
   }

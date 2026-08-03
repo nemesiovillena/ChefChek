@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   ArrowLeft,
   Ban,
   Check,
@@ -20,6 +21,7 @@ import {
   ORDER_STATUS_META,
   useDeletePurchaseOrder,
   usePurchaseOrder,
+  useReportOrderIncident,
   useRevertPurchaseOrderStatus,
   useTransitionPurchaseOrder,
   useUpdatePurchaseOrder,
@@ -55,7 +57,6 @@ const STATUS_ACTIONS: Record<
     { to: 'CANCELADO', label: 'Cancelar', icon: Ban },
   ],
   ENVIADO: [
-    { to: 'RECIBIDO_PARCIAL', label: 'Recibido parcial', icon: PackageCheck },
     { to: 'RECIBIDO', label: 'Recibido', icon: PackageCheck, primary: true },
     { to: 'CANCELADO', label: 'Cancelar', icon: Ban },
   ],
@@ -70,6 +71,7 @@ const EVENT_LABELS: Record<string, string> = {
   CREATED: 'Pedido creado',
   STATUS_CHANGED: 'Cambio de estado',
   SENT: 'Enviado al proveedor',
+  INCIDENT_REPORTED: 'Pedido erróneo',
 };
 
 /** Estados desde los que un ADMIN puede forzar la vuelta a Borrador (espejo de REVERTIBLE_STATUSES backend). */
@@ -128,6 +130,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const deleteMut = useDeletePurchaseOrder();
   const revertMut = useRevertPurchaseOrderStatus();
   const revertReasonRef = useRef<HTMLTextAreaElement>(null);
+  const incidentMut = useReportOrderIncident();
+  const incidentDescRef = useRef<HTMLTextAreaElement>(null);
+  const incidentFileRef = useRef<HTMLInputElement>(null);
 
   const canRevert =
     REVERTIBLE_STATUSES.includes(order.status) &&
@@ -241,6 +246,54 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
           await revertMut.mutateAsync({ id: order.id, reason });
         } catch (e) {
           notifyError(e, 'No se pudo revertir el pedido');
+          throw e;
+        }
+      },
+    });
+  };
+
+  const handleReportIncident = async () => {
+    await confirm({
+      title: `Pedido erróneo: ${order.orderNumber}`,
+      description:
+        'Describe qué ha ido mal (producto equivocado, cantidad incorrecta, etc.) y adjunta una foto si tienes. El pedido no cambia de estado.',
+      variant: 'destructive',
+      confirmText: 'Guardar incidencia',
+      children: (
+        <div className="space-y-3">
+          <textarea
+            ref={incidentDescRef}
+            rows={3}
+            placeholder="¿Qué ha ido mal? (mínimo 10 caracteres)"
+            className="w-full rounded-xl border border-[var(--outline-variant)] bg-transparent px-3 py-2 text-sm text-[var(--on-surface)]"
+          />
+          <input
+            ref={incidentFileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="w-full text-sm text-[var(--on-surface-variant)]"
+          />
+        </div>
+      ),
+      onConfirm: async () => {
+        const description = incidentDescRef.current?.value.trim() ?? '';
+        if (description.length < 10) {
+          addNotification({
+            type: 'error',
+            title: 'Descripción requerida',
+            message: 'Describe el error con al menos 10 caracteres.',
+          });
+          throw new Error('description too short');
+        }
+        const formData = new FormData();
+        formData.append('description', description);
+        const file = incidentFileRef.current?.files?.[0];
+        if (file) formData.append('file', file);
+        try {
+          await incidentMut.mutateAsync({ id: order.id, formData });
+        } catch (e) {
+          notifyError(e, 'No se pudo guardar la incidencia');
           throw e;
         }
       },
@@ -468,6 +521,16 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {label}
           </button>
         ))}
+        {hasReception && (
+          <button
+            onClick={handleReportIncident}
+            disabled={incidentMut.isPending}
+            title="Registrar un error del pedido (no cambia el estado)"
+            className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+          >
+            <AlertTriangle className="h-4 w-4" /> Pedido erróneo
+          </button>
+        )}
         {canRevert && (
           <button
             onClick={handleRevert}
@@ -500,22 +563,41 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
           <h2 className="mb-2 text-sm font-semibold text-[var(--on-surface)]">Historial</h2>
           <ul className="space-y-1">
             {(order.events ?? []).map((event) => {
-              const payload = event.payload as { from?: string; to?: string } | null;
+              const payload = event.payload as {
+                from?: string;
+                to?: string;
+                description?: string;
+                photoUrl?: string | null;
+              } | null;
               return (
                 <li
                   key={event.id}
-                  className="flex items-center gap-3 rounded-xl bg-[var(--surface-container-low)] px-3 py-2 text-sm"
+                  className="flex flex-col gap-1 rounded-xl bg-[var(--surface-container-low)] px-3 py-2 text-sm"
                 >
-                  <span className="text-[var(--on-surface-variant)]">
-                    {new Date(event.createdAt).toLocaleString('es-ES')}
-                  </span>
-                  <span className="text-[var(--on-surface)]">
-                    {EVENT_LABELS[event.type] ?? event.type}
-                    {payload?.from && payload?.to
-                      ? `: ${payload.from} → ${payload.to}`
-                      : ''}
-                    {event.channel ? ` (${event.channel})` : ''}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[var(--on-surface-variant)]">
+                      {new Date(event.createdAt).toLocaleString('es-ES')}
+                    </span>
+                    <span className="text-[var(--on-surface)]">
+                      {EVENT_LABELS[event.type] ?? event.type}
+                      {payload?.from && payload?.to
+                        ? `: ${payload.from} → ${payload.to}`
+                        : ''}
+                      {event.channel ? ` (${event.channel})` : ''}
+                    </span>
+                  </div>
+                  {payload?.description && (
+                    <p className="text-[var(--on-surface-variant)]">{payload.description}</p>
+                  )}
+                  {payload?.photoUrl && (
+                    <a href={payload.photoUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={payload.photoUrl}
+                        alt="Evidencia"
+                        className="mt-1 h-24 w-24 rounded-lg object-cover"
+                      />
+                    </a>
+                  )}
                 </li>
               );
             })}

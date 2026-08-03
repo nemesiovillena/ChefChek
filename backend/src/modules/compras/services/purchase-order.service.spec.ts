@@ -17,6 +17,7 @@ describe("PurchaseOrderService", () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    purchaseOrderEvent: { create: jest.fn() },
     supplier: { findFirst: jest.fn() },
     product: { findMany: jest.fn() },
     location: { findFirst: jest.fn() },
@@ -167,6 +168,57 @@ describe("PurchaseOrderService", () => {
       expect(prismaMock.purchaseOrder.delete).toHaveBeenCalledWith({
         where: { id: "o1" },
       });
+    });
+  });
+
+  describe("reportIncident", () => {
+    it("404 si el pedido no es del tenant", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.reportIncident(
+          tenantId,
+          "o1",
+          "u1",
+          "llegó el producto equivocado",
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("registra el evento sin cambiar el estado y devuelve el pedido actualizado", async () => {
+      prismaMock.purchaseOrder.findFirst
+        .mockResolvedValueOnce({
+          id: "o1",
+          tenantId,
+          status: PurchaseOrderStatus.ENVIADO,
+        })
+        .mockResolvedValueOnce({
+          id: "o1",
+          tenantId,
+          status: PurchaseOrderStatus.ENVIADO,
+        });
+      prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
+
+      await service.reportIncident(
+        tenantId,
+        "o1",
+        "u1",
+        "llegó el producto equivocado",
+        "/uploads/pedidos-compra/foto.jpg",
+      );
+
+      expect(prismaMock.purchaseOrderEvent.create).toHaveBeenCalledWith({
+        data: {
+          orderId: "o1",
+          type: "INCIDENT_REPORTED",
+          userId: "u1",
+          payload: {
+            description: "llegó el producto equivocado",
+            photoUrl: "/uploads/pedidos-compra/foto.jpg",
+          },
+        },
+      });
+      // segunda llamada a findFirst: la de findOne() reutilizado para devolver el pedido
+      expect(prismaMock.purchaseOrder.findFirst).toHaveBeenCalledTimes(2);
     });
   });
 

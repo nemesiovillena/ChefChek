@@ -182,6 +182,15 @@ export function useTransitionPurchaseOrder() {
   });
 }
 
+export function useReportOrderIncident() {
+  const invalidate = useInvalidateOrders();
+  return useMutation<PurchaseOrder, Error, { id: string; formData: FormData }>({
+    mutationFn: async ({ id, formData }) =>
+      (await apiClient.post(`${BASE_URL}/${id}/incidencias`, formData)).data,
+    onSuccess: invalidate,
+  });
+}
+
 export function useRevertPurchaseOrderStatus() {
   const invalidate = useInvalidateOrders();
   return useMutation<PurchaseOrder, Error, { id: string; reason: string }>({
