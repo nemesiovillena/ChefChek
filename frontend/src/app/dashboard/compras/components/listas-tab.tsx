@@ -475,7 +475,7 @@ function ListEditor({
 
       {(canManage || notes.trim()) && (
         <div className="space-y-2">
-          <label htmlFor="list-notes" className="text-sm font-medium text-[var(--on-surface)]">
+          <label htmlFor="list-notes" className="block text-sm font-medium text-[var(--on-surface)]">
             Notas / artículos sueltos
           </label>
           <textarea

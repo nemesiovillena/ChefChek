@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderService } from "./purchase-order.service";
-import { PurchaseOrderConfigService } from "./purchase-order-config.service";
 import {
   CreatePurchaseListDto,
   GenerateOrderDto,
@@ -40,7 +39,6 @@ export class PurchaseListService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly purchaseOrderService: PurchaseOrderService,
-    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
   ) {}
 
   async findAll(tenantId: string) {
@@ -144,21 +142,18 @@ export class PurchaseListService {
       }));
     }
 
-    // Instrucción fija al proveedor (editable en Ajustes → Compras) + notas
-    // libres de la lista (artículos sueltos, aclaraciones) si las hay, para
-    // que lleguen en el pedido enviado (PDF / email / WhatsApp) tras el
-    // listado de artículos.
-    const supplierNote =
-      await this.purchaseOrderConfigService.getSupplierNote(tenantId);
+    // Solo las notas libres de la lista: la instrucción fija al proveedor
+    // (Ajustes → Compras) no se congela en el pedido, se añade en vivo al
+    // generar el PDF/mensaje (purchase-order-pdf.service, order-sending
+    // service), así que editarla en Ajustes actualiza también los pedidos
+    // ya generados.
     return this.purchaseOrderService.create(
       tenantId,
       userId,
       {
         supplierId: list.supplierId,
         locationId: dto.locationId ?? list.locationId ?? undefined,
-        notes: [supplierNote.trim() || null, list.notes?.trim() || null]
-          .filter(Boolean)
-          .join("\n\n"),
+        notes: list.notes?.trim() || undefined,
         lines,
       },
       list.id,

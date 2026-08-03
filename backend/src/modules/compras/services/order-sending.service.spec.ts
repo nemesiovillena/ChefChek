@@ -3,6 +3,10 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { PurchaseOrderStatus } from "@prisma/client";
 import { OrderSendingService } from "./order-sending.service";
 import { PurchaseOrderPdfService } from "./purchase-order-pdf.service";
+import {
+  PurchaseOrderConfigService,
+  DEFAULT_SUPPLIER_NOTE,
+} from "./purchase-order-config.service";
 import { MailService } from "../../mail/mail.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 
@@ -17,6 +21,9 @@ describe("OrderSendingService", () => {
   };
   const mailMock = { sendMail: jest.fn() };
   const pdfMock = { generate: jest.fn() };
+  const orderConfigMock = {
+    getSupplierNote: jest.fn().mockResolvedValue(DEFAULT_SUPPLIER_NOTE),
+  };
 
   const tenantId = "t1";
   const baseOrder = {
@@ -52,6 +59,7 @@ describe("OrderSendingService", () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: MailService, useValue: mailMock },
         { provide: PurchaseOrderPdfService, useValue: pdfMock },
+        { provide: PurchaseOrderConfigService, useValue: orderConfigMock },
       ],
     }).compile();
     service = module.get(OrderSendingService);

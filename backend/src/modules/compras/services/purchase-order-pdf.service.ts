@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import PDFDocument from "pdfkit";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderService } from "./purchase-order.service";
+import { PurchaseOrderConfigService } from "./purchase-order-config.service";
 
 const euro = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -14,6 +15,7 @@ export class PurchaseOrderPdfService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly purchaseOrderService: PurchaseOrderService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
   ) {}
 
   async generate(tenantId: string, orderId: string): Promise<Buffer> {
@@ -150,10 +152,18 @@ export class PurchaseOrderPdfService {
       true,
     );
 
-    if (order.notes) {
+    // Notas propias del pedido primero, instrucción fija de Ajustes al final
+    // (se lee en vivo: cambiarla en Ajustes actualiza también pedidos ya
+    // generados, en vez de quedar congelada en cada uno).
+    const supplierNote =
+      await this.purchaseOrderConfigService.getSupplierNote(tenantId);
+    const notesText = [order.notes?.trim() || null, supplierNote.trim() || null]
+      .filter(Boolean)
+      .join("\n");
+    if (notesText) {
       doc.moveDown(2);
       doc.font("Helvetica-Oblique").fontSize(9).fillColor("#555555");
-      doc.text(order.notes, left, y + 30, { width: 495 });
+      doc.text(notesText, left, y + 30, { width: 495 });
     }
 
     doc.end();

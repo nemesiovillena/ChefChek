@@ -7,6 +7,7 @@ import { PurchaseOrderStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { MailService } from "../../mail/mail.service";
 import { PurchaseOrderPdfService } from "./purchase-order-pdf.service";
+import { PurchaseOrderConfigService } from "./purchase-order-config.service";
 
 export type SendChannel = "EMAIL" | "WHATSAPP" | "PHONE" | "WEB";
 const SEND_CHANNELS: SendChannel[] = ["EMAIL", "WHATSAPP", "PHONE", "WEB"];
@@ -38,13 +39,16 @@ export class OrderSendingService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly pdfService: PurchaseOrderPdfService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
   ) {}
 
   /** Vista previa: texto del pedido, canales disponibles y enlaces. */
   async getSendPreview(tenantId: string, orderId: string) {
     const order = await this.findSendableOrder(tenantId, orderId, false);
     const restaurantName = await this.getRestaurantName(tenantId);
-    const text = this.buildMessage(order, restaurantName);
+    const supplierNote =
+      await this.purchaseOrderConfigService.getSupplierNote(tenantId);
+    const text = this.buildMessage(order, restaurantName, supplierNote);
     const whatsappNumber = this.normalizePhone(order.supplier.whatsapp);
 
     return {
@@ -86,10 +90,12 @@ export class OrderSendingService {
       }
       const pdf = await this.pdfService.generate(tenantId, orderId);
       const restaurantName = await this.getRestaurantName(tenantId);
+      const supplierNote =
+        await this.purchaseOrderConfigService.getSupplierNote(tenantId);
       await this.mailService.sendMail(tenantId, {
         to: order.supplier.email,
         subject: `Pedido ${order.orderNumber}`,
-        text: this.buildMessage(order, restaurantName),
+        text: this.buildMessage(order, restaurantName, supplierNote),
         attachments: [
           {
             filename: `${order.orderNumber}.pdf`,
@@ -140,13 +146,22 @@ export class OrderSendingService {
       }[];
     },
     restaurantName: string,
+    supplierNote: string,
   ): string {
     const header = `Pedido ${order.orderNumber}${order.location?.name ? ` (${order.location.name})` : ""}`;
     const lines = order.lines.map(
       (l) =>
         `• ${l.product?.name ?? l.productId}: ${l.quantity}${l.unit ? ` ${l.unit}` : ""}`,
     );
-    const notes = order.notes ? `\nNotas: ${order.notes}` : "";
+    // Notas propias del pedido primero, instrucción fija de Ajustes al final
+    // (leída en vivo, no congelada en el pedido).
+    const notesBlock = [
+      order.notes?.trim() || null,
+      supplierNote.trim() || null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const notes = notesBlock ? `\nNotas: ${notesBlock}` : "";
     return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${notes}\n\nMuchas gracias.`;
   }
 
