@@ -74,7 +74,7 @@ export function SendOrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Enviar {order.orderNumber}</DialogTitle>
           <DialogDescription>
@@ -96,7 +96,7 @@ export function SendOrderDialog({
               <p className="mb-1 text-xs font-medium text-[var(--on-surface-variant)]">
                 Mensaje para el proveedor
               </p>
-              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[var(--surface-container-low)] p-3 text-xs text-[var(--on-surface)]">
+              <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-xl bg-[var(--surface-container-low)] p-3 text-sm leading-relaxed text-[var(--on-surface)]">
                 {preview.text}
               </pre>
             </div>

@@ -221,16 +221,22 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {new Date(order.createdAt).toLocaleDateString('es-ES')}
           </p>
           {isDraft ? (
-            <textarea
-              value={notes}
-              onChange={(e) => {
-                setNotes(e.target.value);
-                setDirty(true);
-              }}
-              rows={2}
-              placeholder="Notas para el proveedor (aparecen en el PDF y en el mensaje de envío)..."
-              className="mt-2 w-full max-w-md resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm italic text-[var(--on-surface-variant)] outline-none focus:border-[var(--primary)]"
-            />
+            <div className="mt-2 max-w-md">
+              <label htmlFor="order-notes" className="text-xs font-medium text-[var(--on-surface-variant)]">
+                Notas para el proveedor
+              </label>
+              <textarea
+                id="order-notes"
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  setDirty(true);
+                }}
+                rows={4}
+                placeholder="Aparecen en el PDF y en el mensaje de envío, tras el listado de artículos..."
+                className="mt-1 w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm italic text-[var(--on-surface-variant)] outline-none focus:border-[var(--primary)]"
+              />
+            </div>
           ) : (
             order.notes && (
               <p className="mt-1 text-sm italic text-[var(--on-surface-variant)]">
