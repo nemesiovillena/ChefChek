@@ -24,6 +24,14 @@
   direction: ltr;
   -webkit-font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
+  /* Antes de que cargue la fuente, el nombre literal del icono ("warning",
+     "notifications_active"...) se mide con la fuente de fallback e infla el
+     contenedor (cards más altas + scroll extra en el primer render, sobre
+     todo en redes móviles lentas). Fijar el tamaño en `em` recorta ese
+     texto de fallback al tamaño real del icono. */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
 }
 
 @custom-variant dark (&:is(.dark *));

@@ -30,6 +30,9 @@ describe("DashboardService", () => {
       count: jest.fn(),
       aggregate: jest.fn(),
     },
+    purchaseOrder: {
+      count: jest.fn(),
+    },
     menu: {
       findMany: jest.fn(),
       count: jest.fn(),

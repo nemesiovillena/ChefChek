@@ -272,6 +272,26 @@ export class ProductsController {
     );
   }
 
+  @Get("price-history/all")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Historial de precios de todo el tenant (paginado)",
+  })
+  async getAllPriceHistory(
+    @Query("page") page: string | undefined,
+    @Query("limit") limit: string | undefined,
+    @Query("productId") productId: string | undefined,
+    @Query("supplierId") supplierId: string | undefined,
+    @Req() req: any,
+  ) {
+    return this.productsService.getAllPriceHistory(req.tenantId, {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 25,
+      productId,
+      supplierId,
+    });
+  }
+
   @Get(":id/calculate")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Calcular costo de producto (incluye mermas)" })

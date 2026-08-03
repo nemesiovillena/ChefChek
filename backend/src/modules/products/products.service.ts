@@ -1977,6 +1977,49 @@ export class ProductsService {
     });
   }
 
+  async getAllPriceHistory(
+    tenantId: string,
+    options: {
+      page: number;
+      limit: number;
+      productId?: string;
+      supplierId?: string;
+    },
+  ) {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(100, Math.max(1, options.limit || 25));
+    const where: any = { tenantId };
+    if (options.productId) {
+      where.productId = options.productId;
+    }
+    if (options.supplierId) {
+      where.supplierId = options.supplierId;
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.productPriceHistory.findMany({
+        where,
+        orderBy: { recordedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          product: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+          albaran: {
+            select: { id: true, internalNumber: true, albaranNumber: true },
+          },
+        },
+      }),
+      this.prisma.productPriceHistory.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async createBulk(productsData: any[], requestTenantId: string) {
     const existingCategories = await this.prisma.category.findMany({
       where: { tenantId: requestTenantId },

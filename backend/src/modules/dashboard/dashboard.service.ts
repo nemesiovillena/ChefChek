@@ -149,11 +149,11 @@ export class DashboardService {
     // Productos con stock bajo
     const lowStockItems = lowStockCount;
 
-    // Pedidos pendientes
-    const pendingOrders = await this.prisma.order.count({
+    // Pedidos de compra pendientes de recepción (enviados o recibidos parcialmente)
+    const pendingOrders = await this.prisma.purchaseOrder.count({
       where: {
         tenantId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
+        status: { in: ["ENVIADO", "RECIBIDO_PARCIAL"] },
       },
     });
 

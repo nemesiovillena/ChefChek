@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useDashboardKPIs } from '@/hooks/use-dashboard-kpis';
 import {
   useWebSocketNotifications,
-  useRealTimeProduction,
-  useRealTimeStock,
   useWebSocketRooms,
 } from '@/hooks/use-websocket';
 
@@ -20,9 +18,7 @@ export default function DashboardPage() {
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
 
   // WebSocket hooks
-  useWebSocketNotifications();
-  const { alerts: productionAlerts } = useRealTimeProduction();
-  const { stockAlerts } = useRealTimeStock();
+  const { notifications } = useWebSocketNotifications();
   const { joinDashboard } = useWebSocketRooms();
 
   // Estados interactivos para las tareas de preparación
@@ -124,20 +120,18 @@ export default function DashboardPage() {
         {/* Key Indicators Column */}
         <div className="md:col-span-4 space-y-gutter">
           {/* Status Cards */}
-          <div className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border">
+          <div
+            onClick={() => router.push('/dashboard/compras')}
+            className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+          >
             <div>
               <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">Pedidos Pendientes</p>
-              <div className="flex items-baseline gap-stack-sm">
-                <span className="font-headline-lg text-headline-lg text-primary">
-                  {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
-                </span>
-                {kpis?.pendingOrders && kpis.pendingOrders > 0 ? (
-                  <span className="font-label-sm text-label-sm text-error">+2 RUSH</span>
-                ) : null}
-              </div>
+              <span className="font-headline-lg text-headline-lg text-primary">
+                {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
+              </span>
             </div>
             <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-secondary">restaurant</span>
+              <span className="material-symbols-outlined text-secondary">local_shipping</span>
             </div>
           </div>
 
@@ -184,42 +178,37 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Real-time Alerts */}
+          {/* Notificaciones y Alertas: mismo feed persistido que la campana del header */}
           <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
             <div className="flex justify-between items-center mb-stack-md">
               <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
               <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
             </div>
             <div className="space-y-stack-sm">
-              {productionAlerts && productionAlerts.length > 0 ? (
-                productionAlerts.slice(0, 3).map((alert, idx) => (
-                  <div key={idx} className="flex items-start gap-stack-sm p-2 bg-error/10 rounded border border-error/20">
-                    <span className="material-symbols-outlined text-error text-[16px]">warning</span>
-                    <div>
-                      <p className="text-xs text-primary font-medium">{alert.title || 'Alerta de Producción'}</p>
-                      <p className="text-[11px] text-on-surface-variant leading-tight">{alert.message || 'Orden de producción requiere atención'}</p>
+              {notifications.length > 0 ? (
+                notifications.slice(0, 4).map((notif) => {
+                  const style =
+                    notif.type === 'ERROR'
+                      ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
+                      : notif.type === 'WARNING'
+                        ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
+                        : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
+                  return (
+                    <div key={notif.id} className={`flex items-start gap-stack-sm p-2 rounded border ${style.wrap}`}>
+                      <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
+                      <div>
+                        <p className="text-xs text-primary font-medium">{notif.title}</p>
+                        <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
                   <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
-                  <p className="text-xs text-on-surface-variant">No hay notificaciones de producción</p>
+                  <p className="text-xs text-on-surface-variant">No hay notificaciones</p>
                 </div>
               )}
-              {stockAlerts && stockAlerts.length > 0 ? (
-                stockAlerts.slice(0, 2).map((alert, idx) => (
-                  <div key={idx} className="flex items-start gap-stack-sm p-2 bg-warning/10 rounded border border-warning/20">
-                    <span className="material-symbols-outlined text-warning text-[16px]">inventory_2</span>
-                    <div>
-                      <p className="text-xs text-primary font-medium">{alert.productName || 'Stock Bajo'}</p>
-                      <p className="text-[11px] text-on-surface-variant leading-tight">
-                        {alert.quantity || 0} unidades restantes (mínimo: {alert.minimum || 0})
-                      </p>
-                    </div>
-                  </div>
-                ))
-              ) : null}
             </div>
           </div>
         </div>
