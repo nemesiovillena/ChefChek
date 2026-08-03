@@ -12,6 +12,7 @@ import {
   useCreateRecipe,
   useUpdateRecipe,
   useDeleteRecipe,
+  useDismissRecipeDuplicate,
   RecipeIngredient,
 } from '@/hooks/use-recipes';
 
@@ -75,6 +76,7 @@ export default function RecipesPage() {
   const createRecipeMutation = useCreateRecipe();
   const updateRecipeMutation = useUpdateRecipe();
   const deleteRecipeMutation = useDeleteRecipe();
+  const dismissDuplicateMutation = useDismissRecipeDuplicate();
   const invalidateQueries = useInvalidateQueries();
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -164,7 +166,19 @@ export default function RecipesPage() {
     portionSize: '250',
   });
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye la propia receta.
-  const { matches: duplicateRecipeNameMatches } = useRecipeNameCheck(formData.name, selectedRecipe?.id);
+  const { matches: rawDuplicateRecipeNameMatches } = useRecipeNameCheck(formData.name, selectedRecipe?.id);
+  // Descartes locales inmediatos: el backend ya no volverá a devolver estos
+  // ids (persistido vía dismissDuplicateMutation), pero el hook de arriba no
+  // refetchea solo al pulsar la X, así que se filtran aquí también.
+  const [dismissedRecipeMatchIds, setDismissedRecipeMatchIds] = useState<Set<string>>(new Set());
+  const duplicateRecipeNameMatches = rawDuplicateRecipeNameMatches.filter((m) => !dismissedRecipeMatchIds.has(m.id));
+
+  const handleDismissRecipeDuplicate = (matchId: string) => {
+    setDismissedRecipeMatchIds((prev) => new Set(prev).add(matchId));
+    if (selectedRecipe?.id) {
+      dismissDuplicateMutation.mutate({ recipeId: selectedRecipe.id, dismissedRecipeId: matchId });
+    }
+  };
 
   const [elaborationSteps, setElaborationSteps] = useState<ElaborationStep[]>(() => parseSteps(null));
 
@@ -427,6 +441,7 @@ export default function RecipesPage() {
 
   const handleEdit = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
+    setDismissedRecipeMatchIds(new Set());
     setFormData({
       name: recipe.name,
       description: recipe.description || '',
@@ -498,7 +513,7 @@ export default function RecipesPage() {
         Gestionar categorías
       </button>
       <button
-        onClick={() => { setActiveTab('general'); setShowCreateForm(true); }}
+        onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setShowCreateForm(true); }}
         className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
       >
         Crear Receta
@@ -818,6 +833,21 @@ export default function RecipesPage() {
                               ))}
                               {duplicateRecipeNameMatches.length > 3 ? ` y ${duplicateRecipeNameMatches.length - 3} más.` : '.'}{' '}
                               Puedes continuar si es una receta distinta.
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {duplicateRecipeNameMatches.slice(0, 3).map((m) => (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => handleDismissRecipeDuplicate(m.id)}
+                                    title="No es la misma receta: descartar este aviso"
+                                    aria-label={`No es la misma receta que «${m.name}»: descartar aviso`}
+                                    className="inline-flex items-center gap-1 rounded border border-amber-400 px-1.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-200 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors"
+                                  >
+                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    No es duplicado de «{m.name}»
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -865,7 +895,12 @@ export default function RecipesPage() {
                         <div className="flex justify-between items-center mb-2">
                           <div className="flex items-center gap-1.5">
                             <ListChecks className="h-4 w-4 text-[var(--primary)]" />
-                            <span className="text-sm font-semibold text-[var(--on-surface)]">Ingredientes</span>
+                            <span className="text-sm font-semibold text-[var(--on-surface)]">
+                              Ingredientes
+                              {ingredients.length > 0 && (
+                                <span className="ml-1 font-normal text-[var(--on-surface-variant)]">({ingredients.length})</span>
+                              )}
+                            </span>
                           </div>
                           <button
                             type="button"
@@ -881,73 +916,98 @@ export default function RecipesPage() {
                             Peso total: {totalIngredientsWeightKg.toFixed(3)} kg
                           </p>
                         )}
-                        <div className="flex gap-2 px-0.5 text-xs text-[var(--muted-foreground)]">
-                          <span className="flex-1">Artículo</span>
-                          <span className="w-24">Cantidad</span>
-                          <span className="w-20">Unidad</span>
-                          <span className="w-20">Merma %</span>
-                          {ingredients.length > 1 && <span className="w-6" />}
-                        </div>
-                        <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
-                          {ingredients.map((ingredient, index) => (
-                            <div key={index} className="flex gap-2 items-center">
-                              <ProductCombobox
-                                value={ingredient.productId}
-                                label={ingredient.productName}
-                                onSelect={(product) => handleProductSelect(index, product)}
-                              />
-                              <input
-                                type="number"
-                                step="0.001"
-                                min="0"
-                                placeholder="Cantidad"
-                                value={ingredient.quantity}
-                                onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value))}
-                                className={`w-24 text-sm ${m3InputBase}`}
-                              />
-                              <select
-                                value={ingredient.unit}
-                                onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
-                                className={`w-20 text-sm ${m3InputBase}`}
-                              >
-                                <option value="kg">kg</option>
-                                <option value="g">g</option>
-                                <option value="l">l</option>
-                                <option value="ml">ml</option>
-                                <option value="units">u</option>
-                              </select>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                title={
-                                  ingredient.hasArticleWaste
-                                    ? 'Merma % del artículo — puedes sobreescribirla solo para esta receta'
-                                    : 'Merma % manual de esta receta (el artículo no tiene una definida)'
-                                }
-                                placeholder="Merma %"
-                                value={ingredient.wastePercentageOverride ?? ''}
-                                onChange={(e) =>
-                                  handleIngredientChange(
-                                    index,
-                                    'wastePercentageOverride',
-                                    e.target.value === '' ? undefined : parseFloat(e.target.value),
-                                  )
-                                }
-                                className={`w-20 text-sm ${m3InputBase}`}
-                              />
-                              {ingredients.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveIngredient(index)}
-                                  className="rounded-lg p-1 font-bold text-[var(--error)] hover:bg-[var(--error)]/10"
-                                >
-                                  ✕
-                                </button>
-                              )}
+                        {/* Cabecera fija dentro del propio scroll: con muchas líneas, las
+                            columnas nunca se pierden de vista al bajar. max-h relativo al
+                            viewport (no un px fijo) para aprovechar pantallas grandes. */}
+                        <div className="rounded-lg border border-[var(--outline-variant)] overflow-hidden">
+                          <div className="max-h-[48vh] overflow-y-auto bg-[var(--surface-container-lowest)]">
+                            <div className="sticky top-0 z-10 grid grid-cols-[1fr_5.5rem_4.5rem_5rem_1.75rem] gap-x-2 border-b border-[var(--outline-variant)] bg-[var(--surface-container-high)] px-2 py-1.5 text-xs font-medium text-[var(--on-surface-variant)]">
+                              <span>Artículo</span>
+                              <span>Cantidad</span>
+                              <span>Unidad</span>
+                              <span>Merma %</span>
+                              <span />
                             </div>
-                          ))}
+                            <div className="divide-y divide-[var(--outline-variant)]/60">
+                              {ingredients.map((ingredient, index) => (
+                                <div
+                                  key={index}
+                                  className={`grid grid-cols-[1fr_5.5rem_4.5rem_5rem_1.75rem] gap-x-2 items-center px-2 py-1.5 transition-colors hover:bg-[var(--primary)]/5 ${
+                                    index % 2 === 1 ? 'bg-[var(--surface-container)]/50' : ''
+                                  }`}
+                                >
+                                  <ProductCombobox
+                                    value={ingredient.productId}
+                                    label={ingredient.productName}
+                                    onSelect={(product) => handleProductSelect(index, product)}
+                                  />
+                                  <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0"
+                                    placeholder="Cant."
+                                    value={ingredient.quantity}
+                                    onChange={(e) => handleIngredientChange(index, 'quantity', parseFloat(e.target.value))}
+                                    className={`w-full text-sm ${m3InputBase}`}
+                                  />
+                                  <select
+                                    value={ingredient.unit}
+                                    onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
+                                    className={`w-full text-sm ${m3InputBase}`}
+                                  >
+                                    <option value="kg">kg</option>
+                                    <option value="g">g</option>
+                                    <option value="l">l</option>
+                                    <option value="ml">ml</option>
+                                    <option value="units">u</option>
+                                  </select>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    title={
+                                      ingredient.hasArticleWaste
+                                        ? 'Merma % del artículo — puedes sobreescribirla solo para esta receta'
+                                        : 'Merma % manual de esta receta (el artículo no tiene una definida)'
+                                    }
+                                    placeholder="Merma %"
+                                    value={ingredient.wastePercentageOverride ?? ''}
+                                    onChange={(e) =>
+                                      handleIngredientChange(
+                                        index,
+                                        'wastePercentageOverride',
+                                        e.target.value === '' ? undefined : parseFloat(e.target.value),
+                                      )
+                                    }
+                                    className={`w-full text-sm ${m3InputBase}`}
+                                  />
+                                  {ingredients.length > 1 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveIngredient(index)}
+                                      title="Quitar ingrediente"
+                                      className="justify-self-center rounded-lg p-1 font-bold text-[var(--error)] hover:bg-[var(--error)]/10"
+                                    >
+                                      ✕
+                                    </button>
+                                  ) : (
+                                    <span />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            {/* Añadir al final de la lista: con muchos ingredientes evita
+                                volver a subir hasta el botón de arriba. */}
+                            <button
+                              type="button"
+                              onClick={handleAddIngredient}
+                              className="flex w-full items-center justify-center gap-1.5 border-t border-[var(--outline-variant)] px-2 py-2 text-sm font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/10"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Agregar ingrediente
+                            </button>
+                          </div>
                         </div>
                       </div>
 

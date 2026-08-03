@@ -63,6 +63,7 @@ model Tenant {
   productPriceHistories      ProductPriceHistory[]
   productSupplierOffers      ProductSupplierOffer[]
   productDuplicateDismissals ProductDuplicateDismissal[]
+  recipeDuplicateDismissals  RecipeDuplicateDismissal[]
   configurations             Configuration[]
   categories                 Category[]
   stocks                     Stock[]
@@ -369,19 +370,41 @@ model Recipe {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ingredients       RecipeIngredient[]
-  subRecipes        RecipeSubRecipe[]   @relation("ParentRecipe")
-  subRecipesAsChild RecipeSubRecipe[]   @relation("SubRecipe")
-  menuItems         MenuItem[]
-  menuSectionItems  MenuSectionItem[]
-  allergens         Int[]               @default([])
-  categories        RecipeCategory[]
-  translations      RecipeTranslation[]
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients          RecipeIngredient[]
+  subRecipes           RecipeSubRecipe[]          @relation("ParentRecipe")
+  subRecipesAsChild    RecipeSubRecipe[]          @relation("SubRecipe")
+  menuItems            MenuItem[]
+  menuSectionItems     MenuSectionItem[]
+  allergens            Int[]                      @default([])
+  categories           RecipeCategory[]
+  translations         RecipeTranslation[]
+  duplicateDismissals  RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalRecipe")
+  duplicateDismissedBy RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalDismissed")
 
   @@index([tenantId])
   @@index([name])
   @@map("recipes")
+}
+
+// Descarte manual del aviso "posible duplicado" (recipes.check-name) entre
+// dos recetas concretas. Se guarda en ambos sentidos (recipe<->dismissed)
+// al crearla para que el aviso no reaparezca al editar cualquiera de las dos.
+// Calcado de ProductDuplicateDismissal.
+model RecipeDuplicateDismissal {
+  id                String   @id @default(cuid())
+  tenantId          String
+  recipeId          String
+  dismissedRecipeId String
+  createdAt         DateTime @default(now())
+
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipe          Recipe @relation("RecipeDuplicateDismissalRecipe", fields: [recipeId], references: [id], onDelete: Cascade)
+  dismissedRecipe Recipe @relation("RecipeDuplicateDismissalDismissed", fields: [dismissedRecipeId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, recipeId, dismissedRecipeId])
+  @@index([tenantId, dismissedRecipeId])
+  @@map("recipe_duplicate_dismissals")
 }
 
 model RecipeIngredient {

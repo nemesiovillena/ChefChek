@@ -75,6 +75,16 @@ export class RecipesService {
         WHERE r."tenantId" = ${tenantId}
           AND r."deletedAt" IS NULL
           ${excludeId ? Prisma.sql`AND r.id <> ${excludeId}` : Prisma.empty}
+          ${
+            excludeId
+              ? Prisma.sql`AND NOT EXISTS (
+                  SELECT 1 FROM recipe_duplicate_dismissals d
+                  WHERE d."tenantId" = ${tenantId}
+                    AND d."recipeId" = ${excludeId}
+                    AND d."dismissedRecipeId" = r.id
+                )`
+              : Prisma.empty
+          }
       ) q
       CROSS JOIN norm
       WHERE strpos(q.pn, norm.input) > 0
@@ -83,6 +93,46 @@ export class RecipesService {
       LIMIT 5
     `);
     return matches;
+  }
+
+  // Guarda el descarte en ambos sentidos: al editar cualquiera de las dos
+  // recetas, el aviso de duplicado ya no debe mostrar a la otra.
+  async dismissDuplicate(
+    tenantId: string,
+    recipeId: string,
+    dismissedRecipeId: string,
+  ): Promise<void> {
+    if (recipeId === dismissedRecipeId) {
+      return;
+    }
+    await this.prisma.$transaction([
+      this.prisma.recipeDuplicateDismissal.upsert({
+        where: {
+          tenantId_recipeId_dismissedRecipeId: {
+            tenantId,
+            recipeId,
+            dismissedRecipeId,
+          },
+        },
+        create: { tenantId, recipeId, dismissedRecipeId },
+        update: {},
+      }),
+      this.prisma.recipeDuplicateDismissal.upsert({
+        where: {
+          tenantId_recipeId_dismissedRecipeId: {
+            tenantId,
+            recipeId: dismissedRecipeId,
+            dismissedRecipeId: recipeId,
+          },
+        },
+        create: {
+          tenantId,
+          recipeId: dismissedRecipeId,
+          dismissedRecipeId: recipeId,
+        },
+        update: {},
+      }),
+    ]);
   }
 
   async create(

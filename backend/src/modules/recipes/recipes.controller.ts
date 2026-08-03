@@ -247,4 +247,29 @@ export class RecipesController {
       message: "Image uploaded successfully",
     };
   }
+
+  @Post(":id/duplicate-dismissals/:dismissedRecipeId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Descartar el aviso de posible duplicado entre dos recetas (no vuelve a avisar en ninguna de las dos)",
+  })
+  @ApiParam({ name: "id", description: "ID de la receta que se está editando" })
+  @ApiParam({
+    name: "dismissedRecipeId",
+    description: "ID de la receta marcada como no-duplicada",
+  })
+  @ApiResponse({ status: 201, description: "Descarte guardado" })
+  async dismissDuplicate(
+    @Param("id") id: string,
+    @Param("dismissedRecipeId") dismissedRecipeId: string,
+    @Req() req: any,
+  ) {
+    await this.recipesService.dismissDuplicate(
+      req.tenantId,
+      id,
+      dismissedRecipeId,
+    );
+    return { success: true };
+  }
 }

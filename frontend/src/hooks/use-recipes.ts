@@ -1,6 +1,8 @@
+import { useMutation } from '@tanstack/react-query';
 import { useCrud as createCrudHooks } from './use-api';
 import { useApiQuery } from './use-api';
 import { PaginatedResponse } from '@/types/api.types';
+import apiClient from '@/lib/api-client';
 
 export interface RecipeIngredient {
   productId: string;
@@ -205,4 +207,20 @@ export function useRecipeCost(id: string) {
       enabled: !!id,
     },
   );
+}
+
+/**
+ * Descarta el aviso de "posible duplicado" entre dos recetas concretas.
+ * El backend lo persiste en ambos sentidos: no vuelve a avisar al editar
+ * ninguna de las dos contra la otra.
+ */
+export function useDismissRecipeDuplicate() {
+  return useMutation({
+    mutationFn: async ({ recipeId, dismissedRecipeId }: { recipeId: string; dismissedRecipeId: string }) => {
+      const response = await apiClient.post<{ success: boolean }>(
+        `/v1/recipes/${recipeId}/duplicate-dismissals/${dismissedRecipeId}`
+      );
+      return response.data;
+    },
+  });
 }
