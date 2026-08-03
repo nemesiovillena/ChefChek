@@ -153,16 +153,13 @@ export class OrderSendingService {
       (l) =>
         `• ${l.product?.name ?? l.productId}: ${l.quantity}${l.unit ? ` ${l.unit}` : ""}`,
     );
-    // Notas propias del pedido primero, instrucción fija de Ajustes al final
-    // (leída en vivo, no congelada en el pedido).
-    const notesBlock = [
-      order.notes?.trim() || null,
-      supplierNote.trim() || null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    const notes = notesBlock ? `\nNotas: ${notesBlock}` : "";
-    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${notes}\n\nMuchas gracias.`;
+    // Notas propias del pedido (si las hay) bajo "Notas:"; la instrucción fija
+    // de Ajustes va aparte, como línea final propia antes del cierre — no se
+    // mezcla con "Notas:" ni con el listado de artículos (leída en vivo, no
+    // congelada en el pedido).
+    const notes = order.notes?.trim() ? `\nNotas: ${order.notes.trim()}` : "";
+    const fixedNote = supplierNote.trim() ? `\n${supplierNote.trim()}` : "";
+    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${notes}${fixedNote}\n\nMuchas gracias.`;
   }
 
   /** Nombre del tenant (restaurante) para el saludo del mensaje. */

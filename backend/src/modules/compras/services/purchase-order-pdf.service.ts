@@ -152,14 +152,14 @@ export class PurchaseOrderPdfService {
       true,
     );
 
-    // Notas propias del pedido primero, instrucción fija de Ajustes al final
-    // (se lee en vivo: cambiarla en Ajustes actualiza también pedidos ya
-    // generados, en vez de quedar congelada en cada uno).
+    // Notas propias del pedido primero, como párrafo aparte; instrucción fija
+    // de Ajustes al final (se lee en vivo: cambiarla en Ajustes actualiza
+    // también pedidos ya generados, en vez de quedar congelada en cada uno).
     const supplierNote =
       await this.purchaseOrderConfigService.getSupplierNote(tenantId);
     const notesText = [order.notes?.trim() || null, supplierNote.trim() || null]
       .filter(Boolean)
-      .join("\n");
+      .join("\n\n");
     if (notesText) {
       doc.moveDown(2);
       doc.font("Helvetica-Oblique").fontSize(9).fillColor("#555555");
