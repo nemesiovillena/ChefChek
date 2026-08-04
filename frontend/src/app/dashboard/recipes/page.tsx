@@ -866,7 +866,7 @@ export default function RecipesPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className={m3Label}>Porciones *</label>
+                          <label className={m3Label}>Raciones *</label>
                           <input
                             type="number"
                             name="portions"
@@ -878,7 +878,7 @@ export default function RecipesPage() {
                           />
                         </div>
                         <div>
-                          <label className={m3Label}>Tamaño Porción (g)</label>
+                          <label className={m3Label}>Peso Ración (g)</label>
                           <input
                             type="text"
                             inputMode="decimal"
