@@ -125,7 +125,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-gutter">
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
-        <div className="hidden md:flex items-center gap-stack-lg overflow-x-auto">
+        <div className="hidden md:flex items-center gap-stack-lg ml-gutter">
           {visibleGroups.map((group) => (
             <div key={group.title} className="relative shrink-0">
               <button
@@ -179,7 +179,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 flex items-center justify-center"
+            className="hidden lg:flex relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 items-center justify-center"
             title="Notificaciones"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
@@ -190,7 +190,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </button>
           {showNotifications && (
-            <div className="absolute right-4 sm:right-16 top-14 w-72 sm:w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
+            <div className="hidden lg:block absolute right-4 sm:right-16 top-14 w-72 sm:w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
               <div className="p-3 border-b border-border flex justify-between items-center">
                 <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">Notificaciones</h3>
                 <button
