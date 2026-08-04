@@ -38,7 +38,6 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
       { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
-      { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
       { label: 'Artículos', href: '/dashboard/articulos', moduleId: 'articulos', icon: 'inventory_2' },
       { label: 'Equipo', href: '/dashboard/users', moduleId: 'sala', icon: 'groups' },
     ],
@@ -46,6 +45,7 @@ export const NAV_GROUPS: NavSection[] = [
   {
     title: 'Almacén',
     items: [
+      { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
       { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: 'description' },
       { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: 'local_shipping' },
       { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
