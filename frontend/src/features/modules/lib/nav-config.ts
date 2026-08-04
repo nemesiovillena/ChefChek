@@ -26,9 +26,6 @@ export interface NavSection {
 }
 
 /** Standalone top-bar link, always visible, no dropdown. */
-export const DASHBOARD_LINK: NavItem = { label: 'DASHBOARD', href: '/dashboard' };
-
-/** Standalone top-bar link, always visible, no dropdown. */
 export const SETTINGS_LINK: NavItem = { label: 'Configuración', href: '/dashboard/settings', icon: 'settings' };
 
 /**
@@ -56,7 +53,7 @@ export const NAV_GROUPS: NavSection[] = [
     ],
   },
   {
-    title: 'S. Alimentaria',
+    title: 'Seguridad A.',
     items: [
       { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
       { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: 'warning' },

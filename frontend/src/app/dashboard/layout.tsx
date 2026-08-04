@@ -8,7 +8,6 @@ import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
-  DASHBOARD_LINK,
   SETTINGS_LINK,
   NAV_GROUPS,
   MOBILE_NAV,
@@ -127,12 +126,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
         <div className="hidden md:flex items-center gap-stack-lg">
-          <Link
-            href={DASHBOARD_LINK.href}
-            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1"
-          >
-            {DASHBOARD_LINK.label}
-          </Link>
           {visibleGroups.map((group) => (
             <div key={group.title} className="relative">
               <button
