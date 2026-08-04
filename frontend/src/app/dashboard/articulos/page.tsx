@@ -732,13 +732,9 @@ export default function ArticulosPage() {
                   <tr><td colSpan={10} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">No hay artículos</td></tr>
                 ) : (
                   products.map((product: Product) => {
-                    // Nombre propio de la categoría del producto. Si es raíz (sin
-                    // padre, p.ej. Limpieza/Desechables) se muestra en la columna
-                    // Categoría y la subcategoría queda vacía; si es hija, la
-                    // columna Categoría muestra el padre y la subcategoría la hoja.
+                    // Nombre propio de la categoría del producto: la subcategoría
+                    // si tiene padre, o la categoría raíz si no tiene subcategoría.
                     const productCatName = getCategoryDisplay(product.categoryId);
-                    const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
-                    const hasParent = Boolean(parentCat);
                     return (
                       <tr key={product.id} className={trHoverClass}>
                         <td className="px-3 py-2"><ProductThumbnail imageUrl={product.imageUrl} size={32} /></td>
@@ -746,14 +742,7 @@ export default function ArticulosPage() {
                           <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={product.name}>{product.name}</div>
                         </td>
                         <td className="px-3 py-3 max-w-[160px] text-sm text-[var(--on-surface-variant)]">
-                          <div className="truncate" title={hasParent ? `${parentCat!.name} › ${productCatName}` : productCatName}>
-                            {hasParent ? (
-                              <>
-                                <span className="text-[var(--outline)]">{parentCat!.name} › </span>
-                                {productCatName}
-                              </>
-                            ) : productCatName}
-                          </div>
+                          <div className="truncate" title={productCatName}>{productCatName}</div>
                         </td>
                         <td className="px-3 py-3 max-w-[140px] text-sm text-[var(--on-surface-variant)]">
                           <div className="truncate" title={product.supplier?.name || undefined}>{product.supplier?.name || '-'}</div>
