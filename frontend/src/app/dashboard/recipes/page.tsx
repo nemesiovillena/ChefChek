@@ -880,11 +880,14 @@ export default function RecipesPage() {
                         <div>
                           <label className={m3Label}>Tamaño Porción (g)</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             name="portionSize"
-                            min="1"
                             value={formData.portionSize}
-                            onChange={(e) => setFormData({ ...formData, portionSize: e.target.value })}
+                            onChange={(e) => {
+                              const sanitized = e.target.value.replace(',', '.').replace(/[^\d.]/g, '');
+                              setFormData({ ...formData, portionSize: sanitized });
+                            }}
                             className={m3Field}
                           />
                         </div>
