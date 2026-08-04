@@ -125,12 +125,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-gutter">
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
-        <div className="hidden md:flex items-center gap-stack-lg">
+        <div className="hidden md:flex items-center gap-stack-lg overflow-x-auto">
           {visibleGroups.map((group) => (
-            <div key={group.title} className="relative">
+            <div key={group.title} className="relative shrink-0">
               <button
                 onClick={() => setOpenGroup(openGroup === group.title ? null : (group.title ?? null))}
-                className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1 uppercase"
+                className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1 uppercase whitespace-nowrap"
               >
                 {group.title}
                 <span className="material-symbols-outlined text-[16px]">{openGroup === group.title ? 'expand_less' : 'expand_more'}</span>
@@ -154,7 +154,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
           <Link
             href={SETTINGS_LINK.href}
-            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1"
+            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 whitespace-nowrap shrink-0"
           >
             {SETTINGS_LINK.label.toUpperCase()}
           </Link>

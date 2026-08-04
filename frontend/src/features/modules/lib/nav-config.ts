@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavSection[] = [
     ],
   },
   {
-    title: 'Seguridad A.',
+    title: 'APPCC',
     items: [
       { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
       { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: 'warning' },
