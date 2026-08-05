@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
+import { Suspense, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Upload,
   Camera,
@@ -23,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
 import { useOcrConfig } from '@/hooks/use-ocr-config';
+import { usePurchaseOrder } from '@/hooks/use-purchase-orders';
 import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +37,18 @@ function getAlbaranId(results: AlbaranUploadResult): string | undefined {
 }
 
 export default function SubirAlbaranPage() {
+  return (
+    <Suspense fallback={null}>
+      <SubirAlbaranContent />
+    </Suspense>
+  );
+}
+
+function SubirAlbaranContent() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+  const purchaseOrderId = searchParams.get('purchaseOrderId') || undefined;
+  const { data: linkedOrder } = usePurchaseOrder(purchaseOrderId ?? null);
 
   // Motor de extracción: la config vive en el servidor (por tenant, compartida
   // entre dispositivos). El backend resuelve modelo+key al subir aunque este
@@ -61,25 +74,31 @@ export default function SubirAlbaranPage() {
   } = useAlbaranUpload({
     aiModel: aiModel !== 'regex' ? aiModel : undefined,
     aiApiKey: aiModel !== 'regex' ? aiApiKey : undefined,
+    purchaseOrderId,
   });
 
   const selectedModelInfo = OCR_MODELS.find((m) => m.id === aiModel);
   const needsApiKey = aiModel && aiModel !== 'regex';
+  const backHref = purchaseOrderId
+    ? `/dashboard/compras/pedidos/${purchaseOrderId}`
+    : '/dashboard/albaranes';
 
   return (
     <div className="container mx-auto p-4 sm:p-6 max-w-2xl pb-12">
       {/* Back + title */}
       <Link
-        href="/dashboard/albaranes"
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-3"
       >
         <ArrowLeft className="h-4 w-4" />
-        Volver a Albaranes
+        {purchaseOrderId ? 'Volver al pedido' : 'Volver a Albaranes'}
       </Link>
       <div className="mb-5">
         <h1 className="text-2xl sm:text-3xl font-bold">Subir Albarán</h1>
         <p className="text-muted-foreground mt-1">
-          Haz una foto al albarán o sube un archivo para extraer los productos automáticamente
+          {linkedOrder
+            ? `Se vinculará al pedido ${linkedOrder.orderNumber}. Haz una foto o sube un archivo para extraer los productos.`
+            : 'Haz una foto al albarán o sube un archivo para extraer los productos automáticamente'}
         </p>
       </div>
 

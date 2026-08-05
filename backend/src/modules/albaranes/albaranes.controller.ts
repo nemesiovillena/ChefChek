@@ -83,15 +83,17 @@ export class AlbaranesController {
       throw new BadRequestException("No files uploaded");
     }
 
-    // Extraer modelo IA y API key del body (campos opcionales del FormData)
+    // Extraer modelo IA, API key y pedido de origen del body (campos opcionales del FormData)
     const aiModel = req.body?.ai_model || undefined;
     const aiApiKey = req.body?.ai_api_key || undefined;
+    const purchaseOrderId = req.body?.purchase_order_id || undefined;
 
     const albaran = await this.albaranesService.createFromUpload(
       files,
       tenantId,
       aiModel,
       aiApiKey,
+      purchaseOrderId,
     );
 
     // Return format compatible with frontend upload hook: { products, albaran }

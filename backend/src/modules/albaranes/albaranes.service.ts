@@ -17,7 +17,7 @@ import {
   UpdateAlbaranLineDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
-import { AlbaranStatus } from "@prisma/client";
+import { AlbaranStatus, PurchaseOrderStatus } from "@prisma/client";
 
 @Injectable()
 export class AlbaranesService {
@@ -393,6 +393,7 @@ export class AlbaranesService {
     tenantId: string,
     aiModel?: string,
     aiApiKey?: string,
+    purchaseOrderId?: string,
   ) {
     this.logger.log(
       `Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || "regex"})`,
@@ -401,6 +402,30 @@ export class AlbaranesService {
     const file = files[0];
     if (!file) {
       throw new BadRequestException("No file provided");
+    }
+
+    // Subida desde el detalle de un pedido: valida que el pedido admita
+    // recepción y usa su proveedor como respaldo si el OCR no matchea uno.
+    let purchaseOrder: { id: string; supplierId: string } | null = null;
+    if (purchaseOrderId) {
+      purchaseOrder = await this.prisma.purchaseOrder.findFirst({
+        where: {
+          id: purchaseOrderId,
+          tenantId,
+          status: {
+            in: [
+              PurchaseOrderStatus.ENVIADO,
+              PurchaseOrderStatus.RECIBIDO_PARCIAL,
+            ],
+          },
+        },
+        select: { id: true, supplierId: true },
+      });
+      if (!purchaseOrder) {
+        throw new BadRequestException(
+          "El pedido de compra no existe o no está en un estado que admita recepción",
+        );
+      }
     }
 
     try {
@@ -496,7 +521,10 @@ export class AlbaranesService {
         data: {
           tenantId,
           internalNumber,
-          supplierId: supplierMatch.supplierId,
+          // Si el OCR no matchea proveedor, el del pedido de origen es mejor
+          // dato que dejarlo vacío: ya sabemos a quién se le compró.
+          supplierId: supplierMatch.supplierId ?? purchaseOrder?.supplierId,
+          purchaseOrderId: purchaseOrder?.id,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
           date: document.document_date
             ? new Date(document.document_date)
@@ -558,6 +586,8 @@ export class AlbaranesService {
         data: {
           tenantId,
           internalNumber,
+          supplierId: purchaseOrder?.supplierId,
+          purchaseOrderId: purchaseOrder?.id,
           albaranNumber: `FALLBACK-${Date.now()}`,
           date: new Date(),
           base: 0,

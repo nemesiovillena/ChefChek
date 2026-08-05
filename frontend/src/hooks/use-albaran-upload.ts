@@ -24,6 +24,8 @@ export interface UseAlbaranUploadOptions {
   aiModel?: string;
   /** AI API key (stored in sessionStorage, never persisted in backend) */
   aiApiKey?: string;
+  /** Pedido de compra de origen: el albarán se vincula a él al crearse */
+  purchaseOrderId?: string;
 }
 
 const MAX_FILES = 10;
@@ -142,6 +144,9 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
           formData.append('ai_api_key', apiKey);
         }
       }
+      if (options.purchaseOrderId) {
+        formData.append('purchase_order_id', options.purchaseOrderId);
+      }
 
       progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90));
@@ -185,7 +190,7 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [files, options.aiApiKey, options.aiModel, queryClient]);
+  }, [files, options.aiApiKey, options.aiModel, options.purchaseOrderId, queryClient]);
 
   /** Reset all state */
   const reset = useCallback(() => {

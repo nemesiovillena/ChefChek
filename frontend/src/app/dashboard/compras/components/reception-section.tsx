@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileStack } from 'lucide-react';
+import { FileStack, Upload } from 'lucide-react';
 import type { PurchaseOrder } from '@/hooks/use-purchase-orders';
 
 const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
@@ -21,12 +21,23 @@ const ALBARAN_STATUS_LABEL: Record<string, string> = {
 export function ReceptionSection({ order }: { order: PurchaseOrder }) {
   const lines = order.lines ?? [];
   const albaranes = order.albaranes ?? [];
+  const canUploadAlbaran = order.status === 'ENVIADO' || order.status === 'RECIBIDO_PARCIAL';
 
   return (
     <section className="space-y-4">
-      <h2 className="text-sm font-semibold text-[var(--on-surface)]">
-        Recepción y discrepancias
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-[var(--on-surface)]">
+          Recepción y discrepancias
+        </h2>
+        {canUploadAlbaran && (
+          <Link
+            href={`/dashboard/albaranes/subir?purchaseOrderId=${order.id}`}
+            className="flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-primary-foreground"
+          >
+            <Upload className="h-4 w-4" /> Subir albarán
+          </Link>
+        )}
+      </div>
 
       <div className="overflow-x-auto rounded-2xl border border-[var(--outline-variant)]">
         <table className="w-full min-w-[640px] text-sm">
