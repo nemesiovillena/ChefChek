@@ -31,7 +31,6 @@ import {
 import { ProductSearchInput } from '../../components/product-search-input';
 import { SendOrderDialog } from '../../components/send-order-dialog';
 import { ReceptionSection } from '../../components/reception-section';
-import { InvoicesSection } from '../../components/invoices-section';
 import { openOrderPdf } from '@/hooks/use-order-sending';
 
 const euro = new Intl.NumberFormat('es-ES', {
@@ -555,8 +554,6 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       <SendOrderDialog order={order} open={sendOpen} onOpenChange={setSendOpen} />
 
       {hasReception && <ReceptionSection order={order} />}
-
-      <InvoicesSection order={order} />
 
       {(order.events ?? []).length > 0 && (
         <section>
