@@ -228,12 +228,14 @@ export const ORDER_STATUS_META: Record<
     className: 'bg-[var(--primary)] text-primary-foreground',
   },
   RECIBIDO_PARCIAL: {
+    // Ámbar: señala desfase (recibido no coincide con lo pedido) sin ser un error bloqueante.
     label: 'Recibido parcial',
-    className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
+    className: 'bg-amber-100 text-amber-800',
   },
   RECIBIDO: {
+    // Verde: recepción completa sin discrepancias, distinguible de "parcial".
     label: 'Recibido',
-    className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
+    className: 'bg-green-100 text-green-800',
   },
   CANCELADO: {
     label: 'Cancelado',
