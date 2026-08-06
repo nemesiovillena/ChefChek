@@ -624,10 +624,10 @@ describe("AlbaranesService", () => {
   });
 
   describe("createFromUpload", () => {
-    const file = () =>
+    const file = (originalname = "a.pdf") =>
       ({
         buffer: Buffer.from("x"),
-        originalname: "a.pdf",
+        originalname,
         mimetype: "application/pdf",
       }) as any;
 
@@ -724,6 +724,135 @@ describe("AlbaranesService", () => {
       expect(prisma.albaran.create.mock.calls[0][0].data.notes).toContain(
         "Error en OCR",
       );
+    });
+
+    it("merges products from multiple files in upload order", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [{ name: "Tomate", quantity: 2, unit_price: 3 }],
+          },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [{ name: "Cebolla", quantity: 1, unit_price: 1 }],
+          },
+        });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({ id: "alb-multi", lines: [] });
+
+      await service.createFromUpload(
+        [file("hoja1.pdf"), file("hoja2.pdf")],
+        "t1",
+      );
+
+      const { data } = prisma.albaran.create.mock.calls[0][0];
+      expect(data.lines.create).toHaveLength(2);
+      expect(data.lines.create[0].description).toBe("Tomate");
+      expect(data.lines.create[1].description).toBe("Cebolla");
+    });
+
+    it("fills header fields from a later file when an earlier one is missing them", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [],
+            document_date: "2026-08-01",
+          },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [],
+            supplier_name: "Proveedor B",
+          },
+        });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({
+        id: "alb-merge-header",
+        lines: [],
+      });
+
+      await service.createFromUpload(
+        [file("hoja1.pdf"), file("hoja2.pdf")],
+        "t1",
+      );
+
+      expect(supplierMatching.matchSupplier).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Proveedor B" }),
+      );
+      const { data } = prisma.albaran.create.mock.calls[0][0];
+      expect(data.date).toEqual(new Date("2026-08-01"));
+    });
+
+    it("keeps the first document's value when both files have the same header field", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: { products: [], supplier_name: "Proveedor A" },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          document: { products: [], supplier_name: "Proveedor B" },
+        });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({
+        id: "alb-merge-header-first-wins",
+        lines: [],
+      });
+
+      await service.createFromUpload(
+        [file("hoja1.pdf"), file("hoja2.pdf")],
+        "t1",
+      );
+
+      expect(supplierMatching.matchSupplier).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Proveedor A" }),
+      );
+    });
+
+    it("creates albaran with partial results and a warning note when one of several files fails OCR", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [{ name: "Tomate", quantity: 2, unit_price: 3 }],
+          },
+        })
+        .mockResolvedValueOnce({ success: false, error: "boom" });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({ id: "alb-partial", lines: [] });
+
+      await service.createFromUpload(
+        [file("hoja1.pdf"), file("hoja2.pdf")],
+        "t1",
+      );
+
+      const { data } = prisma.albaran.create.mock.calls[0][0];
+      expect(data.albaranNumber).not.toContain("FALLBACK-");
+      expect(data.lines.create).toHaveLength(1);
+      expect(data.lines.create[0].description).toBe("Tomate");
+      expect(data.notes).toContain("hoja2.pdf");
+      expect(data.notes).toContain("boom");
+    });
+
+    it("falls back to FALLBACK- albaran when all files fail OCR (multi-file)", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({ success: false, error: "boom1" })
+        .mockResolvedValueOnce({ success: false, error: "boom2" });
+      prisma.albaran.create.mockResolvedValue({
+        id: "alb-fb-multi",
+        lines: [],
+      });
+
+      await service.createFromUpload([file(), file()], "t1");
+
+      expect(
+        prisma.albaran.create.mock.calls[0][0].data.albaranNumber,
+      ).toContain("FALLBACK-");
     });
   });
 });

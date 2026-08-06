@@ -399,8 +399,7 @@ export class AlbaranesService {
       `Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || "regex"})`,
     );
 
-    const file = files[0];
-    if (!file) {
+    if (!files || files.length === 0) {
       throw new BadRequestException("No file provided");
     }
 
@@ -438,27 +437,62 @@ export class AlbaranesService {
           aiApiKey,
         });
 
-      // 2. Process file via Python OCR microservice (buffer directly, no disk save needed)
-      const ocrResult = await this.pythonOcrService.processImage(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        effModel,
-        effKey,
-      );
+      // 2. Process every file via Python OCR microservice (secuencial: el
+      //    microservicio es un proceso único con timeouts de 120s/request,
+      //    paralelizar no aporta nada para el caso típico de 2-3 hojas).
+      //    Un fallo de un archivo se captura localmente y no debe tirar todo
+      //    el upload al fallback vacío si al menos uno tuvo éxito — es
+      //    justo el bug que se corrige aquí (antes solo se usaba files[0]
+      //    y el resto se descartaba en silencio).
+      const successfulDocuments: Array<{ filename: string; document: any }> =
+        [];
+      const failedFiles: Array<{ filename: string; reason: string }> = [];
 
-      if (!ocrResult.success || !ocrResult.document) {
+      for (const uploadedFile of files) {
+        try {
+          const ocrResult = await this.pythonOcrService.processImage(
+            uploadedFile.buffer,
+            uploadedFile.originalname,
+            uploadedFile.mimetype,
+            effModel,
+            effKey,
+          );
+          if (ocrResult.success && ocrResult.document) {
+            successfulDocuments.push({
+              filename: uploadedFile.originalname,
+              document: ocrResult.document,
+            });
+          } else {
+            failedFiles.push({
+              filename: uploadedFile.originalname,
+              reason: ocrResult.error || "OCR sin éxito",
+            });
+          }
+        } catch (err: any) {
+          failedFiles.push({
+            filename: uploadedFile.originalname,
+            reason: err.message,
+          });
+        }
+      }
+
+      if (successfulDocuments.length === 0) {
         throw new Error(
-          `OCR processing returned no results: ${ocrResult.error || "unknown error"}`,
+          `OCR falló en los ${files.length} archivo(s): ` +
+            failedFiles.map((f) => `${f.filename} (${f.reason})`).join(", "),
         );
       }
 
-      const document = ocrResult.document;
+      const document = this.mergeOcrDocuments(successfulDocuments);
       const extractedProducts = document.products || [];
 
       this.logger.log(
         `OCR result: supplier="${document.supplier_name || "N/A"}", ` +
-          `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`,
+          `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%, ` +
+          `files=${successfulDocuments.length}/${files.length} OK` +
+          (failedFiles.length > 0
+            ? `, fallos=${failedFiles.map((f) => f.filename).join(", ")}`
+            : ""),
       );
 
       // 2. Match supplier from OCR-detected data
@@ -535,7 +569,11 @@ export class AlbaranesService {
           vatBreakdown: document.vat_breakdown ?? undefined,
           total: document.total_amount || 0,
           ocrRawData: document as any,
-          notes: `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`,
+          notes:
+            `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)` +
+            (failedFiles.length > 0
+              ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}) — revisa si faltan líneas.`
+              : ""),
           lines: {
             // lineOrder preserva el orden del documento: createdAt no sirve de
             // desempate (create anidado = misma transacción = mismo now() para
@@ -604,6 +642,63 @@ export class AlbaranesService {
       );
       return albaran;
     }
+  }
+
+  /**
+   * Fusiona los documentos OCR de varios archivos (p.ej. las hojas 1 y 2 de
+   * un mismo albarán de papel) en un único documento: productos concatenados
+   * en orden de subida, campos de cabecera con "primer valor no vacío gana"
+   * (no se asume que la cabecera esté siempre en la primera hoja), confianza
+   * media, y raw_text concatenado para que el refine por layout hints siga
+   * viendo todo el texto. Con un solo documento de entrada, el resultado es
+   * observacionalmente idéntico al documento original (no-regresión).
+   */
+  private mergeOcrDocuments(
+    successfulDocuments: Array<{ filename: string; document: any }>,
+  ): any {
+    const merged: any = { ...successfulDocuments[0].document };
+
+    merged.products = successfulDocuments.flatMap(
+      (d) => d.document.products || [],
+    );
+
+    const headerFields = [
+      "supplier_name",
+      "supplier_cif",
+      "cif_code",
+      "supplier_address",
+      "supplier_phone",
+      "supplier_email",
+      "supplier_sanitary_registry",
+      "document_number",
+      "document_date",
+      "gross_amount",
+      "tax_base",
+      "vat_total",
+      "vat_breakdown",
+      "total_amount",
+    ];
+    for (const field of headerFields) {
+      if (!merged[field]) {
+        const withValue = successfulDocuments.find((d) => d.document[field]);
+        if (withValue) {
+          merged[field] = withValue.document[field];
+        }
+      }
+    }
+
+    const confidences = successfulDocuments.map(
+      (d) => d.document.confidence || 0,
+    );
+    merged.confidence =
+      confidences.reduce((sum, c) => sum + c, 0) / confidences.length;
+
+    merged.raw_text = successfulDocuments
+      .map((d) => d.document.raw_text || "")
+      .filter(Boolean)
+      .join("\n\n--- página siguiente ---\n\n");
+
+    return merged;
   }
 
   /**
