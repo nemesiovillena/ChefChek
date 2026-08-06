@@ -83,6 +83,24 @@ export class NotificationsService {
     });
   }
 
+  /** Notificación compartida de retraso de producción (ver ProductionService.checkForDelays) — reutiliza la campana en vez de una UI de alertas propia del módulo de producción. */
+  async notifyProductionDelay(
+    tenantId: string,
+    orderNumber: string,
+    recipeName: string,
+    status: "DELAYED" | "CRITICAL",
+  ): Promise<void> {
+    const alertType = status === "CRITICAL" ? "ERROR" : "WARNING";
+    const label = status === "CRITICAL" ? "muy retrasada" : "retrasada";
+
+    await this.createNotification(tenantId, {
+      type: alertType,
+      title: `Retraso en producción: ${recipeName}`,
+      message: `La orden ${orderNumber} (${recipeName}) está ${label}.`,
+      severity: alertType,
+    });
+  }
+
   async getUserNotifications(
     tenantId: string,
     userId?: string,

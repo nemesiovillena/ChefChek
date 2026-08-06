@@ -86,6 +86,8 @@ model Tenant {
   purchaseSchedules          PurchaseSchedule[]
   lots                       Lot[]
   supplierProductAliases     SupplierProductAlias[]
+  ProductionTask             ProductionTask[]
+  ProductionReport           ProductionReport[]
 
   @@map("tenants")
 }
@@ -548,10 +550,9 @@ model Task {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  sprint          Sprint           @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  assignedMember  TeamMember?      @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
-  notifications   Notification[]
-  taskAssignments TaskAssignment[]
+  sprint         Sprint         @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  assignedMember TeamMember?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  notifications  Notification[]
 
   @@map("tasks")
 }
@@ -962,21 +963,43 @@ model StaffMember {
   @@map("staff_members")
 }
 
+// Production - Task (plantilla de tarea de cocina dentro de una orden de producción)
+model ProductionTask {
+  id            String   @id @default(cuid())
+  tenantId      String
+  orderId       String
+  title         String
+  taskType      String // PREPARATION, COOKING, PLATING, QUALITY_CHECK
+  estimatedTime Float
+  dependencies  String[] @default([])
+  status        String   @default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order       ProductionOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  assignments TaskAssignment[]
+
+  @@map("production_tasks")
+}
+
 // Production - Task Assignment
 model TaskAssignment {
   id            String    @id @default(cuid())
   tenantId      String
   taskId        String
+  orderId       String
   staffMemberId String
   batchId       String?
   status        String // ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
   assignedAt    DateTime  @default(now())
   completedAt   DateTime?
+  actualTime    Float?
   notes         String?
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productionTask ProductionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staffMember    StaffMember    @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
 
   @@map("task_assignments")
 }
@@ -985,78 +1008,113 @@ model TaskAssignment {
 model WorkBatch {
   id           String    @id @default(cuid())
   tenantId     String
-  orderId      String?
   batchNumber  String
   batchType    String // PREPARATION, COOKING, PLATING
   status       String // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
   scheduledFor DateTime
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  responsible  String[]  @default([])
+  kitchenZone  String    @default("HOT_KITCHEN")
   startedAt    DateTime?
   completedAt  DateTime?
   notes        String?
   createdBy    String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  progressTrackings ProgressTracking[]
+  productionOrders  ProductionOrder[]
+  miseEnPlaceSheets MiseEnPlaceSheet[]
+  productionReports ProductionReport[]
 
   @@map("work_batches")
 }
 
-// Production - Progress Tracking
+// Production - Progress Tracking (1:1 con ProductionOrder)
 model ProgressTracking {
-  id          String   @id @default(cuid())
-  workBatchId String
-  taskId      String?
-  progress    Float    @default(0)
-  status      String
-  notes       String?
-  trackedBy   String
-  trackedAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  overallProgress Float    @default(0)
+  timeElapsed     Int      @default(0)
+  timeRemaining   Int      @default(0)
+  status          String   @default("ON_SCHEDULE") // ON_SCHEDULE, DELAYED, AHEAD, CRITICAL
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  workBatch WorkBatch @relation(fields: [workBatchId], references: [id], onDelete: Cascade)
+  order ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("progress_trackings")
 }
 
 // Production - Production Order
 model ProductionOrder {
-  id               String    @id @default(cuid())
-  tenantId         String
-  orderNumber      String
-  orderType        String // PREPARATION, COOKING, PLATING
-  status           String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  scheduledFor     DateTime
-  startedAt        DateTime?
-  completedAt      DateTime?
-  items            Json?
-  miseEnPlaceItems Json?
-  actualTime       Float?
-  notes            String?
-  createdBy        String
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  tenantId      String
+  batchId       String
+  recipeId      String
+  recipeName    String
+  quantity      Float
+  unit          String
+  estimatedTime Float
+  orderNumber   String
+  orderType     String // PREPARATION, COOKING, PLATING
+  status        String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor  DateTime
+  startedAt     DateTime?
+  completedAt   DateTime?
+  items         Json?
+  actualTime    Float?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch            WorkBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  tasks            ProductionTask[]
+  progressTracking ProgressTracking?
+  milestones       Milestone[]
+  alerts           ProductionAlert[]
+  miseEnPlaceItems MiseEnPlaceItem[]
 
   @@map("production_orders")
+}
+
+// Production - Milestone (hitos de progreso de una orden)
+model Milestone {
+  id            String    @id @default(cuid())
+  orderId       String
+  name          String
+  percentage    Int
+  scheduledTime DateTime
+  completedAt   DateTime?
+  status        String    @default("PENDING") // PENDING, COMPLETED
+
+  order ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
 }
 
 // Production - Production Alert
 model ProductionAlert {
   id         String    @id @default(cuid())
   tenantId   String
+  orderId    String
   alertType  String // DELAY, QUALITY, STOCK, STAFF
   severity   String // INFO, WARNING, ERROR, CRITICAL
   message    String
   isResolved Boolean   @default(false)
   resolvedBy String?
   resolvedAt DateTime?
+  resolution String?
   createdBy  String
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("production_alerts")
 }
@@ -1075,6 +1133,7 @@ model MiseEnPlaceSheet {
   updatedAt   DateTime  @updatedAt
 
   tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch  WorkBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
   items  MiseEnPlaceItem[]
 
   @@map("mise_en_place_sheets")
@@ -1083,6 +1142,7 @@ model MiseEnPlaceSheet {
 // Production - Mise en Place Item
 model MiseEnPlaceItem {
   id          String    @id @default(cuid())
+  tenantId    String
   orderId     String
   sheetId     String?
   description String
@@ -1095,9 +1155,29 @@ model MiseEnPlaceItem {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  order ProductionOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sheet MiseEnPlaceSheet? @relation(fields: [sheetId], references: [id], onDelete: SetNull)
 
   @@map("mise_en_place_items")
+}
+
+// Production - Production Report (KPIs generados al completar un lote)
+model ProductionReport {
+  id               String   @id @default(cuid())
+  tenantId         String
+  batchId          String
+  totalOrders      Int
+  completedOrders  Int
+  completionRate   Float
+  avgActualTime    Float
+  avgEstimatedTime Float
+  efficiency       Float
+  generatedAt      DateTime @default(now())
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch  WorkBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("production_reports")
 }
 
 // APPCC
