@@ -157,6 +157,35 @@ export class DashboardService {
       },
     });
 
+    // Lotes de producción activos
+    const activeProductionBatches = await this.prisma.workBatch.count({
+      where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
+    });
+
+    // Próximas órdenes de producción (pendientes o en curso), más cercanas primero
+    const upcomingProductionOrders = await this.prisma.productionOrder.findMany(
+      {
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        orderBy: { scheduledFor: "asc" },
+        take: 6,
+        include: { batch: { select: { kitchenZone: true } } },
+      },
+    );
+
+    const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
+      id: order.id,
+      title: order.recipeName,
+      station: order.batch.kitchenZone,
+      orderType: order.orderType,
+      status: order.status,
+      scheduledFor: order.scheduledFor,
+      estimatedTime: order.estimatedTime,
+    }));
+
     // Ingresos de hoy
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
@@ -199,6 +228,8 @@ export class DashboardService {
       pendingOrders,
       todayRevenue: todayRevenue._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
+      activeProductionBatches,
+      upcomingProductionTasks,
       // Campos compatibles con formato existente
       averageCost: {
         current: avgCost,

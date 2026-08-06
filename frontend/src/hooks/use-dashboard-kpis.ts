@@ -1,5 +1,15 @@
 import { useApiQuery } from './use-api';
 
+export interface UpcomingProductionTask {
+  id: string;
+  title: string;
+  station: string;
+  orderType: string;
+  status: string;
+  scheduledFor: string;
+  estimatedTime: number;
+}
+
 interface KPIs {
   totalProducts: number;
   totalRecipes: number;
@@ -9,6 +19,8 @@ interface KPIs {
   pendingOrders: number;
   todayRevenue: number;
   monthlyRevenue: number;
+  activeProductionBatches: number;
+  upcomingProductionTasks: UpcomingProductionTask[];
 }
 
 export function useDashboardKPIs() {

@@ -12,6 +12,22 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const KITCHEN_ZONE_LABELS: Record<string, string> = {
+  HOT_KITCHEN: 'Cocina caliente',
+  COLD_KITCHEN: 'Cocina fría',
+  PASTRY_KITCHEN: 'Pastelería',
+  GRILL_STATION: 'Parrilla',
+  FRYING_STATION: 'Fritos',
+  PLATING_STATION: 'Emplatado',
+  SERVICE_STATION: 'Servicio',
+};
+
+const ORDER_TYPE_ICONS: Record<string, string> = {
+  PREPARATION: 'restaurant_menu',
+  COOKING: 'outdoor_grill',
+  PLATING: 'restaurant',
+};
+
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -20,14 +36,6 @@ export default function DashboardPage() {
   // WebSocket hooks
   const { notifications } = useWebSocketNotifications();
   const { joinDashboard } = useWebSocketRooms();
-
-  // Estados interactivos para las tareas de preparación
-  const [tasks, setTasks] = useState([
-    { id: 1, title: 'Demi-Glace Reduction', station: 'Saucier', icon: 'oven_gen', time: '09:30', duration: 'EST. 180 MIN', completed: false, color: 'bg-secondary' },
-    { id: 2, title: 'Citrus Cured Hamachi', station: 'Garde Manger', icon: 'ac_unit', time: '10:15', duration: 'EST. 45 MIN', completed: false, color: 'bg-blue-300' },
-    { id: 3, title: 'Artisan Sourdough Proofing', station: 'Bakery', icon: 'bakery_dining', time: '08:00', duration: 'EST. 240 MIN', completed: true, color: 'bg-outline' },
-    { id: 4, title: 'Mise en Place: Seasonal veg', station: 'Vegetable', icon: 'restaurant_menu', time: '11:00', duration: 'EST. 120 MIN', completed: false, color: 'bg-primary' },
-  ]);
 
   // Simulación activa de telemetría de temperatura de la cámara fría
   const [temp, setTemp] = useState(3.2);
@@ -72,12 +80,6 @@ export default function DashboardPage() {
       return () => clearInterval(interval);
     }
   }, [isLoading, isAuthenticated]);
-
-  const toggleTask = (id: number) => {
-    setTasks(prev =>
-      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
-  };
 
   // Evitar renderizado mientras se valida la sesión
   if (!isAuthenticated || isLoading) {
@@ -221,43 +223,53 @@ export default function DashboardPage() {
               <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">HOY</span>
             </div>
             <div className="flex-1 divide-y divide-surface-variant">
-              {tasks.map(task => (
-                <div 
-                  key={task.id}
-                  onClick={() => toggleTask(task.id)}
-                  className={`p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100 ${
-                    task.completed ? 'opacity-50 bg-surface-container-lowest' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-stack-lg">
-                    <div className={`w-2 h-12 rounded-full ${task.completed ? 'bg-outline' : task.color}`}></div>
-                    <div>
-                      <h4 className={`font-body-lg text-body-lg text-primary ${task.completed ? 'line-through text-on-surface-variant' : ''}`}>
-                        {task.title}
-                      </h4>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                        <span className="material-symbols-outlined text-[14px]">{task.icon}</span>
-                        Estación: {task.station}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    {task.completed ? (
-                      <div className="flex flex-col items-end">
-                        <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          check_circle
-                        </span>
-                        <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">Completada</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="font-label-md text-label-md text-secondary">{task.time}</span>
-                        <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">{task.duration}</p>
-                      </div>
-                    )}
-                  </div>
+              {kpisLoading ? (
+                <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+                  Cargando tareas...
                 </div>
-              ))}
+              ) : kpis?.upcomingProductionTasks && kpis.upcomingProductionTasks.length > 0 ? (
+                kpis.upcomingProductionTasks.map(task => {
+                  const inProgress = task.status === 'IN_PROGRESS';
+                  const scheduled = new Date(task.scheduledFor);
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => router.push('/dashboard/production')}
+                      className="p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100"
+                    >
+                      <div className="flex items-center gap-stack-lg">
+                        <div className={`w-2 h-12 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
+                        <div>
+                          <h4 className="font-body-lg text-body-lg text-primary">{task.title}</h4>
+                          <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-[14px]">{ORDER_TYPE_ICONS[task.orderType] || 'kitchen'}</span>
+                            Estación: {KITCHEN_ZONE_LABELS[task.station] || task.station}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {inProgress ? (
+                          <div className="flex flex-col items-end">
+                            <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
+                            <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="font-label-md text-label-md text-secondary">
+                              {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+                  No hay tareas de producción pendientes
+                </div>
+              )}
             </div>
             <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
               <button 

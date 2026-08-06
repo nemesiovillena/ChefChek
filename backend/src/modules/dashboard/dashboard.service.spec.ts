@@ -61,6 +61,12 @@ describe("DashboardService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    workBatch: {
+      count: jest.fn(),
+    },
+    productionOrder: {
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -155,6 +161,17 @@ describe("DashboardService", () => {
       const mockSessions = [{ userId: "user-1" }];
       const mockTodayRevenue = { _sum: { totalAmount: 500 } };
       const mockMonthlyRevenue = { _sum: { totalAmount: 1500 } };
+      const mockUpcomingOrders = [
+        {
+          id: "order-1",
+          recipeName: "Fondo oscuro",
+          orderType: "COOKING",
+          status: "PENDING",
+          scheduledFor: new Date(),
+          estimatedTime: 90,
+          batch: { kitchenZone: "HOT_KITCHEN" },
+        },
+      ];
 
       prismaService.product.findMany.mockResolvedValue(mockProducts);
       prismaService.product.count.mockResolvedValue(3);
@@ -171,6 +188,10 @@ describe("DashboardService", () => {
       prismaService.order.aggregate.mockResolvedValueOnce(mockMonthlyRevenue);
       prismaService.recipe.count.mockResolvedValue(12);
       prismaService.menu.count.mockResolvedValue(5);
+      prismaService.workBatch.count.mockResolvedValue(2);
+      prismaService.productionOrder.findMany.mockResolvedValue(
+        mockUpcomingOrders,
+      );
 
       const result = await service.calculateKPIs("tenant-1");
 
@@ -178,6 +199,17 @@ describe("DashboardService", () => {
       expect(result.data.totalProducts).toBeDefined();
       expect(result.data.totalRecipes).toBeDefined();
       expect(result.data.totalMenus).toBeDefined();
+      expect(result.data.activeProductionBatches).toBe(2);
+      expect(result.data.upcomingProductionTasks).toHaveLength(1);
+      expect(result.data.upcomingProductionTasks[0]).toEqual({
+        id: "order-1",
+        title: "Fondo oscuro",
+        station: "HOT_KITCHEN",
+        orderType: "COOKING",
+        status: "PENDING",
+        scheduledFor: mockUpcomingOrders[0].scheduledFor,
+        estimatedTime: 90,
+      });
     });
   });
 
