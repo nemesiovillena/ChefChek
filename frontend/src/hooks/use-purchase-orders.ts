@@ -91,8 +91,11 @@ export interface PurchaseOrdersParams {
   page?: number;
   limit?: number;
   status?: PurchaseOrderStatus | '';
+  view?: 'active' | 'history';
   supplierId?: string;
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 interface PaginatedOrders {
@@ -208,6 +211,18 @@ export function useDeletePurchaseOrder() {
     onSuccess: invalidate,
   });
 }
+
+// Pedidos "en curso" (aún requieren acción) vs "histórico" (cerrados, solo consulta).
+export const ACTIVE_ORDER_STATUSES: PurchaseOrderStatus[] = [
+  'BORRADOR',
+  'PENDIENTE_ENVIO',
+  'ENVIADO',
+  'RECIBIDO_PARCIAL',
+];
+export const HISTORY_ORDER_STATUSES: PurchaseOrderStatus[] = [
+  'RECIBIDO',
+  'CANCELADO',
+];
 
 /** Etiquetas y colores M3 por estado, compartidos por tabla y detalle. */
 export const ORDER_STATUS_META: Record<

@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -108,6 +109,12 @@ export class PurchaseOrdersQueryDto {
   @IsOptional()
   @IsEnum(PurchaseOrderStatus)
   status?: PurchaseOrderStatus;
+
+  // Vista por defecto de la pestaña: activos (en curso) vs histórico (recibidos/cancelados).
+  // Si se manda `status`, ese filtro explícito prevalece sobre `view`.
+  @IsOptional()
+  @IsIn(["active", "history"])
+  view?: "active" | "history";
 
   @IsOptional()
   @IsString()

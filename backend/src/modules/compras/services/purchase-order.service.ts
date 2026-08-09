@@ -13,6 +13,18 @@ import {
   UpdatePurchaseOrderDto,
 } from "../dto/purchase-order.dto";
 
+// Pedidos "en curso" (aún requieren acción) vs "histórico" (cerrados, solo consulta).
+const ACTIVE_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.BORRADOR,
+  PurchaseOrderStatus.PENDIENTE_ENVIO,
+  PurchaseOrderStatus.ENVIADO,
+  PurchaseOrderStatus.RECIBIDO_PARCIAL,
+];
+const HISTORY_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.RECIBIDO,
+  PurchaseOrderStatus.CANCELADO,
+];
+
 const ORDER_INCLUDE = {
   supplier: { select: { id: true, name: true, orderMethods: true } },
   location: { select: { id: true, name: true } },
@@ -42,9 +54,17 @@ export class PurchaseOrderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
+    const statusFilter = query.status
+      ? { status: query.status }
+      : query.view === "active"
+        ? { status: { in: ACTIVE_STATUSES } }
+        : query.view === "history"
+          ? { status: { in: HISTORY_STATUSES } }
+          : {};
+
     const where = {
       tenantId,
-      ...(query.status ? { status: query.status } : {}),
+      ...statusFilter,
       ...(query.supplierId ? { supplierId: query.supplierId } : {}),
       ...(query.locationId ? { locationId: query.locationId } : {}),
       ...(query.search

@@ -5,10 +5,19 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { useSuppliers } from '@/hooks/use-suppliers';
 import {
+  ACTIVE_ORDER_STATUSES,
+  HISTORY_ORDER_STATUSES,
   ORDER_STATUS_META,
   usePurchaseOrders,
   type PurchaseOrderStatus,
 } from '@/hooks/use-purchase-orders';
+
+type OrdersView = 'active' | 'history';
+
+const VIEW_TABS: { value: OrdersView; label: string }[] = [
+  { value: 'active', label: 'En curso' },
+  { value: 'history', label: 'Histórico' },
+];
 
 const euro = new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -17,26 +26,39 @@ const euro = new Intl.NumberFormat('es-ES', {
 
 export function PedidosTab() {
   const router = useRouter();
+  const [view, setView] = useState<OrdersView>('active');
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<PurchaseOrderStatus | ''>('');
   const [supplierId, setSupplierId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: suppliers } = useSuppliers({ isActive: true });
   const { data, isLoading, error } = usePurchaseOrders({
     page,
     limit: 25,
+    view,
     status,
     supplierId,
     search: search.trim() || undefined,
+    ...(view === 'history' ? { dateFrom, dateTo } : {}),
   });
 
   const orders = data?.data ?? [];
   const totalPages = data?.totalPages ?? 1;
+  const statusOptions =
+    view === 'history' ? HISTORY_ORDER_STATUSES : ACTIVE_ORDER_STATUSES;
 
   const resetPage = () => setPage(1);
+
+  const handleViewChange = (next: OrdersView) => {
+    setView(next);
+    setStatus('');
+    resetPage();
+  };
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -49,6 +71,24 @@ export function PedidosTab() {
 
   return (
     <div className="space-y-4">
+      <div role="tablist" className="flex gap-2">
+        {VIEW_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            role="tab"
+            aria-selected={view === tab.value}
+            onClick={() => handleViewChange(tab.value)}
+            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+              view === tab.value
+                ? 'bg-[var(--primary)] text-primary-foreground'
+                : 'bg-[var(--surface-container-low)] text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--on-surface-variant)]" />
@@ -67,10 +107,12 @@ export function PedidosTab() {
           }}
           className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)]"
         >
-          <option value="">Todos los estados</option>
-          {Object.entries(ORDER_STATUS_META).map(([value, meta]) => (
+          <option value="">
+            {view === 'history' ? 'Todo el histórico' : 'Todos en curso'}
+          </option>
+          {statusOptions.map((value) => (
             <option key={value} value={value}>
-              {meta.label}
+              {ORDER_STATUS_META[value].label}
             </option>
           ))}
         </select>
@@ -89,6 +131,30 @@ export function PedidosTab() {
             </option>
           ))}
         </select>
+        {view === 'history' && (
+          <>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                resetPage();
+              }}
+              aria-label="Desde"
+              className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)]"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                resetPage();
+              }}
+              aria-label="Hasta"
+              className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)]"
+            />
+          </>
+        )}
       </div>
 
       {isLoading ? (
@@ -101,8 +167,9 @@ export function PedidosTab() {
         </div>
       ) : orders.length === 0 ? (
         <div className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-10 text-center text-[var(--on-surface-variant)]">
-          No hay pedidos todavía. Crea una lista de compra y genera tu primer
-          pedido desde la pestaña Listas.
+          {view === 'history'
+            ? 'No hay pedidos recibidos o cancelados con estos filtros.'
+            : 'No hay pedidos en curso. Crea una lista de compra y genera tu primer pedido desde la pestaña Listas.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-[var(--outline-variant)]">
