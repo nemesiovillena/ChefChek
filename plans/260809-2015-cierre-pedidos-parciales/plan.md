@@ -39,6 +39,13 @@ Ver consulta previa en la conversación (`/ask`) para el análisis completo.
    badge "Cerrado con falta" en el detalle.
 6. Verificación: build + jest backend, smoke test en navegador.
 
+## Ampliación post-implementación
+- Redirige al listado de Compras tras cerrar un pedido parcial (antes se quedaba en el detalle).
+- Notificación inmediata en la campana en cuanto un pedido entra en `RECIBIDO_PARCIAL`
+  (`PurchaseOrderStatusService.transition`, no solo la alerta de 3 días de estancado).
+  Verificado con transición real vía API sobre un pedido de prueba (PED-0003): la fila en
+  `alerts` se creó y apareció en la campana del frontend.
+
 ## Criterios de aceptación
 - Cerrar un pedido `RECIBIDO_PARCIAL` desde cualquier usuario funciona y queda el evento
   con `userId` + `reason` (si se escribió).

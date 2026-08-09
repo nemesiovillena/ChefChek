@@ -7,6 +7,7 @@ import {
 import { PurchaseOrderStatus } from "@prisma/client";
 import { PurchaseOrderStatusService } from "./purchase-order-status.service";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { NotificationsService } from "../../core/notifications.service";
 
 describe("PurchaseOrderStatusService", () => {
   let service: PurchaseOrderStatusService;
@@ -18,6 +19,7 @@ describe("PurchaseOrderStatusService", () => {
     purchaseOrderLine: { findFirst: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
+  const notificationsMock = { createNotification: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -25,6 +27,7 @@ describe("PurchaseOrderStatusService", () => {
       providers: [
         PurchaseOrderStatusService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: NotificationsService, useValue: notificationsMock },
       ],
     }).compile();
     service = module.get(PurchaseOrderStatusService);
@@ -33,8 +36,10 @@ describe("PurchaseOrderStatusService", () => {
   const order = (status: PurchaseOrderStatus, sentAt: Date | null = null) => ({
     id: "o1",
     tenantId: "t1",
+    orderNumber: "PED-0001",
     status,
     sentAt,
+    supplier: { name: "Proveedor Test" },
   });
 
   it("404 si el pedido no es del tenant", async () => {
@@ -104,6 +109,22 @@ describe("PurchaseOrderStatusService", () => {
 
     const data = prismaMock.purchaseOrder.update.mock.calls[0][0].data;
     expect(data.sentAt).toBeUndefined();
+    expect(notificationsMock.createNotification).toHaveBeenCalledWith(
+      "t1",
+      expect.objectContaining({ type: "PARTIAL_ORDER_RECEIVED" }),
+    );
+  });
+
+  it("BORRADOR → ENVIADO no dispara la alerta de recepción parcial", async () => {
+    prismaMock.purchaseOrder.findFirst.mockResolvedValue(
+      order(PurchaseOrderStatus.BORRADOR),
+    );
+    prismaMock.purchaseOrder.update.mockResolvedValue({});
+    prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
+
+    await service.transition("t1", "o1", PurchaseOrderStatus.ENVIADO, "u1");
+
+    expect(notificationsMock.createNotification).not.toHaveBeenCalled();
   });
 
   describe("revertToDraft", () => {

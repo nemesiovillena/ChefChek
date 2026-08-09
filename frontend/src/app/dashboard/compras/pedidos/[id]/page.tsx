@@ -235,6 +235,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             notifyError(e, 'No se pudo cerrar el pedido');
             throw e;
           }
+          // Pedido cerrado: vuelve al listado en vez de dejar al usuario en
+          // el detalle de un pedido que ya no necesita más acción.
+          router.push('/dashboard/compras');
         },
       });
       return;

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PurchaseOrderStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { NotificationsService } from "../../core/notifications.service";
 
 /**
  * Estados desde los que un ADMIN puede forzar la vuelta a BORRADOR (fuera de
@@ -47,7 +48,10 @@ const VALID_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
 
 @Injectable()
 export class PurchaseOrderStatusService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async transition(
     tenantId: string,
@@ -58,6 +62,7 @@ export class PurchaseOrderStatusService {
   ) {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: { id: orderId, tenantId },
+      include: { supplier: { select: { name: true } } },
     });
     if (!order) {
       throw new NotFoundException("Pedido no encontrado");
@@ -93,6 +98,18 @@ export class PurchaseOrderStatusService {
         },
       }),
     ]);
+
+    // Aviso inmediato en la campana: no esperar a los 3 días de
+    // StalePartialOrderAlertService, el usuario quiere verlo en cuanto pasa.
+    if (newStatus === PurchaseOrderStatus.RECIBIDO_PARCIAL) {
+      await this.notificationsService.createNotification(tenantId, {
+        type: "PARTIAL_ORDER_RECEIVED",
+        severity: "WARNING",
+        title: "Recepción parcial",
+        message: `${order.orderNumber} (${order.supplier.name}) se ha recibido parcialmente. Revisa qué falta o cierra el pedido si el proveedor no completará el envío.`,
+      });
+    }
+
     return updated;
   }
 
