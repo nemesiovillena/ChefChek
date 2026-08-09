@@ -16,6 +16,7 @@ import { CatalogImportService } from "./services/catalog-import.service";
 import { CatalogComparisonService } from "./services/catalog-comparison.service";
 import { PurchaseScheduleService } from "./services/purchase-schedule.service";
 import { PurchaseAnalyticsService } from "./services/purchase-analytics.service";
+import { StalePartialOrderAlertService } from "./services/stale-partial-order-alert.service";
 import { LineMatchingService } from "../albaranes/services/line-matching.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
@@ -62,6 +63,7 @@ import { OcrModule } from "../ocr/ocr.module";
     CatalogComparisonService,
     PurchaseScheduleService,
     PurchaseAnalyticsService,
+    StalePartialOrderAlertService,
   ],
   exports: [
     LocationsService,

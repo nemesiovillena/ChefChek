@@ -175,7 +175,10 @@ export class OrderReconciliationService {
 
     await this.prisma.purchaseOrder.update({
       where: { id: order.id },
-      data: { receivedTotal },
+      // Nueva recepción = ya no está "abandonado": resetea el dedup de la
+      // alerta de estancados (ver StalePartialOrderAlertService) para que
+      // pueda volver a alertar si vuelve a quedarse sin novedad.
+      data: { receivedTotal, staleAlertSentAt: null },
     });
 
     if (newStatus !== order.status) {

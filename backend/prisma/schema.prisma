@@ -2094,6 +2094,10 @@ model PurchaseOrder {
   expectedTotal Float  @default(0) // Suma de expectedPrice × quantity de las líneas
   receivedTotal Float? // Suma real tras conciliar con albarán
 
+  // Dedup de la alerta "pedido parcial estancado" (StalePartialOrderAlertService):
+  // se marca al notificar, se resetea a null cuando llega nueva recepción.
+  staleAlertSentAt DateTime?
+
   createdBy String? // userId
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

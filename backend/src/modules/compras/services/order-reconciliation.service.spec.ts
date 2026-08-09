@@ -126,7 +126,7 @@ describe("OrderReconciliationService", () => {
       });
       expect(prismaMock.purchaseOrder.update).toHaveBeenCalledWith({
         where: { id: "o1" },
-        data: { receivedTotal: 120 },
+        data: { receivedTotal: 120, staleAlertSentAt: null },
       });
       expect(statusServiceMock.transition).toHaveBeenCalledWith(
         tenantId,

@@ -54,6 +54,7 @@ export class PurchaseOrderStatusService {
     orderId: string,
     newStatus: PurchaseOrderStatus,
     userId?: string,
+    reason?: string,
   ) {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: { id: orderId, tenantId },
@@ -86,7 +87,9 @@ export class PurchaseOrderStatusService {
           orderId,
           type: "STATUS_CHANGED",
           userId,
-          payload: { from: order.status, to: newStatus },
+          payload: reason
+            ? { from: order.status, to: newStatus, reason }
+            : { from: order.status, to: newStatus },
         },
       }),
     ]);

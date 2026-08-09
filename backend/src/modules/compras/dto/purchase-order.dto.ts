@@ -85,6 +85,13 @@ export class UpdatePurchaseOrderDto {
 export class TransitionPurchaseOrderDto {
   @IsEnum(PurchaseOrderStatus)
   status: PurchaseOrderStatus;
+
+  // Motivo opcional: usado al cerrar un RECIBIDO_PARCIAL aceptando lo recibido
+  // como final (proveedor no completará el resto). Se guarda en el evento.
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class RevertPurchaseOrderDto {

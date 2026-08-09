@@ -177,10 +177,10 @@ export function useTransitionPurchaseOrder() {
   return useMutation<
     PurchaseOrder,
     Error,
-    { id: string; status: PurchaseOrderStatus }
+    { id: string; status: PurchaseOrderStatus; reason?: string }
   >({
-    mutationFn: async ({ id, status }) =>
-      (await apiClient.patch(`${BASE_URL}/${id}/estado`, { status })).data,
+    mutationFn: async ({ id, status, reason }) =>
+      (await apiClient.patch(`${BASE_URL}/${id}/estado`, { status, reason })).data,
     onSuccess: invalidate,
   });
 }

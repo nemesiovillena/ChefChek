@@ -129,6 +129,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const deleteMut = useDeletePurchaseOrder();
   const revertMut = useRevertPurchaseOrderStatus();
   const revertReasonRef = useRef<HTMLTextAreaElement>(null);
+  const closeReasonRef = useRef<HTMLTextAreaElement>(null);
   const incidentMut = useReportOrderIncident();
   const incidentDescRef = useRef<HTMLTextAreaElement>(null);
   const incidentFileRef = useRef<HTMLInputElement>(null);
@@ -208,6 +209,35 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         variant: 'destructive',
       });
       if (!ok) return;
+    }
+    // Cerrar un Recibido parcial es aceptar lo recibido como final (el
+    // proveedor no completará el resto) — se pide motivo opcional para dejar
+    // rastro de la decisión junto al usuario que la tomó (ya lo graba el evento).
+    if (order.status === 'RECIBIDO_PARCIAL' && to === 'RECIBIDO') {
+      await confirm({
+        title: `Cerrar el pedido ${order.orderNumber}`,
+        description:
+          'El pedido pasará a Recibido aceptando lo entregado hasta ahora como definitivo. Úsalo cuando el proveedor no vaya a enviar el resto.',
+        confirmText: 'Cerrar pedido',
+        children: (
+          <textarea
+            ref={closeReasonRef}
+            rows={3}
+            placeholder="Motivo (opcional): ej. proveedor confirma que no queda stock..."
+            className="w-full rounded-xl border border-[var(--outline-variant)] bg-transparent px-3 py-2 text-sm text-[var(--on-surface)]"
+          />
+        ),
+        onConfirm: async () => {
+          const reason = closeReasonRef.current?.value.trim() || undefined;
+          try {
+            await transitionMut.mutateAsync({ id: order.id, status: to, reason });
+          } catch (e) {
+            notifyError(e, 'No se pudo cerrar el pedido');
+            throw e;
+          }
+        },
+      });
+      return;
     }
     try {
       await transitionMut.mutateAsync({ id: order.id, status: to });
@@ -328,9 +358,21 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {new Date(order.createdAt).toLocaleDateString('es-ES')}
           </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-sm font-medium ${meta.className}`}>
-          {meta.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full px-3 py-1 text-sm font-medium ${meta.className}`}>
+            {meta.label}
+          </span>
+          {order.status === 'RECIBIDO' &&
+            order.receivedTotal != null &&
+            order.receivedTotal < order.expectedTotal && (
+              <span
+                title="Se cerró aceptando menos de lo pedido"
+                className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800"
+              >
+                Cerrado con falta
+              </span>
+            )}
+        </div>
       </div>
 
       <section className="overflow-x-auto rounded-2xl border border-[var(--outline-variant)]">

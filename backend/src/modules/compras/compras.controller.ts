@@ -338,6 +338,7 @@ export class ComprasController {
       id,
       dto.status,
       req.user?.id,
+      dto.reason,
     );
     return { success: true, data };
   }
