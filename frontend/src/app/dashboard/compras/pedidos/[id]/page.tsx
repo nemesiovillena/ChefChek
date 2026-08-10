@@ -157,6 +157,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const [dirty, setDirty] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [notes, setNotes] = useState(order.notes ?? '');
+  const [additionalItems, setAdditionalItems] = useState(order.additionalItems ?? '');
 
   const canSend = order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
 
@@ -192,6 +193,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             unit: l.unit || undefined,
           })),
           notes,
+          additionalItems,
         },
       });
       setDirty(false);
@@ -479,6 +481,40 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
           </tfoot>
         </table>
       </section>
+
+      {isDraft ? (
+        <div>
+          <label htmlFor="order-additional-items" className="block text-xs font-medium text-[var(--on-surface-variant)]">
+            Artículos nuevos
+          </label>
+          <textarea
+            id="order-additional-items"
+            value={additionalItems}
+            onChange={(e) => {
+              setAdditionalItems(e.target.value);
+              setDirty(true);
+            }}
+            rows={4}
+            placeholder="Un artículo por línea. Se añaden al final del listado de artículos, en la misma lista, para artículos que aún no le has comprado a este proveedor..."
+            className="mt-1 w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)]"
+          />
+        </div>
+      ) : (
+        order.additionalItems && (
+          <div>
+            <p className="text-xs font-medium text-[var(--on-surface-variant)]">Artículos nuevos</p>
+            <ul className="mt-1 list-disc pl-5 text-sm text-[var(--on-surface)]">
+              {order.additionalItems
+                .split('\n')
+                .map((item) => item.trim())
+                .filter(Boolean)
+                .map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+            </ul>
+          </div>
+        )
+      )}
 
       {isDraft ? (
         <div>

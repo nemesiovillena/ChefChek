@@ -243,6 +243,7 @@ function ListEditor({
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [notes, setNotes] = useState(list.notes ?? '');
+  const [additionalItems, setAdditionalItems] = useState(list.additionalItems ?? '');
 
   const checkedCount = rows.filter((r) => r.checked).length;
   const allChecked = rows.length > 0 && checkedCount === rows.length;
@@ -271,6 +272,7 @@ function ListEditor({
               defaultQuantity: r.quantity,
             })),
           notes,
+          additionalItems,
         },
       });
       addNotification({ type: 'success', title: 'Lista guardada', message: list.name });
@@ -343,8 +345,14 @@ function ListEditor({
       return;
     }
     try {
-      if (notes !== (list.notes ?? '')) {
-        await updateMut.mutateAsync({ id: list.id, data: { notes } });
+      // Persiste notas/artículos nuevos si cambiaron, antes de generar (un
+      // único PATCH). Así el borrador hereda siempre lo que se ve en pantalla.
+      const patch: { notes?: string; additionalItems?: string } = {};
+      if (notes !== (list.notes ?? '')) patch.notes = notes;
+      if (additionalItems !== (list.additionalItems ?? ''))
+        patch.additionalItems = additionalItems;
+      if (Object.keys(patch).length) {
+        await updateMut.mutateAsync({ id: list.id, data: patch });
       }
       const order = await generateMut.mutateAsync({
         listId: list.id,
@@ -473,10 +481,30 @@ function ListEditor({
         )}
       </ul>
 
+      {(canManage || additionalItems.trim()) && (
+        <div className="space-y-2">
+          <label
+            htmlFor="list-additional-items"
+            className="block text-sm font-medium text-[var(--on-surface)]"
+          >
+            Artículos nuevos
+          </label>
+          <textarea
+            id="list-additional-items"
+            value={additionalItems}
+            onChange={(e) => setAdditionalItems(e.target.value)}
+            readOnly={!canManage}
+            rows={3}
+            placeholder="Un artículo por línea. Son artículos que aún no le has comprado a este proveedor (no están en su catálogo). Al generar el pedido se añaden al final del listado, en la misma lista que los demás..."
+            className="w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)] read-only:bg-[var(--surface-container-low)]"
+          />
+        </div>
+      )}
+
       {(canManage || notes.trim()) && (
         <div className="space-y-2">
           <label htmlFor="list-notes" className="block text-sm font-medium text-[var(--on-surface)]">
-            Notas / artículos sueltos
+            Notas
           </label>
           <textarea
             id="list-notes"
@@ -484,7 +512,7 @@ function ListEditor({
             onChange={(e) => setNotes(e.target.value)}
             readOnly={!canManage}
             rows={3}
-            placeholder="Escribe aquí cualquier cosa que quieras pedir o recordar, sin que tenga que ser un artículo del catálogo... Se guarda al pulsar «Guardar checklist» o «Generar pedido»."
+            placeholder="Instrucciones o recordatorios para el proveedor que no sean artículos (se envían bajo «Notas:», tras el listado)..."
             className="w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)] read-only:bg-[var(--surface-container-low)]"
           />
         </div>

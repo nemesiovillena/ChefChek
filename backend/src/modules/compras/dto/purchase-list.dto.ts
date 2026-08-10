@@ -45,6 +45,11 @@ export class CreatePurchaseListDto {
   @IsString()
   @MaxLength(5000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  additionalItems?: string;
 }
 
 export class UpdatePurchaseListDto {
@@ -69,6 +74,11 @@ export class UpdatePurchaseListDto {
   @IsString()
   @MaxLength(5000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  additionalItems?: string;
 }
 
 export class GenerateOrderItemDto {

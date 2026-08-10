@@ -28,6 +28,8 @@ export interface PurchaseList {
   items: PurchaseListItem[];
   /** Notas libres del usuario: no genera líneas de pedido ni afecta al coste. */
   notes?: string | null;
+  /** Artículos fuera de catálogo (una línea por artículo); se transfieren al pedido al generar. */
+  additionalItems?: string | null;
 }
 
 export interface PurchaseListItemInput {
@@ -78,6 +80,8 @@ export function useCreatePurchaseList() {
       supplierId: string;
       locationId?: string;
       items?: PurchaseListItemInput[];
+      notes?: string;
+      additionalItems?: string;
     }
   >({
     mutationFn: async (data) => (await apiClient.post(BASE_URL, data)).data,
@@ -97,6 +101,7 @@ export function useUpdatePurchaseList() {
         locationId?: string;
         items?: PurchaseListItemInput[];
         notes?: string;
+        additionalItems?: string;
       };
     }
   >({

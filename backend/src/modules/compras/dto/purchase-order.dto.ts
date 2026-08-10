@@ -57,6 +57,11 @@ export class CreatePurchaseOrderDto {
   @MaxLength(1000)
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  additionalItems?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -73,6 +78,11 @@ export class UpdatePurchaseOrderDto {
   @IsString()
   @MaxLength(1000)
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  additionalItems?: string;
 
   @IsOptional()
   @IsArray()

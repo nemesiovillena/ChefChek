@@ -163,6 +163,7 @@ export class PurchaseOrderService {
         supplierId: dto.supplierId,
         locationId: dto.locationId,
         notes: dto.notes,
+        additionalItems: dto.additionalItems,
         expectedTotal,
         createdBy: userId,
         lines: { create: lines },
@@ -205,6 +206,7 @@ export class PurchaseOrderService {
       where: { id },
       data: {
         notes: dto.notes,
+        additionalItems: dto.additionalItems,
         locationId: dto.locationId,
         ...(linesData
           ? {

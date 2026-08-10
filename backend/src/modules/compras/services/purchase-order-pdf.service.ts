@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderService } from "./purchase-order.service";
 import { PurchaseOrderConfigService } from "./purchase-order-config.service";
+import { toBulletLines } from "../utils/bullet-list.util";
 
 const euro = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -151,6 +152,24 @@ export class PurchaseOrderPdfService {
       },
       true,
     );
+    y += 20;
+
+    // Artículos nuevos: aún no están en la tabla de líneas (no comprados
+    // antes a este proveedor); mismo bullet que la tabla, pegados a ella.
+    const additionalItemLines = order.additionalItems
+      ? toBulletLines(order.additionalItems)
+      : [];
+    if (additionalItemLines.length) {
+      doc.font("Helvetica").fontSize(9).fillColor("#000000");
+      for (const line of additionalItemLines) {
+        if (y > 770) {
+          doc.addPage();
+          y = 50;
+        }
+        doc.text(line, left, y, { width: 495 });
+        y += 14;
+      }
+    }
 
     // Notas propias del pedido primero, como párrafo aparte; instrucción fija
     // de Ajustes al final (se lee en vivo: cambiarla en Ajustes actualiza

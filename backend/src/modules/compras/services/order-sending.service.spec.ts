@@ -84,6 +84,19 @@ describe("OrderSendingService", () => {
       expect(preview.email).toBe("pedidos@pescados.example");
     });
 
+    it("añade los artículos nuevos con el mismo bullet, pegados al listado de artículos", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        ...baseOrder,
+        additionalItems:
+          "Espaguetis bolsa: 1 Bolsa\n\nSolomillo de cerdo: 2 cajas",
+      });
+      const preview = await service.getSendPreview(tenantId, "o1");
+
+      expect(preview.text).toContain(
+        "• Salmón: 3 Caja 5kg\n• Espaguetis bolsa: 1 Bolsa\n• Solomillo de cerdo: 2 cajas",
+      );
+    });
+
     it("404 si el pedido no es del tenant", async () => {
       prismaMock.purchaseOrder.findFirst.mockResolvedValue(null);
       await expect(service.getSendPreview(tenantId, "x")).rejects.toThrow(

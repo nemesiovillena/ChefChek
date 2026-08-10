@@ -8,6 +8,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { MailService } from "../../mail/mail.service";
 import { PurchaseOrderPdfService } from "./purchase-order-pdf.service";
 import { PurchaseOrderConfigService } from "./purchase-order-config.service";
+import { toBulletLines } from "../utils/bullet-list.util";
 
 export type SendChannel = "EMAIL" | "WHATSAPP" | "PHONE" | "WEB";
 const SEND_CHANNELS: SendChannel[] = ["EMAIL", "WHATSAPP", "PHONE", "WEB"];
@@ -136,6 +137,7 @@ export class OrderSendingService {
     order: {
       orderNumber: string;
       notes?: string | null;
+      additionalItems?: string | null;
       supplier: { name: string };
       location?: { name: string } | null;
       lines: {
@@ -153,13 +155,22 @@ export class OrderSendingService {
       (l) =>
         `• ${l.product?.name ?? l.productId}: ${l.quantity}${l.unit ? ` ${l.unit}` : ""}`,
     );
+    // Artículos nuevos: aún no están en `lines` (no comprados antes a este
+    // proveedor); se listan con el mismo bullet que los artículos del pedido,
+    // pegados a esa lista para que el proveedor los lea como un único listado.
+    const additionalItemLines = order.additionalItems
+      ? toBulletLines(order.additionalItems)
+      : [];
+    const additionalItems = additionalItemLines.length
+      ? `\n${additionalItemLines.join("\n")}`
+      : "";
     // Notas propias del pedido (si las hay) bajo "Notas:"; la instrucción fija
     // de Ajustes va aparte, como línea final propia antes del cierre — no se
     // mezcla con "Notas:" ni con el listado de artículos (leída en vivo, no
     // congelada en el pedido).
     const notes = order.notes?.trim() ? `\nNotas: ${order.notes.trim()}` : "";
     const fixedNote = supplierNote.trim() ? `\n${supplierNote.trim()}` : "";
-    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${notes}${fixedNote}\n\nMuchas gracias.`;
+    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${additionalItems}${notes}${fixedNote}\n\nMuchas gracias.`;
   }
 
   /** Nombre del tenant (restaurante) para el saludo del mensaje. */

@@ -1064,7 +1064,7 @@ model ProductionOrder {
   recipeName    String?
   quantity      Float?
   unit          String?
-  estimatedTime Float
+  estimatedTime Float?
   orderNumber   String
   orderType     String // PREPARATION, COOKING, PLATING
   status        String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
@@ -1073,6 +1073,7 @@ model ProductionOrder {
   completedAt   DateTime?
   items         Json?
   description   String?
+  assignedStaffIds String[] @default([])
   actualTime    Float?
   notes         String?
   createdBy     String
@@ -2094,6 +2095,11 @@ model PurchaseOrder {
   locationId  String?
   status      PurchaseOrderStatus @default(BORRADOR)
   notes       String?
+  // Artículos que el usuario quiere pedir pero aún no están en `lines`
+  // (no comprados antes a este proveedor). Texto libre, una línea por
+  // artículo; se renderiza como lista con el mismo bullet que `lines`,
+  // detrás del listado de artículos y antes de `notes` en mensaje/PDF.
+  additionalItems String?
 
   // Envío al proveedor
   sentAt  DateTime?
@@ -2164,6 +2170,11 @@ model PurchaseList {
   // proveedor, etc.). Texto plano, no estructurado: no genera líneas de
   // pedido ni afecta a stock/coste/reconciliación.
   notes      String?
+  // Artículos que el usuario quiere pedir pero no están en el catálogo del
+  // proveedor (no comprados antes). Una línea por artículo; al generar el
+  // pedido se transfieren a PurchaseOrder.additionalItems, que se renderiza
+  // como lista con bullet tras el listado de artículos y antes de Notas.
+  additionalItems String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?

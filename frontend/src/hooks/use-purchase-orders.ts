@@ -65,6 +65,7 @@ export interface PurchaseOrder {
   supplierId: string;
   locationId?: string | null;
   notes?: string | null;
+  additionalItems?: string | null;
   sentAt?: string | null;
   sentVia?: string | null;
   expectedTotal: number;
@@ -148,6 +149,7 @@ export function useCreatePurchaseOrder() {
       supplierId: string;
       locationId?: string;
       notes?: string;
+      additionalItems?: string;
       lines: PurchaseOrderLineInput[];
     }
   >({
@@ -163,7 +165,12 @@ export function useUpdatePurchaseOrder() {
     Error,
     {
       id: string;
-      data: { locationId?: string; notes?: string; lines?: PurchaseOrderLineInput[] };
+      data: {
+        locationId?: string;
+        notes?: string;
+        additionalItems?: string;
+        lines?: PurchaseOrderLineInput[];
+      };
     }
   >({
     mutationFn: async ({ id, data }) =>
