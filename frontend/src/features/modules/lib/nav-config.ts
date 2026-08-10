@@ -38,7 +38,7 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
       { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
-      { label: 'Artículos', href: '/dashboard/articulos', moduleId: 'articulos', icon: 'inventory_2' },
+      { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
       { label: 'Equipo', href: '/dashboard/users', moduleId: 'sala', icon: 'groups' },
     ],
   },
@@ -47,6 +47,7 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
       { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: 'description' },
+      { label: 'Artículos', href: '/dashboard/articulos', moduleId: 'articulos', icon: 'inventory_2' },
       { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: 'local_shipping' },
       { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
       { label: 'Histórico de precios', href: '/dashboard/historico-precios', icon: 'trending_up' },
@@ -63,7 +64,6 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Contenido',
     items: [
       { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
-      { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
       { label: 'Menú digital', href: '/dashboard/digital-menu', moduleId: 'digital-menu', icon: 'qr_code' },
       { label: 'Wiki', href: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento', icon: 'menu_book' },
     ],
