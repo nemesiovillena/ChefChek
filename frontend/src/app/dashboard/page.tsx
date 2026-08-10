@@ -107,50 +107,226 @@ export default function DashboardPage() {
     return String(value).padStart(2, '0');
   };
 
+  // Fragmentos reutilizados en el orden móvil (pedido por el usuario) y en el
+  // bento grid de escritorio, que agrupa las cards de otra forma.
+  const pedidosPendientesCard = (
+    <div
+      onClick={() => router.push('/dashboard/compras')}
+      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+    >
+      {!!kpis?.scheduledDraftOrders && kpis.scheduledDraftOrders > 0 && (
+        <span
+          className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+          title={`${kpis.scheduledDraftOrders} pedido(s) programado(s) por revisar`}
+        >
+          {kpis.scheduledDraftOrders > 9 ? '9+' : kpis.scheduledDraftOrders}
+        </span>
+      )}
+      <div>
+        <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">Pedidos Pendientes</p>
+        <span className="font-headline-lg text-headline-lg text-primary">
+          {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
+        </span>
+      </div>
+      <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
+        <span className="material-symbols-outlined text-secondary">local_shipping</span>
+      </div>
+    </div>
+  );
+
+  const notificacionesCard = (
+    <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
+      <div className="flex justify-between items-center mb-stack-md">
+        <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
+        <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
+      </div>
+      <div className="space-y-stack-sm">
+        {notifications.length > 0 ? (
+          notifications.slice(0, 4).map((notif) => {
+            const style =
+              notif.type === 'ERROR'
+                ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
+                : notif.type === 'WARNING'
+                  ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
+                  : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
+            const route = resolveNotificationRoute(notif.entityType, notif.entityId);
+            return (
+              <div
+                key={notif.id}
+                onClick={() => {
+                  markAsRead(notif.id);
+                  if (route) router.push(route);
+                }}
+                className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap}`}
+              >
+                <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
+                <div>
+                  <p className="text-xs text-primary font-medium">{notif.title}</p>
+                  <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
+            <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+            <p className="text-xs text-on-surface-variant">No hay notificaciones</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const tareasPendientesBoard = (
+    <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
+      <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
+        <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
+        <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">HOY</span>
+      </div>
+      <div className="flex-1 divide-y divide-surface-variant">
+        {kpisLoading ? (
+          <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+            Cargando tareas...
+          </div>
+        ) : kpis?.upcomingProductionTasks && kpis.upcomingProductionTasks.length > 0 ? (
+          kpis.upcomingProductionTasks.map(task => {
+            const inProgress = task.status === 'IN_PROGRESS';
+            const scheduled = new Date(task.scheduledFor);
+            return (
+              <div
+                key={task.id}
+                onClick={() => router.push('/dashboard/production')}
+                className="p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100"
+              >
+                <div className="flex items-center gap-stack-lg">
+                  <div className={`w-2 h-12 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
+                  <div>
+                    <h4 className="font-body-lg text-body-lg text-primary">{task.title}</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+                      <span className="material-symbols-outlined text-[14px]">{ORDER_TYPE_ICONS[task.orderType] || 'kitchen'}</span>
+                      Estación: {KITCHEN_ZONE_LABELS[task.station] || task.station}
+                    </p>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+                      <span className="material-symbols-outlined text-[14px]">person</span>
+                      {task.assignedStaffNames.length > 0
+                        ? task.assignedStaffNames.join(', ')
+                        : 'Sin asignar'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-stack-lg">
+                  <div className="text-right">
+                    {inProgress ? (
+                      <div className="flex flex-col items-end">
+                        <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
+                        <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="font-label-md text-label-md text-secondary">
+                          {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleCompleteTask(e, task)}
+                    disabled={completeTask.isPending}
+                    title="Marcar tarea como completada"
+                    className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-secondary bg-secondary-container/15 hover:bg-secondary-container/30 hover:text-primary active:scale-90 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+            No hay tareas de producción pendientes
+          </div>
+        )}
+      </div>
+      <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
+        <button
+          onClick={() => router.push('/dashboard/production')}
+          className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+        >
+          VER LISTA DE PREPARACIÓN COMPLETA
+        </button>
+      </div>
+    </div>
+  );
+
+  const recetasCard = (
+    <div
+      className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 border border-border cursor-pointer"
+      onClick={() => router.push('/dashboard/recipes')}
+    >
+      <Image
+        alt="Seasonal Veg Prep"
+        fill
+        className="w-full h-full object-cover opacity-30 grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
+        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_IYUl3hekNMpAcZCYRjsZ7_Sf_zxQOvTMS4RQNTTiaKDVGsmncn5fZvSJSmO4AxyElaF_rqmTEqNslT-FpsimF7v92xwk_RWQ2G7yV0ttulljmVkoin8_d_XFhQdKznRcoqd-KSP8ZWtPMlasO-vHOrm6-gTZjYboyL2Zcpn83y-IAiJ8AI3I5JTHqR5UUcWTdCkSvU72j3_HGm3lLzL1LwAjZZjKJ79wiWhE5fJ1Cdbt9ZzRw_hKgzVvLnFgzwqqd-P-NinIRu0"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#121212] to-transparent p-stack-lg flex flex-col justify-end">
+        <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Resumen de Recetas</p>
+        <h4 className="font-headline-md text-headline-md text-primary mt-1">Estación de Vegetales</h4>
+      </div>
+    </div>
+  );
+
+  const comprasCard = (
+    <div
+      onClick={() => router.push('/dashboard/compras')}
+      className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
+    >
+      <span className="material-symbols-outlined text-[40px] text-on-surface-variant hover:text-secondary transition-colors">shopping_cart</span>
+      <p className="font-label-md text-label-md text-on-surface-variant">Compras</p>
+    </div>
+  );
+
+  const crearOrdenButton = (extraClassName: string) => (
+    <button
+      onClick={() => router.push('/dashboard/production')}
+      className={`bg-primary text-primary-foreground px-stack-lg py-stack-md rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all items-center gap-stack-sm cursor-pointer ${extraClassName}`}
+    >
+      <span className="material-symbols-outlined text-[18px]">add_notes</span>
+      CREAR ORDEN PRODUCCIÓN
+    </button>
+  );
+
   return (
     <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md">
         <div>
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
-          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal / Turno AM</h2>
+          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal</h2>
         </div>
-        <button 
-          onClick={() => router.push('/dashboard/production')}
-          className="bg-primary text-primary-foreground px-stack-lg py-stack-md rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-stack-sm cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[18px]">add_notes</span>
-          CREAR ORDEN PRODUCCIÓN
-        </button>
+        {crearOrdenButton('hidden md:flex')}
       </section>
 
-      {/* Bento Grid Content */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-gutter mt-stack-xl">
+      {/* Orden móvil: Tareas pendientes, Crear Tarea, Pedidos Pendientes,
+          Notificaciones y Alertas, Recetas, Compras. El resto de cards
+          (Bajo Stock, En Turno, Eficiencia, Telemetría, Temp. Cámara Fría)
+          no tienen datos reales todavía y quedan ocultas en móvil. */}
+      <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
+        {tareasPendientesBoard}
+        {crearOrdenButton('flex justify-center')}
+        {pedidosPendientesCard}
+        {notificacionesCard}
+        {recetasCard}
+        {comprasCard}
+      </div>
+
+      {/* Bento Grid Content (escritorio) */}
+      <div className="hidden md:grid md:grid-cols-12 gap-gutter mt-stack-xl">
         {/* Key Indicators Column */}
         <div className="md:col-span-4 space-y-gutter">
-          {/* Status Cards */}
-          <div
-            onClick={() => router.push('/dashboard/compras')}
-            className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
-          >
-            {!!kpis?.scheduledDraftOrders && kpis.scheduledDraftOrders > 0 && (
-              <span
-                className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
-                title={`${kpis.scheduledDraftOrders} pedido(s) programado(s) por revisar`}
-              >
-                {kpis.scheduledDraftOrders > 9 ? '9+' : kpis.scheduledDraftOrders}
-              </span>
-            )}
-            <div>
-              <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">Pedidos Pendientes</p>
-              <span className="font-headline-lg text-headline-lg text-primary">
-                {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
-              </span>
-            </div>
-            <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-secondary">local_shipping</span>
-            </div>
-          </div>
+          {pedidosPendientesCard}
 
           <div className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border">
             <div>
@@ -195,153 +371,20 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Notificaciones y Alertas: mismo feed persistido que la campana del header */}
-          <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
-            <div className="flex justify-between items-center mb-stack-md">
-              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
-              <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
-            </div>
-            <div className="space-y-stack-sm">
-              {notifications.length > 0 ? (
-                notifications.slice(0, 4).map((notif) => {
-                  const style =
-                    notif.type === 'ERROR'
-                      ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
-                      : notif.type === 'WARNING'
-                        ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
-                        : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
-                  const route = resolveNotificationRoute(notif.entityType, notif.entityId);
-                  return (
-                    <div
-                      key={notif.id}
-                      onClick={() => {
-                        markAsRead(notif.id);
-                        if (route) router.push(route);
-                      }}
-                      className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap}`}
-                    >
-                      <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
-                      <div>
-                        <p className="text-xs text-primary font-medium">{notif.title}</p>
-                        <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
-                  <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
-                  <p className="text-xs text-on-surface-variant">No hay notificaciones</p>
-                </div>
-              )}
-            </div>
-          </div>
+          {notificacionesCard}
         </div>
 
         {/* Main Task Board */}
         <div className="md:col-span-8">
-          <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
-            <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
-              <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
-              <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">HOY</span>
-            </div>
-            <div className="flex-1 divide-y divide-surface-variant">
-              {kpisLoading ? (
-                <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
-                  Cargando tareas...
-                </div>
-              ) : kpis?.upcomingProductionTasks && kpis.upcomingProductionTasks.length > 0 ? (
-                kpis.upcomingProductionTasks.map(task => {
-                  const inProgress = task.status === 'IN_PROGRESS';
-                  const scheduled = new Date(task.scheduledFor);
-                  return (
-                    <div
-                      key={task.id}
-                      onClick={() => router.push('/dashboard/production')}
-                      className="p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100"
-                    >
-                      <div className="flex items-center gap-stack-lg">
-                        <div className={`w-2 h-12 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
-                        <div>
-                          <h4 className="font-body-lg text-body-lg text-primary">{task.title}</h4>
-                          <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                            <span className="material-symbols-outlined text-[14px]">{ORDER_TYPE_ICONS[task.orderType] || 'kitchen'}</span>
-                            Estación: {KITCHEN_ZONE_LABELS[task.station] || task.station}
-                          </p>
-                          <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                            <span className="material-symbols-outlined text-[14px]">person</span>
-                            {task.assignedStaffNames.length > 0
-                              ? task.assignedStaffNames.join(', ')
-                              : 'Sin asignar'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-stack-lg">
-                        <div className="text-right">
-                          {inProgress ? (
-                            <div className="flex flex-col items-end">
-                              <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
-                              <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
-                            </div>
-                          ) : (
-                            <div>
-                              <span className="font-label-md text-label-md text-secondary">
-                                {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => handleCompleteTask(e, task)}
-                          disabled={completeTask.isPending}
-                          title="Marcar tarea como completada"
-                          className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-secondary bg-secondary-container/15 hover:bg-secondary-container/30 hover:text-primary active:scale-90 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                        >
-                          <span className="material-symbols-outlined text-[20px]">task_alt</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
-                  No hay tareas de producción pendientes
-                </div>
-              )}
-            </div>
-            <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
-              <button 
-                onClick={() => router.push('/dashboard/production')}
-                className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-              >
-                VER LISTA DE PREPARACIÓN COMPLETA
-              </button>
-            </div>
-          </div>
+          {tareasPendientesBoard}
         </div>
       </div>
 
-      {/* Atmospheric Secondary Layer */}
-      <section className="mt-gutter grid grid-cols-1 md:grid-cols-3 gap-gutter">
-        <div 
-          className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 border border-border cursor-pointer"
-          onClick={() => router.push('/dashboard/recipes')}
-        >
-          <Image
-            alt="Seasonal Veg Prep"
-            fill
-            className="w-full h-full object-cover opacity-30 grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_IYUl3hekNMpAcZCYRjsZ7_Sf_zxQOvTMS4RQNTTiaKDVGsmncn5fZvSJSmO4AxyElaF_rqmTEqNslT-FpsimF7v92xwk_RWQ2G7yV0ttulljmVkoin8_d_XFhQdKznRcoqd-KSP8ZWtPMlasO-vHOrm6-gTZjYboyL2Zcpn83y-IAiJ8AI3I5JTHqR5UUcWTdCkSvU72j3_HGm3lLzL1LwAjZZjKJ79wiWhE5fJ1Cdbt9ZzRw_hKgzVvLnFgzwqqd-P-NinIRu0"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#121212] to-transparent p-stack-lg flex flex-col justify-end">
-            <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Resumen de Recetas</p>
-            <h4 className="font-headline-md text-headline-md text-primary mt-1">Estación de Vegetales</h4>
-          </div>
-        </div>
+      {/* Atmospheric Secondary Layer (escritorio) */}
+      <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter">
+        {recetasCard}
 
-        <div 
+        <div
           onClick={() => router.push('/dashboard/dashboard-interactivo')}
           className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
         >
