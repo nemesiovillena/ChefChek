@@ -38,7 +38,7 @@ export interface ProductionOrder {
   recipeName?: string | null;
   quantity?: number | null;
   unit?: string | null;
-  estimatedTime: number;
+  estimatedTime?: number | null;
   orderNumber: string;
   orderType: string;
   status: string;
@@ -46,6 +46,7 @@ export interface ProductionOrder {
   startedAt?: string | null;
   completedAt?: string | null;
   description?: string | null;
+  assignedStaffIds?: string[];
   actualTime?: number | null;
   notes?: string | null;
   createdAt: string;
@@ -67,8 +68,9 @@ export interface CreateProductionOrderInput {
   recipeName?: string;
   quantity?: number;
   unit?: string;
-  estimatedTime: number;
+  estimatedTime?: number;
   description?: string;
+  assignedStaffIds?: string[];
 }
 
 export function useProductionBatches() {

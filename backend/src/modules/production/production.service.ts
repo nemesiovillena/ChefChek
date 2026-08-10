@@ -149,6 +149,7 @@ export class ProductionService {
         status: "PENDING",
         scheduledFor: new Date(),
         description: dto.description,
+        assignedStaffIds: dto.assignedStaffIds ?? [],
         createdBy: userId,
       },
     });
@@ -180,7 +181,12 @@ export class ProductionService {
       data: { status: "IN_PROGRESS", startedAt: new Date() },
     });
 
-    await this.initializeProgressTracking(orderId, existing.estimatedTime);
+    // El seguimiento de progreso/milestones/alertas de retraso solo tiene
+    // sentido si la orden definió un tiempo estimado. Una tarea de texto libre
+    // sin tiempo no genera hitos temporales ni puede "retrasarse".
+    if (existing.estimatedTime !== null) {
+      await this.initializeProgressTracking(orderId, existing.estimatedTime);
+    }
 
     return { success: true, data: order };
   }
@@ -682,6 +688,9 @@ export class ProductionService {
     orderId: string,
     totalTime: number,
   ): Promise<void> {
+    if (!totalTime || totalTime <= 0) {
+      return;
+    }
     const milestones = [
       { name: "Mise en place", percentage: 20 },
       { name: "Preparation", percentage: 40 },
@@ -716,6 +725,11 @@ export class ProductionService {
     if (!order) {
       return;
     }
+    // Sin tiempo estimado no hay fila de progressTracking (startProductionOrder
+    // la omite) ni presupuesto temporal del que "retrasarse" — nada que updatus.
+    if (order.estimatedTime === null) {
+      return;
+    }
 
     const progress = status === "COMPLETED" ? 100 : 25;
     const timeElapsed = Math.floor(
@@ -747,6 +761,11 @@ export class ProductionService {
     timeElapsed: number,
     estimatedTime: number,
   ): string {
+    // Sin tiempo transcurrido o sin presupuesto temporal no hay eficiencia que
+    // calcular — la orden está "on schedule" por defecto (evita división por 0).
+    if (!estimatedTime || timeElapsed === 0) {
+      return "ON_SCHEDULE";
+    }
     const efficiency = progress / ((timeElapsed / estimatedTime) * 100);
 
     if (efficiency < 0.7) {
@@ -834,8 +853,10 @@ export class ProductionService {
       batch.productionOrders.reduce((sum, o) => sum + (o.actualTime ?? 0), 0) /
       totalOrders;
     const avgEstimatedTime =
-      batch.productionOrders.reduce((sum, o) => sum + o.estimatedTime, 0) /
-      totalOrders;
+      batch.productionOrders.reduce(
+        (sum, o) => sum + (o.estimatedTime ?? 0),
+        0,
+      ) / totalOrders;
 
     await this.prisma.productionReport.create({
       data: {

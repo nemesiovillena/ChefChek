@@ -1,17 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Package, Plus, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, Plus, Loader2, User } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
+import { useStaffMembers } from '@/hooks/use-production-staff';
 import type { WorkBatch } from '@/hooks/use-production';
 import OrderCreateDialog from './order-create-dialog';
-import OrderDetailPanel from './order-detail-panel';
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 
@@ -42,8 +42,15 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     startOrder,
     completeOrder,
   } = useProductionOrders(batch.id);
+  const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Mapa staffId → nombre para resolver las asignaciones sin otra petición.
+  const staffNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of staff) map.set(s.id, s.name);
+    return map;
+  }, [staff]);
 
   const handleStartBatch = async () => {
     const ok = await confirm({ title: 'Iniciar lote', description: `¿Iniciar el lote ${batch.batchNumber}?` });
@@ -121,51 +128,54 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
           </Card>
         ) : (
           <div className="grid gap-3">
-            {orders.map((order) => (
-              <Card key={order.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{order.title}</span>
-                      {getOrderStatusBadge(order.status)}
+            {orders.map((order) => {
+              const assignedNames = (order.assignedStaffIds ?? [])
+                .map((id) => staffNameById.get(id))
+                .filter((n): n is string => Boolean(n));
+              return (
+                <Card key={order.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{order.title}</span>
+                        {getOrderStatusBadge(order.status)}
+                      </div>
+                      {order.description ? (
+                        <p className="text-sm text-muted-foreground mb-1 line-clamp-2">{order.description}</p>
+                      ) : null}
+                      <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {order.estimatedTime != null ? (
+                          <span>{order.estimatedTime} min estimados</span>
+                        ) : null}
+                        {order.actualTime != null ? <span>{order.actualTime} min reales</span> : null}
+                        {assignedNames.length > 0 ? (
+                          <span className="inline-flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
+                            {assignedNames.join(', ')}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {order.quantity != null && order.unit ? `${order.quantity} ${order.unit} · ` : ''}
-                      {order.estimatedTime} min estimados
-                      {order.actualTime != null && ` · ${order.actualTime} min reales`}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {order.status === 'PENDING' && (
-                      <Button size="sm" variant="outline" onClick={() => startOrder(order.id)}>
-                        Iniciar
-                      </Button>
-                    )}
-                    {order.status === 'IN_PROGRESS' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCompleteOrder(order.id, order.orderNumber)}
-                      >
-                        Completar
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
-                    >
-                      {expandedOrderId === order.id ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
+                    <div className="flex gap-2 shrink-0">
+                      {order.status === 'PENDING' && (
+                        <Button size="sm" variant="outline" onClick={() => startOrder(order.id)}>
+                          Iniciar
+                        </Button>
                       )}
-                    </Button>
+                      {order.status === 'IN_PROGRESS' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCompleteOrder(order.id, order.orderNumber)}
+                        >
+                          Completar
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {expandedOrderId === order.id && <OrderDetailPanel batch={batch} order={order} />}
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </CardContent>

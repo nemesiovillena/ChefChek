@@ -94,12 +94,18 @@ export class CreateProductionOrderDto {
   @IsString()
   unit?: string;
 
+  @IsOptional()
   @IsNumber()
-  estimatedTime: number;
+  estimatedTime?: number;
 
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignedStaffIds?: string[];
 }
 
 export class CreateMiseEnPlaceItemDto {

@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X } from 'lucide-react';
-import { useRecipeOptions } from '@/hooks/use-recipes';
-import SubRecipeCombobox from '@/app/dashboard/recipes/components/sub-recipe-combobox';
+import { Loader2 } from 'lucide-react';
+import { useStaffMembers } from '@/hooks/use-production-staff';
 import type { CreateProductionOrderInput } from '@/hooks/use-production';
 
 interface OrderCreateDialogProps {
@@ -16,41 +15,39 @@ interface OrderCreateDialogProps {
   isSubmitting: boolean;
 }
 
+/**
+ * Diálogo de creación de orden de producción: una tarea de cocina definida por
+ * título + descripción + personal asignado. La asignación se hace aquí, en la
+ * creación, eligiendo miembros del equipo (StaffMember) — por eso ya no hace
+ * falta ni el panel de "Tareas y personal asignado" ni la hoja de mise en place.
+ */
 export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmitting }: OrderCreateDialogProps) {
-  const { data: recipeOptions } = useRecipeOptions();
+  const { staff, isLoading: isLoadingStaff } = useStaffMembers();
   const [title, setTitle] = useState('');
-  const [recipeId, setRecipeId] = useState('');
-  const [recipeName, setRecipeName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('porciones');
-  const [estimatedTime, setEstimatedTime] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
 
-  const handleSelectRecipe = (item: { id: string; name: string }) => {
-    setRecipeId(item.id);
-    setRecipeName(item.name);
+  const canSubmit = title.trim() !== '' && !isSubmitting;
+
+  const toggleStaff = (staffId: string) => {
+    setSelectedStaff((current) =>
+      current.includes(staffId)
+        ? current.filter((id) => id !== staffId)
+        : [...current, staffId],
+    );
   };
-
-  const handleClearRecipe = () => {
-    setRecipeId('');
-    setRecipeName('');
-  };
-
-  const canSubmit = title.trim() !== '' && estimatedTime.trim() !== '' && !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     await onSubmit({
       batchId,
       title,
-      recipeId: recipeId || undefined,
-      recipeName: recipeName || undefined,
-      quantity: quantity ? Number(quantity) : undefined,
-      unit: unit || undefined,
-      estimatedTime: Number(estimatedTime),
       description: description || undefined,
+      assignedStaffIds: selectedStaff.length > 0 ? selectedStaff : undefined,
     });
   };
+
+  const activeStaff = staff.filter((s) => s.isActive);
 
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
@@ -69,50 +66,12 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
 
         <div className="space-y-4">
           <div>
-            <Label>Título</Label>
+            <Label>Título *</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ej. Limpiar la freidora, Marinar el pollo..."
             />
-          </div>
-
-          <div>
-            <Label>Receta (opcional)</Label>
-            <div className="flex items-center gap-2">
-              <SubRecipeCombobox
-                items={recipeOptions ?? []}
-                value={recipeId}
-                label={recipeName}
-                onSelect={handleSelectRecipe}
-                placeholder="Vincular una receta..."
-              />
-              {recipeId !== '' && (
-                <Button type="button" variant="ghost" size="icon" onClick={handleClearRecipe} aria-label="Quitar receta">
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label>Cantidad (opcional)</Label>
-              <Input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-            </div>
-            <div>
-              <Label>Unidad</Label>
-              <Input value={unit} onChange={(e) => setUnit(e.target.value)} />
-            </div>
-            <div>
-              <Label>Tiempo estimado (min)</Label>
-              <Input
-                type="number"
-                min="0"
-                value={estimatedTime}
-                onChange={(e) => setEstimatedTime(e.target.value)}
-              />
-            </div>
           </div>
 
           <div>
@@ -124,6 +83,42 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               placeholder="Explica la tarea..."
             />
+          </div>
+
+          <div>
+            <Label>Personal asignado (opcional)</Label>
+            {isLoadingStaff ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando equipo...
+              </div>
+            ) : activeStaff.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No hay miembros del equipo. Crea personal en la sección Personal.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {activeStaff.map((member) => {
+                  const selected = selectedStaff.includes(member.id);
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => toggleStaff(member.id)}
+                      className={
+                        'rounded-full border px-3 py-1 text-sm transition-colors ' +
+                        (selected
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-input bg-background hover:bg-accent')
+                      }
+                    >
+                      {member.name}
+                      {member.role ? <span className="opacity-60"> · {member.role}</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 pt-2">
