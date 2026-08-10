@@ -116,7 +116,10 @@ export function useCrud<T, TCreate = Partial<T>, TUpdate = Partial<T>>(
     usePaginatedQuery<T>(queryKey, baseUrl, page, pageSize);
 
   // Get by ID
-  const useGet = (id: string, options?: UseQueryOptions<T, Error, T>) =>
+  const useGet = (
+    id: string,
+    options?: Omit<UseQueryOptions<T, Error, T>, 'queryKey' | 'queryFn'>,
+  ) =>
     useQuery<T, Error>({
       queryKey: [...queryKey, id],
       queryFn: async () => {

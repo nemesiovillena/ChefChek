@@ -343,6 +343,7 @@ describe("AlbaranStockService", () => {
         10,
         6.53,
         expect.any(Number),
+        mockProductId,
       );
     });
 
@@ -633,6 +634,7 @@ describe("AlbaranStockService", () => {
         4,
         5,
         25,
+        mockProductId,
       );
     });
 
@@ -697,6 +699,7 @@ describe("AlbaranStockService", () => {
         3,
         5,
         expect.closeTo(66.67, 1),
+        mockProductId,
       );
     });
 

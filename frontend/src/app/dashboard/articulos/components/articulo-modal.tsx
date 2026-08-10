@@ -37,6 +37,7 @@ interface ArticuloModalProps {
   article?: Product | null;
   tree: CategoryTreeNode[];
   suppliers?: SupplierOption[];
+  initialTab?: string;
 }
 
 const emptyFormData = {
@@ -115,7 +116,7 @@ function deriveNutrition(article: Product | null | undefined): typeof emptyNutri
 }
 
 /** Outer component: keeps hooks stable and mounts the form keyed by the edited entity. */
-export default function ArticuloModal({ isOpen, onClose, article, tree, suppliers = [] }: ArticuloModalProps) {
+export default function ArticuloModal({ isOpen, onClose, article, tree, suppliers = [], initialTab }: ArticuloModalProps) {
   if (!isOpen) return null;
   // Keyed remount resets all internal state when switching between create/edit targets.
   return (
@@ -125,6 +126,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
       tree={tree}
       suppliers={suppliers}
       onClose={onClose}
+      initialTab={initialTab}
     />
   );
 }
@@ -134,9 +136,10 @@ interface ArticuloModalFormProps {
   tree: CategoryTreeNode[];
   suppliers: SupplierOption[];
   onClose: () => void;
+  initialTab?: string;
 }
 
-function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalFormProps) {
+function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: ArticuloModalFormProps) {
   const addNotification = useNotification();
   const confirm = useConfirm();
   const createMutation = useCreateProduct();
@@ -146,7 +149,9 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
   const dismissDuplicateMutation = useDismissDuplicate();
 
   // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
-  const [activeTab, setActiveTab] = useState('formato-precio');
+  const [activeTab, setActiveTab] = useState(
+    () => (initialTab && TABS.some((t) => t.id === initialTab) ? initialTab : 'formato-precio'),
+  );
   const [formData, setFormData] = useState(() => deriveFormData(article));
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye el propio id.
   const { matches: rawDuplicateMatches } = useProductNameCheck(formData.name, article?.id);

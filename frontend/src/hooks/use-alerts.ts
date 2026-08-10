@@ -14,6 +14,8 @@ export interface AlertItem {
   createdAt: string;
   tenantId: string;
   read: boolean;
+  entityType?: string;
+  entityId?: string;
 }
 
 /** Histórico de alertas de negocio (cambios de precio, etc.) para hidratar la campana de Notificaciones al cargar. */

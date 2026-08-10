@@ -348,6 +348,7 @@ export class ManualAlbaranService {
       product.purchasePrice,
       newPrice,
       percentageChange,
+      product.id,
     );
   }
 

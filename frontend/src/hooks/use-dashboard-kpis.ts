@@ -17,6 +17,7 @@ interface KPIs {
   activeUsers: number;
   lowStockItems: number;
   pendingOrders: number;
+  scheduledDraftOrders: number;
   todayRevenue: number;
   monthlyRevenue: number;
   activeProductionBatches: number;

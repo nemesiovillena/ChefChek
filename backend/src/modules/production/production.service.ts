@@ -880,6 +880,7 @@ export class ProductionService {
       order.orderNumber,
       order.recipeName,
       tracking.status as "DELAYED" | "CRITICAL",
+      order.id,
     );
   }
 

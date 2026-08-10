@@ -44,6 +44,8 @@ export class StalePartialOrderAlertService {
           severity: "WARNING",
           title: "Pedido parcial sin novedad",
           message: `${order.orderNumber} (${order.supplier.name}) lleva ${STALE_PARTIAL_ORDER_DAYS}+ días en Recibido parcial sin recepción nueva. Revisa si hay que cerrarlo o reclamar al proveedor.`,
+          entityType: "PURCHASE_ORDER",
+          entityId: order.id,
         });
         await this.prisma.purchaseOrder.update({
           where: { id: order.id },

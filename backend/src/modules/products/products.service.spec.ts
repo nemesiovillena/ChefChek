@@ -717,6 +717,7 @@ describe("ProductsService", () => {
         10,
         12,
         20,
+        "prod-1",
       );
     });
 
@@ -956,6 +957,7 @@ describe("ProductsService", () => {
         10,
         12,
         20,
+        "prod-1",
       );
     });
 

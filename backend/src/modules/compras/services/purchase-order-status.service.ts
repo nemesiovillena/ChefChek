@@ -107,6 +107,8 @@ export class PurchaseOrderStatusService {
         severity: "WARNING",
         title: "Recepción parcial",
         message: `${order.orderNumber} (${order.supplier.name}) se ha recibido parcialmente. Revisa qué falta o cierra el pedido si el proveedor no completará el envío.`,
+        entityType: "PURCHASE_ORDER",
+        entityId: orderId,
       });
     }
 

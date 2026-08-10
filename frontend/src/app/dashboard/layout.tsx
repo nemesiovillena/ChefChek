@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
+import { resolveNotificationRoute } from '@/lib/notification-routes';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
   SETTINGS_LINK,
@@ -213,7 +214,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     visibleNotifications.slice(0, showAllNotifications ? 20 : 5).map((notif) => (
                       <div
                         key={notif.id}
-                        onClick={() => markAsRead(notif.id)}
+                        onClick={() => {
+                          markAsRead(notif.id);
+                          const route = resolveNotificationRoute(notif.entityType, notif.entityId);
+                          if (route) {
+                            setShowNotifications(false);
+                            router.push(route);
+                          }
+                        }}
                         className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
                       >
                         <p className="text-xs text-primary font-medium">{notif.title}</p>

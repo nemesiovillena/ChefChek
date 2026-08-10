@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
-import { useRouter } from 'next/navigation';
-import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe, useBackfillProductImages } from '@/hooks/use-products';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useProducts, useProduct, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe, useBackfillProductImages } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import apiClient from '@/lib/api-client';
@@ -32,6 +32,7 @@ interface Supplier {
 export default function ArticulosPage() {
   const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const addNotification = useNotification();
   const confirm = useConfirm();
   const backfillMutation = useBackfillProductImages();
@@ -111,6 +112,20 @@ export default function ArticulosPage() {
   const products: Product[] = productsData?.data ?? [];
   const totalItems = productsData?.total ?? 0;
   const totalPages = productsData?.totalPages ?? 1;
+
+  // Deep-link desde una notificación (?productId=X&tab=Y): abre el modal en
+  // la pestaña indicada con los datos del producto, venga o no de la página
+  // actual/paginación. Puramente derivado (sin efecto): si no está entre los
+  // productos ya cargados, se trae suelto vía useProduct.
+  const deepLinkProductId = searchParams.get('productId');
+  const deepLinkTab = searchParams.get('tab');
+  const deepLinkProductFromPage = deepLinkProductId
+    ? products.find((p) => p.id === deepLinkProductId) ?? null
+    : null;
+  const { data: deepLinkProductFetched } = useProduct(deepLinkProductId ?? '', {
+    enabled: !!deepLinkProductId && !deepLinkProductFromPage,
+  });
+  const deepLinkProduct = deepLinkProductFromPage ?? deepLinkProductFetched ?? null;
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -435,6 +450,11 @@ export default function ArticulosPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedProduct(null);
+    // Limpiar el deep-link (?productId=&tab=) para que cerrar el modal no lo
+    // reabra al instante (deepLinkProduct se deriva de la URL en cada render).
+    if (deepLinkProductId) {
+      router.replace('/dashboard/articulos');
+    }
     refetch();
   };
 
@@ -893,11 +913,12 @@ export default function ArticulosPage() {
       </PageContainer>
 
       <ArticuloModal
-        isOpen={showModal}
+        isOpen={showModal || !!deepLinkProduct}
         onClose={handleCloseModal}
-        article={selectedProduct}
+        article={selectedProduct ?? deepLinkProduct}
         tree={tree}
         suppliers={suppliers}
+        initialTab={!selectedProduct && deepLinkProduct ? (deepLinkTab ?? undefined) : undefined}
       />
 
       <ImportModal

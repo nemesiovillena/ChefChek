@@ -209,8 +209,8 @@ export function useProducts(query?: ProductsQuery) {
   );
 }
 
-export function useProduct(id: string) {
-  return useGet(id);
+export function useProduct(id: string, options?: { enabled?: boolean }) {
+  return useGet(id, { enabled: !!id, ...options });
 }
 
 export function useCreateProduct() {

@@ -157,6 +157,18 @@ export class DashboardService {
       },
     });
 
+    // Pedidos BORRADOR generados por programación automática, aún sin revisar
+    // ni enviar (distinto de "pendientes de recepción" — ver badge en la card
+    // del dashboard). Solo los que vienen de un cron, no borradores manuales
+    // en curso de edición.
+    const scheduledDraftOrders = await this.prisma.purchaseOrder.count({
+      where: {
+        tenantId,
+        status: "BORRADOR",
+        events: { some: { type: "SCHEDULED_GENERATION" } },
+      },
+    });
+
     // Lotes de producción activos
     const activeProductionBatches = await this.prisma.workBatch.count({
       where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
@@ -226,6 +238,7 @@ export class DashboardService {
       activeUsers: activeUsers.length,
       lowStockItems,
       pendingOrders,
+      scheduledDraftOrders,
       todayRevenue: todayRevenue._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
       activeProductionBatches,

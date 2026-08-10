@@ -45,6 +45,8 @@ export class AlertsController {
         createdAt: alert.createdAt,
         tenantId: alert.tenantId,
         read: alert.isRead,
+        entityType: alert.entityType ?? undefined,
+        entityId: alert.entityId ?? undefined,
       })),
     };
   }

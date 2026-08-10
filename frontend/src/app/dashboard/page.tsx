@@ -124,8 +124,16 @@ export default function DashboardPage() {
           {/* Status Cards */}
           <div
             onClick={() => router.push('/dashboard/compras')}
-            className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+            className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
           >
+            {!!kpis?.scheduledDraftOrders && kpis.scheduledDraftOrders > 0 && (
+              <span
+                className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                title={`${kpis.scheduledDraftOrders} pedido(s) programado(s) por revisar`}
+              >
+                {kpis.scheduledDraftOrders > 9 ? '9+' : kpis.scheduledDraftOrders}
+              </span>
+            )}
             <div>
               <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">Pedidos Pendientes</p>
               <span className="font-headline-lg text-headline-lg text-primary">

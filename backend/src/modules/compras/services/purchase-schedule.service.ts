@@ -221,6 +221,8 @@ export class PurchaseScheduleService {
         severity: "INFO",
         title: "Pedido programado generado",
         message: `Pedido ${order.orderNumber} generado para ${order.supplier.name} — revisar y enviar.`,
+        entityType: "PURCHASE_ORDER",
+        entityId: order.id,
       });
     } catch (error) {
       // Un fallo en una programación no debe tumbar el resto del tick.

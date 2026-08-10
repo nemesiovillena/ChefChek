@@ -20,7 +20,8 @@ export class NotificationsService {
       type: string;
       severity?: string;
       userId?: string;
-      metadata?: any;
+      entityType?: string;
+      entityId?: string;
     },
   ) {
     // Alert es tenant-wide: no tiene columna userId, así que data.userId solo
@@ -36,6 +37,8 @@ export class NotificationsService {
         severity: data.severity || "INFO",
         message: data.message,
         createdBy: data.userId || "system",
+        entityType: data.entityType,
+        entityId: data.entityId,
       },
     });
 
@@ -50,6 +53,8 @@ export class NotificationsService {
         message: notification.message,
         createdAt: notification.createdAt,
         tenantId,
+        entityType: notification.entityType ?? undefined,
+        entityId: notification.entityId ?? undefined,
       });
     } catch (err) {
       this.logger.warn(
@@ -71,6 +76,7 @@ export class NotificationsService {
     oldPrice: number,
     newPrice: number,
     percentageChange: number,
+    productId?: string,
   ): Promise<void> {
     const direction = newPrice > oldPrice ? "aumentado" : "disminuido";
     const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
@@ -80,6 +86,7 @@ export class NotificationsService {
       title: `Cambio de precio: ${productName}`,
       message: `Precio ${direction} ${Math.abs(percentageChange).toFixed(1)}%. De ${oldPrice.toFixed(2)}€ a ${newPrice.toFixed(2)}€.`,
       severity: alertType,
+      ...(productId ? { entityType: "PRODUCT", entityId: productId } : {}),
     });
   }
 
@@ -89,6 +96,7 @@ export class NotificationsService {
     orderNumber: string,
     recipeName: string,
     status: "DELAYED" | "CRITICAL",
+    orderId?: string,
   ): Promise<void> {
     const alertType = status === "CRITICAL" ? "ERROR" : "WARNING";
     const label = status === "CRITICAL" ? "muy retrasada" : "retrasada";
@@ -98,6 +106,7 @@ export class NotificationsService {
       title: `Retraso en producción: ${recipeName}`,
       message: `La orden ${orderNumber} (${recipeName}) está ${label}.`,
       severity: alertType,
+      ...(orderId ? { entityType: "PRODUCTION_ORDER", entityId: orderId } : {}),
     });
   }
 

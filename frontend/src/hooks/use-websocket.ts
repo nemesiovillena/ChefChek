@@ -113,6 +113,8 @@ export function useWebSocketNotifications() {
         tenantId: a.tenantId,
         read: a.read,
         timestamp: new Date(a.createdAt),
+        entityType: a.entityType,
+        entityId: a.entityId,
       }));
 
     return [...wsNotifications, ...persisted]

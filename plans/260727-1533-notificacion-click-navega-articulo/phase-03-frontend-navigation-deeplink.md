@@ -1,71 +1,92 @@
-# Fase 3: Frontend — navegación desde la campana + deep-link en Artículos
+# Fase 3: Frontend — navegación genérica desde la campana
 
 ## Contexto
 
-El click en una notificación (`frontend/src/app/dashboard/layout.tsx:224-235`) solo
-llama `markAsRead`. La página Artículos (`frontend/src/app/dashboard/articulos/page.tsx`)
-no lee query params y abre el modal vía `handleEdit(product)` (línea 371-374) con un
-`Product` ya cargado en memoria — pero por paginación server-side el producto de la
-notificación puede no estar en la página actual. `useProduct(id)`
-(`frontend/src/hooks/use-products.ts:212`) ya existe para traer un producto suelto.
+El click en una notificación (`frontend/src/app/dashboard/layout.tsx:216-222`) solo
+llama `markAsRead`. Tras la fase 2, `notifications[]` trae `entityType`/`entityId`
+cuando la alerta tiene entidad de origen. Se necesita un resolver de rutas genérico
+(no una URL guardada en BD, ver decisión de diseño en `plan.md`) y, para `PRODUCT`,
+el mismo deep-link con apertura de modal que preveía el plan original.
+
 `ArticuloModal` (`frontend/src/app/dashboard/articulos/components/articulo-modal.tsx`)
-no acepta pestaña inicial (`activeTab` nace siempre en `'formato-precio'`, línea 148).
+no acepta pestaña inicial (`activeTab` nace siempre en `'formato-precio'`, línea ~148).
+La página de detalle de pedido de compra (`frontend/src/app/dashboard/compras/pedidos/[id]/page.tsx`)
+ya recibe el id por ruta — no requiere query params ni cambios, solo el `router.push`
+correcto.
 
 ## Archivos a modificar
 
-- `frontend/src/app/dashboard/layout.tsx` (click handler, líneas 224-235)
+- `frontend/src/lib/notification-routes.ts` **(nuevo)** — mapa `ENTITY_ROUTES` y función
+  `resolveNotificationRoute(entityType, entityId): string | null`.
+- `frontend/src/app/dashboard/layout.tsx` (click handler, líneas ~216-222)
 - `frontend/src/app/dashboard/articulos/page.tsx` (imports, estado, efecto de
-  hidratación desde query params, render de `ArticuloModal` línea 827-833)
+  hidratación desde query params, render de `ArticuloModal`)
 - `frontend/src/app/dashboard/articulos/components/articulo-modal.tsx` (nueva prop
-  `initialTab?: string`, interface `ArticuloModalProps` línea 33, componente línea 117,
-  `useState('formato-precio')` línea 148)
+  `initialTab?: string`, interface `ArticuloModalProps`, `useState('formato-precio')`
+  línea ~148)
 
 ## Pasos
 
-1. **`ArticuloModal`** — añadir `initialTab?: string` a `ArticuloModalProps` y usarlo
-   como valor inicial de `useState(initialTab ?? 'formato-precio')`. Sin más cambios:
-   las pestañas ya se seleccionan por `id` (`TABS`, línea 18-26) y `historial-precios`
-   ya es un id válido.
+1. **`notification-routes.ts`** (nuevo, kebab-case, colocado junto a otros helpers de
+   `lib/`) — mapa mínimo:
+   ```ts
+   const ENTITY_ROUTES: Record<string, (id: string) => string> = {
+     PRODUCT: (id) => `/dashboard/articulos?productId=${id}&tab=historial-precios`,
+     PURCHASE_ORDER: (id) => `/dashboard/compras/pedidos/${id}`,
+   };
+   export function resolveNotificationRoute(entityType?: string, entityId?: string) {
+     if (!entityType || !entityId) return null;
+     return ENTITY_ROUTES[entityType]?.(entityId) ?? null;
+   }
+   ```
+   `PRODUCTION_ORDER` queda deliberadamente fuera del mapa (sin página de detalle hoy,
+   ver "Fuera" en `plan.md`) — `resolveNotificationRoute` devuelve `null` para él, mismo
+   comportamiento que un tipo desconocido. No añadir un fallback a `/dashboard/production`
+   sin deep-link real: no aporta nada sobre no navegar y añade una rama a mantener.
 
-2. **`articulos/page.tsx`** — importar `useSearchParams` de `next/navigation` y
-   `useProduct` de `@/hooks/use-products`. Leer `productId` y `tab` de
-   `searchParams`. Si `productId` está presente:
+2. **`ArticuloModal`** — añadir `initialTab?: string` a `ArticuloModalProps` y usarlo
+   como valor inicial de `useState(initialTab ?? 'formato-precio')`. Las pestañas ya se
+   seleccionan por `id` y `historial-precios` ya es un id válido.
+
+3. **`articulos/page.tsx`** — importar `useSearchParams` de `next/navigation` y
+   `useProduct` de `@/hooks/use-products`. Leer `productId` y `tab` de `searchParams`.
+   Si `productId` está presente:
    - Buscar primero en los productos ya cargados de la página actual (evita un fetch
      extra en el caso común de que la notificación apunte a un producto visible).
    - Si no está, usar `useProduct(productId)` para traerlo suelto (cubre el caso de
      paginación/filtro).
-   - Cuando el producto resuelva (de cualquiera de las dos fuentes), abrir el modal:
-     `setSelectedProduct(product); setShowModal(true)`.
-   - Esto debe ser estado derivado del render (memo/effect de sincronización con la URL,
-     NO un `useEffect` que dispare side-effects imperativos sueltos — seguir el patrón
-     ya usado en el propio hook de notificaciones, `use-websocket.ts:103-122`, que
-     deriva `notifications` con `useMemo` en vez de un efecto).
-   - Tras abrir, limpiar el query param (`router.replace('/dashboard/articulos')`) para
-     que un F5 posterior no reabra el modal indefinidamente.
+   - **Implementado sin `setSelectedProduct`/`setShowModal` ni efecto alguno**: el
+     producto resuelto (`deepLinkProduct`) se pasa directo al modal como
+     `article={selectedProduct ?? deepLinkProduct}` e `isOpen={showModal || !!deepLinkProduct}`
+     — 100% derivado del render (URL + query de React Query), sin `useEffect` (regla del
+     proyecto, ver skill `no-use-effect`).
+   - El query param se limpia en `handleCloseModal` (evento, no efecto) vía
+     `router.replace('/dashboard/articulos')` cuando había `productId` — así cerrar el
+     modal no lo reabre al instante, y un F5 con el modal abierto simplemente lo vuelve a
+     abrir (comportamiento correcto de un deep-link compartible).
 
-3. **`ArticuloModal` render (línea 827-833)** — pasar
-   `initialTab={searchParams.get('tab') ?? undefined}`.
+4. **`ArticuloModal` render** — pasar `initialTab={searchParams.get('tab') ?? undefined}`.
 
-4. **`layout.tsx` click handler (líneas 224-235)** — en el `onClick` del `<div>` de cada
-   notificación, además de `markAsRead(notif.id)`, si `notif.actionUrl` existe hacer
-   `router.push(notif.actionUrl)` y cerrar el dropdown (`setShowNotifications(false)`).
-   Requiere importar/usar `useRouter` de `next/navigation` en `layout.tsx` (verificar si
-   ya existe una instancia en el componente antes de crear una segunda).
+5. **`layout.tsx` click handler (~216-222)** — en el `onClick` del `<div>` de cada
+   notificación, además de `markAsRead(notif.id)`, calcular
+   `const route = resolveNotificationRoute(notif.entityType, notif.entityId)`; si no es
+   `null`, `router.push(route)` y cerrar el dropdown (`setShowNotifications(false)`).
+   Requiere `useRouter` de `next/navigation` en `layout.tsx` (verificar si ya existe una
+   instancia en el componente antes de crear una segunda).
 
 ## Validación
 
 - Manual con `agent-browser` (ver [[agent-browser-meta-press-flood-bug]] — evitar teclas
   con modificador durante el flujo):
-  1. Provocar una subida de precio >10% de un artículo (edición manual o vía albarán).
-  2. Abrir la campana, confirmar que aparece la notificación de cambio de precio.
-  3. Click en la notificación → debe navegar a
-     `/dashboard/articulos?productId=X&tab=historial-precios`, abrir el modal del
-     producto correcto en la pestaña "Hist. Precios", y marcar la notificación como
-     leída.
-  4. Repetir con un producto que NO esté en la página/filtro actual de Artículos (forzar
+  1. Provocar una subida de precio >10% de un artículo → click en la notificación debe
+     navegar a `/dashboard/articulos?productId=X&tab=historial-precios`, abrir el modal
+     del producto correcto en "Hist. Precios", y marcar como leída.
+  2. Repetir con un producto que NO esté en la página/filtro actual de Artículos (forzar
      fetch vía `useProduct`).
-  5. Click en una notificación sin `actionUrl` (p.ej. una alerta legacy de appcc) — debe
-     solo marcar como leída, sin navegar ni lanzar error.
+  3. Provocar una recepción parcial o un pedido programado generado → click navega a
+     `/dashboard/compras/pedidos/{orderId}` con el pedido correcto.
+  4. Click en una notificación de retraso de producción (o cualquier alerta legacy sin
+     `entityType`) → solo marca como leída, sin navegar ni lanzar error.
 
 ## Riesgos
 

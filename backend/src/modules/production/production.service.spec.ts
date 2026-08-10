@@ -465,6 +465,7 @@ describe("ProductionService", () => {
         "PO-0001",
         "Salmón a la Plancha",
         "CRITICAL",
+        orderId,
       );
     });
 

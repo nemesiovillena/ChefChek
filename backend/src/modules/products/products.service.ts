@@ -771,6 +771,7 @@ export class ProductsService {
             refBefore,
             refAfter,
             pct,
+            existingProduct.id,
           );
         }
 
@@ -883,6 +884,7 @@ export class ProductsService {
         refBefore,
         refAfter,
         pct,
+        existingProduct.id,
       );
     }
 

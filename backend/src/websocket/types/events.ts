@@ -179,6 +179,8 @@ export interface NotificationEvent {
   message: string;
   data?: Record<string, any>;
   actionUrl?: string;
+  entityType?: string;
+  entityId?: string;
   createdAt: Date;
   expiresAt?: Date;
   tenantId: string;

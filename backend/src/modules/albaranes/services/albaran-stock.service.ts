@@ -163,6 +163,7 @@ export class AlbaranStockService {
                   currentPrice,
                   lineUnitPrice,
                   percentageChange,
+                  product.id,
                 );
               }
             }
@@ -208,6 +209,7 @@ export class AlbaranStockService {
                 currentPrice,
                 lineUnitPrice,
                 percentageChange,
+                product.id,
               );
             }
           }
@@ -492,6 +494,7 @@ export class AlbaranStockService {
     oldPrice: number,
     newPrice: number,
     percentageChange: number,
+    productId?: string,
   ): Promise<void> {
     await this.notificationsService.notifyPriceChange(
       tenantId,
@@ -499,6 +502,7 @@ export class AlbaranStockService {
       oldPrice,
       newPrice,
       percentageChange,
+      productId,
     );
   }
 }
