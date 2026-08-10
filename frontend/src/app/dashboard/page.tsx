@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useDashboardKPIs } from '@/hooks/use-dashboard-kpis';
+import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
   useWebSocketRooms,
@@ -34,7 +35,7 @@ export default function DashboardPage() {
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
 
   // WebSocket hooks
-  const { notifications } = useWebSocketNotifications();
+  const { notifications, markAsRead } = useWebSocketNotifications();
   const { joinDashboard } = useWebSocketRooms();
 
   // Simulación activa de telemetría de temperatura de la cámara fría
@@ -203,8 +204,16 @@ export default function DashboardPage() {
                       : notif.type === 'WARNING'
                         ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
                         : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
+                  const route = resolveNotificationRoute(notif.entityType, notif.entityId);
                   return (
-                    <div key={notif.id} className={`flex items-start gap-stack-sm p-2 rounded border ${style.wrap}`}>
+                    <div
+                      key={notif.id}
+                      onClick={() => {
+                        markAsRead(notif.id);
+                        if (route) router.push(route);
+                      }}
+                      className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap}`}
+                    >
                       <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
                       <div>
                         <p className="text-xs text-primary font-medium">{notif.title}</p>
