@@ -5,10 +5,9 @@ import { useApiQuery } from './use-api';
 export interface UpcomingProductionTask {
   id: string;
   title: string;
-  station: string;
   orderType: string;
   status: string;
-  scheduledFor: string;
+  lotDate: string;
   estimatedTime: number;
   assignedStaffNames: string[];
 }

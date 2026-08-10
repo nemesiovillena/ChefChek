@@ -164,6 +164,7 @@ describe("DashboardService", () => {
       const mockSessions = [{ userId: "user-1" }];
       const mockTodayRevenue = { _sum: { totalAmount: 500 } };
       const mockMonthlyRevenue = { _sum: { totalAmount: 1500 } };
+      const mockBatchScheduledFor = new Date();
       const mockUpcomingOrders = [
         {
           id: "order-1",
@@ -173,7 +174,7 @@ describe("DashboardService", () => {
           scheduledFor: new Date(),
           estimatedTime: 90,
           assignedStaffIds: [],
-          batch: { kitchenZone: "HOT_KITCHEN" },
+          batch: { scheduledFor: mockBatchScheduledFor },
         },
       ];
 
@@ -208,10 +209,9 @@ describe("DashboardService", () => {
       expect(result.data.upcomingProductionTasks[0]).toEqual({
         id: "order-1",
         title: "Fondo oscuro",
-        station: "HOT_KITCHEN",
         orderType: "COOKING",
         status: "PENDING",
-        scheduledFor: mockUpcomingOrders[0].scheduledFor,
+        lotDate: mockBatchScheduledFor,
         estimatedTime: 90,
         assignedStaffNames: [],
       });

@@ -13,22 +13,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const KITCHEN_ZONE_LABELS: Record<string, string> = {
-  HOT_KITCHEN: 'Cocina caliente',
-  COLD_KITCHEN: 'Cocina fría',
-  PASTRY_KITCHEN: 'Pastelería',
-  GRILL_STATION: 'Parrilla',
-  FRYING_STATION: 'Fritos',
-  PLATING_STATION: 'Emplatado',
-  SERVICE_STATION: 'Servicio',
-};
-
-const ORDER_TYPE_ICONS: Record<string, string> = {
-  PREPARATION: 'restaurant_menu',
-  COOKING: 'outdoor_grill',
-  PLATING: 'restaurant',
-};
-
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -36,8 +20,9 @@ export default function DashboardPage() {
   const completeTask = useCompleteProductionTask();
 
   // WebSocket hooks
-  const { notifications, markAsRead } = useWebSocketNotifications();
+  const { notifications, markAsRead, markAllAsRead } = useWebSocketNotifications();
   const { joinDashboard } = useWebSocketRooms();
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
   // Simulación activa de telemetría de temperatura de la cámara fría
   const [temp, setTemp] = useState(3.2);
@@ -138,41 +123,61 @@ export default function DashboardPage() {
     <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
       <div className="flex justify-between items-center mb-stack-md">
         <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
-        <span className="material-symbols-outlined text-secondary text-[20px]">notifications_active</span>
+        <div className="flex items-center gap-stack-md shrink-0">
+          <button
+            onClick={markAllAsRead}
+            className="text-secondary text-[11px] hover:underline cursor-pointer"
+          >
+            Marcar Todas
+          </button>
+          <button
+            onClick={() => setShowAllNotifications((prev) => !prev)}
+            className="text-secondary text-[11px] hover:underline cursor-pointer"
+          >
+            {showAllNotifications ? 'Ver no leídas' : 'Ver Todas'}
+          </button>
+        </div>
       </div>
       <div className="space-y-stack-sm">
-        {notifications.length > 0 ? (
-          notifications.slice(0, 4).map((notif) => {
-            const style =
-              notif.type === 'ERROR'
-                ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
-                : notif.type === 'WARNING'
-                  ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
-                  : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
-            const route = resolveNotificationRoute(notif.entityType, notif.entityId);
-            return (
-              <div
-                key={notif.id}
-                onClick={() => {
-                  markAsRead(notif.id);
-                  if (route) router.push(route);
-                }}
-                className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap}`}
-              >
-                <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
-                <div>
-                  <p className="text-xs text-primary font-medium">{notif.title}</p>
-                  <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
+        {(() => {
+          const visibleNotifications = showAllNotifications
+            ? notifications
+            : notifications.filter((notif) => !notif.read);
+          return visibleNotifications.length === 0 ? (
+            <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
+              <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+              <p className="text-xs text-on-surface-variant">
+                {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
+              </p>
+            </div>
+          ) : (
+            visibleNotifications.slice(0, showAllNotifications ? 20 : 4).map((notif) => {
+              const style =
+                notif.type === 'ERROR'
+                  ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
+                  : notif.type === 'WARNING'
+                    ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
+                    : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
+              const route = resolveNotificationRoute(notif.entityType, notif.entityId);
+              return (
+                <div
+                  key={notif.id}
+                  onClick={() => {
+                    markAsRead(notif.id);
+                    if (route) router.push(route);
+                  }}
+                  className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap} ${!notif.read ? '' : 'opacity-60'}`}
+                >
+                  <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
+                  <div>
+                    <p className="text-xs text-primary font-medium">{notif.title}</p>
+                    <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
-            <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
-            <p className="text-xs text-on-surface-variant">No hay notificaciones</p>
-          </div>
-        )}
+              );
+            })
+          );
+        })()}
       </div>
     </div>
   );
@@ -181,7 +186,9 @@ export default function DashboardPage() {
     <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
         <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
-        <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">HOY</span>
+        <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
+          {kpis?.upcomingProductionTasks?.length ?? 0}
+        </span>
       </div>
       <div className="flex-1 divide-y divide-surface-variant">
         {kpisLoading ? (
@@ -191,7 +198,7 @@ export default function DashboardPage() {
         ) : kpis?.upcomingProductionTasks && kpis.upcomingProductionTasks.length > 0 ? (
           kpis.upcomingProductionTasks.map(task => {
             const inProgress = task.status === 'IN_PROGRESS';
-            const scheduled = new Date(task.scheduledFor);
+            const lotDate = new Date(task.lotDate);
             return (
               <div
                 key={task.id}
@@ -202,10 +209,6 @@ export default function DashboardPage() {
                   <div className={`w-2 h-12 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
                   <div>
                     <h4 className="font-body-lg text-body-lg text-primary">{task.title}</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                      <span className="material-symbols-outlined text-[14px]">{ORDER_TYPE_ICONS[task.orderType] || 'kitchen'}</span>
-                      Estación: {KITCHEN_ZONE_LABELS[task.station] || task.station}
-                    </p>
                     <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
                       <span className="material-symbols-outlined text-[14px]">person</span>
                       {task.assignedStaffNames.length > 0
@@ -222,12 +225,9 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
                       </div>
                     ) : (
-                      <div>
-                        <span className="font-label-md text-label-md text-secondary">
-                          {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
-                      </div>
+                      <span className="font-label-md text-label-md text-secondary">
+                        {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                      </span>
                     )}
                   </div>
                   <button
@@ -272,8 +272,7 @@ export default function DashboardPage() {
         src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_IYUl3hekNMpAcZCYRjsZ7_Sf_zxQOvTMS4RQNTTiaKDVGsmncn5fZvSJSmO4AxyElaF_rqmTEqNslT-FpsimF7v92xwk_RWQ2G7yV0ttulljmVkoin8_d_XFhQdKznRcoqd-KSP8ZWtPMlasO-vHOrm6-gTZjYboyL2Zcpn83y-IAiJ8AI3I5JTHqR5UUcWTdCkSvU72j3_HGm3lLzL1LwAjZZjKJ79wiWhE5fJ1Cdbt9ZzRw_hKgzVvLnFgzwqqd-P-NinIRu0"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#121212] to-transparent p-stack-lg flex flex-col justify-end">
-        <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Resumen de Recetas</p>
-        <h4 className="font-headline-md text-headline-md text-primary mt-1">Estación de Vegetales</h4>
+        <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Listado de Recetas</p>
       </div>
     </div>
   );

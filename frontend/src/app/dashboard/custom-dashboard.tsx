@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useDashboardKPIs } from '@/hooks/use-dashboard-kpis';
+import { useProductionBatches } from '@/hooks/use-production';
 import {
   useWebSocketNotifications,
   useRealTimeProduction,
@@ -21,17 +22,29 @@ export default function DashboardPage() {
 
   // WebSocket hooks
   useWebSocketNotifications();
-  const { alerts: productionAlerts } = useRealTimeProduction();
-  const { stockAlerts } = useRealTimeStock();
+  const { alerts: productionAlerts, clearUpdates: clearProductionAlerts } = useRealTimeProduction();
+  const { stockAlerts, clearUpdates: clearStockAlerts } = useRealTimeStock();
   const { joinDashboard } = useWebSocketRooms();
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const handleMarkAllAlerts = () => {
+    clearProductionAlerts();
+    clearStockAlerts();
+  };
 
-  // Estados interactivos para las tareas de preparación
-  const [tasks, setTasks] = useState([
-    { id: 1, title: 'Demi-Glace Reduction', station: 'Saucier', icon: 'oven_gen', time: '09:30', duration: 'EST. 180 MIN', completed: false, color: 'bg-secondary' },
-    { id: 2, title: 'Citrus Cured Hamachi', station: 'Garde Manger', icon: 'ac_unit', time: '10:15', duration: 'EST. 45 MIN', completed: false, color: 'bg-blue-300' },
-    { id: 3, title: 'Artisan Sourdough Proofing', station: 'Bakery', icon: 'bakery_dining', time: '08:00', duration: 'EST. 240 MIN', completed: true, color: 'bg-outline' },
-    { id: 4, title: 'Mise en Place: Seasonal veg', station: 'Vegetable', icon: 'restaurant_menu', time: '11:00', duration: 'EST. 120 MIN', completed: false, color: 'bg-primary' },
-  ]);
+  // Tareas de preparación: órdenes de producción de todos los lotes
+  const { batches, isLoading: batchesLoading } = useProductionBatches();
+  const tasks = useMemo(
+    () =>
+      batches.flatMap((batch) =>
+        (batch.productionOrders ?? []).map((order) => ({
+          id: order.id,
+          title: order.title,
+          completed: order.status === 'COMPLETED',
+          lotDate: batch.scheduledFor,
+        })),
+      ),
+    [batches],
+  );
 
   // Simulación activa de telemetría de temperatura de la cámara fría
   const [temp, setTemp] = useState(3.2);
@@ -77,12 +90,6 @@ export default function DashboardPage() {
     }
   }, [isLoading, isAuthenticated]);
 
-  const toggleTask = (id: number) => {
-    setTasks(prev =>
-      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
-  };
-
   // Evitar renderizado mientras se valida la sesión
   if (!isAuthenticated || isLoading) {
     return (
@@ -110,7 +117,7 @@ export default function DashboardPage() {
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
           <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal / Turno AM</h2>
         </div>
-        <button 
+        <button
           onClick={() => router.push('/dashboard/production')}
           className="bg-primary text-primary-foreground px-stack-lg py-stack-md rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all flex items-center gap-stack-sm cursor-pointer"
         >
@@ -188,11 +195,24 @@ export default function DashboardPage() {
           <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
             <div className="flex justify-between items-center mb-stack-md">
               <p className="font-label-md text-label-md text-on-surface-variant uppercase">Alertas en Tiempo Real</p>
-              <span className="material-symbols-outlined text-secondary">notifications_active</span>
+              <div className="flex items-center gap-stack-md shrink-0">
+                <button
+                  onClick={handleMarkAllAlerts}
+                  className="text-secondary text-[11px] hover:underline cursor-pointer"
+                >
+                  Marcar Todas
+                </button>
+                <button
+                  onClick={() => setShowAllAlerts((prev) => !prev)}
+                  className="text-secondary text-[11px] hover:underline cursor-pointer"
+                >
+                  {showAllAlerts ? 'Ver Menos' : 'Ver Todas'}
+                </button>
+              </div>
             </div>
             <div className="space-y-stack-sm">
               {productionAlerts && productionAlerts.length > 0 ? (
-                productionAlerts.slice(0, 3).map((alert, idx) => (
+                productionAlerts.slice(0, showAllAlerts ? productionAlerts.length : 3).map((alert, idx) => (
                   <div key={idx} className="flex items-start gap-stack-sm p-2 bg-error/10 rounded border border-error/20">
                     <span className="material-symbols-outlined text-error text-[18px]">warning</span>
                     <div>
@@ -207,19 +227,19 @@ export default function DashboardPage() {
                   <p className="font-label-sm text-label-sm text-on-surface-variant">No hay alertas de producción</p>
                 </div>
               )}
-              {stockAlerts && stockAlerts.length > 0 ? (
-                stockAlerts.slice(0, 2).map((alert, idx) => (
-                  <div key={idx} className="flex items-start gap-stack-sm p-2 bg-warning/10 rounded border border-warning/20">
-                    <span className="material-symbols-outlined text-warning text-[18px]">inventory_2</span>
-                    <div>
-                      <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.productName || 'Stock Bajo'}</p>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">
-                        {alert.quantity || 0} unidades restantes (mínimo: {alert.minimum || 0})
-                      </p>
+              {stockAlerts && stockAlerts.length > 0
+                ? stockAlerts.slice(0, showAllAlerts ? stockAlerts.length : 2).map((alert, idx) => (
+                    <div key={idx} className="flex items-start gap-stack-sm p-2 bg-warning/10 rounded border border-warning/20">
+                      <span className="material-symbols-outlined text-warning text-[18px]">inventory_2</span>
+                      <div>
+                        <p className="font-label-sm text-label-sm text-primary font-semibold">{alert.productName || 'Stock Bajo'}</p>
+                        <p className="font-label-sm text-label-sm text-on-surface-variant text-sm">
+                          {alert.quantity || 0} unidades restantes (mínimo: {alert.minimum || 0})
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              ) : null}
+                  ))
+                : null}
             </div>
           </div>
         </div>
@@ -229,49 +249,54 @@ export default function DashboardPage() {
           <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
             <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
               <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
-              <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">HOY</span>
+              <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
+                {tasks.length}
+              </span>
             </div>
             <div className="flex-1 divide-y divide-surface-variant">
-              {tasks.map(task => (
-                <div 
-                  key={task.id}
-                  onClick={() => toggleTask(task.id)}
-                  className={`p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100 ${
-                    task.completed ? 'opacity-50 bg-surface-container-lowest' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-stack-lg">
-                    <div className={`w-2 h-12 rounded-full ${task.completed ? 'bg-outline' : task.color}`}></div>
-                    <div>
+              {batchesLoading ? (
+                <div className="p-stack-lg text-center font-label-sm text-label-sm text-on-surface-variant">
+                  Cargando tareas…
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="p-stack-lg text-center font-label-sm text-label-sm text-on-surface-variant">
+                  Sin tareas de preparación
+                </div>
+              ) : (
+                tasks.map(task => (
+                  <div
+                    key={task.id}
+                    onClick={() => router.push('/dashboard/production')}
+                    className={`p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100 ${
+                      task.completed ? 'opacity-50 bg-surface-container-lowest' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-stack-lg">
+                      <div className={`w-2 h-12 rounded-full ${task.completed ? 'bg-outline' : 'bg-primary'}`}></div>
                       <h4 className={`font-body-lg text-body-lg text-primary ${task.completed ? 'line-through text-on-surface-variant' : ''}`}>
                         {task.title}
                       </h4>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                        <span className="material-symbols-outlined text-[14px]">{task.icon}</span>
-                        Estación: {task.station}
-                      </p>
+                    </div>
+                    <div className="text-right">
+                      {task.completed ? (
+                        <div className="flex flex-col items-end">
+                          <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            check_circle
+                          </span>
+                          <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">Completada</p>
+                        </div>
+                      ) : (
+                        <span className="font-label-md text-label-md text-secondary">
+                          {new Date(task.lotDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    {task.completed ? (
-                      <div className="flex flex-col items-end">
-                        <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                          check_circle
-                        </span>
-                        <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">Completada</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="font-label-md text-label-md text-secondary">{task.time}</span>
-                        <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">{task.duration}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
-              <button 
+              <button
                 onClick={() => router.push('/dashboard/production')}
                 className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
               >
@@ -284,7 +309,7 @@ export default function DashboardPage() {
 
       {/* Atmospheric Secondary Layer */}
       <section className="mt-gutter grid grid-cols-1 md:grid-cols-3 gap-gutter">
-        <div 
+        <div
           className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 border border-border cursor-pointer"
           onClick={() => router.push('/dashboard/recipes')}
         >
@@ -295,12 +320,11 @@ export default function DashboardPage() {
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_IYUl3hekNMpAcZCYRjsZ7_Sf_zxQOvTMS4RQNTTiaKDVGsmncn5fZvSJSmO4AxyElaF_rqmTEqNslT-FpsimF7v92xwk_RWQ2G7yV0ttulljmVkoin8_d_XFhQdKznRcoqd-KSP8ZWtPMlasO-vHOrm6-gTZjYboyL2Zcpn83y-IAiJ8AI3I5JTHqR5UUcWTdCkSvU72j3_HGm3lLzL1LwAjZZjKJ79wiWhE5fJ1Cdbt9ZzRw_hKgzVvLnFgzwqqd-P-NinIRu0"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#121212] to-transparent p-stack-lg flex flex-col justify-end">
-            <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Resumen de Recetas</p>
-            <h4 className="font-headline-md text-headline-md text-primary mt-1">Estación de Vegetales</h4>
+            <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Listado de Recetas</p>
           </div>
         </div>
 
-        <div 
+        <div
           onClick={() => router.push('/dashboard/dashboard-interactivo')}
           className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
         >

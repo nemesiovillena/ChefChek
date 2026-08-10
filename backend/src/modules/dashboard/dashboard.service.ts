@@ -184,11 +184,11 @@ export class DashboardService {
         },
         // Las órdenes no llevan fecha de vencimiento propia: scheduledFor se fija
         // a now() al crearlas (ver ProductionService.createProductionOrder), así
-        // que ordenar ascendente equivale a mostrar las más antiguas primero y
-        // las recién creadas nunca entran en el take(6). Descendente = más recientes.
+        // que ordenar ascendente equivale a mostrar las más antiguas primero.
+        // Descendente = más recientes. Sin take: el dashboard debe listar todas
+        // las tareas pendientes/en curso, no solo las últimas 6.
         orderBy: { scheduledFor: "desc" },
-        take: 6,
-        include: { batch: { select: { kitchenZone: true } } },
+        include: { batch: { select: { scheduledFor: true } } },
       },
     );
 
@@ -209,10 +209,9 @@ export class DashboardService {
     const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
       id: order.id,
       title: order.title,
-      station: order.batch.kitchenZone,
       orderType: order.orderType,
       status: order.status,
-      scheduledFor: order.scheduledFor,
+      lotDate: order.batch.scheduledFor,
       estimatedTime: order.estimatedTime,
       assignedStaffNames: order.assignedStaffIds
         .map((id) => staffNameById.get(id))
