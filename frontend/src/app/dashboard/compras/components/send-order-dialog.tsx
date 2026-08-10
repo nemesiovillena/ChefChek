@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ExternalLink,
   Loader2,
@@ -39,6 +40,7 @@ export function SendOrderDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const router = useRouter();
   const addNotification = useNotification();
   const { data: preview, isLoading, error } = useSendPreview(order.id, open);
   const sendMut = useSendOrder();
@@ -56,6 +58,7 @@ export function SendOrderDialog({
             : `Registrado como enviado por ${channel}`,
       });
       onOpenChange(false);
+      router.push('/dashboard/compras');
     } catch (e) {
       addNotification({
         type: 'error',
