@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useProductionBatches } from '@/hooks/use-production';
@@ -16,7 +16,9 @@ import ProductionReportDialog from './components/production-report-dialog';
 
 export const dynamic = 'force-dynamic';
 
-type ProductionTab = 'batches' | 'staff';
+type ProductionTab = 'batches' | 'history' | 'staff';
+
+const HISTORY_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
 
 export default function ProductionPage() {
   const router = useRouter();
@@ -32,6 +34,17 @@ export default function ProductionPage() {
       router.push('/login');
     }
   }, [isAuthenticated, authLoading, router]);
+
+  // Los lotes completados/cancelados salen del listado de trabajo activo y
+  // quedan disponibles en la pestaña "Historial" sin perderse.
+  const activeBatches = useMemo(
+    () => batches.filter((b) => !HISTORY_STATUSES.has(b.status)),
+    [batches],
+  );
+  const historyBatches = useMemo(
+    () => batches.filter((b) => HISTORY_STATUSES.has(b.status)),
+    [batches],
+  );
 
   if (authLoading || !isAuthenticated) {
     return null;
@@ -70,6 +83,16 @@ export default function ProductionPage() {
         </button>
         <button
           role="tab"
+          aria-selected={activeTab === 'history'}
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
+          }`}
+        >
+          Historial
+        </button>
+        <button
+          role="tab"
           aria-selected={activeTab === 'staff'}
           onClick={() => setActiveTab('staff')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -82,6 +105,44 @@ export default function ProductionPage() {
 
       {activeTab === 'staff' ? (
         <StaffList />
+      ) : activeTab === 'history' ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold">Historial de lotes</h2>
+            <Button variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Actualizar
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                No se pudieron cargar los lotes de producción. Por favor intenta nuevamente.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <BatchList
+              batches={historyBatches}
+              selectedBatchId={selectedBatchId}
+              onSelect={handleSelectBatch}
+              emptyTitle="Sin lotes en el historial"
+              emptyDescription="Los lotes completados o cancelados aparecerán aquí"
+            />
+          )}
+
+          {selectedBatch && (
+            <div className="pt-4 border-t">
+              <BatchDetailPanel batch={selectedBatch} />
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
@@ -126,7 +187,7 @@ export default function ProductionPage() {
             </Alert>
           ) : (
             <BatchList
-              batches={batches}
+              batches={activeBatches}
               selectedBatchId={selectedBatchId}
               onSelect={handleSelectBatch}
               onCreateClick={() => setIsCreateBatchModalOpen(true)}

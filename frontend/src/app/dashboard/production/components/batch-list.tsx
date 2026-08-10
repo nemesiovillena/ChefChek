@@ -25,22 +25,31 @@ interface BatchListProps {
   batches: WorkBatch[];
   selectedBatchId: string | null;
   onSelect: (batch: WorkBatch) => void;
-  onCreateClick: () => void;
+  onCreateClick?: () => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
-export default function BatchList({ batches, selectedBatchId, onSelect, onCreateClick }: BatchListProps) {
+export default function BatchList({
+  batches,
+  selectedBatchId,
+  onSelect,
+  onCreateClick,
+  emptyTitle = 'Sin lotes de producción',
+  emptyDescription = 'Crea tu primer lote para empezar a gestionar la producción',
+}: BatchListProps) {
   if (batches.length === 0) {
     return (
       <Card className="p-12 flex flex-col items-center justify-center">
         <Factory className="h-16 w-16 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Sin lotes de producción</h3>
-        <p className="text-sm text-muted-foreground text-center mb-4">
-          Crea tu primer lote para empezar a gestionar la producción
-        </p>
-        <Button onClick={onCreateClick}>
-          <Plus className="mr-2 h-4 w-4" />
-          Crear primer lote
-        </Button>
+        <h3 className="text-lg font-semibold mb-2">{emptyTitle}</h3>
+        <p className="text-sm text-muted-foreground text-center mb-4">{emptyDescription}</p>
+        {onCreateClick && (
+          <Button onClick={onCreateClick}>
+            <Plus className="mr-2 h-4 w-4" />
+            Crear primer lote
+          </Button>
+        )}
       </Card>
     );
   }

@@ -192,6 +192,20 @@ export class DashboardService {
       },
     );
 
+    // Nombres del personal asignado, para mostrar quién debe realizar cada tarea.
+    const assignedStaffIds = Array.from(
+      new Set(
+        upcomingProductionOrders.flatMap((order) => order.assignedStaffIds),
+      ),
+    );
+    const assignedStaff = assignedStaffIds.length
+      ? await this.prisma.staffMember.findMany({
+          where: { id: { in: assignedStaffIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const staffNameById = new Map(assignedStaff.map((s) => [s.id, s.name]));
+
     const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
       id: order.id,
       title: order.title,
@@ -200,6 +214,9 @@ export class DashboardService {
       status: order.status,
       scheduledFor: order.scheduledFor,
       estimatedTime: order.estimatedTime,
+      assignedStaffNames: order.assignedStaffIds
+        .map((id) => staffNameById.get(id))
+        .filter((name): name is string => Boolean(name)),
     }));
 
     // Ingresos de hoy

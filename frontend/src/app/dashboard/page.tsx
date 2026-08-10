@@ -10,8 +10,6 @@ import {
   useWebSocketNotifications,
   useWebSocketRooms,
 } from '@/hooks/use-websocket';
-import { useConfirm } from '@/contexts/confirm.context';
-import { Input } from '@/components/ui/input';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +33,6 @@ export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
-  const confirm = useConfirm();
   const completeTask = useCompleteProductionTask();
 
   // WebSocket hooks
@@ -88,26 +85,7 @@ export default function DashboardPage() {
 
   const handleCompleteTask = async (e: React.MouseEvent, task: NonNullable<typeof kpis>['upcomingProductionTasks'][number]) => {
     e.stopPropagation();
-    let actualTime = task.estimatedTime ?? 0;
-    const ok = await confirm({
-      title: 'Completar tarea',
-      description: `Confirma el tiempo real empleado en "${task.title}".`,
-      variant: 'info',
-      children: (
-        <Input
-          type="number"
-          min="0"
-          autoFocus
-          defaultValue={task.estimatedTime ?? undefined}
-          placeholder="Minutos"
-          onChange={(ev) => {
-            actualTime = Number(ev.target.value);
-          }}
-        />
-      ),
-    });
-    if (!ok || !Number.isFinite(actualTime) || actualTime < 0) return;
-    await completeTask.mutateAsync({ orderId: task.id, actualTime });
+    await completeTask.mutateAsync({ orderId: task.id, actualTime: task.estimatedTime ?? 0 });
   };
 
   // Evitar renderizado mientras se valida la sesión
@@ -289,6 +267,12 @@ export default function DashboardPage() {
                           <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
                             <span className="material-symbols-outlined text-[14px]">{ORDER_TYPE_ICONS[task.orderType] || 'kitchen'}</span>
                             Estación: {KITCHEN_ZONE_LABELS[task.station] || task.station}
+                          </p>
+                          <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-[14px]">person</span>
+                            {task.assignedStaffNames.length > 0
+                              ? task.assignedStaffNames.join(', ')
+                              : 'Sin asignar'}
                           </p>
                         </div>
                       </div>

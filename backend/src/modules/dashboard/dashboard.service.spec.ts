@@ -67,6 +67,9 @@ describe("DashboardService", () => {
     productionOrder: {
       findMany: jest.fn(),
     },
+    staffMember: {
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -169,6 +172,7 @@ describe("DashboardService", () => {
           status: "PENDING",
           scheduledFor: new Date(),
           estimatedTime: 90,
+          assignedStaffIds: [],
           batch: { kitchenZone: "HOT_KITCHEN" },
         },
       ];
@@ -209,6 +213,7 @@ describe("DashboardService", () => {
         status: "PENDING",
         scheduledFor: mockUpcomingOrders[0].scheduledFor,
         estimatedTime: 90,
+        assignedStaffNames: [],
       });
     });
   });

@@ -10,6 +10,7 @@ export interface UpcomingProductionTask {
   status: string;
   scheduledFor: string;
   estimatedTime: number;
+  assignedStaffNames: string[];
 }
 
 interface KPIs {
