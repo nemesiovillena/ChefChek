@@ -623,10 +623,23 @@ export default function RecipesPage() {
                     </td>
                   </tr>
                 ) : (
-                  sortedRecipes.map((recipe: Recipe) => (
+                  sortedRecipes.map((recipe: Recipe) => {
+                    const isOverTarget =
+                      recipe.pricing?.costPercentage != null &&
+                      recipe.pricing.costPercentage > recipe.pricing.targetCostPercentage;
+                    return (
                     <tr key={recipe.id} className={trHoverClass}>
                       <td className="px-3 py-3 max-w-[260px]">
-                        <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={recipe.name}>
+                        <div
+                          className={`truncate text-sm font-medium ${
+                            isOverTarget ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--on-surface)]'
+                          }`}
+                          title={
+                            isOverTarget
+                              ? `${recipe.name} — coste real ${recipe.pricing!.costPercentage!.toFixed(1)}% supera el objetivo ${recipe.pricing!.targetCostPercentage.toFixed(1)}%`
+                              : recipe.name
+                          }
+                        >
                           {recipe.name}
                         </div>
                         {recipe.description && (
@@ -725,7 +738,8 @@ export default function RecipesPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
