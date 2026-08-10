@@ -1,3 +1,5 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 
 export interface UpcomingProductionTask {
@@ -33,4 +35,18 @@ export function useDashboardKPIs() {
       enabled: true,
     },
   );
+}
+
+export function useCompleteProductionTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ orderId, actualTime }: { orderId: string; actualTime: number }) => {
+      const response = await apiClient.put(`/v1/production/orders/${orderId}/complete`, { actualTime });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
 }

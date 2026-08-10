@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useDashboardKPIs } from '@/hooks/use-dashboard-kpis';
+import { useDashboardKPIs, useCompleteProductionTask } from '@/hooks/use-dashboard-kpis';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
   useWebSocketRooms,
 } from '@/hooks/use-websocket';
+import { useConfirm } from '@/contexts/confirm.context';
+import { Input } from '@/components/ui/input';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +35,8 @@ export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
+  const confirm = useConfirm();
+  const completeTask = useCompleteProductionTask();
 
   // WebSocket hooks
   const { notifications, markAsRead } = useWebSocketNotifications();
@@ -81,6 +85,30 @@ export default function DashboardPage() {
       return () => clearInterval(interval);
     }
   }, [isLoading, isAuthenticated]);
+
+  const handleCompleteTask = async (e: React.MouseEvent, task: NonNullable<typeof kpis>['upcomingProductionTasks'][number]) => {
+    e.stopPropagation();
+    let actualTime = task.estimatedTime ?? 0;
+    const ok = await confirm({
+      title: 'Completar tarea',
+      description: `Confirma el tiempo real empleado en "${task.title}".`,
+      variant: 'info',
+      children: (
+        <Input
+          type="number"
+          min="0"
+          autoFocus
+          defaultValue={task.estimatedTime ?? undefined}
+          placeholder="Minutos"
+          onChange={(ev) => {
+            actualTime = Number(ev.target.value);
+          }}
+        />
+      ),
+    });
+    if (!ok || !Number.isFinite(actualTime) || actualTime < 0) return;
+    await completeTask.mutateAsync({ orderId: task.id, actualTime });
+  };
 
   // Evitar renderizado mientras se valida la sesión
   if (!isAuthenticated || isLoading) {
@@ -264,20 +292,31 @@ export default function DashboardPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        {inProgress ? (
-                          <div className="flex flex-col items-end">
-                            <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
-                            <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="font-label-md text-label-md text-secondary">
-                              {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
-                          </div>
-                        )}
+                      <div className="flex items-center gap-stack-lg">
+                        <div className="text-right">
+                          {inProgress ? (
+                            <div className="flex flex-col items-end">
+                              <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
+                              <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="font-label-md text-label-md text-secondary">
+                                {scheduled.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <p className="text-[10px] text-on-surface-variant font-label-sm mt-1">EST. {task.estimatedTime} MIN</p>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => handleCompleteTask(e, task)}
+                          disabled={completeTask.isPending}
+                          title="Marcar tarea como completada"
+                          className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-secondary bg-secondary-container/15 hover:bg-secondary-container/30 hover:text-primary active:scale-90 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                        </button>
                       </div>
                     </div>
                   );
