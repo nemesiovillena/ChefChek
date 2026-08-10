@@ -164,7 +164,7 @@ describe("DashboardService", () => {
       const mockUpcomingOrders = [
         {
           id: "order-1",
-          recipeName: "Fondo oscuro",
+          title: "Fondo oscuro",
           orderType: "COOKING",
           status: "PENDING",
           scheduledFor: new Date(),

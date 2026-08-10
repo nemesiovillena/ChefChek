@@ -96,6 +96,7 @@ describe("AlbaranesController", () => {
         "t1",
         "gpt",
         "k",
+        undefined,
       );
       expect(res.albaran).toEqual(albaranResult);
       expect(res.products[0]).toMatchObject({
