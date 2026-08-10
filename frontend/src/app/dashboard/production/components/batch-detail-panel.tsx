@@ -39,7 +39,6 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     isLoading: ordersLoading,
     createOrder,
     isCreating,
-    startOrder,
     completeOrder,
   } = useProductionOrders(batch.id);
   const { staff } = useStaffMembers();
@@ -157,12 +156,7 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      {order.status === 'PENDING' && (
-                        <Button size="sm" variant="outline" onClick={() => startOrder(order.id)}>
-                          Iniciar
-                        </Button>
-                      )}
-                      {order.status === 'IN_PROGRESS' && (
+                      {(order.status === 'PENDING' || order.status === 'IN_PROGRESS') && (
                         <Button
                           size="sm"
                           variant="outline"

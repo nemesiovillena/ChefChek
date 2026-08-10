@@ -174,7 +174,7 @@ export class DashboardService {
       where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
     });
 
-    // Próximas órdenes de producción (pendientes o en curso), más cercanas primero
+    // Próximas órdenes de producción (pendientes o en curso), más recientes primero
     const upcomingProductionOrders = await this.prisma.productionOrder.findMany(
       {
         where: {
@@ -182,7 +182,11 @@ export class DashboardService {
           deletedAt: null,
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
-        orderBy: { scheduledFor: "asc" },
+        // Las órdenes no llevan fecha de vencimiento propia: scheduledFor se fija
+        // a now() al crearlas (ver ProductionService.createProductionOrder), así
+        // que ordenar ascendente equivale a mostrar las más antiguas primero y
+        // las recién creadas nunca entran en el take(6). Descendente = más recientes.
+        orderBy: { scheduledFor: "desc" },
         take: 6,
         include: { batch: { select: { kitchenZone: true } } },
       },
@@ -190,7 +194,7 @@ export class DashboardService {
 
     const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
       id: order.id,
-      title: order.recipeName,
+      title: order.title,
       station: order.batch.kitchenZone,
       orderType: order.orderType,
       status: order.status,
