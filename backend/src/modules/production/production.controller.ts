@@ -154,6 +154,19 @@ export class ProductionController {
     );
   }
 
+  @Delete("orders/:orderId")
+  @Roles("ADMIN", "USER")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Eliminar una orden de producción" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Orden eliminada" })
+  async deleteProductionOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.productionService.deleteProductionOrder(req.tenantId, orderId);
+  }
+
   // Mise en Place
   @Post("mise-en-place")
   @Roles("ADMIN", "USER")

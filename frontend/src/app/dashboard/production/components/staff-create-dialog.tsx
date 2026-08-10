@@ -10,12 +10,14 @@ interface StaffCreateDialogProps {
   onClose: () => void;
   onSubmit: (input: CreateStaffMemberInput) => Promise<void>;
   isSubmitting: boolean;
+  initial?: { name: string; role: string; email?: string | null };
 }
 
-export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting }: StaffCreateDialogProps) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [email, setEmail] = useState('');
+export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting, initial }: StaffCreateDialogProps) {
+  const isEditing = Boolean(initial);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [role, setRole] = useState(initial?.role ?? '');
+  const [email, setEmail] = useState(initial?.email ?? '');
 
   const canSubmit = name.trim() !== '' && role.trim() !== '';
 
@@ -28,7 +30,9 @@ export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting }: S
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-md shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Nuevo miembro de personal</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {isEditing ? 'Editar miembro de personal' : 'Nuevo miembro de personal'}
+          </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
@@ -58,7 +62,9 @@ export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting }: S
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? 'Creando...' : 'Crear'}
+              {isEditing
+                ? isSubmitting ? 'Guardando...' : 'Guardar'
+                : isSubmitting ? 'Creando...' : 'Crear'}
             </Button>
           </div>
         </div>

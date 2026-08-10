@@ -178,6 +178,13 @@ export function useProductionOrders(batchId: string | null) {
     onSuccess: invalidate,
   });
 
+  const deleteOrder = useMutation({
+    mutationFn: async (orderId: string) => {
+      await apiClient.delete(`/v1/production/orders/${orderId}`);
+    },
+    onSuccess: invalidate,
+  });
+
   return {
     orders: data || [],
     isLoading,
@@ -188,5 +195,7 @@ export function useProductionOrders(batchId: string | null) {
     isStarting: startOrder.isPending,
     completeOrder: completeOrder.mutateAsync,
     isCompleting: completeOrder.isPending,
+    deleteOrder: deleteOrder.mutateAsync,
+    isDeleting: deleteOrder.isPending,
   };
 }

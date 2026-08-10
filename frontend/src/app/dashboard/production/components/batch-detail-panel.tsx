@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Package, Plus, Loader2, User } from 'lucide-react';
+import { Package, Plus, Loader2, User, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
@@ -40,6 +40,7 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     createOrder,
     isCreating,
     completeOrder,
+    deleteOrder,
   } = useProductionOrders(batch.id);
   const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
@@ -85,6 +86,17 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     });
     if (!ok || !Number.isFinite(actualTime) || actualTime <= 0) return;
     await completeOrder({ orderId, actualTime });
+  };
+
+  const handleDeleteOrder = async (orderId: string, orderTitle: string) => {
+    const ok = await confirm({
+      title: 'Eliminar orden',
+      description: `¿Eliminar la orden "${orderTitle}"?`,
+      variant: 'destructive',
+      confirmText: 'Eliminar',
+    });
+    if (!ok) return;
+    await deleteOrder(orderId);
   };
 
   return (
@@ -165,6 +177,14 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
                           Completar
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDeleteOrder(order.id, order.title)}
+                        title="Eliminar orden"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </Card>

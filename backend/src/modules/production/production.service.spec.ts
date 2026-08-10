@@ -489,6 +489,34 @@ describe("ProductionService", () => {
     });
   });
 
+  describe("deleteProductionOrder", () => {
+    it("should soft-delete the order by setting deletedAt", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        deletedAt: new Date(),
+      });
+
+      const result = await service.deleteProductionOrder(tenantId, orderId);
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it("should throw NotFoundException when order not found for tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.deleteProductionOrder(tenantId, orderId),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe("createMiseEnPlaceSheet", () => {
     const dto: CreateMiseEnPlaceSheetDto = {
       batchId,

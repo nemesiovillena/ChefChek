@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Users, Plus, Loader2 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useStaffMembers } from '@/hooks/use-production-staff';
+import type { StaffMember } from '@/hooks/use-production-staff';
 import StaffCreateDialog from './staff-create-dialog';
 
 export default function StaffList() {
   const confirm = useConfirm();
-  const { staff, isLoading, createStaffMember, isCreating, updateStaffMember } = useStaffMembers();
+  const { staff, isLoading, createStaffMember, isCreating, updateStaffMember, isUpdating } = useStaffMembers();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
 
   const handleToggleActive = async (staffId: string, name: string, isActive: boolean) => {
     const ok = await confirm({
@@ -57,13 +59,18 @@ export default function StaffList() {
                   {member.role} · {member.assignedTasks}/{member.maxTasks} tareas
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleToggleActive(member.id, member.name, member.isActive)}
-              >
-                {member.isActive ? 'Desactivar' : 'Reactivar'}
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => setEditingStaff(member)}>
+                  Editar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleToggleActive(member.id, member.name, member.isActive)}
+                >
+                  {member.isActive ? 'Desactivar' : 'Reactivar'}
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
@@ -76,6 +83,18 @@ export default function StaffList() {
           onSubmit={async (input) => {
             await createStaffMember(input);
             setIsCreateOpen(false);
+          }}
+        />
+      )}
+
+      {editingStaff && (
+        <StaffCreateDialog
+          isSubmitting={isUpdating}
+          initial={{ name: editingStaff.name, role: editingStaff.role, email: editingStaff.email }}
+          onClose={() => setEditingStaff(null)}
+          onSubmit={async (input) => {
+            await updateStaffMember({ staffId: editingStaff.id, input });
+            setEditingStaff(null);
           }}
         />
       )}

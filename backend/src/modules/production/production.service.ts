@@ -213,6 +213,22 @@ export class ProductionService {
     return { success: true, data: order };
   }
 
+  async deleteProductionOrder(tenantId: string, orderId: string): Promise<any> {
+    const existing = await this.prisma.productionOrder.findFirst({
+      where: { id: orderId, tenantId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException("Production order not found");
+    }
+
+    await this.prisma.productionOrder.update({
+      where: { id: orderId },
+      data: { deletedAt: new Date() },
+    });
+
+    return { success: true };
+  }
+
   // Mise en Place
   async createMiseEnPlaceSheet(
     tenantId: string,
