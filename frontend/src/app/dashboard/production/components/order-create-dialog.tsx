@@ -4,12 +4,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
-import apiClient from '@/lib/api-client';
-import { useRecipeOptions, type RecipeCost } from '@/hooks/use-recipes';
-import type { Product } from '@/hooks/use-products';
+import { X } from 'lucide-react';
+import { useRecipeOptions } from '@/hooks/use-recipes';
 import SubRecipeCombobox from '@/app/dashboard/recipes/components/sub-recipe-combobox';
-import type { CreateProductionOrderInput, ProductionIngredientInput } from '@/hooks/use-production';
+import type { CreateProductionOrderInput } from '@/hooks/use-production';
 
 interface OrderCreateDialogProps {
   batchId: string;
@@ -18,112 +16,39 @@ interface OrderCreateDialogProps {
   isSubmitting: boolean;
 }
 
-interface ConvertUnitsResponse {
-  converted: { quantity: number; unit: string };
-}
-
-interface IngredientRow extends ProductionIngredientInput {
-  /** true si no se pudo verificar el stock (p.ej. la conversión de unidad no
-   * está soportada) — se deja pasar sin bloquear, pero se avisa en vez de
-   * dar por hecho que hay stock. */
-  unverified?: boolean;
-}
-
-/** Consulta el stock actual de cada ingrediente para marcar isAvailable — una
- * sola vez al elegir la receta, no una suscripción en vivo. El stock se
- * guarda en la unidad de referencia del artículo, que no siempre coincide
- * con la unidad del ingrediente en la receta (p.ej. receta en "g", stock en
- * "kg") — se convierte antes de comparar. Si la conversión falla (unidades
- * que el conversor no reconoce, artículo sin stock configurado, etc.) no se
- * bloquea la orden — se marca como "no verificado" en vez de "sin stock",
- * que sería un falso negativo. */
-async function checkIngredientsAvailability(
-  ingredients: ProductionIngredientInput[],
-): Promise<IngredientRow[]> {
-  return Promise.all(
-    ingredients.map(async (ingredient): Promise<IngredientRow> => {
-      try {
-        const { data: product } = await apiClient.get<Product>(`/v1/products/${ingredient.productId}`);
-        const available = product.stocks?.[0]?.quantity ?? 0;
-
-        let neededInStockUnit = ingredient.quantity;
-        if (ingredient.unit !== product.referenceUnit) {
-          try {
-            const { data: conversion } = await apiClient.post<ConvertUnitsResponse>(
-              '/v1/escandallos/convert-units',
-              null,
-              {
-                params: {
-                  fromUnit: ingredient.unit,
-                  toUnit: product.referenceUnit,
-                  quantity: ingredient.quantity,
-                  productId: ingredient.productId,
-                },
-              },
-            );
-            neededInStockUnit = conversion.converted.quantity;
-          } catch {
-            return { ...ingredient, isAvailable: true, unverified: true };
-          }
-        }
-
-        return { ...ingredient, isAvailable: available >= neededInStockUnit };
-      } catch {
-        return { ...ingredient, isAvailable: true, unverified: true };
-      }
-    }),
-  );
-}
-
 export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmitting }: OrderCreateDialogProps) {
   const { data: recipeOptions } = useRecipeOptions();
+  const [title, setTitle] = useState('');
   const [recipeId, setRecipeId] = useState('');
   const [recipeName, setRecipeName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('porciones');
   const [estimatedTime, setEstimatedTime] = useState('');
-  const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
-  const [isLoadingIngredients, setIsLoadingIngredients] = useState(false);
+  const [description, setDescription] = useState('');
 
-  const handleSelectRecipe = async (item: { id: string; name: string }) => {
+  const handleSelectRecipe = (item: { id: string; name: string }) => {
     setRecipeId(item.id);
     setRecipeName(item.name);
-    setIsLoadingIngredients(true);
-    try {
-      const { data: cost } = await apiClient.get<RecipeCost>(`/v1/recipes/${item.id}/calculate`);
-      const baseQuantity = Number(quantity) || 1;
-      const scaledIngredients: IngredientRow[] = (cost?.ingredients ?? []).map((ing) => ({
-        productId: ing.productId,
-        productName: ing.productName,
-        quantity: ing.quantity * baseQuantity,
-        unit: ing.unit,
-        isAvailable: true,
-      }));
-      setIngredients(await checkIngredientsAvailability(scaledIngredients));
-    } finally {
-      setIsLoadingIngredients(false);
-    }
   };
 
-  const canSubmit =
-    recipeId !== '' &&
-    quantity.trim() !== '' &&
-    estimatedTime.trim() !== '' &&
-    ingredients.length > 0 &&
-    !isLoadingIngredients;
+  const handleClearRecipe = () => {
+    setRecipeId('');
+    setRecipeName('');
+  };
 
-  const unavailableIngredients = ingredients.filter((ing) => !ing.isAvailable);
+  const canSubmit = title.trim() !== '' && estimatedTime.trim() !== '' && !isSubmitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     await onSubmit({
       batchId,
-      recipeId,
-      recipeName,
-      quantity: Number(quantity),
-      unit,
+      title,
+      recipeId: recipeId || undefined,
+      recipeName: recipeName || undefined,
+      quantity: quantity ? Number(quantity) : undefined,
+      unit: unit || undefined,
       estimatedTime: Number(estimatedTime),
-      ingredients: ingredients.map(({ unverified: _unverified, ...ing }) => ing),
+      description: description || undefined,
     });
   };
 
@@ -144,19 +69,35 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
 
         <div className="space-y-4">
           <div>
-            <Label>Receta</Label>
-            <SubRecipeCombobox
-              items={recipeOptions ?? []}
-              value={recipeId}
-              label={recipeName}
-              onSelect={handleSelectRecipe}
-              placeholder="Buscar receta..."
+            <Label>Título</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ej. Limpiar la freidora, Marinar el pollo..."
             />
+          </div>
+
+          <div>
+            <Label>Receta (opcional)</Label>
+            <div className="flex items-center gap-2">
+              <SubRecipeCombobox
+                items={recipeOptions ?? []}
+                value={recipeId}
+                label={recipeName}
+                onSelect={handleSelectRecipe}
+                placeholder="Vincular una receta..."
+              />
+              {recipeId !== '' && (
+                <Button type="button" variant="ghost" size="icon" onClick={handleClearRecipe} aria-label="Quitar receta">
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Cantidad</Label>
+              <Label>Cantidad (opcional)</Label>
               <Input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             </div>
             <div>
@@ -174,44 +115,22 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
             </div>
           </div>
 
-          {isLoadingIngredients ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando ingredientes de la receta...
-            </div>
-          ) : ingredients.length > 0 ? (
-            <div>
-              <Label>Ingredientes</Label>
-              <div className="mt-2 space-y-1 max-h-48 overflow-y-auto rounded-md border p-2">
-                {ingredients.map((ing) => (
-                  <div key={ing.productId} className="flex items-center justify-between text-sm">
-                    <span>
-                      {ing.productName} — {ing.quantity.toFixed(2)} {ing.unit}
-                    </span>
-                    {!ing.isAvailable ? (
-                      <span className="text-xs font-medium text-destructive">Sin stock suficiente</span>
-                    ) : ing.unverified ? (
-                      <span className="text-xs text-muted-foreground">Stock no verificado</span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-              {unavailableIngredients.length > 0 && (
-                <p className="mt-2 text-xs text-destructive">
-                  {unavailableIngredients.length} ingrediente(s) sin stock suficiente — no se podrá crear la orden.
-                </p>
-              )}
-            </div>
-          ) : null}
+          <div>
+            <Label>Descripción (opcional)</Label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              placeholder="Explica la tarea..."
+            />
+          </div>
 
           <div className="flex gap-2 pt-2">
             <Button onClick={onClose} variant="outline" disabled={isSubmitting}>
               Cancelar
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit || isSubmitting || unavailableIngredients.length > 0}
-            >
+            <Button onClick={handleSubmit} disabled={!canSubmit}>
               {isSubmitting ? 'Creando...' : 'Crear orden'}
             </Button>
           </div>

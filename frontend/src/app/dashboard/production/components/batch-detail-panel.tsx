@@ -126,11 +126,12 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{order.recipeName}</span>
+                      <span className="font-medium">{order.title}</span>
                       {getOrderStatusBadge(order.status)}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {order.quantity} {order.unit} · {order.estimatedTime} min estimados
+                      {order.quantity != null && order.unit ? `${order.quantity} ${order.unit} · ` : ''}
+                      {order.estimatedTime} min estimados
                       {order.actualTime != null && ` · ${order.actualTime} min reales`}
                     </div>
                   </div>

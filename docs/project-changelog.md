@@ -10,6 +10,16 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 ---
 
+## Estado real — 2026-08-10 (Órdenes de Producción: receta decoupled)
+
+- **ProductionOrder contrato actualizado**: `recipeId`, `recipeName`, `quantity`, `unit` ahora son opcionales. `title` (texto libre obligatorio) identifica la orden, sustituyendo `recipeName` como identificador principal. Nuevo campo `description` opcional.
+- **Flujo de creación simplificado**: Se retiró por completo la reserva de stock y chequeo de disponibilidad de ingredientes al crear orden (operaciones descargadas al módulo Recetas). Sin dependencia de `WarehousesService` ni `convertToProductReferenceUnit`.
+- **Mise en Place**: Genera hojas solo si hay receta vinculada. Sheet captura `orderTitle` (obligatorio) y campos opcionales de receta. Si no hay receta, items=[], checklists básicos solo.
+- **Asignación de zona**: `determineRequiredZone` maneja órdenes sin receta usando zona por defecto.
+- **Documentación actualizada**: `production-control-system.md`, `mise-en-place-management.md`, `work-batch-architecture.md` reflejan contrato nuevo.
+
+---
+
 ## Estado real — 2026-07-25 (precio pactado simplificado: Artículos ↔ Proveedores)
 
 - **Endpoint nuevo**: `GET /api/v1/products/suppliers/:id/offers` — lista todas las ofertas (productos + precios pactados) de un proveedor con acceso multi-rol (ADMIN, USER, VIEWER).

@@ -1,7 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductionService } from "./production.service";
 import { PrismaService } from "../../common/services/prisma.service";
-import { WarehousesService } from "../almacenes/almacenes.service";
 import { NotificationsService } from "../core/notifications.service";
 import { WorkBatchNumberService } from "./services/work-batch-number.service";
 import { ProductionOrderNumberService } from "./services/production-order-number.service";
@@ -25,7 +24,6 @@ import {
 describe("ProductionService", () => {
   let service: ProductionService;
   let mockPrismaService: any;
-  let mockWarehousesService: any;
   let mockNotificationsService: any;
 
   const tenantId = "test-tenant-id";
@@ -49,9 +47,6 @@ describe("ProductionService", () => {
         findFirst: jest.fn(),
         update: jest.fn(),
         findUnique: jest.fn(),
-      },
-      product: {
-        findFirst: jest.fn(),
       },
       productionTask: {
         create: jest.fn(),
@@ -96,17 +91,9 @@ describe("ProductionService", () => {
         findFirst: jest.fn(),
         update: jest.fn(),
       },
-      stock: {
-        findFirst: jest.fn(),
-        update: jest.fn(),
-      },
       productionReport: {
         create: jest.fn(),
       },
-    };
-
-    mockWarehousesService = {
-      reserveStock: jest.fn().mockResolvedValue({ success: true }),
     };
 
     mockNotificationsService = {
@@ -117,7 +104,6 @@ describe("ProductionService", () => {
       providers: [
         ProductionService,
         { provide: PrismaService, useValue: mockPrismaService },
-        { provide: WarehousesService, useValue: mockWarehousesService },
         { provide: NotificationsService, useValue: mockNotificationsService },
         WorkBatchNumberService,
         ProductionOrderNumberService,
@@ -258,52 +244,74 @@ describe("ProductionService", () => {
   });
 
   describe("createProductionOrder", () => {
-    const dto: CreateProductionOrderDto = {
+    const freeTextDto: CreateProductionOrderDto = {
       batchId,
+      title: "Limpiar la freidora",
+      estimatedTime: 15,
+    };
+
+    const recipeLinkedDto: CreateProductionOrderDto = {
+      batchId,
+      title: "Salmón a la Plancha",
       recipeId: "recipe1",
-      recipeName: "Test Recipe",
+      recipeName: "Salmón a la Plancha",
       quantity: 10,
       unit: "kg",
       estimatedTime: 60,
-      ingredients: [
-        {
-          productId: "prod1",
-          productName: "Ingredient 1",
-          quantity: 5,
-          unit: "kg",
-          isAvailable: true,
-        },
-      ],
     };
 
-    it("should create a production order and reserve stock via WarehousesService", async () => {
+    it("should create a production order without a linked recipe", async () => {
       mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
-      mockPrismaService.product.findFirst.mockResolvedValue({
-        referenceUnit: "kg",
-      });
       mockPrismaService.productionOrder.create.mockResolvedValue({
         id: orderId,
         orderNumber: "PO-0001",
       });
 
-      const result = await service.createProductionOrder(tenantId, userId, dto);
+      const result = await service.createProductionOrder(
+        tenantId,
+        userId,
+        freeTextDto,
+      );
 
       expect(result.success).toBe(true);
-      // ingrediente (5) × cantidad del pedido (10) = 50 — debe cuadrar con lo
-      // que updateInventory consumirá al completar (regression del bug real
-      // encontrado en pruebas manuales: reservedStock quedaba negativo).
-      expect(mockWarehousesService.reserveStock).toHaveBeenCalledWith(
-        tenantId,
-        "prod1",
-        50,
-      );
       expect(mockPrismaService.productionOrder.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId,
           batchId,
-          recipeId: dto.recipeId,
-          quantity: dto.quantity,
-          estimatedTime: dto.estimatedTime,
+          title: freeTextDto.title,
+          recipeId: undefined,
+          recipeName: undefined,
+          estimatedTime: freeTextDto.estimatedTime,
+          orderNumber: "PO-0001",
+          createdBy: userId,
+        }),
+      });
+    });
+
+    it("should create a production order with a linked recipe, without calling stock/cost services", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
+      mockPrismaService.productionOrder.create.mockResolvedValue({
+        id: orderId,
+        orderNumber: "PO-0001",
+      });
+
+      const result = await service.createProductionOrder(
+        tenantId,
+        userId,
+        recipeLinkedDto,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId,
+          batchId,
+          title: recipeLinkedDto.title,
+          recipeId: recipeLinkedDto.recipeId,
+          recipeName: recipeLinkedDto.recipeName,
+          quantity: recipeLinkedDto.quantity,
+          unit: recipeLinkedDto.unit,
+          estimatedTime: recipeLinkedDto.estimatedTime,
           orderNumber: "PO-0001",
           createdBy: userId,
         }),
@@ -314,22 +322,9 @@ describe("ProductionService", () => {
       mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createProductionOrder(tenantId, userId, dto),
+        service.createProductionOrder(tenantId, userId, freeTextDto),
       ).rejects.toThrow(NotFoundException);
-      expect(mockWarehousesService.reserveStock).not.toHaveBeenCalled();
-    });
-
-    it("should throw BadRequestException when an ingredient is not available", async () => {
-      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
-      const dtoWithUnavailable: CreateProductionOrderDto = {
-        ...dto,
-        ingredients: [{ ...dto.ingredients[0], isAvailable: false }],
-      };
-
-      await expect(
-        service.createProductionOrder(tenantId, userId, dtoWithUnavailable),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockWarehousesService.reserveStock).not.toHaveBeenCalled();
+      expect(mockPrismaService.productionOrder.create).not.toHaveBeenCalled();
     });
   });
 
@@ -382,7 +377,7 @@ describe("ProductionService", () => {
   });
 
   describe("completeProductionOrder", () => {
-    it("should complete an order, update tracking and decrement stock via the Stock model", async () => {
+    it("should complete an order and update progress tracking, without touching stock", async () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue({
         id: orderId,
       });
@@ -396,16 +391,6 @@ describe("ProductionService", () => {
         tenantId,
         createdAt: new Date(),
         estimatedTime: 60,
-        quantity: 10,
-        items: [{ productId: "prod1", quantity: 5, unit: "kg" }],
-      });
-      mockPrismaService.stock.findFirst.mockResolvedValue({
-        id: "stock1",
-        quantity: 100,
-        reservedStock: 50,
-      });
-      mockPrismaService.product.findFirst.mockResolvedValue({
-        referenceUnit: "kg",
       });
 
       const result = await service.completeProductionOrder(
@@ -415,13 +400,9 @@ describe("ProductionService", () => {
       );
 
       expect(result.data.status).toBe("COMPLETED");
-      expect(mockPrismaService.stock.update).toHaveBeenCalledWith({
-        where: { id: "stock1" },
-        data: {
-          quantity: { decrement: 50 },
-          reservedStock: { decrement: 50 },
-        },
-      });
+      expect(mockPrismaService.progressTracking.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { orderId } }),
+      );
     });
 
     it("regression: creates a delay alert and notifies when completion is very late (condition used to be inverted and never fired)", async () => {
@@ -437,11 +418,9 @@ describe("ProductionService", () => {
         id: orderId,
         tenantId,
         orderNumber: "PO-0001",
-        recipeName: "Salmón a la Plancha",
+        title: "Salmón a la Plancha",
         createdAt: new Date(Date.now() - 500 * 60 * 1000), // hace 500 min
         estimatedTime: 60,
-        quantity: 1,
-        items: [],
       });
       mockPrismaService.progressTracking.findUnique.mockResolvedValue({
         orderId,
@@ -481,11 +460,9 @@ describe("ProductionService", () => {
         id: orderId,
         tenantId,
         orderNumber: "PO-0001",
-        recipeName: "Salmón a la Plancha",
+        title: "Salmón a la Plancha",
         createdAt: new Date(Date.now() - 500 * 60 * 1000),
         estimatedTime: 60,
-        quantity: 1,
-        items: [],
       });
       mockPrismaService.progressTracking.findUnique.mockResolvedValue({
         orderId,

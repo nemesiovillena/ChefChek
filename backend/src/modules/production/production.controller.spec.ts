@@ -176,12 +176,12 @@ describe("ProductionController", () => {
       it("should create a production order", async () => {
         const dto = {
           batchId: "batch-1",
+          title: "Recipe 1",
           recipeId: "recipe-1",
           recipeName: "Recipe 1",
           quantity: 10,
           unit: "kg",
           estimatedTime: 60,
-          ingredients: [],
         };
 
         mockProductionService.createProductionOrder.mockResolvedValue({

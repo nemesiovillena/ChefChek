@@ -76,39 +76,30 @@ export class CreateProductionOrderDto {
   batchId: string;
 
   @IsString()
-  recipeId: string;
+  title: string;
 
+  @IsOptional()
   @IsString()
-  recipeName: string;
+  recipeId?: string;
 
+  @IsOptional()
+  @IsString()
+  recipeName?: string;
+
+  @IsOptional()
   @IsNumber()
-  quantity: number;
+  quantity?: number;
 
+  @IsOptional()
   @IsString()
-  unit: string;
+  unit?: string;
 
   @IsNumber()
   estimatedTime: number;
 
-  @IsArray()
-  ingredients: ProductionIngredientDto[];
-}
-
-export class ProductionIngredientDto {
+  @IsOptional()
   @IsString()
-  productId: string;
-
-  @IsString()
-  productName: string;
-
-  @IsNumber()
-  quantity: number;
-
-  @IsString()
-  unit: string;
-
-  @IsBoolean()
-  isAvailable: boolean;
+  description?: string;
 }
 
 export class CreateMiseEnPlaceItemDto {

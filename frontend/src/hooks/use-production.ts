@@ -12,14 +12,6 @@ export type KitchenZone =
   | 'PLATING_STATION'
   | 'SERVICE_STATION';
 
-export interface ProductionIngredientInput {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unit: string;
-  isAvailable: boolean;
-}
-
 export interface WorkBatch {
   id: string;
   tenantId: string;
@@ -41,10 +33,11 @@ export interface ProductionOrder {
   id: string;
   tenantId: string;
   batchId: string;
-  recipeId: string;
-  recipeName: string;
-  quantity: number;
-  unit: string;
+  title: string;
+  recipeId?: string | null;
+  recipeName?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
   estimatedTime: number;
   orderNumber: string;
   orderType: string;
@@ -52,7 +45,7 @@ export interface ProductionOrder {
   scheduledFor: string;
   startedAt?: string | null;
   completedAt?: string | null;
-  items?: ProductionIngredientInput[];
+  description?: string | null;
   actualTime?: number | null;
   notes?: string | null;
   createdAt: string;
@@ -69,12 +62,13 @@ export interface CreateWorkBatchInput {
 
 export interface CreateProductionOrderInput {
   batchId: string;
-  recipeId: string;
-  recipeName: string;
-  quantity: number;
-  unit: string;
+  title: string;
+  recipeId?: string;
+  recipeName?: string;
+  quantity?: number;
+  unit?: string;
   estimatedTime: number;
-  ingredients: ProductionIngredientInput[];
+  description?: string;
 }
 
 export function useProductionBatches() {

@@ -5,11 +5,10 @@ import { WorkBatchNumberService } from "./services/work-batch-number.service";
 import { ProductionOrderNumberService } from "./services/production-order-number.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
-import { AlmacenesModule } from "../almacenes/almacenes.module";
 import { CoreModule } from "../core/core.module";
 
 @Module({
-  imports: [PrismaModule, AuthModule, AlmacenesModule, CoreModule],
+  imports: [PrismaModule, AuthModule, CoreModule],
   controllers: [ProductionController],
   providers: [
     ProductionService,

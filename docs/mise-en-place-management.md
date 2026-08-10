@@ -55,9 +55,10 @@ interface MiseEnPlaceSheet {
   
   // Contexto
   zone: KitchenZone;
-  recipeName: string;
-  quantity: number;
-  unit: string;
+  orderTitle: string;                   // Título de la orden (obligatorio)
+  recipeName?: string;                  // Nombre de receta (opcional, si hay vinculación)
+  quantity?: number;                    // Cantidad (opcional, si hay receta)
+  unit?: string;                        // Unidad (opcional, si hay receta)
   
   // Componentes
   items: MiseEnPlaceItem[];
@@ -212,11 +213,16 @@ async generateMiseEnPlaceSheet(
     throw new NotFoundException('Production order not found');
   }
 
-  // Step 2: Get recipe details
-  const recipe = await this.getRecipe(order.recipeId);
+  // Step 2: Get recipe details (if linked)
+  let recipe: Recipe | null = null;
+  if (order.recipeId) {
+    recipe = await this.getRecipe(order.recipeId);
+  }
 
-  // Step 3: Generate preparation items
-  const items = await this.generatePreparationItems(recipe, order);
+  // Step 3: Generate preparation items (only if recipe exists)
+  const items = recipe 
+    ? await this.generatePreparationItems(recipe, order)
+    : [];
 
   // Step 4: Generate checklists
   const checklists = await this.generateChecklists(zone, items);
@@ -227,6 +233,10 @@ async generateMiseEnPlaceSheet(
       batchId: order.batchId,
       orderId,
       zone,
+      orderTitle: order.title,
+      recipeName: order.recipeName,
+      quantity: order.quantity,
+      unit: order.unit,
       items: items,
       checklists: checklists.map(c => ({
         ...c,
@@ -243,7 +253,7 @@ private async generatePreparationItems(
   order: ProductionOrder
 ): Promise<MiseEnPlaceItem[]> {
   const items: MiseEnPlaceItem[] = [];
-  const batchSize = order.quantity;
+  const batchSize = order.quantity || 1;
 
   // Generate ingredient preparation items
   for (const ingredient of recipe.ingredients) {

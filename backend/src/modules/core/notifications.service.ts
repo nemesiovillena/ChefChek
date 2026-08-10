@@ -94,7 +94,7 @@ export class NotificationsService {
   async notifyProductionDelay(
     tenantId: string,
     orderNumber: string,
-    recipeName: string,
+    orderTitle: string,
     status: "DELAYED" | "CRITICAL",
     orderId?: string,
   ): Promise<void> {
@@ -103,8 +103,8 @@ export class NotificationsService {
 
     await this.createNotification(tenantId, {
       type: alertType,
-      title: `Retraso en producción: ${recipeName}`,
-      message: `La orden ${orderNumber} (${recipeName}) está ${label}.`,
+      title: `Retraso en producción: ${orderTitle}`,
+      message: `La orden ${orderNumber} (${orderTitle}) está ${label}.`,
       severity: alertType,
       ...(orderId ? { entityType: "PRODUCTION_ORDER", entityId: orderId } : {}),
     });

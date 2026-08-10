@@ -127,12 +127,11 @@ graph TD
     A[Crear partida] --> B[Asignar responsables]
     B --> C[Definir fecha/hora]
     C --> D[Seleccionar zona]
-    D --> E{¿Ingredientes disponibles?}
-    E -->|No| F[Reservar ingredientes]
-    E -->|Sí| G[Programar partida]
-    F --> G
-    G --> H[PENDIENTE]
-    H --> I[INICIO]
+    D --> E[Programar partida]
+    E --> F[PENDIENTE]
+    F --> G[Crear órdenes de producción]
+    G --> H{¿Órdenes creadas?}
+    H -->|Sí| I[INICIO]
     I --> J[IN_PROGRESS]
     J --> K{¿Todas órdenes completas?}
     K -->|No| L[Continuar producción]
@@ -140,9 +139,10 @@ graph TD
     L --> J
     M --> N[COMPLETED]
     N --> O[Generar reporte]
-    O --> P[Actualizar inventario]
-    P --> Q[*]
+    O --> P[*]
 ```
+
+**Nota:** La creación de órdenes de producción ya no requiere verificación de disponibilidad de ingredientes ni realiza reserva de stock. La receta es opcional (solo referencia de trazabilidad).
 
 ## Órdenes de Producción
 
@@ -152,53 +152,38 @@ graph TD
 interface ProductionOrder {
   id: string;
   batchId: string;
-  recipeId: string;
-  recipeName: string;
-  quantity: number;
-  unit: string;
-  ingredients: ProductionIngredient[];
+  title: string;                        // Obligatorio: identificador de texto libre
+  description?: string;                 // Opcional: descripción adicional
+  recipeId?: string;                    // Opcional: referencia de trazabilidad a receta
+  recipeName?: string;                  // Opcional: nombre de la receta (si está vinculada)
+  quantity?: number;                    // Opcional: cantidad (solo si hay receta)
+  unit?: string;                        // Opcional: unidad de medida
   estimatedTime: number;                // en minutos
   actualTime?: number;                  // tiempo real en minutos
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   miseEnPlaceItems: MiseEnPlaceItem[];
+  notes?: string;                       // Notas internas (no expuesto en creación)
   createdAt: Date;
-}
-
-interface ProductionIngredient {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unit: string;
-  isAvailable: boolean;
-  reserved: boolean;
 }
 ```
 
-### Cálculo de Ingredientes
+### Creación de Orden de Producción
 
 ```typescript
 async createProductionOrder(dto: CreateProductionOrderDto): Promise<any> {
-  // Check ingredient availability
-  for (const ingredient of dto.ingredients) {
-    if (!ingredient.isAvailable) {
-      throw new BadRequestException(
-        `Ingredient ${ingredient.productName} is not available`
-      );
-    }
-
-    // Mark as reserved
-    await this.reserveIngredient(ingredient.productId, ingredient.quantity);
-  }
-
-  // Create order
+  // title es obligatorio, identifica la orden
+  // recipeId/quantity/unit son opcionales
+  // Sin verificación de ingredientes ni reserva de stock
+  
   const order = await this.prisma.productionOrder.create({
     data: {
       batchId: dto.batchId,
-      recipeId: dto.recipeId,
-      recipeName: dto.recipeName,
-      quantity: dto.quantity,
-      unit: dto.unit,
-      ingredients: dto.ingredients,
+      title: dto.title,                 // REQUERIDO
+      description: dto.description,     // opcional
+      recipeId: dto.recipeId,           // opcional
+      recipeName: dto.recipeName,       // opcional
+      quantity: dto.quantity,           // opcional
+      unit: dto.unit,                   // opcional
       estimatedTime: dto.estimatedTime,
       status: 'PENDING',
     },

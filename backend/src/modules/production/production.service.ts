@@ -4,15 +4,12 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
-import { WarehousesService } from "../almacenes/almacenes.service";
 import { NotificationsService } from "../core/notifications.service";
 import { WorkBatchNumberService } from "./services/work-batch-number.service";
 import { ProductionOrderNumberService } from "./services/production-order-number.service";
-import { convertQuantity } from "./utils/unit-conversion.util";
 import {
   CreateWorkBatchDto,
   CreateProductionOrderDto,
-  ProductionIngredientDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
   CreateProductionTaskDto,
@@ -28,7 +25,6 @@ import {
 export class ProductionService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly warehousesService: WarehousesService,
     private readonly notificationsService: NotificationsService,
     private readonly batchNumberService: WorkBatchNumberService,
     private readonly orderNumberService: ProductionOrderNumberService,
@@ -135,23 +131,6 @@ export class ProductionService {
       throw new NotFoundException("Work batch not found");
     }
 
-    for (const ingredient of dto.ingredients) {
-      if (!ingredient.isAvailable) {
-        throw new BadRequestException(
-          `Ingredient ${ingredient.productName} is not available`,
-        );
-      }
-      // Reservar la cantidad TOTAL necesaria (ingrediente por unidad × unidades
-      // del pedido) — debe cuadrar con lo que updateInventory libera/consume
-      // al completar la orden, o reservedStock deriva a negativo.
-      await this.reserveIngredient(
-        tenantId,
-        ingredient.productId,
-        ingredient.quantity * dto.quantity,
-        ingredient.unit,
-      );
-    }
-
     const orderNumber =
       await this.orderNumberService.generateOrderNumber(tenantId);
 
@@ -159,6 +138,7 @@ export class ProductionService {
       data: {
         tenantId,
         batchId: dto.batchId,
+        title: dto.title,
         recipeId: dto.recipeId,
         recipeName: dto.recipeName,
         quantity: dto.quantity,
@@ -168,7 +148,7 @@ export class ProductionService {
         orderType: "PREPARATION",
         status: "PENDING",
         scheduledFor: new Date(),
-        items: dto.ingredients as any,
+        description: dto.description,
         createdBy: userId,
       },
     });
@@ -223,7 +203,6 @@ export class ProductionService {
     });
 
     await this.updateProgressTracking(orderId, "COMPLETED");
-    await this.updateInventory(tenantId, orderId);
 
     return { success: true, data: order };
   }
@@ -662,56 +641,6 @@ export class ProductionService {
     return combined;
   }
 
-  private async reserveIngredient(
-    tenantId: string,
-    productId: string,
-    quantity: number,
-    unit: string,
-  ): Promise<void> {
-    // El Stock del artículo se lleva en su unidad de referencia (p.ej. "kilo"),
-    // que no siempre coincide con la unidad del ingrediente en la receta
-    // (p.ej. "g") — convertir antes de reservar, o los números no cuadran.
-    const quantityInStockUnit = await this.convertToProductReferenceUnit(
-      tenantId,
-      productId,
-      quantity,
-      unit,
-    );
-
-    // Delega en WarehousesService (mismo servicio que usa Almacenes) en vez de
-    // tocar Product directamente — Product no tiene columnas de stock propias,
-    // el stock real vive en el modelo Stock (por almacén). No se selecciona
-    // almacén concreto aquí (la orden de producción no lo pide todavía).
-    await this.warehousesService.reserveStock(
-      tenantId,
-      productId,
-      quantityInStockUnit,
-    );
-  }
-
-  private async convertToProductReferenceUnit(
-    tenantId: string,
-    productId: string,
-    quantity: number,
-    unit: string,
-  ): Promise<number> {
-    const product = await this.prisma.product.findFirst({
-      where: { id: productId, tenantId },
-      select: { referenceUnit: true },
-    });
-    if (!product) {
-      throw new NotFoundException("Product not found");
-    }
-
-    const converted = convertQuantity(quantity, unit, product.referenceUnit);
-    if (converted === null) {
-      throw new BadRequestException(
-        `No se puede convertir de "${unit}" a "${product.referenceUnit}" (unidad del artículo)`,
-      );
-    }
-    return converted;
-  }
-
   private async getStaffMemberScoped(tenantId: string, staffId: string) {
     return this.prisma.staffMember.findFirst({
       where: { id: staffId, tenantId },
@@ -878,49 +807,10 @@ export class ProductionService {
     await this.notificationsService.notifyProductionDelay(
       order.tenantId,
       order.orderNumber,
-      order.recipeName,
+      order.title,
       tracking.status as "DELAYED" | "CRITICAL",
       order.id,
     );
-  }
-
-  private async updateInventory(
-    tenantId: string,
-    orderId: string,
-  ): Promise<void> {
-    const order = await this.prisma.productionOrder.findUnique({
-      where: { id: orderId },
-    });
-    if (!order) {
-      return;
-    }
-
-    const ingredients =
-      (order.items as unknown as ProductionIngredientDto[]) ?? [];
-    for (const ingredient of ingredients) {
-      const stock = await this.prisma.stock.findFirst({
-        where: { productId: ingredient.productId, tenantId },
-      });
-      if (!stock) {
-        continue;
-      }
-      // Misma conversión que al reservar (ver reserveIngredient) — el
-      // consumo debe estar en la misma unidad en la que se reservó, o
-      // reservedStock deriva a un valor incorrecto.
-      const consumed = await this.convertToProductReferenceUnit(
-        tenantId,
-        ingredient.productId,
-        ingredient.quantity * order.quantity,
-        ingredient.unit,
-      );
-      await this.prisma.stock.update({
-        where: { id: stock.id },
-        data: {
-          quantity: { decrement: consumed },
-          reservedStock: { decrement: consumed },
-        },
-      });
-    }
   }
 
   private async generateFinalReport(batchId: string): Promise<void> {

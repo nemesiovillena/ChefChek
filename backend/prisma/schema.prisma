@@ -1059,10 +1059,11 @@ model ProductionOrder {
   id            String    @id @default(cuid())
   tenantId      String
   batchId       String
-  recipeId      String
-  recipeName    String
-  quantity      Float
-  unit          String
+  title         String
+  recipeId      String?
+  recipeName    String?
+  quantity      Float?
+  unit          String?
   estimatedTime Float
   orderNumber   String
   orderType     String // PREPARATION, COOKING, PLATING
@@ -1071,6 +1072,7 @@ model ProductionOrder {
   startedAt     DateTime?
   completedAt   DateTime?
   items         Json?
+  description   String?
   actualTime    Float?
   notes         String?
   createdBy     String
