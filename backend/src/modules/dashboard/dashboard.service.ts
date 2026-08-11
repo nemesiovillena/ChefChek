@@ -182,12 +182,12 @@ export class DashboardService {
           deletedAt: null,
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
-        // Las órdenes no llevan fecha de vencimiento propia: scheduledFor se fija
-        // a now() al crearlas (ver ProductionService.createProductionOrder), así
-        // que ordenar ascendente equivale a mostrar las más antiguas primero.
-        // Descendente = más recientes. Sin take: el dashboard debe listar todas
-        // las tareas pendientes/en curso, no solo las últimas 6.
-        orderBy: { scheduledFor: "desc" },
+        // Se ordena por la fecha del LOTE (lotDate, lo que ve el usuario en la
+        // card), no por order.scheduledFor (que solo marca cuándo se creó la
+        // orden). Ascendente = día asignado más antiguo primero. Sin take: el
+        // dashboard debe listar todas las tareas pendientes/en curso, no solo
+        // las últimas 6.
+        orderBy: { batch: { scheduledFor: "asc" } },
         include: { batch: { select: { scheduledFor: true } } },
       },
     );
