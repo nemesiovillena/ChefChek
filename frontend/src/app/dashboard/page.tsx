@@ -14,7 +14,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 // Tope de tareas visibles en la card del dashboard; el resto se consulta en
-// /dashboard/production vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
+// /dashboard/production/tasks vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
 // que solo se muestra si realmente quedan tareas fuera de este tope.
 const DASHBOARD_TASKS_LIMIT = 6;
 
@@ -260,7 +260,7 @@ export default function DashboardPage() {
       {hasMoreTasks && (
         <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
           <button
-            onClick={() => router.push('/dashboard/production')}
+            onClick={() => router.push('/dashboard/production/tasks')}
             className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
           >
             VER LISTA DE PREPARACIÓN COMPLETA
