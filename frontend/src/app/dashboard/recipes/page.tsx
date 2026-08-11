@@ -26,7 +26,7 @@ import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import { useInvalidateQueries } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -629,7 +629,7 @@ export default function RecipesPage() {
                       recipe.pricing.costPercentage > recipe.pricing.targetCostPercentage;
                     return (
                     <tr key={recipe.id} className={trHoverClass}>
-                      <td className="px-3 py-3 max-w-[260px]">
+                      <td className="px-3 py-3 max-w-[210px]">
                         <div
                           className={`truncate text-sm font-medium ${
                             isOverTarget ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--on-surface)]'
@@ -682,15 +682,21 @@ export default function RecipesPage() {
                         {formatEuro(costPerPortionOf(recipe))}
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
+                        {/* Icono en vez de texto: "Activo"/"Desactivado" era una de
+                            las columnas que más ensanchaba la fila y ocultaba la
+                            papelera en el viewport de iPad (mismo criterio que en
+                            líneas de albarán). */}
                         <button
                           onClick={() => handleToggleStatus(recipe)}
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                          title={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
+                          aria-label={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
                             recipe.isActive
                               ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                           }`}
                         >
-                          {recipe.isActive ? 'Activo' : 'Desactivado'}
+                          {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                         </button>
                       </td>
                       <td className={tdActionsClass}>
