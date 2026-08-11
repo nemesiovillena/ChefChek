@@ -76,15 +76,6 @@ export class ProductionController {
     return this.productionService.getWorkBatchById(req.tenantId, batchId);
   }
 
-  @Post("batches/:batchId/start")
-  @Roles("ADMIN", "USER")
-  @ApiOperation({ summary: "Iniciar un lote de trabajo" })
-  @ApiParam({ name: "batchId", description: "ID del lote" })
-  @ApiResponse({ status: 200, description: "Lote iniciado" })
-  async startWorkBatch(@Req() req: any, @Param("batchId") batchId: string) {
-    return this.productionService.startWorkBatch(req.tenantId, batchId);
-  }
-
   @Post("batches/:batchId/complete")
   @Roles("ADMIN", "USER")
   @ApiOperation({ summary: "Completar un lote de trabajo" })

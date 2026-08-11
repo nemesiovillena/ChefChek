@@ -205,27 +205,7 @@ describe("ProductionService", () => {
     });
   });
 
-  describe("startWorkBatch / completeWorkBatch", () => {
-    it("should start a work batch", async () => {
-      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
-      mockPrismaService.workBatch.update.mockResolvedValue({
-        id: batchId,
-        status: "IN_PROGRESS",
-      });
-
-      const result = await service.startWorkBatch(tenantId, batchId);
-
-      expect(result.data.status).toBe("IN_PROGRESS");
-    });
-
-    it("should throw NotFoundException starting a missing batch", async () => {
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
-
-      await expect(service.startWorkBatch(tenantId, batchId)).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
+  describe("completeWorkBatch", () => {
     it("should complete a batch and skip the report when it has no orders", async () => {
       mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
       mockPrismaService.workBatch.update.mockResolvedValue({

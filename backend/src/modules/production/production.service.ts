@@ -84,22 +84,6 @@ export class ProductionService {
     return batch;
   }
 
-  async startWorkBatch(tenantId: string, batchId: string): Promise<any> {
-    const existing = await this.prisma.workBatch.findFirst({
-      where: { id: batchId, tenantId, deletedAt: null },
-    });
-    if (!existing) {
-      throw new NotFoundException("Work batch not found");
-    }
-
-    const batch = await this.prisma.workBatch.update({
-      where: { id: batchId },
-      data: { status: "IN_PROGRESS", startedAt: new Date() },
-    });
-
-    return { success: true, data: batch };
-  }
-
   async completeWorkBatch(tenantId: string, batchId: string): Promise<any> {
     const existing = await this.prisma.workBatch.findFirst({
       where: { id: batchId, tenantId, deletedAt: null },

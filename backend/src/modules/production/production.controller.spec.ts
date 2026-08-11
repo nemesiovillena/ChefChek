@@ -19,7 +19,6 @@ describe("ProductionController", () => {
     createWorkBatch: jest.fn(),
     getWorkBatches: jest.fn(),
     getWorkBatchById: jest.fn(),
-    startWorkBatch: jest.fn(),
     completeWorkBatch: jest.fn(),
     createProductionOrder: jest.fn(),
     getProductionOrdersByBatch: jest.fn(),
@@ -130,23 +129,6 @@ describe("ProductionController", () => {
 
         expect(result.id).toBe("batch-1");
         expect(mockProductionService.getWorkBatchById).toHaveBeenCalledWith(
-          "tenant-1",
-          "batch-1",
-        );
-      });
-    });
-
-    describe("startWorkBatch", () => {
-      it("should start a work batch", async () => {
-        mockProductionService.startWorkBatch.mockResolvedValue({
-          success: true,
-          data: { id: "batch-1", status: "IN_PROGRESS" },
-        });
-
-        const result = await controller.startWorkBatch(mockReq, "batch-1");
-
-        expect(result.success).toBe(true);
-        expect(mockProductionService.startWorkBatch).toHaveBeenCalledWith(
           "tenant-1",
           "batch-1",
         );

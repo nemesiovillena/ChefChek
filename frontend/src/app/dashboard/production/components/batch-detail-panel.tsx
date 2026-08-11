@@ -33,7 +33,7 @@ interface BatchDetailPanelProps {
 
 export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
   const confirm = useConfirm();
-  const { startBatch, completeBatch, isStarting, isCompleting } = useProductionBatches();
+  const { completeBatch, isCompleting } = useProductionBatches();
   const {
     orders,
     isLoading: ordersLoading,
@@ -51,12 +51,6 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     for (const s of staff) map.set(s.id, s.name);
     return map;
   }, [staff]);
-
-  const handleStartBatch = async () => {
-    const ok = await confirm({ title: 'Iniciar lote', description: `¿Iniciar el lote ${batch.batchNumber}?` });
-    if (!ok) return;
-    await startBatch(batch.id);
-  };
 
   const handleCompleteBatch = async () => {
     const ok = await confirm({
@@ -105,12 +99,7 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
         <div className="flex items-center justify-between">
           <CardTitle>{batch.batchNumber}</CardTitle>
           <div className="flex gap-2">
-            {batch.status === 'PLANNED' && (
-              <Button size="sm" onClick={handleStartBatch} disabled={isStarting}>
-                Iniciar lote
-              </Button>
-            )}
-            {batch.status === 'IN_PROGRESS' && (
+            {batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED' && (
               <Button size="sm" onClick={handleCompleteBatch} disabled={isCompleting}>
                 Completar lote
               </Button>
