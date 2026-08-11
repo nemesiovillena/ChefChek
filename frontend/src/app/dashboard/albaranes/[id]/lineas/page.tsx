@@ -19,9 +19,8 @@ import { AddLineForm } from '@/components/albaranes/add-line-form';
 import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
@@ -214,100 +213,98 @@ export default function AlbaranLineasPage() {
   const isEditable = (line: AlbaranLine) => line.lineStatus === 'PENDIENTE';
 
   const getLineStatusBadge = (status: LineStatus) => {
-    const config: Record<LineStatus, { label: string; className: string }> = {
-      PENDIENTE: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
-      CONFIRMADO: { label: 'Confirmado', className: 'bg-green-100 text-green-800' },
-      RECHAZADO: { label: 'Rechazado', className: 'bg-red-100 text-red-800' },
+    // Badge de solo icono (con tooltip) en vez de texto: la palabra completa
+    // ("Pendiente"/"Confirmado"/"Rechazado") era una de las columnas que más
+    // ensanchaba la fila y la sacaba del viewport en iPad.
+    const config: Record<LineStatus, { icon: typeof Clock; className: string; label: string }> = {
+      PENDIENTE: { icon: Clock, className: 'bg-yellow-100 text-yellow-800', label: 'Pendiente' },
+      CONFIRMADO: { icon: Check, className: 'bg-green-100 text-green-800', label: 'Confirmado' },
+      RECHAZADO: { icon: X, className: 'bg-red-100 text-red-800', label: 'Rechazado' },
     };
+    const { icon: Icon, className, label } = config[status];
     return (
-      <Badge variant="secondary" className={config[status].className}>
-        {config[status].label}
-      </Badge>
+      <span
+        className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${className}`}
+        title={label}
+        aria-label={label}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
     );
   };
 
   const renderLineActions = (line: AlbaranLine) => {
-    if (line.lineStatus === 'CONFIRMADO') {
-      return (
-        <div className="flex items-center gap-1 text-green-600">
-          <Check className="h-4 w-4" />
-          <span className="text-xs">Confirmado</span>
-        </div>
-      );
+    // Sin texto para estados terminales: la columna Estado ya lo muestra
+    // (icono con tooltip) y repetirlo aquí era la causa principal de que la
+    // fila no cupiera entera en iPad.
+    if (line.lineStatus === 'CONFIRMADO' || line.lineStatus === 'RECHAZADO') {
+      return <span className="text-gray-300">—</span>;
     }
 
-    if (line.lineStatus === 'RECHAZADO') {
-      return (
-        <span className="text-xs text-gray-400 line-through">Rechazado</span>
-      );
-    }
-
-    // PENDIENTE lines - show actions based on matchStatus
+    // PENDIENTE lines - show actions based on matchStatus. Icon-only (con
+    // title) y en grid de 2 columnas: en MATCH_DUDOSO/NUEVO caben hasta 4
+    // botones (Elegir/Crear + Confirmar/Rechazar) en la misma celda, y en
+    // fila única no cabían en el viewport de iPad.
     return (
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-1 w-fit">
         {(line.matchStatus === 'MATCH_DUDOSO' || line.matchStatus === 'NUEVO') &&
           creatingLine !== line.id && (
             <>
               {/* Puede ser un existente que el OCR no casó (o casó mal): ofrecer
                   vincular antes de crear un artículo paralelo (duplicado). */}
               <Button
-                size="sm"
+                size="icon-sm"
                 variant="outline"
                 onClick={() => handleOpenPicker(line)}
+                title="Elegir artículo existente"
                 className={
                   line.matchStatus === 'MATCH_DUDOSO'
                     ? 'text-yellow-700 border-yellow-300 hover:bg-yellow-50'
                     : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'
                 }
               >
-                <Search className="h-3 w-3 mr-1" />
-                Elegir
+                <Search className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="sm"
+                size="icon-sm"
                 variant="outline"
                 onClick={() => handleOpenCreate(line)}
+                title="Crear artículo nuevo"
                 className="text-red-700 border-red-300 hover:bg-red-50"
               >
-                <Plus className="h-3 w-3 mr-1" />
-                Crear
+                <Plus className="h-3.5 w-3.5" />
               </Button>
             </>
           )}
 
-        {line.matchStatus === 'MATCH_ALTO' && line.matchedProduct && (
-          <div className="flex items-center gap-1 text-green-600">
-            <Check className="h-4 w-4" />
-            <span className="text-xs">Auto-match</span>
-          </div>
-        )}
-
         {/* Confirm/Reject buttons for all PENDIENTE lines */}
         {creatingLine !== line.id && (
-          <div className="flex gap-1 ml-2">
+          <>
             <Button
-              size="sm"
+              size="icon-sm"
               variant="outline"
               onClick={() => handleConfirmLine(line.id)}
               disabled={updating === line.id}
+              title="Confirmar línea"
               className="text-green-600 hover:bg-green-50"
             >
               {updating === line.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle className="h-3.5 w-3.5" />
               )}
             </Button>
             <Button
-              size="sm"
+              size="icon-sm"
               variant="outline"
               onClick={() => handleRejectLine(line.id)}
               disabled={updating === line.id}
+              title="Rechazar línea"
               className="text-red-600 hover:bg-red-50"
             >
-              <XCircle className="h-4 w-4" />
+              <XCircle className="h-3.5 w-3.5" />
             </Button>
-          </div>
+          </>
         )}
       </div>
     );
