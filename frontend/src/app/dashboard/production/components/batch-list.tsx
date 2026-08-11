@@ -60,13 +60,13 @@ export default function BatchList({
         <Card
           key={batch.id}
           onClick={() => onSelect(batch)}
-          className={`p-6 cursor-pointer transition-colors ${
+          className={`p-4 sm:p-6 cursor-pointer transition-colors ${
             selectedBatchId === batch.id ? 'border-primary' : 'hover:bg-muted/40'
           }`}
         >
           <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <h3 className="text-lg font-semibold">{batch.batchNumber}</h3>
                 <Badge variant="outline">
                   <Clock className="mr-1 h-3 w-3" />
@@ -75,7 +75,7 @@ export default function BatchList({
                 {getBatchStatusBadge(batch.status)}
               </div>
               {batch.notes && <p className="text-sm text-muted-foreground mb-2">{batch.notes}</p>}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span>Zona: {batch.kitchenZone}</span>
                 <span>Prioridad: {batch.priority}</span>
                 {batch.responsible.length > 0 && <span>Responsables: {batch.responsible.join(', ')}</span>}

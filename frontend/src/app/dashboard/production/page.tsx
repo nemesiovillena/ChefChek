@@ -70,12 +70,12 @@ export default function ProductionPage() {
         </p>
       </div>
 
-      <div role="tablist" className="mb-6 flex gap-2 border-b">
+      <div role="tablist" className="mb-6 flex gap-2 overflow-x-auto border-b">
         <button
           role="tab"
           aria-selected={activeTab === 'batches'}
           onClick={() => setActiveTab('batches')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'batches' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
           }`}
         >
@@ -85,7 +85,7 @@ export default function ProductionPage() {
           role="tab"
           aria-selected={activeTab === 'history'}
           onClick={() => setActiveTab('history')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'history' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
           }`}
         >
@@ -95,7 +95,7 @@ export default function ProductionPage() {
           role="tab"
           aria-selected={activeTab === 'staff'}
           onClick={() => setActiveTab('staff')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`shrink-0 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'staff' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
           }`}
         >
@@ -107,9 +107,9 @@ export default function ProductionPage() {
         <StaffList />
       ) : activeTab === 'history' ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold">Historial de lotes</h2>
-            <Button variant="outline" onClick={() => refetch()}>
+            <Button variant="outline" onClick={() => refetch()} className="self-start sm:self-auto">
               <RefreshCw className="mr-2 h-4 w-4" />
               Actualizar
             </Button>
@@ -145,9 +145,9 @@ export default function ProductionPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-bold">Lotes de producción</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => refetch()}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Actualizar
