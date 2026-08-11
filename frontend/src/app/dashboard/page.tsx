@@ -13,6 +13,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// Tope de tareas visibles en la card del dashboard; el resto se consulta en
+// /dashboard/production vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
+// que solo se muestra si realmente quedan tareas fuera de este tope.
+const DASHBOARD_TASKS_LIMIT = 6;
+
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -182,6 +187,9 @@ export default function DashboardPage() {
     </div>
   );
 
+  const visibleTasks = kpis?.upcomingProductionTasks?.slice(0, DASHBOARD_TASKS_LIMIT) ?? [];
+  const hasMoreTasks = (kpis?.upcomingProductionTasks?.length ?? 0) > DASHBOARD_TASKS_LIMIT;
+
   const tareasPendientesBoard = (
     <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
@@ -195,8 +203,8 @@ export default function DashboardPage() {
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             Cargando tareas...
           </div>
-        ) : kpis?.upcomingProductionTasks && kpis.upcomingProductionTasks.length > 0 ? (
-          kpis.upcomingProductionTasks.map(task => {
+        ) : visibleTasks.length > 0 ? (
+          visibleTasks.map(task => {
             const inProgress = task.status === 'IN_PROGRESS';
             const lotDate = new Date(task.lotDate);
             return (
@@ -249,14 +257,16 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
-        <button
-          onClick={() => router.push('/dashboard/production')}
-          className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-        >
-          VER LISTA DE PREPARACIÓN COMPLETA
-        </button>
-      </div>
+      {hasMoreTasks && (
+        <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
+          <button
+            onClick={() => router.push('/dashboard/production')}
+            className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          >
+            VER LISTA DE PREPARACIÓN COMPLETA
+          </button>
+        </div>
+      )}
     </div>
   );
 
