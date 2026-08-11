@@ -159,6 +159,13 @@ export default function RecipesPage() {
     });
   }, [recipes, sortField, sortDirection]);
 
+  // Vista móvil (< md): solo lectura, sin recetas desactivadas — el toggle
+  // de estado y las demás acciones quedan reservadas a iPad/desktop.
+  const mobileVisibleRecipes = useMemo(
+    () => sortedRecipes.filter((recipe) => recipe.isActive !== false),
+    [sortedRecipes],
+  );
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -602,7 +609,52 @@ export default function RecipesPage() {
 
         {/* Recipes Table */}
         <div className={tableCardClass}>
-          <div className={tableScrollClass}>
+          {/* Vista móvil (< md): solo lectura — título, categoría e icono
+              para ver/imprimir la receta. Sin ficha técnica, costo ni
+              recetas desactivadas (eso queda para iPad/desktop). */}
+          <div className="md:hidden divide-y divide-[var(--outline-variant)]">
+            {mobileVisibleRecipes.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-[var(--on-surface-variant)]">
+                No hay recetas
+              </div>
+            ) : (
+              mobileVisibleRecipes.map((recipe: Recipe) => (
+                <button
+                  key={recipe.id}
+                  type="button"
+                  onClick={() => handleViewRecipeCard(recipe)}
+                  disabled={generatingSheetId === recipe.id}
+                  title="Ver receta"
+                  aria-label={`Ver receta: ${recipe.name}`}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-container)] active:bg-[var(--surface-container-high)] disabled:opacity-50 disabled:cursor-wait"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-[var(--on-surface)]">
+                      {recipe.name}
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {recipe.categories && recipe.categories.length > 0 ? (
+                        recipe.categories.map((cat) => (
+                          <span
+                            key={cat.categoryId}
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
+                          >
+                            {categories.find((c) => c.id === cat.categoryId)?.icon} {cat.categoryName}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-[var(--outline)]">Sin categorías</span>
+                      )}
+                    </div>
+                  </div>
+                  <BookOpen className="h-5 w-5 flex-shrink-0 text-purple-600 dark:text-purple-400" />
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* Vista tabla completa: iPad y desktop (>= md) */}
+          <div className={`hidden md:block ${tableScrollClass}`}>
             <table className={tableClass}>
               <thead className={theadClass}>
                 <tr>
