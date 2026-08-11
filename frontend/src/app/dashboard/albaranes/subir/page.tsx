@@ -59,6 +59,10 @@ function SubirAlbaranContent() {
   const localModel = getOcrModel();
   const aiModel = serverModel ?? (localModel && localModel !== 'regex' ? localModel : 'regex');
   const aiApiKey = aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
+  // La key puede estar guardada en el servidor (compartida por tenant) aunque
+  // este dispositivo no la tenga en su localStorage — por eso el estado
+  // "configurada" debe mirar ambas fuentes, no solo la local.
+  const hasApiKeyConfigured = Boolean(ocrConfig?.hasApiKey) || Boolean(aiApiKey);
 
   const {
     fileInputRef,
@@ -125,7 +129,7 @@ function SubirAlbaranContent() {
             {/* API Key status — enlace a settings si no hay key */}
             {needsApiKey && (
               <div>
-                {aiApiKey ? (
+                {hasApiKeyConfigured ? (
                   <p className="text-xs text-green-600 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
                     API Key configurada
