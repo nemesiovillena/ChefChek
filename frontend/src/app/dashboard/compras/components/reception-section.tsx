@@ -158,7 +158,7 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
               return (
                 <li key={albaran.id}>
                   <Link
-                    href={`/dashboard/albaranes/${albaran.id}/resumen`}
+                    href={`/dashboard/albaranes/${albaran.id}/resumen?returnTo=${encodeURIComponent(`/dashboard/compras/pedidos/${order.id}`)}`}
                     className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] transition hover:bg-[var(--surface-container-low)]"
                   >
                     <FileStack className="h-4 w-4 text-[var(--on-surface-variant)]" />

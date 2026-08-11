@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
@@ -26,7 +26,13 @@ import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 export default function AlbaranLineasPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  // Si se llegó desde un Pedido (ver ReceptionSection), "Confirmar" y "Volver"
+  // deben regresar allí en vez de al listado de Albaranes por defecto.
+  const returnTo = searchParams.get('returnTo');
+  const backHref = returnTo || '/dashboard/albaranes';
+  const backLabel = returnTo ? 'Volver al Pedido' : 'Volver a Albaranes';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -99,11 +105,12 @@ export default function AlbaranLineasPage() {
             ? 'Stock actualizado y productos nuevos creados en el catálogo'
             : 'Ya puedes confirmar el albarán para asentar el stock',
       });
-      // Confirmado = fin del flujo de revisión: vuelve directo al listado
-      // (paridad con la pestaña Resumen) en vez de dejar al usuario varado
-      // en Líneas con que tenga que navegar manualmente.
+      // Confirmado = fin del flujo de revisión: vuelve directo al listado (o
+      // al Pedido si llegó desde allí; paridad con la pestaña Resumen) en vez
+      // de dejar al usuario varado en Líneas con que tenga que navegar
+      // manualmente.
       if (nextStatus === 'CONFIRMADO') {
-        router.push('/dashboard/albaranes');
+        router.push(backHref);
         return;
       }
       refetch();
@@ -336,9 +343,9 @@ export default function AlbaranLineasPage() {
 
   return (
     <div>
-      <Button variant="ghost" onClick={() => router.push('/dashboard/albaranes')} className="mb-4">
+      <Button variant="ghost" onClick={() => router.push(backHref)} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver a Albaranes
+        {backLabel}
       </Button>
 
       <Card className="mb-6">

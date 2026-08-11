@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
@@ -21,7 +21,13 @@ import type { AlbaranStatus } from '@/lib/api-albaran';
 export default function AlbaranResumenPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  // Si se llegó desde un Pedido (ver ReceptionSection), "Confirmar" y "Volver"
+  // deben regresar allí en vez de al listado de Albaranes por defecto.
+  const returnTo = searchParams.get('returnTo');
+  const backHref = returnTo || '/dashboard/albaranes';
+  const backLabel = returnTo ? 'Volver al Pedido' : 'Volver a Albaranes';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState(false);
@@ -90,10 +96,10 @@ export default function AlbaranResumenPage() {
       // staleTime global (5min) sirve el snapshot de antes de confirmar y la
       // pestaña Líneas sigue mostrando el CTA "Confirmar Albarán".
       void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
-      // Al confirmar, el usuario vuelve directamente al listado en vez de
-      // quedarse en el resumen del albarán ya confirmado.
+      // Al confirmar, el usuario vuelve directamente al listado (o al Pedido
+      // si llegó desde allí) en vez de quedarse en el resumen ya confirmado.
       if (newStatus === 'CONFIRMADO') {
-        router.push('/dashboard/albaranes');
+        router.push(backHref);
         return;
       }
       refetch();
@@ -191,9 +197,9 @@ export default function AlbaranResumenPage() {
 
   return (
     <div>
-      <Button variant="ghost" onClick={() => router.push('/dashboard/albaranes')} className="mb-4">
+      <Button variant="ghost" onClick={() => router.push(backHref)} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver a Albaranes
+        {backLabel}
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

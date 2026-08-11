@@ -2,7 +2,7 @@
 
 import { use } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { FileText, Layers } from 'lucide-react';
 
 interface LayoutProps {
@@ -12,11 +12,18 @@ interface LayoutProps {
 
 export default function AlbaranDetailLayout({ children, params }: LayoutProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { id } = use(params);
 
+  // Conserva ?returnTo= al cambiar de pestaña: sin esto, entrar desde un
+  // Pedido y saltar de Resumen a Líneas perdía el origen y "Confirmar"
+  // volvía siempre a Albaranes en vez de al Pedido.
+  const returnTo = searchParams.get('returnTo');
+  const query = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
+
   const tabs = [
-    { label: 'Resumen', href: `/dashboard/albaranes/${id}/resumen`, icon: FileText, active: pathname.includes('/resumen') },
-    { label: 'Líneas', href: `/dashboard/albaranes/${id}/lineas`, icon: Layers, active: pathname.includes('/lineas') },
+    { label: 'Resumen', href: `/dashboard/albaranes/${id}/resumen${query}`, icon: FileText, active: pathname.includes('/resumen') },
+    { label: 'Líneas', href: `/dashboard/albaranes/${id}/lineas${query}`, icon: Layers, active: pathname.includes('/lineas') },
   ];
 
   return (
