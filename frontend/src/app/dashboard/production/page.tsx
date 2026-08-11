@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useProductionBatches } from '@/hooks/use-production';
 import type { CreateWorkBatchInput, WorkBatch } from '@/hooks/use-production';
@@ -22,12 +22,20 @@ const HISTORY_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
 
 export default function ProductionPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { batches, isLoading, error, refetch, createBatch, isCreating } = useProductionBatches();
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  // undefined = el usuario aún no ha tocado la selección manualmente, así que
+  // el lote de la URL (llegada desde "Tareas de Prep." del dashboard) manda.
+  const [manualBatchId, setManualBatchId] = useState<string | null | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<ProductionTab>('batches');
+
+  const batchIdParam = searchParams.get('batchId');
+  const highlightOrderId = searchParams.get('orderId');
+  const paramBatchId = batchIdParam && batches.some((b) => b.id === batchIdParam) ? batchIdParam : null;
+  const selectedBatchId = manualBatchId !== undefined ? manualBatchId : paramBatchId;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -58,7 +66,7 @@ export default function ProductionPage() {
   };
 
   const handleSelectBatch = (batch: WorkBatch) => {
-    setSelectedBatchId((current) => (current === batch.id ? null : batch.id));
+    setManualBatchId(selectedBatchId === batch.id ? null : batch.id);
   };
 
   return (
@@ -139,7 +147,7 @@ export default function ProductionPage() {
 
           {selectedBatch && (
             <div className="pt-4 border-t">
-              <BatchDetailPanel batch={selectedBatch} />
+              <BatchDetailPanel batch={selectedBatch} highlightOrderId={highlightOrderId} />
             </div>
           )}
         </div>
@@ -196,7 +204,7 @@ export default function ProductionPage() {
 
           {selectedBatch && (
             <div className="pt-4 border-t">
-              <BatchDetailPanel batch={selectedBatch} />
+              <BatchDetailPanel batch={selectedBatch} highlightOrderId={highlightOrderId} />
             </div>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useApiQuery } from './use-api';
 
 export interface UpcomingProductionTask {
   id: string;
+  batchId: string;
   title: string;
   orderType: string;
   status: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
@@ -11,12 +11,20 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
 import { useStaffMembers } from '@/hooks/use-production-staff';
 import type { WorkBatch } from '@/hooks/use-production';
+import { cn } from '@/lib/utils';
 import OrderCreateDialog from './order-create-dialog';
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 
-const ORDER_STATUS_CONFIG: Record<string, { label: string; variant: BadgeVariant }> = {
-  PENDING: { label: 'Pendiente', variant: 'secondary' },
+// PENDING lleva colores propios (no una variant estándar) porque es el
+// estado que más debe llamar la atención del trabajador en cocina.
+const ORDER_STATUS_CONFIG: Record<string, { label: string; variant: BadgeVariant; className?: string }> = {
+  PENDING: {
+    label: 'Pendiente',
+    variant: 'outline',
+    className:
+      'border-amber-400 bg-amber-100 text-amber-900 font-semibold dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+  },
   IN_PROGRESS: { label: 'En progreso', variant: 'default' },
   COMPLETED: { label: 'Completado', variant: 'default' },
   CANCELLED: { label: 'Cancelado', variant: 'destructive' },
@@ -24,15 +32,21 @@ const ORDER_STATUS_CONFIG: Record<string, { label: string; variant: BadgeVariant
 
 function getOrderStatusBadge(status: string) {
   const config = ORDER_STATUS_CONFIG[status] || { label: status, variant: 'secondary' as BadgeVariant };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  return (
+    <Badge variant={config.variant} className={config.className}>
+      {config.label}
+    </Badge>
+  );
 }
 
 interface BatchDetailPanelProps {
   batch: WorkBatch;
+  highlightOrderId?: string | null;
 }
 
-export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
+export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetailPanelProps) {
   const confirm = useConfirm();
+  const highlightedOrderRef = useRef<HTMLDivElement | null>(null);
   const { completeBatch, isCompleting } = useProductionBatches();
   const {
     orders,
@@ -51,6 +65,14 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
     for (const s of staff) map.set(s.id, s.name);
     return map;
   }, [staff]);
+
+  // Llegada desde el dashboard con una orden concreta: la centra en pantalla
+  // en vez de dejar que el trabajador la busque entre todas las del lote.
+  useEffect(() => {
+    if (highlightOrderId && highlightedOrderRef.current) {
+      highlightedOrderRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightOrderId, orders]);
 
   const handleCompleteBatch = async () => {
     const ok = await confirm({
@@ -132,11 +154,18 @@ export default function BatchDetailPanel({ batch }: BatchDetailPanelProps) {
               const assignedNames = (order.assignedStaffIds ?? [])
                 .map((id) => staffNameById.get(id))
                 .filter((n): n is string => Boolean(n));
+              const isHighlighted = order.id === highlightOrderId;
               return (
-                <Card key={order.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                <Card
+                  key={order.id}
+                  className={cn('p-4', isHighlighted && 'border-primary ring-2 ring-primary')}
+                >
+                  <div
+                    ref={isHighlighted ? highlightedOrderRef : undefined}
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="font-medium">{order.title}</span>
                         {getOrderStatusBadge(order.status)}
                       </div>

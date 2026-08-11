@@ -210,7 +210,7 @@ export default function DashboardPage() {
             return (
               <div
                 key={task.id}
-                onClick={() => router.push('/dashboard/production')}
+                onClick={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
                 className="p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100"
               >
                 <div className="flex items-center gap-stack-lg">

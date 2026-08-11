@@ -208,6 +208,7 @@ export class DashboardService {
 
     const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
       id: order.id,
+      batchId: order.batchId,
       title: order.title,
       orderType: order.orderType,
       status: order.status,
