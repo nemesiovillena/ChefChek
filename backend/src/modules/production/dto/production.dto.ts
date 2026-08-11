@@ -71,6 +71,8 @@ export class CreateWorkBatchDto {
   kitchenZone: KitchenZone;
 }
 
+export class UpdateWorkBatchDto extends CreateWorkBatchDto {}
+
 export class CreateProductionOrderDto {
   @IsString()
   batchId: string;

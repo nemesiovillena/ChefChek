@@ -12,7 +12,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { BatchPriority, CreateWorkBatchInput, KitchenZone } from '@/hooks/use-production';
+import type { BatchPriority, CreateWorkBatchInput, KitchenZone, WorkBatch } from '@/hooks/use-production';
+
+function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function toTimeInputValue(date: Date): string {
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
 
 const PRIORITY_OPTIONS: { value: BatchPriority; label: string }[] = [
   { value: 'LOW', label: 'Baja' },
@@ -35,15 +48,19 @@ interface BatchCreateDialogProps {
   onClose: () => void;
   onSubmit: (input: CreateWorkBatchInput) => Promise<void>;
   isSubmitting: boolean;
+  initialBatch?: WorkBatch;
 }
 
-export default function BatchCreateDialog({ onClose, onSubmit, isSubmitting }: BatchCreateDialogProps) {
-  const [description, setDescription] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('08:00');
-  const [priority, setPriority] = useState<BatchPriority>('MEDIUM');
-  const [kitchenZone, setKitchenZone] = useState<KitchenZone>('HOT_KITCHEN');
-  const [responsibleInput, setResponsibleInput] = useState('');
+export default function BatchCreateDialog({ onClose, onSubmit, isSubmitting, initialBatch }: BatchCreateDialogProps) {
+  const isEditMode = Boolean(initialBatch);
+  const initialScheduled = initialBatch ? new Date(initialBatch.scheduledFor) : null;
+
+  const [description, setDescription] = useState(initialBatch?.notes ?? '');
+  const [scheduledDate, setScheduledDate] = useState(initialScheduled ? toDateInputValue(initialScheduled) : '');
+  const [scheduledTime, setScheduledTime] = useState(initialScheduled ? toTimeInputValue(initialScheduled) : '08:00');
+  const [priority, setPriority] = useState<BatchPriority>(initialBatch?.priority ?? 'MEDIUM');
+  const [kitchenZone, setKitchenZone] = useState<KitchenZone>((initialBatch?.kitchenZone as KitchenZone) ?? 'HOT_KITCHEN');
+  const [responsibleInput, setResponsibleInput] = useState(initialBatch?.responsible.join(', ') ?? '');
 
   const canSubmit = scheduledDate.trim() !== '' && scheduledTime.trim() !== '';
 
@@ -68,7 +85,9 @@ export default function BatchCreateDialog({ onClose, onSubmit, isSubmitting }: B
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-lg shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Nuevo lote de producción</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {isEditMode ? 'Editar lote de producción' : 'Nuevo lote de producción'}
+          </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
@@ -148,7 +167,13 @@ export default function BatchCreateDialog({ onClose, onSubmit, isSubmitting }: B
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
-              {isSubmitting ? 'Creando...' : 'Crear lote'}
+              {isEditMode
+                ? isSubmitting
+                  ? 'Guardando...'
+                  : 'Guardar cambios'
+                : isSubmitting
+                  ? 'Creando...'
+                  : 'Crear lote'}
             </Button>
           </div>
         </div>

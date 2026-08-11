@@ -9,6 +9,7 @@ import { WorkBatchNumberService } from "./services/work-batch-number.service";
 import { ProductionOrderNumberService } from "./services/production-order-number.service";
 import {
   CreateWorkBatchDto,
+  UpdateWorkBatchDto,
   CreateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
@@ -82,6 +83,42 @@ export class ProductionService {
     }
 
     return batch;
+  }
+
+  async updateWorkBatch(
+    tenantId: string,
+    batchId: string,
+    dto: UpdateWorkBatchDto,
+  ): Promise<any> {
+    const existing = await this.prisma.workBatch.findFirst({
+      where: { id: batchId, tenantId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException("Work batch not found");
+    }
+    if (existing.status === "COMPLETED" || existing.status === "CANCELLED") {
+      throw new BadRequestException(
+        "No se puede editar un lote completado o cancelado",
+      );
+    }
+
+    const scheduledFor = this.combineDateAndTime(
+      dto.scheduledDate,
+      dto.scheduledTime,
+    );
+
+    const batch = await this.prisma.workBatch.update({
+      where: { id: batchId },
+      data: {
+        scheduledFor,
+        priority: dto.priority,
+        responsible: dto.responsible,
+        kitchenZone: dto.kitchenZone,
+        notes: dto.description,
+      },
+    });
+
+    return { success: true, data: batch };
   }
 
   async completeWorkBatch(tenantId: string, batchId: string): Promise<any> {

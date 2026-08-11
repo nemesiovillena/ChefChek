@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Package, Plus, Loader2, User, Trash2 } from 'lucide-react';
+import { Package, Plus, Loader2, User, Trash2, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
 import { useStaffMembers } from '@/hooks/use-production-staff';
-import type { WorkBatch } from '@/hooks/use-production';
+import type { CreateWorkBatchInput, WorkBatch } from '@/hooks/use-production';
 import { cn } from '@/lib/utils';
 import OrderCreateDialog from './order-create-dialog';
+import BatchCreateDialog from './batch-create-dialog';
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 
@@ -47,7 +48,7 @@ interface BatchDetailPanelProps {
 export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetailPanelProps) {
   const confirm = useConfirm();
   const highlightedOrderRef = useRef<HTMLDivElement | null>(null);
-  const { completeBatch, isCompleting } = useProductionBatches();
+  const { completeBatch, isCompleting, updateBatch, isUpdating } = useProductionBatches();
   const {
     orders,
     isLoading: ordersLoading,
@@ -58,6 +59,8 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
   } = useProductionOrders(batch.id);
   const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const canEditBatch = batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED';
 
   // Mapa staffId → nombre para resolver las asignaciones sin otra petición.
   const staffNameById = useMemo(() => {
@@ -73,6 +76,11 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
       highlightedOrderRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [highlightOrderId, orders]);
+
+  const handleUpdateBatch = async (input: CreateWorkBatchInput) => {
+    await updateBatch({ batchId: batch.id, input });
+    setIsEditDialogOpen(false);
+  };
 
   const handleCompleteBatch = async () => {
     const ok = await confirm({
@@ -121,7 +129,13 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
         <div className="flex items-center justify-between">
           <CardTitle>{batch.batchNumber}</CardTitle>
           <div className="flex gap-2">
-            {batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED' && (
+            {canEditBatch && (
+              <Button size="sm" variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar lote
+              </Button>
+            )}
+            {canEditBatch && (
               <Button size="sm" onClick={handleCompleteBatch} disabled={isCompleting}>
                 Completar lote
               </Button>
@@ -211,6 +225,15 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
           </div>
         )}
       </CardContent>
+
+      {isEditDialogOpen && (
+        <BatchCreateDialog
+          initialBatch={batch}
+          isSubmitting={isUpdating}
+          onClose={() => setIsEditDialogOpen(false)}
+          onSubmit={handleUpdateBatch}
+        />
+      )}
 
       {isOrderDialogOpen && (
         <OrderCreateDialog

@@ -94,6 +94,16 @@ export function useProductionBatches() {
     },
   });
 
+  const updateBatch = useMutation({
+    mutationFn: async ({ batchId, input }: { batchId: string; input: CreateWorkBatchInput }) => {
+      const response = await apiClient.put<WorkBatch>(`/v1/production/batches/${batchId}`, input);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production-batches'] });
+    },
+  });
+
   const completeBatch = useMutation({
     mutationFn: async (batchId: string) => {
       const response = await apiClient.post<WorkBatch>(`/v1/production/batches/${batchId}/complete`);
@@ -111,6 +121,8 @@ export function useProductionBatches() {
     refetch,
     createBatch: createBatch.mutateAsync,
     isCreating: createBatch.isPending,
+    updateBatch: updateBatch.mutateAsync,
+    isUpdating: updateBatch.isPending,
     completeBatch: completeBatch.mutateAsync,
     isCompleting: completeBatch.isPending,
   };
