@@ -6,7 +6,6 @@ import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
 import { Package, Plus, Loader2, User, Trash2, Pencil } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
 import { useStaffMembers } from '@/hooks/use-production-staff';
@@ -91,25 +90,8 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
     await completeBatch(batch.id);
   };
 
-  const handleCompleteOrder = async (orderId: string, orderNumber: string) => {
-    let actualTime = 0;
-    const ok = await confirm({
-      title: 'Completar orden',
-      description: `Introduce el tiempo real empleado en la orden ${orderNumber}.`,
-      children: (
-        <Input
-          type="number"
-          min="0"
-          autoFocus
-          placeholder="Minutos"
-          onChange={(e) => {
-            actualTime = Number(e.target.value);
-          }}
-        />
-      ),
-    });
-    if (!ok || !Number.isFinite(actualTime) || actualTime <= 0) return;
-    await completeOrder({ orderId, actualTime });
+  const handleCompleteOrder = async (orderId: string, estimatedTime?: number | null) => {
+    await completeOrder({ orderId, actualTime: estimatedTime ?? 0 });
   };
 
   const handleDeleteOrder = async (orderId: string, orderTitle: string) => {
@@ -204,7 +186,7 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleCompleteOrder(order.id, order.orderNumber)}
+                          onClick={() => handleCompleteOrder(order.id, order.estimatedTime)}
                         >
                           Completar
                         </Button>
