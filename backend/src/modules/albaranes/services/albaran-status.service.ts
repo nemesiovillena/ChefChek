@@ -106,27 +106,6 @@ export class AlbaranStatusService {
           `No se puede confirmar: ${unmatched.length} línea(s) confirmada(s) sin producto asignado`,
         );
       }
-
-      // El stock se genera una vez por línea confirmada (albaran-stock.service.ts),
-      // así que dos líneas confirmadas con el mismo producto duplican la entrada
-      // de almacén. Suele venir de una duplicación del OCR/IA al extraer el
-      // documento (misma fila leída dos veces), no de un pedido real.
-      const linesByProduct = new Map<string, typeof confirmedLines>();
-      for (const line of confirmedLines) {
-        const key = line.matchedProductId as string;
-        linesByProduct.set(key, [...(linesByProduct.get(key) || []), line]);
-      }
-      const duplicated = [...linesByProduct.values()].filter(
-        (group) => group.length > 1,
-      );
-      if (duplicated.length > 0) {
-        const names = duplicated
-          .map((group) => group[0].description)
-          .join(", ");
-        throw new BadRequestException(
-          `No se puede confirmar: hay líneas confirmadas duplicadas para el mismo producto (${names}). Rechaza la línea sobrante antes de confirmar.`,
-        );
-      }
     }
   }
 }
