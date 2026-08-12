@@ -163,6 +163,12 @@ export class CreateProductDto {
   @IsString()
   imageUrl?: string;
 
+  // false = cargo de servicio (portes, logística...): al confirmar un
+  // albarán no genera Lot/StockMovement/Stock para este producto
+  @IsOptional()
+  @IsBoolean()
+  tracksInventory?: boolean;
+
   // Información nutricional
   @IsOptional()
   @ValidateNested()
@@ -317,6 +323,12 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  // false = cargo de servicio (portes, logística...): al confirmar un
+  // albarán no genera Lot/StockMovement/Stock para este producto
+  @IsOptional()
+  @IsBoolean()
+  tracksInventory?: boolean;
 
   // Información nutricional
   @IsOptional()

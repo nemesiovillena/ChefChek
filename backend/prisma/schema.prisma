@@ -187,6 +187,10 @@ model Product {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  // false = no genera Lot/StockMovement/Stock al confirmar un albarán (cargos
+  // de servicio como portes/logística, que no son inventario físico)
+  tracksInventory Boolean @default(true)
+
   manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
 
   tenant                 Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)

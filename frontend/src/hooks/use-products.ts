@@ -86,6 +86,7 @@ export interface Product {
   hideAllergens: boolean;
   imageUrl?: string;
   isActive: boolean;
+  tracksInventory: boolean;
   tenantId: string;
   category?: ProductCategory;
   supplier?: ProductSupplier;
@@ -139,6 +140,7 @@ export interface CreateProductData {
   brand?: string;
   hideAllergens?: boolean;
   imageUrl?: string;
+  tracksInventory?: boolean;
   nutritionalInfo?: NutritionalInfoInput;
   minimumStock?: number;
   maximumStock?: number;

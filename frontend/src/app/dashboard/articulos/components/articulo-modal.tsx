@@ -60,6 +60,7 @@ const emptyFormData = {
   categoryId: '',
   minimumStock: '',
   maximumStock: '',
+  tracksInventory: true,
 };
 
 const emptyNutrition = {
@@ -91,6 +92,7 @@ function deriveFormData(article: Product | null | undefined) {
     categoryId: article.categoryId || '',
     minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
     maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
+    tracksInventory: article.tracksInventory ?? true,
   };
 }
 
@@ -242,6 +244,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
       // la clave y la imagen antigua nunca se borraría.
       imageUrl,
       nutritionalInfo,
+      tracksInventory: formData.tracksInventory,
       minimumStock: parseFloat(formData.minimumStock) || undefined,
       maximumStock: parseFloat(formData.maximumStock) || undefined,
     };

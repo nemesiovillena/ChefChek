@@ -127,6 +127,7 @@ export interface ProveedorStockFormData {
   supplierId: string;
   minimumStock: string;
   maximumStock: string;
+  tracksInventory: boolean;
 }
 
 interface TabProveedorStockProps {
@@ -201,8 +202,25 @@ export default function TabProveedorStock({
         </div>
       )}
 
+      {/* Producto sin stock: cargos de servicio (portes, logística...) que no
+          son inventario físico. Al confirmar un albarán no genera lote,
+          movimiento ni registro de stock para este artículo. */}
+      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+        <input
+          type="checkbox"
+          id="tracksInventory"
+          checked={!formData.tracksInventory}
+          onChange={(e) => setFormData({ ...formData, tracksInventory: !e.target.checked })}
+          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+        />
+        <label htmlFor="tracksInventory" className="text-sm text-gray-700">
+          No genera stock (servicio)
+        </label>
+        <span className="text-xs text-gray-400 ml-2">Ej: portes, gastos de logística. Al confirmar un albarán no crea lote ni movimiento de stock.</span>
+      </div>
+
       {/* Stock limits */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${!formData.tracksInventory ? 'opacity-50 pointer-events-none' : ''}`}>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
           <input

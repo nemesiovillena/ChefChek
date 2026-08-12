@@ -39,6 +39,7 @@ export class ProductResponseDto {
     allergens: number[];
 
     isActive: boolean;
+    tracksInventory: boolean;
     createdAt: Date;
     updatedAt: Date;
   };

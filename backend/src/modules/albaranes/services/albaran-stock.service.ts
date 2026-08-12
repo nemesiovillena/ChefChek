@@ -239,67 +239,77 @@ export class AlbaranStockService {
             }
           }
 
-          // Lote (si la línea trae número de lote)
-          const lot = line.lot
-            ? await this.lotService.createLotFromReception(tx, {
-                tenantId,
-                productId: product.id,
-                albaranLineId: line.id,
-                lotNumber: line.lot,
-                quantity: lineQuantity,
-                warehouseId: albaran.warehouseId,
-                supplierId: albaran.supplierId,
-              })
-            : null;
-
-          if (lot) {
-            await tx.product.update({
-              where: { id: product.id },
-              data: { lot: line.lot },
-            });
-          }
-
-          // Create stock movement
-          await tx.stockMovement.create({
-            data: {
-              productId: product.id,
-              warehouseId: albaran.warehouseId,
-              lotId: lot?.id,
-              type: "ENTRANCE",
-              quantity: lineQuantity,
-              unit: normalizeUnit(lineUnit),
-              reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
-            },
-          });
-
-          // Upsert stock
-          const existingStock = await tx.stock.findFirst({
-            where: {
-              productId: product.id,
-              warehouseId: albaran.warehouseId || null,
-              tenantId,
-            },
-          });
-
-          if (existingStock) {
-            await tx.stock.update({
-              where: { id: existingStock.id },
-              data: { quantity: { increment: lineQuantity } },
-            });
+          // Producto sin stock (cargo de servicio: portes, logística...): la
+          // línea sí cuenta en el total del albarán y en precio/oferta
+          // (arriba), pero no genera lote ni movimiento/registro de stock —
+          // no es inventario físico.
+          if (!product.tracksInventory) {
+            this.logger.log(
+              `${product.name}: sin stock (tracksInventory=false), omitiendo Lot/StockMovement/Stock`,
+            );
           } else {
-            await tx.stock.create({
+            // Lote (si la línea trae número de lote)
+            const lot = line.lot
+              ? await this.lotService.createLotFromReception(tx, {
+                  tenantId,
+                  productId: product.id,
+                  albaranLineId: line.id,
+                  lotNumber: line.lot,
+                  quantity: lineQuantity,
+                  warehouseId: albaran.warehouseId,
+                  supplierId: albaran.supplierId,
+                })
+              : null;
+
+            if (lot) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: { lot: line.lot },
+              });
+            }
+
+            // Create stock movement
+            await tx.stockMovement.create({
               data: {
-                tenantId,
                 productId: product.id,
                 warehouseId: albaran.warehouseId,
+                lotId: lot?.id,
+                type: "ENTRANCE",
                 quantity: lineQuantity,
+                unit: normalizeUnit(lineUnit),
+                reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
               },
             });
-          }
 
-          this.logger.log(
-            `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
-          );
+            // Upsert stock
+            const existingStock = await tx.stock.findFirst({
+              where: {
+                productId: product.id,
+                warehouseId: albaran.warehouseId || null,
+                tenantId,
+              },
+            });
+
+            if (existingStock) {
+              await tx.stock.update({
+                where: { id: existingStock.id },
+                data: { quantity: { increment: lineQuantity } },
+              });
+            } else {
+              await tx.stock.create({
+                data: {
+                  tenantId,
+                  productId: product.id,
+                  warehouseId: albaran.warehouseId,
+                  quantity: lineQuantity,
+                },
+              });
+            }
+
+            this.logger.log(
+              `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
+            );
+          }
         } else {
           // NUEVO product - create product, update line, and add stock
           const newProduct = await tx.product.create({
