@@ -13,6 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ProductCombobox, {
+  type ComboboxProduct,
+} from '@/app/dashboard/recipes/components/product-combobox';
 import {
   Warehouse,
   Package,
@@ -25,7 +28,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-type WarehouseType = 'MAIN' | 'KITCHEN' | 'COLD_STORAGE' | 'DRY_STORAGE' | 'SPECIAL';
+type MovementType = 'ENTRANCE' | 'EXIT' | 'ADJUSTMENT';
 
 export const dynamic = 'force-dynamic';
 export default function WarehousePage() {
@@ -46,11 +49,13 @@ export default function WarehousePage() {
   const [isCreateWarehouseModalOpen, setIsCreateWarehouseModalOpen] = useState(false);
   const [isMovementModalOpen, setIsMovementModalOpen] = useState(false);
   const [newWarehouseName, setNewWarehouseName] = useState('');
-  const [newWarehouseType, setNewWarehouseType] = useState<WarehouseType>('MAIN');
+  const [newWarehouseLocation, setNewWarehouseLocation] = useState('');
   const [newWarehouseCapacity, setNewWarehouseCapacity] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
-  const [movementType, setMovementType] = useState<'IN' | 'OUT'>('IN');
+  const [selectedProduct, setSelectedProduct] = useState<ComboboxProduct | null>(null);
+  const [movementType, setMovementType] = useState<MovementType>('ENTRANCE');
   const [movementQuantity, setMovementQuantity] = useState('');
+  const [movementUnit, setMovementUnit] = useState('');
   const [movementReason, setMovementReason] = useState('');
 
   // Auth redirect
@@ -76,12 +81,12 @@ export default function WarehousePage() {
     try {
       await createWarehouse({
         name: newWarehouseName,
-        type: newWarehouseType,
+        location: newWarehouseLocation || undefined,
         capacity: newWarehouseCapacity ? parseInt(newWarehouseCapacity) : undefined,
       });
       setIsCreateWarehouseModalOpen(false);
       setNewWarehouseName('');
-      setNewWarehouseType('MAIN');
+      setNewWarehouseLocation('');
       setNewWarehouseCapacity('');
       refetch();
     } catch (error) {
@@ -90,35 +95,28 @@ export default function WarehousePage() {
   };
 
   const handleCreateStockMovement = async () => {
-    if (!selectedWarehouseId || !movementQuantity.trim()) return;
+    if (!selectedProduct || !movementQuantity.trim() || !movementUnit.trim()) return;
 
     try {
       await createStockMovement({
-        warehouseId: selectedWarehouseId,
-        movementType,
-        quantity: parseInt(movementQuantity),
+        warehouseId: selectedWarehouseId || undefined,
+        productId: selectedProduct.id,
+        type: movementType,
+        quantity: parseFloat(movementQuantity),
+        unit: movementUnit,
         reason: movementReason || undefined,
       });
       setIsMovementModalOpen(false);
       setSelectedWarehouseId('');
-      setMovementType('IN');
+      setSelectedProduct(null);
+      setMovementType('ENTRANCE');
       setMovementQuantity('');
+      setMovementUnit('');
       setMovementReason('');
       refetch();
     } catch (error) {
       console.error('Error creating stock movement:', error);
     }
-  };
-
-  const getWarehouseTypeLabel = (type: WarehouseType) => {
-    const labels = {
-      MAIN: 'Principal',
-      KITCHEN: 'Cocina',
-      COLD_STORAGE: 'Frío',
-      DRY_STORAGE: 'Secos',
-      SPECIAL: 'Especial',
-    };
-    return labels[type] || type;
   };
 
   const renderStepContent = () => {
@@ -155,19 +153,12 @@ export default function WarehousePage() {
                     />
                   </div>
                   <div>
-                    <Label>Tipo</Label>
-                    <Select value={newWarehouseType} onValueChange={(value) => setNewWarehouseType(value as WarehouseType)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MAIN">Principal</SelectItem>
-                        <SelectItem value="KITCHEN">Cocina</SelectItem>
-                        <SelectItem value="COLD_STORAGE">Frío</SelectItem>
-                        <SelectItem value="DRY_STORAGE">Secos</SelectItem>
-                        <SelectItem value="SPECIAL">Especial</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Ubicación (opcional)</Label>
+                    <Input
+                      value={newWarehouseLocation}
+                      onChange={(e) => setNewWarehouseLocation(e.target.value)}
+                      placeholder="Ej. Cocina, Cámara frigorífica..."
+                    />
                   </div>
                   <div>
                     <Label>Capacidad (opcional)</Label>
@@ -238,9 +229,9 @@ export default function WarehousePage() {
                                 <Badge variant={warehouse.isActive ? 'default' : 'secondary'}>
                                   {warehouse.isActive ? 'Activo' : 'Inactivo'}
                                 </Badge>
-                                <Badge variant="outline">
-                                  {getWarehouseTypeLabel(warehouse.type)}
-                                </Badge>
+                                {warehouse.location && (
+                                  <Badge variant="outline">{warehouse.location}</Badge>
+                                )}
                               </div>
                               <div className="flex items-center gap-6 text-sm">
                                 {warehouse.capacity && (
@@ -296,12 +287,29 @@ export default function WarehousePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label>Almacén</Label>
-                    <Select value={selectedWarehouseId} onValueChange={(value) => setSelectedWarehouseId(value || '')}>
+                    <Label>Producto</Label>
+                    <ProductCombobox
+                      value={selectedProduct?.id || ''}
+                      label={selectedProduct?.name}
+                      onSelect={(product) => {
+                        setSelectedProduct(product);
+                        if (!movementUnit && product.referenceUnit) {
+                          setMovementUnit(product.referenceUnit);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Almacén (opcional)</Label>
+                    <Select
+                      value={selectedWarehouseId || '__none__'}
+                      onValueChange={(value) => setSelectedWarehouseId(!value || value === '__none__' ? '' : value)}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un almacén" />
+                        <SelectValue placeholder="Sin almacén específico" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">Sin almacén específico</SelectItem>
                         {warehouses.map((warehouse) => (
                           <SelectItem key={warehouse.id} value={warehouse.id}>
                             {warehouse.name}
@@ -312,34 +320,50 @@ export default function WarehousePage() {
                   </div>
                   <div>
                     <Label>Tipo de Movimiento</Label>
-                    <Select value={movementType} onValueChange={(value) => setMovementType(value as 'IN' | 'OUT')}>
+                    <Select value={movementType} onValueChange={(value) => setMovementType(value as MovementType)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="IN">
+                        <SelectItem value="ENTRANCE">
                           <div className="flex items-center gap-2">
                             <ArrowDown className="h-4 w-4" />
                             Entrada
                           </div>
                         </SelectItem>
-                        <SelectItem value="OUT">
+                        <SelectItem value="EXIT">
                           <div className="flex items-center gap-2">
                             <ArrowUp className="h-4 w-4" />
                             Salida
                           </div>
                         </SelectItem>
+                        <SelectItem value="ADJUSTMENT">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4" />
+                            Ajuste
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Cantidad</Label>
-                    <Input
-                      value={movementQuantity}
-                      onChange={(e) => setMovementQuantity(e.target.value)}
-                      type="number"
-                      placeholder="Cantidad de unidades"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Cantidad</Label>
+                      <Input
+                        value={movementQuantity}
+                        onChange={(e) => setMovementQuantity(e.target.value)}
+                        type="number"
+                        placeholder="Cantidad"
+                      />
+                    </div>
+                    <div>
+                      <Label>Unidad</Label>
+                      <Input
+                        value={movementUnit}
+                        onChange={(e) => setMovementUnit(e.target.value)}
+                        placeholder="ud, kg, l..."
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label>Razón (opcional)</Label>
@@ -404,30 +428,41 @@ export default function WarehousePage() {
                             {new Date(movement.createdAt).toLocaleString()}
                           </TableCell>
                           <TableCell>
-                            {warehouses.find(w => w.id === movement.warehouseId)?.name || 'Desconocido'}
+                            {movement.warehouse?.name || 'Sin almacén específico'}
                           </TableCell>
                           <TableCell>
-                            {movement.productName || 'General'}
+                            {movement.product?.name || 'Desconocido'}
                           </TableCell>
                           <TableCell>
                             <Badge
-                              variant={movement.movementType === 'IN' ? 'default' : 'destructive'}
-                              className={movement.movementType === 'IN' ? 'bg-green-500' : 'bg-red-500'}
+                              variant={movement.type === 'ENTRANCE' ? 'default' : 'destructive'}
+                              className={
+                                movement.type === 'ENTRANCE'
+                                  ? 'bg-green-500'
+                                  : movement.type === 'EXIT'
+                                    ? 'bg-red-500'
+                                    : 'bg-amber-500'
+                              }
                             >
-                              {movement.movementType === 'IN' ? (
+                              {movement.type === 'ENTRANCE' ? (
                                 <>
                                   <ArrowDown className="mr-1 h-3 w-3" />
                                   Entrada
                                 </>
-                              ) : (
+                              ) : movement.type === 'EXIT' ? (
                                 <>
                                   <ArrowUp className="mr-1 h-3 w-3" />
                                   Salida
                                 </>
+                              ) : (
+                                <>
+                                  <Package className="mr-1 h-3 w-3" />
+                                  Ajuste
+                                </>
                               )}
                             </Badge>
                           </TableCell>
-                          <TableCell>{movement.quantity}</TableCell>
+                          <TableCell>{movement.quantity} {movement.unit}</TableCell>
                           <TableCell>{movement.reason || '-'}</TableCell>
                         </TableRow>
                       ))
