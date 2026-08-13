@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useDashboardKPIs, useCompleteProductionTask } from '@/hooks/use-dashboard-kpis';
+import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
+import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
   const completeTask = useCompleteProductionTask();
+  const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
 
   // WebSocket hooks
   const { notifications, markAsRead, markAllAsRead } = useWebSocketNotifications();
@@ -76,6 +79,11 @@ export default function DashboardPage() {
   const handleCompleteTask = async (e: React.MouseEvent, task: NonNullable<typeof kpis>['upcomingProductionTasks'][number]) => {
     e.stopPropagation();
     await completeTask.mutateAsync({ orderId: task.id, actualTime: task.estimatedTime ?? 0 });
+  };
+
+  const handlePostponeClick = (e: React.MouseEvent, task: UpcomingProductionTask) => {
+    e.stopPropagation();
+    setPostponingTask(task);
   };
 
   // Evitar renderizado mientras se valida la sesión
@@ -233,11 +241,26 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
                       </div>
                     ) : (
-                      <span className="font-label-md text-label-md text-secondary">
-                        {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                      </span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {task.isPostponed && (
+                          <span className="text-[10px] text-secondary font-label-sm uppercase">Pospuesta</span>
+                        )}
+                        <span className="font-label-md text-label-md text-secondary">
+                          {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        </span>
+                      </div>
                     )}
                   </div>
+                  {!inProgress && (
+                    <button
+                      type="button"
+                      onClick={(e) => handlePostponeClick(e, task)}
+                      title="Posponer tarea a otra fecha"
+                      className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant bg-surface-variant/40 hover:bg-surface-variant hover:text-primary active:scale-90 transition-all duration-150 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">event_repeat</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={(e) => handleCompleteTask(e, task)}
@@ -308,6 +331,7 @@ export default function DashboardPage() {
   );
 
   return (
+    <>
     <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md">
@@ -415,5 +439,15 @@ export default function DashboardPage() {
         </div>
       </section>
     </div>
+    {postponingTask && (
+      <PostponeTaskDialog
+        task={postponingTask}
+        open={Boolean(postponingTask)}
+        onOpenChange={(open) => {
+          if (!open) setPostponingTask(null);
+        }}
+      />
+    )}
+    </>
   );
 }
