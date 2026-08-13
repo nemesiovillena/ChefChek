@@ -68,9 +68,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let cancelled = false;
 
     const clearSession = () => {
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
       setUser(null);
       setTenantSlug(null);
       setSessionId(null);
@@ -112,14 +112,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setTenantId(response.user.tenantId);
       setTenantSlug(safeTenantSlug);
 
-      // Persist to sessionStorage
+      // Persist to localStorage
       const sessionId = response.session.id;
       setSessionId(sessionId);
-      sessionStorage.setItem('session_id', sessionId);
-      sessionStorage.setItem('tenant_slug', safeTenantSlug);
-      sessionStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('session_id', sessionId);
+      localStorage.setItem('tenant_slug', safeTenantSlug);
+      localStorage.setItem('user', JSON.stringify(response.user));
       if (response.user.tenantId) {
-        sessionStorage.setItem('tenant_id', response.user.tenantId);
+        localStorage.setItem('tenant_id', response.user.tenantId);
       }
 
       // WebSocket will auto-connect via useEffect
@@ -140,8 +140,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const sessionId = response.session.id;
       setSessionId(sessionId);
-      sessionStorage.setItem('session_id', sessionId);
-      sessionStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('session_id', sessionId);
+      localStorage.setItem('user', JSON.stringify(response.user));
     } catch (error) {
       throw error;
     } finally {
@@ -158,10 +158,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setTenantSlug(null);
       setSessionId(null);
       // Clear all session data
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('tenant_id');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
+      localStorage.removeItem('tenant_id');
 
       // Disconnect WebSocket
       resetWebSocketClient();
@@ -172,10 +172,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setTenantId(null);
       setTenantSlug(null);
       setSessionId(null);
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('tenant_id');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
+      localStorage.removeItem('tenant_id');
 
       // Disconnect WebSocket
       resetWebSocketClient();
@@ -209,7 +209,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const session = await authService.getCurrentSession();
     if (session) {
       setUser(session.user);
-      sessionStorage.setItem('user', JSON.stringify(session.user));
+      localStorage.setItem('user', JSON.stringify(session.user));
     }
   };
 

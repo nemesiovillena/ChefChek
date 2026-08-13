@@ -33,12 +33,12 @@ const MAX_FILES = 10;
 /** Build auth headers from session storage for direct backend calls */
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  const sessionId = sessionStorage.getItem('session_id');
+  const sessionId = localStorage.getItem('session_id');
   const headers: Record<string, string> = {};
   if (sessionId) {
     headers['Authorization'] = `Bearer ${sessionId}`;
   }
-  const tenantSlug = sessionStorage.getItem('tenant_slug');
+  const tenantSlug = localStorage.getItem('tenant_slug');
   if (tenantSlug) {
     headers['X-Tenant-Slug'] = tenantSlug;
   }
