@@ -61,7 +61,8 @@ export function EditableLineCell({
     setSaving(true);
     try {
       const payload: Record<string, string | number> = {};
-      payload[field] = type === 'number' ? parseFloat(cleanDraft) || 0 : cleanDraft;
+      payload[field] =
+        type === 'number' ? parseFloat(cleanDraft.replace(',', '.')) || 0 : cleanDraft;
       await updateLine(albaranId, lineId, payload as Parameters<typeof updateLine>[2]);
       onSave?.();
     } catch (err) {
@@ -103,12 +104,15 @@ export function EditableLineCell({
   }
 
   // Edit mode
+  // Los campos numéricos usan type="text" en vez de "number": el input nativo
+  // number solo acepta el punto como separador decimal y rechaza la coma
+  // española directamente (el usuario no puede ni escribirla).
   return (
     <input
       ref={inputRef}
-      type={type}
+      type={type === 'number' ? 'text' : type}
+      inputMode={type === 'number' ? 'decimal' : undefined}
       step={step}
-      min={type === 'number' ? '0' : undefined}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={save}
