@@ -151,7 +151,7 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
-      <div className="space-y-stack-sm">
+      <div className="space-y-stack-sm max-h-80 overflow-y-auto pr-1">
         {(() => {
           const visibleNotifications = showAllNotifications
             ? notifications
@@ -164,7 +164,7 @@ export default function DashboardPage() {
               </p>
             </div>
           ) : (
-            visibleNotifications.slice(0, showAllNotifications ? 20 : 4).map((notif) => {
+            visibleNotifications.slice(0, 20).map((notif) => {
               const style =
                 notif.type === 'ERROR'
                   ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
