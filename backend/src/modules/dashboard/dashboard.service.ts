@@ -182,14 +182,19 @@ export class DashboardService {
           deletedAt: null,
           status: { in: ["PENDING", "IN_PROGRESS"] },
         },
-        // Se ordena por la fecha del LOTE (lotDate, lo que ve el usuario en la
-        // card), no por order.scheduledFor (que solo marca cuándo se creó la
-        // orden). Ascendente = día asignado más antiguo primero. Sin take: el
-        // dashboard debe listar todas las tareas pendientes/en curso, no solo
-        // las últimas 6.
-        orderBy: { batch: { scheduledFor: "asc" } },
+        // Ordenadas en memoria (ver más abajo) por lotDate = postponedTo ??
+        // batch.scheduledFor, no por order.scheduledFor (que solo marca
+        // cuándo se creó la orden). Sin take: el dashboard debe listar todas
+        // las tareas pendientes/en curso, no solo las últimas 6.
         include: { batch: { select: { scheduledFor: true } } },
       },
+    );
+
+    const lotDateOf = (order: (typeof upcomingProductionOrders)[number]) =>
+      order.postponedTo ?? order.batch.scheduledFor;
+
+    upcomingProductionOrders.sort(
+      (a, b) => lotDateOf(a).getTime() - lotDateOf(b).getTime(),
     );
 
     // Nombres del personal asignado, para mostrar quién debe realizar cada tarea.
@@ -212,7 +217,8 @@ export class DashboardService {
       title: order.title,
       orderType: order.orderType,
       status: order.status,
-      lotDate: order.batch.scheduledFor,
+      lotDate: lotDateOf(order),
+      isPostponed: Boolean(order.postponedTo),
       estimatedTime: order.estimatedTime,
       assignedStaffNames: order.assignedStaffIds
         .map((id) => staffNameById.get(id))

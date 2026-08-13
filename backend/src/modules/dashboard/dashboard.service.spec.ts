@@ -168,10 +168,12 @@ describe("DashboardService", () => {
       const mockUpcomingOrders = [
         {
           id: "order-1",
+          batchId: "batch-1",
           title: "Fondo oscuro",
           orderType: "COOKING",
           status: "PENDING",
           scheduledFor: new Date(),
+          postponedTo: null,
           estimatedTime: 90,
           assignedStaffIds: [],
           batch: { scheduledFor: mockBatchScheduledFor },
@@ -208,10 +210,12 @@ describe("DashboardService", () => {
       expect(result.data.upcomingProductionTasks).toHaveLength(1);
       expect(result.data.upcomingProductionTasks[0]).toEqual({
         id: "order-1",
+        batchId: "batch-1",
         title: "Fondo oscuro",
         orderType: "COOKING",
         status: "PENDING",
         lotDate: mockBatchScheduledFor,
+        isPostponed: false,
         estimatedTime: 90,
         assignedStaffNames: [],
       });

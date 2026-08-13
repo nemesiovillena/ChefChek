@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -29,6 +30,7 @@ import {
   CreateWorkBatchDto,
   UpdateWorkBatchDto,
   CreateProductionOrderDto,
+  PostponeProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
   CreateProductionTaskDto,
@@ -156,6 +158,23 @@ export class ProductionController {
       req.tenantId,
       orderId,
       body.actualTime,
+    );
+  }
+
+  @Patch("orders/:orderId/postpone")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Posponer una orden de producción a otra fecha" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Orden pospuesta" })
+  async postponeProductionOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+    @Body() dto: PostponeProductionOrderDto,
+  ) {
+    return this.productionService.postponeProductionOrder(
+      req.tenantId,
+      orderId,
+      dto.scheduledFor,
     );
   }
 

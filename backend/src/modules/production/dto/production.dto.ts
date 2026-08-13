@@ -110,6 +110,12 @@ export class CreateProductionOrderDto {
   assignedStaffIds?: string[];
 }
 
+export class PostponeProductionOrderDto {
+  @Type(() => Date)
+  @IsDate()
+  scheduledFor: Date;
+}
+
 export class CreateMiseEnPlaceItemDto {
   @IsString()
   orderId: string;

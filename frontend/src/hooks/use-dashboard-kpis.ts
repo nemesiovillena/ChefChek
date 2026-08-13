@@ -9,6 +9,7 @@ export interface UpcomingProductionTask {
   orderType: string;
   status: string;
   lotDate: string;
+  isPostponed: boolean;
   estimatedTime: number;
   assignedStaffNames: string[];
 }
@@ -44,6 +45,20 @@ export function useCompleteProductionTask() {
   return useMutation({
     mutationFn: async ({ orderId, actualTime }: { orderId: string; actualTime: number }) => {
       const response = await apiClient.put(`/v1/production/orders/${orderId}/complete`, { actualTime });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
+}
+
+export function usePostponeProductionTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ orderId, scheduledFor }: { orderId: string; scheduledFor: string }) => {
+      const response = await apiClient.patch(`/v1/production/orders/${orderId}/postpone`, { scheduledFor });
       return response.data;
     },
     onSuccess: () => {

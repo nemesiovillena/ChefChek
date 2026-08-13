@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useDashboardKPIs, useCompleteProductionTask } from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
+import { PostponeTaskDialog } from './postpone-task-dialog';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, User, CheckCircle2, Package } from 'lucide-react';
+import { ArrowLeft, Loader2, User, CheckCircle2, CalendarClock, Package } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export default function ProductionTasksPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: kpis, isLoading } = useDashboardKPIs();
   const completeTask = useCompleteProductionTask();
+  const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -33,6 +35,11 @@ export default function ProductionTasksPage() {
   const handleComplete = async (e: React.MouseEvent, task: UpcomingProductionTask) => {
     e.stopPropagation();
     await completeTask.mutateAsync({ orderId: task.id, actualTime: task.estimatedTime ?? 0 });
+  };
+
+  const handlePostponeClick = (e: React.MouseEvent, task: UpcomingProductionTask) => {
+    e.stopPropagation();
+    setPostponingTask(task);
   };
 
   return (
@@ -82,9 +89,24 @@ export default function ProductionTasksPage() {
                     {inProgress ? (
                       <Badge>En progreso</Badge>
                     ) : (
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        {task.isPostponed && (
+                          <Badge variant="outline" className="text-xs">
+                            Pospuesta
+                          </Badge>
+                        )}
                         {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                       </span>
+                    )}
+                    {!inProgress && (
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={(e) => handlePostponeClick(e, task)}
+                        title="Posponer tarea a otra fecha"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                      </Button>
                     )}
                     <Button
                       size="icon"
@@ -101,6 +123,16 @@ export default function ProductionTasksPage() {
             })}
           </div>
         </Card>
+      )}
+
+      {postponingTask && (
+        <PostponeTaskDialog
+          task={postponingTask}
+          open={Boolean(postponingTask)}
+          onOpenChange={(open) => {
+            if (!open) setPostponingTask(null);
+          }}
+        />
       )}
     </div>
   );

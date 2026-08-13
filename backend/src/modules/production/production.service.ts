@@ -234,6 +234,31 @@ export class ProductionService {
     return { success: true, data: order };
   }
 
+  async postponeProductionOrder(
+    tenantId: string,
+    orderId: string,
+    scheduledFor: Date,
+  ): Promise<any> {
+    const existing = await this.prisma.productionOrder.findFirst({
+      where: { id: orderId, tenantId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException("Production order not found");
+    }
+    if (existing.status !== "PENDING") {
+      throw new BadRequestException(
+        "Solo se pueden posponer tareas pendientes",
+      );
+    }
+
+    const order = await this.prisma.productionOrder.update({
+      where: { id: orderId },
+      data: { postponedTo: scheduledFor },
+    });
+
+    return { success: true, data: order };
+  }
+
   async deleteProductionOrder(tenantId: string, orderId: string): Promise<any> {
     const existing = await this.prisma.productionOrder.findFirst({
       where: { id: orderId, tenantId, deletedAt: null },

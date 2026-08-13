@@ -469,6 +469,52 @@ describe("ProductionService", () => {
     });
   });
 
+  describe("postponeProductionOrder", () => {
+    it("should set postponedTo without touching the batch date", async () => {
+      const newDate = new Date("2026-09-01T00:00:00.000Z");
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+        postponedTo: newDate,
+      });
+
+      const result = await service.postponeProductionOrder(
+        tenantId,
+        orderId,
+        newDate,
+      );
+
+      expect(result.data.postponedTo).toEqual(newDate);
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { postponedTo: newDate },
+      });
+    });
+
+    it("should throw NotFoundException when order not found for tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, new Date()),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException when order is not PENDING", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "IN_PROGRESS",
+      });
+
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, new Date()),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe("deleteProductionOrder", () => {
     it("should soft-delete the order by setting deletedAt", async () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue({

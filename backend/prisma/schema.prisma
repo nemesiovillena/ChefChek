@@ -1073,6 +1073,7 @@ model ProductionOrder {
   orderType     String // PREPARATION, COOKING, PLATING
   status        String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
   scheduledFor  DateTime
+  postponedTo   DateTime?
   startedAt     DateTime?
   completedAt   DateTime?
   items         Json?
