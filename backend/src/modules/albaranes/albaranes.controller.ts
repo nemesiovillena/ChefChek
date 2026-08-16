@@ -124,6 +124,33 @@ export class AlbaranesController {
     return this.albaranesService.findAll(query, tenantId);
   }
 
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  // Advisory-only: devuelve el albarán existente del mismo proveedor con el
+  // mismo número, si lo hay. No bloquea el alta (ni manual ni OCR).
+  @Get("check-duplicate")
+  @ApiOperation({
+    summary: "Comprobar si el número de albarán ya existe para el proveedor",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Albarán existente con ese número, o null",
+  })
+  async checkDuplicate(
+    @Query("supplierId") supplierId: string | undefined,
+    @Query("albaranNumber") albaranNumber: string | undefined,
+    @Query("excludeId") excludeId: string | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    const match = await this.albaranesService.checkDuplicate(
+      tenantId,
+      supplierId,
+      albaranNumber,
+      excludeId,
+    );
+    return { success: true, data: match };
+  }
+
   @Post(":id/lines")
   @ApiOperation({ summary: "Añadir línea manual al albarán" })
   @ApiResponse({ status: 201, description: "Línea añadida" })

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateManualAlbaran } from '@/hooks/use-manual-albaran';
+import { useAlbaranDuplicateCheck } from '@/hooks/use-albaran-duplicate-check';
 import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
 import { Product } from '@/hooks/use-products';
 import { useCategoryTree } from '@/hooks/use-categories';
@@ -64,6 +65,8 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
   // Árbol de categorías de artículos para clasificar los productos nuevos
   const { data: categoryTreeData } = useCategoryTree('articles');
   const categoryTree = Array.isArray(categoryTreeData) ? categoryTreeData : [];
+
+  const { match: duplicateMatch } = useAlbaranDuplicateCheck(supplierId || undefined, reference);
 
   const allSuppliers = useMemo(
     () => [
@@ -189,6 +192,13 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
             placeholder="Nº albarán (opcional)"
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
+          {duplicateMatch && (
+            <p className="mt-1 text-xs text-amber-700">
+              Ya existe un albarán <strong>{duplicateMatch.albaranNumber}</strong> de este
+              proveedor ({new Date(duplicateMatch.date).toLocaleDateString('es-ES')},{' '}
+              {duplicateMatch.status.toLowerCase()}). ¿Seguro que no está duplicado?
+            </p>
+          )}
         </div>
       </div>
 

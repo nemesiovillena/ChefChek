@@ -259,6 +259,38 @@ export async function deleteAlbaran(id: string): Promise<void> {
   }
 }
 
+export interface AlbaranDuplicateMatch {
+  id: string;
+  albaranNumber: string;
+  date: string;
+  status: AlbaranStatus;
+  total: number;
+}
+
+/**
+ * Advisory-only: comprueba si ya existe un albarán del mismo proveedor con
+ * el mismo número. No bloquea el alta. El backend descarta números
+ * autogenerados (MANUAL-/OCR-/FALLBACK-) para no avisar en falso cuando
+ * todavía no hay número real.
+ */
+export async function checkAlbaranDuplicate(
+  supplierId: string,
+  albaranNumber: string,
+  excludeId?: string,
+): Promise<AlbaranDuplicateMatch | null> {
+  const params = new URLSearchParams({ supplierId, albaranNumber });
+  if (excludeId) params.append('excludeId', excludeId);
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/check-duplicate?${params.toString()}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    return null;
+  }
+  const json = await response.json();
+  return json.data ?? null;
+}
+
 /** Add a manual line to an existing albarán */
 export async function addAlbaranLine(
   albaranId: string,

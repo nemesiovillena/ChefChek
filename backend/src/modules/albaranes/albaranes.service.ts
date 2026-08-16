@@ -23,6 +23,15 @@ import { AlbaranStatus, PurchaseOrderStatus } from "@prisma/client";
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
 
+  // Prefijos autogenerados cuando no hay número real (usuario no lo rellenó
+  // en el alta manual, o el OCR no lo detectó). No son números de proveedor:
+  // compararlos daría un "duplicado" en cada nuevo albarán sin número.
+  private static readonly SYNTHETIC_NUMBER_PREFIXES = [
+    "MANUAL-",
+    "OCR-",
+    "FALLBACK-",
+  ];
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly statusService: AlbaranStatusService,
@@ -73,6 +82,49 @@ export class AlbaranesService {
         },
       },
       include: { lines: true, supplier: true },
+    });
+  }
+
+  /**
+   * Advisory-only: busca un albarán ya existente (no borrado) del mismo
+   * proveedor con el mismo número. No bloquea la creación, solo informa —
+   * el mismo número puede repetirse legítimamente entre proveedores
+   * distintos, o el usuario puede querer corregir un alta anterior mal
+   * hecha. `excludeId` evita el falso positivo del propio albarán al editar.
+   */
+  async checkDuplicate(
+    tenantId: string,
+    supplierId: string | undefined,
+    albaranNumber: string | undefined,
+    excludeId?: string,
+  ) {
+    const trimmed = (albaranNumber ?? "").trim();
+    if (!supplierId || !trimmed) {
+      return null;
+    }
+    if (
+      AlbaranesService.SYNTHETIC_NUMBER_PREFIXES.some((prefix) =>
+        trimmed.startsWith(prefix),
+      )
+    ) {
+      return null;
+    }
+
+    return this.prisma.albaran.findFirst({
+      where: {
+        tenantId,
+        supplierId,
+        albaranNumber: { equals: trimmed, mode: "insensitive" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: {
+        id: true,
+        albaranNumber: true,
+        date: true,
+        status: true,
+        total: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 

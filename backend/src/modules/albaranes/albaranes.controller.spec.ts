@@ -23,6 +23,7 @@ describe("AlbaranesController", () => {
     setLineStatus: jest.fn(),
     dismissSuggestion: jest.fn(),
     remove: jest.fn(),
+    checkDuplicate: jest.fn(),
   };
 
   const mockManualService = { process: jest.fn() };
@@ -139,6 +140,34 @@ describe("AlbaranesController", () => {
     const query = { page: 1 };
     await controller.findAll(query as any, mockReq);
     expect(mockService.findAll).toHaveBeenCalledWith(query, "t1");
+  });
+
+  it("checkDuplicate delegates and wraps the result", async () => {
+    const match = { id: "alb-old", albaranNumber: "A-1" };
+    mockService.checkDuplicate.mockResolvedValue(match);
+
+    const res = await controller.checkDuplicate("s1", "A-1", "alb-1", mockReq);
+
+    expect(mockService.checkDuplicate).toHaveBeenCalledWith(
+      "t1",
+      "s1",
+      "A-1",
+      "alb-1",
+    );
+    expect(res).toEqual({ success: true, data: match });
+  });
+
+  it("checkDuplicate returns null data when no match", async () => {
+    mockService.checkDuplicate.mockResolvedValue(null);
+
+    const res = await controller.checkDuplicate(
+      "s1",
+      "A-1",
+      undefined,
+      mockReq,
+    );
+
+    expect(res).toEqual({ success: true, data: null });
   });
 
   it("addLine delegates", async () => {

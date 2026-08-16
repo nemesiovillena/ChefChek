@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
+import { useAlbaranDuplicateCheck } from '@/hooks/use-albaran-duplicate-check';
 import { updateStatus, deleteAlbaran, updateAlbaran } from '@/lib/api-albaran';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
@@ -30,6 +31,15 @@ export default function AlbaranResumenPage() {
   const backLabel = returnTo ? 'Volver al Pedido' : 'Volver a Albaranes';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
+  // Solo mientras se puede actuar sobre el albarán (borrarlo, cambiarlo de
+  // proveedor): una vez CONFIRMADO/ARCHIVADO el stock ya está asentado y el
+  // aviso ya no ayuda a evitar la duplicación.
+  const isEditableStatus = albaran?.status === 'PENDIENTE' || albaran?.status === 'REVISADO';
+  const { match: duplicateMatch } = useAlbaranDuplicateCheck(
+    isEditableStatus ? albaran?.supplier?.id : undefined,
+    albaran?.albaranNumber ?? '',
+    id,
+  );
   const [updating, setUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
@@ -224,6 +234,13 @@ export default function AlbaranResumenPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {duplicateMatch && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Ya existe un albarán <strong>{duplicateMatch.albaranNumber}</strong> de este
+                  proveedor ({formatDate(duplicateMatch.date)}, {duplicateMatch.status.toLowerCase()},{' '}
+                  {formatCurrency(duplicateMatch.total)}). Revisa que no sea el mismo antes de confirmar.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
