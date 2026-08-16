@@ -365,6 +365,11 @@ function ListEditor({
             }
           : {}),
       });
+      // El backend transfiere notas/artículos nuevos al pedido y los limpia
+      // de la lista origen; se refleja también en el estado local para que,
+      // si el usuario vuelve atrás, el checklist ya no los muestre.
+      setNotes('');
+      setAdditionalItems('');
       addNotification({
         type: 'success',
         title: `Pedido ${order.orderNumber} creado`,

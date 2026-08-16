@@ -149,7 +149,7 @@ export class PurchaseListService {
     // generar el PDF/mensaje (purchase-order-pdf.service, order-sending
     // service), así que editarla en Ajustes actualiza también los pedidos
     // ya generados.
-    return this.purchaseOrderService.create(
+    const order = await this.purchaseOrderService.create(
       tenantId,
       userId,
       {
@@ -161,6 +161,18 @@ export class PurchaseListService {
       },
       list.id,
     );
+
+    // notes/additionalItems son instrucciones puntuales para ESTE pedido, ya
+    // transferidas arriba: se limpian de la lista reutilizable para que no
+    // reaparezcan en el próximo pedido generado desde el mismo checklist.
+    if (list.notes || list.additionalItems) {
+      await this.prisma.purchaseList.update({
+        where: { id: list.id },
+        data: { notes: null, additionalItems: null },
+      });
+    }
+
+    return order;
   }
 
   /**

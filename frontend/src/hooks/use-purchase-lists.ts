@@ -132,7 +132,11 @@ export function useGenerateOrderFromList() {
   >({
     mutationFn: async ({ listId, ...data }) =>
       (await apiClient.post(`${BASE_URL}/${listId}/generar-pedido`, data)).data,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      // El backend limpia notes/additionalItems de la lista al generar el
+      // pedido: sin esto, el editor seguía mostrando el estado local stale.
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
   });
 }
