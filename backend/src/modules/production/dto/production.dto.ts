@@ -116,6 +116,12 @@ export class PostponeProductionOrderDto {
   scheduledFor: Date;
 }
 
+export class ReorderProductionOrdersDto {
+  @IsArray()
+  @IsString({ each: true })
+  orderIds: string[];
+}
+
 export class CreateMiseEnPlaceItemDto {
   @IsString()
   orderId: string;

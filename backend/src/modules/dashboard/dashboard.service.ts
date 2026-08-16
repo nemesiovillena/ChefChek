@@ -193,9 +193,20 @@ export class DashboardService {
     const lotDateOf = (order: (typeof upcomingProductionOrders)[number]) =>
       order.postponedTo ?? order.batch.scheduledFor;
 
-    upcomingProductionOrders.sort(
-      (a, b) => lotDateOf(a).getTime() - lotDateOf(b).getTime(),
-    );
+    // Las tareas con sortOrder (reordenadas a mano desde el dashboard) van
+    // primero, respetando ese orden manual; el resto se ordena por lotDate.
+    upcomingProductionOrders.sort((a, b) => {
+      if (a.sortOrder !== null && b.sortOrder !== null) {
+        return a.sortOrder - b.sortOrder;
+      }
+      if (a.sortOrder !== null) {
+        return -1;
+      }
+      if (b.sortOrder !== null) {
+        return 1;
+      }
+      return lotDateOf(a).getTime() - lotDateOf(b).getTime();
+    });
 
     // Nombres del personal asignado, para mostrar quién debe realizar cada tarea.
     const assignedStaffIds = Array.from(

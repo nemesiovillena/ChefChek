@@ -259,6 +259,32 @@ export class ProductionService {
     return { success: true, data: order };
   }
 
+  async reorderProductionOrders(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<any> {
+    const owned = await this.prisma.productionOrder.findMany({
+      where: { id: { in: orderIds }, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+    if (owned.length !== orderIds.length) {
+      throw new BadRequestException(
+        "Alguna de las órdenes no pertenece a este tenant",
+      );
+    }
+
+    await this.prisma.$transaction(
+      orderIds.map((id, index) =>
+        this.prisma.productionOrder.update({
+          where: { id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
+
+    return { success: true };
+  }
+
   async deleteProductionOrder(tenantId: string, orderId: string): Promise<any> {
     const existing = await this.prisma.productionOrder.findFirst({
       where: { id: orderId, tenantId, deletedAt: null },

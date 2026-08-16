@@ -2,23 +2,44 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useAuth } from '@/contexts/auth.context';
-import { useDashboardKPIs, useCompleteProductionTask } from '@/hooks/use-dashboard-kpis';
+import {
+  useDashboardKPIs,
+  useCompleteProductionTask,
+  useReorderProductionTasks,
+} from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
 import { PostponeTaskDialog } from './postpone-task-dialog';
+import { SortableTaskItem } from './sortable-task-item';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, User, CheckCircle2, CalendarClock, Package } from 'lucide-react';
+import { ArrowLeft, Loader2, Package } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default function ProductionTasksPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: kpis, isLoading } = useDashboardKPIs();
   const completeTask = useCompleteProductionTask();
+  const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -40,6 +61,22 @@ export default function ProductionTasksPage() {
   const handlePostponeClick = (e: React.MouseEvent, task: UpcomingProductionTask) => {
     e.stopPropagation();
     setPostponingTask(task);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !kpis) return;
+
+    const oldIndex = tasks.findIndex((t) => t.id === active.id);
+    const newIndex = tasks.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(tasks, oldIndex, newIndex);
+    queryClient.setQueryData(['dashboard-kpis'], {
+      ...kpis,
+      upcomingProductionTasks: reordered,
+    });
+    reorderTasks.mutate(reordered.map((t) => t.id));
   };
 
   return (
@@ -65,63 +102,22 @@ export default function ProductionTasksPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="divide-y">
-            {tasks.map((task) => {
-              const inProgress = task.status === 'IN_PROGRESS';
-              const lotDate = new Date(task.lotDate);
-              return (
-                <div
-                  key={task.id}
-                  onClick={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
-                  className="p-4 flex items-center justify-between gap-4 hover:bg-muted/40 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className={`w-2 h-10 rounded-full shrink-0 ${inProgress ? 'bg-secondary' : 'bg-primary'}`} />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{task.title}</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <User className="h-3.5 w-3.5" />
-                        {task.assignedStaffNames.length > 0 ? task.assignedStaffNames.join(', ') : 'Sin asignar'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {inProgress ? (
-                      <Badge>En progreso</Badge>
-                    ) : (
-                      <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        {task.isPostponed && (
-                          <Badge variant="outline" className="text-xs">
-                            Pospuesta
-                          </Badge>
-                        )}
-                        {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                      </span>
-                    )}
-                    {!inProgress && (
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={(e) => handlePostponeClick(e, task)}
-                        title="Posponer tarea a otra fecha"
-                      >
-                        <CalendarClock className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={(e) => handleComplete(e, task)}
-                      disabled={completeTask.isPending}
-                      title="Marcar tarea como completada"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              <div className="divide-y">
+                {tasks.map((task) => (
+                  <SortableTaskItem
+                    key={task.id}
+                    task={task}
+                    onNavigate={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
+                    onComplete={(e) => handleComplete(e, task)}
+                    onPostpone={(e) => handlePostponeClick(e, task)}
+                    completeDisabled={completeTask.isPending}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </Card>
       )}
 

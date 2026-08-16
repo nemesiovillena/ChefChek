@@ -2,11 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
-import { useDashboardKPIs, useCompleteProductionTask } from '@/hooks/use-dashboard-kpis';
+import {
+  useDashboardKPIs,
+  useCompleteProductionTask,
+  useReorderProductionTasks,
+} from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
+import { UpcomingTaskRow } from './upcoming-task-row';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -23,9 +39,15 @@ const DASHBOARD_TASKS_LIMIT = 6;
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: kpis, isLoading: kpisLoading } = useDashboardKPIs();
   const completeTask = useCompleteProductionTask();
+  const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   // WebSocket hooks
   const { notifications, markAsRead, markAllAsRead } = useWebSocketNotifications();
@@ -84,6 +106,24 @@ export default function DashboardPage() {
   const handlePostponeClick = (e: React.MouseEvent, task: UpcomingProductionTask) => {
     e.stopPropagation();
     setPostponingTask(task);
+  };
+
+  const handleTaskDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !kpis) return;
+
+    const allTasks = kpis.upcomingProductionTasks ?? [];
+    const visible = allTasks.slice(0, DASHBOARD_TASKS_LIMIT);
+    const oldIndex = visible.findIndex((t) => t.id === active.id);
+    const newIndex = visible.findIndex((t) => t.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(visible, oldIndex, newIndex);
+    queryClient.setQueryData(['dashboard-kpis'], {
+      ...kpis,
+      upcomingProductionTasks: [...reordered, ...allTasks.slice(DASHBOARD_TASKS_LIMIT)],
+    });
+    reorderTasks.mutate(reordered.map((t) => t.id));
   };
 
   // Evitar renderizado mientras se valida la sesión
@@ -212,68 +252,20 @@ export default function DashboardPage() {
             Cargando tareas...
           </div>
         ) : visibleTasks.length > 0 ? (
-          visibleTasks.map(task => {
-            const inProgress = task.status === 'IN_PROGRESS';
-            const lotDate = new Date(task.lotDate);
-            return (
-              <div
-                key={task.id}
-                onClick={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
-                className="p-stack-lg flex items-center justify-between hover:bg-surface-variant transition-colors cursor-pointer select-none active:scale-[0.995] duration-100"
-              >
-                <div className="flex items-center gap-stack-lg">
-                  <div className={`w-2 h-12 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
-                  <div>
-                    <h4 className="font-body-lg text-body-lg text-primary">{task.title}</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
-                      <span className="material-symbols-outlined text-[14px]">person</span>
-                      {task.assignedStaffNames.length > 0
-                        ? task.assignedStaffNames.join(', ')
-                        : 'Sin asignar'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-stack-lg">
-                  <div className="text-right">
-                    {inProgress ? (
-                      <div className="flex flex-col items-end">
-                        <span className="material-symbols-outlined text-secondary animate-pulse">progress_activity</span>
-                        <p className="text-[10px] text-secondary font-label-sm mt-1 uppercase">En progreso</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-end gap-0.5">
-                        {task.isPostponed && (
-                          <span className="text-[10px] text-secondary font-label-sm uppercase">Pospuesta</span>
-                        )}
-                        <span className="font-label-md text-label-md text-secondary">
-                          {lotDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  {!inProgress && (
-                    <button
-                      type="button"
-                      onClick={(e) => handlePostponeClick(e, task)}
-                      title="Posponer tarea a otra fecha"
-                      className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant bg-surface-variant/40 hover:bg-surface-variant hover:text-primary active:scale-90 transition-all duration-150 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">event_repeat</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={(e) => handleCompleteTask(e, task)}
-                    disabled={completeTask.isPending}
-                    title="Marcar tarea como completada"
-                    className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-secondary bg-secondary-container/15 hover:bg-secondary-container/30 hover:text-primary active:scale-90 transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">task_alt</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
+            <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              {visibleTasks.map((task) => (
+                <UpcomingTaskRow
+                  key={task.id}
+                  task={task}
+                  onNavigate={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
+                  onComplete={(e) => handleCompleteTask(e, task)}
+                  onPostpone={(e) => handlePostponeClick(e, task)}
+                  completeDisabled={completeTask.isPending}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         ) : (
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             No hay tareas de producción pendientes

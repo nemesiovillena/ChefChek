@@ -66,3 +66,19 @@ export function usePostponeProductionTask() {
     },
   });
 }
+
+export function useReorderProductionTasks() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const response = await apiClient.patch('/v1/production/orders/reorder', { orderIds });
+      return response.data;
+    },
+    onError: () => {
+      // El drag ya se aplicó de forma optimista en el cache; si el guardado
+      // falla, se descarta y se recupera el orden real del servidor.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
+}

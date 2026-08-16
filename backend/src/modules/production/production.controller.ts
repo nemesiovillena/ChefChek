@@ -31,6 +31,7 @@ import {
   UpdateWorkBatchDto,
   CreateProductionOrderDto,
   PostponeProductionOrderDto,
+  ReorderProductionOrdersDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
   CreateProductionTaskDto,
@@ -175,6 +176,20 @@ export class ProductionController {
       req.tenantId,
       orderId,
       dto.scheduledFor,
+    );
+  }
+
+  @Patch("orders/reorder")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Reordenar tareas de producción a mano" })
+  @ApiResponse({ status: 200, description: "Orden guardado" })
+  async reorderProductionOrders(
+    @Req() req: any,
+    @Body() dto: ReorderProductionOrdersDto,
+  ) {
+    return this.productionService.reorderProductionOrders(
+      req.tenantId,
+      dto.orderIds,
     );
   }
 
