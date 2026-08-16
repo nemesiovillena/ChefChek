@@ -437,54 +437,58 @@ function ListEditor({
         {rows.map((row, index) => (
           <li
             key={row.productId}
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--outline-variant)] px-3 py-2"
+            className="flex flex-col gap-2 rounded-xl border border-[var(--outline-variant)] px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
           >
-            <input
-              type="checkbox"
-              checked={row.checked}
-              onChange={(e) =>
-                setRows((prev) =>
-                  prev.map((r, i) =>
-                    i === index ? { ...r, checked: e.target.checked } : r,
-                  ),
-                )
-              }
-              aria-label={`Incluir ${row.name}`}
-              className="h-4 w-4 accent-[var(--primary)]"
-            />
-            <span className="min-w-0 flex-1 truncate text-sm text-[var(--on-surface)]">
-              {row.name}
-            </span>
-            <input
-              type="number"
-              min={0.001}
-              step="any"
-              value={row.quantity}
-              onChange={(e) =>
-                setRows((prev) =>
-                  prev.map((r, i) =>
-                    i === index
-                      ? { ...r, quantity: Number(e.target.value) || 0 }
-                      : r,
-                  ),
-                )
-              }
-              className="w-24 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-right text-sm text-[var(--on-surface)]"
-            />
-            <span className="w-20 truncate text-xs text-[var(--on-surface-variant)]">
-              {row.unitHint}
-            </span>
-            {canManage && (
-              <button
-                onClick={() =>
-                  setRows((prev) => prev.filter((_, i) => i !== index))
+            <label className="flex min-w-0 flex-1 items-center gap-3">
+              <input
+                type="checkbox"
+                checked={row.checked}
+                onChange={(e) =>
+                  setRows((prev) =>
+                    prev.map((r, i) =>
+                      i === index ? { ...r, checked: e.target.checked } : r,
+                    ),
+                  )
                 }
-                aria-label={`Quitar ${row.name}`}
-                className="rounded-lg p-1.5 text-[var(--error)] hover:bg-[var(--error-container)]"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
+                aria-label={`Incluir ${row.name}`}
+                className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+              />
+              <span className="min-w-0 flex-1 text-sm text-[var(--on-surface)] sm:truncate">
+                {row.name}
+              </span>
+            </label>
+            <div className="flex items-center gap-3 pl-7 sm:pl-0">
+              <input
+                type="number"
+                min={0.001}
+                step="any"
+                value={row.quantity}
+                onChange={(e) =>
+                  setRows((prev) =>
+                    prev.map((r, i) =>
+                      i === index
+                        ? { ...r, quantity: Number(e.target.value) || 0 }
+                        : r,
+                    ),
+                  )
+                }
+                className="w-20 shrink-0 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-right text-base text-[var(--on-surface)] sm:w-24 sm:text-sm"
+              />
+              <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)] sm:w-20 sm:flex-none">
+                {row.unitHint}
+              </span>
+              {canManage && (
+                <button
+                  onClick={() =>
+                    setRows((prev) => prev.filter((_, i) => i !== index))
+                  }
+                  aria-label={`Quitar ${row.name}`}
+                  className="shrink-0 rounded-lg p-1.5 text-[var(--error)] hover:bg-[var(--error-container)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </li>
         ))}
         {rows.length === 0 && (
