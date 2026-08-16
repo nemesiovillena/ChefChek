@@ -193,6 +193,10 @@ interface EditorRow {
   checked: boolean;
 }
 
+function sortRowsByName(rows: EditorRow[]): EditorRow[] {
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
 function ListEditor({
   list,
   canManage,
@@ -217,21 +221,23 @@ function ListEditor({
   // incluir. Si la lista ya tiene artículos guardados, esos son la verdad y
   // aparecen marcados.
   const [rows, setRows] = useState<EditorRow[]>(
-    pendingCatalog && list.items.length === 0
-      ? pendingCatalog.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          unitHint: p.purchaseFormat || p.referenceUnit || '',
-          quantity: 1,
-          checked: false,
-        }))
-      : list.items.map((item) => ({
-          productId: item.productId,
-          name: item.product?.name ?? item.productId,
-          unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
-          quantity: item.defaultQuantity,
-          checked: true,
-        })),
+    sortRowsByName(
+      pendingCatalog && list.items.length === 0
+        ? pendingCatalog.map((p) => ({
+            productId: p.id,
+            name: p.name,
+            unitHint: p.purchaseFormat || p.referenceUnit || '',
+            quantity: 1,
+            checked: false,
+          }))
+        : list.items.map((item) => ({
+            productId: item.productId,
+            name: item.product?.name ?? item.productId,
+            unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
+            quantity: item.defaultQuantity,
+            checked: true,
+          })),
+    ),
   );
 
   const notifyError = (e: unknown, fallback: string) =>
@@ -298,16 +304,18 @@ function ListEditor({
         });
         return;
       }
-      setRows((prev) => [
-        ...prev,
-        ...missing.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          unitHint: p.purchaseFormat || p.referenceUnit || '',
-          quantity: 1,
-          checked: false,
-        })),
-      ]);
+      setRows((prev) =>
+        sortRowsByName([
+          ...prev,
+          ...missing.map((p) => ({
+            productId: p.id,
+            name: p.name,
+            unitHint: p.purchaseFormat || p.referenceUnit || '',
+            quantity: 1,
+            checked: false,
+          })),
+        ]),
+      );
       addNotification({
         type: 'success',
         title: 'Catálogo sincronizado',
@@ -533,16 +541,18 @@ function ListEditor({
           placeholder="Escribe el nombre del artículo y pulsa + para añadirlo..."
           showAddButton
           onSelect={(product) =>
-            setRows((prev) => [
-              ...prev,
-              {
-                productId: product.id,
-                name: product.name,
-                unitHint: product.purchaseFormat || product.referenceUnit || '',
-                quantity: 1,
-                checked: true,
-              },
-            ])
+            setRows((prev) =>
+              sortRowsByName([
+                ...prev,
+                {
+                  productId: product.id,
+                  name: product.name,
+                  unitHint: product.purchaseFormat || product.referenceUnit || '',
+                  quantity: 1,
+                  checked: true,
+                },
+              ]),
+            )
           }
         />
       )}
