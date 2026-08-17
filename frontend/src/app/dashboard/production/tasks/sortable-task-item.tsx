@@ -40,7 +40,7 @@ export function SortableTaskItem({
       }`}
     >
       <div className="flex items-center gap-1.5 md:gap-4 min-w-0 flex-1">
-        <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50 -mx-1" />
+        <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50 -ml-1" />
         <div className={`w-2 h-10 rounded-full shrink-0 ${inProgress ? 'bg-secondary' : 'bg-primary'}`} />
         <div className="min-w-0">
           <p className="font-medium truncate">{task.title}</p>

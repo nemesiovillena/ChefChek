@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -37,7 +37,7 @@ export default function ProductionTasksPage() {
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
 

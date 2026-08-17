@@ -39,7 +39,7 @@ export function UpcomingTaskRow({
       <div className="flex items-center gap-stack-xs md:gap-stack-sm min-w-0 flex-1">
         <span
           title="Arrastrar para reordenar"
-          className="shrink-0 flex items-center text-on-surface-variant/40 -ml-1.5 -mr-1.5"
+          className="shrink-0 flex items-center text-on-surface-variant/40 -ml-1.5"
         >
           <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
         </span>
