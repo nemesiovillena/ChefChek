@@ -147,6 +147,9 @@ export function useProductionOrders(batchId: string | null) {
     // El lote incluye sus órdenes (include: productionOrders), así que crear/avanzar
     // una orden también deja stale el listado de lotes.
     queryClient.invalidateQueries({ queryKey: ['production-batches'] });
+    // El dashboard (widget y "lista de tareas completa") lee las tareas de
+    // /v1/dashboard/kpis, no de este hook, así que también hay que invalidarlo.
+    queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
   };
 
   const createOrder = useMutation({

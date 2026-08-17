@@ -31,11 +31,6 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// Tope de tareas visibles en la card del dashboard; el resto se consulta en
-// /dashboard/production/tasks vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
-// que solo se muestra si realmente quedan tareas fuera de este tope.
-const DASHBOARD_TASKS_LIMIT = 6;
-
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -113,15 +108,14 @@ export default function DashboardPage() {
     if (!over || active.id === over.id || !kpis) return;
 
     const allTasks = kpis.upcomingProductionTasks ?? [];
-    const visible = allTasks.slice(0, DASHBOARD_TASKS_LIMIT);
-    const oldIndex = visible.findIndex((t) => t.id === active.id);
-    const newIndex = visible.findIndex((t) => t.id === over.id);
+    const oldIndex = allTasks.findIndex((t) => t.id === active.id);
+    const newIndex = allTasks.findIndex((t) => t.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(visible, oldIndex, newIndex);
+    const reordered = arrayMove(allTasks, oldIndex, newIndex);
     queryClient.setQueryData(['dashboard-kpis'], {
       ...kpis,
-      upcomingProductionTasks: [...reordered, ...allTasks.slice(DASHBOARD_TASKS_LIMIT)],
+      upcomingProductionTasks: reordered,
     });
     reorderTasks.mutate(reordered.map((t) => t.id));
   };
@@ -248,8 +242,7 @@ export default function DashboardPage() {
     </div>
   );
 
-  const visibleTasks = kpis?.upcomingProductionTasks?.slice(0, DASHBOARD_TASKS_LIMIT) ?? [];
-  const hasMoreTasks = (kpis?.upcomingProductionTasks?.length ?? 0) > DASHBOARD_TASKS_LIMIT;
+  const visibleTasks = kpis?.upcomingProductionTasks ?? [];
 
   const tareasPendientesBoard = (
     <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
@@ -285,16 +278,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {hasMoreTasks && (
-        <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
-          <button
-            onClick={() => router.push('/dashboard/production/tasks')}
-            className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-          >
-            VER LISTA DE PREPARACIÓN COMPLETA
-          </button>
-        </div>
-      )}
     </div>
   );
 
