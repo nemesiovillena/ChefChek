@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { PurchaseScheduleService } from "../compras/services/purchase-schedule.service";
 import {
   DashboardQueryDto,
   CreateMetricDto,
@@ -169,6 +170,34 @@ export class DashboardService {
       },
     });
 
+    // Próxima programación de pedido de compra habilitada (la más cercana
+    // entre todos los proveedores/listas), para avisar en la card de
+    // "Pedidos pendientes" del dashboard.
+    const enabledSchedules = await this.prisma.purchaseSchedule.findMany({
+      where: { tenantId, enabled: true },
+      select: {
+        daysOfWeek: true,
+        timeOfDay: true,
+        enabled: true,
+        lastRunAt: true,
+        supplier: { select: { name: true } },
+      },
+    });
+    const nextScheduledPurchase =
+      enabledSchedules
+        .map((schedule) => {
+          const next = PurchaseScheduleService.getNextRunAt(schedule, now);
+          return next
+            ? { ...next, supplierName: schedule.supplier.name }
+            : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+        .sort((a, b) =>
+          `${a.dateKey}T${a.timeOfDay}`.localeCompare(
+            `${b.dateKey}T${b.timeOfDay}`,
+          ),
+        )[0] ?? null;
+
     // Lotes de producción activos
     const activeProductionBatches = await this.prisma.workBatch.count({
       where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
@@ -277,6 +306,7 @@ export class DashboardService {
       lowStockItems,
       pendingOrders,
       scheduledDraftOrders,
+      nextScheduledPurchase,
       todayRevenue: todayRevenue._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
       activeProductionBatches,

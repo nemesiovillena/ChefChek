@@ -145,6 +145,12 @@ export default function DashboardPage() {
     return String(value).padStart(2, '0');
   };
 
+  // 'YYYY-MM-DD' -> 'DD/MM' para la card de Pedidos Pendientes.
+  const formatNextScheduledDate = (dateKey: string) => {
+    const [, month, day] = dateKey.split('-');
+    return `${day}/${month}`;
+  };
+
   // Fragmentos reutilizados en el orden móvil (pedido por el usuario) y en el
   // bento grid de escritorio, que agrupa las cards de otra forma.
   const pedidosPendientesCard = (
@@ -165,6 +171,13 @@ export default function DashboardPage() {
         <span className="font-headline-lg text-headline-lg text-primary">
           {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
         </span>
+        {kpis?.nextScheduledPurchase && (
+          <p className="text-[11px] text-on-surface-variant mt-stack-xs">
+            Programado: {kpis.nextScheduledPurchase.supplierName} ·{' '}
+            {formatNextScheduledDate(kpis.nextScheduledPurchase.dateKey)}{' '}
+            {kpis.nextScheduledPurchase.timeOfDay}
+          </p>
+        )}
       </div>
       <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
         <span className="material-symbols-outlined text-secondary">local_shipping</span>

@@ -246,8 +246,9 @@ export const ORDER_STATUS_META: Record<
     className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
   },
   ENVIADO: {
+    // Verde: pedido ya enviado al proveedor; distinto tono de RECIBIDO para no confundirlos.
     label: 'Enviado',
-    className: 'bg-[var(--primary)] text-primary-foreground',
+    className: 'bg-emerald-100 text-emerald-800',
   },
   RECIBIDO_PARCIAL: {
     // Ámbar: señala desfase (recibido no coincide con lo pedido) sin ser un error bloqueante.

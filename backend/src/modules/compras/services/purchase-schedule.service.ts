@@ -95,6 +95,40 @@ export class PurchaseScheduleService {
     return true;
   }
 
+  /**
+   * Próxima fecha/hora (Europe/Madrid) en que esta programación generará un
+   * pedido, o null si nunca correrá (deshabilitada o sin días marcados).
+   * Pura y testeable con un reloj inyectado, hermana de shouldRun.
+   */
+  static getNextRunAt(
+    schedule: ScheduleClockInput,
+    now: Date,
+  ): { dateKey: string; timeOfDay: string } | null {
+    if (!schedule.enabled || schedule.daysOfWeek.length === 0) {
+      return null;
+    }
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    for (let offset = 0; offset <= 7; offset++) {
+      const parts = toMadridParts(new Date(now.getTime() + offset * DAY_MS));
+      if (!schedule.daysOfWeek.includes(parts.dayOfWeek)) {
+        continue;
+      }
+      if (offset === 0) {
+        if (parts.hhmm >= schedule.timeOfDay) {
+          continue; // la hora de hoy ya pasó
+        }
+        if (
+          schedule.lastRunAt &&
+          toMadridParts(schedule.lastRunAt).dateKey === parts.dateKey
+        ) {
+          continue; // ya generado hoy
+        }
+      }
+      return { dateKey: parts.dateKey, timeOfDay: schedule.timeOfDay };
+    }
+    return null;
+  }
+
   async findAll(tenantId: string) {
     return this.prisma.purchaseSchedule.findMany({
       where: { tenantId },

@@ -14,6 +14,12 @@ export interface UpcomingProductionTask {
   assignedStaffNames: string[];
 }
 
+export interface NextScheduledPurchase {
+  dateKey: string; // 'YYYY-MM-DD' en Europe/Madrid
+  timeOfDay: string; // 'HH:mm' en Europe/Madrid
+  supplierName: string;
+}
+
 interface KPIs {
   totalProducts: number;
   totalRecipes: number;
@@ -22,6 +28,7 @@ interface KPIs {
   lowStockItems: number;
   pendingOrders: number;
   scheduledDraftOrders: number;
+  nextScheduledPurchase: NextScheduledPurchase | null;
   todayRevenue: number;
   monthlyRevenue: number;
   activeProductionBatches: number;
