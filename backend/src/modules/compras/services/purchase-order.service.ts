@@ -156,7 +156,7 @@ export class PurchaseOrderService {
     const expectedTotal = this.computeTotal(lines);
     const orderNumber = await this.numberService.generateOrderNumber(tenantId);
 
-    return this.prisma.purchaseOrder.create({
+    const order = await this.prisma.purchaseOrder.create({
       data: {
         tenantId,
         orderNumber,
@@ -177,6 +177,23 @@ export class PurchaseOrderService {
       },
       include: ORDER_INCLUDE,
     });
+
+    // Cualquier pedido a un proveedor/local con programación activa cubre ese
+    // ciclo (aunque se haya creado a mano, antes de que saltara el cron): se
+    // marca lastRunAt como si el cron ya hubiera corrido, para que el aviso
+    // "Programado" del dashboard avance a la siguiente fecha y el propio cron
+    // no genere un pedido duplicado. Idempotente si ya lo marcó tryGenerate.
+    await this.prisma.purchaseSchedule.updateMany({
+      where: {
+        tenantId,
+        supplierId: dto.supplierId,
+        enabled: true,
+        locationId: dto.locationId ?? null,
+      },
+      data: { lastRunAt: new Date() },
+    });
+
+    return order;
   }
 
   /** Solo los BORRADOR son editables (notas, local y líneas). */

@@ -18,6 +18,7 @@ describe("PurchaseOrderService", () => {
       delete: jest.fn(),
     },
     purchaseOrderEvent: { create: jest.fn() },
+    purchaseSchedule: { updateMany: jest.fn() },
     supplier: { findFirst: jest.fn() },
     product: { findMany: jest.fn() },
     location: { findFirst: jest.fn() },
@@ -99,6 +100,54 @@ describe("PurchaseOrderService", () => {
       expect(data.lines.create[0].expectedPrice).toBe(10);
       expect(data.lines.create[1].expectedPrice).toBe(4);
       expect(data.events.create.type).toBe("CREATED");
+    });
+
+    it("pedido manual marca lastRunAt de la programación activa del proveedor/local", async () => {
+      prismaMock.supplier.findFirst.mockResolvedValue(supplier);
+      prismaMock.product.findMany.mockResolvedValue([]);
+      prismaMock.location.findFirst.mockResolvedValue({ id: "loc-1" });
+      numberMock.generateOrderNumber.mockResolvedValue("PED-0002");
+      prismaMock.purchaseOrder.create.mockResolvedValue({ id: "o1" });
+
+      await service.create(tenantId, "u1", {
+        supplierId: supplier.id,
+        locationId: "loc-1",
+        lines: [],
+      });
+
+      expect(prismaMock.purchaseSchedule.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId,
+          supplierId: supplier.id,
+          enabled: true,
+          locationId: "loc-1",
+        },
+        data: { lastRunAt: expect.any(Date) },
+      });
+    });
+
+    it("pedido generado desde una lista (manual o por el scheduler) también marca lastRunAt", async () => {
+      prismaMock.supplier.findFirst.mockResolvedValue(supplier);
+      prismaMock.product.findMany.mockResolvedValue([]);
+      numberMock.generateOrderNumber.mockResolvedValue("PED-0003");
+      prismaMock.purchaseOrder.create.mockResolvedValue({ id: "o1" });
+
+      await service.create(
+        tenantId,
+        "u1",
+        { supplierId: supplier.id, lines: [] },
+        "list-1",
+      );
+
+      expect(prismaMock.purchaseSchedule.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId,
+          supplierId: supplier.id,
+          enabled: true,
+          locationId: null,
+        },
+        data: { lastRunAt: expect.any(Date) },
+      });
     });
   });
 
