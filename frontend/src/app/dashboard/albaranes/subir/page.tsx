@@ -23,6 +23,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
+import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { useOcrConfig } from '@/hooks/use-ocr-config';
 import { usePurchaseOrder } from '@/hooks/use-purchase-orders';
 import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
@@ -261,7 +262,7 @@ function SubirAlbaranContent() {
             </div>
             <CardDescription>
               {results.products.length} producto{results.products.length !== 1 ? 's' : ''} detectados
-              con {results.products.filter((p) => p.confidence >= 0.7).length} de alta confianza
+              con {results.products.filter((p) => p.matchStatus === 'MATCH_ALTO').length} de alta confianza
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -270,16 +271,7 @@ function SubirAlbaranContent() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h4 className="font-medium">{product.name}</h4>
-                    {product.matchedProductId ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Coincide
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">
-                        Nuevo
-                      </Badge>
-                    )}
+                    <LineMatchBadge matchStatus={product.matchStatus} />
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                     <span>

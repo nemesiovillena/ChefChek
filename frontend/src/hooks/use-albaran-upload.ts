@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ALBARAN_UPLOAD_URL } from '@/lib/upload-api';
+import type { MatchStatus } from '@/lib/api-albaran';
 
 export interface DetectedProduct {
   name: string;
@@ -11,8 +12,10 @@ export interface DetectedProduct {
   unit_price: number;
   total_price: number;
   confidence: number;
+  matchStatus: MatchStatus;
   matchedProductId?: string | null;
   matchedProductName?: string | null;
+  suggestedProductId?: string | null;
 }
 
 export interface AlbaranUploadResult {

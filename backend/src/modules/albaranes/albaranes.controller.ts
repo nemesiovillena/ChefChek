@@ -111,7 +111,10 @@ export class AlbaranesController {
         supplier: (albaran as any).supplier?.name || "IMPORTADO",
         category: "",
         allergens: [],
-        confidence: line.confidence || 0.7,
+        confidence: line.confidence ?? 0,
+        matchStatus: line.matchStatus,
+        matchedProductId: line.matchedProductId,
+        suggestedProductId: line.suggestedProductId,
       })),
     };
   }

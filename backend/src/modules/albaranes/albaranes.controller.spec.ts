@@ -108,7 +108,7 @@ describe("AlbaranesController", () => {
       });
     });
 
-    it("defaults supplier to IMPORTADO and confidence to 0.7", async () => {
+    it("defaults supplier to IMPORTADO and confidence to 0 when matching hasn't set it", async () => {
       mockService.createFromUpload.mockResolvedValue({
         lines: [{ description: "x", quantity: 1, unitPrice: 2 }],
         supplier: undefined,
@@ -120,7 +120,7 @@ describe("AlbaranesController", () => {
       );
 
       expect(res.products[0].supplier).toBe("IMPORTADO");
-      expect(res.products[0].confidence).toBe(0.7);
+      expect(res.products[0].confidence).toBe(0);
     });
 
     it("returns empty products when albaran has no lines", async () => {

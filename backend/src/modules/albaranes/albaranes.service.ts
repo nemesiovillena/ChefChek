@@ -652,18 +652,28 @@ export class AlbaranesService {
         include: { lines: true, supplier: true },
       });
 
-      // 4. Run line matching in background (non-blocking)
-      this.lineMatching.matchAllLines(albaran.id, tenantId).catch((err) => {
-        this.logger.error(
-          `Line matching failed for albaran ${albaran.id}: ${err.message}`,
-        );
+      // 4. Run line matching antes de responder: el resumen que se muestra
+      // justo tras subir el archivo (subir/page.tsx) lee matchStatus/confidence
+      // de esta respuesta, así que si corriera en background (como antes)
+      // esos campos saldrían vacíos y el badge mostraría siempre "Nuevo".
+      await this.lineMatching
+        .matchAllLines(albaran.id, tenantId)
+        .catch((err) => {
+          this.logger.error(
+            `Line matching failed for albaran ${albaran.id}: ${err.message}`,
+          );
+        });
+
+      const matchedAlbaran = await this.prisma.albaran.findFirst({
+        where: { id: albaran.id, tenantId },
+        include: { lines: true, supplier: true },
       });
 
       this.logger.log(
         `Albaran created from upload: ${albaran.id} with ${albaran.lines.length} lines`,
       );
 
-      return albaran;
+      return matchedAlbaran ?? albaran;
     } catch (error) {
       this.logger.error(
         `Failed to create albaran from upload: ${error.message}`,
