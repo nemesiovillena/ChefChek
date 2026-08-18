@@ -644,6 +644,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
               const payload = event.payload as {
                 from?: string;
                 to?: string;
+                reason?: string;
                 description?: string;
                 photoUrl?: string | null;
               } | null;
@@ -664,6 +665,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                       {event.channel ? ` (${event.channel})` : ''}
                     </span>
                   </div>
+                  {payload?.reason && (
+                    <p className="text-[var(--on-surface-variant)]">{payload.reason}</p>
+                  )}
                   {payload?.description && (
                     <p className="text-[var(--on-surface-variant)]">{payload.description}</p>
                   )}
