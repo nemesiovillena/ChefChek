@@ -216,10 +216,9 @@ function ListEditor({
   const deleteMut = useDeletePurchaseList();
   const generateMut = useGenerateOrderFromList();
 
-  // Si hay catálogo pendiente (lista recién creada, sin artículos guardados
-  // aún), se muestra como propuesta sin marcar: el usuario elige qué
-  // incluir. Si la lista ya tiene artículos guardados, esos son la verdad y
-  // aparecen marcados.
+  // Ningún artículo se marca al cargar, tanto para catálogo pendiente como
+  // para una lista ya guardada: el usuario elige a mano qué incluye en cada
+  // pedido, en lugar de heredar la marca de la vez anterior.
   const [rows, setRows] = useState<EditorRow[]>(
     sortRowsByName(
       pendingCatalog && list.items.length === 0
@@ -235,7 +234,7 @@ function ListEditor({
             name: item.product?.name ?? item.productId,
             unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
             quantity: item.defaultQuantity,
-            checked: true,
+            checked: false,
           })),
     ),
   );
