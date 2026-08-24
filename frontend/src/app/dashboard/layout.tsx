@@ -6,10 +6,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
+import { resolveNotificationRoute } from '@/lib/notification-routes';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
-  PRIMARY_NAV,
-  MORE_SECTIONS,
+  SETTINGS_LINK,
+  NAV_GROUPS,
   MOBILE_NAV,
   moduleForPath,
 } from '@/features/modules/lib/nav-config';
@@ -33,9 +34,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const savedTheme = localStorage.getItem('theme');
     return savedTheme ? savedTheme === 'dark' : true;
   });
-  const { unreadCount, markAllAsRead, notifications } = useWebSocketNotifications();
+  const { unreadCount, markAsRead, markAllAsRead, notifications } = useWebSocketNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
+  /** Which desktop category dropdown (Cocina/Almacén/...) is open, if any. */
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  /** Mobile-only "Más" drawer, grouping every category in one sheet. */
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Load module activation states for the current tenant once authenticated.
   useEffect(() => {
@@ -83,19 +88,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (!showMore) return;
-    const close = () => setShowMore(false);
+    if (!openGroup) return;
+    const close = () => setOpenGroup(null);
     document.addEventListener('click', close, { capture: true });
     return () => document.removeEventListener('click', close, { capture: true });
-  }, [showMore]);
+  }, [openGroup]);
 
-  // Filter dropdown sections: drop empty sections (all items disabled).
-  const visibleSections = useMemo(
+  // Filter nav groups: drop empty groups (all items disabled).
+  const visibleGroups = useMemo(
     () =>
-      MORE_SECTIONS.map((section) => ({
-        ...section,
-        items: section.items.filter((item) => isEnabled(item.moduleId)),
-      })).filter((section) => section.items.length > 0),
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => isEnabled(item.moduleId)),
+      })).filter((group) => group.items.length > 0),
     [isEnabled],
   );
 
@@ -121,52 +126,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-gutter">
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
-        <div className="hidden md:flex items-center gap-stack-lg">
-          {PRIMARY_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1"
-            >
-              {item.label}
-            </Link>
-          ))}
-          {/* Dropdown for remaining modules (only if any section is visible) */}
-          {visibleSections.length > 0 && (
-            <div className="relative">
+        <div className="hidden md:flex items-center gap-stack-lg ml-gutter">
+          {visibleGroups.map((group) => (
+            <div key={group.title} className="relative shrink-0">
               <button
-                onClick={() => setShowMore(!showMore)}
-                className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1"
+                onClick={() => setOpenGroup(openGroup === group.title ? null : (group.title ?? null))}
+                className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1 uppercase whitespace-nowrap"
               >
-                MÁS
-                <span className="material-symbols-outlined text-[16px]">{showMore ? 'expand_less' : 'expand_more'}</span>
+                {group.title}
+                <span className="material-symbols-outlined text-[16px]">{openGroup === group.title ? 'expand_less' : 'expand_more'}</span>
               </button>
-              {showMore && (
-                <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-                  {visibleSections.map((section, idx) => (
-                    <div key={section.title ?? `sec-${idx}`} className={idx === 0 ? 'p-2' : 'border-t border-border p-2'}>
-                      {section.title && (
-                        <p className="font-label-sm text-label-sm text-on-surface-variant px-2 py-1 uppercase tracking-wider text-[10px]">
-                          {section.title}
-                        </p>
-                      )}
-                      {section.items.map((item) => (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setShowMore(false)}
-                          className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
+              {openGroup === group.title && (
+                <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden p-2">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpenGroup(null)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                      {item.label}
+                    </Link>
                   ))}
                 </div>
               )}
             </div>
-          )}
+          ))}
+          <Link
+            href={SETTINGS_LINK.href}
+            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 whitespace-nowrap shrink-0"
+          >
+            {SETTINGS_LINK.label.toUpperCase()}
+          </Link>
         </div>
         <div className="flex items-center gap-stack-md">
           <div className="text-right hidden sm:block">
@@ -188,7 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 flex items-center justify-center"
+            className="hidden lg:flex relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 items-center justify-center"
             title="Notificaciones"
           >
             <span className="material-symbols-outlined text-[22px]">notifications</span>
@@ -199,36 +191,55 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </button>
           {showNotifications && (
-            <div className="absolute right-4 sm:right-16 top-14 w-72 sm:w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
+            <div className="hidden lg:block absolute right-4 sm:right-16 top-14 w-72 sm:w-80 bg-surface-container-high rounded-lg shadow-xl border border-border z-50">
               <div className="p-3 border-b border-border flex justify-between items-center">
                 <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">Notificaciones</h3>
                 <button
                   onClick={markAllAsRead}
                   className="text-secondary text-[11px] hover:underline cursor-pointer"
                 >
-                  Marcar todas como leídas
+                  Marcar Todas
                 </button>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-on-surface-variant text-xs">
-                    No hay notificaciones
-                  </p>
-                ) : (
-                  notifications.slice(0, 5).map((notif) => (
-                    <div
-                      key={notif.id}
-                      className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
-                    >
-                      <p className="text-xs text-primary font-medium">{notif.title}</p>
-                      <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
-                      <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
-                        {new Date(notif.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  ))
-                )}
+                {(() => {
+                  const visibleNotifications = showAllNotifications
+                    ? notifications
+                    : notifications.filter((notif) => !notif.read);
+                  return visibleNotifications.length === 0 ? (
+                    <p className="p-4 text-center text-on-surface-variant text-xs">
+                      {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
+                    </p>
+                  ) : (
+                    visibleNotifications.slice(0, showAllNotifications ? 20 : 5).map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => {
+                          markAsRead(notif.id);
+                          const route = resolveNotificationRoute(notif.entityType, notif.entityId);
+                          if (route) {
+                            setShowNotifications(false);
+                            router.push(route);
+                          }
+                        }}
+                        className={`p-2.5 border-b border-border hover:bg-surface-variant transition-colors cursor-pointer ${!notif.read ? 'bg-surface-container-low' : ''}`}
+                      >
+                        <p className="text-xs text-primary font-medium">{notif.title}</p>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
+                        <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
+                          {new Date(notif.createdAt).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    ))
+                  );
+                })()}
               </div>
+              <button
+                onClick={() => setShowAllNotifications((prev) => !prev)}
+                className="w-full p-2 text-center text-secondary text-[11px] hover:underline cursor-pointer border-t border-border"
+              >
+                {showAllNotifications ? 'Ver no leídas' : 'Ver Todas'}
+              </button>
             </div>
           )}
           <button
@@ -262,36 +273,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Mobile "Más" Menu Overlay & Drawer */}
-      {showMore && (
+      {showMobileMenu && (
         <>
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
-            onClick={() => setShowMore(false)}
+            onClick={() => setShowMobileMenu(false)}
           />
           <div className="fixed bottom-16 left-3 right-3 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
             <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-border">
               <span className="text-xs font-bold text-primary uppercase tracking-wider">Menú Principal</span>
               <button
-                onClick={() => setShowMore(false)}
+                onClick={() => setShowMobileMenu(false)}
                 className="text-on-surface-variant hover:text-primary p-1 flex items-center justify-center cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
             <div className="space-y-3.5">
-              {visibleSections.map((section, idx) => (
-                <div key={section.title ?? `sec-${idx}`} className="space-y-1">
-                  {section.title && (
+              {visibleGroups.map((group) => (
+                <div key={group.title} className="space-y-1">
+                  {group.title && (
                     <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold px-2 py-0.5">
-                      {section.title}
+                      {group.title}
                     </p>
                   )}
                   <div className="grid grid-cols-1 gap-0.5">
-                    {section.items.map((item) => (
+                    {group.items.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
-                        onClick={() => setShowMore(false)}
+                        onClick={() => setShowMobileMenu(false)}
                         className="flex items-center gap-3 px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
                       >
                         <span className="material-symbols-outlined text-[18px] text-secondary">{item.icon}</span>
@@ -301,29 +312,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 </div>
               ))}
+              <div className="border-t border-border pt-1.5">
+                <Link
+                  href={SETTINGS_LINK.href}
+                  onClick={() => setShowMobileMenu(false)}
+                  className="flex items-center gap-3 px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-secondary">{SETTINGS_LINK.icon}</span>
+                  <span className="font-medium">{SETTINGS_LINK.label}</span>
+                </Link>
+              </div>
             </div>
           </div>
         </>
       )}
 
       {/* Sleek, Compact Bottom Nav Shell for Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-14 px-2 pb-safe bg-surface-container-high/95 backdrop-blur-md border-t border-border/80 shadow-lg md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-16 px-2 pb-safe bg-surface-container-high/95 backdrop-blur-md border-t border-border/80 shadow-lg md:hidden">
         {MOBILE_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1 px-2"
+            className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1.5 px-2"
           >
-            <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-            <span className="text-[9px] font-medium tracking-tight mt-0.5">{item.label}</span>
+            <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
+            <span className="text-[10px] font-medium tracking-tight mt-0.5">{item.label}</span>
           </Link>
         ))}
         <button
-          onClick={() => setShowMore(!showMore)}
-          className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1 px-2 cursor-pointer"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1.5 px-2 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[20px]">apps</span>
-          <span className="text-[9px] font-medium tracking-tight mt-0.5">Más</span>
+          <span className="material-symbols-outlined text-[22px]">apps</span>
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">Más</span>
         </button>
       </nav>
     </div>

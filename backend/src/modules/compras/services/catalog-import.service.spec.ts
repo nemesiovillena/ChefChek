@@ -12,6 +12,11 @@ import { ProductSupplierOffersService } from "../../products/product-supplier-of
 import { PriceAgreementService } from "./price-agreement.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 
+// createFromUpload ya no espera la extracción (corre en background, ver
+// processInBackground): hay que dejar drenar la cola de microtasks antes de
+// comprobar sus efectos (matching, creación de líneas, update de estado).
+const flushAsync = () => new Promise((resolve) => setImmediate(resolve));
+
 describe("CatalogImportService", () => {
   let service: CatalogImportService;
 
@@ -85,49 +90,69 @@ describe("CatalogImportService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("400 si la extracción de IA falla (mensaje claro, sin fallback silencioso)", async () => {
+    it("marca ERROR en background si la extracción de IA falla (sin fallback silencioso)", async () => {
       prismaMock.supplier.findFirst.mockResolvedValue({ id: supplierId });
+      prismaMock.catalogImport.create.mockResolvedValue({ id: "cat-1" });
+      prismaMock.catalogImport.findFirst.mockResolvedValue(pendingImport([]));
       pythonOcrMock.processCatalog.mockResolvedValue({
         success: false,
         error_message: "API key inválida",
         products: [],
       });
-      await expect(
-        service.createFromUpload(
-          tenantId,
-          supplierId,
-          "u1",
-          {
-            buffer: Buffer.from(""),
-            filename: "f.jpg",
-            mimetype: "image/jpeg",
-          },
-          "gemini-2.0-flash",
-          "bad-key",
-        ),
-      ).rejects.toThrow(BadRequestException);
+
+      await service.createFromUpload(
+        tenantId,
+        supplierId,
+        "u1",
+        {
+          buffer: Buffer.from(""),
+          filename: "f.jpg",
+          mimetype: "image/jpeg",
+        },
+        "gemini-2.0-flash",
+        "bad-key",
+      );
+      await flushAsync();
+
+      expect(prismaMock.catalogImport.update).toHaveBeenCalledWith({
+        where: { id: "cat-1" },
+        data: {
+          status: CatalogImportStatus.ERROR,
+          errorMessage: "API key inválida",
+        },
+      });
     });
 
-    it("400 si la IA no extrae ningún artículo", async () => {
+    it("marca ERROR en background si la IA no extrae ningún artículo", async () => {
       prismaMock.supplier.findFirst.mockResolvedValue({ id: supplierId });
+      prismaMock.catalogImport.create.mockResolvedValue({ id: "cat-1" });
+      prismaMock.catalogImport.findFirst.mockResolvedValue(pendingImport([]));
       pythonOcrMock.processCatalog.mockResolvedValue({
         success: true,
         products: [],
       });
-      await expect(
-        service.createFromUpload(
-          tenantId,
-          supplierId,
-          "u1",
-          {
-            buffer: Buffer.from(""),
-            filename: "f.jpg",
-            mimetype: "image/jpeg",
-          },
-          "gemini-2.0-flash",
-          "key",
-        ),
-      ).rejects.toThrow(BadRequestException);
+
+      await service.createFromUpload(
+        tenantId,
+        supplierId,
+        "u1",
+        {
+          buffer: Buffer.from(""),
+          filename: "f.jpg",
+          mimetype: "image/jpeg",
+        },
+        "gemini-2.0-flash",
+        "key",
+      );
+      await flushAsync();
+
+      expect(prismaMock.catalogImport.update).toHaveBeenCalledWith({
+        where: { id: "cat-1" },
+        data: {
+          status: CatalogImportStatus.ERROR,
+          errorMessage: "La IA no encontró artículos en el documento.",
+        },
+      });
     });
 
     it("crea la importación y matchea cada línea extraída", async () => {
@@ -173,6 +198,7 @@ describe("CatalogImportService", () => {
         "gemini-2.0-flash",
         "key",
       );
+      await flushAsync();
 
       expect(lineMatchingMock.matchLine).toHaveBeenCalledTimes(2);
       expect(prismaMock.catalogImportLine.create).toHaveBeenCalledTimes(2);

@@ -32,6 +32,10 @@ export interface MatchLineResult {
   matchStatus: LineMatchStatus;
   confidence: number;
   suggestions: MatchSuggestion[];
+  // Mejor candidato cuando NO hubo auto-asignación (MATCH_DUDOSO o NUEVO).
+  // Se persiste en AlbaranLine para poder mostrarlo como sugerencia
+  // descartable en vez de perderse (antes se calculaba y se tiraba).
+  suggestedProductId: string | null;
 }
 
 @Injectable()
@@ -74,6 +78,7 @@ export class LineMatchingService {
           matchStatus: LineMatchStatus.MATCH_ALTO,
           confidence: 1.0,
           suggestions: [],
+          suggestedProductId: null,
         };
       }
     }
@@ -86,6 +91,7 @@ export class LineMatchingService {
         matchStatus: LineMatchStatus.NUEVO,
         confidence: 0,
         suggestions: [],
+        suggestedProductId: null,
       };
     }
 
@@ -108,6 +114,7 @@ export class LineMatchingService {
           matchStatus: LineMatchStatus.MATCH_ALTO,
           confidence: 1.0,
           suggestions: [],
+          suggestedProductId: null,
         };
       }
     }
@@ -135,6 +142,7 @@ export class LineMatchingService {
         matchStatus: LineMatchStatus.MATCH_ALTO,
         confidence,
         suggestions: this.mapSuggestions(recognitionResult.suggestions),
+        suggestedProductId: null,
       };
     }
 
@@ -149,10 +157,14 @@ export class LineMatchingService {
         matchStatus: LineMatchStatus.MATCH_DUDOSO,
         confidence,
         suggestions: this.mapSuggestions(recognitionResult.suggestions),
+        suggestedProductId: this.pickSuggestedProductId(recognitionResult),
       };
     }
 
-    // Low confidence: new product
+    // Low confidence: new product. Se conserva el mejor candidato (si lo
+    // hay) como sugerencia descartable: antes de este cambio se tiraba
+    // (suggestions: []) y el usuario nunca veía que ya existía un artículo
+    // parecido, aunque el shortlist SÍ lo hubiera encontrado.
     this.logger.log(
       `Low confidence match (${confidence.toFixed(2)}): ${input.description} - marking as NUEVO`,
     );
@@ -162,7 +174,20 @@ export class LineMatchingService {
       matchStatus: LineMatchStatus.NUEVO,
       confidence,
       suggestions: [],
+      suggestedProductId: this.pickSuggestedProductId(recognitionResult),
     };
+  }
+
+  /** Mejor candidato disponible de ProductRecognitionService, o null si no hay ninguno. */
+  private pickSuggestedProductId(recognitionResult: {
+    recognizedProduct: { id?: string } | null;
+    suggestions?: Array<{ id?: string }>;
+  }): string | null {
+    return (
+      recognitionResult.recognizedProduct?.id ??
+      recognitionResult.suggestions?.[0]?.id ??
+      null
+    );
   }
 
   /**
@@ -198,6 +223,11 @@ export class LineMatchingService {
             matchedProductId: result.matchedProductId,
             matchStatus: result.matchStatus,
             confidence: result.confidence,
+            // Si el usuario ya descartó la sugerencia de esta línea, no la
+            // resucites en un re-match (ej. reprocesar el documento).
+            ...(line.suggestionDismissed
+              ? {}
+              : { suggestedProductId: result.suggestedProductId }),
           },
         });
 
@@ -327,7 +357,7 @@ export class LineMatchingService {
    */
   private mapSuggestions(
     suggestions:
-      | Array<{ name: string; unitPrice?: number; unit?: string }>
+      | Array<{ id?: string; name: string; unitPrice?: number; unit?: string }>
       | undefined,
   ): MatchSuggestion[] {
     if (!suggestions || suggestions.length === 0) {
@@ -335,13 +365,16 @@ export class LineMatchingService {
     }
 
     return suggestions
-      .filter((s) => s.name)
+      .filter((s) => s.name && s.id)
       .slice(0, 5)
       .map((s, index) => ({
-        id: `suggestion-${index}`, // Placeholder ID (would need actual product lookup)
+        id: s.id!,
         name: s.name,
         netPrice: s.unitPrice || 0,
-        referenceUnit: s.unit || "kg",
+        // "kilo", no "kg": símbolo real del catálogo del tenant, para que si
+        // se acepta la sugerencia el producto creado coincida con el
+        // selector de "Unidad de referencia" (ver unit-symbols.ts, frontend).
+        referenceUnit: s.unit || "kilo",
         similarity: 0.7 - index * 0.1, // Decreasing similarity
       }));
   }

@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsEnum, ValidateIf } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  ValidateIf,
+  IsBoolean,
+} from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AlbaranStatus } from "@prisma/client";
 
@@ -30,6 +36,14 @@ export class UpdateAlbaranDto {
   @IsOptional()
   @IsString()
   warehouseId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Opt-in: al confirmar, aplicar el descuento de línea al coste/escandallos",
+  })
+  @IsOptional()
+  @IsBoolean()
+  applyDiscountToCost?: boolean;
 }
 
 export class UpdateAlbaranStatusDto {

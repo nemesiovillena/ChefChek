@@ -95,10 +95,12 @@ export class AlbaranStatusService {
     }
 
     if (to === AlbaranStatus.CONFIRMADO) {
-      // All confirmed lines must have a matched product
-      const unmatched = lines.filter(
-        (l) => l.lineStatus === LineStatus.CONFIRMADO && !l.matchedProductId,
+      const confirmedLines = lines.filter(
+        (l) => l.lineStatus === LineStatus.CONFIRMADO,
       );
+
+      // All confirmed lines must have a matched product
+      const unmatched = confirmedLines.filter((l) => !l.matchedProductId);
       if (unmatched.length > 0) {
         throw new BadRequestException(
           `No se puede confirmar: ${unmatched.length} línea(s) confirmada(s) sin producto asignado`,

@@ -193,6 +193,10 @@ interface EditorRow {
   checked: boolean;
 }
 
+function sortRowsByName(rows: EditorRow[]): EditorRow[] {
+  return [...rows].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+}
+
 function ListEditor({
   list,
   canManage,
@@ -212,26 +216,27 @@ function ListEditor({
   const deleteMut = useDeletePurchaseList();
   const generateMut = useGenerateOrderFromList();
 
-  // Si hay catálogo pendiente (lista recién creada, sin artículos guardados
-  // aún), se muestra como propuesta sin marcar: el usuario elige qué
-  // incluir. Si la lista ya tiene artículos guardados, esos son la verdad y
-  // aparecen marcados.
+  // Ningún artículo se marca al cargar, tanto para catálogo pendiente como
+  // para una lista ya guardada: el usuario elige a mano qué incluye en cada
+  // pedido, en lugar de heredar la marca de la vez anterior.
   const [rows, setRows] = useState<EditorRow[]>(
-    pendingCatalog && list.items.length === 0
-      ? pendingCatalog.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          unitHint: p.purchaseFormat || p.referenceUnit || '',
-          quantity: 1,
-          checked: false,
-        }))
-      : list.items.map((item) => ({
-          productId: item.productId,
-          name: item.product?.name ?? item.productId,
-          unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
-          quantity: item.defaultQuantity,
-          checked: true,
-        })),
+    sortRowsByName(
+      pendingCatalog && list.items.length === 0
+        ? pendingCatalog.map((p) => ({
+            productId: p.id,
+            name: p.name,
+            unitHint: p.purchaseFormat || p.referenceUnit || '',
+            quantity: 1,
+            checked: false,
+          }))
+        : list.items.map((item) => ({
+            productId: item.productId,
+            name: item.product?.name ?? item.productId,
+            unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
+            quantity: item.defaultQuantity,
+            checked: false,
+          })),
+    ),
   );
 
   const notifyError = (e: unknown, fallback: string) =>
@@ -242,9 +247,25 @@ function ListEditor({
     });
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [notes, setNotes] = useState(list.notes ?? '');
+  const [additionalItems, setAdditionalItems] = useState(list.additionalItems ?? '');
+
+  const checkedCount = rows.filter((r) => r.checked).length;
+  const allChecked = rows.length > 0 && checkedCount === rows.length;
+  const someChecked = checkedCount > 0;
 
   // El check determina pertenencia a la lista: solo se persiste lo marcado.
   const handleSave = async () => {
+    if (!rows.some((r) => r.checked)) {
+      const ok = await confirm({
+        title: 'Guardar checklist vacío',
+        description:
+          'No has marcado ningún artículo. Si continúas, la lista se guardará sin artículos.',
+        confirmText: 'Guardar vacío',
+        variant: 'warning',
+      });
+      if (!ok) return;
+    }
     try {
       await updateMut.mutateAsync({
         id: list.id,
@@ -255,6 +276,8 @@ function ListEditor({
               productId: r.productId,
               defaultQuantity: r.quantity,
             })),
+          notes,
+          additionalItems,
         },
       });
       addNotification({ type: 'success', title: 'Lista guardada', message: list.name });
@@ -280,16 +303,18 @@ function ListEditor({
         });
         return;
       }
-      setRows((prev) => [
-        ...prev,
-        ...missing.map((p) => ({
-          productId: p.id,
-          name: p.name,
-          unitHint: p.purchaseFormat || p.referenceUnit || '',
-          quantity: 1,
-          checked: false,
-        })),
-      ]);
+      setRows((prev) =>
+        sortRowsByName([
+          ...prev,
+          ...missing.map((p) => ({
+            productId: p.id,
+            name: p.name,
+            unitHint: p.purchaseFormat || p.referenceUnit || '',
+            quantity: 1,
+            checked: false,
+          })),
+        ]),
+      );
       addNotification({
         type: 'success',
         title: 'Catálogo sincronizado',
@@ -327,6 +352,15 @@ function ListEditor({
       return;
     }
     try {
+      // Persiste notas/artículos nuevos si cambiaron, antes de generar (un
+      // único PATCH). Así el borrador hereda siempre lo que se ve en pantalla.
+      const patch: { notes?: string; additionalItems?: string } = {};
+      if (notes !== (list.notes ?? '')) patch.notes = notes;
+      if (additionalItems !== (list.additionalItems ?? ''))
+        patch.additionalItems = additionalItems;
+      if (Object.keys(patch).length) {
+        await updateMut.mutateAsync({ id: list.id, data: patch });
+      }
       const order = await generateMut.mutateAsync({
         listId: list.id,
         ...(withSelection
@@ -338,6 +372,11 @@ function ListEditor({
             }
           : {}),
       });
+      // El backend transfiere notas/artículos nuevos al pedido y los limpia
+      // de la lista origen; se refleja también en el estado local para que,
+      // si el usuario vuelve atrás, el checklist ya no los muestre.
+      setNotes('');
+      setAdditionalItems('');
       addNotification({
         type: 'success',
         title: `Pedido ${order.orderNumber} creado`,
@@ -370,58 +409,85 @@ function ListEditor({
         )}
       </div>
 
+      {rows.length > 0 && canManage && (
+        <div className="flex items-center justify-between px-1">
+          <label className="flex items-center gap-2 text-sm text-[var(--on-surface-variant)]">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              ref={(el) => {
+                if (el) el.indeterminate = someChecked && !allChecked;
+              }}
+              onChange={(e) =>
+                setRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))
+              }
+              aria-label="Seleccionar todos los artículos"
+              className="h-4 w-4 accent-[var(--primary)]"
+            />
+            Seleccionar todos
+          </label>
+          <span className="text-xs text-[var(--on-surface-variant)]">
+            {checkedCount} / {rows.length} seleccionados
+          </span>
+        </div>
+      )}
+
       <ul className="space-y-2">
         {rows.map((row, index) => (
           <li
             key={row.productId}
-            className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--outline-variant)] px-3 py-2"
+            className="flex flex-col gap-2 rounded-xl border border-[var(--outline-variant)] px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
           >
-            <input
-              type="checkbox"
-              checked={row.checked}
-              onChange={(e) =>
-                setRows((prev) =>
-                  prev.map((r, i) =>
-                    i === index ? { ...r, checked: e.target.checked } : r,
-                  ),
-                )
-              }
-              aria-label={`Incluir ${row.name}`}
-              className="h-4 w-4 accent-[var(--primary)]"
-            />
-            <span className="min-w-0 flex-1 truncate text-sm text-[var(--on-surface)]">
-              {row.name}
-            </span>
-            <input
-              type="number"
-              min={0.001}
-              step="any"
-              value={row.quantity}
-              onChange={(e) =>
-                setRows((prev) =>
-                  prev.map((r, i) =>
-                    i === index
-                      ? { ...r, quantity: Number(e.target.value) || 0 }
-                      : r,
-                  ),
-                )
-              }
-              className="w-24 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-right text-sm text-[var(--on-surface)]"
-            />
-            <span className="w-20 truncate text-xs text-[var(--on-surface-variant)]">
-              {row.unitHint}
-            </span>
-            {canManage && (
-              <button
-                onClick={() =>
-                  setRows((prev) => prev.filter((_, i) => i !== index))
+            <label className="flex min-w-0 flex-1 items-center gap-3">
+              <input
+                type="checkbox"
+                checked={row.checked}
+                onChange={(e) =>
+                  setRows((prev) =>
+                    prev.map((r, i) =>
+                      i === index ? { ...r, checked: e.target.checked } : r,
+                    ),
+                  )
                 }
-                aria-label={`Quitar ${row.name}`}
-                className="rounded-lg p-1.5 text-[var(--error)] hover:bg-[var(--error-container)]"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
+                aria-label={`Incluir ${row.name}`}
+                className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+              />
+              <span className="min-w-0 flex-1 text-sm text-[var(--on-surface)] sm:truncate">
+                {row.name}
+              </span>
+            </label>
+            <div className="flex items-center gap-3 pl-7 sm:pl-0">
+              <input
+                type="number"
+                min={0.001}
+                step="any"
+                value={row.quantity}
+                onChange={(e) =>
+                  setRows((prev) =>
+                    prev.map((r, i) =>
+                      i === index
+                        ? { ...r, quantity: Number(e.target.value) || 0 }
+                        : r,
+                    ),
+                  )
+                }
+                className="w-20 shrink-0 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-right text-base text-[var(--on-surface)] sm:w-24 sm:text-sm"
+              />
+              <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)] sm:w-20 sm:flex-none">
+                {row.unitHint}
+              </span>
+              {canManage && (
+                <button
+                  onClick={() =>
+                    setRows((prev) => prev.filter((_, i) => i !== index))
+                  }
+                  aria-label={`Quitar ${row.name}`}
+                  className="shrink-0 rounded-lg p-1.5 text-[var(--error)] hover:bg-[var(--error-container)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </li>
         ))}
         {rows.length === 0 && (
@@ -431,21 +497,65 @@ function ListEditor({
         )}
       </ul>
 
+      {(canManage || additionalItems.trim()) && (
+        <div className="space-y-2">
+          <label
+            htmlFor="list-additional-items"
+            className="block text-sm font-medium text-[var(--on-surface)]"
+          >
+            Artículos nuevos
+          </label>
+          <textarea
+            id="list-additional-items"
+            value={additionalItems}
+            onChange={(e) => setAdditionalItems(e.target.value)}
+            readOnly={!canManage}
+            rows={3}
+            placeholder="Un artículo por línea. Son artículos que aún no le has comprado a este proveedor (no están en su catálogo). Al generar el pedido se añaden al final del listado, en la misma lista que los demás..."
+            className="w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)] read-only:bg-[var(--surface-container-low)]"
+          />
+        </div>
+      )}
+
+      {(canManage || notes.trim()) && (
+        <div className="space-y-2">
+          <label htmlFor="list-notes" className="block text-sm font-medium text-[var(--on-surface)]">
+            Notas
+          </label>
+          <textarea
+            id="list-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            readOnly={!canManage}
+            rows={3}
+            placeholder="Instrucciones o recordatorios para el proveedor que no sean artículos (se envían bajo «Notas:», tras el listado)..."
+            className="w-full resize-y rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)] read-only:bg-[var(--surface-container-low)]"
+          />
+        </div>
+      )}
+
       {canManage && (
         <ProductSearchInput
-          supplierId={list.supplierId}
+          // Sin supplierId a propósito: el checklist puede incluir artículos que
+          // no se compran habitualmente a este proveedor (compra puntual). El
+          // precio en el pedido generado queda a null si no hay oferta de este
+          // proveedor para ese artículo (ver purchase-order.service buildLines).
           excludeIds={rows.map((r) => r.productId)}
+          placeholder="Escribe el nombre del artículo y pulsa + para añadirlo..."
+          showAddButton
           onSelect={(product) =>
-            setRows((prev) => [
-              ...prev,
-              {
-                productId: product.id,
-                name: product.name,
-                unitHint: product.purchaseFormat || product.referenceUnit || '',
-                quantity: 1,
-                checked: true,
-              },
-            ])
+            setRows((prev) =>
+              sortRowsByName([
+                ...prev,
+                {
+                  productId: product.id,
+                  name: product.name,
+                  unitHint: product.purchaseFormat || product.referenceUnit || '',
+                  quantity: 1,
+                  checked: true,
+                },
+              ]),
+            )
           }
         />
       )}

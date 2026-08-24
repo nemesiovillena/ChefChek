@@ -7,6 +7,8 @@ import { PurchaseOrderStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { MailService } from "../../mail/mail.service";
 import { PurchaseOrderPdfService } from "./purchase-order-pdf.service";
+import { PurchaseOrderConfigService } from "./purchase-order-config.service";
+import { toBulletLines } from "../utils/bullet-list.util";
 
 export type SendChannel = "EMAIL" | "WHATSAPP" | "PHONE" | "WEB";
 const SEND_CHANNELS: SendChannel[] = ["EMAIL", "WHATSAPP", "PHONE", "WEB"];
@@ -38,12 +40,16 @@ export class OrderSendingService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly pdfService: PurchaseOrderPdfService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
   ) {}
 
   /** Vista previa: texto del pedido, canales disponibles y enlaces. */
   async getSendPreview(tenantId: string, orderId: string) {
     const order = await this.findSendableOrder(tenantId, orderId, false);
-    const text = this.buildMessage(order);
+    const restaurantName = await this.getRestaurantName(tenantId);
+    const supplierNote =
+      await this.purchaseOrderConfigService.getSupplierNote(tenantId);
+    const text = this.buildMessage(order, restaurantName, supplierNote);
     const whatsappNumber = this.normalizePhone(order.supplier.whatsapp);
 
     return {
@@ -84,10 +90,13 @@ export class OrderSendingService {
         throw new BadRequestException("El proveedor no tiene email.");
       }
       const pdf = await this.pdfService.generate(tenantId, orderId);
+      const restaurantName = await this.getRestaurantName(tenantId);
+      const supplierNote =
+        await this.purchaseOrderConfigService.getSupplierNote(tenantId);
       await this.mailService.sendMail(tenantId, {
         to: order.supplier.email,
         subject: `Pedido ${order.orderNumber}`,
-        text: this.buildMessage(order),
+        text: this.buildMessage(order, restaurantName, supplierNote),
         attachments: [
           {
             filename: `${order.orderNumber}.pdf`,
@@ -124,25 +133,53 @@ export class OrderSendingService {
   }
 
   /** Texto plano del pedido (cuerpo de email y mensaje de WhatsApp). */
-  buildMessage(order: {
-    orderNumber: string;
-    notes?: string | null;
-    supplier: { name: string };
-    location?: { name: string } | null;
-    lines: {
-      quantity: number;
-      unit?: string | null;
-      product?: { name: string } | null;
-      productId: string;
-    }[];
-  }): string {
+  buildMessage(
+    order: {
+      orderNumber: string;
+      notes?: string | null;
+      additionalItems?: string | null;
+      supplier: { name: string };
+      location?: { name: string } | null;
+      lines: {
+        quantity: number;
+        unit?: string | null;
+        product?: { name: string } | null;
+        productId: string;
+      }[];
+    },
+    restaurantName: string,
+    supplierNote: string,
+  ): string {
     const header = `Pedido ${order.orderNumber}${order.location?.name ? ` (${order.location.name})` : ""}`;
     const lines = order.lines.map(
       (l) =>
         `• ${l.product?.name ?? l.productId}: ${l.quantity}${l.unit ? ` ${l.unit}` : ""}`,
     );
-    const notes = order.notes ? `\nNotas: ${order.notes}` : "";
-    return `Hola ${order.supplier.name},\n\n${header}:\n${lines.join("\n")}${notes}\n\nGracias.`;
+    // Artículos nuevos: aún no están en `lines` (no comprados antes a este
+    // proveedor); se listan con el mismo bullet que los artículos del pedido,
+    // pegados a esa lista para que el proveedor los lea como un único listado.
+    const additionalItemLines = order.additionalItems
+      ? toBulletLines(order.additionalItems)
+      : [];
+    const additionalItems = additionalItemLines.length
+      ? `\n${additionalItemLines.join("\n")}`
+      : "";
+    // Notas propias del pedido (si las hay) bajo "Notas:"; la instrucción fija
+    // de Ajustes va aparte, como línea final propia antes del cierre — no se
+    // mezcla con "Notas:" ni con el listado de artículos (leída en vivo, no
+    // congelada en el pedido).
+    const notes = order.notes?.trim() ? `\nNotas: ${order.notes.trim()}` : "";
+    const fixedNote = supplierNote.trim() ? `\n${supplierNote.trim()}` : "";
+    return `Hola ${order.supplier.name}.\nLe adjunto pedido de restaurante ${restaurantName}:\n\n${header}:\n${lines.join("\n")}${additionalItems}${notes}${fixedNote}\n\nMuchas gracias.`;
+  }
+
+  /** Nombre del tenant (restaurante) para el saludo del mensaje. */
+  private async getRestaurantName(tenantId: string): Promise<string> {
+    const tenant = await this.prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    return tenant?.name ?? "";
   }
 
   /** Teléfono a dígitos para wa.me; asume prefijo 34 si son 9 dígitos (ES). */

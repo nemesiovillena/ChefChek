@@ -167,17 +167,39 @@ describe("ProductRecognitionService", () => {
       expect(result).toBeDefined();
     });
 
-    it("should search by first word in fuzzy matching", async () => {
+    it("should search by first significant word in fuzzy matching", async () => {
       mockPrismaService.product.findFirst.mockResolvedValue(null);
       mockPrismaService.product.findMany.mockResolvedValue(mockProducts);
 
       await service.recognizeProduct("Tomate Raf Premium", "tenant-1");
 
+      // Lowercase: mode "insensitive" ya hace la comparación case-insensitive,
+      // así que el casing de "contains" es irrelevante para el resultado.
       expect(mockPrismaService.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             name: expect.objectContaining({
-              contains: "Tomate",
+              contains: "tomate",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should extract the first significant word when the raw first word is hyphen-glued (regression: 'X-Demi'/'Demi-Glace' never matching)", async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue(null);
+      mockPrismaService.product.findMany.mockResolvedValue(mockProducts);
+
+      await service.recognizeProduct(
+        "DEMI-GLACE DE BUEY (BRICKS 1L) OSCAR",
+        "tenant-1",
+      );
+
+      expect(mockPrismaService.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: expect.objectContaining({
+              contains: "demi",
             }),
           }),
         }),

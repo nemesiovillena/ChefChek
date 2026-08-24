@@ -68,6 +68,8 @@ export class PurchaseListService {
         name: dto.name,
         supplierId: dto.supplierId,
         locationId: dto.locationId,
+        notes: dto.notes,
+        additionalItems: dto.additionalItems,
         items: {
           create: (dto.items ?? []).map((item, index) => ({
             productId: item.productId,
@@ -88,6 +90,8 @@ export class PurchaseListService {
       data: {
         name: dto.name,
         locationId: dto.locationId,
+        notes: dto.notes,
+        additionalItems: dto.additionalItems,
         ...(dto.items
           ? {
               items: {
@@ -140,17 +144,35 @@ export class PurchaseListService {
       }));
     }
 
-    return this.purchaseOrderService.create(
+    // Solo las notas libres de la lista: la instrucción fija al proveedor
+    // (Ajustes → Compras) no se congela en el pedido, se añade en vivo al
+    // generar el PDF/mensaje (purchase-order-pdf.service, order-sending
+    // service), así que editarla en Ajustes actualiza también los pedidos
+    // ya generados.
+    const order = await this.purchaseOrderService.create(
       tenantId,
       userId,
       {
         supplierId: list.supplierId,
         locationId: dto.locationId ?? list.locationId ?? undefined,
-        notes: `Generado desde la lista "${list.name}"`,
+        notes: list.notes?.trim() || undefined,
+        additionalItems: list.additionalItems?.trim() || undefined,
         lines,
       },
       list.id,
     );
+
+    // notes/additionalItems son instrucciones puntuales para ESTE pedido, ya
+    // transferidas arriba: se limpian de la lista reutilizable para que no
+    // reaparezcan en el próximo pedido generado desde el mismo checklist.
+    if (list.notes || list.additionalItems) {
+      await this.prisma.purchaseList.update({
+        where: { id: list.id },
+        data: { notes: null, additionalItems: null },
+      });
+    }
+
+    return order;
   }
 
   /**

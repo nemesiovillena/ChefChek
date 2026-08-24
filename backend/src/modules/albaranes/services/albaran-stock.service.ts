@@ -6,18 +6,38 @@ import { PriceAgreementService } from "../../compras/services/price-agreement.se
 import { LotService } from "./lot.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
 
+/**
+ * Normaliza cualquier variante de unidad leída del OCR (kg, Kg, kilo, L,
+ * litro, UD...) al símbolo real usado en el catálogo de unidades del tenant
+ * (kilo/litro/unidad — no kg/L/und, que no coinciden con ningún símbolo real
+ * y dejan el selector de "Unidad de referencia" en blanco al editar el
+ * artículo). Espejo de frontend/src/lib/unit-symbols.ts +
+ * create-product-inline.tsx resolveDefaultUnit — mismo criterio en ambos
+ * lados. Si no reconoce nada, cae a "kilo" (la mayoría de artículos van por
+ * kilos); si el valor ya es un símbolo custom del tenant (ej. "caja",
+ * "bote"), se respeta tal cual.
+ */
 function normalizeUnit(unit: string): string {
   if (!unit) {
-    return "und";
+    return "kilo";
   }
   const u = unit.toLowerCase().trim();
-  if (u === "kg") {
-    return "kg";
+  if (u === "kg" || u === "kilo" || u === "kilogramo" || u === "kilogramos") {
+    return "kilo";
   }
   if (u === "l" || u === "litro" || u === "litros") {
-    return "L";
+    return "litro";
   }
-  return "und";
+  if (
+    u === "und" ||
+    u === "ud" ||
+    u === "unida" ||
+    u === "unidad" ||
+    u === "unidades"
+  ) {
+    return "unidad";
+  }
+  return unit;
 }
 
 @Injectable()
@@ -71,8 +91,19 @@ export class AlbaranStockService {
 
       for (const line of confirmedLines) {
         const lineQuantity = Number(line.quantity);
-        const lineUnitPrice = Number(line.unitPrice);
-        const lineUnit = line.unit || "und";
+        let lineUnitPrice = Number(line.unitPrice);
+        // Opt-in del usuario: si activó "aplicar descuento al coste" y la línea
+        // trae el importe neto del papel (con descuento), el coste real por
+        // unidad es totalPrice/qty, no el bruto. Sin descuento o sin opt-in,
+        // comportamiento idéntico al anterior (precio bruto).
+        if (
+          albaran.applyDiscountToCost &&
+          line.totalPrice !== null &&
+          lineQuantity > 0
+        ) {
+          lineUnitPrice = Number(line.totalPrice) / lineQuantity;
+        }
+        const lineUnit = line.unit || "kilo";
 
         if (line.matchedProductId) {
           // Existing product - update price and stock
@@ -99,68 +130,32 @@ export class AlbaranStockService {
             );
           }
 
-          // Update purchase price if different
           const currentPrice = Number(product.purchasePrice);
-          if (lineUnitPrice !== currentPrice) {
-            const percentageChange =
-              currentPrice > 0
-                ? Math.abs(
-                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
-                  )
-                : 100;
 
-            if (albaran.supplierId) {
-              // Upsert de la oferta de ESTE proveedor concreto. Si es la
-              // oferta preferente del producto, sincroniza los campos planos
-              // (comportamiento legacy preservado); si es un proveedor
-              // distinto al preferente, solo actualiza su oferta — el precio
-              // vigente del producto no se sobreescribe.
-              const offer = await this.productSupplierOffersService.upsertOffer(
-                product.id,
-                albaran.supplierId,
-                tenantId,
-                { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
-                tx,
-                albaran.id,
-              );
+          if (albaran.supplierId) {
+            // Upsert de la oferta de ESTE proveedor: toda compra confirmada
+            // lo marca preferente (regla de negocio — el último proveedor al
+            // que se le compró rige el coste/escandallos), pisando cualquier
+            // estrella manual anterior. Se llama siempre, no solo cuando
+            // cambia el precio plano, para que un proveedor distinto al
+            // preferente actual tome la estrella aunque el precio coincida.
+            const offer = await this.productSupplierOffersService.upsertOffer(
+              product.id,
+              albaran.supplierId,
+              tenantId,
+              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+              tx,
+              albaran.id,
+              true,
+            );
 
-              if (offer.isPreferred && percentageChange > 10) {
-                await this.notifyPriceChange(
-                  tenantId,
-                  product.name,
-                  currentPrice,
-                  lineUnitPrice,
-                  percentageChange,
-                );
-              }
-            } else {
-              // Fallback legacy: albarán sin proveedor asignado, no se puede
-              // crear una oferta (supplierId es obligatorio en el modelo).
-              await tx.product.update({
-                where: { id: product.id },
-                data: {
-                  previousPurchasePrice: currentPrice,
-                  purchasePrice: lineUnitPrice,
-                  netPrice: lineUnitPrice,
-                },
-              });
-
-              await tx.productPriceHistory.create({
-                data: {
-                  tenantId,
-                  productId: product.id,
-                  supplierId: null,
-                  albaranId: albaran.id,
-                  previousPrice: currentPrice,
-                  newPrice: lineUnitPrice,
-                  // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
-                  // que antes/después es el mismo — se snapshotea igual para que
-                  // el frontend pueda calcular €/kg normalizado con datos completos.
-                  previousUnitSize: product.unitSize,
-                  newUnitSize: product.unitSize,
-                },
-              });
-
+            if (lineUnitPrice !== currentPrice) {
+              const percentageChange =
+                currentPrice > 0
+                  ? Math.abs(
+                      ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                    )
+                  : 100;
               if (percentageChange > 10) {
                 await this.notifyPriceChange(
                   tenantId,
@@ -168,8 +163,54 @@ export class AlbaranStockService {
                   currentPrice,
                   lineUnitPrice,
                   percentageChange,
+                  product.id,
                 );
               }
+            }
+          } else if (lineUnitPrice !== currentPrice) {
+            // Fallback legacy: albarán sin proveedor asignado, no se puede
+            // crear una oferta (supplierId es obligatorio en el modelo).
+            const percentageChange =
+              currentPrice > 0
+                ? Math.abs(
+                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                  )
+                : 100;
+
+            await tx.product.update({
+              where: { id: product.id },
+              data: {
+                previousPurchasePrice: currentPrice,
+                purchasePrice: lineUnitPrice,
+                netPrice: lineUnitPrice,
+              },
+            });
+
+            await tx.productPriceHistory.create({
+              data: {
+                tenantId,
+                productId: product.id,
+                supplierId: null,
+                albaranId: albaran.id,
+                previousPrice: currentPrice,
+                newPrice: lineUnitPrice,
+                // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
+                // que antes/después es el mismo — se snapshotea igual para que
+                // el frontend pueda calcular €/kg normalizado con datos completos.
+                previousUnitSize: product.unitSize,
+                newUnitSize: product.unitSize,
+              },
+            });
+
+            if (percentageChange > 10) {
+              await this.notifyPriceChange(
+                tenantId,
+                product.name,
+                currentPrice,
+                lineUnitPrice,
+                percentageChange,
+                product.id,
+              );
             }
           }
 
@@ -198,67 +239,77 @@ export class AlbaranStockService {
             }
           }
 
-          // Lote (si la línea trae número de lote)
-          const lot = line.lot
-            ? await this.lotService.createLotFromReception(tx, {
-                tenantId,
-                productId: product.id,
-                albaranLineId: line.id,
-                lotNumber: line.lot,
-                quantity: lineQuantity,
-                warehouseId: albaran.warehouseId,
-                supplierId: albaran.supplierId,
-              })
-            : null;
-
-          if (lot) {
-            await tx.product.update({
-              where: { id: product.id },
-              data: { lot: line.lot },
-            });
-          }
-
-          // Create stock movement
-          await tx.stockMovement.create({
-            data: {
-              productId: product.id,
-              warehouseId: albaran.warehouseId,
-              lotId: lot?.id,
-              type: "ENTRANCE",
-              quantity: lineQuantity,
-              unit: normalizeUnit(lineUnit),
-              reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
-            },
-          });
-
-          // Upsert stock
-          const existingStock = await tx.stock.findFirst({
-            where: {
-              productId: product.id,
-              warehouseId: albaran.warehouseId || null,
-              tenantId,
-            },
-          });
-
-          if (existingStock) {
-            await tx.stock.update({
-              where: { id: existingStock.id },
-              data: { quantity: { increment: lineQuantity } },
-            });
+          // Producto sin stock (cargo de servicio: portes, logística...): la
+          // línea sí cuenta en el total del albarán y en precio/oferta
+          // (arriba), pero no genera lote ni movimiento/registro de stock —
+          // no es inventario físico.
+          if (!product.tracksInventory) {
+            this.logger.log(
+              `${product.name}: sin stock (tracksInventory=false), omitiendo Lot/StockMovement/Stock`,
+            );
           } else {
-            await tx.stock.create({
+            // Lote (si la línea trae número de lote)
+            const lot = line.lot
+              ? await this.lotService.createLotFromReception(tx, {
+                  tenantId,
+                  productId: product.id,
+                  albaranLineId: line.id,
+                  lotNumber: line.lot,
+                  quantity: lineQuantity,
+                  warehouseId: albaran.warehouseId,
+                  supplierId: albaran.supplierId,
+                })
+              : null;
+
+            if (lot) {
+              await tx.product.update({
+                where: { id: product.id },
+                data: { lot: line.lot },
+              });
+            }
+
+            // Create stock movement
+            await tx.stockMovement.create({
               data: {
-                tenantId,
                 productId: product.id,
                 warehouseId: albaran.warehouseId,
+                lotId: lot?.id,
+                type: "ENTRANCE",
                 quantity: lineQuantity,
+                unit: normalizeUnit(lineUnit),
+                reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
               },
             });
-          }
 
-          this.logger.log(
-            `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
-          );
+            // Upsert stock
+            const existingStock = await tx.stock.findFirst({
+              where: {
+                productId: product.id,
+                warehouseId: albaran.warehouseId || null,
+                tenantId,
+              },
+            });
+
+            if (existingStock) {
+              await tx.stock.update({
+                where: { id: existingStock.id },
+                data: { quantity: { increment: lineQuantity } },
+              });
+            } else {
+              await tx.stock.create({
+                data: {
+                  tenantId,
+                  productId: product.id,
+                  warehouseId: albaran.warehouseId,
+                  quantity: lineQuantity,
+                },
+              });
+            }
+
+            this.logger.log(
+              `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
+            );
+          }
         } else {
           // NUEVO product - create product, update line, and add stock
           const newProduct = await tx.product.create({
@@ -325,6 +376,25 @@ export class AlbaranStockService {
               quantity: lineQuantity,
             },
           });
+
+          // Oferta preferente inicial del producto recién creado. Sin este
+          // bloque, el artículo nacía con Product.supplierId plano pero SIN
+          // ninguna fila en ProductSupplierOffer; la pestaña "Proveedor y
+          // Stock" del modal de edición (y el módulo Compras) leen offers, no
+          // el campo plano, así que aparecía "sin proveedor" al editarlo
+          // pese a que el listado sí lo mostraba. Patrón idéntico al del
+          // producto existente (bloque if line.matchedProductId más arriba).
+          if (albaran.supplierId) {
+            await this.productSupplierOffersService.upsertOffer(
+              newProduct.id,
+              albaran.supplierId,
+              tenantId,
+              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+              tx,
+              albaran.id,
+              true,
+            );
+          }
 
           this.logger.log(
             `Producto creado: ${newProduct.name} con stock ${lineQuantity} ${lineUnit}`,
@@ -434,15 +504,15 @@ export class AlbaranStockService {
     oldPrice: number,
     newPrice: number,
     percentageChange: number,
+    productId?: string,
   ): Promise<void> {
-    const direction = newPrice > oldPrice ? "aumentado" : "disminuido";
-    const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
-
-    await this.notificationsService.createNotification(tenantId, {
-      type: alertType,
-      title: `Cambio de precio: ${productName}`,
-      message: `Precio ${direction} ${percentageChange.toFixed(1)}%. De ${oldPrice.toFixed(2)}€ a ${newPrice.toFixed(2)}€.`,
-      severity: alertType,
-    });
+    await this.notificationsService.notifyPriceChange(
+      tenantId,
+      productName,
+      oldPrice,
+      newPrice,
+      percentageChange,
+      productId,
+    );
   }
 }

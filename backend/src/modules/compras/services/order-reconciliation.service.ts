@@ -82,8 +82,28 @@ export class OrderReconciliationService {
       return;
     }
 
+    const matchedProductIds = [
+      ...new Set(
+        albaran.lines
+          .filter(
+            (l) => l.lineStatus === LineStatus.CONFIRMADO && l.matchedProductId,
+          )
+          .map((l) => l.matchedProductId!),
+      ),
+    ];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: matchedProductIds }, tenantId },
+      select: { id: true, unitsPerFormat: true },
+    });
+    const unitsPerFormatById = new Map(
+      products.map((p) => [p.id, Math.max(p.unitsPerFormat, 1)]),
+    );
+
     // Acumular por producto (varias líneas del albarán pueden matchear el
-    // mismo producto pedido) antes de tocar la BD.
+    // mismo producto pedido) antes de tocar la BD. El albarán factura en
+    // unidad base (ud/kg reales del proveedor); el pedido pide en formato de
+    // compra (ej. "1 caja" de 10 uds) — sin convertir, "10 uds recibidas" vs
+    // "1 caja pedida" se lee como incidencia grave cuando en realidad cuadra.
     const receivedByProduct = new Map<
       string,
       { quantity: number; price: number }
@@ -92,12 +112,13 @@ export class OrderReconciliationService {
       if (line.lineStatus !== LineStatus.CONFIRMADO || !line.matchedProductId) {
         continue;
       }
+      const unitsPerFormat = unitsPerFormatById.get(line.matchedProductId) ?? 1;
       const acc = receivedByProduct.get(line.matchedProductId) ?? {
         quantity: 0,
         price: line.unitPrice,
       };
-      acc.quantity += line.quantity;
-      acc.price = line.unitPrice; // última entrega manda como precio recibido
+      acc.quantity += line.quantity / unitsPerFormat;
+      acc.price = line.unitPrice * unitsPerFormat; // última entrega manda como precio recibido
       receivedByProduct.set(line.matchedProductId, acc);
     }
     if (receivedByProduct.size === 0) {
@@ -154,7 +175,10 @@ export class OrderReconciliationService {
 
     await this.prisma.purchaseOrder.update({
       where: { id: order.id },
-      data: { receivedTotal },
+      // Nueva recepción = ya no está "abandonado": resetea el dedup de la
+      // alerta de estancados (ver StalePartialOrderAlertService) para que
+      // pueda volver a alertar si vuelve a quedarse sin novedad.
+      data: { receivedTotal, staleAlertSentAt: null },
     });
 
     if (newStatus !== order.status) {

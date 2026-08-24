@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { useNotification } from '@/components/notification-system';
-import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, Product, CreateProductData } from '@/hooks/use-products';
+import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, useDismissDuplicate, Product, CreateProductData } from '@/hooks/use-products';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
+import ProductImagePicker from './product-image-picker';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
@@ -17,12 +18,12 @@ import { ProductPriceHistoryTable } from '@/components/products/product-price-hi
 
 const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'formato-precio', label: 'Formato y Precio' },
-  { id: 'codigos', label: 'Códigos' },
+  { id: 'proveedor-stock', label: 'Proveedor y Stock' },
+  { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
   { id: 'mermas', label: 'Mermas' },
   { id: 'alergenos', label: 'Alérgenos' },
-  { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'nutricion', label: 'Nutrición' },
-  { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
+  { id: 'codigos', label: 'Códigos' },
 ];
 
 interface SupplierOption {
@@ -36,12 +37,13 @@ interface ArticuloModalProps {
   article?: Product | null;
   tree: CategoryTreeNode[];
   suppliers?: SupplierOption[];
+  initialTab?: string;
 }
 
 const emptyFormData = {
   name: '',
   purchaseFormat: '',
-  referenceUnit: 'kg',
+  referenceUnit: 'kilo',
   unitsPerFormat: '1',
   referenceUnitSize: '1',
   grossWeight: '',
@@ -58,6 +60,7 @@ const emptyFormData = {
   categoryId: '',
   minimumStock: '',
   maximumStock: '',
+  tracksInventory: true,
 };
 
 const emptyNutrition = {
@@ -72,7 +75,7 @@ function deriveFormData(article: Product | null | undefined) {
   return {
     name: article.name,
     purchaseFormat: article.purchaseFormat || '',
-    referenceUnit: article.referenceUnit || 'kg',
+    referenceUnit: article.referenceUnit || 'kilo',
     unitsPerFormat: String(article.unitsPerFormat || 1),
     referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
     grossWeight: article.grossWeight?.toString() || '',
@@ -89,6 +92,7 @@ function deriveFormData(article: Product | null | undefined) {
     categoryId: article.categoryId || '',
     minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
     maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
+    tracksInventory: article.tracksInventory ?? true,
   };
 }
 
@@ -114,7 +118,7 @@ function deriveNutrition(article: Product | null | undefined): typeof emptyNutri
 }
 
 /** Outer component: keeps hooks stable and mounts the form keyed by the edited entity. */
-export default function ArticuloModal({ isOpen, onClose, article, tree, suppliers = [] }: ArticuloModalProps) {
+export default function ArticuloModal({ isOpen, onClose, article, tree, suppliers = [], initialTab }: ArticuloModalProps) {
   if (!isOpen) return null;
   // Keyed remount resets all internal state when switching between create/edit targets.
   return (
@@ -124,6 +128,7 @@ export default function ArticuloModal({ isOpen, onClose, article, tree, supplier
       tree={tree}
       suppliers={suppliers}
       onClose={onClose}
+      initialTab={initialTab}
     />
   );
 }
@@ -133,21 +138,37 @@ interface ArticuloModalFormProps {
   tree: CategoryTreeNode[];
   suppliers: SupplierOption[];
   onClose: () => void;
+  initialTab?: string;
 }
 
-function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalFormProps) {
+function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: ArticuloModalFormProps) {
   const addNotification = useNotification();
   const confirm = useConfirm();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
   const mergeMutation = useMergeProduct();
+  const dismissDuplicateMutation = useDismissDuplicate();
 
   // Lazy-initialize from the article prop; the keyed remount guarantees fresh state per entity.
-  const [activeTab, setActiveTab] = useState('formato-precio');
+  const [activeTab, setActiveTab] = useState(
+    () => (initialTab && TABS.some((t) => t.id === initialTab) ? initialTab : 'formato-precio'),
+  );
   const [formData, setFormData] = useState(() => deriveFormData(article));
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye el propio id.
-  const { matches: duplicateNameMatches } = useProductNameCheck(formData.name, article?.id);
+  const { matches: rawDuplicateMatches } = useProductNameCheck(formData.name, article?.id);
+  // Descartes locales inmediatos: el backend ya no volverá a devolver estos
+  // ids (persistido vía dismissDuplicateMutation), pero el hook de arriba no
+  // refetchea solo al pulsar la X, así que se filtran aquí también.
+  const [dismissedMatchIds, setDismissedMatchIds] = useState<Set<string>>(new Set());
+  const duplicateNameMatches = rawDuplicateMatches.filter((m) => !dismissedMatchIds.has(m.id));
+
+  const handleDismissDuplicate = (matchId: string) => {
+    setDismissedMatchIds((prev) => new Set(prev).add(matchId));
+    if (article?.id) {
+      dismissDuplicateMutation.mutate({ productId: article.id, dismissedProductId: matchId });
+    }
+  };
   const [allergens, setAllergens] = useState<number[]>(() => article?.allergens ?? []);
   const [hideAllergens, setHideAllergens] = useState(() => article?.hideAllergens ?? false);
   const [imageUrl, setImageUrl] = useState(() => article?.imageUrl ?? '');
@@ -188,6 +209,15 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       : undefined;
 
     const parsedPrice = parseFloat(formData.purchasePrice);
+    // `formData.purchasePrice` se congela al abrir el modal (key={article?.id},
+    // sin refetch mientras está abierto) y NO se sincroniza con los precios en
+    // vivo de "Proveedor y Stock". El backend reenvía cualquier purchasePrice
+    // presente en el DTO a la oferta que sea preferente EN ESE MOMENTO — si el
+    // proveedor preferente cambió (ej. albarán confirmado) mientras el modal
+    // seguía abierto, reenviar este valor obsoleto pisaba silenciosamente el
+    // precio real de la nueva oferta preferente. Solo se envía si el usuario
+    // lo tocó de verdad (difiere del valor con el que se precargó el campo).
+    const priceEditedByUser = !article || (!isNaN(parsedPrice) && parsedPrice !== article.purchasePrice);
     const productData: CreateProductData = {
       name: formData.name,
       category: formData.categoryId || undefined,
@@ -196,7 +226,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       referenceUnit: formData.referenceUnit || undefined,
       unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
       referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
-      purchasePrice: isNaN(parsedPrice) ? undefined : parsedPrice,
+      purchasePrice: priceEditedByUser && !isNaN(parsedPrice) ? parsedPrice : undefined,
       discountPercentage: parseFloat(formData.discountPercentage) || 0,
       grossWeight: parseFloat(formData.grossWeight) || 0,
       netWeight: parseFloat(formData.netWeight) || 0,
@@ -208,8 +238,13 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
       brand: formData.brand || undefined,
       allergens,
       hideAllergens,
-      imageUrl: imageUrl || undefined,
+      // Enviar siempre imageUrl (aunque sea "") para que el backend pueda
+      // distinguir "borrar imagen" de "no tocar este campo". El backend
+      // coerce "" → null. Usar undefined aquí haría que JSON.stringify omita
+      // la clave y la imagen antigua nunca se borraría.
+      imageUrl,
       nutritionalInfo,
+      tracksInventory: formData.tracksInventory,
       minimumStock: parseFloat(formData.minimumStock) || undefined,
       maximumStock: parseFloat(formData.maximumStock) || undefined,
     };
@@ -275,6 +310,17 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           </button>
         </div>
 
+        {/* Foto del artículo */}
+        <div className="mb-4">
+          <ProductImagePicker
+            imageUrl={imageUrl}
+            onChange={setImageUrl}
+            defaultQuery={[formData.name, formData.brand].filter(Boolean).join(' ')}
+            onUploadFile={handleImageUpload}
+            uploading={uploadImageMutation.isPending}
+          />
+        </div>
+
         {/* Name field */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
@@ -301,21 +347,31 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
                 ))}
                 {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}{' '}
                 Puedes continuar si es un artículo distinto.
-                {article?.id && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {duplicateNameMatches.slice(0, 3).map((m) => (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {duplicateNameMatches.slice(0, 3).map((m) => (
+                    <span key={m.id} className="inline-flex items-stretch overflow-hidden rounded border border-amber-400 dark:border-amber-700">
+                      {article?.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleMerge(m.id, m.name)}
+                          disabled={mergeMutation.isPending}
+                          className="px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+                        >
+                          Fusionar con «{m.name}»
+                        </button>
+                      )}
                       <button
-                        key={m.id}
                         type="button"
-                        onClick={() => handleMerge(m.id, m.name)}
-                        disabled={mergeMutation.isPending}
-                        className="px-2 py-1 text-xs font-medium rounded border border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40 disabled:opacity-50 transition-colors"
+                        onClick={() => handleDismissDuplicate(m.id)}
+                        title="No es el mismo artículo: descartar este aviso"
+                        aria-label={`No es el mismo artículo que «${m.name}»: descartar aviso`}
+                        className="px-1.5 py-1 text-amber-700 hover:bg-amber-200 dark:text-amber-400 dark:hover:bg-amber-900/60 border-l border-amber-400 dark:border-amber-700 transition-colors"
                       >
-                        Fusionar con «{m.name}»
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
-                    ))}
-                  </div>
-                )}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -370,8 +426,6 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               setAllergens={setAllergens}
               hideAllergens={hideAllergens}
               setHideAllergens={setHideAllergens}
-              imageUrl={imageUrl}
-              onImageUpload={handleImageUpload}
             />
           )}
           {activeTab === 'proveedor-stock' && (
@@ -382,6 +436,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
               setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
               basePurchasePrice={formData.purchasePrice}
+              baseReferenceUnit={formData.referenceUnit}
               onSupplierCreated={(supplier) => {
                 setAddedSuppliers((prev) => [...prev, supplier]);
               }}
@@ -392,8 +447,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose }: ArticuloModalF
           )}
           {activeTab === 'historial-precios' && article?.id && (
             <div className="space-y-4">
-              <ProductPriceHistoryChart productId={article.id} supplierId={article.supplierId ?? undefined} />
-              <ProductPriceHistoryTable productId={article.id} supplierId={article.supplierId ?? undefined} />
+              {/* Sin supplierId: histórico de TODOS los proveedores del
+                  artículo, no solo el preferente actual — la tabla ya tiene
+                  columna "Proveedor" para distinguirlos. */}
+              <ProductPriceHistoryChart productId={article.id} referenceUnit={article.referenceUnit} />
+              <ProductPriceHistoryTable productId={article.id} referenceUnit={article.referenceUnit} />
             </div>
           )}
         </div>

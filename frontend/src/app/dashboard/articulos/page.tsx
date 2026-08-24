@@ -3,19 +3,26 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
-import { useRouter } from 'next/navigation';
-import { useProducts, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe } from '@/hooks/use-products';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useProducts, useProduct, Product, ProductsQuery, useDeleteProduct, useUpdateProduct, getReferencePrice, formatRefPrice, getRealPrice, getProductUsage, ProductUsageRecipe, useBackfillProductImages } from '@/hooks/use-products';
 import { useCategoryTree, useCategories, CategoryTreeNode, Category } from '@/hooks/use-categories';
 import { useApiQuery } from '@/hooks/use-api';
 import apiClient from '@/lib/api-client';
 import { PaginatedResponse } from '@/types/api.types';
 import { useQRCodes, QRCodeResponse } from '@/hooks/use-qr-codes';
 import { useConfirm } from '@/contexts/confirm.context';
-import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, Tag, RotateCcw } from 'lucide-react';
+import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, RotateCcw, Sparkles } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
+import ProductThumbnail from './components/product-thumbnail';
 import PaginationControls from '@/components/shared/pagination-controls';
 import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
+import PageContainer from '@/components/shared/page-container';
+import PageHeader from '@/components/shared/page-header';
+import {
+  tableCardClass, tableScrollClass, tableClass, theadClass, thSortableClass, thActionsClass,
+  tbodyClass, trHoverClass, tdActionsClass, actionButtonClass,
+} from '@/components/shared/data-table-classes';
 
 interface Supplier {
   id: string;
@@ -23,10 +30,15 @@ interface Supplier {
 }
 
 export default function ArticulosPage() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const addNotification = useNotification();
   const confirm = useConfirm();
+  const backfillMutation = useBackfillProductImages();
+  const [backfillStatus, setBackfillStatus] = useState<{ running: boolean; done: number; remaining: number } | null>(null);
+  // Roles con permisos de gestión (mismo criterio que el módulo Compras).
+  const canManageArticles = ['ADMIN', 'OWNER', 'SUPERADMIN'].includes(user?.role ?? '');
 
   const { data: categoryTree } = useCategoryTree("articles");
   const { data: categoriesData } = useCategories("articles");
@@ -101,6 +113,20 @@ export default function ArticulosPage() {
   const totalItems = productsData?.total ?? 0;
   const totalPages = productsData?.totalPages ?? 1;
 
+  // Deep-link desde una notificación (?productId=X&tab=Y): abre el modal en
+  // la pestaña indicada con los datos del producto, venga o no de la página
+  // actual/paginación. Puramente derivado (sin efecto): si no está entre los
+  // productos ya cargados, se trae suelto vía useProduct.
+  const deepLinkProductId = searchParams.get('productId');
+  const deepLinkTab = searchParams.get('tab');
+  const deepLinkProductFromPage = deepLinkProductId
+    ? products.find((p) => p.id === deepLinkProductId) ?? null
+    : null;
+  const { data: deepLinkProductFetched } = useProduct(deepLinkProductId ?? '', {
+    enabled: !!deepLinkProductId && !deepLinkProductFromPage,
+  });
+  const deepLinkProduct = deepLinkProductFromPage ?? deepLinkProductFetched ?? null;
+
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -166,14 +192,17 @@ export default function ArticulosPage() {
         .map((val) => `"${String(val).replace(/"/g, '""')}"`)
         .join(',')
     );
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers, ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob(['\uFEFF' + [headers, ...rows].join('\r\n')], {
+      type: 'text/csv;charset=utf-8;'
+    });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `articulos_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   });
 
   const exportToExcel = () => runExport((list) => {
@@ -375,9 +404,57 @@ export default function ArticulosPage() {
     setShowModal(true);
   };
 
+  /**
+   * Relleno masivo de imagen: asigna la primera foto de Pexels a cada
+   * artículo activo sin imageUrl, iterando lotes hasta que no queden.
+   * Sin revisión humana (petición explícita del usuario); nunca pisa
+   * imágenes ya asignadas. El backend filtra por tenant y limita el lote.
+   */
+  const handleBackfillImages = async () => {
+    const ok = await confirm({
+      title: 'Rellenar imágenes automáticamente',
+      description: 'Se buscará en internet (Pexels) y asignará la primera imagen candidata a cada artículo activo que aún no tenga imagen. No se sobrescriben imágenes ya asignadas. El proceso va por lotes hasta completar; puede tardar un par de minutos.',
+      confirmText: 'Rellenar',
+      variant: 'info',
+    });
+    if (!ok) return;
+
+    setBackfillStatus({ running: true, done: 0, remaining: -1 });
+    let totalDone = 0;
+    let totalFailed = 0;
+    try {
+      // Itera hasta que el backend informe remaining === 0 (o tope de seguridad).
+      for (let i = 0; i < 50; i++) {
+        const result = await backfillMutation.mutateAsync();
+        totalDone += result.updated;
+        totalFailed += result.failed.length;
+        setBackfillStatus({ running: true, done: totalDone, remaining: result.remaining });
+        if (result.processed === 0 || result.remaining === 0) break;
+      }
+      addNotification({
+        type: 'success',
+        title: 'Imágenes asignadas',
+        message: totalFailed > 0
+          ? `Se asignaron ${totalDone} imágenes. ${totalFailed} artículos sin resultado en la búsqueda.`
+          : `Se asignaron ${totalDone} imágenes correctamente.`,
+      });
+      refetch();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al rellenar imágenes';
+      addNotification({ type: 'error', title: 'Error', message });
+    } finally {
+      setBackfillStatus(null);
+    }
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedProduct(null);
+    // Limpiar el deep-link (?productId=&tab=) para que cerrar el modal no lo
+    // reabra al instante (deepLinkProduct se deriva de la URL en cada render).
+    if (deepLinkProductId) {
+      router.replace('/dashboard/articulos');
+    }
     refetch();
   };
 
@@ -468,7 +545,7 @@ export default function ArticulosPage() {
     return (
       <th
         onClick={() => handleSort(field)}
-        className="group px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-100 transition-colors duration-150"
+        className={thSortableClass}
       >
         <div className="flex items-center space-x-1">
           <span>{label}</span>
@@ -503,40 +580,51 @@ export default function ArticulosPage() {
     );
   }
 
+  const headerActions = (
+    <>
+      <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
+        Importar
+      </button>
+      <div className="relative group">
+        <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
+          {isExporting ? 'Exportando…' : 'Exportar'}
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
+          <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a CSV
+          </button>
+          <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a Excel
+          </button>
+          <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+            Exportar a PDF
+          </button>
+        </div>
+      </div>
+      {canManageArticles && (
+        <button
+          onClick={handleBackfillImages}
+          disabled={!!backfillStatus}
+          title="Busca en internet (Pexels) y asigna la primera imagen candidata a cada artículo sin imagen"
+          className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <Sparkles className="h-4 w-4" />
+          {backfillStatus?.running
+            ? `Rellenando… ${backfillStatus.done}${backfillStatus.remaining >= 0 ? `/${backfillStatus.done + backfillStatus.remaining}` : ''}`
+            : 'Rellenar imágenes'}
+        </button>
+      )}
+      <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+        Crear Artículo
+      </button>
+    </>
+  );
+
   return (
     <div className="w-full">
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Artículos</h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Gestión de artículos e inventario</p>
-          </div>
-          <div className="flex gap-2 relative">
-            <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
-              Importar
-            </button>
-            <div className="relative group">
-              <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
-                {isExporting ? 'Exportando…' : 'Exportar'}
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
-                <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a CSV
-                </button>
-                <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a Excel
-                </button>
-                <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
-                  Exportar a PDF
-                </button>
-              </div>
-            </div>
-            <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
-              Crear Artículo
-            </button>
-          </div>
-        </div>
+      <PageContainer>
+        <PageHeader title="Artículos" subtitle="Gestión de artículos e inventario" actions={headerActions} />
 
         {/* Chained Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
@@ -640,63 +728,67 @@ export default function ArticulosPage() {
         </div>
 
         {/* Articles Table */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-800/50">
+        <div className={tableCardClass}>
+          <div className={tableScrollClass}>
+            <table className={tableClass}>
+              <thead className={theadClass}>
                 <tr>
+                  <th className="w-12 px-3 py-3"></th>
                   {renderSortableHeader('Nombre', 'name')}
                   {renderSortableHeader('Categoría', 'category')}
-                  {renderSortableHeader('Subcategoría', 'subcategory')}
                   {renderSortableHeader('Proveedor', 'supplier')}
-                  {renderSortableHeader('Precio Compra', 'purchasePrice')}
-                  {renderSortableHeader('Precio Real', 'realPrice')}
-                  {renderSortableHeader('Precio Ref.', 'referencePrice')}
-                  {renderSortableHeader('Última Compra', 'lastPurchaseDate')}
+                  {renderSortableHeader('P. Compra', 'purchasePrice')}
+                  {renderSortableHeader('P. Real', 'realPrice')}
+                  {renderSortableHeader('P. Ref.', 'referencePrice')}
+                  {renderSortableHeader('Últ. Compra', 'lastPurchaseDate')}
                   {renderSortableHeader('Estado', 'status')}
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">Acciones</th>
+                  <th className={thActionsClass}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+              <tbody className={tbodyClass}>
                 {productsLoading ? (
-                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Cargando...</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">Cargando...</td></tr>
                 ) : products.length === 0 ? (
-                  <tr><td colSpan={10} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No hay artículos</td></tr>
+                  <tr><td colSpan={10} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">No hay artículos</td></tr>
                 ) : (
                   products.map((product: Product) => {
-                    // Nombre propio de la categoría del producto. Si es raíz (sin
-                    // padre, p.ej. Limpieza/Desechables) se muestra en la columna
-                    // Categoría y la subcategoría queda vacía; si es hija, la
-                    // columna Categoría muestra el padre y la subcategoría la hoja.
+                    // Nombre propio de la categoría del producto: la subcategoría
+                    // si tiene padre, o la categoría raíz si no tiene subcategoría.
                     const productCatName = getCategoryDisplay(product.categoryId);
-                    const parentCat = tree.find((p) => p.children?.some((c) => c.id === product.categoryId));
-                    const hasParent = Boolean(parentCat);
                     return (
-                      <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
-                        <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</div></td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? parentCat!.name : productCatName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{hasParent ? productCatName : '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.supplier?.name || '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <tr key={product.id} className={trHoverClass}>
+                        <td className="px-3 py-2"><ProductThumbnail imageUrl={product.imageUrl} size={32} /></td>
+                        <td className="px-3 py-3 max-w-[190px]">
+                          <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={product.name}>{product.name}</div>
+                        </td>
+                        <td className="px-3 py-3 max-w-[160px] text-sm text-[var(--on-surface-variant)]">
+                          <div className="truncate" title={productCatName}>{productCatName}</div>
+                        </td>
+                        <td className="px-3 py-3 max-w-[140px] text-sm text-[var(--on-surface-variant)]">
+                          <div className="truncate" title={product.supplier?.name || undefined}>{product.supplier?.name || '-'}</div>
+                        </td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">
                           <span className="inline-flex items-center gap-1.5">
                             &euro;{product.purchasePrice.toFixed(2)}
                             <ProductPriceTrendBadge
                               current={product.purchasePrice}
                               currentUnitSize={product.unitSize}
+                              discountPercentage={product.discountPercentage}
                               latestPriceChange={product.latestPriceChange ?? null}
                               productId={product.id}
                               productName={product.name}
                               supplierId={product.supplierId ?? undefined}
+                              referenceUnit={product.referenceUnit}
                             />
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">
                           {getRealPrice(product) !== null
                             ? formatRefPrice(getRealPrice(product)!, product.referenceUnit)
-                            : <span className="text-gray-400 dark:text-gray-600">—</span>}
+                            : <span className="text-[var(--outline)]">—</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-3 py-3 whitespace-nowrap text-sm text-[var(--on-surface-variant)]">{formatRefPrice(getReferencePrice(product), product.referenceUnit)}</td>
+                        <td className="px-3 py-3 whitespace-nowrap text-sm">
                           {editingDateId === product.id ? (
                             <input
                               type="date"
@@ -728,7 +820,7 @@ export default function ArticulosPage() {
                                   {formatLastPurchaseDate(product.lastPurchaseDate)}
                                 </span>
                               ) : (
-                                <span className="text-gray-400 dark:text-gray-500">
+                                <span className="text-[var(--outline)]">
                                   {formatLastPurchaseDate(product.createdAt)}
                                 </span>
                               )}
@@ -738,7 +830,7 @@ export default function ArticulosPage() {
                             </button>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleStatus(product)}
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
@@ -750,12 +842,12 @@ export default function ArticulosPage() {
                             {product.isActive ? 'Activo' : 'Desactivado'}
                           </button>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <td className={tdActionsClass}>
                           <button
                             onClick={() => handleEdit(product)}
                             title="Editar artículo"
                             aria-label="Editar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -766,7 +858,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Descargar código QR"
                                 aria-label="Descargar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 disabled:opacity-50`}
                               >
                                 <Download className="h-4 w-4" />
                               </button>
@@ -775,7 +867,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Eliminar código QR"
                                 aria-label="Eliminar código QR"
-                                className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                                className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 disabled:opacity-50`}
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -786,7 +878,7 @@ export default function ArticulosPage() {
                               disabled={qrLoading}
                               title="Generar código QR"
                               aria-label="Generar código QR"
-                              className="inline-flex items-center justify-center p-2 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer disabled:opacity-50"
+                              className={`${actionButtonClass} border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 disabled:opacity-50`}
                             >
                               <QrCode className="h-4 w-4" />
                             </button>
@@ -795,7 +887,7 @@ export default function ArticulosPage() {
                             onClick={() => handleDelete(product)}
                             title="Eliminar artículo"
                             aria-label="Eliminar artículo"
-                            className="inline-flex items-center justify-center p-2 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20 rounded-md transition-all duration-200 active:scale-[0.97] cursor-pointer"
+                            className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20`}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -818,14 +910,15 @@ export default function ArticulosPage() {
             emptyLabel="Sin artículos"
           />
         </div>
-      </main>
+      </PageContainer>
 
       <ArticuloModal
-        isOpen={showModal}
+        isOpen={showModal || !!deepLinkProduct}
         onClose={handleCloseModal}
-        article={selectedProduct}
+        article={selectedProduct ?? deepLinkProduct}
         tree={tree}
         suppliers={suppliers}
+        initialTab={!selectedProduct && deepLinkProduct ? (deepLinkTab ?? undefined) : undefined}
       />
 
       <ImportModal
@@ -843,14 +936,7 @@ function ArticleContextCard({ product }: { product: Product }) {
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--surface-container-highest)]">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <Tag className="h-5 w-5 text-[var(--on-surface-variant)]" />
-        )}
-      </div>
+      <ProductThumbnail imageUrl={product.imageUrl} size={44} className="rounded-xl" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--on-surface)]">{product.name}</p>
         {meta && <p className="truncate text-xs text-[var(--on-surface-variant)]">{meta}</p>}

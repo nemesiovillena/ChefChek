@@ -21,7 +21,9 @@ describe("AlbaranesController", () => {
     addLine: jest.fn(),
     matchLine: jest.fn(),
     setLineStatus: jest.fn(),
+    dismissSuggestion: jest.fn(),
     remove: jest.fn(),
+    checkDuplicate: jest.fn(),
   };
 
   const mockManualService = { process: jest.fn() };
@@ -95,6 +97,7 @@ describe("AlbaranesController", () => {
         "t1",
         "gpt",
         "k",
+        undefined,
       );
       expect(res.albaran).toEqual(albaranResult);
       expect(res.products[0]).toMatchObject({
@@ -105,7 +108,7 @@ describe("AlbaranesController", () => {
       });
     });
 
-    it("defaults supplier to IMPORTADO and confidence to 0.7", async () => {
+    it("defaults supplier to IMPORTADO and confidence to 0 when matching hasn't set it", async () => {
       mockService.createFromUpload.mockResolvedValue({
         lines: [{ description: "x", quantity: 1, unitPrice: 2 }],
         supplier: undefined,
@@ -117,7 +120,7 @@ describe("AlbaranesController", () => {
       );
 
       expect(res.products[0].supplier).toBe("IMPORTADO");
-      expect(res.products[0].confidence).toBe(0.7);
+      expect(res.products[0].confidence).toBe(0);
     });
 
     it("returns empty products when albaran has no lines", async () => {
@@ -137,6 +140,34 @@ describe("AlbaranesController", () => {
     const query = { page: 1 };
     await controller.findAll(query as any, mockReq);
     expect(mockService.findAll).toHaveBeenCalledWith(query, "t1");
+  });
+
+  it("checkDuplicate delegates and wraps the result", async () => {
+    const match = { id: "alb-old", albaranNumber: "A-1" };
+    mockService.checkDuplicate.mockResolvedValue(match);
+
+    const res = await controller.checkDuplicate("s1", "A-1", "alb-1", mockReq);
+
+    expect(mockService.checkDuplicate).toHaveBeenCalledWith(
+      "t1",
+      "s1",
+      "A-1",
+      "alb-1",
+    );
+    expect(res).toEqual({ success: true, data: match });
+  });
+
+  it("checkDuplicate returns null data when no match", async () => {
+    mockService.checkDuplicate.mockResolvedValue(null);
+
+    const res = await controller.checkDuplicate(
+      "s1",
+      "A-1",
+      undefined,
+      mockReq,
+    );
+
+    expect(res).toEqual({ success: true, data: null });
   });
 
   it("addLine delegates", async () => {
@@ -220,6 +251,16 @@ describe("AlbaranesController", () => {
       "alb-1",
       "l1",
       "RECHAZADO",
+      "t1",
+    );
+  });
+
+  it("dismissSuggestion delegates to the service", async () => {
+    mockService.dismissSuggestion.mockResolvedValue({ id: "l1" });
+    await controller.dismissSuggestion("alb-1", "l1", mockReq);
+    expect(mockService.dismissSuggestion).toHaveBeenCalledWith(
+      "alb-1",
+      "l1",
       "t1",
     );
   });

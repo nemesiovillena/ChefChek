@@ -23,6 +23,14 @@ class IngredientDto {
 
   @IsString()
   unit: string;
+
+  // Merma manual de esta línea (%). Si se fija, sustituye a la del artículo
+  // (product.wastePercentage) para esta receta; null/undefined = usa la del
+  // artículo.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  wastePercentageOverride?: number;
 }
 
 class SubRecipeDto {

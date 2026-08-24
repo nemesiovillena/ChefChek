@@ -51,7 +51,9 @@ export const CHILD_SCOPE_RULES: Record<
     { parent: "temperature_controls", col: "controlId" },
   ],
   cleaning_tasks: [{ parent: "cleaning_plans", col: "planId" }],
-  progress_trackings: [{ parent: "work_batches", col: "workBatchId" }],
+  // progress_trackings cuelga de production_orders (no de work_batches): su FK es
+  // orderId -> ProductionOrder.id, y production_orders ya es tenant-rooted.
+  progress_trackings: [{ parent: "production_orders", col: "orderId" }],
   mise_en_place_items: [{ parent: "mise_en_place_sheets", col: "sheetId" }],
   inventory_items: [{ parent: "inventories", col: "inventoryId" }],
   knowledge_versions: [{ parent: "knowledge_articles", col: "articleId" }],
@@ -70,6 +72,13 @@ export const CHILD_SCOPE_RULES: Record<
   extracted_products: [{ parent: "documents", col: "documentId" }],
   albaran_lines: [{ parent: "albaranes", col: "albaranId" }],
   notifications: [{ parent: "tasks", col: "taskId" }],
+  // Módulo Producción (reconstruido): hijos de production_orders (tenant-rooted).
+  milestones: [{ parent: "production_orders", col: "orderId" }],
+  // Módulo Compras: hijos directos de padres tenant-rooted.
+  purchase_order_lines: [{ parent: "purchase_orders", col: "orderId" }],
+  purchase_order_events: [{ parent: "purchase_orders", col: "orderId" }],
+  purchase_list_items: [{ parent: "purchase_lists", col: "listId" }],
+  catalog_import_lines: [{ parent: "catalog_imports", col: "catalogImportId" }],
 };
 
 /**

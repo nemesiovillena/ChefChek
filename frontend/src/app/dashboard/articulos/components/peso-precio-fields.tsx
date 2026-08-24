@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { UnitSelector } from '@/components/shared/unit-selector';
 import { formatEuro } from '@/lib/utils';
+import { normalizeUnitSymbol } from '@/lib/unit-symbols';
 import { Category, CategoryTreeNode, mergeAddedCategories } from '@/hooks/use-categories';
 import CategoryCombobox from '@/components/shared/category-combobox';
 import CategoryQuickCreateDialog from '@/components/shared/category-quick-create-dialog';
@@ -34,6 +35,7 @@ const UNIT_LABELS: Record<string, { size: string; sizePlaceholder: string; total
   und: { size: '', sizePlaceholder: '', total: 'und' },
 };
 
+
 export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPrecioFieldsProps) {
   const update = (field: string, value: string) => {
     const updates: Record<string, string> = { [field]: value };
@@ -57,12 +59,13 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
   const calculatedUnitSize = unitsPerFormat * referenceUnitSize;
   const refPrice = calculatedUnitSize > 0 ? price / calculatedUnitSize : 0;
 
-  const unitLabels = UNIT_LABELS[formData.referenceUnit] || {
+  const unitLabelKey = normalizeUnitSymbol(formData.referenceUnit);
+  const unitLabels = (unitLabelKey && UNIT_LABELS[unitLabelKey]) || {
     size: 'Cantidad por unidad',
     sizePlaceholder: 'Ej: 1',
     total: formData.referenceUnit || 'unidad',
   };
-  const isUnd = formData.referenceUnit === 'und';
+  const isUnd = unitLabelKey === 'und';
 
   return (
     <div className="space-y-4">
@@ -120,7 +123,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
           <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra (&euro;)</label>
           <input
             type="number"
-            step="0.01"
+            step="0.001"
             min="0"
             value={formData.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
@@ -159,7 +162,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
       {price > 0 && (
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 flex items-center justify-between">
           <span className="text-sm text-indigo-700">
-            Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kg'}</strong>
+            Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kilo'}</strong>
           </span>
           {unitsPerFormat > 1 && (
             <span className="text-xs text-indigo-500">

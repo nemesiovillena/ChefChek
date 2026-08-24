@@ -19,7 +19,7 @@ const generateRequestId = () => {
 // Refresh token endpoint
 const refreshToken = async () => {
   try {
-    const sessionId = sessionStorage.getItem('session_id');
+    const sessionId = localStorage.getItem('session_id');
     if (!sessionId) {
       throw new Error('No session ID found');
     }
@@ -31,9 +31,9 @@ const refreshToken = async () => {
   } catch (error) {
     // If refresh fails, redirect to login
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     throw error;
@@ -50,7 +50,7 @@ apiClient.interceptors.request.use(
 
     // Add Authorization header with session ID if exists in memory
     if (typeof window !== 'undefined') {
-      const sessionId = sessionStorage.getItem('session_id');
+      const sessionId = localStorage.getItem('session_id');
       if (sessionId && config.headers) {
         config.headers.Authorization = `Bearer ${sessionId}`;
       }
@@ -58,7 +58,7 @@ apiClient.interceptors.request.use(
 
     // Add X-Tenant-Slug header from tenant context
     if (typeof window !== 'undefined') {
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
+      const tenantSlug = localStorage.getItem('tenant_slug');
       if (tenantSlug && config.headers) {
         config.headers['X-Tenant-Slug'] = tenantSlug;
       }
@@ -131,7 +131,7 @@ apiClient.interceptors.response.use(
 
         // Retry original request with new session ID
         if (typeof window !== 'undefined') {
-          const sessionId = sessionStorage.getItem('session_id');
+          const sessionId = localStorage.getItem('session_id');
           if (sessionId && originalRequest.headers) {
             originalRequest.headers.Authorization = `Bearer ${sessionId}`;
           }
@@ -141,10 +141,10 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed - redirect to login
         if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('session_id');
-          sessionStorage.removeItem('tenant_slug');
-          sessionStorage.removeItem('user');
-          sessionStorage.removeItem('tenant_id');
+          localStorage.removeItem('session_id');
+          localStorage.removeItem('tenant_slug');
+          localStorage.removeItem('user');
+          localStorage.removeItem('tenant_id');
           window.location.href = '/login';
         }
         return Promise.reject(refreshError);
@@ -173,6 +173,18 @@ apiClient.interceptors.response.use(
       if (message.startsWith("Module '")) {
         window.dispatchEvent(new CustomEvent('chefchek:module-disabled'));
       }
+    }
+
+    // Surface the backend's real error message instead of axios's generic
+    // "Request failed with status code N" — callers show error.message in
+    // toasts. GlobalExceptionFilter nests it under `error.message`; fall back
+    // to a flat `message` in case some response bypasses that filter.
+    const data = error.response?.data as
+      | { error?: { message?: string | string[] }; message?: string | string[] }
+      | undefined;
+    const backendMessage = data?.error?.message ?? data?.message;
+    if (backendMessage) {
+      error.message = Array.isArray(backendMessage) ? backendMessage.join(', ') : backendMessage;
     }
 
     return Promise.reject(error);

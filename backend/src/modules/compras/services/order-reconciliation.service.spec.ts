@@ -15,6 +15,7 @@ describe("OrderReconciliationService", () => {
       update: jest.fn(),
     },
     purchaseOrderLine: { update: jest.fn(), findMany: jest.fn() },
+    product: { findMany: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
   const statusServiceMock = { transition: jest.fn() };
@@ -23,6 +24,9 @@ describe("OrderReconciliationService", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Por defecto sin unitsPerFormat registrado → fallback a 1 (sin
+    // conversión), para no romper los tests que no cubren formato de compra.
+    prismaMock.product.findMany.mockResolvedValue([]);
     const module = await Test.createTestingModule({
       providers: [
         OrderReconciliationService,
@@ -122,7 +126,7 @@ describe("OrderReconciliationService", () => {
       });
       expect(prismaMock.purchaseOrder.update).toHaveBeenCalledWith({
         where: { id: "o1" },
-        data: { receivedTotal: 120 },
+        data: { receivedTotal: 120, staleAlertSentAt: null },
       });
       expect(statusServiceMock.transition).toHaveBeenCalledWith(
         tenantId,
@@ -197,6 +201,48 @@ describe("OrderReconciliationService", () => {
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
         data: { receivedQuantity: 10, receivedPrice: 13 },
+      });
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
+    it("convierte unidades reales del albarán a formato de compra (1 caja de 10 uds pedida, 10 uds facturadas)", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        { id: "p1", unitsPerFormat: 10 },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 10, // 10 uds facturadas por el proveedor
+            unitPrice: 0.5, // precio por ud
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0003",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          { id: "l1", productId: "p1", quantity: 1, receivedQuantity: null }, // 1 caja pedida
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        { id: "l1", quantity: 1, receivedQuantity: 1, receivedPrice: 5 },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: { receivedQuantity: 1, receivedPrice: 5 }, // 10/10 uds = 1 caja; 0.5€ × 10 = 5€/caja
       });
       expect(statusServiceMock.transition).toHaveBeenCalledWith(
         tenantId,

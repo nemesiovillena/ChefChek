@@ -8,13 +8,6 @@ export interface LoginCredentials {
   tenantSlug: string;
 }
 
-export interface RegisterData {
-  tenantName: string;
-  email: string;
-  name: string;
-  password: string;
-}
-
 export interface AuthResponse {
   user: {
     id: string;
@@ -45,24 +38,26 @@ class AuthService {
     const tenantSlug = slugify(credentials.tenantSlug);
     try {
       // Store tenant slug temporarily for the request
-      sessionStorage.setItem('tenant_slug', tenantSlug);
+      localStorage.setItem('tenant_slug', tenantSlug);
 
       // Send only email and password, tenantSlug goes via header
       const { email, password } = credentials;
       const response = await apiClient.post<AuthResponse>('/v1/auth/login', { email, password });
 
-      // Store session ID in sessionStorage (memory only, cleared on tab close)
-      sessionStorage.setItem('session_id', response.data.session.id);
-      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      // Store session ID in localStorage: survives tab/process suspension on
+      // mobile browsers, unlike sessionStorage (server session lasts 24h and
+      // renews itself on activity via Lucia's sliding expiration).
+      localStorage.setItem('session_id', response.data.session.id);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       if (response.data.user.tenantId) {
-        sessionStorage.setItem('tenant_id', response.data.user.tenantId);
+        localStorage.setItem('tenant_id', response.data.user.tenantId);
       }
 
       return response.data;
     } catch (error: unknown) {
-      // No dejar un slug de un login fallido en sessionStorage: rompería las
+      // No dejar un slug de un login fallido en localStorage: rompería las
       // peticiones posteriores del tab (headers) aunque el usuario reintente.
-      sessionStorage.removeItem('tenant_slug');
+      localStorage.removeItem('tenant_slug');
       const errorResponse = error instanceof AxiosError
         ? (error.response?.data as ErrorResponse | undefined)
         : undefined;
@@ -70,31 +65,9 @@ class AuthService {
     }
   }
 
-  async register(data: RegisterData): Promise<AuthResponse> {
-    try {
-      const response = await apiClient.post<AuthResponse>('/v1/auth/register', data);
-
-      // Store session ID and tenant slug
-      const tenantSlug = slugify(data.tenantName);
-      sessionStorage.setItem('session_id', response.data.session.id);
-      sessionStorage.setItem('tenant_slug', tenantSlug);
-      sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      if (response.data.user.tenantId) {
-        sessionStorage.setItem('tenant_id', response.data.user.tenantId);
-      }
-
-      return response.data;
-    } catch (error: unknown) {
-      const errorResponse = error instanceof AxiosError
-        ? (error.response?.data as ErrorResponse | undefined)
-        : undefined;
-      throw new Error(errorResponse?.message || 'Error al registrarse');
-    }
-  }
-
   async logout(): Promise<void> {
     try {
-      const sessionId = sessionStorage.getItem('session_id');
+      const sessionId = localStorage.getItem('session_id');
       if (sessionId) {
         await apiClient.post('/v1/auth/logout', { sessionId });
       }
@@ -103,10 +76,10 @@ class AuthService {
       console.error('Error during logout:', error);
     } finally {
       // Clear session data
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('tenant_id');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
+      localStorage.removeItem('tenant_id');
     }
   }
 
@@ -114,8 +87,8 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/v1/auth/superadmin/login', { email, password });
 
-      sessionStorage.setItem('session_id', response.data.session.id);
-      sessionStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('session_id', response.data.session.id);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       // No tenant_slug for SUPERADMIN
 
       return response.data;
@@ -129,9 +102,9 @@ class AuthService {
 
   async getCurrentSession(): Promise<AuthResponse | null> {
     try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const tenantSlug = sessionStorage.getItem('tenant_slug');
-      const savedUser = sessionStorage.getItem('user');
+      const sessionId = localStorage.getItem('session_id');
+      const tenantSlug = localStorage.getItem('tenant_slug');
+      const savedUser = localStorage.getItem('user');
 
       const userObj = savedUser ? JSON.parse(savedUser) : null;
       const isSuperadmin = userObj?.role === 'SUPERADMIN';
@@ -161,8 +134,8 @@ class AuthService {
 
   async refreshToken(): Promise<AuthResponse | null> {
     try {
-      const sessionId = sessionStorage.getItem('session_id');
-      const savedUser = sessionStorage.getItem('user');
+      const sessionId = localStorage.getItem('session_id');
+      const savedUser = localStorage.getItem('user');
 
       if (!sessionId || !savedUser) return null;
 
@@ -170,7 +143,7 @@ class AuthService {
 
       // Update session ID in storage
       if (response.data.id) {
-        sessionStorage.setItem('session_id', response.data.id);
+        localStorage.setItem('session_id', response.data.id);
       }
 
       // Reconstruct AuthResponse from saved user
@@ -184,24 +157,24 @@ class AuthService {
       };
     } catch (_error) {
       // Refresh failed - session is invalid
-      sessionStorage.removeItem('session_id');
-      sessionStorage.removeItem('tenant_slug');
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('tenant_id');
+      localStorage.removeItem('session_id');
+      localStorage.removeItem('tenant_slug');
+      localStorage.removeItem('user');
+      localStorage.removeItem('tenant_id');
       return null;
     }
   }
 
   isAuthenticated(): boolean {
-    return !!sessionStorage.getItem('session_id');
+    return !!localStorage.getItem('session_id');
   }
 
   getCurrentToken(): string | null {
-    return sessionStorage.getItem('session_id');
+    return localStorage.getItem('session_id');
   }
 
   getCurrentTenantSlug(): string | null {
-    return sessionStorage.getItem('tenant_slug');
+    return localStorage.getItem('tenant_slug');
   }
 }
 

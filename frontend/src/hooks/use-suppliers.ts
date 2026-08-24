@@ -4,6 +4,7 @@ import { PaginatedResponse } from '@/types/api.types';
 export interface Supplier {
   id: string;
   name: string;
+  legalName?: string;
   cifNif?: string;
   address?: string;
   contactPerson?: string;
@@ -29,10 +30,14 @@ export function useSuppliers(options?: { isActive?: boolean }) {
     params.append('isActive', String(options.isActive));
   }
   const query = params.toString();
-  const key = query ? `suppliers?${query}` : 'suppliers';
+  // La queryKey debe empezar por 'suppliers' como elemento propio del array:
+  // invalidateQueries({queryKey:['suppliers']}) hace match por prefijo elemento
+  // a elemento, no por substring, así que 'suppliers?isActive=true' como string
+  // único nunca coincidía y el filtro quedaba sin refrescar tras crear/editar.
+  const key = query ? ['suppliers', query] : ['suppliers'];
 
   return useApiQuery<Supplier[]>(
-    [key],
+    key,
     `/v1/products/suppliers${query ? `?${query}` : ''}`,
   );
 }

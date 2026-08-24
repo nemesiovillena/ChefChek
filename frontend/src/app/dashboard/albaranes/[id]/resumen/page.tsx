@@ -1,32 +1,92 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { updateStatus, deleteAlbaran } from '@/lib/api-albaran';
+import { useAlbaranDuplicateCheck } from '@/hooks/use-albaran-duplicate-check';
+import { updateStatus, deleteAlbaran, updateAlbaran } from '@/lib/api-albaran';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
+import { SupplierMatchBadge } from '@/components/albaranes/supplier-match-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart } from 'lucide-react';
+import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart, ArrowUpRight } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
 export default function AlbaranResumenPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  // Si se llegó desde un Pedido (ver ReceptionSection), "Confirmar" y "Volver"
+  // deben regresar allí en vez de al listado de Albaranes por defecto.
+  const returnTo = searchParams.get('returnTo');
+  const backHref = returnTo || '/dashboard/albaranes';
+  const backLabel = returnTo ? 'Volver al Pedido' : 'Volver a Albaranes';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
+  // Solo mientras se puede actuar sobre el albarán (borrarlo, cambiarlo de
+  // proveedor): una vez CONFIRMADO/ARCHIVADO el stock ya está asentado y el
+  // aviso ya no ayuda a evitar la duplicación.
+  const isEditableStatus = albaran?.status === 'PENDIENTE' || albaran?.status === 'REVISADO';
+  const { match: duplicateMatch } = useAlbaranDuplicateCheck(
+    isEditableStatus ? albaran?.supplier?.id : undefined,
+    albaran?.albaranNumber ?? '',
+    id,
+  );
   const [updating, setUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
   const [orderPickerOpen, setOrderPickerOpen] = useState(false);
   const addNotification = useNotification();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
+
+  // Mutex de doble descuento: si algún producto vinculado tiene descuento
+  // fijo (discountPercentage), deshabilitamos "aplicar descuento al coste".
+  // Razón: Fase 2 hornearía el neto del papel en purchasePrice al confirmar y
+  // el motor de coste volvería a aplicar discountPercentage → descuento x2.
+  // El usuario elige uno u otro, no ambos (decisión de producto: mutex en UI).
+  const hasStandingDiscount = (albaran?.lines ?? []).some(
+    (l) => (l.matchedProduct?.discountPercentage ?? 0) > 0,
+  );
+
+  // Marca el query del listado como stale. Sin esto, al volver a /albaranes
+  // react-query sirve la caché anterior (staleTime global de 5 min) y el badge
+  // de estado queda congelado en el valor previo hasta un refresco manual.
+  const invalidateList = () => {
+    void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+  };
+  // Mutaciones que afectan al detalle Y al listado (proveedor, pedido):
+  // refresca el detalle visible y marca el listado como stale.
+  const handleDetailMutationSuccess = () => {
+    invalidateList();
+    refetch();
+  };
+
+  // Opt-in "aplicar descuento al coste": solo visible si alguna línea trae un
+  // neto del papel inferior al bruto (descuento real). Persiste el flag en la
+  // cabecera; el stock service lo lee al confirmar para usar el precio neto.
+  const handleToggleDiscount = async (checked: boolean) => {
+    setUpdating(true);
+    try {
+      await updateAlbaran(id, { applyDiscountToCost: checked });
+      handleDetailMutationSuccess();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo actualizar',
+        message: err instanceof Error ? err.message : 'Error al actualizar el albarán',
+      });
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -39,6 +99,19 @@ export default function AlbaranResumenPage() {
     setUpdating(true);
     try {
       await updateStatus(id, newStatus);
+      // El estado cambió en BD: invalida la caché del listado para que al
+      // volver se muestre el nuevo estado.
+      invalidateList();
+      // Y la del propio detalle: sin esto, reabrir este albarán dentro del
+      // staleTime global (5min) sirve el snapshot de antes de confirmar y la
+      // pestaña Líneas sigue mostrando el CTA "Confirmar Albarán".
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      // Al confirmar, el usuario vuelve directamente al listado (o al Pedido
+      // si llegó desde allí) en vez de quedarse en el resumen ya confirmado.
+      if (newStatus === 'CONFIRMADO') {
+        router.push(backHref);
+        return;
+      }
       refetch();
     } catch (err) {
       console.error('Error updating status:', err);
@@ -68,6 +141,9 @@ export default function AlbaranResumenPage() {
     setUpdating(true);
     try {
       await deleteAlbaran(id);
+      // Marca el listado stale antes de navegar: sin esto, el albarán borrado
+      // seguiría apareciendo en la caché hasta un refresco manual.
+      invalidateList();
       router.push('/dashboard/albaranes');
     } catch (err) {
       console.error('Error deleting albaran:', err);
@@ -131,9 +207,9 @@ export default function AlbaranResumenPage() {
 
   return (
     <div>
-      <Button variant="ghost" onClick={() => router.push('/dashboard/albaranes')} className="mb-4">
+      <Button variant="ghost" onClick={() => router.push(backHref)} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Volver a Albaranes
+        {backLabel}
       </Button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -158,6 +234,13 @@ export default function AlbaranResumenPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
+              {duplicateMatch && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Ya existe un albarán <strong>{duplicateMatch.albaranNumber}</strong> de este
+                  proveedor ({formatDate(duplicateMatch.date)}, {duplicateMatch.status.toLowerCase()},{' '}
+                  {formatCurrency(duplicateMatch.total)}). Revisa que no sea el mismo antes de confirmar.
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
@@ -181,6 +264,11 @@ export default function AlbaranResumenPage() {
                     {albaran.supplier?.cifNif && (
                       <p className="text-xs text-gray-400">CIF: {albaran.supplier.cifNif}</p>
                     )}
+                    <SupplierMatchBadge
+                      hasSupplier={!!albaran.supplier}
+                      hasOcrData={!!albaran.ocrRawData}
+                      ocrSupplierName={albaran.ocrRawData?.supplier_name}
+                    />
                   </div>
                 </div>
 
@@ -210,9 +298,19 @@ export default function AlbaranResumenPage() {
                   <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                     <FileText className="h-5 w-5 text-purple-600" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm text-gray-500">Líneas</p>
-                    <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => router.push(`/dashboard/albaranes/${id}/lineas`)}
+                        className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                      >
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -266,6 +364,51 @@ export default function AlbaranResumenPage() {
                 <span className="text-gray-500">IVA</span>
                 <span className="font-medium">{formatCurrency(albaran.vatTotal)}</span>
               </div>
+              {(albaran.lines || []).some(
+                (l) =>
+                  l.totalPrice !== null &&
+                  l.totalPrice < l.lineAmount &&
+                  Math.abs(l.totalPrice - l.lineAmount) > 0.005,
+              ) &&
+                albaran.status !== 'CONFIRMADO' &&
+                albaran.status !== 'ARCHIVADO' && (
+                  <label
+                    className={`flex items-start gap-2 pt-2 text-xs text-gray-600 ${
+                      hasStandingDiscount
+                        ? "cursor-not-allowed opacity-60"
+                        : "cursor-pointer"
+                    }`}
+                    title={
+                      hasStandingDiscount
+                        ? "Uno o más artículos tienen descuento fijo: aplicarlo al coste duplicaría el descuento. Quítalo de esos artículos para usar esta opción."
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      checked={!!albaran.applyDiscountToCost}
+                      disabled={updating || hasStandingDiscount}
+                      onChange={(e) => handleToggleDiscount(e.target.checked)}
+                    />
+                    <span>
+                      {hasStandingDiscount ? (
+                        <>
+                          No se puede aplicar el descuento al{" "}
+                          <strong>coste</strong>: uno o más artículos tienen
+                          descuento fijo y se duplicaría. Quítalo de esos
+                          artículos para usar esta opción.
+                        </>
+                      ) : (
+                        <>
+                          Aplicar el descuento al <strong>coste</strong> al
+                          confirmar: el precio de compra y los escandallos usarán
+                          el neto del papel en vez del bruto.
+                        </>
+                      )}
+                    </span>
+                  </label>
+                )}
               <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
                 <span>Total</span>
                 <span className="text-indigo-600">{formatCurrency(albaran.total)}</span>
@@ -317,7 +460,7 @@ export default function AlbaranResumenPage() {
         onOpenChange={setSupplierPickerOpen}
         albaranId={id}
         currentSupplierId={albaran.supplier?.id}
-        onSuccess={refetch}
+        onSuccess={handleDetailMutationSuccess}
       />
 
       {/* Purchase Order Picker Dialog */}
@@ -328,7 +471,7 @@ export default function AlbaranResumenPage() {
         supplierId={albaran.supplier?.id}
         albaranDate={albaran.date}
         currentPurchaseOrderId={albaran.purchaseOrderId}
-        onSuccess={refetch}
+        onSuccess={handleDetailMutationSuccess}
       />
     </div>
   );

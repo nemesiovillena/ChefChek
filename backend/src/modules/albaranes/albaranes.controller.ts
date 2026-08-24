@@ -83,15 +83,17 @@ export class AlbaranesController {
       throw new BadRequestException("No files uploaded");
     }
 
-    // Extraer modelo IA y API key del body (campos opcionales del FormData)
+    // Extraer modelo IA, API key y pedido de origen del body (campos opcionales del FormData)
     const aiModel = req.body?.ai_model || undefined;
     const aiApiKey = req.body?.ai_api_key || undefined;
+    const purchaseOrderId = req.body?.purchase_order_id || undefined;
 
     const albaran = await this.albaranesService.createFromUpload(
       files,
       tenantId,
       aiModel,
       aiApiKey,
+      purchaseOrderId,
     );
 
     // Return format compatible with frontend upload hook: { products, albaran }
@@ -103,11 +105,16 @@ export class AlbaranesController {
         quantity: line.quantity,
         unit: line.unit,
         unit_price: line.unitPrice,
-        total_price: (line.quantity || 0) * (line.unitPrice || 0),
+        // Neto del papel si el OCR lo trajo; si no, se recalcula del bruto.
+        total_price:
+          line.totalPrice ?? (line.quantity || 0) * (line.unitPrice || 0),
         supplier: (albaran as any).supplier?.name || "IMPORTADO",
         category: "",
         allergens: [],
-        confidence: line.confidence || 0.7,
+        confidence: line.confidence ?? 0,
+        matchStatus: line.matchStatus,
+        matchedProductId: line.matchedProductId,
+        suggestedProductId: line.suggestedProductId,
       })),
     };
   }
@@ -118,6 +125,33 @@ export class AlbaranesController {
   async findAll(@Query() query: AlbaranQueryDto, @Req() req: any) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.findAll(query, tenantId);
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  // Advisory-only: devuelve el albarán existente del mismo proveedor con el
+  // mismo número, si lo hay. No bloquea el alta (ni manual ni OCR).
+  @Get("check-duplicate")
+  @ApiOperation({
+    summary: "Comprobar si el número de albarán ya existe para el proveedor",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Albarán existente con ese número, o null",
+  })
+  async checkDuplicate(
+    @Query("supplierId") supplierId: string | undefined,
+    @Query("albaranNumber") albaranNumber: string | undefined,
+    @Query("excludeId") excludeId: string | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    const match = await this.albaranesService.checkDuplicate(
+      tenantId,
+      supplierId,
+      albaranNumber,
+      excludeId,
+    );
+    return { success: true, data: match };
   }
 
   @Post(":id/lines")
@@ -211,6 +245,18 @@ export class AlbaranesController {
       "CONFIRMADO",
       tenantId,
     );
+  }
+
+  @Put(":id/lines/:lineId/dismiss-suggestion")
+  @ApiOperation({ summary: "Descartar la sugerencia automática de una línea" })
+  @ApiResponse({ status: 200, description: "Sugerencia descartada" })
+  async dismissSuggestion(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.dismissSuggestion(id, lineId, tenantId);
   }
 
   @Put(":id/lines/:lineId/reject")

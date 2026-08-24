@@ -36,7 +36,8 @@ describe("ProductSupplierOffersService", () => {
       count: jest.fn(),
       delete: jest.fn(),
     },
-    productPriceHistory: { create: jest.fn() },
+    productPriceHistory: { create: jest.fn(), findFirst: jest.fn() },
+    albaran: { findUnique: jest.fn() },
   });
 
   beforeEach(async () => {
@@ -52,9 +53,11 @@ describe("ProductSupplierOffersService", () => {
               findMany: jest.fn(),
               create: jest.fn(),
               update: jest.fn(),
+              updateMany: jest.fn(),
               count: jest.fn(),
             },
-            productPriceHistory: { create: jest.fn() },
+            productPriceHistory: { create: jest.fn(), findFirst: jest.fn() },
+            albaran: { findUnique: jest.fn() },
             $transaction: jest.fn((fn) => fn(makeTx())),
           },
         },
@@ -106,6 +109,56 @@ describe("ProductSupplierOffersService", () => {
       expect(prisma.product.findFirst).toHaveBeenCalledWith({
         where: { id: productId, tenantId },
       });
+    });
+
+    it("primera oferta sin unitsPerFormat explícito hereda el unitSize del producto (caso real: caja de 105 uds) en vez de resetear a 1", async () => {
+      // Regresión: producto creado desde el alta manual con unitSize=105
+      // (caja de 105 unidades). Al confirmar el albarán, upsertOffer recibe
+      // el precio SIN unitsPerFormat/referenceUnitSize (la línea del albarán
+      // no lleva ese dato) — antes del fix, la primera oferta de un
+      // proveedor nuevo caía a unitSize=1 y comparaba 42€/105 vs 42€/1,
+      // generando un falso "subió el precio" y pisando el unitSize real.
+      const productWith105Units = {
+        ...baseProduct,
+        purchasePrice: 42,
+        netPrice: 42,
+        unitsPerFormat: 105,
+        referenceUnitSize: 1,
+        unitSize: 105,
+      };
+      (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+        productWith105Units,
+      );
+      (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+        null,
+      );
+      (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+      (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+        ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+      );
+
+      await service.upsertOffer(productId, supplierId, tenantId, {
+        purchasePrice: 42,
+        netPrice: 42,
+      });
+
+      expect(prisma.productSupplierOffer.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            unitsPerFormat: 105,
+            referenceUnitSize: 1,
+            unitSize: 105,
+          }),
+        }),
+      );
+      // Mismo €/ud (42/105) antes y después: no debe registrar variación
+      // falsa ni pisar el Product con unitSize=1.
+      expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ unitSize: 105 }),
+        }),
+      );
     });
 
     it("throws if the product does not exist", async () => {
@@ -313,6 +366,141 @@ describe("ProductSupplierOffersService", () => {
       );
     });
 
+    describe("promoteToPreferred (compra confirmada por albarán)", () => {
+      const albaranId = "albaran-a505";
+
+      it("regresión: producto con precio previo real (creado días antes, sin ProductPriceHistory) SÍ registra la variación en vez de caer a baseline 0", async () => {
+        // Caso real: "Tubo Finamar M x5" creado el 24/07 con purchasePrice=7.25
+        // (alta manual/oferta sin histórico). El 27/07 se confirma su primera
+        // compra por albarán (proveedor Romeu, 9.5€) — antes del fix, la
+        // ausencia de un ProductPriceHistory previo hacía caer siempre en la
+        // rama "primera compra: baseline" y el cambio real 7.25→9.5 se perdía
+        // (previousPrice quedaba en 0, sin traza para el badge/histórico).
+        const oldProduct = {
+          ...baseProduct,
+          purchasePrice: 7.25,
+          netPrice: 7.25,
+          unitSize: 1,
+          createdAt: new Date("2026-07-24T11:49:12.065Z"),
+        };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(oldProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-romeu", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.albaran.findUnique as jest.Mock).mockResolvedValue({
+          createdAt: new Date("2026-07-27T16:05:33.982Z"),
+        });
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 9.5, netPrice: 9.5 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              previousPrice: 7.25,
+              newPrice: 9.5,
+              previousUnitSize: 1,
+              newUnitSize: 1,
+            }),
+          }),
+        );
+      });
+
+      it("producto creado como parte de ESTE MISMO albarán mantiene la baseline (evita el falso badge bruto→neto)", async () => {
+        const inlineCreatedProduct = {
+          ...baseProduct,
+          purchasePrice: 10.45, // bruto de la creación inline
+          netPrice: 10.45,
+          unitSize: 1,
+          createdAt: new Date("2026-07-27T16:06:00.000Z"),
+        };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          inlineCreatedProduct,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        // El albarán ya existía (fila creada) antes de que se procesara esta
+        // línea inline — mismo momento/transacción de confirmación.
+        (prisma.albaran.findUnique as jest.Mock).mockResolvedValue({
+          createdAt: new Date("2026-07-27T16:05:33.982Z"),
+        });
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 9.5, netPrice: 9.5 }, // neto tras applyDiscountToCost
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              previousPrice: 0,
+              newPrice: 9.5,
+              previousUnitSize: null,
+            }),
+          }),
+        );
+      });
+
+      it("producto sin precio previo (0) mantiene la baseline sin consultar el albarán", async () => {
+        const freshProduct = { ...baseProduct, purchasePrice: 0, netPrice: 0 };
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(freshProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 5, netPrice: 5 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        expect(prisma.albaran.findUnique).not.toHaveBeenCalled();
+        expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ previousPrice: 0, newPrice: 5 }),
+          }),
+        );
+      });
+    });
+
     describe("agreedPrice (precio pactado)", () => {
       const existingOffer = {
         id: "offer-a",
@@ -407,6 +595,47 @@ describe("ProductSupplierOffersService", () => {
           .calls[0][0].data;
         expect(data.agreedPrice).toBeNull();
         expect(data.agreedAt).toBeNull();
+      });
+
+      it("primera oferta sin agreedPrice explícito lo fija al purchasePrice de esa compra", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+
+        const offer = await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 6.53 },
+        );
+
+        expect(offer.agreedPrice).toBe(6.53);
+        expect(offer.agreedAt).toBeInstanceOf(Date);
+      });
+
+      it("primera oferta con agreedPrice explícito respeta el valor enviado, no el purchasePrice", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(baseProduct);
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(0);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+
+        const offer = await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 6.53, agreedPrice: 5.9 },
+        );
+
+        expect(offer.agreedPrice).toBe(5.9);
       });
 
       it("agreedUntil se pasa como Date; ausente no lo toca", async () => {
@@ -532,7 +761,7 @@ describe("ProductSupplierOffersService", () => {
       await expect(service.removeOffer("offer-a", tenantId)).rejects.toThrow(
         BadRequestException,
       );
-      expect(tx.productSupplierOffer.delete).not.toHaveBeenCalled();
+      expect(tx.productSupplierOffer.update).not.toHaveBeenCalled();
     });
 
     it("allows removing the only offer of a product", async () => {
@@ -547,8 +776,11 @@ describe("ProductSupplierOffersService", () => {
 
       await service.removeOffer("offer-a", tenantId);
 
-      expect(tx.productSupplierOffer.delete).toHaveBeenCalledWith({
+      // Soft-delete: nunca `.delete()` dentro de una transacción (el middleware
+      // de soft-delete no cubre el cliente `tx`, sería borrado físico real).
+      expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-a" },
+        data: { deletedAt: expect.any(Date) },
       });
     });
 
@@ -579,8 +811,9 @@ describe("ProductSupplierOffersService", () => {
 
       await service.removeOffer("offer-a", tenantId, "offer-dialvi");
 
-      expect(tx.productSupplierOffer.delete).toHaveBeenCalledWith({
+      expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-a" },
+        data: { deletedAt: expect.any(Date) },
       });
       expect(tx.productSupplierOffer.update).toHaveBeenCalledWith({
         where: { id: "offer-dialvi" },

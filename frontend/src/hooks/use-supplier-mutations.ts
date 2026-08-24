@@ -4,6 +4,7 @@ import type { Supplier } from './use-suppliers';
 
 interface CreateSupplierDto {
   name: string;
+  legalName?: string;
   cifNif?: string;
   address?: string;
   contactPerson?: string;
@@ -25,6 +26,7 @@ interface CreateSupplierDto {
 
 interface UpdateSupplierDto {
   name?: string;
+  legalName?: string;
   cifNif?: string;
   address?: string;
   contactPerson?: string;

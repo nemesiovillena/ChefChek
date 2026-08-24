@@ -7,36 +7,75 @@ import type { CreateSupplierDto, UpdateSupplierDto } from '@/hooks/use-supplier-
 
 interface Props {
   supplier?: Supplier | null;
+  initialName?: string;
   onSubmit: (data: CreateSupplierDto | UpdateSupplierDto) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
 }
 
-export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Props) {
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<CreateSupplierDto>({
-    defaultValues: (supplier as CreateSupplierDto) || {
-      name: '',
-      cifNif: '',
-      address: '',
-      contactPerson: '',
-      email: '',
-      phone: '',
-      whatsapp: '',
-      website: '',
-      sanitaryRegistry: '',
-      iban: '',
-      paymentTerms: '',
-      notes: '',
-      averageDeliveryTime: 3,
-      reliabilityScore: 85,
-      priceTier: 'MEDIUM',
-      preferredStatus: 'ALTERNATIVE',
-      orderMethods: ['EMAIL'],
-      isActive: true
-    }
+export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubmitting }: Props) {
+  // Whitelist explícito de campos editables: el objeto `supplier` que llega de
+  // la API trae también id/tenantId/createdAt/updatedAt/deletedAt/ocrLayoutHints,
+  // y como react-hook-form conserva en el submit cualquier clave presente en
+  // defaultValues aunque no tenga un input registrado, pasar `supplier` entero
+  // colaba esos campos y el backend (forbidNonWhitelisted) rechazaba el update.
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<CreateSupplierDto>({
+    defaultValues: supplier
+      ? {
+          name: supplier.name,
+          legalName: supplier.legalName || '',
+          cifNif: supplier.cifNif || '',
+          address: supplier.address || '',
+          contactPerson: supplier.contactPerson || '',
+          email: supplier.email || '',
+          phone: supplier.phone || '',
+          whatsapp: supplier.whatsapp || '',
+          website: supplier.website || '',
+          sanitaryRegistry: supplier.sanitaryRegistry || '',
+          iban: supplier.iban || '',
+          paymentTerms: supplier.paymentTerms || '',
+          notes: supplier.notes || '',
+          averageDeliveryTime: supplier.averageDeliveryTime,
+          reliabilityScore: supplier.reliabilityScore,
+          priceTier: supplier.priceTier as CreateSupplierDto['priceTier'],
+          preferredStatus: supplier.preferredStatus as CreateSupplierDto['preferredStatus'],
+          orderMethods: supplier.orderMethods,
+          isActive: supplier.isActive,
+        }
+      : {
+          name: initialName || '',
+          legalName: '',
+          cifNif: '',
+          address: '',
+          contactPerson: '',
+          email: '',
+          phone: '',
+          whatsapp: '',
+          website: '',
+          sanitaryRegistry: '',
+          iban: '',
+          paymentTerms: '',
+          notes: '',
+          averageDeliveryTime: 3,
+          reliabilityScore: 85,
+          priceTier: 'MEDIUM',
+          preferredStatus: 'ALTERNATIVE',
+          orderMethods: ['EMAIL'],
+          isActive: true
+        }
   });
 
   const [selectedMethods, setSelectedMethods] = useState<string[]>(supplier?.orderMethods || ['EMAIL']);
+
+  const whatsappValue = watch('whatsapp');
+  const phoneValue = watch('phone');
+  const unmarkedContactMethods: string[] = [];
+  if (whatsappValue?.trim() && !selectedMethods.includes('WHATSAPP')) {
+    unmarkedContactMethods.push('WhatsApp');
+  }
+  if (phoneValue?.trim() && !selectedMethods.includes('PHONE')) {
+    unmarkedContactMethods.push('teléfono');
+  }
 
   const toggleMethod = (method: string) => {
     const newMethods = selectedMethods.includes(method)
@@ -56,6 +95,12 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
 
       <div className="pt-2 border-t">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Datos fiscales y contacto</p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Razón social / nombre fiscal</label>
+        <Input {...register('legalName')} placeholder="Tal como aparece en el albarán, ej. MAKRO AUTOSERVICIO MAYORISTA S.A." />
+        <p className="text-xs text-gray-500 mt-1">Si el nombre impreso en los albaranes es distinto al nombre de arriba, indícalo aquí para que el reconocimiento automático del proveedor al escanear funcione mejor.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -173,6 +218,12 @@ export function SupplierForm({ supplier, onSubmit, onCancel, isSubmitting }: Pro
           ))}
         </div>
         <input type="hidden" {...register('orderMethods')} />
+        {unmarkedContactMethods.length > 0 && (
+          <p className="mt-2 text-xs text-amber-600">
+            Tienes {unmarkedContactMethods.join(' y ')} guardado pero no marcado como método de
+            pedido — el proveedor no mostrará esta opción al enviar pedidos.
+          </p>
+        )}
       </div>
 
       <div className="pt-2 border-t">

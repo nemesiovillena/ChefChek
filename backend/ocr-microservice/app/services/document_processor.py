@@ -23,6 +23,22 @@ from .image_preprocessing import ImagePreprocessor
 from .ocr_service import OCRService
 from .validation_service import ValidationService
 from app.models import ExtractedDocument, ExtractedProduct
+
+# Fotos de móvil modernas llegan a 20-24MP; ni EasyOCR ni los modelos de
+# visión (que re-escalan internamente) necesitan esa resolución para leer
+# texto de un albarán, y en CPU EasyOCR escala muy mal con megapíxeles.
+MAX_IMAGE_DIMENSION = 1800
+
+
+def _resize_if_needed(image: np.ndarray, max_dimension: int = MAX_IMAGE_DIMENSION) -> np.ndarray:
+    """Reduce el lado más largo a max_dimension manteniendo el aspect ratio."""
+    height, width = image.shape[:2]
+    longest_side = max(height, width)
+    if longest_side <= max_dimension:
+        return image
+    scale = max_dimension / longest_side
+    new_size = (round(width * scale), round(height * scale))
+    return cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
 import re
 
 logger = logging.getLogger(__name__)
@@ -133,10 +149,25 @@ class DocumentProcessor:
             # Cargar imagen
             import cv2
             import io
-            from PIL import Image
+            from PIL import Image, ImageOps
 
             logger.info(f"Iniciando carga de imagen, tamaño datos: {len(image_data)} bytes")
             pil_image = Image.open(io.BytesIO(image_data))
+
+            # Las cámaras de móvil (iPhone/Android) guardan la rotación como tag
+            # EXIF (0x0112) en lugar de girar los píxeles al disparar. PIL no
+            # aplica ese tag al decodificar, así que una foto de albarán tomada
+            # en vertical llegaba girada 90° a EasyOCR y a la IA, produciendo
+            # líneas basura o ausentes. exif_transpose aplica la rotación a los
+            # píxeles; es un no-op si no hay tag (imágenes ya verticales del
+            # ordenador o escaneos). Se conserva .format porque transpose puede
+            # perderlo y hace falta para la rama HEIC de abajo.
+            img_format = pil_image.format
+            exif_tag = pil_image.getexif().get(0x0112)
+            pil_image = ImageOps.exif_transpose(pil_image)
+            pil_image.format = img_format
+            if exif_tag and exif_tag != 1:
+                logger.info(f"Orientación EXIF {exif_tag} aplicada: size ahora {pil_image.size}")
             logger.info(f"PIL Image cargado: mode={pil_image.mode}, size={pil_image.size}")
 
             # Convertir HEIC a JPEG si es necesario
@@ -213,8 +244,14 @@ class DocumentProcessor:
         preprocessing_metadata = {}
 
         try:
-            # Conservar la imagen original: la IA multimodal necesita la foto
-            # a color, no la versión binarizada que se genera para EasyOCR
+            original_size = image.shape[:2]
+            image = _resize_if_needed(image)
+            if image.shape[:2] != original_size:
+                logger.info(f"Imagen redimensionada: {original_size} -> {image.shape[:2]}")
+
+            # Conservar la imagen (ya redimensionada) original: la IA
+            # multimodal necesita la foto a color, no la versión binarizada
+            # que se genera para EasyOCR
             original_image = image
 
             # Pre-procesamiento si está habilitado

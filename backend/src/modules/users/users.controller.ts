@@ -28,6 +28,7 @@ import {
 } from "@nestjs/swagger";
 import { UsersService } from "./users.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
+import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -63,12 +64,7 @@ export class UsersController {
       throw new BadRequestException("No file provided");
     }
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        "Only jpg, png, webp and gif images are allowed",
-      );
-    }
+    assertAllowedImageType(file);
 
     const uploadsDir = path.join(process.cwd(), "uploads", "users");
     /* istanbul ignore next */

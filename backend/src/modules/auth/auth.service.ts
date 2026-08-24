@@ -115,60 +115,6 @@ export class AuthService {
     };
   }
 
-  async register(
-    email: string,
-    password: string,
-    name: string,
-    tenantSlug: string,
-    role: "ADMIN" | "USER" | "VIEWER" = "USER",
-  ) {
-    let tenant: Awaited<ReturnType<TenantsService["findBySlug"]>> | null = null;
-    try {
-      tenant = await this.tenantsService.findBySlug(tenantSlug);
-    } catch (e) {
-      if (!(e instanceof NotFoundException)) {
-        throw e;
-      }
-    }
-    if (!tenant) {
-      const trashed =
-        await this.tenantsService.findBySlugIncludingDeleted(tenantSlug);
-      if (trashed?.deletedAt) {
-        throw new BadRequestException(
-          "Cliente dado de baja. Contacta con soporte.",
-        );
-      }
-      throw new BadRequestException("Tenant not found or inactive");
-    }
-    if (!tenant.isActive) {
-      throw new BadRequestException("Tenant not found or inactive");
-    }
-
-    const existingUser = await this.usersService.findByEmail(email, tenant.id);
-    if (existingUser) {
-      throw new BadRequestException("User already exists");
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const createdUser = await this.usersService.create(
-      {
-        email,
-        password: passwordHash,
-        name,
-        role,
-        tenantId: tenant.id,
-      },
-      tenant.id,
-    );
-
-    return {
-      success: true,
-      data: createdUser.data,
-      message: "Registration successful",
-    };
-  }
-
   async superadminLogin(
     email: string,
     password: string,

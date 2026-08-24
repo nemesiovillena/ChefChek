@@ -11,8 +11,12 @@ export interface IngredientResponse {
   netWeight: number;
   /** Rendimiento (%): yieldFactor del producto * 100 */
   yieldPercentage: number;
-  /** Merma (%): 100 - yieldPercentage (derivada de yieldFactor, no de Product.wastePercentage) */
+  /** Merma (%) efectiva de la línea: wastePercentageOverride si está fijada, si no la del artículo */
   wastePercentage: number;
+  /** true si el artículo trae su propia merma (Product.wastePercentage > 0) — informativo para la UI */
+  hasArticleWaste: boolean;
+  /** Merma manual de esta receta (null si no se ha fijado); si está presente, sustituye a la del artículo */
+  wastePercentageOverride: number | null;
   /** Precio Compra: €/unidad de referencia del producto (purchasePrice / unitSize) */
   referencePurchasePrice: number;
   /** Precio Real: referencePurchasePrice ajustado por merma (/ yieldFactor) */

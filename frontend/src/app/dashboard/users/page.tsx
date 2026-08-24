@@ -8,6 +8,12 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useUsers, useUpdateUser, useDeleteUser, User } from '@/hooks/use-users';
 import { Pencil, Trash2, UserRound } from 'lucide-react';
 import UserModal from './components/user-modal';
+import PageContainer from '@/components/shared/page-container';
+import PageHeader from '@/components/shared/page-header';
+import {
+  tableCardClass, tableScrollClass, tableClass, theadClass, thBaseClass, thActionsClass,
+  tbodyClass, trHoverClass, tdBaseClass, tdActionsClass,
+} from '@/components/shared/data-table-classes';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +66,7 @@ export default function UsersPage() {
   if (!isAuthenticated || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
@@ -114,119 +120,111 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Users Management</h1>
-          <button
-            onClick={handleCreate}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-          >
-            Create User
-          </button>
-        </div>
+    <div className="w-full">
+      <PageContainer>
+        <PageHeader
+          title="Gestión de usuarios"
+          actions={
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            >
+              Crear usuario
+            </button>
+          }
+        />
 
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Usuario
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created At
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {usersLoading ? (
+        <div className={tableCardClass}>
+          <div className={tableScrollClass}>
+            <table className={tableClass}>
+              <thead className={theadClass}>
                 <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    Cargando...
-                  </td>
+                  <th className={thBaseClass}>Usuario</th>
+                  <th className={thBaseClass}>Email</th>
+                  <th className={thBaseClass}>Rol</th>
+                  <th className={thBaseClass}>Estado</th>
+                  <th className={thBaseClass}>Fecha de creación</th>
+                  <th className={thActionsClass}>Acciones</th>
                 </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    No users found
-                  </td>
-                </tr>
-              ) : (
-                users.map((targetUser) => (
-                  <tr key={targetUser.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xs font-medium text-gray-500">
-                          {targetUser.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={targetUser.avatarUrl} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            getInitials(targetUser.name) || <UserRound className="h-4 w-4" />
-                          )}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">{targetUser.name}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{targetUser.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                        {targetUser.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleToggleStatus(targetUser)}
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
-                          targetUser.isActive
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }`}
-                      >
-                        {targetUser.isActive ? 'Activo' : 'Desactivado'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(targetUser.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => handleEdit(targetUser)}
-                          className="text-gray-400 hover:text-indigo-600 transition-colors"
-                          title="Editar usuario"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(targetUser)}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
-                          title="Eliminar usuario"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className={tbodyClass}>
+                {usersLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                      Cargando...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : users.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                      No se encontraron usuarios
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((targetUser) => (
+                    <tr key={targetUser.id} className={trHoverClass}>
+                      <td className="px-3 py-3 max-w-[220px]">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-container-high)] text-xs font-medium text-[var(--on-surface-variant)]">
+                            {targetUser.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={targetUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              getInitials(targetUser.name) || <UserRound className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 max-w-[220px]">
+                        <div className="truncate text-sm text-[var(--on-surface)]" title={targetUser.email}>{targetUser.email}</div>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {targetUser.role}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleStatus(targetUser)}
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                            targetUser.isActive
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          }`}
+                        >
+                          {targetUser.isActive ? 'Activo' : 'Desactivado'}
+                        </button>
+                      </td>
+                      <td className={tdBaseClass}>
+                        {new Date(targetUser.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className={tdActionsClass}>
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => handleEdit(targetUser)}
+                            className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
+                            title="Editar usuario"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(targetUser)}
+                            className="text-[var(--on-surface-variant)] hover:text-red-600 transition-colors"
+                            title="Eliminar usuario"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </PageContainer>
 
       <UserModal
         isOpen={showModal}

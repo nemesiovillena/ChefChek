@@ -17,6 +17,10 @@ export class CreateSupplierDto {
 
   @IsOptional()
   @IsString()
+  legalName?: string;
+
+  @IsOptional()
+  @IsString()
   cifNif?: string;
 
   @IsOptional()
@@ -99,6 +103,10 @@ export class UpdateSupplierDto {
 
   @IsOptional()
   @IsString()
+  legalName?: string;
+
+  @IsOptional()
+  @IsString()
   cifNif?: string;
 
   @IsOptional()
@@ -178,6 +186,7 @@ export class SupplierResponseDto {
   id: string;
   tenantId: string;
   name: string;
+  legalName?: string;
   cifNif?: string;
   address?: string;
   contactPerson?: string;

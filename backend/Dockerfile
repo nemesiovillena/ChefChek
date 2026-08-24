@@ -48,9 +48,11 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 COPY package.json ./
 
-# dumb-init for signal forwarding, libssl1.1 for Prisma engine, wget for healthcheck
+# dumb-init for signal forwarding, libssl1.1 for Prisma engine, wget for healthcheck.
+# DEBIAN_FRONTEND=noninteractive silences debconf's TTY-fallback warnings emitted
+# during non-interactive docker build (Dialog/Readline/Teletype noise on stderr).
 RUN apt-get update && \
-    apt-get install -y dumb-init libssl1.1 wget && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y dumb-init libssl1.1 wget && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -59,6 +61,11 @@ RUN groupadd -g 1001 -r nodejs && \
 
 # Set proper permissions
 RUN chown -R nodejs:nodejs /app
+
+# Pre-create the uploads dir owned by nodejs so a named volume mounted here
+# inherits the right ownership. Otherwise Docker creates the mount target as
+# root and the non-root app gets EACCES on every upload.
+RUN mkdir -p /app/uploads && chown -R nodejs:nodejs /app/uploads
 
 # Switch to non-root user
 USER nodejs
@@ -70,6 +77,10 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start application with dumb-init
+# Start application with dumb-init. Runner stage is node (no bun), so the
+# local prisma bin is invoked directly rather than via bunx/npx.
+# Applies pending migrations before serving traffic -- without this, schema
+# drift between the Prisma Client (built from the latest schema) and the
+# actual production DB causes 500s on any query touching a new column.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/main"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && exec node dist/main"]

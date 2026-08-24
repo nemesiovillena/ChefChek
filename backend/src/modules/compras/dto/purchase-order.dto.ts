@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -11,6 +12,7 @@ import {
   IsString,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from "class-validator";
 import { PurchaseOrderStatus } from "@prisma/client";
@@ -55,6 +57,11 @@ export class CreatePurchaseOrderDto {
   @MaxLength(1000)
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  additionalItems?: string;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -73,6 +80,11 @@ export class UpdatePurchaseOrderDto {
   notes?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  additionalItems?: string;
+
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
@@ -83,6 +95,19 @@ export class UpdatePurchaseOrderDto {
 export class TransitionPurchaseOrderDto {
   @IsEnum(PurchaseOrderStatus)
   status: PurchaseOrderStatus;
+
+  // Motivo opcional: usado al cerrar un RECIBIDO_PARCIAL aceptando lo recibido
+  // como final (proveedor no completará el resto). Se guarda en el evento.
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
+export class RevertPurchaseOrderDto {
+  @IsString()
+  @MinLength(10)
+  reason: string;
 }
 
 export class PurchaseOrdersQueryDto {
@@ -101,6 +126,12 @@ export class PurchaseOrdersQueryDto {
   @IsOptional()
   @IsEnum(PurchaseOrderStatus)
   status?: PurchaseOrderStatus;
+
+  // Vista por defecto de la pestaña: activos (en curso) vs histórico (recibidos/cancelados).
+  // Si se manda `status`, ese filtro explícito prevalece sobre `view`.
+  @IsOptional()
+  @IsIn(["active", "history"])
+  view?: "active" | "history";
 
   @IsOptional()
   @IsString()

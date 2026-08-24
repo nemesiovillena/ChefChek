@@ -1,19 +1,27 @@
 'use client';
 
 import { useProductPriceHistory } from '@/hooks/use-product-price-history';
-import { normalizePrice, referencePriceChanged } from '@/hooks/use-products';
+import { normalizePrice, referencePriceChanged, formatRefPrice } from '@/hooks/use-products';
 import { Loader2, TrendingUp, TrendingDown, Minus, FileText } from 'lucide-react';
 
 interface ProductPriceHistoryTableProps {
   productId: string;
   supplierId?: string;
+  discountPercentage?: number | null;
+  /** Unidad de referencia del producto (kg/litro/ud) para etiquetar el precio ref. */
+  referenceUnit?: string;
 }
 
 /**
  * Tabla de historial de precios de un producto.
  * Muestra cambios de precio con fecha, proveedor, variación y albarán asociado.
  */
-export function ProductPriceHistoryTable({ productId, supplierId }: ProductPriceHistoryTableProps) {
+export function ProductPriceHistoryTable({
+  productId,
+  supplierId,
+  discountPercentage,
+  referenceUnit,
+}: ProductPriceHistoryTableProps) {
   const { data: history, isLoading, error } = useProductPriceHistory(productId, supplierId);
 
   if (isLoading) {
@@ -58,10 +66,10 @@ export function ProductPriceHistoryTable({ productId, supplierId }: ProductPrice
             const canNormalize =
               entry.previousUnitSize != null && entry.newUnitSize != null;
             const previousRef = canNormalize
-              ? normalizePrice(entry.previousPrice, entry.previousUnitSize)
+              ? normalizePrice(entry.previousPrice, entry.previousUnitSize, discountPercentage)
               : entry.previousPrice;
             const newRef = canNormalize
-              ? normalizePrice(entry.newPrice, entry.newUnitSize)
+              ? normalizePrice(entry.newPrice, entry.newUnitSize, discountPercentage)
               : entry.newPrice;
             const change = newRef - previousRef;
             const pctChange = previousRef > 0
@@ -83,13 +91,26 @@ export function ProductPriceHistoryTable({ productId, supplierId }: ProductPrice
                 </td>
                 <td className="py-2 px-3 text-right text-gray-500">
                   {formatPrice(entry.previousPrice)}
+                  {canNormalize && referenceUnit && (
+                    <div className="text-xs text-gray-400">
+                      {formatRefPrice(previousRef, referenceUnit)}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-right font-medium">
                   {formatPrice(entry.newPrice)}
+                  {canNormalize && referenceUnit && (
+                    <div className="text-xs font-normal text-gray-400">
+                      {formatRefPrice(newRef, referenceUnit)}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-right">
-                  <span className={`inline-flex items-center gap-1 ${
-                    isUp ? 'text-red-600' : isDown ? 'text-green-600' : 'text-gray-500'
+                  {/* Mismo pill que el badge de tendencia del listado de artículos
+                      (product-price-trend-badge.tsx) — consistencia visual entre
+                      ambos puntos donde se muestra la variación de precio. */}
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                    isUp ? 'bg-red-100 text-red-700' : isDown ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                   }`}>
                     {isUp ? <TrendingUp className="h-3 w-3" /> : isDown ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                     {isUp ? '+' : ''}{pctChange}%

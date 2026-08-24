@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { Suspense, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Upload,
   Camera,
@@ -22,25 +23,12 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAlbaranUpload, AlbaranUploadResult } from '@/hooks/use-albaran-upload';
-import { getApiKeyForModel } from '@/lib/ai-api-keys';
+import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
+import { useOcrConfig } from '@/hooks/use-ocr-config';
+import { usePurchaseOrder } from '@/hooks/use-purchase-orders';
+import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
 
 export const dynamic = 'force-dynamic';
-
-/** Modelos IA disponibles con info de coste */
-const AI_MODELS = [
-  { id: 'regex', name: 'Solo OCR (gratis)', cost: '0 €', desc: 'Regex básico, sin coste' },
-  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', cost: '~0,01 €', desc: 'Rápido y barato, buena precisión' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0,005 €', desc: 'El más barato, muy buena visión' },
-  { id: 'gpt-4o', name: 'GPT-4o', cost: '~0,05 €', desc: 'Máxima precisión, más caro' },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0,01 €', desc: 'Buen balance calidad/precio' },
-  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'OpenRouter — GPT-4o Mini' },
-  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'OpenRouter — Claude Haiku' },
-  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'OpenRouter — Gemini Flash' },
-  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'OpenRouter — Llama 4 Maverick' },
-];
-
-/** Storage key para persistir modelo seleccionado */
-const STORAGE_KEY_MODEL = 'ocr_ai_model';
 
 /** Results may include an albaranId when the backend created an albaran record. */
 type ResultsWithAlbaran = AlbaranUploadResult & { albaranId?: string };
@@ -50,20 +38,32 @@ function getAlbaranId(results: AlbaranUploadResult): string | undefined {
 }
 
 export default function SubirAlbaranPage() {
+  return (
+    <Suspense fallback={null}>
+      <SubirAlbaranContent />
+    </Suspense>
+  );
+}
+
+function SubirAlbaranContent() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const searchParams = useSearchParams();
+  const purchaseOrderId = searchParams.get('purchaseOrderId') || undefined;
+  const { data: linkedOrder } = usePurchaseOrder(purchaseOrderId ?? null);
 
-  const [aiModel, setAiModel] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    return localStorage.getItem(STORAGE_KEY_MODEL) || '';
-  });
-
-  const handleModelChange = (model: string) => {
-    setAiModel(model);
-    localStorage.setItem(STORAGE_KEY_MODEL, model);
-  };
-
-  // API key se lee del store centralizado (configurado en /dashboard/settings)
-  const aiApiKey = aiModel && aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
+  // Motor de extracción: la config vive en el servidor (por tenant, compartida
+  // entre dispositivos). El backend resuelve modelo+key al subir aunque este
+  // dispositivo no los tenga; aquí se leen solo para mostrar el modelo activo y,
+  // si la key está en este navegador, enviarla (backward compat).
+  const { data: ocrConfig } = useOcrConfig();
+  const serverModel = ocrConfig?.model && ocrConfig.model !== 'regex' ? ocrConfig.model : null;
+  const localModel = getOcrModel();
+  const aiModel = serverModel ?? (localModel && localModel !== 'regex' ? localModel : 'regex');
+  const aiApiKey = aiModel !== 'regex' ? getApiKeyForModel(aiModel) : '';
+  // La key puede estar guardada en el servidor (compartida por tenant) aunque
+  // este dispositivo no la tenga en su localStorage — por eso el estado
+  // "configurada" debe mirar ambas fuentes, no solo la local.
+  const hasApiKeyConfigured = Boolean(ocrConfig?.hasApiKey) || Boolean(aiApiKey);
 
   const {
     fileInputRef,
@@ -77,62 +77,60 @@ export default function SubirAlbaranPage() {
     processFiles,
     reset,
   } = useAlbaranUpload({
-    aiModel: aiModel && aiModel !== 'regex' ? aiModel : undefined,
-    aiApiKey: aiModel && aiModel !== 'regex' ? aiApiKey : undefined,
+    aiModel: aiModel !== 'regex' ? aiModel : undefined,
+    aiApiKey: aiModel !== 'regex' ? aiApiKey : undefined,
+    purchaseOrderId,
   });
 
-  const selectedModelInfo = AI_MODELS.find((m) => m.id === aiModel);
+  const selectedModelInfo = OCR_MODELS.find((m) => m.id === aiModel);
   const needsApiKey = aiModel && aiModel !== 'regex';
+  const backHref = purchaseOrderId
+    ? `/dashboard/compras/pedidos/${purchaseOrderId}`
+    : '/dashboard/albaranes';
 
   return (
     <div className="container mx-auto p-4 sm:p-6 max-w-2xl pb-12">
       {/* Back + title */}
       <Link
-        href="/dashboard/albaranes"
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-3"
       >
         <ArrowLeft className="h-4 w-4" />
-        Volver a Albaranes
+        {purchaseOrderId ? 'Volver al pedido' : 'Volver a Albaranes'}
       </Link>
       <div className="mb-5">
         <h1 className="text-2xl sm:text-3xl font-bold">Subir Albarán</h1>
         <p className="text-muted-foreground mt-1">
-          Haz una foto al albarán o sube un archivo para extraer los productos automáticamente
+          {linkedOrder
+            ? `Se vinculará al pedido ${linkedOrder.orderNumber}. Haz una foto o sube un archivo para extraer los productos.`
+            : 'Haz una foto al albarán o sube un archivo para extraer los productos automáticamente'}
         </p>
       </div>
 
       <Card>
         <CardContent className="space-y-5">
-          {/* AI Model Selector */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium">Motor de extracción</h3>
+          {/* Motor de extracción — elegido en /dashboard/settings, solo lectura aquí */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  Motor de extracción: {selectedModelInfo?.name || 'Solo OCR (gratis)'}
+                </span>
+              </div>
+              <Link
+                href="/dashboard/settings"
+                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 shrink-0"
+              >
+                <Settings className="h-3 w-3" />
+                Cambiar
+              </Link>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {AI_MODELS.map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => handleModelChange(model.id)}
-                  className={`p-2 rounded-lg border text-left transition-colors ${
-                    aiModel === model.id
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-muted hover:border-primary/50'
-                  }`}
-                >
-                  <div className="text-xs font-medium truncate">{model.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{model.cost}/img</div>
-                </button>
-              ))}
-            </div>
-            {selectedModelInfo && (
-              <p className="text-xs text-muted-foreground">{selectedModelInfo.desc}</p>
-            )}
 
             {/* API Key status — enlace a settings si no hay key */}
             {needsApiKey && (
-              <div className="space-y-1">
-                {aiApiKey ? (
+              <div>
+                {hasApiKeyConfigured ? (
                   <p className="text-xs text-green-600 flex items-center gap-1">
                     <CheckCircle2 className="h-3 w-3" />
                     API Key configurada
@@ -264,7 +262,7 @@ export default function SubirAlbaranPage() {
             </div>
             <CardDescription>
               {results.products.length} producto{results.products.length !== 1 ? 's' : ''} detectados
-              con {results.products.filter((p) => p.confidence >= 0.7).length} de alta confianza
+              con {results.products.filter((p) => p.matchStatus === 'MATCH_ALTO').length} de alta confianza
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -273,16 +271,7 @@ export default function SubirAlbaranPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <h4 className="font-medium">{product.name}</h4>
-                    {product.matchedProductId ? (
-                      <Badge variant="outline" className="text-xs">
-                        <CheckCircle2 className="mr-1 h-3 w-3" />
-                        Coincide
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">
-                        Nuevo
-                      </Badge>
-                    )}
+                    <LineMatchBadge matchStatus={product.matchStatus} />
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                     <span>

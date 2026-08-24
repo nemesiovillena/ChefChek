@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import PDFDocument from "pdfkit";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderService } from "./purchase-order.service";
+import { PurchaseOrderConfigService } from "./purchase-order-config.service";
+import { toBulletLines } from "../utils/bullet-list.util";
 
 const euro = new Intl.NumberFormat("es-ES", {
   style: "currency",
@@ -14,6 +16,7 @@ export class PurchaseOrderPdfService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly purchaseOrderService: PurchaseOrderService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
   ) {}
 
   async generate(tenantId: string, orderId: string): Promise<Buffer> {
@@ -149,11 +152,37 @@ export class PurchaseOrderPdfService {
       },
       true,
     );
+    y += 20;
 
-    if (order.notes) {
+    // Artículos nuevos: aún no están en la tabla de líneas (no comprados
+    // antes a este proveedor); mismo bullet que la tabla, pegados a ella.
+    const additionalItemLines = order.additionalItems
+      ? toBulletLines(order.additionalItems)
+      : [];
+    if (additionalItemLines.length) {
+      doc.font("Helvetica").fontSize(9).fillColor("#000000");
+      for (const line of additionalItemLines) {
+        if (y > 770) {
+          doc.addPage();
+          y = 50;
+        }
+        doc.text(line, left, y, { width: 495 });
+        y += 14;
+      }
+    }
+
+    // Notas propias del pedido primero, como párrafo aparte; instrucción fija
+    // de Ajustes al final (se lee en vivo: cambiarla en Ajustes actualiza
+    // también pedidos ya generados, en vez de quedar congelada en cada uno).
+    const supplierNote =
+      await this.purchaseOrderConfigService.getSupplierNote(tenantId);
+    const notesText = [order.notes?.trim() || null, supplierNote.trim() || null]
+      .filter(Boolean)
+      .join("\n\n");
+    if (notesText) {
       doc.moveDown(2);
       doc.font("Helvetica-Oblique").fontSize(9).fillColor("#555555");
-      doc.text(order.notes, left, y + 30, { width: 495 });
+      doc.text(notesText, left, y + 30, { width: 495 });
     }
 
     doc.end();

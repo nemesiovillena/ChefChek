@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Star, Trash2, Tags, Check, X } from 'lucide-react';
+import { Plus, Star, Trash2, Pencil } from 'lucide-react';
 import {
   useProductSupplierOffers,
   useCreateSupplierOffer,
@@ -13,8 +13,109 @@ import {
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import { formatEuro } from '@/lib/utils';
+import { UnitSelector } from '@/components/shared/unit-selector';
 import SupplierCombobox from './supplier-combobox';
 import SupplierQuickCreateDialog from '@/components/shared/supplier-quick-create-dialog';
+import { AgreedPriceCell } from './agreed-price-cell';
+import { SupplierOffersFichaDialog } from '@/app/dashboard/proveedores/components/supplier-offers-ficha-dialog';
+
+/** Formato/cantidad por unidad + precio: mismo shape para alta y edición de oferta. */
+interface OfferFormatState {
+  purchasePrice: string;
+  purchaseFormat: string;
+  referenceUnit: string;
+  unitsPerFormat: string;
+  referenceUnitSize: string;
+}
+
+const emptyOfferFormat = (referenceUnit = ''): OfferFormatState => ({
+  purchasePrice: '',
+  purchaseFormat: '',
+  referenceUnit,
+  unitsPerFormat: '1',
+  referenceUnitSize: '1',
+});
+
+/** Campos de formato/cantidad-por-unidad + precio, compartidos por alta y edición de oferta. */
+function OfferFormatFields({
+  value,
+  onChange,
+}: {
+  value: OfferFormatState;
+  onChange: (data: OfferFormatState) => void;
+}) {
+  const update = (field: keyof OfferFormatState, v: string) => onChange({ ...value, [field]: v });
+  const unitsPerFormat = parseInt(value.unitsPerFormat) || 1;
+  const referenceUnitSize = parseFloat(value.referenceUnitSize) || 1;
+  const price = parseFloat(value.purchasePrice) || 0;
+  const totalUnitSize = unitsPerFormat * referenceUnitSize;
+  const refPrice = totalUnitSize > 0 ? price / totalUnitSize : 0;
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="text"
+          value={value.purchaseFormat}
+          onChange={(e) => update('purchaseFormat', e.target.value)}
+          placeholder="Formato (ej: Caja 6x2L)"
+          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+        />
+        <UnitSelector
+          value={value.referenceUnit}
+          onChange={(symbol) => update('referenceUnit', symbol)}
+          placeholder="Unidad ref."
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Uds/formato</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            value={value.unitsPerFormat}
+            onChange={(e) => update('unitsPerFormat', e.target.value)}
+            placeholder="Ej: 6"
+            title="Unidades por formato (ej: 6 botellas por caja)"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Cantidad/ud</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0.001"
+            value={value.referenceUnitSize}
+            onChange={(e) => update('referenceUnitSize', e.target.value)}
+            placeholder="Ej: 2"
+            title="Cantidad por unidad (ej: 2 litros por botella)"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-0.5">Precio €</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={value.purchasePrice}
+            onChange={(e) => update('purchasePrice', e.target.value)}
+            placeholder="Ej: 12.50"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+      </div>
+      {price > 0 && totalUnitSize > 0 && (
+        <p className="text-xs text-indigo-600">
+          ≈ {formatEuro(refPrice)}/{value.referenceUnit || 'ud'}
+          {totalUnitSize !== 1 ? ` (total ${totalUnitSize} ${value.referenceUnit || 'ud'} por formato)` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface SupplierOption {
   id: string;
@@ -26,6 +127,7 @@ export interface ProveedorStockFormData {
   supplierId: string;
   minimumStock: string;
   maximumStock: string;
+  tracksInventory: boolean;
 }
 
 interface TabProveedorStockProps {
@@ -38,6 +140,8 @@ interface TabProveedorStockProps {
   onSupplierCreated?: (supplier: SupplierOption) => void;
   /** Precio Compra ya introducido en "Formato y Precio", para sugerirlo como precio de la primera oferta. */
   basePurchasePrice?: string;
+  /** Unidad de referencia del artículo (pestaña "Formato y Precio"), por defecto para nuevas ofertas. */
+  baseReferenceUnit?: string;
 }
 
 export default function TabProveedorStock({
@@ -48,6 +152,7 @@ export default function TabProveedorStock({
   currentStock,
   onSupplierCreated,
   basePurchasePrice,
+  baseReferenceUnit,
 }: TabProveedorStockProps) {
   const update = (field: string, value: string) => setFormData({ ...formData, [field]: value });
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
@@ -65,6 +170,7 @@ export default function TabProveedorStock({
           suppliers={suppliers}
           onSupplierCreated={onSupplierCreated}
           basePurchasePrice={basePurchasePrice}
+          baseReferenceUnit={baseReferenceUnit}
         />
       ) : (
         // Alta de artículo: todavía no existe un producto al que asociar
@@ -96,8 +202,25 @@ export default function TabProveedorStock({
         </div>
       )}
 
+      {/* Producto sin stock: cargos de servicio (portes, logística...) que no
+          son inventario físico. Al confirmar un albarán no genera lote,
+          movimiento ni registro de stock para este artículo. */}
+      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+        <input
+          type="checkbox"
+          id="tracksInventory"
+          checked={!formData.tracksInventory}
+          onChange={(e) => setFormData({ ...formData, tracksInventory: !e.target.checked })}
+          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+        />
+        <label htmlFor="tracksInventory" className="text-sm text-gray-700">
+          No genera stock (servicio)
+        </label>
+        <span className="text-xs text-gray-400 ml-2">Ej: portes, gastos de logística. Al confirmar un albarán no crea lote ni movimiento de stock.</span>
+      </div>
+
       {/* Stock limits */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${!formData.tracksInventory ? 'opacity-50 pointer-events-none' : ''}`}>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
           <input
@@ -145,10 +268,11 @@ interface SupplierOffersSectionProps {
   suppliers: SupplierOption[];
   onSupplierCreated?: (supplier: SupplierOption) => void;
   basePurchasePrice?: string;
+  baseReferenceUnit?: string;
 }
 
 /** Lista de ofertas de proveedor de un artículo existente: precio por proveedor + preferente. */
-function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePurchasePrice }: SupplierOffersSectionProps) {
+function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePurchasePrice, baseReferenceUnit }: SupplierOffersSectionProps) {
   const { data: offers, isLoading } = useProductSupplierOffers(productId);
   const createOffer = useCreateSupplierOffer();
   const deleteOffer = useDeleteSupplierOffer();
@@ -163,10 +287,12 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   const addVisible = showAdd ?? (!isLoading && (offers?.length ?? 0) === 0);
   const [showCreateSupplier, setShowCreateSupplier] = useState(false);
   const [newSupplierId, setNewSupplierId] = useState('');
-  const [newPrice, setNewPrice] = useState('');
-  // Edición inline del precio pactado (control de desviaciones, módulo Compras)
-  const [editingAgreedId, setEditingAgreedId] = useState<string | null>(null);
-  const [agreedPriceInput, setAgreedPriceInput] = useState('');
+  const [newOffer, setNewOffer] = useState<OfferFormatState>(() => emptyOfferFormat(baseReferenceUnit));
+  // Edición inline de formato/cantidad-por-unidad/precio de una oferta ya creada
+  const [editingOfferId, setEditingOfferId] = useState<string | null>(null);
+  const [editOffer, setEditOffer] = useState<OfferFormatState>(emptyOfferFormat());
+  // Ficha de proveedor (precios pactados + productos/histórico), abierta desde el nombre del proveedor
+  const [fichaSupplier, setFichaSupplier] = useState<{ id: string; name: string } | null>(null);
 
   const existingSupplierIds = new Set((offers ?? []).map((o) => o.supplierId));
   const availableSuppliers = suppliers.filter((s) => !existingSupplierIds.has(s.id));
@@ -175,22 +301,73 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
   // "Formato y Precio" en vez de pedirlo de nuevo en blanco. Para proveedores
   // adicionales (ya hay al menos una oferta) no se sugiere nada — puede variar.
   const isFirstOffer = !isLoading && (offers?.length ?? 0) === 0;
-  const suggestedPrice = isFirstOffer ? (basePurchasePrice ?? '') : '';
-  const effectivePrice = newPrice || suggestedPrice;
+  const effectivePrice = newOffer.purchasePrice || (isFirstOffer ? (basePurchasePrice ?? '') : '');
+
+  // Crea la oferta preferente para `supplierId` con el precio/formato actuales.
+  // Devuelve false (sin lanzar) si falta proveedor o precio válido, para que
+  // el llamador decida si notifica error o queda a la espera de "Añadir".
+  const commitOffer = async (supplierId: string): Promise<boolean> => {
+    const price = parseFloat(effectivePrice);
+    if (!supplierId || isNaN(price) || price < 0) return false;
+    try {
+      await createOffer.mutateAsync({
+        productId,
+        supplierId,
+        purchasePrice: price,
+        purchaseFormat: newOffer.purchaseFormat || undefined,
+        referenceUnit: newOffer.referenceUnit || undefined,
+        unitsPerFormat: parseInt(newOffer.unitsPerFormat) || undefined,
+        referenceUnitSize: parseFloat(newOffer.referenceUnitSize) || undefined,
+      });
+      return true;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error al añadir la oferta';
+      addNotification({ type: 'error', title: 'Error', message });
+      return false;
+    }
+  };
 
   const handleAdd = async () => {
-    const price = parseFloat(effectivePrice);
-    if (!newSupplierId || isNaN(price) || price < 0) {
+    const ok = await commitOffer(newSupplierId);
+    if (!ok) {
       addNotification({ type: 'error', title: 'Error', message: 'Selecciona un proveedor e indica un precio válido' });
       return;
     }
+    setNewSupplierId('');
+    setNewOffer(emptyOfferFormat(baseReferenceUnit));
+    setShowAdd(false);
+  };
+
+  const startEditOffer = (offer: ProductSupplierOffer) => {
+    setEditingOfferId(offer.id);
+    setEditOffer({
+      purchasePrice: String(offer.purchasePrice),
+      purchaseFormat: offer.purchaseFormat || '',
+      referenceUnit: offer.referenceUnit || baseReferenceUnit || '',
+      unitsPerFormat: String(offer.unitsPerFormat || 1),
+      referenceUnitSize: String(offer.referenceUnitSize || 1),
+    });
+  };
+
+  const handleSaveOfferEdit = async (offer: ProductSupplierOffer) => {
+    const price = parseFloat(editOffer.purchasePrice);
+    if (isNaN(price) || price < 0) {
+      addNotification({ type: 'error', title: 'Error', message: 'Precio inválido' });
+      return;
+    }
     try {
-      await createOffer.mutateAsync({ productId, supplierId: newSupplierId, purchasePrice: price });
-      setNewSupplierId('');
-      setNewPrice('');
-      setShowAdd(false);
+      await updateOffer.mutateAsync({
+        productId,
+        offerId: offer.id,
+        purchasePrice: price,
+        purchaseFormat: editOffer.purchaseFormat || undefined,
+        referenceUnit: editOffer.referenceUnit || undefined,
+        unitsPerFormat: parseInt(editOffer.unitsPerFormat) || undefined,
+        referenceUnitSize: parseFloat(editOffer.referenceUnitSize) || undefined,
+      });
+      setEditingOfferId(null);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error al añadir la oferta';
+      const message = error instanceof Error ? error.message : 'Error al actualizar la oferta';
       addNotification({ type: 'error', title: 'Error', message });
     }
   };
@@ -219,18 +396,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
     }
   };
 
-  const startEditAgreed = (offer: ProductSupplierOffer) => {
-    setEditingAgreedId(offer.id);
-    setAgreedPriceInput(offer.agreedPrice != null ? String(offer.agreedPrice) : '');
-  };
-
-  const handleSaveAgreed = async (offer: ProductSupplierOffer) => {
-    const trimmed = agreedPriceInput.trim();
-    const agreedPrice = trimmed === '' ? null : parseFloat(trimmed);
-    if (agreedPrice !== null && (isNaN(agreedPrice) || agreedPrice < 0)) {
-      addNotification({ type: 'error', title: 'Error', message: 'Precio pactado inválido' });
-      return;
-    }
+  const handleSaveAgreed = async (offer: ProductSupplierOffer, agreedPrice: number | null) => {
     try {
       await updateOffer.mutateAsync({
         productId,
@@ -238,7 +404,6 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
         purchasePrice: offer.purchasePrice,
         agreedPrice,
       });
-      setEditingAgreedId(null);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al guardar el precio pactado';
       addNotification({ type: 'error', title: 'Error', message });
@@ -268,8 +433,23 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               >
                 <Star className="h-4 w-4" fill={offer.isPreferred ? 'currentColor' : 'none'} />
               </button>
-              <span className="flex-1 truncate text-sm text-gray-900">{offer.supplier?.name ?? 'Proveedor'}</span>
+              <button
+                type="button"
+                onClick={() => offer.supplier && setFichaSupplier({ id: offer.supplierId, name: offer.supplier.name })}
+                className="flex-1 truncate text-left text-sm text-gray-900 hover:text-indigo-600 hover:underline"
+                title="Ver ficha del proveedor"
+              >
+                {offer.supplier?.name ?? 'Proveedor'}
+              </button>
               <span className="text-sm text-gray-600">{formatEuro(offer.purchasePrice)}</span>
+              <button
+                type="button"
+                onClick={() => (editingOfferId === offer.id ? setEditingOfferId(null) : startEditOffer(offer))}
+                className="shrink-0 text-gray-400 hover:text-indigo-600"
+                title="Editar formato/precio"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => handleDelete(offer.id)}
@@ -281,92 +461,89 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               </button>
             </div>
 
-            {/* Precio pactado (control de desviaciones, módulo Compras) */}
-            <div className="mt-1.5 flex items-center gap-2 pl-6">
-              <Tags className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-              {editingAgreedId === offer.id ? (
-                <>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    autoFocus
-                    value={agreedPriceInput}
-                    onChange={(e) => setAgreedPriceInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveAgreed(offer);
-                      if (e.key === 'Escape') setEditingAgreedId(null);
-                    }}
-                    placeholder="Sin pactar"
-                    className="w-24 rounded border border-gray-300 px-1.5 py-0.5 text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
+            {/* Formato/cantidad por unidad: propio de CADA oferta — no lo
+                sincroniza "Formato y Precio" (eso es solo del preferente).
+                Sin esto no había forma de comparar €/ref.unit entre
+                proveedores con distinto formato (ej. caja 6x2L vs botella 2L). */}
+            {editingOfferId === offer.id ? (
+              <div className="mt-2 pl-6 space-y-2">
+                <OfferFormatFields value={editOffer} onChange={setEditOffer} />
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => handleSaveAgreed(offer)}
+                    onClick={() => handleSaveOfferEdit(offer)}
                     disabled={updateOffer.isPending}
-                    className="text-green-600 hover:text-green-700"
-                    title="Guardar"
+                    className="px-2 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    <Check className="h-3.5 w-3.5" />
+                    Guardar
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditingAgreedId(null)}
-                    className="text-gray-400 hover:text-gray-600"
-                    title="Cancelar"
+                    onClick={() => setEditingOfferId(null)}
+                    className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    Cancelar
                   </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => startEditAgreed(offer)}
-                  className="text-xs text-gray-500 hover:text-indigo-600"
-                >
-                  {offer.agreedPrice != null
-                    ? `Pactado: ${formatEuro(offer.agreedPrice)}`
-                    : 'Fijar precio pactado'}
-                </button>
-              )}
-            </div>
+                </div>
+              </div>
+            ) : offer.unitsPerFormat * offer.referenceUnitSize !== 1 ? (
+              <p className="mt-1 pl-6 text-xs text-gray-500">
+                {offer.purchaseFormat || `${offer.unitsPerFormat}×${offer.referenceUnitSize}${offer.referenceUnit}`}
+                {' — '}≈ {formatEuro(offer.purchasePrice / (offer.unitsPerFormat * offer.referenceUnitSize))}/{offer.referenceUnit}
+              </p>
+            ) : null}
+
+            {/* Precio pactado (control de desviaciones, módulo Compras) */}
+            <AgreedPriceCell
+              agreedPrice={offer.agreedPrice}
+              currentPrice={offer.purchasePrice}
+              isSaving={updateOffer.isPending}
+              onSave={(value) => handleSaveAgreed(offer, value)}
+            />
           </div>
         ))}
 
         {addVisible ? (
-          <div className="flex items-end gap-2 rounded-md border border-dashed border-gray-300 p-2">
-            <div className="flex-1">
-              <SupplierCombobox
-                suppliers={availableSuppliers}
-                value={newSupplierId}
-                onValueChange={setNewSupplierId}
-                placeholder="Proveedor..."
-              />
+          <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SupplierCombobox
+                  suppliers={availableSuppliers}
+                  value={newSupplierId}
+                  onValueChange={setNewSupplierId}
+                  placeholder="Proveedor..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateSupplier(true)}
+                className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+                title="Añadir nuevo proveedor"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={effectivePrice}
-              onChange={(e) => setNewPrice(e.target.value)}
-              placeholder="Precio €"
-              className="w-28 px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            <OfferFormatFields
+              value={{ ...newOffer, purchasePrice: effectivePrice }}
+              onChange={setNewOffer}
             />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={createOffer.isPending}
-              className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-            >
-              Añadir
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Cancelar
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={createOffer.isPending}
+                className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Añadir
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
@@ -391,13 +568,34 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
       <SupplierQuickCreateDialog
         isOpen={showCreateSupplier}
         onClose={() => setShowCreateSupplier(false)}
-        onCreated={(supplier) => {
+        onCreated={async (supplier) => {
           onSupplierCreated?.(supplier);
-          setNewSupplierId(supplier.id);
           setShowCreateSupplier(false);
-          setShowAdd(true);
+          // Crea la oferta preferente de inmediato (mismo precio/formato del
+          // formulario) para que el proveedor nuevo quede vinculado al
+          // artículo y aparezca en listado y ficha. Sin esto, "Proveedor
+          // creado" engañaba: la entidad existía pero sin oferta que la
+          // enlazara, y el usuario creía que ya estaba asignada. Si no hay
+          // precio disponible, cae al flujo manual: deja el proveedor
+          // seleccionado para que el usuario introduzca precio y pulse Añadir.
+          const linked = await commitOffer(supplier.id);
+          if (linked) {
+            setShowAdd(false);
+            setNewOffer(emptyOfferFormat(baseReferenceUnit));
+          } else {
+            setNewSupplierId(supplier.id);
+            setShowAdd(true);
+          }
         }}
       />
+
+      {fichaSupplier && (
+        <SupplierOffersFichaDialog
+          supplierId={fichaSupplier.id}
+          supplierName={fichaSupplier.name}
+          onClose={() => setFichaSupplier(null)}
+        />
+      )}
     </div>
   );
 }

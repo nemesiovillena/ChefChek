@@ -13,6 +13,18 @@ import {
   UpdatePurchaseOrderDto,
 } from "../dto/purchase-order.dto";
 
+// Pedidos "en curso" (aún requieren acción) vs "histórico" (cerrados, solo consulta).
+const ACTIVE_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.BORRADOR,
+  PurchaseOrderStatus.PENDIENTE_ENVIO,
+  PurchaseOrderStatus.ENVIADO,
+  PurchaseOrderStatus.RECIBIDO_PARCIAL,
+];
+const HISTORY_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.RECIBIDO,
+  PurchaseOrderStatus.CANCELADO,
+];
+
 const ORDER_INCLUDE = {
   supplier: { select: { id: true, name: true, orderMethods: true } },
   location: { select: { id: true, name: true } },
@@ -42,9 +54,17 @@ export class PurchaseOrderService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
+    const statusFilter = query.status
+      ? { status: query.status }
+      : query.view === "active"
+        ? { status: { in: ACTIVE_STATUSES } }
+        : query.view === "history"
+          ? { status: { in: HISTORY_STATUSES } }
+          : {};
+
     const where = {
       tenantId,
-      ...(query.status ? { status: query.status } : {}),
+      ...statusFilter,
       ...(query.supplierId ? { supplierId: query.supplierId } : {}),
       ...(query.locationId ? { locationId: query.locationId } : {}),
       ...(query.search
@@ -136,13 +156,14 @@ export class PurchaseOrderService {
     const expectedTotal = this.computeTotal(lines);
     const orderNumber = await this.numberService.generateOrderNumber(tenantId);
 
-    return this.prisma.purchaseOrder.create({
+    const order = await this.prisma.purchaseOrder.create({
       data: {
         tenantId,
         orderNumber,
         supplierId: dto.supplierId,
         locationId: dto.locationId,
         notes: dto.notes,
+        additionalItems: dto.additionalItems,
         expectedTotal,
         createdBy: userId,
         lines: { create: lines },
@@ -156,6 +177,23 @@ export class PurchaseOrderService {
       },
       include: ORDER_INCLUDE,
     });
+
+    // Cualquier pedido a un proveedor/local con programación activa cubre ese
+    // ciclo (aunque se haya creado a mano, antes de que saltara el cron): se
+    // marca lastRunAt como si el cron ya hubiera corrido, para que el aviso
+    // "Programado" del dashboard avance a la siguiente fecha y el propio cron
+    // no genere un pedido duplicado. Idempotente si ya lo marcó tryGenerate.
+    await this.prisma.purchaseSchedule.updateMany({
+      where: {
+        tenantId,
+        supplierId: dto.supplierId,
+        enabled: true,
+        locationId: dto.locationId ?? null,
+      },
+      data: { lastRunAt: new Date() },
+    });
+
+    return order;
   }
 
   /** Solo los BORRADOR son editables (notas, local y líneas). */
@@ -185,6 +223,7 @@ export class PurchaseOrderService {
       where: { id },
       data: {
         notes: dto.notes,
+        additionalItems: dto.additionalItems,
         locationId: dto.locationId,
         ...(linesData
           ? {
@@ -215,6 +254,37 @@ export class PurchaseOrderService {
       );
     }
     return this.prisma.purchaseOrder.delete({ where: { id } });
+  }
+
+  /**
+   * Registra una incidencia (texto + foto opcional) sin cambiar el estado del
+   * pedido. Sustituye al antiguo botón manual "Recibido parcial" (que solo
+   * cambiaba el estado sin dejar constancia de qué había ido mal).
+   */
+  async reportIncident(
+    tenantId: string,
+    id: string,
+    userId: string | undefined,
+    description: string,
+    photoUrl?: string,
+  ) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id, tenantId },
+    });
+    if (!order) {
+      throw new NotFoundException("Pedido no encontrado");
+    }
+
+    await this.prisma.purchaseOrderEvent.create({
+      data: {
+        orderId: id,
+        type: "INCIDENT_REPORTED",
+        userId,
+        payload: { description, photoUrl: photoUrl ?? null },
+      },
+    });
+
+    return this.findOne(tenantId, id);
   }
 
   /**

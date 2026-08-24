@@ -1,7 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductionController } from "./production.controller";
 import { ProductionService } from "./production.service";
-import { KitchenZone, TaskType, TaskStatus } from "./dto/production.dto";
+import {
+  BatchPriority,
+  KitchenZone,
+  TaskType,
+  TaskAssignmentStatus,
+} from "./dto/production.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
@@ -14,8 +19,6 @@ describe("ProductionController", () => {
     createWorkBatch: jest.fn(),
     getWorkBatches: jest.fn(),
     getWorkBatchById: jest.fn(),
-    updateWorkBatch: jest.fn(),
-    startWorkBatch: jest.fn(),
     completeWorkBatch: jest.fn(),
     createProductionOrder: jest.fn(),
     getProductionOrdersByBatch: jest.fn(),
@@ -26,9 +29,14 @@ describe("ProductionController", () => {
     addMiseEnPlaceItem: jest.fn(),
     updateMiseEnPlaceItem: jest.fn(),
     verifyMiseEnPlaceSheet: jest.fn(),
+    createProductionTask: jest.fn(),
+    getProductionTasksByOrder: jest.fn(),
     createTaskAssignment: jest.fn(),
     getTaskAssignments: jest.fn(),
     updateTaskAssignment: jest.fn(),
+    getStaffMembers: jest.fn(),
+    createStaffMember: jest.fn(),
+    updateStaffMember: jest.fn(),
     getStaffAvailable: jest.fn(),
     getStaffMemberTasks: jest.fn(),
     getProgressTracking: jest.fn(),
@@ -71,8 +79,11 @@ describe("ProductionController", () => {
       it("should create a work batch", async () => {
         const dto = {
           name: "Batch 1",
-          description: "Test batch",
-          plannedDate: "2026-06-05",
+          scheduledDate: new Date("2026-06-05"),
+          scheduledTime: "08:00",
+          priority: BatchPriority.HIGH,
+          responsible: ["user-1"],
+          kitchenZone: KitchenZone.HOT_KITCHEN,
         };
 
         mockProductionService.createWorkBatch.mockResolvedValue({
@@ -124,48 +135,6 @@ describe("ProductionController", () => {
       });
     });
 
-    describe("updateWorkBatch", () => {
-      it("should update a work batch", async () => {
-        const dto = { name: "Updated Batch" };
-
-        mockProductionService.updateWorkBatch.mockResolvedValue({
-          success: true,
-          data: { id: "batch-1", name: "Updated Batch" },
-        });
-
-        const result = await controller.updateWorkBatch(
-          mockReq,
-          "batch-1",
-          dto,
-        );
-
-        expect(result.success).toBe(true);
-        expect(mockProductionService.updateWorkBatch).toHaveBeenCalledWith(
-          "tenant-1",
-          "batch-1",
-          dto,
-        );
-      });
-    });
-
-    describe("startWorkBatch", () => {
-      it("should start a work batch", async () => {
-        mockProductionService.startWorkBatch.mockResolvedValue({
-          success: true,
-          data: { id: "batch-1", status: "IN_PROGRESS" },
-        });
-
-        const result = await controller.startWorkBatch(mockReq, "batch-1");
-
-        expect(result.success).toBe(true);
-        expect(mockProductionService.startWorkBatch).toHaveBeenCalledWith(
-          "tenant-1",
-          "batch-1",
-          "user-1",
-        );
-      });
-    });
-
     describe("completeWorkBatch", () => {
       it("should complete a work batch", async () => {
         mockProductionService.completeWorkBatch.mockResolvedValue({
@@ -179,7 +148,6 @@ describe("ProductionController", () => {
         expect(mockProductionService.completeWorkBatch).toHaveBeenCalledWith(
           "tenant-1",
           "batch-1",
-          "user-1",
         );
       });
     });
@@ -190,12 +158,12 @@ describe("ProductionController", () => {
       it("should create a production order", async () => {
         const dto = {
           batchId: "batch-1",
+          title: "Recipe 1",
           recipeId: "recipe-1",
           recipeName: "Recipe 1",
           quantity: 10,
           unit: "kg",
           estimatedTime: 60,
-          ingredients: [],
         };
 
         mockProductionService.createProductionOrder.mockResolvedValue({
@@ -208,7 +176,7 @@ describe("ProductionController", () => {
         expect(result.success).toBe(true);
         expect(
           mockProductionService.createProductionOrder,
-        ).toHaveBeenCalledWith("tenant-1", dto);
+        ).toHaveBeenCalledWith("tenant-1", "user-1", dto);
       });
     });
 
@@ -379,17 +347,58 @@ describe("ProductionController", () => {
     });
   });
 
+  describe("Production Tasks", () => {
+    describe("createProductionTask", () => {
+      it("should create a production task", async () => {
+        const dto = {
+          orderId: "order-1",
+          title: "Cortar verduras",
+          taskType: TaskType.PREPARATION,
+          estimatedTime: 30,
+        };
+
+        mockProductionService.createProductionTask.mockResolvedValue({
+          success: true,
+          data: { id: "task-1" },
+        });
+
+        const result = await controller.createProductionTask(mockReq, dto);
+
+        expect(result.success).toBe(true);
+        expect(mockProductionService.createProductionTask).toHaveBeenCalledWith(
+          "tenant-1",
+          dto,
+        );
+      });
+    });
+
+    describe("getProductionTasksByOrder", () => {
+      it("should return tasks for an order", async () => {
+        mockProductionService.getProductionTasksByOrder.mockResolvedValue([
+          { id: "task-1" },
+        ]);
+
+        const result = await controller.getProductionTasksByOrder(
+          mockReq,
+          "order-1",
+        );
+
+        expect(result).toHaveLength(1);
+        expect(
+          mockProductionService.getProductionTasksByOrder,
+        ).toHaveBeenCalledWith("tenant-1", "order-1");
+      });
+    });
+  });
+
   describe("Task Assignments", () => {
     describe("createTaskAssignment", () => {
       it("should create a task assignment", async () => {
         const dto = {
-          batchId: "batch-1",
           orderId: "order-1",
           taskId: "task-1",
           assignedTo: "staff-1",
-          taskType: TaskType.PREPARATION,
-          estimatedTime: 30,
-        } as any;
+        };
 
         mockProductionService.createTaskAssignment.mockResolvedValue({
           success: true,
@@ -418,17 +427,29 @@ describe("ProductionController", () => {
         expect(result).toHaveLength(2);
         expect(mockProductionService.getTaskAssignments).toHaveBeenCalledWith(
           "tenant-1",
+          undefined,
+        );
+      });
+
+      it("should forward the orderId filter", async () => {
+        mockProductionService.getTaskAssignments.mockResolvedValue([]);
+
+        await controller.getTaskAssignments(mockReq, "order-1");
+
+        expect(mockProductionService.getTaskAssignments).toHaveBeenCalledWith(
+          "tenant-1",
+          "order-1",
         );
       });
     });
 
     describe("updateTaskAssignment", () => {
       it("should update a task assignment", async () => {
-        const dto = { status: TaskStatus.COMPLETED } as any;
+        const dto = { status: TaskAssignmentStatus.COMPLETED } as any;
 
         mockProductionService.updateTaskAssignment.mockResolvedValue({
           success: true,
-          data: { id: "assignment-1", status: TaskStatus.COMPLETED },
+          data: { id: "assignment-1", status: TaskAssignmentStatus.COMPLETED },
         });
 
         const result = await controller.updateTaskAssignment(
@@ -441,6 +462,65 @@ describe("ProductionController", () => {
         expect(mockProductionService.updateTaskAssignment).toHaveBeenCalledWith(
           "tenant-1",
           "assignment-1",
+          dto,
+        );
+      });
+    });
+
+    describe("getStaffMembers", () => {
+      it("should return all staff members", async () => {
+        mockProductionService.getStaffMembers.mockResolvedValue([
+          { id: "staff-1" },
+          { id: "staff-2" },
+        ]);
+
+        const result = await controller.getStaffMembers(mockReq);
+
+        expect(result).toHaveLength(2);
+        expect(mockProductionService.getStaffMembers).toHaveBeenCalledWith(
+          "tenant-1",
+        );
+      });
+    });
+
+    describe("createStaffMember", () => {
+      it("should create a staff member", async () => {
+        const dto = { name: "Lucía Fernández", role: "COCINERA" };
+
+        mockProductionService.createStaffMember.mockResolvedValue({
+          success: true,
+          data: { id: "staff-1", ...dto },
+        });
+
+        const result = await controller.createStaffMember(mockReq, dto);
+
+        expect(result.success).toBe(true);
+        expect(mockProductionService.createStaffMember).toHaveBeenCalledWith(
+          "tenant-1",
+          dto,
+        );
+      });
+    });
+
+    describe("updateStaffMember", () => {
+      it("should update a staff member", async () => {
+        const dto = { isActive: false };
+
+        mockProductionService.updateStaffMember.mockResolvedValue({
+          success: true,
+          data: { id: "staff-1", isActive: false },
+        });
+
+        const result = await controller.updateStaffMember(
+          mockReq,
+          "staff-1",
+          dto,
+        );
+
+        expect(result.success).toBe(true);
+        expect(mockProductionService.updateStaffMember).toHaveBeenCalledWith(
+          "tenant-1",
+          "staff-1",
           dto,
         );
       });

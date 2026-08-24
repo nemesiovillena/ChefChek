@@ -1,24 +1,33 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductionService } from "./production.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { NotificationsService } from "../core/notifications.service";
+import { WorkBatchNumberService } from "./services/work-batch-number.service";
+import { ProductionOrderNumberService } from "./services/production-order-number.service";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
   CreateWorkBatchDto,
-  UpdateWorkBatchDto,
   CreateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
+  CreateProductionTaskDto,
   CreateTaskAssignmentDto,
   UpdateTaskAssignmentDto,
+  CreateStaffMemberDto,
   UpdateAlertDto,
   GenerateProductionReportDto,
+  BatchPriority,
+  KitchenZone,
+  TaskType,
 } from "./dto/production.dto";
 
 describe("ProductionService", () => {
   let service: ProductionService;
   let mockPrismaService: any;
+  let mockNotificationsService: any;
 
   const tenantId = "test-tenant-id";
+  const otherTenantId = "other-tenant-id";
   const userId = "test-user-id";
   const batchId = "test-batch-id";
   const orderId = "test-order-id";
@@ -39,6 +48,12 @@ describe("ProductionService", () => {
         update: jest.fn(),
         findUnique: jest.fn(),
       },
+      productionTask: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
+      },
       miseEnPlaceSheet: {
         create: jest.fn(),
         findFirst: jest.fn(),
@@ -46,27 +61,29 @@ describe("ProductionService", () => {
       },
       miseEnPlaceItem: {
         create: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
       },
       taskAssignment: {
         create: jest.fn(),
         findMany: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
       },
       staffMember: {
-        findUnique: jest.fn(),
+        create: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
         findMany: jest.fn(),
-        fields: { maxTasks: 5 },
       },
       progressTracking: {
         create: jest.fn(),
-        findFirst: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn(),
       },
       milestone: {
-        create: jest.fn(),
+        createMany: jest.fn(),
       },
       productionAlert: {
         create: jest.fn(),
@@ -74,23 +91,31 @@ describe("ProductionService", () => {
         findFirst: jest.fn(),
         update: jest.fn(),
       },
-      product: {
-        update: jest.fn(),
-      },
       productionReport: {
         create: jest.fn(),
       },
     };
 
+    mockNotificationsService = {
+      notifyProductionDelay: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductionService,
-        {
-          provide: PrismaService,
-          useValue: mockPrismaService,
-        },
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: NotificationsService, useValue: mockNotificationsService },
+        WorkBatchNumberService,
+        ProductionOrderNumberService,
       ],
-    }).compile();
+    })
+      .overrideProvider(WorkBatchNumberService)
+      .useValue({
+        generateBatchNumber: jest.fn().mockResolvedValue("LOTE-0001"),
+      })
+      .overrideProvider(ProductionOrderNumberService)
+      .useValue({ generateOrderNumber: jest.fn().mockResolvedValue("PO-0001") })
+      .compile();
 
     service = module.get<ProductionService>(ProductionService);
   });
@@ -100,51 +125,35 @@ describe("ProductionService", () => {
   });
 
   describe("createWorkBatch", () => {
-    const createWorkBatchDto: CreateWorkBatchDto = {
-      name: "Test Batch",
+    const dto: CreateWorkBatchDto = {
       description: "Test Description",
-      plannedDate: "2024-12-31",
+      scheduledDate: new Date("2026-12-31"),
+      scheduledTime: "10:00",
+      priority: BatchPriority.HIGH,
+      responsible: ["user1", "user2"],
+      kitchenZone: KitchenZone.HOT_KITCHEN,
     };
 
-    it("should create a work batch successfully", async () => {
+    it("should create a work batch with a generated sequential number", async () => {
       const mockBatch = {
         id: batchId,
         tenantId,
-        batchNumber: createWorkBatchDto.name,
-        batchType: "PREPARATION",
-        status: "PENDING",
-        scheduledFor: new Date("2024-12-31"),
-        notes: createWorkBatchDto.description,
-        createdBy: userId,
-        createdAt: new Date("2024-12-01"),
+        batchNumber: "LOTE-0001",
+        status: "PLANNED",
       };
-
       mockPrismaService.workBatch.create.mockResolvedValue(mockBatch);
 
-      const result = await service.createWorkBatch(
-        tenantId,
-        userId,
-        createWorkBatchDto,
-      );
+      const result = await service.createWorkBatch(tenantId, userId, dto);
 
-      expect(result).toEqual({
-        success: true,
-        data: {
-          id: batchId,
-          name: mockBatch.batchNumber,
-          description: mockBatch.notes,
-          plannedDate: mockBatch.scheduledFor,
-          status: mockBatch.status,
-          createdAt: mockBatch.createdAt,
-        },
-      });
+      expect(result).toEqual({ success: true, data: mockBatch });
       expect(mockPrismaService.workBatch.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId,
-          batchNumber: createWorkBatchDto.name,
-          batchType: "PREPARATION",
-          status: "PENDING",
-          notes: createWorkBatchDto.description,
+          batchNumber: "LOTE-0001",
+          status: "PLANNED",
+          priority: dto.priority,
+          responsible: dto.responsible,
+          kitchenZone: dto.kitchenZone,
           createdBy: userId,
         }),
       });
@@ -152,92 +161,27 @@ describe("ProductionService", () => {
   });
 
   describe("getWorkBatches", () => {
-    it("should return all work batches for a tenant", async () => {
-      const mockBatches = [
-        {
-          id: "batch1",
-          tenantId,
-          batchNumber: "Batch 1",
-          notes: null,
-          scheduledFor: new Date("2024-12-01"),
-          status: "PENDING",
-          createdAt: new Date("2024-11-01"),
-        },
-        {
-          id: "batch2",
-          tenantId,
-          batchNumber: "Batch 2",
-          notes: "Some notes",
-          scheduledFor: new Date("2024-12-02"),
-          status: "PENDING",
-          createdAt: new Date("2024-11-02"),
-        },
-      ];
-
-      mockPrismaService.workBatch.findMany.mockResolvedValue(mockBatches);
-
-      const result = await service.getWorkBatches(tenantId);
-
-      expect(result).toEqual([
-        {
-          id: "batch1",
-          name: "Batch 1",
-          description: undefined,
-          plannedDate: mockBatches[0].scheduledFor,
-          status: "PENDING",
-          createdAt: mockBatches[0].createdAt,
-        },
-        {
-          id: "batch2",
-          name: "Batch 2",
-          description: "Some notes",
-          plannedDate: mockBatches[1].scheduledFor,
-          status: "PENDING",
-          createdAt: mockBatches[1].createdAt,
-        },
-      ]);
-      expect(mockPrismaService.workBatch.findMany).toHaveBeenCalledWith({
-        where: { tenantId },
-        orderBy: { scheduledFor: "desc" },
-      });
-    });
-
-    it("should return empty array when no batches exist", async () => {
+    it("should query only non-deleted batches for the tenant, ordered by scheduledFor", async () => {
       mockPrismaService.workBatch.findMany.mockResolvedValue([]);
 
-      const result = await service.getWorkBatches(tenantId);
+      await service.getWorkBatches(tenantId);
 
-      expect(result).toEqual([]);
+      expect(mockPrismaService.workBatch.findMany).toHaveBeenCalledWith({
+        where: { tenantId, deletedAt: null },
+        orderBy: { scheduledFor: "desc" },
+        include: { productionOrders: true },
+      });
     });
   });
 
   describe("getWorkBatchById", () => {
     it("should return a work batch by id", async () => {
-      const mockBatch = {
-        id: batchId,
-        tenantId,
-        batchNumber: "Test Batch",
-        notes: "Test Description",
-        scheduledFor: new Date("2024-12-31"),
-        status: "PENDING",
-        createdAt: new Date("2024-12-01"),
-      };
-
+      const mockBatch = { id: batchId, tenantId, productionOrders: [] };
       mockPrismaService.workBatch.findFirst.mockResolvedValue(mockBatch);
 
       const result = await service.getWorkBatchById(tenantId, batchId);
 
-      expect(result).toEqual({
-        id: batchId,
-        name: mockBatch.batchNumber,
-        description: mockBatch.notes,
-        plannedDate: mockBatch.scheduledFor,
-        status: mockBatch.status,
-        createdAt: mockBatch.createdAt,
-      });
-      expect(mockPrismaService.workBatch.findFirst).toHaveBeenCalledWith({
-        where: { id: batchId, tenantId },
-      });
+      expect(result).toEqual(mockBatch);
     });
 
     it("should throw NotFoundException when batch not found", async () => {
@@ -247,251 +191,163 @@ describe("ProductionService", () => {
         NotFoundException,
       );
     });
-  });
 
-  describe("updateWorkBatch", () => {
-    const updateWorkBatchDto: UpdateWorkBatchDto = {
-      name: "Updated Batch",
-      description: "Updated Description",
-      plannedDate: "2025-01-15",
-    };
-
-    it("should update a work batch successfully", async () => {
-      const existingBatch = { id: batchId, tenantId };
-      const updatedBatch = {
-        id: batchId,
-        tenantId,
-        batchNumber: updateWorkBatchDto.name,
-        notes: updateWorkBatchDto.description,
-        scheduledFor: new Date("2025-01-15"),
-        status: "PENDING",
-        createdAt: new Date("2024-12-01"),
-      };
-
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(existingBatch);
-      mockPrismaService.workBatch.update.mockResolvedValue(updatedBatch);
-
-      const result = await service.updateWorkBatch(
-        tenantId,
-        batchId,
-        updateWorkBatchDto,
-      );
-
-      expect(result).toEqual({
-        success: true,
-        data: {
-          id: batchId,
-          name: updatedBatch.batchNumber,
-          description: updatedBatch.notes,
-          plannedDate: updatedBatch.scheduledFor,
-          status: updatedBatch.status,
-          createdAt: updatedBatch.createdAt,
-        },
-      });
-      expect(mockPrismaService.workBatch.update).toHaveBeenCalledWith({
-        where: { id: batchId },
-        data: {
-          batchNumber: updateWorkBatchDto.name,
-          notes: updateWorkBatchDto.description,
-          scheduledFor: new Date("2025-01-15T00:00:00"),
-        },
-      });
-    });
-
-    it("should throw NotFoundException when batch not found", async () => {
+    it("should not leak a batch belonging to another tenant", async () => {
       mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateWorkBatch(tenantId, batchId, updateWorkBatchDto),
+        service.getWorkBatchById(otherTenantId, batchId),
       ).rejects.toThrow(NotFoundException);
-    });
-  });
-
-  describe("startWorkBatch", () => {
-    it("should start a work batch successfully", async () => {
-      const existingBatch = { id: batchId, tenantId };
-      const updatedBatch = {
-        ...existingBatch,
-        status: "IN_PROGRESS",
-        startedAt: expect.any(Date),
-      };
-
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(existingBatch);
-      mockPrismaService.workBatch.update.mockResolvedValue(updatedBatch);
-      mockPrismaService.productionOrder.findMany.mockResolvedValue([]);
-      mockPrismaService.progressTracking.create.mockResolvedValue({});
-      mockPrismaService.productionOrder.findUnique.mockResolvedValue({
-        estimatedTime: 60,
+      expect(mockPrismaService.workBatch.findFirst).toHaveBeenCalledWith({
+        where: { id: batchId, tenantId: otherTenantId, deletedAt: null },
+        include: { productionOrders: { include: { miseEnPlaceItems: true } } },
       });
-
-      const result = await service.startWorkBatch(tenantId, batchId, userId);
-
-      expect(result.success).toBe(true);
-      expect(result.data.status).toBe("IN_PROGRESS");
-      expect(mockPrismaService.workBatch.update).toHaveBeenCalledWith({
-        where: { id: batchId },
-        data: {
-          status: "IN_PROGRESS",
-          startedAt: expect.any(Date),
-        },
-      });
-    });
-
-    it("should throw NotFoundException when batch not found", async () => {
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.startWorkBatch(tenantId, batchId, userId),
-      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("completeWorkBatch", () => {
-    it("should complete a work batch successfully", async () => {
-      const existingBatch = { id: batchId, tenantId };
-      const updatedBatch = {
-        ...existingBatch,
+    it("should complete a batch and skip the report when it has no orders", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
+      mockPrismaService.workBatch.update.mockResolvedValue({
+        id: batchId,
         status: "COMPLETED",
-        completedAt: expect.any(Date),
-      };
-
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(existingBatch);
-      mockPrismaService.workBatch.update.mockResolvedValue(updatedBatch);
+      });
       mockPrismaService.workBatch.findUnique.mockResolvedValue({
         tenantId,
         productionOrders: [],
       });
 
-      const result = await service.completeWorkBatch(tenantId, batchId, userId);
+      await service.completeWorkBatch(tenantId, batchId);
 
-      expect(result.success).toBe(true);
-      expect(result.data.status).toBe("COMPLETED");
-      expect(mockPrismaService.workBatch.update).toHaveBeenCalledWith({
-        where: { id: batchId },
-        data: {
-          status: "COMPLETED",
-          completedAt: expect.any(Date),
-        },
-      });
-    });
-
-    it("should throw NotFoundException when batch not found", async () => {
-      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.completeWorkBatch(tenantId, batchId, userId),
-      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.productionReport.create).not.toHaveBeenCalled();
     });
   });
 
   describe("createProductionOrder", () => {
-    const createProductionOrderDto: CreateProductionOrderDto = {
+    const freeTextDto: CreateProductionOrderDto = {
       batchId,
+      title: "Limpiar la freidora",
+      estimatedTime: 15,
+    };
+
+    const recipeLinkedDto: CreateProductionOrderDto = {
+      batchId,
+      title: "Salmón a la Plancha",
       recipeId: "recipe1",
-      recipeName: "Test Recipe",
+      recipeName: "Salmón a la Plancha",
       quantity: 10,
       unit: "kg",
       estimatedTime: 60,
-      ingredients: [
-        {
-          productId: "prod1",
-          productName: "Ingredient 1",
-          quantity: 5,
-          unit: "kg",
-          isAvailable: true,
-        },
-      ],
     };
 
-    it("should create a production order successfully", async () => {
-      const mockOrder = {
+    it("should create a production order without a linked recipe", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
+      mockPrismaService.productionOrder.create.mockResolvedValue({
         id: orderId,
-        tenantId,
-        orderNumber: expect.stringContaining("PO-"),
-        orderType: "PREPARATION",
-        status: "PENDING",
-      };
-
-      mockPrismaService.product.update.mockResolvedValue({});
-      mockPrismaService.productionOrder.create.mockResolvedValue(mockOrder);
+        orderNumber: "PO-0001",
+      });
 
       const result = await service.createProductionOrder(
         tenantId,
-        createProductionOrderDto,
+        userId,
+        freeTextDto,
       );
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockOrder);
+      expect(mockPrismaService.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId,
+          batchId,
+          title: freeTextDto.title,
+          recipeId: undefined,
+          recipeName: undefined,
+          estimatedTime: freeTextDto.estimatedTime,
+          orderNumber: "PO-0001",
+          createdBy: userId,
+        }),
+      });
     });
 
-    it("should throw BadRequestException when ingredient is not available", async () => {
-      const dtoWithUnavailableIngredient: CreateProductionOrderDto = {
-        ...createProductionOrderDto,
-        ingredients: [
-          {
-            productId: "prod1",
-            productName: "Ingredient 1",
-            quantity: 5,
-            unit: "kg",
-            isAvailable: false,
-          },
-        ],
-      };
+    it("should create a production order with a linked recipe, without calling stock/cost services", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
+      mockPrismaService.productionOrder.create.mockResolvedValue({
+        id: orderId,
+        orderNumber: "PO-0001",
+      });
+
+      const result = await service.createProductionOrder(
+        tenantId,
+        userId,
+        recipeLinkedDto,
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId,
+          batchId,
+          title: recipeLinkedDto.title,
+          recipeId: recipeLinkedDto.recipeId,
+          recipeName: recipeLinkedDto.recipeName,
+          quantity: recipeLinkedDto.quantity,
+          unit: recipeLinkedDto.unit,
+          estimatedTime: recipeLinkedDto.estimatedTime,
+          orderNumber: "PO-0001",
+          createdBy: userId,
+        }),
+      });
+    });
+
+    it("should throw NotFoundException when the batch does not belong to the tenant", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.createProductionOrder(tenantId, dtoWithUnavailableIngredient),
-      ).rejects.toThrow(BadRequestException);
+        service.createProductionOrder(tenantId, userId, freeTextDto),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.productionOrder.create).not.toHaveBeenCalled();
     });
   });
 
   describe("getProductionOrdersByBatch", () => {
-    it("should return all production orders for a batch", async () => {
-      const mockOrders = [
-        { id: "order1", batchId, miseEnPlaceItems: [] },
-        { id: "order2", batchId, miseEnPlaceItems: [] },
-      ];
+    it("should filter by batchId and tenantId directly (no relation traversal needed)", async () => {
+      mockPrismaService.productionOrder.findMany.mockResolvedValue([]);
 
-      mockPrismaService.productionOrder.findMany.mockResolvedValue(mockOrders);
+      await service.getProductionOrdersByBatch(tenantId, batchId);
 
-      const result = await service.getProductionOrdersByBatch(
-        tenantId,
-        batchId,
-      );
-
-      expect(result).toEqual(mockOrders);
       expect(mockPrismaService.productionOrder.findMany).toHaveBeenCalledWith({
-        where: { batchId, batch: { tenantId } },
+        where: { batchId, tenantId, deletedAt: null },
         orderBy: { createdAt: "asc" },
-        include: {
-          miseEnPlaceItems: true,
-        },
+        include: { miseEnPlaceItems: true },
       });
     });
   });
 
   describe("startProductionOrder", () => {
-    it("should start a production order successfully", async () => {
-      const existingOrder = { id: orderId };
-      const updatedOrder = { ...existingOrder, status: "IN_PROGRESS" };
-
-      mockPrismaService.productionOrder.findFirst.mockResolvedValue(
-        existingOrder,
-      );
-      mockPrismaService.productionOrder.update.mockResolvedValue(updatedOrder);
-      mockPrismaService.productionOrder.findUnique.mockResolvedValue({
-        createdAt: new Date(),
+    it("should start an order and initialize progress tracking + milestones", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
         estimatedTime: 60,
       });
-      mockPrismaService.progressTracking.findUnique.mockResolvedValue(null);
-      mockPrismaService.progressTracking.update.mockResolvedValue({});
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "IN_PROGRESS",
+      });
 
       const result = await service.startProductionOrder(tenantId, orderId);
 
-      expect(result.success).toBe(true);
       expect(result.data.status).toBe("IN_PROGRESS");
+      expect(mockPrismaService.progressTracking.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          orderId,
+          overallProgress: 0,
+          timeRemaining: 60,
+          status: "ON_SCHEDULE",
+        }),
+      });
+      expect(mockPrismaService.milestone.createMany).toHaveBeenCalled();
     });
 
-    it("should throw NotFoundException when order not found", async () => {
+    it("should throw NotFoundException for an order in another tenant", async () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -501,25 +357,21 @@ describe("ProductionService", () => {
   });
 
   describe("completeProductionOrder", () => {
-    it("should complete a production order successfully", async () => {
-      const existingOrder = { id: orderId, ingredients: [] };
-      const updatedOrder = {
-        ...existingOrder,
+    it("should complete an order and update progress tracking, without touching stock", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
         status: "COMPLETED",
         actualTime: 50,
-      };
-
-      mockPrismaService.productionOrder.findFirst.mockResolvedValue(
-        existingOrder,
-      );
-      mockPrismaService.productionOrder.update.mockResolvedValue(updatedOrder);
+      });
       mockPrismaService.productionOrder.findUnique.mockResolvedValue({
+        id: orderId,
+        tenantId,
         createdAt: new Date(),
         estimatedTime: 60,
-        ingredients: [],
       });
-      mockPrismaService.progressTracking.update.mockResolvedValue({});
-      mockPrismaService.product.update.mockResolvedValue({});
 
       const result = await service.completeProductionOrder(
         tenantId,
@@ -527,12 +379,88 @@ describe("ProductionService", () => {
         50,
       );
 
-      expect(result.success).toBe(true);
       expect(result.data.status).toBe("COMPLETED");
-      expect(result.data.actualTime).toBe(50);
+      expect(mockPrismaService.progressTracking.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { orderId } }),
+      );
     });
 
-    it("should throw NotFoundException when order not found", async () => {
+    it("regression: creates a delay alert and notifies when completion is very late (condition used to be inverted and never fired)", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "COMPLETED",
+        actualTime: 500,
+      });
+      mockPrismaService.productionOrder.findUnique.mockResolvedValue({
+        id: orderId,
+        tenantId,
+        orderNumber: "PO-0001",
+        title: "Salmón a la Plancha",
+        createdAt: new Date(Date.now() - 500 * 60 * 1000), // hace 500 min
+        estimatedTime: 60,
+      });
+      mockPrismaService.progressTracking.findUnique.mockResolvedValue({
+        orderId,
+        status: "CRITICAL",
+      });
+      mockPrismaService.productionAlert.findFirst.mockResolvedValue(null);
+
+      await service.completeProductionOrder(tenantId, orderId, 500);
+
+      expect(mockPrismaService.productionAlert.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId,
+          orderId,
+          alertType: "DELAY",
+        }),
+      });
+      expect(
+        mockNotificationsService.notifyProductionDelay,
+      ).toHaveBeenCalledWith(
+        tenantId,
+        "PO-0001",
+        "Salmón a la Plancha",
+        "CRITICAL",
+        orderId,
+      );
+    });
+
+    it("does not create a duplicate delay alert when one is already active", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "COMPLETED",
+      });
+      mockPrismaService.productionOrder.findUnique.mockResolvedValue({
+        id: orderId,
+        tenantId,
+        orderNumber: "PO-0001",
+        title: "Salmón a la Plancha",
+        createdAt: new Date(Date.now() - 500 * 60 * 1000),
+        estimatedTime: 60,
+      });
+      mockPrismaService.progressTracking.findUnique.mockResolvedValue({
+        orderId,
+        status: "CRITICAL",
+      });
+      mockPrismaService.productionAlert.findFirst.mockResolvedValue({
+        id: "existing-alert",
+      });
+
+      await service.completeProductionOrder(tenantId, orderId, 500);
+
+      expect(mockPrismaService.productionAlert.create).not.toHaveBeenCalled();
+      expect(
+        mockNotificationsService.notifyProductionDelay,
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should throw NotFoundException when order not found for tenant", async () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -541,11 +469,85 @@ describe("ProductionService", () => {
     });
   });
 
+  describe("postponeProductionOrder", () => {
+    it("should set postponedTo without touching the batch date", async () => {
+      const newDate = new Date("2026-09-01T00:00:00.000Z");
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+        postponedTo: newDate,
+      });
+
+      const result = await service.postponeProductionOrder(
+        tenantId,
+        orderId,
+        newDate,
+      );
+
+      expect(result.data.postponedTo).toEqual(newDate);
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { postponedTo: newDate },
+      });
+    });
+
+    it("should throw NotFoundException when order not found for tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, new Date()),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException when order is not PENDING", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "IN_PROGRESS",
+      });
+
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, new Date()),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe("deleteProductionOrder", () => {
+    it("should soft-delete the order by setting deletedAt", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        deletedAt: new Date(),
+      });
+
+      const result = await service.deleteProductionOrder(tenantId, orderId);
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { deletedAt: expect.any(Date) },
+      });
+    });
+
+    it("should throw NotFoundException when order not found for tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.deleteProductionOrder(tenantId, orderId),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe("createMiseEnPlaceSheet", () => {
-    const createMiseEnPlaceSheetDto: CreateMiseEnPlaceSheetDto = {
+    const dto: CreateMiseEnPlaceSheetDto = {
       batchId,
       orderId,
-      zone: "HOT_KITCHEN" as any,
+      zone: KitchenZone.HOT_KITCHEN,
       checklists: [
         {
           item: "Knife Set",
@@ -555,69 +557,120 @@ describe("ProductionService", () => {
       ],
     };
 
-    it("should create a mise en place sheet successfully", async () => {
-      const mockSheet = {
+    it("should create a sheet when the order belongs to the tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.miseEnPlaceSheet.create.mockResolvedValue({
         id: "sheet1",
-        tenantId,
-        batchId,
-        orderId,
-        zone: createMiseEnPlaceSheetDto.zone,
-        checklists: createMiseEnPlaceSheetDto.checklists.map((item) => ({
-          ...item,
-          checked: false,
-        })),
-      };
+      });
 
-      mockPrismaService.miseEnPlaceSheet.create.mockResolvedValue(mockSheet);
-
-      const result = await service.createMiseEnPlaceSheet(
-        tenantId,
-        createMiseEnPlaceSheetDto,
-      );
+      const result = await service.createMiseEnPlaceSheet(tenantId, dto);
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockSheet);
+    });
+
+    it("should throw NotFoundException when the order is not the tenant's", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.createMiseEnPlaceSheet(tenantId, dto),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("addMiseEnPlaceItem", () => {
-    const createMiseEnPlaceItemDto: CreateMiseEnPlaceItemDto = {
+    const dto: CreateMiseEnPlaceItemDto = {
       orderId,
       description: "Chopped vegetables",
       quantity: 5,
       unit: "kg",
-      notes: "Cut into small cubes",
     };
 
-    it("should add a mise en place item successfully", async () => {
-      const mockItem = {
+    it("should add an item when the order belongs to the tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.miseEnPlaceItem.create.mockResolvedValue({
         id: "item1",
-        tenantId,
-        ...createMiseEnPlaceItemDto,
-        status: "PENDING",
-      };
+      });
 
-      mockPrismaService.miseEnPlaceItem.create.mockResolvedValue(mockItem);
-
-      const result = await service.addMiseEnPlaceItem(
-        tenantId,
-        createMiseEnPlaceItemDto,
-      );
+      const result = await service.addMiseEnPlaceItem(tenantId, dto);
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockItem);
+      expect(mockPrismaService.miseEnPlaceItem.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ tenantId, orderId, status: "PENDING" }),
+      });
+    });
+  });
+
+  describe("getMiseEnPlaceSheetByOrder / getMiseEnPlaceSheet", () => {
+    it("regression: items are looked up by orderId, not the sheetId relation (items are created without a sheetId)", async () => {
+      mockPrismaService.miseEnPlaceSheet.findFirst.mockResolvedValue({
+        id: "sheet1",
+        orderId,
+        zone: "HOT_KITCHEN",
+      });
+      mockPrismaService.miseEnPlaceItem.findMany.mockResolvedValue([
+        { id: "item1", orderId },
+      ]);
+
+      const result = await service.getMiseEnPlaceSheetByOrder(
+        tenantId,
+        orderId,
+      );
+
+      expect(mockPrismaService.miseEnPlaceItem.findMany).toHaveBeenCalledWith({
+        where: { orderId, tenantId },
+        orderBy: { createdAt: "asc" },
+      });
+      expect(result.items).toEqual([{ id: "item1", orderId }]);
+    });
+
+    it("returns null when the order has no sheet yet (not a 404)", async () => {
+      mockPrismaService.miseEnPlaceSheet.findFirst.mockResolvedValue(null);
+
+      const result = await service.getMiseEnPlaceSheetByOrder(
+        tenantId,
+        orderId,
+      );
+
+      expect(result).toBeNull();
+      expect(mockPrismaService.miseEnPlaceItem.findMany).not.toHaveBeenCalled();
+    });
+
+    it("getMiseEnPlaceSheet (by sheetId) also resolves items via orderId", async () => {
+      mockPrismaService.miseEnPlaceSheet.findFirst.mockResolvedValue({
+        id: "sheet1",
+        orderId,
+      });
+      mockPrismaService.miseEnPlaceItem.findMany.mockResolvedValue([
+        { id: "item1", orderId },
+      ]);
+
+      const result = await service.getMiseEnPlaceSheet(tenantId, "sheet1");
+
+      expect(result.items).toEqual([{ id: "item1", orderId }]);
+    });
+
+    it("getMiseEnPlaceSheet throws NotFoundException when the sheet doesn't exist", async () => {
+      mockPrismaService.miseEnPlaceSheet.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getMiseEnPlaceSheet(tenantId, "sheet1"),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("updateMiseEnPlaceItem", () => {
-    it("should update mise en place item status to READY", async () => {
-      const mockItem = {
+    it("should update status scoped to the tenant", async () => {
+      mockPrismaService.miseEnPlaceItem.findFirst.mockResolvedValue({
+        id: "item1",
+      });
+      mockPrismaService.miseEnPlaceItem.update.mockResolvedValue({
         id: "item1",
         status: "READY",
-        completedAt: expect.any(Date),
-      };
-
-      mockPrismaService.miseEnPlaceItem.update.mockResolvedValue(mockItem);
+      });
 
       const result = await service.updateMiseEnPlaceItem(
         tenantId,
@@ -625,185 +678,292 @@ describe("ProductionService", () => {
         "READY",
       );
 
-      expect(result.success).toBe(true);
       expect(result.data.status).toBe("READY");
+      expect(mockPrismaService.miseEnPlaceItem.findFirst).toHaveBeenCalledWith({
+        where: { id: "item1", tenantId },
+      });
     });
 
-    it("should update mise en place item status to VERIFIED with userId", async () => {
-      const mockItem = {
-        id: "item1",
-        status: "VERIFIED",
-        completedAt: expect.any(Date),
-        verifiedBy: userId,
-      };
+    it("regression (IDOR fix): should throw NotFoundException for an item belonging to another tenant", async () => {
+      mockPrismaService.miseEnPlaceItem.findFirst.mockResolvedValue(null);
 
-      mockPrismaService.miseEnPlaceItem.update.mockResolvedValue(mockItem);
+      await expect(
+        service.updateMiseEnPlaceItem(otherTenantId, "item1", "READY"),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.miseEnPlaceItem.update).not.toHaveBeenCalled();
+    });
+  });
 
-      const result = await service.updateMiseEnPlaceItem(
-        tenantId,
-        "item1",
-        "VERIFIED",
-        userId,
-      );
+  describe("createProductionTask", () => {
+    const dto: CreateProductionTaskDto = {
+      orderId,
+      title: "Cortar verduras",
+      taskType: TaskType.PREPARATION,
+      estimatedTime: 30,
+    };
+
+    it("should create a task when the order belongs to the tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+      });
+      mockPrismaService.productionTask.create.mockResolvedValue({
+        id: "task1",
+      });
+
+      const result = await service.createProductionTask(tenantId, dto);
 
       expect(result.success).toBe(true);
-      expect(result.data.status).toBe("VERIFIED");
-      expect(result.data.verifiedBy).toBe(userId);
+    });
+
+    it("should throw NotFoundException when the order is not the tenant's", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(service.createProductionTask(tenantId, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("getProductionTasksByOrder", () => {
+    it("should scope by orderId and tenantId", async () => {
+      mockPrismaService.productionTask.findMany.mockResolvedValue([]);
+
+      await service.getProductionTasksByOrder(tenantId, orderId);
+
+      expect(mockPrismaService.productionTask.findMany).toHaveBeenCalledWith({
+        where: { orderId, tenantId },
+        orderBy: { createdAt: "asc" },
+        include: { assignments: true },
+      });
     });
   });
 
   describe("createTaskAssignment", () => {
-    const createTaskAssignmentDto: CreateTaskAssignmentDto = {
-      batchId,
+    const dto: CreateTaskAssignmentDto = {
       orderId,
       taskId: "task1",
       assignedTo: "staff1",
-      taskType: "PREPARATION" as any,
-      estimatedTime: 30,
-      dependencies: [],
     };
 
-    it("should create a task assignment successfully", async () => {
-      const mockStaff = {
+    it("should create a task assignment when staff has capacity", async () => {
+      mockPrismaService.productionTask.findFirst.mockResolvedValue({
+        id: "task1",
+      });
+      mockPrismaService.staffMember.findFirst.mockResolvedValue({
         id: "staff1",
-        availability: true,
-        currentTasks: 2,
-        maxTasks: 5,
         isActive: true,
-      };
-      const mockAssignment = {
+        assignedTasks: 2,
+        maxTasks: 5,
+      });
+      mockPrismaService.taskAssignment.create.mockResolvedValue({
         id: "assignment1",
-        ...createTaskAssignmentDto,
-        status: "ASSIGNED",
-        assignedAt: expect.any(Date),
-      };
+      });
 
-      mockPrismaService.staffMember.findUnique.mockResolvedValue(mockStaff);
-      mockPrismaService.taskAssignment.create.mockResolvedValue(mockAssignment);
-      mockPrismaService.staffMember.update.mockResolvedValue({});
-
-      const result = await service.createTaskAssignment(
-        tenantId,
-        createTaskAssignmentDto,
-      );
+      const result = await service.createTaskAssignment(tenantId, dto);
 
       expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockAssignment);
+      expect(mockPrismaService.staffMember.update).toHaveBeenCalledWith({
+        where: { id: "staff1" },
+        data: { assignedTasks: { increment: 1 } },
+      });
     });
 
-    it("should throw BadRequestException when staff not available", async () => {
-      mockPrismaService.staffMember.findUnique.mockResolvedValue(null);
+    it("should throw NotFoundException when the task is not the tenant's", async () => {
+      mockPrismaService.productionTask.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.createTaskAssignment(tenantId, createTaskAssignmentDto),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.createTaskAssignment(tenantId, dto)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it("should throw BadRequestException when staff not found or inactive", async () => {
+      mockPrismaService.productionTask.findFirst.mockResolvedValue({
+        id: "task1",
+      });
+      mockPrismaService.staffMember.findFirst.mockResolvedValue(null);
+
+      await expect(service.createTaskAssignment(tenantId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it("should throw BadRequestException when staff at max capacity", async () => {
-      const mockStaff = {
+      mockPrismaService.productionTask.findFirst.mockResolvedValue({
+        id: "task1",
+      });
+      mockPrismaService.staffMember.findFirst.mockResolvedValue({
         id: "staff1",
-        availability: true,
-        currentTasks: 5,
+        isActive: true,
+        assignedTasks: 5,
         maxTasks: 5,
-      };
+      });
 
-      mockPrismaService.staffMember.findUnique.mockResolvedValue(mockStaff);
+      await expect(service.createTaskAssignment(tenantId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
 
-      await expect(
-        service.createTaskAssignment(tenantId, createTaskAssignmentDto),
-      ).rejects.toThrow(BadRequestException);
+  describe("getTaskAssignments", () => {
+    it("filters by orderId when provided", async () => {
+      mockPrismaService.taskAssignment.findMany.mockResolvedValue([]);
+
+      await service.getTaskAssignments(tenantId, orderId);
+
+      expect(mockPrismaService.taskAssignment.findMany).toHaveBeenCalledWith({
+        where: { tenantId, orderId },
+        orderBy: { assignedAt: "desc" },
+      });
+    });
+
+    it("omits the orderId filter when not provided", async () => {
+      mockPrismaService.taskAssignment.findMany.mockResolvedValue([]);
+
+      await service.getTaskAssignments(tenantId);
+
+      expect(mockPrismaService.taskAssignment.findMany).toHaveBeenCalledWith({
+        where: { tenantId },
+        orderBy: { assignedAt: "desc" },
+      });
     });
   });
 
   describe("updateTaskAssignment", () => {
-    const updateTaskAssignmentDto: UpdateTaskAssignmentDto = {
+    const dto: UpdateTaskAssignmentDto = {
       status: "COMPLETED" as any,
       actualTime: 45,
     };
 
-    it("should update task assignment successfully", async () => {
-      const mockAssignment = {
+    it("should complete an assignment and decrement staff tasks", async () => {
+      mockPrismaService.taskAssignment.findFirst.mockResolvedValue({
         id: "assignment1",
-        assignedTo: "staff1",
+      });
+      mockPrismaService.taskAssignment.update.mockResolvedValue({
+        id: "assignment1",
         status: "COMPLETED",
-        actualTime: 45,
-        completedAt: expect.any(Date),
-      };
-
-      mockPrismaService.taskAssignment.update.mockResolvedValue(mockAssignment);
-      mockPrismaService.staffMember.update.mockResolvedValue({});
+        staffMemberId: "staff1",
+        taskId: "task1",
+      });
 
       const result = await service.updateTaskAssignment(
         tenantId,
         "assignment1",
-        updateTaskAssignmentDto,
+        dto,
       );
 
-      expect(result.success).toBe(true);
       expect(result.data.status).toBe("COMPLETED");
+      expect(mockPrismaService.staffMember.update).toHaveBeenCalledWith({
+        where: { id: "staff1" },
+        data: { assignedTasks: { decrement: 1 } },
+      });
+    });
+
+    it("should throw NotFoundException for an assignment in another tenant", async () => {
+      mockPrismaService.taskAssignment.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateTaskAssignment(otherTenantId, "assignment1", dto),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe("getActiveAlerts", () => {
-    it("should return all active alerts for a tenant", async () => {
-      const mockAlerts = [
-        { id: "alert1", type: "DELAY", resolvedAt: null },
-        { id: "alert2", type: "QUALITY", resolvedAt: null },
-      ];
+  describe("createStaffMember / updateStaffMember", () => {
+    it("should create a staff member with defaults", async () => {
+      const dto: CreateStaffMemberDto = {
+        name: "Lucía Fernández",
+        role: "COCINERA",
+      };
+      mockPrismaService.staffMember.create.mockResolvedValue({
+        id: "staff1",
+        ...dto,
+      });
 
-      mockPrismaService.productionAlert.findMany.mockResolvedValue(mockAlerts);
+      const result = await service.createStaffMember(tenantId, dto);
 
-      const result = await service.getActiveAlerts(tenantId);
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.staffMember.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenantId,
+          name: dto.name,
+          availableHours: 40,
+          maxTasks: 10,
+        }),
+      });
+    });
 
-      expect(result).toEqual(mockAlerts);
+    it("should throw NotFoundException updating a staff member from another tenant", async () => {
+      mockPrismaService.staffMember.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateStaffMember(otherTenantId, "staff1", { isActive: false }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
-  describe("resolveAlert", () => {
-    const updateAlertDto: UpdateAlertDto = {
-      resolvedBy: userId,
-      resolution: "Issue fixed",
-    };
+  describe("getStaffMembers", () => {
+    it("should list all staff for the tenant, active and inactive", async () => {
+      mockPrismaService.staffMember.findMany.mockResolvedValue([]);
 
-    it("should resolve an alert successfully", async () => {
-      const mockAlert = {
-        id: "alert1",
-        resolvedAt: expect.any(Date),
+      await service.getStaffMembers(tenantId);
+
+      expect(mockPrismaService.staffMember.findMany).toHaveBeenCalledWith({
+        where: { tenantId },
+        orderBy: { name: "asc" },
+      });
+    });
+  });
+
+  describe("getActiveAlerts / resolveAlert", () => {
+    it("should return only unresolved alerts for the tenant", async () => {
+      mockPrismaService.productionAlert.findMany.mockResolvedValue([]);
+
+      await service.getActiveAlerts(tenantId);
+
+      expect(mockPrismaService.productionAlert.findMany).toHaveBeenCalledWith({
+        where: { tenantId, isResolved: false },
+        orderBy: { createdAt: "desc" },
+      });
+    });
+
+    it("should resolve an alert, setting isResolved and resolution", async () => {
+      const dto: UpdateAlertDto = {
         resolvedBy: userId,
         resolution: "Issue fixed",
       };
-
       mockPrismaService.productionAlert.findFirst.mockResolvedValue({
         id: "alert1",
       });
-      mockPrismaService.productionAlert.update.mockResolvedValue(mockAlert);
+      mockPrismaService.productionAlert.update.mockResolvedValue({
+        id: "alert1",
+        isResolved: true,
+        resolvedBy: userId,
+      });
 
-      const result = await service.resolveAlert(
-        tenantId,
-        "alert1",
-        updateAlertDto,
-      );
+      const result = await service.resolveAlert(tenantId, "alert1", dto);
 
-      expect(result.success).toBe(true);
-      expect(result.data.resolvedBy).toBe(userId);
+      expect(result.data.isResolved).toBe(true);
+      expect(mockPrismaService.productionAlert.update).toHaveBeenCalledWith({
+        where: { id: "alert1" },
+        data: expect.objectContaining({ isResolved: true, resolvedBy: userId }),
+      });
     });
 
-    it("should throw NotFoundException when alert not found", async () => {
+    it("should throw NotFoundException when alert not found for tenant", async () => {
       mockPrismaService.productionAlert.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.resolveAlert(tenantId, "alert1", updateAlertDto),
+        service.resolveAlert(tenantId, "alert1", { resolvedBy: userId }),
       ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe("generateProductionReport", () => {
-    const generateReportDto: GenerateProductionReportDto = {
-      startDate: new Date("2024-01-01"),
-      endDate: new Date("2024-12-31"),
+    const dto: GenerateProductionReportDto = {
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2026-12-31"),
     };
 
-    it("should generate a production report successfully", async () => {
+    it("should generate a report with KPIs computed from collected data", async () => {
       mockPrismaService.workBatch.findMany.mockResolvedValue([]);
       mockPrismaService.productionOrder.findMany.mockResolvedValue([
         { status: "COMPLETED", actualTime: 50, estimatedTime: 60 },
@@ -811,18 +971,22 @@ describe("ProductionService", () => {
       mockPrismaService.taskAssignment.findMany.mockResolvedValue([]);
       mockPrismaService.productionAlert.findMany.mockResolvedValue([]);
 
-      const result = await service.generateProductionReport(
-        tenantId,
-        generateReportDto,
-      );
+      const result = await service.generateProductionReport(tenantId, dto);
 
       expect(result.success).toBe(true);
-      expect(result.data.period).toEqual({
-        startDate: generateReportDto.startDate,
-        endDate: generateReportDto.endDate,
-      });
-      expect(result.data.kpis).toBeDefined();
-      expect(result.data.generatedAt).toBeDefined();
+      expect(result.data.kpis.completionRate).toBe(100);
+    });
+
+    it("should not divide by zero when there are no orders with times", async () => {
+      mockPrismaService.workBatch.findMany.mockResolvedValue([]);
+      mockPrismaService.productionOrder.findMany.mockResolvedValue([]);
+      mockPrismaService.taskAssignment.findMany.mockResolvedValue([]);
+      mockPrismaService.productionAlert.findMany.mockResolvedValue([]);
+
+      const result = await service.generateProductionReport(tenantId, dto);
+
+      expect(Number.isFinite(result.data.kpis.efficiency)).toBe(true);
+      expect(Number.isFinite(result.data.kpis.completionRate)).toBe(true);
     });
   });
 });

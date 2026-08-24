@@ -30,6 +30,9 @@ describe("DashboardService", () => {
       count: jest.fn(),
       aggregate: jest.fn(),
     },
+    purchaseOrder: {
+      count: jest.fn(),
+    },
     menu: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -57,6 +60,15 @@ describe("DashboardService", () => {
     production: {
       findMany: jest.fn(),
       count: jest.fn(),
+    },
+    workBatch: {
+      count: jest.fn(),
+    },
+    productionOrder: {
+      findMany: jest.fn(),
+    },
+    staffMember: {
+      findMany: jest.fn(),
     },
   };
 
@@ -152,6 +164,21 @@ describe("DashboardService", () => {
       const mockSessions = [{ userId: "user-1" }];
       const mockTodayRevenue = { _sum: { totalAmount: 500 } };
       const mockMonthlyRevenue = { _sum: { totalAmount: 1500 } };
+      const mockBatchScheduledFor = new Date();
+      const mockUpcomingOrders = [
+        {
+          id: "order-1",
+          batchId: "batch-1",
+          title: "Fondo oscuro",
+          orderType: "COOKING",
+          status: "PENDING",
+          scheduledFor: new Date(),
+          postponedTo: null,
+          estimatedTime: 90,
+          assignedStaffIds: [],
+          batch: { scheduledFor: mockBatchScheduledFor },
+        },
+      ];
 
       prismaService.product.findMany.mockResolvedValue(mockProducts);
       prismaService.product.count.mockResolvedValue(3);
@@ -168,6 +195,10 @@ describe("DashboardService", () => {
       prismaService.order.aggregate.mockResolvedValueOnce(mockMonthlyRevenue);
       prismaService.recipe.count.mockResolvedValue(12);
       prismaService.menu.count.mockResolvedValue(5);
+      prismaService.workBatch.count.mockResolvedValue(2);
+      prismaService.productionOrder.findMany.mockResolvedValue(
+        mockUpcomingOrders,
+      );
 
       const result = await service.calculateKPIs("tenant-1");
 
@@ -175,6 +206,19 @@ describe("DashboardService", () => {
       expect(result.data.totalProducts).toBeDefined();
       expect(result.data.totalRecipes).toBeDefined();
       expect(result.data.totalMenus).toBeDefined();
+      expect(result.data.activeProductionBatches).toBe(2);
+      expect(result.data.upcomingProductionTasks).toHaveLength(1);
+      expect(result.data.upcomingProductionTasks[0]).toEqual({
+        id: "order-1",
+        batchId: "batch-1",
+        title: "Fondo oscuro",
+        orderType: "COOKING",
+        status: "PENDING",
+        lotDate: mockBatchScheduledFor,
+        isPostponed: false,
+        estimatedTime: 90,
+        assignedStaffNames: [],
+      });
     });
   });
 

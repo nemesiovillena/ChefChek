@@ -3,6 +3,10 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { PurchaseOrderStatus } from "@prisma/client";
 import { OrderSendingService } from "./order-sending.service";
 import { PurchaseOrderPdfService } from "./purchase-order-pdf.service";
+import {
+  PurchaseOrderConfigService,
+  DEFAULT_SUPPLIER_NOTE,
+} from "./purchase-order-config.service";
 import { MailService } from "../../mail/mail.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 
@@ -12,10 +16,14 @@ describe("OrderSendingService", () => {
   const prismaMock = {
     purchaseOrder: { findFirst: jest.fn(), update: jest.fn() },
     purchaseOrderEvent: { create: jest.fn() },
+    tenant: { findFirst: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
   const mailMock = { sendMail: jest.fn() };
   const pdfMock = { generate: jest.fn() };
+  const orderConfigMock = {
+    getSupplierNote: jest.fn().mockResolvedValue(DEFAULT_SUPPLIER_NOTE),
+  };
 
   const tenantId = "t1";
   const baseOrder = {
@@ -44,12 +52,14 @@ describe("OrderSendingService", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    prismaMock.tenant.findFirst.mockResolvedValue({ name: "Warynessy" });
     const module = await Test.createTestingModule({
       providers: [
         OrderSendingService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: MailService, useValue: mailMock },
         { provide: PurchaseOrderPdfService, useValue: pdfMock },
+        { provide: PurchaseOrderConfigService, useValue: orderConfigMock },
       ],
     }).compile();
     service = module.get(OrderSendingService);
@@ -61,12 +71,30 @@ describe("OrderSendingService", () => {
       const preview = await service.getSendPreview(tenantId, "o1");
 
       expect(preview.channels).toEqual(["EMAIL", "WHATSAPP", "PHONE"]);
+      expect(preview.text).toContain("Hola Pescados SA.");
+      expect(preview.text).toContain(
+        "Le adjunto pedido de restaurante Warynessy:",
+      );
       expect(preview.text).toContain("Pedido PED-0001");
       expect(preview.text).toContain("• Salmón: 3 Caja 5kg");
+      expect(preview.text).toContain("Muchas gracias.");
       expect(preview.whatsappUrl).toMatch(
         /^https:\/\/wa\.me\/34612345678\?text=/,
       );
       expect(preview.email).toBe("pedidos@pescados.example");
+    });
+
+    it("añade los artículos nuevos con el mismo bullet, pegados al listado de artículos", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        ...baseOrder,
+        additionalItems:
+          "Espaguetis bolsa: 1 Bolsa\n\nSolomillo de cerdo: 2 cajas",
+      });
+      const preview = await service.getSendPreview(tenantId, "o1");
+
+      expect(preview.text).toContain(
+        "• Salmón: 3 Caja 5kg\n• Espaguetis bolsa: 1 Bolsa\n• Solomillo de cerdo: 2 cajas",
+      );
     });
 
     it("404 si el pedido no es del tenant", async () => {

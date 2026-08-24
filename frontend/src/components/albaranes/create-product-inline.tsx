@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useCategoryTree } from '@/hooks/use-categories';
+import { useCreateSupplierOffer } from '@/hooks/use-products';
 // Reutiliza el mismo componente de "campos core" que usa el modal de Artículos
 // → paridad de campos y precio de referencia sin mantener dos formularios (DRY).
 import PesoPrecioFields, { PesoPrecioFormData } from '@/app/dashboard/articulos/components/peso-precio-fields';
@@ -36,7 +37,10 @@ export function CreateProductInline({
   // ref, precio, descuento, IVA, categoría, marca). Precios desde la línea OCR.
   const [formData, setFormData] = useState<PesoPrecioFormData>({
     purchaseFormat: '',
-    referenceUnit: line.unit || 'kg',
+    // Siempre Kilo por defecto (la mayoría de artículos van por kilos),
+    // sin depender de lo que el OCR haya leído en la línea — el usuario
+    // lo cambia manualmente en el caso minoritario que no aplique.
+    referenceUnit: 'kilo',
     unitsPerFormat: '1',
     referenceUnitSize: '1',
     purchasePrice: line.unitPrice != null ? String(line.unitPrice) : '',
@@ -45,9 +49,10 @@ export function CreateProductInline({
     brand: '',
     categoryId: '',
   });
-  const { data: tree = [] } = useCategoryTree();
+  const { data: tree = [] } = useCategoryTree('articles');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createSupplierOffer = useCreateSupplierOffer();
 
   // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
   // No bloquea: solo informa para evitar crear un artículo paralelo.
@@ -60,6 +65,25 @@ export function CreateProductInline({
     setLinkingId(productId);
     setLinkError(null);
     try {
+      // El usuario ya pudo rellenar formato/cantidad-por-unidad en este
+      // formulario (ej. caja 6×2L) antes de descubrir que era un duplicado.
+      // Sin esto, ese dato se perdía en silencio al vincular a un artículo
+      // existente: la oferta del proveedor quedaba con formato por defecto
+      // (1 unidad = 1 ref. unit), inflando su €/ref. unit frente a otros
+      // proveedores. Solo se puede crear oferta si el albarán ya tiene
+      // proveedor asignado (igual que en la confirmación normal de línea).
+      if (supplierId) {
+        const price = parseFloat(formData.purchasePrice);
+        await createSupplierOffer.mutateAsync({
+          productId,
+          supplierId,
+          purchasePrice: !Number.isNaN(price) ? price : line.unitPrice,
+          purchaseFormat: formData.purchaseFormat || undefined,
+          referenceUnit: formData.referenceUnit || undefined,
+          unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
+          referenceUnitSize: parseFloat(formData.referenceUnitSize) || undefined,
+        });
+      }
       await matchLine(albaranId, line.id, productId);
       onSuccess();
     } catch (err: unknown) {
@@ -70,12 +94,21 @@ export function CreateProductInline({
   };
 
   // Subtotal de la línea = cantidad × precio. Sirve para verificar que el
-  // precio introducido cuadra con el total que el OCR leyó en el albarán.
+  // precio introducido cuadra con el Total real de la línea: el neto del
+  // papel (con descuento del proveedor si lo hay), igual que la columna
+  // "Total" de la pestaña Líneas. Comparar contra lineAmount (bruto) daba
+  // "coincide" siempre que el usuario no tocara el precio, porque ambos se
+  // calculan igual (qty × unitPrice) — nunca detectaba el descuento real.
   const parsedPrice = parseFloat(formData.purchasePrice);
   const lineQuantity = Number(line.quantity) || 0;
   const lineSubtotal =
     !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? lineQuantity * parsedPrice : null;
-  const originalTotal = Number(line.lineAmount) || 0;
+  const grossTotal = Number(line.lineAmount) || 0;
+  const originalTotal = line.totalPrice !== null ? Number(line.totalPrice) : grossTotal;
+  const discountPct =
+    line.totalPrice !== null && grossTotal > 0 && originalTotal < grossTotal
+      ? Math.round((1 - originalTotal / grossTotal) * 1000) / 10
+      : 0;
   const subtotalMatches =
     lineSubtotal !== null && originalTotal > 0
       ? Math.abs(lineSubtotal - originalTotal) < 0.01
@@ -198,19 +231,27 @@ export function CreateProductInline({
       <PesoPrecioFields formData={formData} setFormData={setFormData} tree={tree} />
 
       {lineSubtotal !== null && (
-        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/30">
+          <div className="text-gray-600 dark:text-gray-300">
             Subtotal línea:{' '}
-            <span className="font-medium text-gray-700">
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
               {lineQuantity.toLocaleString('es-ES')} {formData.referenceUnit} × {fmtEuro(parsedPrice)} € = {fmtEuro(lineSubtotal)} €
             </span>
-          </span>
+          </div>
           {subtotalMatches !== null && (
-            <span className={subtotalMatches ? 'text-green-600' : 'text-amber-600'}>
+            <div
+              className={
+                subtotalMatches
+                  ? 'mt-1 font-medium text-green-700 dark:text-green-400'
+                  : 'mt-1 font-medium text-amber-700 dark:text-amber-400'
+              }
+            >
               {subtotalMatches
                 ? '✓ coincide con el total del albarán'
-                : `≠ total albarán (${fmtEuro(originalTotal)} €)`}
-            </span>
+                : `≠ total albarán (${fmtEuro(originalTotal)} €${
+                    discountPct > 0 ? `, con −${discountPct}% dto` : ''
+                  })`}
+            </div>
           )}
         </div>
       )}
@@ -219,16 +260,21 @@ export function CreateProductInline({
         <p className="text-xs text-red-600">{error}</p>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={loading}>
+      <div className="flex gap-2 pt-1">
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading}
+          className="flex-1 bg-green-600 text-white hover:bg-green-700"
+        >
           {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Plus className="h-3 w-3" />
+            <Plus className="h-4 w-4" />
           )}
           <span className="ml-1">Crear y asignar</span>
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onCancel}>
+        <Button type="button" size="lg" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
       </div>

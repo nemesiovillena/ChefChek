@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -29,10 +30,15 @@ import {
   CreateWorkBatchDto,
   UpdateWorkBatchDto,
   CreateProductionOrderDto,
+  PostponeProductionOrderDto,
+  ReorderProductionOrdersDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
+  CreateProductionTaskDto,
   CreateTaskAssignmentDto,
   UpdateTaskAssignmentDto,
+  CreateStaffMemberDto,
+  UpdateStaffMemberDto,
   UpdateAlertDto,
   GenerateProductionReportDto,
 } from "./dto/production.dto";
@@ -50,9 +56,11 @@ export class ProductionController {
   @ApiOperation({ summary: "Crear un lote de trabajo (work batch)" })
   @ApiResponse({ status: 201, description: "Lote creado exitosamente" })
   async createWorkBatch(@Req() req: any, @Body() dto: CreateWorkBatchDto) {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
-    return this.productionService.createWorkBatch(tenantId, userId, dto);
+    return this.productionService.createWorkBatch(
+      req.tenantId,
+      req.user?.id,
+      dto,
+    );
   }
 
   @Get("batches")
@@ -60,8 +68,7 @@ export class ProductionController {
   @ApiOperation({ summary: "Listar todos los lotes de trabajo" })
   @ApiResponse({ status: 200, description: "Lista de lotes" })
   async getWorkBatches(@Req() req: any) {
-    const tenantId = req.tenantId;
-    return this.productionService.getWorkBatches(tenantId);
+    return this.productionService.getWorkBatches(req.tenantId);
   }
 
   @Get("batches/:batchId")
@@ -70,8 +77,7 @@ export class ProductionController {
   @ApiParam({ name: "batchId", description: "ID del lote" })
   @ApiResponse({ status: 200, description: "Lote encontrado" })
   async getWorkBatchById(@Req() req: any, @Param("batchId") batchId: string) {
-    const tenantId = req.tenantId;
-    return this.productionService.getWorkBatchById(tenantId, batchId);
+    return this.productionService.getWorkBatchById(req.tenantId, batchId);
   }
 
   @Put("batches/:batchId")
@@ -84,19 +90,7 @@ export class ProductionController {
     @Param("batchId") batchId: string,
     @Body() dto: UpdateWorkBatchDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.updateWorkBatch(tenantId, batchId, dto);
-  }
-
-  @Post("batches/:batchId/start")
-  @Roles("ADMIN", "USER")
-  @ApiOperation({ summary: "Iniciar un lote de trabajo" })
-  @ApiParam({ name: "batchId", description: "ID del lote" })
-  @ApiResponse({ status: 200, description: "Lote iniciado" })
-  async startWorkBatch(@Req() req: any, @Param("batchId") batchId: string) {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
-    return this.productionService.startWorkBatch(tenantId, batchId, userId);
+    return this.productionService.updateWorkBatch(req.tenantId, batchId, dto);
   }
 
   @Post("batches/:batchId/complete")
@@ -105,9 +99,7 @@ export class ProductionController {
   @ApiParam({ name: "batchId", description: "ID del lote" })
   @ApiResponse({ status: 200, description: "Lote completado" })
   async completeWorkBatch(@Req() req: any, @Param("batchId") batchId: string) {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
-    return this.productionService.completeWorkBatch(tenantId, batchId, userId);
+    return this.productionService.completeWorkBatch(req.tenantId, batchId);
   }
 
   // Production Orders
@@ -119,8 +111,11 @@ export class ProductionController {
     @Req() req: any,
     @Body() dto: CreateProductionOrderDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.createProductionOrder(tenantId, dto);
+    return this.productionService.createProductionOrder(
+      req.tenantId,
+      req.user?.id,
+      dto,
+    );
   }
 
   @Get("orders/:batchId")
@@ -132,8 +127,10 @@ export class ProductionController {
     @Req() req: any,
     @Param("batchId") batchId: string,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.getProductionOrdersByBatch(tenantId, batchId);
+    return this.productionService.getProductionOrdersByBatch(
+      req.tenantId,
+      batchId,
+    );
   }
 
   @Post("orders/:orderId/start")
@@ -145,8 +142,7 @@ export class ProductionController {
     @Req() req: any,
     @Param("orderId") orderId: string,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.startProductionOrder(tenantId, orderId);
+    return this.productionService.startProductionOrder(req.tenantId, orderId);
   }
 
   @Put("orders/:orderId/complete")
@@ -159,12 +155,55 @@ export class ProductionController {
     @Param("orderId") orderId: string,
     @Body() body: { actualTime: number },
   ) {
-    const tenantId = req.tenantId;
     return this.productionService.completeProductionOrder(
-      tenantId,
+      req.tenantId,
       orderId,
       body.actualTime,
     );
+  }
+
+  @Patch("orders/:orderId/postpone")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Posponer una orden de producción a otra fecha" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Orden pospuesta" })
+  async postponeProductionOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+    @Body() dto: PostponeProductionOrderDto,
+  ) {
+    return this.productionService.postponeProductionOrder(
+      req.tenantId,
+      orderId,
+      dto.scheduledFor,
+    );
+  }
+
+  @Patch("orders/reorder")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Reordenar tareas de producción a mano" })
+  @ApiResponse({ status: 200, description: "Orden guardado" })
+  async reorderProductionOrders(
+    @Req() req: any,
+    @Body() dto: ReorderProductionOrdersDto,
+  ) {
+    return this.productionService.reorderProductionOrders(
+      req.tenantId,
+      dto.orderIds,
+    );
+  }
+
+  @Delete("orders/:orderId")
+  @Roles("ADMIN", "USER")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Eliminar una orden de producción" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Orden eliminada" })
+  async deleteProductionOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.productionService.deleteProductionOrder(req.tenantId, orderId);
   }
 
   // Mise en Place
@@ -176,8 +215,7 @@ export class ProductionController {
     @Req() req: any,
     @Body() dto: CreateMiseEnPlaceSheetDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.createMiseEnPlaceSheet(tenantId, dto);
+    return this.productionService.createMiseEnPlaceSheet(req.tenantId, dto);
   }
 
   @Get("mise-en-place/:sheetId")
@@ -189,8 +227,24 @@ export class ProductionController {
     @Req() req: any,
     @Param("sheetId") sheetId: string,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.getMiseEnPlaceSheet(tenantId, sheetId);
+    return this.productionService.getMiseEnPlaceSheet(req.tenantId, sheetId);
+  }
+
+  @Get("orders/:orderId/mise-en-place-sheet")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Obtener la hoja de mise en place de una orden (null si no tiene)",
+  })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Hoja encontrada o null" })
+  async getMiseEnPlaceSheetByOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.productionService.getMiseEnPlaceSheetByOrder(
+      req.tenantId,
+      orderId,
+    );
   }
 
   @Post("mise-en-place/items")
@@ -201,8 +255,7 @@ export class ProductionController {
     @Req() req: any,
     @Body() dto: CreateMiseEnPlaceItemDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.addMiseEnPlaceItem(tenantId, dto);
+    return this.productionService.addMiseEnPlaceItem(req.tenantId, dto);
   }
 
   @Put("mise-en-place/items/:itemId")
@@ -215,13 +268,11 @@ export class ProductionController {
     @Param("itemId") itemId: string,
     @Body() body: { status: string },
   ) {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
     return this.productionService.updateMiseEnPlaceItem(
-      tenantId,
+      req.tenantId,
       itemId,
       body.status,
-      userId,
+      req.user?.id,
     );
   }
 
@@ -234,12 +285,37 @@ export class ProductionController {
     @Req() req: any,
     @Param("sheetId") sheetId: string,
   ) {
-    const tenantId = req.tenantId;
-    const userId = req.user?.id;
     return this.productionService.verifyMiseEnPlaceSheet(
-      tenantId,
+      req.tenantId,
       sheetId,
-      userId,
+      req.user?.id,
+    );
+  }
+
+  // Production Tasks
+  @Post("tasks")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear tarea de producción" })
+  @ApiResponse({ status: 201, description: "Tarea creada exitosamente" })
+  async createProductionTask(
+    @Req() req: any,
+    @Body() dto: CreateProductionTaskDto,
+  ) {
+    return this.productionService.createProductionTask(req.tenantId, dto);
+  }
+
+  @Get("orders/:orderId/tasks")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar tareas de producción de una orden" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Lista de tareas" })
+  async getProductionTasksByOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+  ) {
+    return this.productionService.getProductionTasksByOrder(
+      req.tenantId,
+      orderId,
     );
   }
 
@@ -252,17 +328,18 @@ export class ProductionController {
     @Req() req: any,
     @Body() dto: CreateTaskAssignmentDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.createTaskAssignment(tenantId, dto);
+    return this.productionService.createTaskAssignment(req.tenantId, dto);
   }
 
   @Get("assignments")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Listar asignaciones de tareas" })
   @ApiResponse({ status: 200, description: "Lista de asignaciones" })
-  async getTaskAssignments(@Req() req: any) {
-    const tenantId = req.tenantId;
-    return this.productionService.getTaskAssignments(tenantId);
+  async getTaskAssignments(
+    @Req() req: any,
+    @Query("orderId") orderId?: string,
+  ) {
+    return this.productionService.getTaskAssignments(req.tenantId, orderId);
   }
 
   @Put("assignments/:assignmentId")
@@ -275,12 +352,41 @@ export class ProductionController {
     @Param("assignmentId") assignmentId: string,
     @Body() dto: UpdateTaskAssignmentDto,
   ) {
-    const tenantId = req.tenantId;
     return this.productionService.updateTaskAssignment(
-      tenantId,
+      req.tenantId,
       assignmentId,
       dto,
     );
+  }
+
+  // Staff
+  @Get("staff")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Listar todo el personal (activo e inactivo)" })
+  @ApiResponse({ status: 200, description: "Lista de personal" })
+  async getStaffMembers(@Req() req: any) {
+    return this.productionService.getStaffMembers(req.tenantId);
+  }
+
+  @Post("staff")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Crear miembro de staff" })
+  @ApiResponse({ status: 201, description: "Miembro de staff creado" })
+  async createStaffMember(@Req() req: any, @Body() dto: CreateStaffMemberDto) {
+    return this.productionService.createStaffMember(req.tenantId, dto);
+  }
+
+  @Put("staff/:staffId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar miembro de staff" })
+  @ApiParam({ name: "staffId", description: "ID del miembro del staff" })
+  @ApiResponse({ status: 200, description: "Miembro de staff actualizado" })
+  async updateStaffMember(
+    @Req() req: any,
+    @Param("staffId") staffId: string,
+    @Body() dto: UpdateStaffMemberDto,
+  ) {
+    return this.productionService.updateStaffMember(req.tenantId, staffId, dto);
   }
 
   @Get("staff/available")
@@ -288,8 +394,7 @@ export class ProductionController {
   @ApiOperation({ summary: "Obtener personal disponible" })
   @ApiResponse({ status: 200, description: "Lista de personal disponible" })
   async getStaffAvailable(@Req() req: any, @Query("zone") zone?: string) {
-    const tenantId = req.tenantId;
-    return this.productionService.getStaffAvailable(tenantId, zone);
+    return this.productionService.getStaffAvailable(req.tenantId, zone);
   }
 
   @Get("staff/:staffId/tasks")
@@ -301,8 +406,7 @@ export class ProductionController {
     @Req() req: any,
     @Param("staffId") staffId: string,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.getStaffMemberTasks(tenantId, staffId);
+    return this.productionService.getStaffMemberTasks(req.tenantId, staffId);
   }
 
   // Progress Tracking
@@ -315,8 +419,7 @@ export class ProductionController {
     @Req() req: any,
     @Param("orderId") orderId: string,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.getProgressTracking(tenantId, orderId);
+    return this.productionService.getProgressTracking(req.tenantId, orderId);
   }
 
   @Get("alerts")
@@ -324,8 +427,7 @@ export class ProductionController {
   @ApiOperation({ summary: "Obtener alertas activas" })
   @ApiResponse({ status: 200, description: "Lista de alertas" })
   async getActiveAlerts(@Req() req: any) {
-    const tenantId = req.tenantId;
-    return this.productionService.getActiveAlerts(tenantId);
+    return this.productionService.getActiveAlerts(req.tenantId);
   }
 
   @Put("alerts/:alertId/resolve")
@@ -338,8 +440,7 @@ export class ProductionController {
     @Param("alertId") alertId: string,
     @Body() dto: UpdateAlertDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.resolveAlert(tenantId, alertId, dto);
+    return this.productionService.resolveAlert(req.tenantId, alertId, dto);
   }
 
   // Reports
@@ -352,7 +453,6 @@ export class ProductionController {
     @Req() req: any,
     @Body() dto: GenerateProductionReportDto,
   ) {
-    const tenantId = req.tenantId;
-    return this.productionService.generateProductionReport(tenantId, dto);
+    return this.productionService.generateProductionReport(req.tenantId, dto);
   }
 }

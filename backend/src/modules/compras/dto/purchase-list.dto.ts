@@ -40,6 +40,16 @@ export class CreatePurchaseListDto {
   @ValidateNested({ each: true })
   @Type(() => PurchaseListItemInputDto)
   items?: PurchaseListItemInputDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  additionalItems?: string;
 }
 
 export class UpdatePurchaseListDto {
@@ -59,6 +69,16 @@ export class UpdatePurchaseListDto {
   @ValidateNested({ each: true })
   @Type(() => PurchaseListItemInputDto)
   items?: PurchaseListItemInputDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  additionalItems?: string;
 }
 
 export class GenerateOrderItemDto {

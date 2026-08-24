@@ -65,6 +65,7 @@ export interface PurchaseOrder {
   supplierId: string;
   locationId?: string | null;
   notes?: string | null;
+  additionalItems?: string | null;
   sentAt?: string | null;
   sentVia?: string | null;
   expectedTotal: number;
@@ -91,8 +92,11 @@ export interface PurchaseOrdersParams {
   page?: number;
   limit?: number;
   status?: PurchaseOrderStatus | '';
+  view?: 'active' | 'history';
   supplierId?: string;
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 interface PaginatedOrders {
@@ -145,6 +149,7 @@ export function useCreatePurchaseOrder() {
       supplierId: string;
       locationId?: string;
       notes?: string;
+      additionalItems?: string;
       lines: PurchaseOrderLineInput[];
     }
   >({
@@ -160,7 +165,12 @@ export function useUpdatePurchaseOrder() {
     Error,
     {
       id: string;
-      data: { locationId?: string; notes?: string; lines?: PurchaseOrderLineInput[] };
+      data: {
+        locationId?: string;
+        notes?: string;
+        additionalItems?: string;
+        lines?: PurchaseOrderLineInput[];
+      };
     }
   >({
     mutationFn: async ({ id, data }) =>
@@ -174,10 +184,28 @@ export function useTransitionPurchaseOrder() {
   return useMutation<
     PurchaseOrder,
     Error,
-    { id: string; status: PurchaseOrderStatus }
+    { id: string; status: PurchaseOrderStatus; reason?: string }
   >({
-    mutationFn: async ({ id, status }) =>
-      (await apiClient.patch(`${BASE_URL}/${id}/estado`, { status })).data,
+    mutationFn: async ({ id, status, reason }) =>
+      (await apiClient.patch(`${BASE_URL}/${id}/estado`, { status, reason })).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useReportOrderIncident() {
+  const invalidate = useInvalidateOrders();
+  return useMutation<PurchaseOrder, Error, { id: string; formData: FormData }>({
+    mutationFn: async ({ id, formData }) =>
+      (await apiClient.post(`${BASE_URL}/${id}/incidencias`, formData)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useRevertPurchaseOrderStatus() {
+  const invalidate = useInvalidateOrders();
+  return useMutation<PurchaseOrder, Error, { id: string; reason: string }>({
+    mutationFn: async ({ id, reason }) =>
+      (await apiClient.patch(`${BASE_URL}/${id}/revertir`, { reason })).data,
     onSuccess: invalidate,
   });
 }
@@ -190,6 +218,18 @@ export function useDeletePurchaseOrder() {
     onSuccess: invalidate,
   });
 }
+
+// Pedidos "en curso" (aún requieren acción) vs "histórico" (cerrados, solo consulta).
+export const ACTIVE_ORDER_STATUSES: PurchaseOrderStatus[] = [
+  'BORRADOR',
+  'PENDIENTE_ENVIO',
+  'ENVIADO',
+  'RECIBIDO_PARCIAL',
+];
+export const HISTORY_ORDER_STATUSES: PurchaseOrderStatus[] = [
+  'RECIBIDO',
+  'CANCELADO',
+];
 
 /** Etiquetas y colores M3 por estado, compartidos por tabla y detalle. */
 export const ORDER_STATUS_META: Record<
@@ -206,16 +246,19 @@ export const ORDER_STATUS_META: Record<
     className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
   },
   ENVIADO: {
+    // Verde: pedido ya enviado al proveedor; distinto tono de RECIBIDO para no confundirlos.
     label: 'Enviado',
-    className: 'bg-[var(--primary)] text-primary-foreground',
+    className: 'bg-emerald-100 text-emerald-800',
   },
   RECIBIDO_PARCIAL: {
+    // Ámbar: señala desfase (recibido no coincide con lo pedido) sin ser un error bloqueante.
     label: 'Recibido parcial',
-    className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
+    className: 'bg-amber-100 text-amber-800',
   },
   RECIBIDO: {
+    // Verde: recepción completa sin discrepancias, distinguible de "parcial".
     label: 'Recibido',
-    className: 'bg-[var(--secondary-container)] text-[var(--on-surface)]',
+    className: 'bg-green-100 text-green-800',
   },
   CANCELADO: {
     label: 'Cancelado',

@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import {
   BadRequestException,
   Body,
@@ -16,10 +18,12 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import {
   ApiBearerAuth,
   ApiConsumes,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -28,12 +32,14 @@ import { PurchaseListService } from "./services/purchase-list.service";
 import { PurchaseOrderService } from "./services/purchase-order.service";
 import { PurchaseOrderStatusService } from "./services/purchase-order-status.service";
 import { PurchaseOrderPdfService } from "./services/purchase-order-pdf.service";
+import { PurchaseOrderConfigService } from "./services/purchase-order-config.service";
 import { OrderSendingService } from "./services/order-sending.service";
 import { OrderReconciliationService } from "./services/order-reconciliation.service";
 import { InvoiceService } from "./services/invoice.service";
 import { PriceAgreementService } from "./services/price-agreement.service";
 import { OfferResolutionService } from "./services/offer-resolution.service";
 import { CatalogImportService } from "./services/catalog-import.service";
+import { CatalogComparisonService } from "./services/catalog-comparison.service";
 import { PurchaseScheduleService } from "./services/purchase-schedule.service";
 import { PurchaseAnalyticsService } from "./services/purchase-analytics.service";
 import { MailService } from "../mail/mail.service";
@@ -63,9 +69,11 @@ import {
 import {
   CreatePurchaseOrderDto,
   PurchaseOrdersQueryDto,
+  RevertPurchaseOrderDto,
   TransitionPurchaseOrderDto,
   UpdatePurchaseOrderDto,
 } from "./dto/purchase-order.dto";
+import { UpdatePurchaseOrderConfigDto } from "./dto/purchase-order-config.dto";
 import { Roles } from "../../decorators/roles.decorator";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -84,16 +92,45 @@ export class ComprasController {
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly purchaseOrderStatusService: PurchaseOrderStatusService,
     private readonly purchaseOrderPdfService: PurchaseOrderPdfService,
+    private readonly purchaseOrderConfigService: PurchaseOrderConfigService,
     private readonly orderSendingService: OrderSendingService,
     private readonly orderReconciliationService: OrderReconciliationService,
     private readonly invoiceService: InvoiceService,
     private readonly priceAgreementService: PriceAgreementService,
     private readonly offerResolutionService: OfferResolutionService,
     private readonly catalogImportService: CatalogImportService,
+    private readonly catalogComparisonService: CatalogComparisonService,
     private readonly purchaseScheduleService: PurchaseScheduleService,
     private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
   ) {}
+
+  // ── Texto fijo del pedido al proveedor (generado desde lista) ──
+
+  @Get("config-pedido")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Texto fijo añadido a los pedidos generados desde lista",
+  })
+  async getPurchaseOrderConfig(@Req() req: any) {
+    const data = await this.purchaseOrderConfigService.getConfig(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Patch("config-pedido")
+  @Roles("ADMIN")
+  @ApiOperation({ summary: "Editar el texto fijo del pedido al proveedor" })
+  async updatePurchaseOrderConfig(
+    @Req() req: any,
+    @Body() dto: UpdatePurchaseOrderConfigDto,
+  ) {
+    const data = await this.purchaseOrderConfigService.updateConfig(
+      req.tenantId,
+      dto,
+      req.user?.id,
+    );
+    return { success: true, data };
+  }
 
   // ── Configuración SMTP del tenant (envío de pedidos por email) ──
 
@@ -301,6 +338,80 @@ export class ComprasController {
       id,
       dto.status,
       req.user?.id,
+      dto.reason,
+    );
+    return { success: true, data };
+  }
+
+  @Post("pedidos/:id/incidencias")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Reportar una incidencia/error del pedido (texto + foto opcional); no cambia el estado",
+  })
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async reportOrderIncident(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body("description") description: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!description || description.trim().length < 10) {
+      throw new BadRequestException(
+        "Describe el error (mínimo 10 caracteres).",
+      );
+    }
+
+    let photoUrl: string | undefined;
+    if (file) {
+      assertAllowedImageType(file);
+      const uploadsDir = path.join(process.cwd(), "uploads", "pedidos-compra");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+      fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
+      photoUrl = `/uploads/pedidos-compra/${fileName}`;
+    }
+
+    const data = await this.purchaseOrderService.reportIncident(
+      req.tenantId,
+      id,
+      req.user?.id,
+      description.trim(),
+      photoUrl,
+    );
+    return { success: true, data };
+  }
+
+  @Patch("pedidos/:id/revertir")
+  @Roles("ADMIN")
+  @ApiOperation({
+    summary:
+      "Corrección administrativa: fuerza la vuelta a BORRADOR desde ENVIADO/RECIBIDO_PARCIAL/RECIBIDO/CANCELADO",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "El estado actual no admite revertir",
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      "Hay recepción o albarán vinculado, requiere corrección manual",
+  })
+  async revertOrder(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: RevertPurchaseOrderDto,
+  ) {
+    const data = await this.purchaseOrderStatusService.revertToDraft(
+      req.tenantId,
+      id,
+      req.user?.id,
+      dto.reason,
     );
     return { success: true, data };
   }
@@ -466,6 +577,28 @@ export class ComprasController {
     return { success: true, data };
   }
 
+  @Get("catalogos/comparar")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Comparar líneas en crudo entre 2+ catálogos ya extraídos (sin aplicar)",
+  })
+  @ApiQuery({
+    name: "ids",
+    description: "IDs de importación de catálogo separados por coma",
+  })
+  async compareCatalogImports(@Req() req: any, @Query("ids") ids?: string) {
+    const catalogImportIds = (ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const data = await this.catalogComparisonService.compare(
+      req.tenantId,
+      catalogImportIds,
+    );
+    return { success: true, data };
+  }
+
   @Get("catalogos/:id")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Detalle de una importación con sus líneas" })
@@ -519,6 +652,16 @@ export class ComprasController {
   async discardCatalogImport(@Req() req: any, @Param("id") id: string) {
     const data = await this.catalogImportService.discard(req.tenantId, id);
     return { success: true, data };
+  }
+
+  @Delete("catalogos/:id")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary: "Borrar el registro de una importación de catálogo",
+  })
+  async removeCatalogImport(@Req() req: any, @Param("id") id: string) {
+    await this.catalogImportService.remove(req.tenantId, id);
+    return { success: true };
   }
 
   // ── Comparativa de proveedores y activación de oferta por local ──

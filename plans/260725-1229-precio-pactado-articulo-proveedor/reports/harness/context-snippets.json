@@ -1,0 +1,32 @@
+{
+  "skill": "ck:cook",
+  "mode": "code",
+  "task": "Precio pactado simplificado: 1-clic en Articulos, link a ficha proveedor, ficha con pestanas en Proveedores",
+  "acceptanceCriteria": [
+    "Click en usar precio actual guarda agreedPrice = purchasePrice en 1 clic sin confirmacion",
+    "Edicion manual y limpiar a Sin pactar siguen funcionando igual que antes de la extraccion",
+    "Nombre del proveedor en Articulos abre la ficha del proveedor correcta",
+    "Ficha de proveedor tiene pestanas reales: Precios pactados y Productos e historico",
+    "Expandible oculto en supplier-table.tsx desaparece, sustituido por el dialogo",
+    "Rol VIEWER ve Precios pactados en solo lectura sin controles de edicion",
+    "GET /v1/products/suppliers/:id/offers devuelve ofertas con producto anidado, excluye productos soft-deleted"
+  ],
+  "touchpoints": [
+    "backend/src/modules/products/products.service.ts",
+    "backend/src/modules/products/products.controller.ts",
+    "frontend/src/app/dashboard/articulos/components/agreed-price-cell.tsx",
+    "frontend/src/app/dashboard/articulos/components/tab-proveedor-stock.tsx",
+    "frontend/src/app/dashboard/proveedores/components/supplier-offers-ficha-dialog.tsx",
+    "frontend/src/app/dashboard/proveedores/components/supplier-table.tsx",
+    "frontend/src/app/dashboard/proveedores/page.tsx",
+    "frontend/src/hooks/use-products.ts"
+  ],
+  "publicContracts": [
+    "new additive endpoint: GET /v1/products/suppliers/:id/offers"
+  ],
+  "blastRadius": [
+    "Articulos modal tab Proveedor/Stock (precio pactado UI)",
+    "Proveedores listado (fila expandible sustituida por dialogo)"
+  ],
+  "scoutSummary": "agreedPrice ya existia en ProductSupplierOffer y ya era editable desde Articulos; el trabajo es UX (1-clic, link) + una vista nueva (ficha por proveedor) + un endpoint de lectura nuevo que espeja getSupplierProducts pero via la tabla de ofertas."
+}

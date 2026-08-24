@@ -86,6 +86,7 @@ export interface Product {
   hideAllergens: boolean;
   imageUrl?: string;
   isActive: boolean;
+  tracksInventory: boolean;
   tenantId: string;
   category?: ProductCategory;
   supplier?: ProductSupplier;
@@ -139,6 +140,7 @@ export interface CreateProductData {
   brand?: string;
   hideAllergens?: boolean;
   imageUrl?: string;
+  tracksInventory?: boolean;
   nutritionalInfo?: NutritionalInfoInput;
   minimumStock?: number;
   maximumStock?: number;
@@ -209,8 +211,8 @@ export function useProducts(query?: ProductsQuery) {
   );
 }
 
-export function useProduct(id: string) {
-  return useGet(id);
+export function useProduct(id: string, options?: { enabled?: boolean }) {
+  return useGet(id, { enabled: !!id, ...options });
 }
 
 export function useCreateProduct() {
@@ -284,6 +286,22 @@ export function useMergeProduct() {
   });
 }
 
+/**
+ * Descarta el aviso de "posible duplicado" entre dos artículos concretos.
+ * El backend lo persiste en ambos sentidos: no vuelve a avisar al editar
+ * ninguno de los dos contra el otro.
+ */
+export function useDismissDuplicate() {
+  return useMutation({
+    mutationFn: async ({ productId, dismissedProductId }: { productId: string; dismissedProductId: string }) => {
+      const response = await apiClient.post<{ success: boolean }>(
+        `/v1/products/${productId}/duplicate-dismissals/${dismissedProductId}`
+      );
+      return response.data;
+    },
+  });
+}
+
 export function useUploadProductImage() {
   return useApiMutation<{ url: string }, FormData>(
     '/v1/products/upload-image',
@@ -291,10 +309,25 @@ export function useUploadProductImage() {
   );
 }
 
+/**
+ * Factor de descuento fijo del proveedor (bruto × (1 − dto/100)). Espejo del
+ * backend (product-costing.util.ts): el descuento reduce el precio de compra a
+ * efectos de coste. Usado por getReferencePrice/getRealPrice para que el
+ * listado y los exports muestren el precio efectivo, consistente con el
+ * escandallo. También lo aplica normalizePrice (histórico/badge de tendencia)
+ * para que el precio de referencia mostrado sea consistente con el listado.
+ */
+export function applyPurchaseDiscount(
+  price: number,
+  discountPercentage?: number | null,
+): number {
+  return price * (1 - (Number(discountPercentage ?? 0) / 100));
+}
+
 /** Calculate reference price: price per kg/L/und */
 export function getReferencePrice(product: Product): number {
   const size = product.unitSize || 1;
-  return product.purchasePrice / size;
+  return applyPurchaseDiscount(product.purchasePrice / size, product.discountPercentage);
 }
 
 /**
@@ -303,8 +336,13 @@ export function getReferencePrice(product: Product): number {
  * normalizadas en vez de purchasePrice crudo (evita variaciones falsas cuando
  * cambia el tamaño de caja/formato entre compras).
  */
-export function normalizePrice(price: number, unitSize?: number | null): number {
-  return unitSize ? price / unitSize : price;
+export function normalizePrice(
+  price: number,
+  unitSize?: number | null,
+  discountPercentage?: number | null,
+): number {
+  const perUnit = unitSize ? price / unitSize : price;
+  return applyPurchaseDiscount(perUnit, discountPercentage);
 }
 
 /** Tolerancia relativa para considerar dos precios normalizados "iguales" —
@@ -333,7 +371,10 @@ export function getRealPrice(product: Product): number | null {
   const hasYieldInfo = (!!product.grossWeight && !!product.netWeight) || product.wastePercentage > 0;
   if (!hasYieldInfo) return null;
   const unitSize = product.unitSize || 1;
-  return product.purchasePrice / unitSize / (product.yieldFactor || 1);
+  return applyPurchaseDiscount(
+    product.purchasePrice / unitSize / (product.yieldFactor || 1),
+    product.discountPercentage,
+  );
 }
 
 /**
@@ -462,4 +503,38 @@ export function useSetPreferredSupplierOffer() {
     },
     onSuccess: (_, variables) => invalidateSupplierOffers(queryClient, variables.productId),
   });
+}
+
+/** Oferta de un proveedor vista desde el lado del proveedor (Ficha de Proveedor): incluye el producto asociado. */
+export interface SupplierOfferWithProduct extends ProductSupplierOffer {
+  product: { id: string; name: string; category?: { id: string; name: string } | null };
+}
+
+export function useSupplierOffers(supplierId: string | null) {
+  return useApiQuery<SupplierOfferWithProduct[]>(
+    ['suppliers', supplierId ?? '', 'offers'],
+    `/v1/products/suppliers/${supplierId}/offers`,
+    { enabled: !!supplierId }
+  );
+}
+
+/** Resumen que devuelve el endpoint de relleno automático de imagen (Pexels). */
+export interface BackfillImagesResult {
+  processed: number;
+  updated: number;
+  skipped: number;
+  failed: Array<{ id: string; name: string; reason: string }>;
+  remaining: number;
+}
+
+/**
+ * Mutación para asignar automáticamente la primera imagen de Pexels a los
+ * artículos activos sin imageUrl. Procesa un lote por llamada; el llamador
+ * itera hasta `remaining === 0`. El backend ya filtra por tenant.
+ */
+export function useBackfillProductImages() {
+  return useApiMutation<BackfillImagesResult, void>(
+    '/v1/products/backfill-images?limit=40',
+    'POST'
+  );
 }

@@ -12,7 +12,7 @@ export default function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; o
 
   return (
     <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-6 border border-gray-200 dark:border-zinc-800 w-full max-w-4xl shadow-xl rounded-md bg-white dark:bg-zinc-900 text-gray-900 dark:text-white mb-10">
+      <div className="relative top-10 mx-auto p-6 border border-gray-200 dark:border-zinc-800 w-[95vw] max-w-6xl shadow-xl rounded-md bg-white dark:bg-zinc-900 text-gray-900 dark:text-white mb-10">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
             Costo: {recipe.name}

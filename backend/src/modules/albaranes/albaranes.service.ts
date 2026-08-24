@@ -10,17 +10,27 @@ import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ocr/python-ocr.service";
+import { OcrConfigService } from "../ocr-config/ocr-config.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
 import {
   UpdateAlbaranDto,
   UpdateAlbaranLineDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
-import { AlbaranStatus } from "@prisma/client";
+import { AlbaranStatus, PurchaseOrderStatus } from "@prisma/client";
 
 @Injectable()
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
+
+  // Prefijos autogenerados cuando no hay número real (usuario no lo rellenó
+  // en el alta manual, o el OCR no lo detectó). No son números de proveedor:
+  // compararlos daría un "duplicado" en cada nuevo albarán sin número.
+  private static readonly SYNTHETIC_NUMBER_PREFIXES = [
+    "MANUAL-",
+    "OCR-",
+    "FALLBACK-",
+  ];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -29,6 +39,7 @@ export class AlbaranesService {
     private readonly supplierMatching: SupplierMatchingService,
     private readonly lineMatching: LineMatchingService,
     private readonly pythonOcrService: PythonOcrService,
+    private readonly ocrConfigService: OcrConfigService,
   ) {}
 
   /** Create albaran with lines from manual entry */
@@ -51,6 +62,7 @@ export class AlbaranesService {
         warehouseId: dto.warehouseId,
         purchaseOrderId: dto.purchaseOrderId,
         notes: dto.notes,
+        applyDiscountToCost: dto.applyDiscountToCost ?? false,
         lines: {
           create: dto.lines.map((line) => ({
             articleNumber: line.articleNumber,
@@ -61,11 +73,58 @@ export class AlbaranesService {
             unitPrice: line.unitPrice,
             vatPercent: line.vatPercent ?? 10,
             priceWithVat: line.priceWithVat,
+            // Importe neto del papel (con descuento si lo hay). Se persiste para
+            // mostrarlo y, si el usuario activa applyDiscountToCost, usarlo de base
+            // de coste al confirmar. lineAmount sigue siendo el bruto qty × precio.
+            totalPrice: line.totalPrice ?? null,
             lineAmount: line.lineAmount ?? line.quantity * line.unitPrice,
           })),
         },
       },
       include: { lines: true, supplier: true },
+    });
+  }
+
+  /**
+   * Advisory-only: busca un albarán ya existente (no borrado) del mismo
+   * proveedor con el mismo número. No bloquea la creación, solo informa —
+   * el mismo número puede repetirse legítimamente entre proveedores
+   * distintos, o el usuario puede querer corregir un alta anterior mal
+   * hecha. `excludeId` evita el falso positivo del propio albarán al editar.
+   */
+  async checkDuplicate(
+    tenantId: string,
+    supplierId: string | undefined,
+    albaranNumber: string | undefined,
+    excludeId?: string,
+  ) {
+    const trimmed = (albaranNumber ?? "").trim();
+    if (!supplierId || !trimmed) {
+      return null;
+    }
+    if (
+      AlbaranesService.SYNTHETIC_NUMBER_PREFIXES.some((prefix) =>
+        trimmed.startsWith(prefix),
+      )
+    ) {
+      return null;
+    }
+
+    return this.prisma.albaran.findFirst({
+      where: {
+        tenantId,
+        supplierId,
+        albaranNumber: { equals: trimmed, mode: "insensitive" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: {
+        id: true,
+        albaranNumber: true,
+        date: true,
+        status: true,
+        total: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -136,8 +195,8 @@ export class AlbaranesService {
           select: { id: true, orderNumber: true, status: true },
         },
         lines: {
-          include: { matchedProduct: true },
-          orderBy: { createdAt: "asc" },
+          include: { matchedProduct: true, suggestedProduct: true },
+          orderBy: [{ lineOrder: "asc" }, { createdAt: "asc" }],
         },
       },
     });
@@ -170,6 +229,7 @@ export class AlbaranesService {
         warehouseId: dto.warehouseId,
         // undefined (no viene en el body) no toca el campo; null desvincula
         purchaseOrderId: dto.purchaseOrderId,
+        applyDiscountToCost: dto.applyDiscountToCost,
       },
       include: { lines: true, supplier: true, purchaseOrder: true },
     });
@@ -290,6 +350,27 @@ export class AlbaranesService {
     return updatedLine;
   }
 
+  /**
+   * Discard the auto-suggested product for a line (user says "not this
+   * one"). Persiste el descarte: matchAllLines no debe volver a rellenar
+   * suggestedProductId para esta línea en un re-match futuro.
+   */
+  async dismissSuggestion(albaranId: string, lineId: string, tenantId: string) {
+    await this.findOne(albaranId, tenantId);
+
+    const line = await this.prisma.albaranLine.findFirst({
+      where: { id: lineId, albaranId },
+    });
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+
+    return this.prisma.albaranLine.update({
+      where: { id: lineId },
+      data: { suggestedProductId: null, suggestionDismissed: true },
+    });
+  }
+
   /** Confirm or reject a line */
   async setLineStatus(
     albaranId: string,
@@ -364,38 +445,106 @@ export class AlbaranesService {
     tenantId: string,
     aiModel?: string,
     aiApiKey?: string,
+    purchaseOrderId?: string,
   ) {
     this.logger.log(
       `Creating albaran from upload for tenant ${tenantId} (${files.length} files, AI: ${aiModel || "regex"})`,
     );
 
-    const file = files[0];
-    if (!file) {
+    if (!files || files.length === 0) {
       throw new BadRequestException("No file provided");
     }
 
-    try {
-      // 1. Process file via Python OCR microservice (buffer directly, no disk save needed)
-      const ocrResult = await this.pythonOcrService.processImage(
-        file.buffer,
-        file.originalname,
-        file.mimetype,
-        aiModel,
-        aiApiKey,
-      );
+    // Subida desde el detalle de un pedido: valida que el pedido admita
+    // recepción y usa su proveedor como respaldo si el OCR no matchea uno.
+    let purchaseOrder: { id: string; supplierId: string } | null = null;
+    if (purchaseOrderId) {
+      purchaseOrder = await this.prisma.purchaseOrder.findFirst({
+        where: {
+          id: purchaseOrderId,
+          tenantId,
+          status: {
+            in: [
+              PurchaseOrderStatus.ENVIADO,
+              PurchaseOrderStatus.RECIBIDO_PARCIAL,
+            ],
+          },
+        },
+        select: { id: true, supplierId: true },
+      });
+      if (!purchaseOrder) {
+        throw new BadRequestException(
+          "El pedido de compra no existe o no está en un estado que admita recepción",
+        );
+      }
+    }
 
-      if (!ocrResult.success || !ocrResult.document) {
+    try {
+      // 1. Resolver motor IA + API key: prioriza lo que envíe el cliente
+      //    (backward compat con localStorage) y, si no trae nada, usa la config
+      //    guardada del tenant (multi-device: un móvil sin key usa la IA igual).
+      const { aiModel: effModel, aiApiKey: effKey } =
+        await this.ocrConfigService.resolveForUpload(tenantId, {
+          aiModel,
+          aiApiKey,
+        });
+
+      // 2. Process every file via Python OCR microservice (secuencial: el
+      //    microservicio es un proceso único con timeouts de 120s/request,
+      //    paralelizar no aporta nada para el caso típico de 2-3 hojas).
+      //    Un fallo de un archivo se captura localmente y no debe tirar todo
+      //    el upload al fallback vacío si al menos uno tuvo éxito — es
+      //    justo el bug que se corrige aquí (antes solo se usaba files[0]
+      //    y el resto se descartaba en silencio).
+      const successfulDocuments: Array<{ filename: string; document: any }> =
+        [];
+      const failedFiles: Array<{ filename: string; reason: string }> = [];
+
+      for (const uploadedFile of files) {
+        try {
+          const ocrResult = await this.pythonOcrService.processImage(
+            uploadedFile.buffer,
+            uploadedFile.originalname,
+            uploadedFile.mimetype,
+            effModel,
+            effKey,
+          );
+          if (ocrResult.success && ocrResult.document) {
+            successfulDocuments.push({
+              filename: uploadedFile.originalname,
+              document: ocrResult.document,
+            });
+          } else {
+            failedFiles.push({
+              filename: uploadedFile.originalname,
+              reason: ocrResult.error || "OCR sin éxito",
+            });
+          }
+        } catch (err: any) {
+          failedFiles.push({
+            filename: uploadedFile.originalname,
+            reason: err.message,
+          });
+        }
+      }
+
+      if (successfulDocuments.length === 0) {
         throw new Error(
-          `OCR processing returned no results: ${ocrResult.error || "unknown error"}`,
+          `OCR falló en los ${files.length} archivo(s): ` +
+            failedFiles.map((f) => `${f.filename} (${f.reason})`).join(", "),
         );
       }
 
-      const document = ocrResult.document;
+      const document = this.mergeOcrDocuments(successfulDocuments);
       const extractedProducts = document.products || [];
 
       this.logger.log(
         `OCR result: supplier="${document.supplier_name || "N/A"}", ` +
-          `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%`,
+          `products=${extractedProducts.length}, confidence=${((document.confidence || 0) * 100).toFixed(1)}%, ` +
+          `files=${successfulDocuments.length}/${files.length} OK` +
+          (failedFiles.length > 0
+            ? `, fallos=${failedFiles.map((f) => f.filename).join(", ")}`
+            : ""),
       );
 
       // 2. Match supplier from OCR-detected data
@@ -410,6 +559,7 @@ export class AlbaranesService {
         await this.supplierMatching.enrichSupplierFromOcr(
           supplierMatch.supplierId,
           {
+            legalName: document.supplier_name,
             address: document.supplier_address,
             phone: document.supplier_phone,
             email: document.supplier_email,
@@ -457,7 +607,10 @@ export class AlbaranesService {
         data: {
           tenantId,
           internalNumber,
-          supplierId: supplierMatch.supplierId,
+          // Si el OCR no matchea proveedor, el del pedido de origen es mejor
+          // dato que dejarlo vacío: ya sabemos a quién se le compró.
+          supplierId: supplierMatch.supplierId ?? purchaseOrder?.supplierId,
+          purchaseOrderId: purchaseOrder?.id,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
           date: document.document_date
             ? new Date(document.document_date)
@@ -468,9 +621,17 @@ export class AlbaranesService {
           vatBreakdown: document.vat_breakdown ?? undefined,
           total: document.total_amount || 0,
           ocrRawData: document as any,
-          notes: `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`,
+          notes:
+            `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)` +
+            (failedFiles.length > 0
+              ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}) — revisa si faltan líneas.`
+              : ""),
           lines: {
-            create: extractedProducts.map((product: any) => ({
+            // lineOrder preserva el orden del documento: createdAt no sirve de
+            // desempate (create anidado = misma transacción = mismo now() para
+            // todas las líneas), y el matching en segundo plano reordena
+            // físicamente las filas al hacer UPDATE por línea.
+            create: extractedProducts.map((product: any, index: number) => ({
               articleNumber: product.article_number || null,
               lot: product.lot || null,
               description: product.name || product.description || "",
@@ -479,25 +640,40 @@ export class AlbaranesService {
               unitPrice: product.unit_price || 0,
               vatPercent: product.vat_percent ?? 10,
               priceWithVat: product.price_with_vat ?? null,
+              // Importe neto leído del papel por el OCR (sin IVA, con descuento).
+              // El OCR puede traer qty/unit_price que no cuadran con este total
+              // cuando hay un descuento; el papel manda para mostrar el neto.
+              totalPrice: product.total_price ?? null,
               lineAmount: (product.quantity || 0) * (product.unit_price || 0),
+              lineOrder: index,
             })),
           },
         },
         include: { lines: true, supplier: true },
       });
 
-      // 4. Run line matching in background (non-blocking)
-      this.lineMatching.matchAllLines(albaran.id, tenantId).catch((err) => {
-        this.logger.error(
-          `Line matching failed for albaran ${albaran.id}: ${err.message}`,
-        );
+      // 4. Run line matching antes de responder: el resumen que se muestra
+      // justo tras subir el archivo (subir/page.tsx) lee matchStatus/confidence
+      // de esta respuesta, así que si corriera en background (como antes)
+      // esos campos saldrían vacíos y el badge mostraría siempre "Nuevo".
+      await this.lineMatching
+        .matchAllLines(albaran.id, tenantId)
+        .catch((err) => {
+          this.logger.error(
+            `Line matching failed for albaran ${albaran.id}: ${err.message}`,
+          );
+        });
+
+      const matchedAlbaran = await this.prisma.albaran.findFirst({
+        where: { id: albaran.id, tenantId },
+        include: { lines: true, supplier: true },
       });
 
       this.logger.log(
         `Albaran created from upload: ${albaran.id} with ${albaran.lines.length} lines`,
       );
 
-      return albaran;
+      return matchedAlbaran ?? albaran;
     } catch (error) {
       this.logger.error(
         `Failed to create albaran from upload: ${error.message}`,
@@ -510,6 +686,8 @@ export class AlbaranesService {
         data: {
           tenantId,
           internalNumber,
+          supplierId: purchaseOrder?.supplierId,
+          purchaseOrderId: purchaseOrder?.id,
           albaranNumber: `FALLBACK-${Date.now()}`,
           date: new Date(),
           base: 0,
@@ -526,6 +704,63 @@ export class AlbaranesService {
       );
       return albaran;
     }
+  }
+
+  /**
+   * Fusiona los documentos OCR de varios archivos (p.ej. las hojas 1 y 2 de
+   * un mismo albarán de papel) en un único documento: productos concatenados
+   * en orden de subida, campos de cabecera con "primer valor no vacío gana"
+   * (no se asume que la cabecera esté siempre en la primera hoja), confianza
+   * media, y raw_text concatenado para que el refine por layout hints siga
+   * viendo todo el texto. Con un solo documento de entrada, el resultado es
+   * observacionalmente idéntico al documento original (no-regresión).
+   */
+  private mergeOcrDocuments(
+    successfulDocuments: Array<{ filename: string; document: any }>,
+  ): any {
+    const merged: any = { ...successfulDocuments[0].document };
+
+    merged.products = successfulDocuments.flatMap(
+      (d) => d.document.products || [],
+    );
+
+    const headerFields = [
+      "supplier_name",
+      "supplier_cif",
+      "cif_code",
+      "supplier_address",
+      "supplier_phone",
+      "supplier_email",
+      "supplier_sanitary_registry",
+      "document_number",
+      "document_date",
+      "gross_amount",
+      "tax_base",
+      "vat_total",
+      "vat_breakdown",
+      "total_amount",
+    ];
+    for (const field of headerFields) {
+      if (!merged[field]) {
+        const withValue = successfulDocuments.find((d) => d.document[field]);
+        if (withValue) {
+          merged[field] = withValue.document[field];
+        }
+      }
+    }
+
+    const confidences = successfulDocuments.map(
+      (d) => d.document.confidence || 0,
+    );
+    merged.confidence =
+      confidences.reduce((sum, c) => sum + c, 0) / confidences.length;
+
+    merged.raw_text = successfulDocuments
+      .map((d) => d.document.raw_text || "")
+      .filter(Boolean)
+      .join("\n\n--- página siguiente ---\n\n");
+
+    return merged;
   }
 
   /**
@@ -558,12 +793,14 @@ export class AlbaranesService {
         albaranId,
         description: dto.description,
         quantity,
-        unit: dto.unit || "und",
+        unit: dto.unit || "kilo",
         unitPrice,
         vatPercent,
         lineAmount,
         articleNumber: dto.articleNumber || null,
         lot: dto.lot || null,
+        // Añadida al final del documento, detrás de las líneas existentes
+        lineOrder: albaran.lines.length,
       },
     });
 

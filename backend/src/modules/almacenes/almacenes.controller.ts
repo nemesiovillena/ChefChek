@@ -35,7 +35,7 @@ import {
 } from "./dto/almacenes.dto";
 
 @ApiTags("Almacenes")
-@Controller("almacenes")
+@Controller("api/v1/almacenes")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
 @RequireModule("almacenes")
 export class AlmacenesController {

@@ -19,12 +19,19 @@ export interface AlbaranLine {
   unitPrice: number;
   vatPercent: number;
   priceWithVat: number | null;
+  /** Importe neto de la línea leído del papel (sin IVA, con descuento). null si el OCR no lo trajo. */
+  totalPrice: number | null;
+  /** Importe bruto de línea = cantidad × precio unidad (sin IVA, sin descuento). */
   lineAmount: number;
   matchStatus: MatchStatus;
   lineStatus: LineStatus;
   matchedProductId: string | null;
-  matchedProduct: { id: string; name: string; netPrice: number } | null;
+  matchedProduct: { id: string; name: string; netPrice: number; discountPercentage: number; purchasePrice: number } | null;
   confidence: number | null;
+  /** Mejor candidato cuando NO hubo auto-match (MATCH_DUDOSO o NUEVO). Descartable con dismissSuggestion. */
+  suggestedProductId: string | null;
+  suggestedProduct: { id: string; name: string } | null;
+  suggestionDismissed: boolean;
 }
 
 export interface Albaran {
@@ -38,6 +45,8 @@ export interface Albaran {
   base: number;
   vatTotal: number;
   total: number;
+  /** Opt-in: al confirmar, aplicar el descuento de línea al precio de compra/escandallos. */
+  applyDiscountToCost?: boolean;
   status: AlbaranStatus;
   warehouseId: string | null;
   warehouse: { id: string; name: string } | null;
@@ -53,6 +62,8 @@ export interface Albaran {
     extraction_method?: string;
     extraction_model?: string;
     confidence?: number;
+    /** Nombre de proveedor tal como lo leyó el OCR, antes de intentar hacer match contra la BD */
+    supplier_name?: string | null;
   } | null;
 }
 
@@ -74,10 +85,10 @@ export interface AlbaranFilters {
 // Auth headers
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  const sessionId = sessionStorage.getItem('session_id');
+  const sessionId = localStorage.getItem('session_id');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (sessionId) headers['Authorization'] = `Bearer ${sessionId}`;
-  const tenantSlug = sessionStorage.getItem('tenant_slug');
+  const tenantSlug = localStorage.getItem('tenant_slug');
   if (tenantSlug) headers['X-Tenant-Slug'] = tenantSlug;
   return headers;
 }
@@ -127,6 +138,8 @@ export async function updateAlbaran(
     warehouseId?: string;
     /** Vincula un pedido de compra (conciliación); null para desvincular */
     purchaseOrderId?: string | null;
+    /** Opt-in: aplicar el descuento de línea al coste al confirmar */
+    applyDiscountToCost?: boolean;
   }
 ): Promise<Albaran> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}`, {
@@ -221,6 +234,19 @@ export async function rejectLine(albaranId: string, lineId: string): Promise<Alb
   return response.json();
 }
 
+// Dismiss the auto-suggested product for a line (persists: won't resurface on re-match)
+export async function dismissSuggestion(albaranId: string, lineId: string): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/dismiss-suggestion`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error dismissing suggestion' }));
+    throw new Error(error.message || 'Error dismissing suggestion');
+  }
+  return response.json();
+}
+
 // Delete albaran
 export async function deleteAlbaran(id: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}`, {
@@ -231,6 +257,38 @@ export async function deleteAlbaran(id: string): Promise<void> {
     const error = await response.json().catch(() => ({ message: 'Error deleting albaran' }));
     throw new Error(error.message || 'Error deleting albaran');
   }
+}
+
+export interface AlbaranDuplicateMatch {
+  id: string;
+  albaranNumber: string;
+  date: string;
+  status: AlbaranStatus;
+  total: number;
+}
+
+/**
+ * Advisory-only: comprueba si ya existe un albarán del mismo proveedor con
+ * el mismo número. No bloquea el alta. El backend descarta números
+ * autogenerados (MANUAL-/OCR-/FALLBACK-) para no avisar en falso cuando
+ * todavía no hay número real.
+ */
+export async function checkAlbaranDuplicate(
+  supplierId: string,
+  albaranNumber: string,
+  excludeId?: string,
+): Promise<AlbaranDuplicateMatch | null> {
+  const params = new URLSearchParams({ supplierId, albaranNumber });
+  if (excludeId) params.append('excludeId', excludeId);
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/check-duplicate?${params.toString()}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    return null;
+  }
+  const json = await response.json();
+  return json.data ?? null;
 }
 
 /** Add a manual line to an existing albarán */

@@ -91,3 +91,25 @@ export function normalizeProductDescription(text: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Extrae la primera palabra "significativa" (\u22653 letras) de un texto,
+ * tratando guion/slash/par\u00e9ntesis/coma/punto como separadores de palabra
+ * (no como caracteres de la propia palabra). Sin esto, "X-Demi" o
+ * "Demi-Glace" se comparan como un \u00fanico token pegado ("x-demi",
+ * "demi-glace") y nunca casan con la palabra real compartida ("demi").
+ * Si ninguna palabra alcanza 3 letras, cae al primer token normalizado
+ * (evita devolver cadena vac\u00eda).
+ *
+ * @param text - Texto de descripci\u00f3n (l\u00ednea OCR o nombre de art\u00edculo)
+ * @returns Primera palabra significativa, en min\u00fasculas
+ */
+export function extractFirstSignificantWord(text: string): string {
+  const words = text
+    .toLowerCase()
+    .replace(/[-/(),.]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  return words.find((w) => w.length >= 3) ?? words[0] ?? "";
+}

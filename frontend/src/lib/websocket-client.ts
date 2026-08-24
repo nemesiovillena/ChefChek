@@ -173,6 +173,8 @@ export interface NotificationEvent {
   message: string;
   data?: Record<string, unknown>;
   actionUrl?: string;
+  entityType?: string;
+  entityId?: string;
   read?: boolean;
   timestamp: Date;
   createdAt: Date;

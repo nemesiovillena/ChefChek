@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { useNotification } from '@/components/notification-system';
 import { useCreateUser, useUpdateUser, useUploadUserAvatar, User } from '@/hooks/use-users';
+import { processImageForUpload } from '@/lib/image-processing';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -61,18 +62,25 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
 
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification({ type: 'error', title: 'Error', message: 'El archivo no puede superar los 2 MB' });
-      return;
-    }
-    const form = new FormData();
-    form.append('file', file);
     try {
+      // Re-encode to a resized JPEG first: normalizes non-standard source
+      // mimetypes (the image/jpg JPEG alias, HEIC where the browser can
+      // decode it) and shrinks phone photos so they stay under the limit.
+      const processed = await processImageForUpload(file);
+      if (processed.size > 2 * 1024 * 1024) {
+        addNotification({ type: 'error', title: 'Error', message: 'El archivo no puede superar los 2 MB' });
+        return;
+      }
+      const form = new FormData();
+      form.append('file', processed);
       const result = await uploadAvatarMutation.mutateAsync(form);
       setAvatarUrl(result.avatarUrl);
-    } catch {
-      addNotification({ type: 'error', title: 'Error', message: 'Error al subir la foto' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al subir la foto';
+      addNotification({ type: 'error', title: 'Error', message });
     }
   };
 
@@ -94,10 +102,15 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
       return;
     }
 
+    // Only send role when it actually changed from the original. The edited
+    // user may have a role (OWNER/SUPERADMIN) outside the backend enum, and
+    // echoing it back would 400 and block saving unrelated profile fields.
+    const roleChanged = !targetUser || formData.role !== targetUser.role;
+
     const commonData = {
       email: formData.email,
       name: formData.name,
-      role: formData.role,
+      ...(roleChanged ? { role: formData.role } : {}),
       isActive: formData.isActive,
       avatarUrl: avatarUrl || undefined,
       street: formData.street || undefined,
@@ -175,6 +188,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
                 <option value="USER">USER</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="VIEWER">VIEWER</option>
+                {targetUser?.role && !["USER", "ADMIN", "VIEWER"].includes(targetUser.role) && (
+                  <option value={targetUser.role} disabled>
+                    {targetUser.role} (rol actual, no editable)
+                  </option>
+                )}
               </select>
             </div>
           </div>
@@ -197,8 +215,8 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
               <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-gray-300 dark:border-zinc-700 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800">
                 Subir foto
               </button>
-              <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF)</span>
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarFileChange} className="hidden" />
+              <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF, HEIC)</span>
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" onChange={handleAvatarFileChange} className="hidden" />
             </div>
             {avatarUrl && (
               <div className="mt-3">

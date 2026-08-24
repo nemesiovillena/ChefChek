@@ -10,6 +10,7 @@ import {
   referencePriceChanged,
 } from "../../common/utils/unit-conversions";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { NotificationsService } from "../core/notifications.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -21,6 +22,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private resolveLastPurchase(
@@ -106,6 +108,11 @@ export class ProductsService {
       ...productData,
     };
 
+    // imageUrl "" → null (mismo motivo que en update(): borrar/coherente).
+    if (createData.imageUrl === "") {
+      createData.imageUrl = null;
+    }
+
     if (category) {
       createData.categoryId = category;
     }
@@ -130,6 +137,29 @@ export class ProductsService {
         stocks: true,
       },
     });
+
+    // Alta con proveedor: crear la oferta preferente inicial. Sin esto el
+    // artículo queda con Product.supplierId plano pero sin ninguna fila en
+    // ProductSupplierOffer, y la pestaña "Proveedor y Stock" del modal de
+    // edición (que lee offers, no el campo plano) lo mostraría "sin
+    // proveedor" hasta que se editara el precio. No es una compra confirmada,
+    // así que promoteToPreferred=false: upsertOffer la marca preferente
+    // igualmente por ser la primera oferta del producto (offerCount === 0).
+    if (supplier) {
+      await this.productSupplierOffersService.upsertOffer(
+        product.id,
+        supplier,
+        requestTenantId,
+        {
+          purchasePrice: product.purchasePrice,
+          netPrice: product.netPrice,
+          purchaseFormat: product.purchaseFormat,
+          referenceUnit: product.referenceUnit,
+          unitsPerFormat: product.unitsPerFormat,
+          referenceUnitSize: product.referenceUnitSize,
+        },
+      );
+    }
 
     // Create stock record with min/max if provided
     if (minimumStock !== undefined || maximumStock !== undefined) {
@@ -169,33 +199,99 @@ export class ProductsService {
       return [];
     }
 
-    // Matching "exacto + contiene" (accent-insensitive): avisa no solo si el
-    // nombre es idéntico, sino si lo escrito está contenido en uno existente o
-    // viceversa. Así "aceite girasol" coincide con "Aceite girasol alto oleico"
-    // o "Aceite de girasol (Ruiz)". NO detecta typos ("grasol"≠"girasol").
-    // Se normaliza una sola vez (CTE + subquery) para no repetir translate().
+    // Matching "exacto + contiene + primera palabra significativa"
+    // (accent-insensitive): avisa si el nombre es idéntico, si lo escrito
+    // está contenido en uno existente (o viceversa: "aceite girasol" ⊂
+    // "Aceite girasol alto oleico"), o si ambos empiezan por la misma
+    // palabra significativa (≥3 letras: evita ruido con "de/el/la"). Este
+    // último caso cubre líneas OCR de albarán largas que solo comparten el
+    // género del producto con el artículo ya existente, ej. "Lejía caja
+    // 6ud x 2L" vs "Lejía alimentaria 2L sanitaria" — mismo inicio, cero
+    // contención mutua. Los separadores (-/(),.) se normalizan a espacio
+    // ANTES de tomar "la primera palabra": sin esto, un guion pegado al
+    // inicio ("X-Demi glace...") o dentro de una palabra compuesta
+    // ("Demi-glace...") cambia el primer token literal y el match se
+    // pierde aunque ambos nombres compartan la misma palabra real ("demi").
+    // NO detecta typos ("grasol"≠"girasol") ni reordenamiento sin palabra
+    // inicial compartida. Se normaliza una sola vez (CTE + subquery) para
+    // no repetir translate().
     const matches = await this.prisma.$queryRaw<
       { id: string; name: string; isActive: boolean }[]
     >(Prisma.sql`
       WITH norm AS (
-        SELECT translate(lower(trim(${trimmed})), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS input
+        SELECT translate(lower(trim(regexp_replace(${trimmed}, '[-/(),.]', ' ', 'g'))), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS input
       )
       SELECT q.id, q.name, q."isActive"
       FROM (
         SELECT p.id, p.name, p."isActive",
-               translate(lower(trim(p.name)), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS pn
+               translate(lower(trim(regexp_replace(p.name, '[-/(),.]', ' ', 'g'))), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) AS pn
         FROM products p
         WHERE p."tenantId" = ${tenantId}
           AND p."deletedAt" IS NULL
           ${excludeId ? Prisma.sql`AND p.id <> ${excludeId}` : Prisma.empty}
+          ${
+            excludeId
+              ? Prisma.sql`AND NOT EXISTS (
+                  SELECT 1 FROM product_duplicate_dismissals d
+                  WHERE d."tenantId" = ${tenantId}
+                    AND d."productId" = ${excludeId}
+                    AND d."dismissedProductId" = p.id
+                )`
+              : Prisma.empty
+          }
       ) q
       CROSS JOIN norm
       WHERE strpos(q.pn, norm.input) > 0
          OR strpos(norm.input, q.pn) > 0
+         OR (
+           (SELECT w FROM unnest(string_to_array(q.pn, ' ')) WITH ORDINALITY AS t(w, ord) WHERE length(w) >= 3 ORDER BY ord LIMIT 1)
+           =
+           (SELECT w FROM unnest(string_to_array(norm.input, ' ')) WITH ORDINALITY AS t(w, ord) WHERE length(w) >= 3 ORDER BY ord LIMIT 1)
+         )
       ORDER BY (q.pn = norm.input) DESC, LENGTH(q.name), q.name
       LIMIT 5
     `);
     return matches;
+  }
+
+  // Guarda el descarte en ambos sentidos: al editar cualquiera de los dos
+  // artículos, el aviso de duplicado ya no debe mostrar al otro.
+  async dismissDuplicate(
+    tenantId: string,
+    productId: string,
+    dismissedProductId: string,
+  ): Promise<void> {
+    if (productId === dismissedProductId) {
+      return;
+    }
+    await this.prisma.$transaction([
+      this.prisma.productDuplicateDismissal.upsert({
+        where: {
+          tenantId_productId_dismissedProductId: {
+            tenantId,
+            productId,
+            dismissedProductId,
+          },
+        },
+        create: { tenantId, productId, dismissedProductId },
+        update: {},
+      }),
+      this.prisma.productDuplicateDismissal.upsert({
+        where: {
+          tenantId_productId_dismissedProductId: {
+            tenantId,
+            productId: dismissedProductId,
+            dismissedProductId: productId,
+          },
+        },
+        create: {
+          tenantId,
+          productId: dismissedProductId,
+          dismissedProductId: productId,
+        },
+        update: {},
+      }),
+    ]);
   }
 
   // Debe reflejar exactamente resolveLastPurchase(): el más reciente entre
@@ -508,6 +604,13 @@ export class ProductsService {
 
     const data: any = { ...updateData };
 
+    // imageUrl: el frontend envía "" para borrar la imagen (no `null`, que el
+    // DTO @IsString rechazaría; ni `undefined`, que Prisma ignora y dejaría la
+    // imagen antigua). Coercer "" → null para que el borrado surta efecto.
+    if (data.imageUrl === "") {
+      data.imageUrl = null;
+    }
+
     if (category) {
       data.categoryId = category;
       delete data.category;
@@ -640,6 +743,38 @@ export class ProductsService {
           );
         }
 
+        // Notificar en €/kg normalizado (no precio crudo) para no reintroducir
+        // variaciones falsas por cambio de tamaño de caja — mismo criterio que
+        // el histórico de precios (plans/260718-0056-historico-precio-normalizado-kg).
+        if (
+          referencePriceChanged(
+            existingProduct.purchasePrice,
+            existingProduct.unitSize,
+            offer.purchasePrice,
+            offer.unitSize,
+          )
+        ) {
+          const refBefore = getReferencePrice(
+            existingProduct.purchasePrice,
+            existingProduct.unitSize,
+          );
+          const refAfter = getReferencePrice(
+            offer.purchasePrice,
+            offer.unitSize,
+          );
+          const pct = refBefore
+            ? Math.abs(((refAfter - refBefore) / refBefore) * 100)
+            : 100;
+          await this.notificationsService.notifyPriceChange(
+            requestTenantId,
+            existingProduct.name,
+            refBefore,
+            refAfter,
+            pct,
+            existingProduct.id,
+          );
+        }
+
         delete data.supplierId;
         delete data.purchasePrice;
         delete data.previousPurchasePrice;
@@ -728,6 +863,30 @@ export class ProductsService {
           data,
           include: productInclude,
         });
+
+    // Fuera de la transacción: no debe bloquear el commit de BD si falla el
+    // envío de la notificación (WS/BD de alerts es secundaria al cambio real).
+    if (refPriceChanged) {
+      const refBefore = getReferencePrice(
+        existingProduct.purchasePrice,
+        existingProduct.unitSize,
+      );
+      const refAfter = getReferencePrice(
+        updateData.purchasePrice as number,
+        newUnitSizeForHistory ?? existingProduct.unitSize,
+      );
+      const pct = refBefore
+        ? Math.abs(((refAfter - refBefore) / refBefore) * 100)
+        : 100;
+      await this.notificationsService.notifyPriceChange(
+        requestTenantId,
+        existingProduct.name,
+        refBefore,
+        refAfter,
+        pct,
+        existingProduct.id,
+      );
+    }
 
     // Update stock min/max if provided
     if (minimumStock !== undefined || maximumStock !== undefined) {
@@ -1157,6 +1316,7 @@ export class ProductsService {
     tenantId: string,
     data: {
       name: string;
+      legalName?: string;
       cifNif?: string;
       address?: string;
       contactPerson?: string;
@@ -1192,6 +1352,7 @@ export class ProductsService {
       data: {
         tenantId,
         name: data.name.trim(),
+        legalName: data.legalName?.trim() || null,
         cifNif: data.cifNif || null,
         address: data.address || null,
         contactPerson: data.contactPerson || null,
@@ -1339,6 +1500,29 @@ export class ProductsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Ofertas (precio pactado) de un proveedor, con su producto asociado.
+   * A diferencia de getSupplierProducts (que usa el FK legacy product.supplierId),
+   * lee ProductSupplierOffer directamente: incluye ofertas no-preferentes y trae
+   * agreedPrice/agreedAt/agreedUntil.
+   */
+  async getSupplierOffers(supplierId: string, tenantId: string) {
+    const supplier = await this.prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId },
+    });
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor no encontrado`);
+    }
+
+    const offers = await this.prisma.productSupplierOffer.findMany({
+      where: { supplierId, tenantId, product: { deletedAt: null } },
+      include: { product: { include: { category: true } } },
+      orderBy: [{ product: { name: "asc" } }],
+    });
+
+    return { success: true, data: offers, message: "Ofertas obtenidas" };
   }
 
   async getSupplierPriceTrend(supplierId: string, tenantId: string) {
@@ -1795,6 +1979,49 @@ export class ProductsService {
     });
   }
 
+  async getAllPriceHistory(
+    tenantId: string,
+    options: {
+      page: number;
+      limit: number;
+      productId?: string;
+      supplierId?: string;
+    },
+  ) {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(100, Math.max(1, options.limit || 25));
+    const where: any = { tenantId };
+    if (options.productId) {
+      where.productId = options.productId;
+    }
+    if (options.supplierId) {
+      where.supplierId = options.supplierId;
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.productPriceHistory.findMany({
+        where,
+        orderBy: { recordedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          product: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+          albaran: {
+            select: { id: true, internalNumber: true, albaranNumber: true },
+          },
+        },
+      }),
+      this.prisma.productPriceHistory.count({ where }),
+    ]);
+
+    return {
+      success: true,
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   async createBulk(productsData: any[], requestTenantId: string) {
     const existingCategories = await this.prisma.category.findMany({
       where: { tenantId: requestTenantId },
@@ -1865,7 +2092,7 @@ export class ProductsService {
           name,
           description = "",
           purchaseFormat = "",
-          referenceUnit = "kg",
+          referenceUnit = "kilo",
           unitsPerFormat = 1,
           referenceUnitSize = 1,
           purchasePrice = 0,

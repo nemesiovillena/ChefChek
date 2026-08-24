@@ -24,8 +24,11 @@ import {
   ApiConsumes,
 } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { assertAllowedImageType } from "../../common/utils/image-upload.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { PexelsImageSearchService } from "./pexels-image-search.service";
+import { ProductImageBackfillService } from "./product-image-backfill.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -57,6 +60,8 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly productSupplierOffersService: ProductSupplierOffersService,
+    private readonly pexelsImageSearchService: PexelsImageSearchService,
+    private readonly productImageBackfillService: ProductImageBackfillService,
   ) {}
 
   @Post()
@@ -102,6 +107,40 @@ export class ProductsController {
       excludeId,
     );
     return { success: true, data: matches };
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  @Get("image-search")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Buscar imágenes de un artículo en internet" })
+  @ApiResponse({ status: 200, description: "Lista de imágenes candidatas" })
+  @ApiResponse({ status: 400, description: "Falta el término de búsqueda" })
+  @ApiResponse({
+    status: 503,
+    description: "Búsqueda no disponible (sin configurar o cuota agotada)",
+  })
+  async searchImage(@Query("q") q: string) {
+    if (!q?.trim()) {
+      throw new BadRequestException("El término de búsqueda es obligatorio");
+    }
+    const data = await this.pexelsImageSearchService.search(q.trim());
+    return { success: true, data };
+  }
+
+  @Post("backfill-images")
+  @Roles("ADMIN", "OWNER", "SUPERADMIN")
+  @ApiOperation({
+    summary:
+      "Asignar automáticamente (Pexels, primer resultado) una imagen a los artículos sin imageUrl",
+  })
+  @ApiResponse({ status: 200, description: "Resumen del lote procesado" })
+  async backfillImages(@Query("limit") limit: string, @Req() req: any) {
+    const parsedLimit = parseInt(limit, 10);
+    const data = await this.productImageBackfillService.backfillImages(
+      req.tenantId,
+      Number.isNaN(parsedLimit) ? undefined : parsedLimit,
+    );
+    return { success: true, data };
   }
 
   @Get("categories")
@@ -193,12 +232,7 @@ export class ProductsController {
     if (!file) {
       throw new BadRequestException("No se proporcionó archivo");
     }
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (!allowed.includes(file.mimetype)) {
-      throw new BadRequestException(
-        "Tipo de archivo no permitido. Use JPEG, PNG, WebP o GIF",
-      );
-    }
+    assertAllowedImageType(file);
 
     const uploadsDir = path.join(process.cwd(), "uploads", "products");
     if (!fs.existsSync(uploadsDir)) {
@@ -236,6 +270,26 @@ export class ProductsController {
       tenantId,
       supplierId,
     );
+  }
+
+  @Get("price-history/all")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Historial de precios de todo el tenant (paginado)",
+  })
+  async getAllPriceHistory(
+    @Query("page") page: string | undefined,
+    @Query("limit") limit: string | undefined,
+    @Query("productId") productId: string | undefined,
+    @Query("supplierId") supplierId: string | undefined,
+    @Req() req: any,
+  ) {
+    return this.productsService.getAllPriceHistory(req.tenantId, {
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 25,
+      productId,
+      supplierId,
+    });
   }
 
   @Get(":id/calculate")
@@ -446,6 +500,31 @@ export class ProductsController {
     return this.productsService.merge(id, targetId, tenantId);
   }
 
+  @Post(":id/duplicate-dismissals/:dismissedProductId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Descartar el aviso de posible duplicado entre dos artículos (no vuelve a avisar en ninguno de los dos)",
+  })
+  @ApiParam({ name: "id", description: "ID del artículo que se está editando" })
+  @ApiParam({
+    name: "dismissedProductId",
+    description: "ID del artículo marcado como no-duplicado",
+  })
+  @ApiResponse({ status: 201, description: "Descarte guardado" })
+  async dismissDuplicate(
+    @Param("id") id: string,
+    @Param("dismissedProductId") dismissedProductId: string,
+    @Req() req: any,
+  ) {
+    await this.productsService.dismissDuplicate(
+      req.tenantId,
+      id,
+      dismissedProductId,
+    );
+    return { success: true };
+  }
+
   @Get("suppliers/stats/active-count")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({ summary: "Contador de proveedores activos" })
@@ -516,6 +595,16 @@ export class ProductsController {
       pageNum,
       limitNum,
     );
+  }
+
+  @Get("suppliers/:id/offers")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({ summary: "Ofertas (precio pactado) de un proveedor" })
+  @ApiParam({ name: "id", description: "ID del proveedor" })
+  @ApiResponse({ status: 200, description: "Lista de ofertas" })
+  async getSupplierOffers(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    return this.productsService.getSupplierOffers(id, tenantId);
   }
 
   @Get("suppliers/:id/price-trend")

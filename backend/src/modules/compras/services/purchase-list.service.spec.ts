@@ -173,5 +173,43 @@ describe("PurchaseListService", () => {
       const dto = orderServiceMock.create.mock.calls[0][2];
       expect(dto.lines).toEqual([{ productId: "p1", quantity: 16 }]);
     });
+
+    it("limpia notes/additionalItems de la lista tras transferirlos al pedido", async () => {
+      prismaMock.purchaseList.findFirst.mockResolvedValue({
+        ...list,
+        notes: "Llamar antes de entregar",
+        additionalItems: "Perejil fresco",
+      });
+      orderServiceMock.create.mockResolvedValue({ id: "o1" });
+
+      await service.generateOrder(tenantId, list.id, "u1", {
+        items: [{ productId: "p1", quantity: 7 }],
+      });
+
+      expect(orderServiceMock.create).toHaveBeenCalledWith(
+        tenantId,
+        "u1",
+        expect.objectContaining({
+          notes: "Llamar antes de entregar",
+          additionalItems: "Perejil fresco",
+        }),
+        list.id,
+      );
+      expect(prismaMock.purchaseList.update).toHaveBeenCalledWith({
+        where: { id: list.id },
+        data: { notes: null, additionalItems: null },
+      });
+    });
+
+    it("no toca la lista si no tenía notes/additionalItems", async () => {
+      prismaMock.purchaseList.findFirst.mockResolvedValue(list);
+      orderServiceMock.create.mockResolvedValue({ id: "o1" });
+
+      await service.generateOrder(tenantId, list.id, "u1", {
+        items: [{ productId: "p1", quantity: 7 }],
+      });
+
+      expect(prismaMock.purchaseList.update).not.toHaveBeenCalled();
+    });
   });
 });

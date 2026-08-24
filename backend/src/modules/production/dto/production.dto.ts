@@ -6,14 +6,15 @@ import {
   IsOptional,
   IsBoolean,
   IsDate,
-  IsDateString,
+  IsEmail,
 } from "class-validator";
+import { Type } from "class-transformer";
 
-enum BatchStatus {
-  PENDING = "PENDING",
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
+export enum BatchPriority {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
 }
 
 export enum KitchenZone {
@@ -24,19 +25,6 @@ export enum KitchenZone {
   FRYING_STATION = "FRYING_STATION",
   PLATING_STATION = "PLATING_STATION",
   SERVICE_STATION = "SERVICE_STATION",
-}
-
-enum OrderStatus {
-  PENDING = "PENDING",
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
-}
-
-enum ItemStatus {
-  PENDING = "PENDING",
-  IN_PROGRESS = "IN_PROGRESS",
-  READY = "READY",
-  VERIFIED = "VERIFIED",
 }
 
 enum ChecklistCategory {
@@ -53,92 +41,85 @@ export enum TaskType {
   QUALITY_CHECK = "QUALITY_CHECK",
 }
 
-export enum TaskStatus {
+export enum TaskAssignmentStatus {
   ASSIGNED = "ASSIGNED",
   IN_PROGRESS = "IN_PROGRESS",
   COMPLETED = "COMPLETED",
   ON_HOLD = "ON_HOLD",
 }
 
-enum AlertType {
-  DELAY = "DELAY",
-  QUALITY = "QUALITY",
-  STAFFING = "STAFFING",
-  EQUIPMENT = "EQUIPMENT",
-  INGREDIENTS = "INGREDIENTS",
-}
-
-enum ProgressStatus {
-  ON_SCHEDULE = "ON_SCHEDULE",
-  DELAYED = "DELAYED",
-  AHEAD = "AHEAD",
-  CRITICAL = "CRITICAL",
-}
-
 export class CreateWorkBatchDto {
-  @IsString()
-  name: string;
-
   @IsOptional()
   @IsString()
   description?: string;
 
-  @IsDateString()
-  plannedDate: string;
+  @Type(() => Date)
+  @IsDate()
+  scheduledDate: Date;
+
+  @IsString()
+  scheduledTime: string;
+
+  @IsEnum(BatchPriority)
+  priority: BatchPriority;
+
+  @IsArray()
+  @IsString({ each: true })
+  responsible: string[];
+
+  @IsEnum(KitchenZone)
+  kitchenZone: KitchenZone;
 }
 
-export class UpdateWorkBatchDto {
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsDateString()
-  plannedDate?: string;
-}
+export class UpdateWorkBatchDto extends CreateWorkBatchDto {}
 
 export class CreateProductionOrderDto {
   @IsString()
   batchId: string;
 
   @IsString()
-  recipeId: string;
+  title: string;
 
+  @IsOptional()
   @IsString()
-  recipeName: string;
+  recipeId?: string;
 
-  @IsNumber()
-  quantity: number;
-
+  @IsOptional()
   @IsString()
-  unit: string;
+  recipeName?: string;
 
+  @IsOptional()
   @IsNumber()
-  estimatedTime: number;
+  quantity?: number;
 
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  estimatedTime?: number;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsArray()
-  ingredients: ProductionIngredientDto[];
+  @IsString({ each: true })
+  assignedStaffIds?: string[];
 }
 
-export class ProductionIngredientDto {
-  @IsString()
-  productId: string;
+export class PostponeProductionOrderDto {
+  @Type(() => Date)
+  @IsDate()
+  scheduledFor: Date;
+}
 
-  @IsString()
-  productName: string;
-
-  @IsNumber()
-  quantity: number;
-
-  @IsString()
-  unit: string;
-
-  @IsBoolean()
-  isAvailable: boolean;
+export class ReorderProductionOrdersDto {
+  @IsArray()
+  @IsString({ each: true })
+  orderIds: string[];
 }
 
 export class CreateMiseEnPlaceItemDto {
@@ -184,18 +165,12 @@ export class CreateChecklistItemDto {
   category: ChecklistCategory;
 }
 
-export class CreateTaskAssignmentDto {
-  @IsString()
-  batchId: string;
-
+export class CreateProductionTaskDto {
   @IsString()
   orderId: string;
 
   @IsString()
-  taskId: string;
-
-  @IsString()
-  assignedTo: string;
+  title: string;
 
   @IsEnum(TaskType)
   taskType: TaskType;
@@ -209,14 +184,71 @@ export class CreateTaskAssignmentDto {
   dependencies?: string[];
 }
 
+export class CreateTaskAssignmentDto {
+  @IsString()
+  orderId: string;
+
+  @IsString()
+  taskId: string;
+
+  @IsString()
+  assignedTo: string;
+}
+
 export class UpdateTaskAssignmentDto {
   @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
+  @IsEnum(TaskAssignmentStatus)
+  status?: TaskAssignmentStatus;
 
   @IsOptional()
   @IsNumber()
   actualTime?: number;
+}
+
+export class CreateStaffMemberDto {
+  @IsString()
+  name: string;
+
+  @IsString()
+  role: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsNumber()
+  availableHours?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxTasks?: number;
+}
+
+export class UpdateStaffMemberDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  availableHours?: number;
+
+  @IsOptional()
+  @IsNumber()
+  maxTasks?: number;
 }
 
 export class UpdateAlertDto {
@@ -230,9 +262,11 @@ export class UpdateAlertDto {
 }
 
 export class GenerateProductionReportDto {
+  @Type(() => Date)
   @IsDate()
   startDate: Date;
 
+  @Type(() => Date)
   @IsDate()
   endDate: Date;
 

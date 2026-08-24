@@ -6,6 +6,10 @@ import { IsString, IsNumber, IsOptional, IsArray, Min } from "class-validator";
  */
 export class ExtractedProductDto {
   @IsString()
+  @IsOptional()
+  id?: string; // Id real del producto en catálogo, cuando el candidato viene de la BD (no de OCR/IA puro)
+
+  @IsString()
   name: string;
 
   @IsString()

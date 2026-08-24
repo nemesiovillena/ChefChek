@@ -66,13 +66,16 @@ export class ManualAlbaranService {
     for (const line of dto.lines) {
       let productId = line.productId || null;
 
-      // Normalize unit for referenceUnit
+      // El selector del formulario manual solo ofrece 'kg'/'L'/'und' (ver
+      // manual-albaran-form.tsx), que no son símbolos reales del catálogo del
+      // tenant (kilo/litro/unidad) — se mapean para que el producto creado
+      // coincida con el selector de "Unidad de referencia" al editarlo.
       const normalizedUnit =
         line.unit === "kg"
-          ? "kg"
+          ? "kilo"
           : line.unit === "L" || line.unit === "l"
-            ? "L"
-            : "und";
+            ? "litro"
+            : "unidad";
 
       if (productId) {
         // Update existing product price
@@ -90,14 +93,17 @@ export class ManualAlbaranService {
               : 0;
 
           if (supplierId) {
-            // Upsert de la oferta de este proveedor. Si es la preferente del
-            // producto, sincroniza el precio plano; si es otro proveedor,
-            // solo actualiza su oferta sin tocar el precio vigente.
+            // Alta manual de albarán = compra confirmada igual que la vía
+            // OCR: el proveedor pasa a ser el preferente (regla de negocio),
+            // pisando cualquier estrella manual anterior.
             const offer = await this.productSupplierOffersService.upsertOffer(
               existing.id,
               supplierId,
               tenantId,
               { purchasePrice: line.price, netPrice: line.price },
+              undefined,
+              undefined,
+              true,
             );
             if (offer.isPreferred && priceChangePercentage > 10) {
               await this.notifyPriceChange(
@@ -146,6 +152,9 @@ export class ManualAlbaranService {
                 supplierId,
                 tenantId,
                 { purchasePrice: line.price, netPrice: line.price },
+                undefined,
+                undefined,
+                true,
               );
             } else {
               await this.prisma.product.update({
@@ -193,6 +202,21 @@ export class ManualAlbaranService {
             },
           });
           productId = product.id;
+          // Crear la oferta preferente inicial (espejo de la rama
+          // existingByName más arriba). Sin esto, el producto nace con
+          // supplierId plano pero sin ProductSupplierOffer y aparece "sin
+          // proveedor" al editarlo en el modal, pese a tenerlo en el listado.
+          if (supplierId && line.price > 0) {
+            await this.productSupplierOffersService.upsertOffer(
+              product.id,
+              supplierId,
+              tenantId,
+              { purchasePrice: line.price, netPrice: line.price },
+              undefined,
+              undefined,
+              true,
+            );
+          }
           results.created++;
         }
       }
@@ -318,16 +342,14 @@ export class ManualAlbaranService {
     newPrice: number,
     percentageChange: number,
   ) {
-    const direction =
-      newPrice > product.purchasePrice ? "aumentado" : "disminuido";
-    const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
-
-    await this.notificationsService.createNotification(tenantId, {
-      type: alertType,
-      title: `Cambio de precio significativo: ${product.name}`,
-      message: `El precio de ${product.name} ha ${direction} un ${percentageChange.toFixed(1)}%. De ${product.purchasePrice}€ a ${newPrice}€.`,
-      severity: alertType,
-    });
+    await this.notificationsService.notifyPriceChange(
+      tenantId,
+      product.name,
+      product.purchasePrice,
+      newPrice,
+      percentageChange,
+      product.id,
+    );
   }
 
   private async findOrCreateCategory(

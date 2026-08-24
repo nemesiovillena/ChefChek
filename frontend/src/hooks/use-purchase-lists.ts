@@ -26,6 +26,10 @@ export interface PurchaseList {
   supplier?: { id: string; name: string };
   location?: { id: string; name: string } | null;
   items: PurchaseListItem[];
+  /** Notas libres del usuario: no genera líneas de pedido ni afecta al coste. */
+  notes?: string | null;
+  /** Artículos fuera de catálogo (una línea por artículo); se transfieren al pedido al generar. */
+  additionalItems?: string | null;
 }
 
 export interface PurchaseListItemInput {
@@ -76,6 +80,8 @@ export function useCreatePurchaseList() {
       supplierId: string;
       locationId?: string;
       items?: PurchaseListItemInput[];
+      notes?: string;
+      additionalItems?: string;
     }
   >({
     mutationFn: async (data) => (await apiClient.post(BASE_URL, data)).data,
@@ -90,7 +96,13 @@ export function useUpdatePurchaseList() {
     Error,
     {
       id: string;
-      data: { name?: string; locationId?: string; items?: PurchaseListItemInput[] };
+      data: {
+        name?: string;
+        locationId?: string;
+        items?: PurchaseListItemInput[];
+        notes?: string;
+        additionalItems?: string;
+      };
     }
   >({
     mutationFn: async ({ id, data }) =>
@@ -120,7 +132,11 @@ export function useGenerateOrderFromList() {
   >({
     mutationFn: async ({ listId, ...data }) =>
       (await apiClient.post(`${BASE_URL}/${listId}/generar-pedido`, data)).data,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      // El backend limpia notes/additionalItems de la lista al generar el
+      // pedido: sin esto, el editor seguía mostrando el estado local stale.
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
   });
 }

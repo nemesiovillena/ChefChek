@@ -123,7 +123,7 @@ export class PriceAgreementService {
 
     const offer = await client.productSupplierOffer.findFirst({
       where: { id: offerId, tenantId },
-      select: { agreedPrice: true, agreedUntil: true },
+      select: { agreedPrice: true, agreedUntil: true, productId: true },
     });
     if (!offer) {
       return;
@@ -161,6 +161,8 @@ export class PriceAgreementService {
       message:
         `${context.supplierName}: pactado ${offer.agreedPrice!.toFixed(2)}€ / ` +
         `recibido ${receivedPrice.toFixed(2)}€ (+${deviation.deviationPercent.toFixed(1)}%)${origin}`,
+      entityType: "PRODUCT",
+      entityId: offer.productId,
     });
   }
 

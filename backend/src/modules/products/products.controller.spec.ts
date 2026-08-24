@@ -2,6 +2,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ProductsController } from "./products.controller";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
+import { PexelsImageSearchService } from "./pexels-image-search.service";
+import { ProductImageBackfillService } from "./product-image-backfill.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -38,6 +40,7 @@ describe("ProductsController", () => {
     getProductPriceHistory: jest.fn(),
     getSupplierProducts: jest.fn(),
     getSupplierPriceHistory: jest.fn(),
+    getSupplierOffers: jest.fn(),
   };
 
   const mockProductSupplierOffersService = {
@@ -45,6 +48,14 @@ describe("ProductsController", () => {
     upsertOffer: jest.fn(),
     setPreferred: jest.fn(),
     removeOffer: jest.fn(),
+  };
+
+  const mockPexelsImageSearchService = {
+    search: jest.fn(),
+  };
+
+  const mockProductImageBackfillService = {
+    backfillImages: jest.fn(),
   };
 
   const mockReq = {
@@ -60,6 +71,14 @@ describe("ProductsController", () => {
         {
           provide: ProductSupplierOffersService,
           useValue: mockProductSupplierOffersService,
+        },
+        {
+          provide: PexelsImageSearchService,
+          useValue: mockPexelsImageSearchService,
+        },
+        {
+          provide: ProductImageBackfillService,
+          useValue: mockProductImageBackfillService,
         },
       ],
     })
@@ -449,6 +468,25 @@ describe("ProductsController", () => {
     });
   });
 
+  describe("getSupplierOffers", () => {
+    it("delegates to productsService with supplier id and tenantId", async () => {
+      const expected = {
+        success: true,
+        data: [],
+        message: "Ofertas obtenidas",
+      };
+      mockProductsService.getSupplierOffers.mockResolvedValue(expected);
+
+      const result = await controller.getSupplierOffers("supplier-1", mockReq);
+
+      expect(mockProductsService.getSupplierOffers).toHaveBeenCalledWith(
+        "supplier-1",
+        mockReq.tenantId,
+      );
+      expect(result).toBe(expected);
+    });
+  });
+
   describe("uploadImage", () => {
     it("throws BadRequest when no file is provided", async () => {
       await expect(controller.uploadImage(undefined as any)).rejects.toThrow(
@@ -501,6 +539,71 @@ describe("ProductsController", () => {
 
       expect(result.success).toBe(true);
       expect(fs.mkdirSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("searchImage", () => {
+    it("throws BadRequestException when q is missing", async () => {
+      await expect(controller.searchImage("")).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockPexelsImageSearchService.search).not.toHaveBeenCalled();
+    });
+
+    it("throws BadRequestException when q is blank spaces", async () => {
+      await expect(controller.searchImage("   ")).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it("returns candidate images for a valid query", async () => {
+      const results = [
+        { url: "https://a.com/full.jpg", thumbnailUrl: "https://a.com/t.jpg" },
+      ];
+      mockPexelsImageSearchService.search.mockResolvedValue(results);
+
+      const result = await controller.searchImage("Aceite Girasol 5L");
+
+      expect(mockPexelsImageSearchService.search).toHaveBeenCalledWith(
+        "Aceite Girasol 5L",
+      );
+      expect(result).toEqual({ success: true, data: results });
+    });
+  });
+
+  describe("backfillImages", () => {
+    it("delegates to the backfill service with the request tenant and parsed limit", async () => {
+      const summary = {
+        processed: 10,
+        updated: 8,
+        skipped: 2,
+        failed: [],
+        remaining: 0,
+      };
+      mockProductImageBackfillService.backfillImages.mockResolvedValue(summary);
+
+      const result = await controller.backfillImages("25", mockReq);
+
+      expect(
+        mockProductImageBackfillService.backfillImages,
+      ).toHaveBeenCalledWith(mockReq.tenantId, 25);
+      expect(result).toEqual({ success: true, data: summary });
+    });
+
+    it("passes undefined limit when not provided (service applies its default)", async () => {
+      mockProductImageBackfillService.backfillImages.mockResolvedValue({
+        processed: 0,
+        updated: 0,
+        skipped: 0,
+        failed: [],
+        remaining: 0,
+      });
+
+      await controller.backfillImages(undefined as unknown as string, mockReq);
+
+      expect(
+        mockProductImageBackfillService.backfillImages,
+      ).toHaveBeenCalledWith(mockReq.tenantId, undefined);
     });
   });
 });

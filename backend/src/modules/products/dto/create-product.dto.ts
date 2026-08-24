@@ -94,7 +94,7 @@ export class CreateProductDto {
   @Max(100)
   profitMargin?: number;
 
-  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  // Descuento fijo del proveedor: descuenta sobre purchasePrice en el coste
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -162,6 +162,12 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  // false = cargo de servicio (portes, logística...): al confirmar un
+  // albarán no genera Lot/StockMovement/Stock para este producto
+  @IsOptional()
+  @IsBoolean()
+  tracksInventory?: boolean;
 
   // Información nutricional
   @IsOptional()
@@ -243,7 +249,7 @@ export class UpdateProductDto {
   @Max(100)
   profitMargin?: number;
 
-  // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  // Descuento fijo del proveedor: descuenta sobre purchasePrice en el coste
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -317,6 +323,12 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  // false = cargo de servicio (portes, logística...): al confirmar un
+  // albarán no genera Lot/StockMovement/Stock para este producto
+  @IsOptional()
+  @IsBoolean()
+  tracksInventory?: boolean;
 
   // Información nutricional
   @IsOptional()

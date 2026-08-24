@@ -221,7 +221,11 @@ async assignBatchToZone(batchId: string): Promise<KitchenZone> {
 private determineRequiredZone(orders: ProductionOrder[]): KitchenZone {
   // Analyze orders to determine primary zone
   const zoneCounts = orders.reduce((counts, order) => {
-    const zone = this.getRecipeZone(order.recipeId);
+    // Si la orden tiene receta vinculada, usar su zona
+    // Si no, usar zona por defecto o asignar manualmente
+    const zone = order.recipeId 
+      ? this.getRecipeZone(order.recipeId)
+      : 'HOT_KITCHEN'; // Zona por defecto si no hay receta
     counts[zone] = (counts[zone] || 0) + 1;
     return counts;
   }, {} as Record<string, number>);

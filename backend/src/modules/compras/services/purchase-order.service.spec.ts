@@ -17,6 +17,8 @@ describe("PurchaseOrderService", () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    purchaseOrderEvent: { create: jest.fn() },
+    purchaseSchedule: { updateMany: jest.fn() },
     supplier: { findFirst: jest.fn() },
     product: { findMany: jest.fn() },
     location: { findFirst: jest.fn() },
@@ -99,6 +101,54 @@ describe("PurchaseOrderService", () => {
       expect(data.lines.create[1].expectedPrice).toBe(4);
       expect(data.events.create.type).toBe("CREATED");
     });
+
+    it("pedido manual marca lastRunAt de la programación activa del proveedor/local", async () => {
+      prismaMock.supplier.findFirst.mockResolvedValue(supplier);
+      prismaMock.product.findMany.mockResolvedValue([]);
+      prismaMock.location.findFirst.mockResolvedValue({ id: "loc-1" });
+      numberMock.generateOrderNumber.mockResolvedValue("PED-0002");
+      prismaMock.purchaseOrder.create.mockResolvedValue({ id: "o1" });
+
+      await service.create(tenantId, "u1", {
+        supplierId: supplier.id,
+        locationId: "loc-1",
+        lines: [],
+      });
+
+      expect(prismaMock.purchaseSchedule.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId,
+          supplierId: supplier.id,
+          enabled: true,
+          locationId: "loc-1",
+        },
+        data: { lastRunAt: expect.any(Date) },
+      });
+    });
+
+    it("pedido generado desde una lista (manual o por el scheduler) también marca lastRunAt", async () => {
+      prismaMock.supplier.findFirst.mockResolvedValue(supplier);
+      prismaMock.product.findMany.mockResolvedValue([]);
+      numberMock.generateOrderNumber.mockResolvedValue("PED-0003");
+      prismaMock.purchaseOrder.create.mockResolvedValue({ id: "o1" });
+
+      await service.create(
+        tenantId,
+        "u1",
+        { supplierId: supplier.id, lines: [] },
+        "list-1",
+      );
+
+      expect(prismaMock.purchaseSchedule.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId,
+          supplierId: supplier.id,
+          enabled: true,
+          locationId: null,
+        },
+        data: { lastRunAt: expect.any(Date) },
+      });
+    });
   });
 
   describe("update", () => {
@@ -167,6 +217,57 @@ describe("PurchaseOrderService", () => {
       expect(prismaMock.purchaseOrder.delete).toHaveBeenCalledWith({
         where: { id: "o1" },
       });
+    });
+  });
+
+  describe("reportIncident", () => {
+    it("404 si el pedido no es del tenant", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.reportIncident(
+          tenantId,
+          "o1",
+          "u1",
+          "llegó el producto equivocado",
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("registra el evento sin cambiar el estado y devuelve el pedido actualizado", async () => {
+      prismaMock.purchaseOrder.findFirst
+        .mockResolvedValueOnce({
+          id: "o1",
+          tenantId,
+          status: PurchaseOrderStatus.ENVIADO,
+        })
+        .mockResolvedValueOnce({
+          id: "o1",
+          tenantId,
+          status: PurchaseOrderStatus.ENVIADO,
+        });
+      prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
+
+      await service.reportIncident(
+        tenantId,
+        "o1",
+        "u1",
+        "llegó el producto equivocado",
+        "/uploads/pedidos-compra/foto.jpg",
+      );
+
+      expect(prismaMock.purchaseOrderEvent.create).toHaveBeenCalledWith({
+        data: {
+          orderId: "o1",
+          type: "INCIDENT_REPORTED",
+          userId: "u1",
+          payload: {
+            description: "llegó el producto equivocado",
+            photoUrl: "/uploads/pedidos-compra/foto.jpg",
+          },
+        },
+      });
+      // segunda llamada a findFirst: la de findOne() reutilizado para devolver el pedido
+      expect(prismaMock.purchaseOrder.findFirst).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -34,56 +34,60 @@ model Tenant {
   addressPostalCode String?
   cifNif            String?
 
-  users                  User[]
-  products               Product[]
-  recipes                Recipe[]
-  menus                  Menu[]
-  invoices               Invoice[]
-  temperatureControls    TemperatureControl[]
-  cleaningPlans          CleaningPlan[]
-  pestControls           PestControl[]
-  goodsReceptions        GoodsReception[]
-  alerts                 Alert[]
-  staffMembers           StaffMember[]
-  workBatches            WorkBatch[]
-  taskAssignments        TaskAssignment[]
-  productionAlerts       ProductionAlert[]
-  productionOrders       ProductionOrder[]
-  miseEnPlaceSheets      MiseEnPlaceSheet[]
-  warehouses             Warehouse[]
-  orders                 Order[]
-  appccControls          AppccControl[]
-  documents              Document[]
-  telegramBots           TelegramBot[]
-  telegramUsers          TelegramUser[]
-  suppliers              Supplier[]
-  supplierPriceHistories SupplierPriceHistory[]
-  albaranes              Albaran[]
-  unitsOfMeasure         UnitOfMeasure[]
-  productPriceHistories  ProductPriceHistory[]
-  productSupplierOffers  ProductSupplierOffer[]
-  configurations         Configuration[]
-  categories             Category[]
-  stocks                 Stock[]
-  documentTemplates      DocumentTemplate[]
-  inventories            Inventory[]
-  knowledgeCategories    KnowledgeCategory[]
-  knowledgeArticles      KnowledgeArticle[]
-  knowledgeTags          KnowledgeTag[]
-  auditLogs              AuditLog[]
-  digitalMenuConfigs     DigitalMenuConfig[]
-  dashboardMetrics       DashboardMetric[]
-  dashboardAlerts        DashboardAlert[]
-  qrcodes                QRCode[]
-  locations              Location[]
-  purchaseOrders         PurchaseOrder[]
-  purchaseLists          PurchaseList[]
-  priceDeviations        PriceDeviation[]
-  catalogImports         CatalogImport[]
-  offerLocationSettings  OfferLocationSetting[]
-  purchaseSchedules      PurchaseSchedule[]
-  lots                   Lot[]
-  supplierProductAliases SupplierProductAlias[]
+  users                      User[]
+  products                   Product[]
+  recipes                    Recipe[]
+  menus                      Menu[]
+  invoices                   Invoice[]
+  temperatureControls        TemperatureControl[]
+  cleaningPlans              CleaningPlan[]
+  pestControls               PestControl[]
+  goodsReceptions            GoodsReception[]
+  alerts                     Alert[]
+  staffMembers               StaffMember[]
+  workBatches                WorkBatch[]
+  taskAssignments            TaskAssignment[]
+  productionAlerts           ProductionAlert[]
+  productionOrders           ProductionOrder[]
+  miseEnPlaceSheets          MiseEnPlaceSheet[]
+  warehouses                 Warehouse[]
+  orders                     Order[]
+  appccControls              AppccControl[]
+  documents                  Document[]
+  telegramBots               TelegramBot[]
+  telegramUsers              TelegramUser[]
+  suppliers                  Supplier[]
+  supplierPriceHistories     SupplierPriceHistory[]
+  albaranes                  Albaran[]
+  unitsOfMeasure             UnitOfMeasure[]
+  productPriceHistories      ProductPriceHistory[]
+  productSupplierOffers      ProductSupplierOffer[]
+  productDuplicateDismissals ProductDuplicateDismissal[]
+  recipeDuplicateDismissals  RecipeDuplicateDismissal[]
+  configurations             Configuration[]
+  categories                 Category[]
+  stocks                     Stock[]
+  documentTemplates          DocumentTemplate[]
+  inventories                Inventory[]
+  knowledgeCategories        KnowledgeCategory[]
+  knowledgeArticles          KnowledgeArticle[]
+  knowledgeTags              KnowledgeTag[]
+  auditLogs                  AuditLog[]
+  digitalMenuConfigs         DigitalMenuConfig[]
+  dashboardMetrics           DashboardMetric[]
+  dashboardAlerts            DashboardAlert[]
+  qrcodes                    QRCode[]
+  locations                  Location[]
+  purchaseOrders             PurchaseOrder[]
+  purchaseLists              PurchaseList[]
+  priceDeviations            PriceDeviation[]
+  catalogImports             CatalogImport[]
+  offerLocationSettings      OfferLocationSetting[]
+  purchaseSchedules          PurchaseSchedule[]
+  lots                       Lot[]
+  supplierProductAliases     SupplierProductAlias[]
+  ProductionTask             ProductionTask[]
+  ProductionReport           ProductionReport[]
 
   @@map("tenants")
 }
@@ -155,7 +159,7 @@ model Product {
   previousPurchasePrice Float @default(0)
   netPrice              Float
   profitMargin          Float @default(0)
-  discountPercentage    Float @default(0) // Descuento informativo del proveedor sobre purchasePrice (no recalcula precios)
+  discountPercentage    Float @default(0) // Descuento fijo del proveedor: descuenta sobre purchasePrice en el cálculo de coste (bruto × (1 − dto/100))
 
   // Rendimiento
   wastePercentage Float @default(0)
@@ -183,24 +187,31 @@ model Product {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  // false = no genera Lot/StockMovement/Stock al confirmar un albarán (cargos
+  // de servicio como portes/logística, que no son inventario físico)
+  tracksInventory Boolean @default(true)
+
   manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
 
-  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category           Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier           Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients  RecipeIngredient[]
-  stockMovements     StockMovement[]
-  stocks             Stock[]
-  purchaseFormats    PurchaseFormat[]
-  nutritionalInfo    NutritionalInfo?
-  albaranLines       AlbaranLine[]
-  priceHistory       ProductPriceHistory[]
-  supplierOffers     ProductSupplierOffer[]
-  purchaseOrderLines PurchaseOrderLine[]
-  purchaseListItems  PurchaseListItem[]
-  catalogImportLines CatalogImportLine[]
-  lots               Lot[]
-  supplierAliases    SupplierProductAlias[]
+  tenant                 Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category               Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier               Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients      RecipeIngredient[]
+  stockMovements         StockMovement[]
+  stocks                 Stock[]
+  purchaseFormats        PurchaseFormat[]
+  nutritionalInfo        NutritionalInfo?
+  albaranLines           AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
+  albaranLineSuggestions AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
+  priceHistory           ProductPriceHistory[]
+  supplierOffers         ProductSupplierOffer[]
+  purchaseOrderLines     PurchaseOrderLine[]
+  purchaseListItems      PurchaseListItem[]
+  catalogImportLines     CatalogImportLine[]
+  lots                   Lot[]
+  supplierAliases        SupplierProductAlias[]
+  duplicateDismissals    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
+  duplicateDismissedBy   ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
 
   @@index([tenantId])
   @@index([name])
@@ -221,6 +232,25 @@ model PurchaseFormat {
 
   @@index([productId])
   @@map("purchase_formats")
+}
+
+// Descarte manual del aviso "posible duplicado" (products.check-name) entre
+// dos artículos concretos. Se guarda en ambos sentidos (product<->dismissed)
+// al crearla para que el aviso no reaparezca al editar cualquiera de los dos.
+model ProductDuplicateDismissal {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  productId          String
+  dismissedProductId String
+  createdAt          DateTime @default(now())
+
+  tenant           Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product          Product @relation("ProductDuplicateDismissalProduct", fields: [productId], references: [id], onDelete: Cascade)
+  dismissedProduct Product @relation("ProductDuplicateDismissalDismissed", fields: [dismissedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, dismissedProductId])
+  @@index([tenantId, dismissedProductId])
+  @@map("product_duplicate_dismissals")
 }
 
 // Oferta de un proveedor concreto para un artículo. Un Product puede tener
@@ -346,19 +376,41 @@ model Recipe {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  ingredients       RecipeIngredient[]
-  subRecipes        RecipeSubRecipe[]   @relation("ParentRecipe")
-  subRecipesAsChild RecipeSubRecipe[]   @relation("SubRecipe")
-  menuItems         MenuItem[]
-  menuSectionItems  MenuSectionItem[]
-  allergens         Int[]               @default([])
-  categories        RecipeCategory[]
-  translations      RecipeTranslation[]
+  tenant               Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients          RecipeIngredient[]
+  subRecipes           RecipeSubRecipe[]          @relation("ParentRecipe")
+  subRecipesAsChild    RecipeSubRecipe[]          @relation("SubRecipe")
+  menuItems            MenuItem[]
+  menuSectionItems     MenuSectionItem[]
+  allergens            Int[]                      @default([])
+  categories           RecipeCategory[]
+  translations         RecipeTranslation[]
+  duplicateDismissals  RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalRecipe")
+  duplicateDismissedBy RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalDismissed")
 
   @@index([tenantId])
   @@index([name])
   @@map("recipes")
+}
+
+// Descarte manual del aviso "posible duplicado" (recipes.check-name) entre
+// dos recetas concretas. Se guarda en ambos sentidos (recipe<->dismissed)
+// al crearla para que el aviso no reaparezca al editar cualquiera de las dos.
+// Calcado de ProductDuplicateDismissal.
+model RecipeDuplicateDismissal {
+  id                String   @id @default(cuid())
+  tenantId          String
+  recipeId          String
+  dismissedRecipeId String
+  createdAt         DateTime @default(now())
+
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipe          Recipe @relation("RecipeDuplicateDismissalRecipe", fields: [recipeId], references: [id], onDelete: Cascade)
+  dismissedRecipe Recipe @relation("RecipeDuplicateDismissalDismissed", fields: [dismissedRecipeId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, recipeId, dismissedRecipeId])
+  @@index([tenantId, dismissedRecipeId])
+  @@map("recipe_duplicate_dismissals")
 }
 
 model RecipeIngredient {
@@ -367,6 +419,10 @@ model RecipeIngredient {
   productId String
   quantity  Float
   unit      String
+
+  // Merma (%) manual de esta línea, solo usada cuando el artículo no trae
+  // la suya propia (Product.wastePercentage === 0)
+  wastePercentageOverride Float?
 
   recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -498,10 +554,9 @@ model Task {
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
 
-  sprint          Sprint           @relation(fields: [sprintId], references: [id], onDelete: Cascade)
-  assignedMember  TeamMember?      @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
-  notifications   Notification[]
-  taskAssignments TaskAssignment[]
+  sprint         Sprint         @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  assignedMember TeamMember?    @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  notifications  Notification[]
 
   @@map("tasks")
 }
@@ -874,14 +929,24 @@ model Alert {
   tenantId   String
   type       String
   alertType  String
+  title      String?
   severity   String // INFO, WARNING, ERROR, CRITICAL
   message    String
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
   isResolved Boolean   @default(false)
   resolvedBy String?
   resolvedAt DateTime?
   createdBy  String
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+
+  // Referencia polimórfica opcional a la entidad de origen (ej. PRODUCT/
+  // PURCHASE_ORDER), sin FK tipada — entityType decide a qué tabla apunta
+  // entityId. El frontend resuelve la ruta de navegación, la BD solo guarda
+  // el dato. Mismo precedente sin-FK que AlbaranLine.matchedProductId.
+  entityType String?
+  entityId   String?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -909,21 +974,43 @@ model StaffMember {
   @@map("staff_members")
 }
 
+// Production - Task (plantilla de tarea de cocina dentro de una orden de producción)
+model ProductionTask {
+  id            String   @id @default(cuid())
+  tenantId      String
+  orderId       String
+  title         String
+  taskType      String // PREPARATION, COOKING, PLATING, QUALITY_CHECK
+  estimatedTime Float
+  dependencies  String[] @default([])
+  status        String   @default("PENDING") // PENDING, ASSIGNED, IN_PROGRESS, COMPLETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order       ProductionOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  assignments TaskAssignment[]
+
+  @@map("production_tasks")
+}
+
 // Production - Task Assignment
 model TaskAssignment {
   id            String    @id @default(cuid())
   tenantId      String
   taskId        String
+  orderId       String
   staffMemberId String
   batchId       String?
   status        String // ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED
   assignedAt    DateTime  @default(now())
   completedAt   DateTime?
+  actualTime    Float?
   notes         String?
 
-  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  staffMember StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productionTask ProductionTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  staffMember    StaffMember    @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
 
   @@map("task_assignments")
 }
@@ -932,78 +1019,118 @@ model TaskAssignment {
 model WorkBatch {
   id           String    @id @default(cuid())
   tenantId     String
-  orderId      String?
   batchNumber  String
   batchType    String // PREPARATION, COOKING, PLATING
   status       String // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
   scheduledFor DateTime
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  responsible  String[]  @default([])
+  kitchenZone  String    @default("HOT_KITCHEN")
   startedAt    DateTime?
   completedAt  DateTime?
   notes        String?
   createdBy    String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  progressTrackings ProgressTracking[]
+  productionOrders  ProductionOrder[]
+  miseEnPlaceSheets MiseEnPlaceSheet[]
+  productionReports ProductionReport[]
 
   @@map("work_batches")
 }
 
-// Production - Progress Tracking
+// Production - Progress Tracking (1:1 con ProductionOrder)
 model ProgressTracking {
-  id          String   @id @default(cuid())
-  workBatchId String
-  taskId      String?
-  progress    Float    @default(0)
-  status      String
-  notes       String?
-  trackedBy   String
-  trackedAt   DateTime @default(now())
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  overallProgress Float    @default(0)
+  timeElapsed     Int      @default(0)
+  timeRemaining   Int      @default(0)
+  status          String   @default("ON_SCHEDULE") // ON_SCHEDULE, DELAYED, AHEAD, CRITICAL
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  workBatch WorkBatch @relation(fields: [workBatchId], references: [id], onDelete: Cascade)
+  order ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("progress_trackings")
 }
 
 // Production - Production Order
 model ProductionOrder {
-  id               String    @id @default(cuid())
-  tenantId         String
-  orderNumber      String
-  orderType        String // PREPARATION, COOKING, PLATING
-  status           String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  scheduledFor     DateTime
-  startedAt        DateTime?
-  completedAt      DateTime?
-  items            Json?
-  miseEnPlaceItems Json?
-  actualTime       Float?
-  notes            String?
-  createdBy        String
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  tenantId      String
+  batchId       String
+  title         String
+  recipeId      String?
+  recipeName    String?
+  quantity      Float?
+  unit          String?
+  estimatedTime Float?
+  orderNumber   String
+  orderType     String // PREPARATION, COOKING, PLATING
+  status        String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor  DateTime
+  postponedTo   DateTime?
+  sortOrder     Int?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  items         Json?
+  description   String?
+  assignedStaffIds String[] @default([])
+  actualTime    Float?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch            WorkBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  tasks            ProductionTask[]
+  progressTracking ProgressTracking?
+  milestones       Milestone[]
+  alerts           ProductionAlert[]
+  miseEnPlaceItems MiseEnPlaceItem[]
 
   @@map("production_orders")
+}
+
+// Production - Milestone (hitos de progreso de una orden)
+model Milestone {
+  id            String    @id @default(cuid())
+  orderId       String
+  name          String
+  percentage    Int
+  scheduledTime DateTime
+  completedAt   DateTime?
+  status        String    @default("PENDING") // PENDING, COMPLETED
+
+  order ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("milestones")
 }
 
 // Production - Production Alert
 model ProductionAlert {
   id         String    @id @default(cuid())
   tenantId   String
+  orderId    String
   alertType  String // DELAY, QUALITY, STOCK, STAFF
   severity   String // INFO, WARNING, ERROR, CRITICAL
   message    String
   isResolved Boolean   @default(false)
   resolvedBy String?
   resolvedAt DateTime?
+  resolution String?
   createdBy  String
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("production_alerts")
 }
@@ -1022,6 +1149,7 @@ model MiseEnPlaceSheet {
   updatedAt   DateTime  @updatedAt
 
   tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch  WorkBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
   items  MiseEnPlaceItem[]
 
   @@map("mise_en_place_sheets")
@@ -1030,6 +1158,7 @@ model MiseEnPlaceSheet {
 // Production - Mise en Place Item
 model MiseEnPlaceItem {
   id          String    @id @default(cuid())
+  tenantId    String
   orderId     String
   sheetId     String?
   description String
@@ -1042,9 +1171,29 @@ model MiseEnPlaceItem {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  order ProductionOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   sheet MiseEnPlaceSheet? @relation(fields: [sheetId], references: [id], onDelete: SetNull)
 
   @@map("mise_en_place_items")
+}
+
+// Production - Production Report (KPIs generados al completar un lote)
+model ProductionReport {
+  id               String   @id @default(cuid())
+  tenantId         String
+  batchId          String
+  totalOrders      Int
+  completedOrders  Int
+  completionRate   Float
+  avgActualTime    Float
+  avgEstimatedTime Float
+  efficiency       Float
+  generatedAt      DateTime @default(now())
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch  WorkBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("production_reports")
 }
 
 // APPCC
@@ -1126,6 +1275,7 @@ model Supplier {
   id                  String    @id @default(cuid())
   tenantId            String
   name                String
+  legalName           String? // Razón social/nombre fiscal tal como aparece en el papel; usado para auto-matching OCR cuando no hay CIF
   cifNif              String? // CIF/NIF para auto-matching con OCR
   address             String? // Dirección del proveedor
   contactPerson       String?
@@ -1278,7 +1428,7 @@ model Category {
   products Product[]
   recipes  RecipeCategory[]
 
-  @@unique([tenantId, context, slug])
+  @@unique([tenantId, context, parentId, slug])
   @@index([tenantId])
   @@index([tenantId, context])
   @@index([name])
@@ -1654,28 +1804,29 @@ model SupplierPriceHistory {
 
 // Albaranes — Documentos de entrada persistente
 model Albaran {
-  id              String        @id @default(cuid())
-  tenantId        String
-  supplierId      String? // Proveedor asociado (null si no hay match)
-  internalNumber  String // Número interno auto-generado por tenant
-  albaranNumber   String? // Número del albarán del proveedor
-  date            DateTime      @default(now())
-  base            Float         @default(0) // Base imponible
-  vatTotal        Float         @default(0) // Total IVA
-  total           Float         @default(0) // Total con IVA
-  grossAmount     Float         @default(0) // Total bruto (antes de IVA)
-  vatBreakdown    Json? // Desglose de IVA por tipo: [{rate, base, amount}]
-  status          AlbaranStatus @default(PENDIENTE)
-  originalFileUrl String? // URL del archivo original subido
-  ocrConfidence   Float         @default(0) // 0-1 confianza global OCR
-  ocrRawData      Json? // Respuesta cruda del OCR para re-procesado
-  warehouseId     String? // Almacén seleccionado para la entrada de stock
-  purchaseOrderId String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
-  notes           String?
-  createdBy       String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  deletedAt       DateTime?
+  id                  String        @id @default(cuid())
+  tenantId            String
+  supplierId          String? // Proveedor asociado (null si no hay match)
+  internalNumber      String // Número interno auto-generado por tenant
+  albaranNumber       String? // Número del albarán del proveedor
+  date                DateTime      @default(now())
+  base                Float         @default(0) // Base imponible
+  vatTotal            Float         @default(0) // Total IVA
+  total               Float         @default(0) // Total con IVA
+  grossAmount         Float         @default(0) // Total bruto (antes de IVA)
+  vatBreakdown        Json? // Desglose de IVA por tipo: [{rate, base, amount}]
+  status              AlbaranStatus @default(PENDIENTE)
+  originalFileUrl     String? // URL del archivo original subido
+  ocrConfidence       Float         @default(0) // 0-1 confianza global OCR
+  ocrRawData          Json? // Respuesta cruda del OCR para re-procesado
+  warehouseId         String? // Almacén seleccionado para la entrada de stock
+  purchaseOrderId     String? // Pedido de compra que este albarán recibe (conciliación, módulo Compras)
+  notes               String?
+  applyDiscountToCost Boolean       @default(false) // Opt-in: al confirmar, el coste/escandallos usa el precio neto (con descuento) en vez del bruto
+  createdBy           String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
 
   tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier        Supplier?             @relation(fields: [supplierId], references: [id], onDelete: SetNull)
@@ -1697,30 +1848,41 @@ model Albaran {
 }
 
 model AlbaranLine {
-  id               String          @id @default(cuid())
-  albaranId        String
-  articleNumber    String? // Código de artículo del proveedor
-  lot              String? // Lote (opcional)
-  description      String
-  quantity         Float
-  unit             String          @default("ud")
-  unitPrice        Float
-  vatPercent       Float           @default(10)
-  priceWithVat     Float? // Precio unidad con IVA (unit_price × (1 + vat%))
-  lineAmount       Float // Cantidad × precio unidad (sin IVA)
-  matchStatus      LineMatchStatus @default(NUEVO)
-  lineStatus       LineStatus      @default(PENDIENTE)
-  matchedProductId String? // FK a Product si hay match
-  confidence       Float           @default(0) // 0-1 confianza del match
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                  String          @id @default(cuid())
+  albaranId           String
+  articleNumber       String? // Código de artículo del proveedor
+  lot                 String? // Lote (opcional)
+  description         String
+  quantity            Float
+  unit                String          @default("ud")
+  unitPrice           Float
+  vatPercent          Float           @default(10)
+  priceWithVat        Float? // Precio unidad con IVA (unit_price × (1 + vat%))
+  totalPrice          Float? // Importe neto de la línea leído del papel (sin IVA, con descuento si lo hay). El OCR lo trae pero qty×precio puede no cuadrar cuando hay dto.
+  lineAmount          Float // Cantidad × precio unidad bruto (sin IVA, sin descuento)
+  matchStatus         LineMatchStatus @default(NUEVO)
+  lineStatus          LineStatus      @default(PENDIENTE)
+  matchedProductId    String? // FK a Product si hay match
+  confidence          Float           @default(0) // 0-1 confianza del match
+  // Candidato de menor confianza (MATCH_DUDOSO o incluso NUEVO) que el
+  // matching automático encontró pero no fue suficiente para auto-asignar.
+  // Se muestra como sugerencia descartable en vez de perderse (antes se
+  // calculaba y se tiraba sin persistir). suggestionDismissed sobrevive a
+  // re-ejecuciones de matchAllLines para no resucitar un descarte del usuario.
+  suggestedProductId  String?
+  suggestionDismissed Boolean         @default(false)
+  lineOrder           Int             @default(0) // Posición en el documento origen; createdAt no sirve de desempate (mismo now() en creación anidada)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  albaran        Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
-  matchedProduct Product? @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
-  lotRecord      Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
+  albaran          Albaran  @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  matchedProduct   Product? @relation("AlbaranLineMatchedProduct", fields: [matchedProductId], references: [id], onDelete: SetNull)
+  suggestedProduct Product? @relation("AlbaranLineSuggestedProduct", fields: [suggestedProductId], references: [id], onDelete: SetNull)
+  lotRecord        Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
 
   @@index([albaranId])
   @@index([matchedProductId])
+  @@index([suggestedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
 }
@@ -1797,11 +1959,11 @@ model UnitOfMeasure {
 
 // Historial de precios por producto (con/sin proveedor)
 model ProductPriceHistory {
-  id            String   @id @default(cuid())
-  tenantId      String
-  productId     String
-  supplierId    String? // Proveedor asociado al cambio de precio
-  albaranId     String? // Albarán que originó el cambio
+  id               String   @id @default(cuid())
+  tenantId         String
+  productId        String
+  supplierId       String? // Proveedor asociado al cambio de precio
+  albaranId        String? // Albarán que originó el cambio
   previousPrice    Float // Precio anterior
   newPrice         Float // Precio nuevo
   previousUnitSize Float? // unitSize vigente al registrar previousPrice; null en filas legacy
@@ -1939,6 +2101,11 @@ model PurchaseOrder {
   locationId  String?
   status      PurchaseOrderStatus @default(BORRADOR)
   notes       String?
+  // Artículos que el usuario quiere pedir pero aún no están en `lines`
+  // (no comprados antes a este proveedor). Texto libre, una línea por
+  // artículo; se renderiza como lista con el mismo bullet que `lines`,
+  // detrás del listado de artículos y antes de `notes` en mensaje/PDF.
+  additionalItems String?
 
   // Envío al proveedor
   sentAt  DateTime?
@@ -1947,6 +2114,10 @@ model PurchaseOrder {
 
   expectedTotal Float  @default(0) // Suma de expectedPrice × quantity de las líneas
   receivedTotal Float? // Suma real tras conciliar con albarán
+
+  // Dedup de la alerta "pedido parcial estancado" (StalePartialOrderAlertService):
+  // se marca al notificar, se resetea a null cuando llega nueva recepción.
+  staleAlertSentAt DateTime?
 
   createdBy String? // userId
   createdAt DateTime  @default(now())
@@ -2001,6 +2172,15 @@ model PurchaseList {
   supplierId String
   locationId String?
   name       String
+  // Notas libres del usuario (artículos sueltos a recordar, instrucciones al
+  // proveedor, etc.). Texto plano, no estructurado: no genera líneas de
+  // pedido ni afecta a stock/coste/reconciliación.
+  notes      String?
+  // Artículos que el usuario quiere pedir pero no están en el catálogo del
+  // proveedor (no comprados antes). Una línea por artículo; al generar el
+  // pedido se transfieren a PurchaseOrder.additionalItems, que se renderiza
+  // como lista con bullet tras el listado de artículos y antes de Notas.
+  additionalItems String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   deletedAt  DateTime?
@@ -2115,9 +2295,11 @@ model PriceDeviation {
 }
 
 enum CatalogImportStatus {
+  PROCESANDO
   PENDIENTE
   APLICADO
   DESCARTADO
+  ERROR
 }
 
 enum CatalogLineStatus {
@@ -2129,16 +2311,18 @@ enum CatalogLineStatus {
 // Importación de tarifa/catálogo de un proveedor (foto/PDF) vía IA: líneas
 // propuestas que exigen revisión humana antes de tocar ninguna oferta real.
 model CatalogImport {
-  id         String              @id @default(cuid())
-  tenantId   String
-  supplierId String
-  fileUrl    String?
-  aiModel    String?
-  status     CatalogImportStatus @default(PENDIENTE)
-  createdBy  String?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
-  deletedAt  DateTime?
+  id           String              @id @default(cuid())
+  tenantId     String
+  supplierId   String
+  fileUrl      String?
+  aiModel      String?
+  status       CatalogImportStatus @default(PENDIENTE)
+  // Mensaje de fallo si la extracción en background terminó en ERROR.
+  errorMessage String?
+  createdBy    String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  deletedAt    DateTime?
 
   tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Cascade)

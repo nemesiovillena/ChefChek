@@ -1,7 +1,38 @@
-@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  /* Antes de que cargue la fuente, el nombre literal del icono ("warning",
+     "notifications_active"...) se mide con la fuente de fallback e infla el
+     contenedor (cards más altas + scroll extra en el primer render, sobre
+     todo en redes móviles lentas). Fijar el tamaño en `em` recorta ese
+     texto de fallback al tamaño real del icono. */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -332,5 +363,13 @@
   header:not(.fixed),
   nav:not(.fixed) {
     display: none !important;
+  }
+
+  /* Ancho de contenido único en toda la app (docs/code-standards.md §4).
+     Usar en el contenedor raíz de cada página en vez de max-w-Nxl ad-hoc. */
+  .content-container {
+    width: 100%;
+    max-width: var(--spacing-container-max-width);
+    margin-inline: auto;
   }
 }

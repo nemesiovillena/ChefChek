@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ALBARAN_UPLOAD_URL } from '@/lib/upload-api';
+import type { MatchStatus } from '@/lib/api-albaran';
 
 export interface DetectedProduct {
   name: string;
@@ -10,8 +12,10 @@ export interface DetectedProduct {
   unit_price: number;
   total_price: number;
   confidence: number;
+  matchStatus: MatchStatus;
   matchedProductId?: string | null;
   matchedProductName?: string | null;
+  suggestedProductId?: string | null;
 }
 
 export interface AlbaranUploadResult {
@@ -23,6 +27,8 @@ export interface UseAlbaranUploadOptions {
   aiModel?: string;
   /** AI API key (stored in sessionStorage, never persisted in backend) */
   aiApiKey?: string;
+  /** Pedido de compra de origen: el albarán se vincula a él al crearse */
+  purchaseOrderId?: string;
 }
 
 const MAX_FILES = 10;
@@ -30,12 +36,12 @@ const MAX_FILES = 10;
 /** Build auth headers from session storage for direct backend calls */
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
-  const sessionId = sessionStorage.getItem('session_id');
+  const sessionId = localStorage.getItem('session_id');
   const headers: Record<string, string> = {};
   if (sessionId) {
     headers['Authorization'] = `Bearer ${sessionId}`;
   }
-  const tenantSlug = sessionStorage.getItem('tenant_slug');
+  const tenantSlug = localStorage.getItem('tenant_slug');
   if (tenantSlug) {
     headers['X-Tenant-Slug'] = tenantSlug;
   }
@@ -58,6 +64,7 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
 }
 
 export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -140,6 +147,9 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
           formData.append('ai_api_key', apiKey);
         }
       }
+      if (options.purchaseOrderId) {
+        formData.append('purchase_order_id', options.purchaseOrderId);
+      }
 
       progressInterval = setInterval(() => {
         setUploadProgress((prev) => Math.min(prev + 10, 90));
@@ -170,6 +180,10 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
         throw new Error('No se detectaron productos en el albarán');
       }
 
+      if (data.albaranId) {
+        void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+      }
+
       setResults(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -179,7 +193,7 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [files, options.aiApiKey, options.aiModel]);
+  }, [files, options.aiApiKey, options.aiModel, options.purchaseOrderId, queryClient]);
 
   /** Reset all state */
   const reset = useCallback(() => {

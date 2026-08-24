@@ -24,6 +24,7 @@ export interface ComboboxProduct {
   name: string;
   referenceUnit?: string;
   allergens?: number[];
+  wastePercentage?: number;
 }
 
 interface ProductComboboxProps {
@@ -97,6 +98,7 @@ export default function ProductCombobox({
                         name: product.name,
                         referenceUnit: product.referenceUnit,
                         allergens: product.allergens,
+                        wastePercentage: product.wastePercentage,
                       });
                       setOpen(false);
                     }}

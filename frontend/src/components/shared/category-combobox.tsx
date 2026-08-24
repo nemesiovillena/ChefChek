@@ -32,6 +32,13 @@ export default function CategoryCombobox({
 }: CategoryComboboxProps) {
   const [open, setOpen] = useState(false);
   const selected = value ? findInTree(tree, value) : null;
+  const sortedTree = [...tree]
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .map((parent) =>
+      parent.children?.length
+        ? { ...parent, children: [...parent.children].sort((a, b) => a.name.localeCompare(b.name, 'es')) }
+        : parent,
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -71,7 +78,7 @@ export default function CategoryCombobox({
                 Todas las categorías
               </CommandItem>
             </CommandGroup>
-            {tree.map((parent) => {
+            {sortedTree.map((parent) => {
               const hasChildren = parent.children && parent.children.length > 0;
 
               if (!hasChildren) {

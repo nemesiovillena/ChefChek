@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { PurchaseScheduleService } from "../compras/services/purchase-schedule.service";
 import {
   DashboardQueryDto,
   CreateMetricDto,
@@ -149,13 +150,120 @@ export class DashboardService {
     // Productos con stock bajo
     const lowStockItems = lowStockCount;
 
-    // Pedidos pendientes
-    const pendingOrders = await this.prisma.order.count({
+    // Pedidos de compra pendientes de recepción (enviados o recibidos parcialmente)
+    const pendingOrders = await this.prisma.purchaseOrder.count({
       where: {
         tenantId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
+        status: { in: ["ENVIADO", "RECIBIDO_PARCIAL"] },
       },
     });
+
+    // Pedidos BORRADOR generados por programación automática, aún sin revisar
+    // ni enviar (distinto de "pendientes de recepción" — ver badge en la card
+    // del dashboard). Solo los que vienen de un cron, no borradores manuales
+    // en curso de edición.
+    const scheduledDraftOrders = await this.prisma.purchaseOrder.count({
+      where: {
+        tenantId,
+        status: "BORRADOR",
+        events: { some: { type: "SCHEDULED_GENERATION" } },
+      },
+    });
+
+    // Próxima programación de pedido de compra habilitada (la más cercana
+    // entre todos los proveedores/listas), para avisar en la card de
+    // "Pedidos pendientes" del dashboard.
+    const enabledSchedules = await this.prisma.purchaseSchedule.findMany({
+      where: { tenantId, enabled: true },
+      select: {
+        daysOfWeek: true,
+        timeOfDay: true,
+        enabled: true,
+        lastRunAt: true,
+        supplier: { select: { name: true } },
+      },
+    });
+    const nextScheduledPurchase =
+      enabledSchedules
+        .map((schedule) => {
+          const next = PurchaseScheduleService.getNextRunAt(schedule, now);
+          return next
+            ? { ...next, supplierName: schedule.supplier.name }
+            : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+        .sort((a, b) =>
+          `${a.dateKey}T${a.timeOfDay}`.localeCompare(
+            `${b.dateKey}T${b.timeOfDay}`,
+          ),
+        )[0] ?? null;
+
+    // Lotes de producción activos
+    const activeProductionBatches = await this.prisma.workBatch.count({
+      where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
+    });
+
+    // Próximas órdenes de producción (pendientes o en curso), más recientes primero
+    const upcomingProductionOrders = await this.prisma.productionOrder.findMany(
+      {
+        where: {
+          tenantId,
+          deletedAt: null,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        // Ordenadas en memoria (ver más abajo) por lotDate = postponedTo ??
+        // batch.scheduledFor, no por order.scheduledFor (que solo marca
+        // cuándo se creó la orden). Sin take: el dashboard debe listar todas
+        // las tareas pendientes/en curso, no solo las últimas 6.
+        include: { batch: { select: { scheduledFor: true } } },
+      },
+    );
+
+    const lotDateOf = (order: (typeof upcomingProductionOrders)[number]) =>
+      order.postponedTo ?? order.batch.scheduledFor;
+
+    // Las tareas con sortOrder (reordenadas a mano desde el dashboard) van
+    // primero, respetando ese orden manual; el resto se ordena por lotDate.
+    upcomingProductionOrders.sort((a, b) => {
+      if (a.sortOrder !== null && b.sortOrder !== null) {
+        return a.sortOrder - b.sortOrder;
+      }
+      if (a.sortOrder !== null) {
+        return -1;
+      }
+      if (b.sortOrder !== null) {
+        return 1;
+      }
+      return lotDateOf(a).getTime() - lotDateOf(b).getTime();
+    });
+
+    // Nombres del personal asignado, para mostrar quién debe realizar cada tarea.
+    const assignedStaffIds = Array.from(
+      new Set(
+        upcomingProductionOrders.flatMap((order) => order.assignedStaffIds),
+      ),
+    );
+    const assignedStaff = assignedStaffIds.length
+      ? await this.prisma.staffMember.findMany({
+          where: { id: { in: assignedStaffIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const staffNameById = new Map(assignedStaff.map((s) => [s.id, s.name]));
+
+    const upcomingProductionTasks = upcomingProductionOrders.map((order) => ({
+      id: order.id,
+      batchId: order.batchId,
+      title: order.title,
+      orderType: order.orderType,
+      status: order.status,
+      lotDate: lotDateOf(order),
+      isPostponed: Boolean(order.postponedTo),
+      estimatedTime: order.estimatedTime,
+      assignedStaffNames: order.assignedStaffIds
+        .map((id) => staffNameById.get(id))
+        .filter((name): name is string => Boolean(name)),
+    }));
 
     // Ingresos de hoy
     const todayStart = new Date();
@@ -197,8 +305,12 @@ export class DashboardService {
       activeUsers: activeUsers.length,
       lowStockItems,
       pendingOrders,
+      scheduledDraftOrders,
+      nextScheduledPurchase,
       todayRevenue: todayRevenue._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
+      activeProductionBatches,
+      upcomingProductionTasks,
       // Campos compatibles con formato existente
       averageCost: {
         current: avgCost,

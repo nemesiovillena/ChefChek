@@ -1360,56 +1360,12 @@ async function main() {
   }
   console.log(`✅ inventory + ${invItems.length} items (con discrepancias)`);
 
-  // ── L6: production (orders, work batches, progress, alerts) ───────────
-  const productionOrder = await prisma.productionOrder.create({
-    data: {
-      tenantId: tenant.id,
-      orderNumber: "PROD-2026-001",
-      orderType: "COOKING",
-      status: "IN_PROGRESS",
-      scheduledFor: iso(1),
-      startedAt: iso(0),
-      items: [
-        { recipe: "Paella Valenciana", portions: 8 },
-        { recipe: "Salmón a la Plancha", portions: 4 },
-      ],
-      miseEnPlaceItems: [{ product: "Arroz Bomba", quantity: 500 }],
-      notes: "Producción para servicio de mediodía",
-      createdBy: admin.id,
-    },
-  });
-  const workBatch = await prisma.workBatch.create({
-    data: {
-      tenantId: tenant.id,
-      orderId: productionOrder.id,
-      batchNumber: "LOTE-001",
-      batchType: "COOKING",
-      status: "IN_PROGRESS",
-      scheduledFor: iso(1),
-      startedAt: iso(0),
-      notes: "Lote de paellas",
-      createdBy: admin.id,
-    },
-  });
-  await prisma.progressTracking.create({
-    data: {
-      workBatchId: workBatch.id,
-      progress: 65,
-      status: "IN_PROGRESS",
-      notes: "Cocción en curso",
-      trackedBy: admin.id,
-    },
-  });
-  await prisma.productionAlert.create({
-    data: {
-      tenantId: tenant.id,
-      alertType: "STOCK",
-      severity: "WARNING",
-      message: "Stock de Pollo de Corral por debajo del mínimo",
-      createdBy: admin.id,
-    },
-  });
-  console.log("✅ production order + work batch + progress + alert");
+  // ── L6: production — SIN SEED. El módulo de producción se reescribió
+  // (2026-08-05/06) y su schema cambió (WorkBatch ← ProductionOrder, etc.).
+  // La sección de seed anterior referenciaba el schema del stub viejo y no
+  // compilaba. No se necesita seed de producción: el usuario crea lotes/órdenes
+  // desde la UI. Si se quiere seed de producción, reescribir contra el schema
+  // actual (ProductionOrder requiere title+batchId; ProgressTracking.orderId).
 
   // ── L7: APPCC (temperature, cleaning, pest, controls) ─────────────────
   const fridge = await prisma.temperatureControl.create({

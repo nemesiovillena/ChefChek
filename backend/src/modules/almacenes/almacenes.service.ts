@@ -329,11 +329,18 @@ export class WarehousesService {
     }
 
     const movement = await this.prisma.stockMovement.create({
-      data: dto as any,
+      data: {
+        productId: dto.productId,
+        warehouseId: dto.warehouseId,
+        type: dto.type,
+        quantity: dto.quantity,
+        unit: dto.unit,
+        reason: dto.reason,
+      },
     });
 
     // Actualizar stock correspondiente
-    await this.updateStockFromMovement(movement);
+    await this.updateStockFromMovement(movement, tenantId);
 
     return {
       success: true,
@@ -620,7 +627,10 @@ export class WarehousesService {
     }
   }
 
-  private async updateStockFromMovement(movement: any): Promise<void> {
+  private async updateStockFromMovement(
+    movement: any,
+    tenantId: string,
+  ): Promise<void> {
     const stock = await this.prisma.stock.findFirst({
       where: {
         productId: movement.productId,
@@ -632,7 +642,7 @@ export class WarehousesService {
       // Crear stock si no existe
       await this.prisma.stock.create({
         data: {
-          tenantId: movement.tenantId,
+          tenantId,
           productId: movement.productId,
           warehouseId: movement.warehouseId,
           quantity: movement.type === "ENTRANCE" ? movement.quantity : 0,

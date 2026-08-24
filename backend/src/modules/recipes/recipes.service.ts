@@ -75,6 +75,16 @@ export class RecipesService {
         WHERE r."tenantId" = ${tenantId}
           AND r."deletedAt" IS NULL
           ${excludeId ? Prisma.sql`AND r.id <> ${excludeId}` : Prisma.empty}
+          ${
+            excludeId
+              ? Prisma.sql`AND NOT EXISTS (
+                  SELECT 1 FROM recipe_duplicate_dismissals d
+                  WHERE d."tenantId" = ${tenantId}
+                    AND d."recipeId" = ${excludeId}
+                    AND d."dismissedRecipeId" = r.id
+                )`
+              : Prisma.empty
+          }
       ) q
       CROSS JOIN norm
       WHERE strpos(q.pn, norm.input) > 0
@@ -83,6 +93,46 @@ export class RecipesService {
       LIMIT 5
     `);
     return matches;
+  }
+
+  // Guarda el descarte en ambos sentidos: al editar cualquiera de las dos
+  // recetas, el aviso de duplicado ya no debe mostrar a la otra.
+  async dismissDuplicate(
+    tenantId: string,
+    recipeId: string,
+    dismissedRecipeId: string,
+  ): Promise<void> {
+    if (recipeId === dismissedRecipeId) {
+      return;
+    }
+    await this.prisma.$transaction([
+      this.prisma.recipeDuplicateDismissal.upsert({
+        where: {
+          tenantId_recipeId_dismissedRecipeId: {
+            tenantId,
+            recipeId,
+            dismissedRecipeId,
+          },
+        },
+        create: { tenantId, recipeId, dismissedRecipeId },
+        update: {},
+      }),
+      this.prisma.recipeDuplicateDismissal.upsert({
+        where: {
+          tenantId_recipeId_dismissedRecipeId: {
+            tenantId,
+            recipeId: dismissedRecipeId,
+            dismissedRecipeId: recipeId,
+          },
+        },
+        create: {
+          tenantId,
+          recipeId: dismissedRecipeId,
+          dismissedRecipeId: recipeId,
+        },
+        update: {},
+      }),
+    ]);
   }
 
   async create(
@@ -147,6 +197,7 @@ export class RecipesService {
             productId: ing.productId,
             quantity: ing.quantity,
             unit: ing.unit,
+            wastePercentageOverride: ing.wastePercentageOverride,
           })),
         },
         subRecipes:
@@ -429,6 +480,7 @@ export class RecipesService {
           productId: ing.productId,
           quantity: ing.quantity,
           unit: ing.unit,
+          wastePercentageOverride: ing.wastePercentageOverride,
         })),
       });
     }
@@ -507,6 +559,7 @@ export class RecipesService {
         productId: ing.productId,
         quantity: ing.quantity,
         unit: ing.unit,
+        wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
       })),
       subRecipes: originalRecipe.subRecipes?.map((sub) => ({
         subRecipeId: sub.subRecipeId,
@@ -557,7 +610,8 @@ export class RecipesService {
       SELECT id,
              "purchasePrice"::float8 AS "purchasePrice",
              "unitSize"::float8       AS "unitSize",
-             "referenceUnit"
+             "referenceUnit",
+             "discountPercentage"::float8 AS "discountPercentage"
       FROM products
       WHERE id = ANY(${productIds}::text[])
         AND "tenantId" = ${tenantId}
@@ -566,6 +620,7 @@ export class RecipesService {
       purchasePrice: number;
       unitSize: number;
       referenceUnit: string;
+      discountPercentage: number;
     }>;
     const productMap = new Map<string, any>(
       products.map((p: any) => [p.id, p]),
@@ -733,13 +788,24 @@ export class RecipesService {
     const ingredients: IngredientResponse[] =
       recipe.ingredients?.map((ing: any) => {
         const product = ing.product;
+        // La merma manual de la receta (wastePercentageOverride) siempre
+        // manda sobre la del artículo cuando está fijada — permite corregir
+        // la línea sin tener que ir a editar el artículo. hasArticleWaste
+        // solo indica si el artículo trae una propia (para la UI).
+        const articleWastePercentage = product?.wastePercentage ?? 0;
+        const hasArticleWaste = articleWastePercentage > 0;
+        const wastePercentage =
+          ing.wastePercentageOverride ?? articleWastePercentage;
         const yieldFactor =
-          product?.yieldFactor && product.yieldFactor > 0
-            ? product.yieldFactor
-            : 1;
+          wastePercentage > 0 ? (100 - wastePercentage) / 100 : 1;
         const unitSize = product?.unitSize > 0 ? product.unitSize : 1;
+        // Mismo descuento fijo del proveedor que calculateProductCostPerUnit:
+        // el precio de referencia mostrado debe ser el efectivo (bruto × dto),
+        // no el bruto, para no driftear del coste de la línea.
+        const discountFactor =
+          1 - Number(product?.discountPercentage ?? 0) / 100;
         const referencePurchasePrice = product
-          ? product.purchasePrice / unitSize
+          ? (product.purchasePrice / unitSize) * discountFactor
           : 0;
         const yieldPercentage = yieldFactor * 100;
 
@@ -755,10 +821,12 @@ export class RecipesService {
           grossWeight: ing.quantity,
           netWeight: ing.quantity * yieldFactor,
           yieldPercentage,
-          wastePercentage: 100 - yieldPercentage,
+          wastePercentage,
+          hasArticleWaste,
+          wastePercentageOverride: ing.wastePercentageOverride ?? null,
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
-          referenceUnit: product?.referenceUnit || "kg",
+          referenceUnit: product?.referenceUnit || "kilo",
         };
       }) || [];
 

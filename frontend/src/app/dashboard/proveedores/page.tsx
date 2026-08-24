@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Truck, Plus, Loader2 } from 'lucide-react';
+import { Truck, Plus, Loader2, Search, X } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -24,8 +24,9 @@ import {
   type CreateSupplierDto,
   type UpdateSupplierDto,
 } from '@/hooks/use-supplier-mutations';
-import { SupplierForm } from '@/app/dashboard/articulos/components/supplier-form';
+import SupplierModal from './components/supplier-modal';
 import { SupplierTable } from './components/supplier-table';
+import { SupplierOffersFichaDialog } from './components/supplier-offers-ficha-dialog';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -36,6 +37,23 @@ function resolveSupplierErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message || fallback;
   return fallback;
 }
+
+function normalizeSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+const SEARCH_FIELDS: (keyof Supplier)[] = [
+  'name',
+  'legalName',
+  'cifNif',
+  'phone',
+  'whatsapp',
+  'email',
+  'contactPerson',
+];
 
 export default function ProveedoresPage() {
   const { isLoading: authLoading, isAuthenticated, user } = useAuth();
@@ -50,13 +68,16 @@ export default function ProveedoresPage() {
   const deleteMutation = useDeleteSupplier();
   const toggleMutation = useToggleSupplierActive();
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [fichaSupplier, setFichaSupplier] = useState<{ id: string; name: string } | null>(null);
 
   const [reassignOpen, setReassignOpen] = useState(false);
   const [reassignSupplier, setReassignSupplier] = useState<{ id: string; name: string; productCount: number } | null>(null);
   const [reassignTarget, setReassignTarget] = useState('');
   const [isReassigning, setIsReassigning] = useState(false);
+
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login');
@@ -72,15 +93,24 @@ export default function ProveedoresPage() {
 
   const canManage = MANAGE_ROLES.includes(user?.role ?? '') || user?.role === 'USER';
   const list = suppliers ?? [];
+  const query = normalizeSearch(search.trim());
+  const filteredList = query
+    ? list.filter((supplier) =>
+        SEARCH_FIELDS.some((field) => {
+          const value = supplier[field];
+          return typeof value === 'string' && normalizeSearch(value).includes(query);
+        }),
+      )
+    : list;
 
   const handleCreate = () => {
     setEditingSupplier(null);
-    setSheetOpen(true);
+    setModalOpen(true);
   };
 
   const handleEdit = (supplier: Supplier) => {
     setEditingSupplier(supplier);
-    setSheetOpen(true);
+    setModalOpen(true);
   };
 
   const handleSubmit = async (data: CreateSupplierDto | UpdateSupplierDto) => {
@@ -90,7 +120,7 @@ export default function ProveedoresPage() {
       } else {
         await createMutation.mutateAsync(data as CreateSupplierDto);
       }
-      setSheetOpen(false);
+      setModalOpen(false);
       setEditingSupplier(null);
       addNotification({
         type: 'success',
@@ -201,6 +231,27 @@ export default function ProveedoresPage() {
         )}
       </div>
 
+      <div className="relative mb-6 max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--on-surface-variant)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre, razón social, CIF, teléfono..."
+          className="w-full rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] py-2 pl-9 pr-9 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)]"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+            title="Limpiar búsqueda"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-[var(--on-surface-variant)]">
           <Loader2 className="h-5 w-5 animate-spin" /> Cargando proveedores...
@@ -209,32 +260,37 @@ export default function ProveedoresPage() {
         <div className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-10 text-center text-[var(--on-surface-variant)]">
           No hay proveedores. Crea el primero.
         </div>
+      ) : filteredList.length === 0 ? (
+        <div className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-10 text-center text-[var(--on-surface-variant)]">
+          No se encontraron proveedores para &quot;{search}&quot;.
+        </div>
       ) : (
         <SupplierTable
-          suppliers={list}
+          suppliers={filteredList}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleActive={handleToggleActive}
+          onOpenFicha={(id, name) => setFichaSupplier({ id, name })}
           isToggling={toggleMutation.isPending}
           isDeleting={deleteMutation.isPending}
         />
       )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="overflow-y-auto sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>{editingSupplier ? `Editar: ${editingSupplier.name}` : 'Nuevo proveedor'}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">
-            <SupplierForm
-              supplier={editingSupplier}
-              onSubmit={handleSubmit}
-              onCancel={() => setSheetOpen(false)}
-              isSubmitting={createMutation.isPending || updateMutation.isPending}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {fichaSupplier && (
+        <SupplierOffersFichaDialog
+          supplierId={fichaSupplier.id}
+          supplierName={fichaSupplier.name}
+          onClose={() => setFichaSupplier(null)}
+        />
+      )}
+
+      <SupplierModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        supplier={editingSupplier}
+        onSubmit={handleSubmit}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+      />
 
       <Sheet open={reassignOpen} onOpenChange={setReassignOpen}>
         <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
