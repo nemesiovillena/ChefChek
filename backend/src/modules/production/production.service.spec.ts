@@ -293,7 +293,7 @@ describe("ProductionService", () => {
         data: {
           batchNumber: updateWorkBatchDto.name,
           notes: updateWorkBatchDto.description,
-          scheduledFor: new Date("2025-01-15"),
+          scheduledFor: new Date("2025-01-15T00:00:00"),
         },
       });
     });

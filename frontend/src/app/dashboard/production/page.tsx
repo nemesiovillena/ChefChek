@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useProduction } from '@/hooks/use-production';
@@ -27,6 +27,16 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+// Formats a date using local (not UTC) parts, so an <input type="date"> reflects
+// the same day the server stored, regardless of the browser's UTC offset.
+function toLocalDateInputValue(date: string | Date): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function ProductionPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -40,6 +50,9 @@ export default function ProductionPage() {
   const [editBatchName, setEditBatchName] = useState('');
   const [editBatchDescription, setEditBatchDescription] = useState('');
   const [editBatchPlannedDate, setEditBatchPlannedDate] = useState('');
+  // Tracks the batch being edited synchronously, so an in-flight save for one
+  // batch doesn't clobber the form after the user has switched to editing another.
+  const editingBatchIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -76,13 +89,15 @@ export default function ProductionPage() {
   };
 
   const handleStartEditBatch = (batch: (typeof batches)[number]) => {
+    editingBatchIdRef.current = batch.id;
     setEditingBatchId(batch.id);
     setEditBatchName(batch.name);
     setEditBatchDescription(batch.description || '');
-    setEditBatchPlannedDate(new Date(batch.plannedDate).toISOString().slice(0, 10));
+    setEditBatchPlannedDate(toLocalDateInputValue(batch.plannedDate));
   };
 
   const handleCancelEditBatch = () => {
+    editingBatchIdRef.current = null;
     setEditingBatchId(null);
     setEditBatchName('');
     setEditBatchDescription('');
@@ -91,17 +106,21 @@ export default function ProductionPage() {
 
   const handleUpdateBatch = async () => {
     if (!editingBatchId || !editBatchName.trim() || !editBatchPlannedDate.trim()) return;
+    const batchId = editingBatchId;
 
     try {
       await updateBatch({
-        id: editingBatchId,
+        id: batchId,
         data: {
           name: editBatchName,
-          description: editBatchDescription || undefined,
+          description: editBatchDescription,
           plannedDate: editBatchPlannedDate,
         },
       });
-      handleCancelEditBatch();
+      // Only close/reset the form if the user hasn't since switched to editing another batch.
+      if (editingBatchIdRef.current === batchId) {
+        handleCancelEditBatch();
+      }
       refetch();
     } catch (error) {
       console.error('Error updating batch:', error);

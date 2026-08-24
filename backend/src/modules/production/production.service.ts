@@ -21,6 +21,12 @@ export class ProductionService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Work Batches
+  // Parses a bare "YYYY-MM-DD" as local midnight instead of UTC midnight,
+  // so the stored date matches the day the user picked in negative-UTC timezones.
+  private parseLocalDate(dateOnly: string): Date {
+    return new Date(`${dateOnly}T00:00:00`);
+  }
+
   private mapWorkBatch(batch: any) {
     return {
       id: batch.id,
@@ -43,7 +49,7 @@ export class ProductionService {
         batchNumber: dto.name,
         batchType: "PREPARATION",
         status: "PENDING",
-        scheduledFor: new Date(dto.plannedDate),
+        scheduledFor: this.parseLocalDate(dto.plannedDate),
         notes: dto.description,
         createdBy: userId,
       } as any,
@@ -94,7 +100,7 @@ export class ProductionService {
         ...(dto.name !== undefined && { batchNumber: dto.name }),
         ...(dto.description !== undefined && { notes: dto.description }),
         ...(dto.plannedDate !== undefined && {
-          scheduledFor: new Date(dto.plannedDate),
+          scheduledFor: this.parseLocalDate(dto.plannedDate),
         }),
       },
     });
