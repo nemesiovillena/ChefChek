@@ -1,12 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProductionController } from "./production.controller";
 import { ProductionService } from "./production.service";
-import {
-  BatchPriority,
-  KitchenZone,
-  TaskType,
-  TaskStatus,
-} from "./dto/production.dto";
+import { KitchenZone, TaskType, TaskStatus } from "./dto/production.dto";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
@@ -19,6 +14,7 @@ describe("ProductionController", () => {
     createWorkBatch: jest.fn(),
     getWorkBatches: jest.fn(),
     getWorkBatchById: jest.fn(),
+    updateWorkBatch: jest.fn(),
     startWorkBatch: jest.fn(),
     completeWorkBatch: jest.fn(),
     createProductionOrder: jest.fn(),
@@ -75,11 +71,8 @@ describe("ProductionController", () => {
       it("should create a work batch", async () => {
         const dto = {
           name: "Batch 1",
-          scheduledDate: new Date("2026-06-05"),
-          scheduledTime: "08:00",
-          priority: BatchPriority.HIGH,
-          responsible: ["user-1"],
-          kitchenZone: KitchenZone.HOT_KITCHEN,
+          description: "Test batch",
+          plannedDate: "2026-06-05",
         };
 
         mockProductionService.createWorkBatch.mockResolvedValue({
@@ -127,6 +120,30 @@ describe("ProductionController", () => {
         expect(mockProductionService.getWorkBatchById).toHaveBeenCalledWith(
           "tenant-1",
           "batch-1",
+        );
+      });
+    });
+
+    describe("updateWorkBatch", () => {
+      it("should update a work batch", async () => {
+        const dto = { name: "Updated Batch" };
+
+        mockProductionService.updateWorkBatch.mockResolvedValue({
+          success: true,
+          data: { id: "batch-1", name: "Updated Batch" },
+        });
+
+        const result = await controller.updateWorkBatch(
+          mockReq,
+          "batch-1",
+          dto,
+        );
+
+        expect(result.success).toBe(true);
+        expect(mockProductionService.updateWorkBatch).toHaveBeenCalledWith(
+          "tenant-1",
+          "batch-1",
+          dto,
         );
       });
     });

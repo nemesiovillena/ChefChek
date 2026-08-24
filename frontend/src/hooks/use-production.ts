@@ -49,6 +49,22 @@ export function useProduction() {
     },
   });
 
+  const updateBatchMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: { name?: string; description?: string; plannedDate?: string };
+    }) => {
+      const response = await apiClient.put<ProductionBatchResponse>(`/v1/production/batches/${id}`, data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production-batches'] });
+    },
+  });
+
   return {
     batches: batchesData || [],
     workOrders: ordersData || [],
@@ -57,5 +73,7 @@ export function useProduction() {
     refetch: batchesRefetch,
     createBatch: createBatchMutation.mutateAsync,
     isCreating: createBatchMutation.isPending,
+    updateBatch: updateBatchMutation.mutateAsync,
+    isUpdating: updateBatchMutation.isPending,
   };
 }

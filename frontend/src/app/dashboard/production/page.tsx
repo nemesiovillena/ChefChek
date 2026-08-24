@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useProduction } from '@/hooks/use-production';
@@ -22,19 +22,37 @@ import {
   Loader2,
   Package,
   Calendar,
+  Pencil,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
+// Formats a date using local (not UTC) parts, so an <input type="date"> reflects
+// the same day the server stored, regardless of the browser's UTC offset.
+function toLocalDateInputValue(date: string | Date): string {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function ProductionPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { batches, workOrders, isLoading, error, refetch, createBatch } = useProduction();
+  const { batches, workOrders, isLoading, error, refetch, createBatch, updateBatch } = useProduction();
   const [currentStep, setCurrentStep] = useState(0);
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
   const [newBatchName, setNewBatchName] = useState('');
   const [newBatchDescription, setNewBatchDescription] = useState('');
   const [newBatchPlannedDate, setNewBatchPlannedDate] = useState('');
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editBatchName, setEditBatchName] = useState('');
+  const [editBatchDescription, setEditBatchDescription] = useState('');
+  const [editBatchPlannedDate, setEditBatchPlannedDate] = useState('');
+  // Tracks the batch being edited synchronously, so an in-flight save for one
+  // batch doesn't clobber the form after the user has switched to editing another.
+  const editingBatchIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -67,6 +85,45 @@ export default function ProductionPage() {
       refetch();
     } catch (error) {
       console.error('Error creating batch:', error);
+    }
+  };
+
+  const handleStartEditBatch = (batch: (typeof batches)[number]) => {
+    editingBatchIdRef.current = batch.id;
+    setEditingBatchId(batch.id);
+    setEditBatchName(batch.name);
+    setEditBatchDescription(batch.description || '');
+    setEditBatchPlannedDate(toLocalDateInputValue(batch.plannedDate));
+  };
+
+  const handleCancelEditBatch = () => {
+    editingBatchIdRef.current = null;
+    setEditingBatchId(null);
+    setEditBatchName('');
+    setEditBatchDescription('');
+    setEditBatchPlannedDate('');
+  };
+
+  const handleUpdateBatch = async () => {
+    if (!editingBatchId || !editBatchName.trim() || !editBatchPlannedDate.trim()) return;
+    const batchId = editingBatchId;
+
+    try {
+      await updateBatch({
+        id: batchId,
+        data: {
+          name: editBatchName,
+          description: editBatchDescription,
+          plannedDate: editBatchPlannedDate,
+        },
+      });
+      // Only close/reset the form if the user hasn't since switched to editing another batch.
+      if (editingBatchIdRef.current === batchId) {
+        handleCancelEditBatch();
+      }
+      refetch();
+    } catch (error) {
+      console.error('Error updating batch:', error);
     }
   };
 
@@ -193,31 +250,80 @@ export default function ProductionPage() {
                       </Button>
                     </Card>
                   ) : (
-                    batches.map((batch) => (
-                      <Card key={batch.id} className="p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-semibold">{batch.name}</h3>
-                              <Badge variant="outline">
-                                <Clock className="mr-1 h-3 w-3" />
-                                {new Date(batch.plannedDate).toLocaleDateString()}
-                              </Badge>
-                              {getBatchStatusBadge(batch.status)}
+                    batches.map((batch) =>
+                      editingBatchId === batch.id ? (
+                        <Card key={batch.id} className="p-6">
+                          <CardHeader className="p-0 mb-4">
+                            <CardTitle>Editar Lote de Producción</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4 p-0">
+                            <div>
+                              <Label>Nombre del Lote</Label>
+                              <Input
+                                value={editBatchName}
+                                onChange={(e) => setEditBatchName(e.target.value)}
+                              />
                             </div>
-                            {batch.description && (
-                              <p className="text-sm text-muted-foreground mb-2">{batch.description}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                <span>Creado: {new Date(batch.createdAt).toLocaleDateString()}</span>
+                            <div>
+                              <Label>Descripción (opcional)</Label>
+                              <Textarea
+                                value={editBatchDescription}
+                                onChange={(e) => setEditBatchDescription(e.target.value)}
+                                rows={3}
+                              />
+                            </div>
+                            <div>
+                              <Label>Fecha Programada</Label>
+                              <Input
+                                value={editBatchPlannedDate}
+                                onChange={(e) => setEditBatchPlannedDate(e.target.value)}
+                                type="date"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button onClick={handleCancelEditBatch} variant="outline">
+                                Cancelar
+                              </Button>
+                              <Button onClick={handleUpdateBatch}>
+                                Guardar Cambios
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <Card key={batch.id} className="p-6">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="text-lg font-semibold">{batch.name}</h3>
+                                <Badge variant="outline">
+                                  <Clock className="mr-1 h-3 w-3" />
+                                  {new Date(batch.plannedDate).toLocaleDateString()}
+                                </Badge>
+                                {getBatchStatusBadge(batch.status)}
+                              </div>
+                              {batch.description && (
+                                <p className="text-sm text-muted-foreground mb-2">{batch.description}</p>
+                              )}
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>Creado: {new Date(batch.createdAt).toLocaleDateString()}</span>
+                                </div>
                               </div>
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleStartEditBatch(batch)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </Button>
                           </div>
-                        </div>
-                      </Card>
-                    ))
+                        </Card>
+                      ),
+                    )
                   )}
                 </div>
               </ScrollArea>
