@@ -27,6 +27,7 @@ import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import {
   CreateWorkBatchDto,
+  UpdateWorkBatchDto,
   CreateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
@@ -71,6 +72,20 @@ export class ProductionController {
   async getWorkBatchById(@Req() req: any, @Param("batchId") batchId: string) {
     const tenantId = req.tenantId;
     return this.productionService.getWorkBatchById(tenantId, batchId);
+  }
+
+  @Put("batches/:batchId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Actualizar un lote de trabajo" })
+  @ApiParam({ name: "batchId", description: "ID del lote" })
+  @ApiResponse({ status: 200, description: "Lote actualizado" })
+  async updateWorkBatch(
+    @Req() req: any,
+    @Param("batchId") batchId: string,
+    @Body() dto: UpdateWorkBatchDto,
+  ) {
+    const tenantId = req.tenantId;
+    return this.productionService.updateWorkBatch(tenantId, batchId, dto);
   }
 
   @Post("batches/:batchId/start")

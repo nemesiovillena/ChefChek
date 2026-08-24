@@ -4,6 +4,7 @@ import { PrismaService } from "../../common/services/prisma.service";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import {
   CreateWorkBatchDto,
+  UpdateWorkBatchDto,
   CreateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
@@ -102,11 +103,7 @@ describe("ProductionService", () => {
     const createWorkBatchDto: CreateWorkBatchDto = {
       name: "Test Batch",
       description: "Test Description",
-      scheduledDate: new Date("2024-12-31"),
-      scheduledTime: "10:00",
-      priority: "HIGH" as any,
-      responsible: ["user1", "user2"],
-      kitchenZone: "HOT_KITCHEN" as any,
+      plannedDate: "2024-12-31",
     };
 
     it("should create a work batch successfully", async () => {
@@ -116,8 +113,10 @@ describe("ProductionService", () => {
         batchNumber: createWorkBatchDto.name,
         batchType: "PREPARATION",
         status: "PENDING",
-        scheduledFor: expect.any(Date),
+        scheduledFor: new Date("2024-12-31"),
+        notes: createWorkBatchDto.description,
         createdBy: userId,
+        createdAt: new Date("2024-12-01"),
       };
 
       mockPrismaService.workBatch.create.mockResolvedValue(mockBatch);
@@ -130,7 +129,14 @@ describe("ProductionService", () => {
 
       expect(result).toEqual({
         success: true,
-        data: mockBatch,
+        data: {
+          id: batchId,
+          name: mockBatch.batchNumber,
+          description: mockBatch.notes,
+          plannedDate: mockBatch.scheduledFor,
+          status: mockBatch.status,
+          createdAt: mockBatch.createdAt,
+        },
       });
       expect(mockPrismaService.workBatch.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -138,6 +144,7 @@ describe("ProductionService", () => {
           batchNumber: createWorkBatchDto.name,
           batchType: "PREPARATION",
           status: "PENDING",
+          notes: createWorkBatchDto.description,
           createdBy: userId,
         }),
       });
@@ -147,21 +154,51 @@ describe("ProductionService", () => {
   describe("getWorkBatches", () => {
     it("should return all work batches for a tenant", async () => {
       const mockBatches = [
-        { id: "batch1", tenantId, productionOrders: [] },
-        { id: "batch2", tenantId, productionOrders: [] },
+        {
+          id: "batch1",
+          tenantId,
+          batchNumber: "Batch 1",
+          notes: null,
+          scheduledFor: new Date("2024-12-01"),
+          status: "PENDING",
+          createdAt: new Date("2024-11-01"),
+        },
+        {
+          id: "batch2",
+          tenantId,
+          batchNumber: "Batch 2",
+          notes: "Some notes",
+          scheduledFor: new Date("2024-12-02"),
+          status: "PENDING",
+          createdAt: new Date("2024-11-02"),
+        },
       ];
 
       mockPrismaService.workBatch.findMany.mockResolvedValue(mockBatches);
 
       const result = await service.getWorkBatches(tenantId);
 
-      expect(result).toEqual(mockBatches);
+      expect(result).toEqual([
+        {
+          id: "batch1",
+          name: "Batch 1",
+          description: undefined,
+          plannedDate: mockBatches[0].scheduledFor,
+          status: "PENDING",
+          createdAt: mockBatches[0].createdAt,
+        },
+        {
+          id: "batch2",
+          name: "Batch 2",
+          description: "Some notes",
+          plannedDate: mockBatches[1].scheduledFor,
+          status: "PENDING",
+          createdAt: mockBatches[1].createdAt,
+        },
+      ]);
       expect(mockPrismaService.workBatch.findMany).toHaveBeenCalledWith({
         where: { tenantId },
-        orderBy: { scheduledDate: "desc" },
-        include: {
-          productionOrders: true,
-        },
+        orderBy: { scheduledFor: "desc" },
       });
     });
 
@@ -179,23 +216,27 @@ describe("ProductionService", () => {
       const mockBatch = {
         id: batchId,
         tenantId,
-        productionOrders: [],
+        batchNumber: "Test Batch",
+        notes: "Test Description",
+        scheduledFor: new Date("2024-12-31"),
+        status: "PENDING",
+        createdAt: new Date("2024-12-01"),
       };
 
       mockPrismaService.workBatch.findFirst.mockResolvedValue(mockBatch);
 
       const result = await service.getWorkBatchById(tenantId, batchId);
 
-      expect(result).toEqual(mockBatch);
+      expect(result).toEqual({
+        id: batchId,
+        name: mockBatch.batchNumber,
+        description: mockBatch.notes,
+        plannedDate: mockBatch.scheduledFor,
+        status: mockBatch.status,
+        createdAt: mockBatch.createdAt,
+      });
       expect(mockPrismaService.workBatch.findFirst).toHaveBeenCalledWith({
         where: { id: batchId, tenantId },
-        include: {
-          productionOrders: {
-            include: {
-              miseEnPlaceItems: true,
-            },
-          },
-        },
       });
     });
 
@@ -205,6 +246,64 @@ describe("ProductionService", () => {
       await expect(service.getWorkBatchById(tenantId, batchId)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe("updateWorkBatch", () => {
+    const updateWorkBatchDto: UpdateWorkBatchDto = {
+      name: "Updated Batch",
+      description: "Updated Description",
+      plannedDate: "2025-01-15",
+    };
+
+    it("should update a work batch successfully", async () => {
+      const existingBatch = { id: batchId, tenantId };
+      const updatedBatch = {
+        id: batchId,
+        tenantId,
+        batchNumber: updateWorkBatchDto.name,
+        notes: updateWorkBatchDto.description,
+        scheduledFor: new Date("2025-01-15"),
+        status: "PENDING",
+        createdAt: new Date("2024-12-01"),
+      };
+
+      mockPrismaService.workBatch.findFirst.mockResolvedValue(existingBatch);
+      mockPrismaService.workBatch.update.mockResolvedValue(updatedBatch);
+
+      const result = await service.updateWorkBatch(
+        tenantId,
+        batchId,
+        updateWorkBatchDto,
+      );
+
+      expect(result).toEqual({
+        success: true,
+        data: {
+          id: batchId,
+          name: updatedBatch.batchNumber,
+          description: updatedBatch.notes,
+          plannedDate: updatedBatch.scheduledFor,
+          status: updatedBatch.status,
+          createdAt: updatedBatch.createdAt,
+        },
+      });
+      expect(mockPrismaService.workBatch.update).toHaveBeenCalledWith({
+        where: { id: batchId },
+        data: {
+          batchNumber: updateWorkBatchDto.name,
+          notes: updateWorkBatchDto.description,
+          scheduledFor: new Date("2025-01-15"),
+        },
+      });
+    });
+
+    it("should throw NotFoundException when batch not found", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateWorkBatch(tenantId, batchId, updateWorkBatchDto),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

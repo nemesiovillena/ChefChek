@@ -6,6 +6,7 @@ import {
 import { PrismaService } from "../../common/services/prisma.service";
 import {
   CreateWorkBatchDto,
+  UpdateWorkBatchDto,
   CreateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
@@ -20,6 +21,17 @@ export class ProductionService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Work Batches
+  private mapWorkBatch(batch: any) {
+    return {
+      id: batch.id,
+      name: batch.batchNumber,
+      description: batch.notes ?? undefined,
+      plannedDate: batch.scheduledFor,
+      status: batch.status,
+      createdAt: batch.createdAt,
+    };
+  }
+
   async createWorkBatch(
     tenantId: string,
     userId: string,
@@ -31,44 +43,66 @@ export class ProductionService {
         batchNumber: dto.name,
         batchType: "PREPARATION",
         status: "PENDING",
-        scheduledFor: new Date(`${dto.scheduledDate} ${dto.scheduledTime}`),
+        scheduledFor: new Date(dto.plannedDate),
+        notes: dto.description,
         createdBy: userId,
       } as any,
     });
 
     return {
       success: true,
-      data: batch,
+      data: this.mapWorkBatch(batch),
     };
   }
 
   async getWorkBatches(tenantId: string): Promise<any[]> {
-    return await (this.prisma as any).workBatch.findMany({
+    const batches = await (this.prisma as any).workBatch.findMany({
       where: { tenantId },
-      orderBy: { scheduledDate: "desc" },
-      include: {
-        productionOrders: true,
-      },
+      orderBy: { scheduledFor: "desc" },
     });
+
+    return batches.map((batch: any) => this.mapWorkBatch(batch));
   }
 
   async getWorkBatchById(tenantId: string, batchId: string): Promise<any> {
     const batch = await (this.prisma as any).workBatch.findFirst({
       where: { id: batchId, tenantId },
-      include: {
-        productionOrders: {
-          include: {
-            miseEnPlaceItems: true,
-          },
-        },
-      },
     });
 
     if (!batch) {
       throw new NotFoundException("Work batch not found");
     }
 
-    return batch;
+    return this.mapWorkBatch(batch);
+  }
+
+  async updateWorkBatch(
+    tenantId: string,
+    batchId: string,
+    dto: UpdateWorkBatchDto,
+  ): Promise<any> {
+    const existing = await (this.prisma as any).workBatch.findFirst({
+      where: { id: batchId, tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException("Work batch not found");
+    }
+
+    const batch = await this.prisma.workBatch.update({
+      where: { id: batchId },
+      data: {
+        ...(dto.name !== undefined && { batchNumber: dto.name }),
+        ...(dto.description !== undefined && { notes: dto.description }),
+        ...(dto.plannedDate !== undefined && {
+          scheduledFor: new Date(dto.plannedDate),
+        }),
+      },
+    });
+
+    return {
+      success: true,
+      data: this.mapWorkBatch(batch),
+    };
   }
 
   async startWorkBatch(

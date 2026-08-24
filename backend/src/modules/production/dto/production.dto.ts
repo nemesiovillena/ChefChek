@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsBoolean,
   IsDate,
+  IsDateString,
 } from "class-validator";
 
 enum BatchStatus {
@@ -13,13 +14,6 @@ enum BatchStatus {
   IN_PROGRESS = "IN_PROGRESS",
   COMPLETED = "COMPLETED",
   CANCELLED = "CANCELLED",
-}
-
-export enum BatchPriority {
-  LOW = "LOW",
-  MEDIUM = "MEDIUM",
-  HIGH = "HIGH",
-  URGENT = "URGENT",
 }
 
 export enum KitchenZone {
@@ -89,21 +83,22 @@ export class CreateWorkBatchDto {
   @IsString()
   description?: string;
 
-  @IsDate()
-  scheduledDate: Date;
+  @IsDateString()
+  plannedDate: string;
+}
 
+export class UpdateWorkBatchDto {
+  @IsOptional()
   @IsString()
-  scheduledTime: string;
+  name?: string;
 
-  @IsEnum(BatchPriority)
-  priority: BatchPriority;
+  @IsOptional()
+  @IsString()
+  description?: string;
 
-  @IsArray()
-  @IsString({ each: true })
-  responsible: string[];
-
-  @IsEnum(KitchenZone)
-  kitchenZone: KitchenZone;
+  @IsOptional()
+  @IsDateString()
+  plannedDate?: string;
 }
 
 export class CreateProductionOrderDto {
