@@ -72,7 +72,7 @@ export default function BatchCreateDialog({ onClose, onSubmit, isSubmitting, ini
       .filter(Boolean);
 
     await onSubmit({
-      description: description.trim() || undefined,
+      description: description.trim(),
       scheduledDate,
       scheduledTime,
       priority,
