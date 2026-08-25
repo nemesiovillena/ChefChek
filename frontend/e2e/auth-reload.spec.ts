@@ -17,11 +17,13 @@ const MOCK_USER = {
 };
 
 async function seedSession(page: import("@playwright/test").Page) {
+  // Session keys live in localStorage (not sessionStorage) since the mobile
+  // tab-suspension fix: seed the same storage the app actually reads.
   await page.evaluate((u) => {
-    sessionStorage.setItem("session_id", "sess-1");
-    sessionStorage.setItem("tenant_slug", "authtest");
-    sessionStorage.setItem("user", JSON.stringify(u));
-    sessionStorage.setItem("tenant_id", u.tenantId);
+    localStorage.setItem("session_id", "sess-1");
+    localStorage.setItem("tenant_slug", "authtest");
+    localStorage.setItem("user", JSON.stringify(u));
+    localStorage.setItem("tenant_id", u.tenantId);
   }, MOCK_USER);
 }
 
@@ -94,9 +96,10 @@ test("menu navigation keeps the session", async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard/);
 
   // The menu links are <Link> (client-side nav). Navigating to a module
-  // must not bounce back to /login. Both the desktop nav and the mobile
-  // bottom nav render a link to the same href (toggled via CSS, not
-  // conditional rendering), so scope to the one actually visible.
+  // must not bounce back to /login. On desktop, module links live inside
+  // category dropdowns ("Cocina", "Almacén"...): the link only renders
+  // after opening its group, so open "Cocina" first.
+  await page.getByRole("button", { name: "Cocina" }).click();
   await page.click('a[href="/dashboard/recipes"]:visible');
 
   await expect(page).toHaveURL(/\/dashboard\/recipes/);
