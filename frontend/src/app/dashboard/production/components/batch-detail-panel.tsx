@@ -1,44 +1,28 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  closestCenter,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge, badgeVariants } from '@/components/ui/badge';
-import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Package, Plus, Loader2, User, Trash2, Pencil, CalendarClock } from 'lucide-react';
+import { Package, Plus, Loader2, Pencil } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
 import { useStaffMembers } from '@/hooks/use-production-staff';
 import type { CreateWorkBatchInput, ProductionOrder, WorkBatch } from '@/hooks/use-production';
-import { cn } from '@/lib/utils';
 import OrderCreateDialog from './order-create-dialog';
 import BatchCreateDialog from './batch-create-dialog';
+import { SortableOrderCard } from './sortable-order-card';
 import { PostponeTaskDialog } from '../tasks/postpone-task-dialog';
-
-type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
-
-// PENDING lleva colores propios (no una variant estándar) porque es el
-// estado que más debe llamar la atención del trabajador en cocina.
-const ORDER_STATUS_CONFIG: Record<string, { label: string; variant: BadgeVariant; className?: string }> = {
-  PENDING: {
-    label: 'Pendiente',
-    variant: 'outline',
-    className:
-      'border-amber-400 bg-amber-100 text-amber-900 font-semibold dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-  },
-  IN_PROGRESS: { label: 'En progreso', variant: 'default' },
-  COMPLETED: { label: 'Completado', variant: 'default' },
-  CANCELLED: { label: 'Cancelado', variant: 'destructive' },
-};
-
-function getOrderStatusBadge(status: string) {
-  const config = ORDER_STATUS_CONFIG[status] || { label: status, variant: 'secondary' as BadgeVariant };
-  return (
-    <Badge variant={config.variant} className={config.className}>
-      {config.label}
-    </Badge>
-  );
-}
 
 interface BatchDetailPanelProps {
   batch: WorkBatch;
@@ -47,6 +31,7 @@ interface BatchDetailPanelProps {
 
 export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetailPanelProps) {
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
   const highlightedOrderRef = useRef<HTMLDivElement | null>(null);
   const { completeBatch, isCompleting, updateBatch, isUpdating } = useProductionBatches();
   const {
@@ -56,12 +41,17 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
     isCreating,
     completeOrder,
     deleteOrder,
+    reorderOrders,
   } = useProductionOrders(batch.id);
   const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [postponingOrder, setPostponingOrder] = useState<ProductionOrder | null>(null);
   const canEditBatch = batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED';
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  );
 
   // Mapa staffId → nombre para resolver las asignaciones sin otra petición.
   const staffNameById = useMemo(() => {
@@ -107,6 +97,19 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
     await deleteOrder(orderId);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = orders.findIndex((o) => o.id === active.id);
+    const newIndex = orders.findIndex((o) => o.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(orders, oldIndex, newIndex);
+    queryClient.setQueryData(['production-orders', batch.id], reordered);
+    reorderOrders(reordered.map((o) => o.id));
+  };
+
   return (
     <Card className="p-6 space-y-6">
       <CardHeader className="p-0">
@@ -147,76 +150,30 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
             <p className="text-sm text-muted-foreground">Sin órdenes de producción en este lote</p>
           </Card>
         ) : (
-          <div className="grid gap-3">
-            {orders.map((order) => {
-              const assignedNames = (order.assignedStaffIds ?? [])
-                .map((id) => staffNameById.get(id))
-                .filter((n): n is string => Boolean(n));
-              const isHighlighted = order.id === highlightOrderId;
-              return (
-                <Card
-                  key={order.id}
-                  className={cn('p-4', isHighlighted && 'border-primary ring-2 ring-primary')}
-                >
-                  <div
-                    ref={isHighlighted ? highlightedOrderRef : undefined}
-                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="font-medium">{order.title}</span>
-                        {getOrderStatusBadge(order.status)}
-                      </div>
-                      {order.description ? (
-                        <p className="text-sm text-muted-foreground mb-1 line-clamp-2">{order.description}</p>
-                      ) : null}
-                      <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {order.estimatedTime != null ? (
-                          <span>{order.estimatedTime} min estimados</span>
-                        ) : null}
-                        {order.actualTime != null ? <span>{order.actualTime} min reales</span> : null}
-                        {assignedNames.length > 0 ? (
-                          <span className="inline-flex items-center gap-1">
-                            <User className="h-3.5 w-3.5" />
-                            {assignedNames.join(', ')}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      {order.status === 'PENDING' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setPostponingOrder(order)}
-                          title="Posponer o trasladar a otro lote"
-                        >
-                          <CalendarClock className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {(order.status === 'PENDING' || order.status === 'IN_PROGRESS') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCompleteOrder(order.id, order.estimatedTime)}
-                        >
-                          Completar
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDeleteOrder(order.id, order.title)}
-                        title="Eliminar orden"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={orders.map((o) => o.id)} strategy={verticalListSortingStrategy}>
+              <div className="grid gap-3">
+                {orders.map((order) => {
+                  const assignedNames = (order.assignedStaffIds ?? [])
+                    .map((id) => staffNameById.get(id))
+                    .filter((n): n is string => Boolean(n));
+                  const isHighlighted = order.id === highlightOrderId;
+                  return (
+                    <SortableOrderCard
+                      key={order.id}
+                      order={order}
+                      assignedNames={assignedNames}
+                      isHighlighted={isHighlighted}
+                      highlightedOrderRef={isHighlighted ? highlightedOrderRef : undefined}
+                      onPostpone={() => setPostponingOrder(order)}
+                      onComplete={() => handleCompleteOrder(order.id, order.estimatedTime)}
+                      onDelete={() => handleDeleteOrder(order.id, order.title)}
+                    />
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </CardContent>
 
