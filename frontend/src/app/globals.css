@@ -277,6 +277,18 @@
     color-scheme: dark;
   }
 
+  /* iOS Safari auto-zoomea al enfocar un control con font-size < 16px, y ese
+     zoom persiste tras la navegación client-side: tras el login (inputs a
+     14px) el dashboard llegaba "desbordado" hasta que el usuario reducía con
+     los dedos. Suelo de 16px en anchos móviles para desactivar ese zoom. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 1rem !important;
+    }
+  }
+
   .material-symbols-outlined {
     font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
     display: inline-block;
