@@ -188,6 +188,23 @@ export function useProductionOrders(batchId: string | null) {
     onSuccess: invalidate,
   });
 
+  const reorderOrders = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const response = await apiClient.patch('/v1/production/orders/reorder', { orderIds });
+      return response.data;
+    },
+    onError: () => {
+      // El drag ya se aplicó de forma optimista en el cache; si el guardado
+      // falla, se descarta y se recupera el orden real del servidor.
+      queryClient.invalidateQueries({ queryKey: ['production-orders', batchId] });
+    },
+    onSuccess: () => {
+      // sortOrder es global (también lo lee la cola de tareas próximas del
+      // dashboard), así que reordenar aquí la deja stale.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
+
   return {
     orders: data || [],
     isLoading,
@@ -200,5 +217,6 @@ export function useProductionOrders(batchId: string | null) {
     isCompleting: completeOrder.isPending,
     deleteOrder: deleteOrder.mutateAsync,
     isDeleting: deleteOrder.isPending,
+    reorderOrders: reorderOrders.mutate,
   };
 }

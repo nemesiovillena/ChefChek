@@ -182,10 +182,27 @@ export class ProductionService {
     tenantId: string,
     batchId: string,
   ): Promise<any[]> {
-    return this.prisma.productionOrder.findMany({
+    const orders = await this.prisma.productionOrder.findMany({
       where: { batchId, tenantId, deletedAt: null },
       orderBy: { createdAt: "asc" },
       include: { miseEnPlaceItems: true },
+    });
+
+    // Mismo criterio que el dashboard: sortOrder es un campo global (también
+    // lo escribe el drag-and-drop de la cola de tareas próximas), así que las
+    // órdenes reordenadas a mano van primero respetando ese valor; el resto
+    // conserva el orden por createdAt (sort estable).
+    return orders.sort((a, b) => {
+      if (a.sortOrder !== null && b.sortOrder !== null) {
+        return a.sortOrder - b.sortOrder;
+      }
+      if (a.sortOrder !== null) {
+        return -1;
+      }
+      if (b.sortOrder !== null) {
+        return 1;
+      }
+      return 0;
     });
   }
 
