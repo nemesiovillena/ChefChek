@@ -13,7 +13,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:3000",
+    // E2E_BASE_URL permite apuntar los tests a un dev server alternativo
+    // (p. ej. en un worktree) sin tocar el que corre en :3000.
+    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
   },
   projects: [
