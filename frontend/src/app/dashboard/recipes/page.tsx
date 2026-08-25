@@ -279,11 +279,28 @@ export default function RecipesPage() {
 
   // Genera un PDF de /v1/technical-sheets/generate y lo abre en pestaña nueva
   // con el visor nativo del navegador (zoom/imprimir/descargar sin UI propia).
+  // La pestaña se abre SÍNCRONAMENTE dentro del gesto del usuario: iOS Safari
+  // bloquea window.open llamado tras un await (el gesto ya se consumió) y el
+  // bloqueo es silencioso. Se abre vacía, muestra "Generando…" y navega al
+  // blob cuando la respuesta llega.
   const openGeneratedPdf = async (
     recipe: Recipe,
     extraOptions: Record<string, unknown>,
     errorMessage: string,
   ) => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      addNotification({
+        type: 'error',
+        title: 'Ventana bloqueada',
+        message: 'El navegador bloqueó la ventana emergente. Permite popups para este sitio e inténtalo de nuevo.',
+      });
+      return;
+    }
+    win.document.write(
+      '<!doctype html><html><head><title>Generando PDF…</title></head>'
+      + '<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Generando PDF…</body></html>',
+    );
     setGeneratingSheetId(recipe.id);
     try {
       const response = await apiClient.post(
@@ -294,10 +311,11 @@ export default function RecipesPage() {
       const url = URL.createObjectURL(
         new Blob([response.data], { type: 'application/pdf' }),
       );
-      window.open(url, '_blank', 'noopener');
+      win.location.href = url;
       // El visor ya cargó el blob; liberar la URL pasado un margen amplio
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
+      win.close();
       addNotification({ type: 'error', title: 'Error', message: errorMessage });
     } finally {
       setGeneratingSheetId(null);
