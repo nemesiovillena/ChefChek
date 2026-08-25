@@ -33,6 +33,9 @@ describe("DashboardService", () => {
     purchaseOrder: {
       count: jest.fn(),
     },
+    purchaseSchedule: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     menu: {
       findMany: jest.fn(),
       count: jest.fn(),
