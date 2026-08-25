@@ -24,9 +24,11 @@ export default function ProductionPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { batches, isLoading, error, refetch, createBatch, isCreating } = useProductionBatches();
+  const { batches, isLoading, error, refetch, createBatch, isCreating, updateBatch, isUpdating } =
+    useProductionBatches();
   const [isCreateBatchModalOpen, setIsCreateBatchModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState<WorkBatch | null>(null);
   // undefined = el usuario aún no ha tocado la selección manualmente, así que
   // el lote de la URL (llegada desde "Tareas de Prep." del dashboard) manda.
   const [manualBatchId, setManualBatchId] = useState<string | null | undefined>(undefined);
@@ -67,6 +69,12 @@ export default function ProductionPage() {
 
   const handleSelectBatch = (batch: WorkBatch) => {
     setManualBatchId(selectedBatchId === batch.id ? null : batch.id);
+  };
+
+  const handleUpdateBatch = async (input: CreateWorkBatchInput) => {
+    if (!editingBatch) return;
+    await updateBatch({ batchId: editingBatch.id, input });
+    setEditingBatch(null);
   };
 
   return (
@@ -198,6 +206,7 @@ export default function ProductionPage() {
               batches={activeBatches}
               selectedBatchId={selectedBatchId}
               onSelect={handleSelectBatch}
+              onEdit={setEditingBatch}
               onCreateClick={() => setIsCreateBatchModalOpen(true)}
             />
           )}
@@ -208,6 +217,15 @@ export default function ProductionPage() {
             </div>
           )}
         </div>
+      )}
+
+      {editingBatch && (
+        <BatchCreateDialog
+          initialBatch={editingBatch}
+          isSubmitting={isUpdating}
+          onClose={() => setEditingBatch(null)}
+          onSubmit={handleUpdateBatch}
+        />
       )}
     </div>
   );
