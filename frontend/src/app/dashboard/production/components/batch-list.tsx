@@ -4,8 +4,10 @@ import { Card } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Factory, Clock, Plus } from 'lucide-react';
+import { Factory, Clock, Plus, Pencil } from 'lucide-react';
 import type { WorkBatch } from '@/hooks/use-production';
+
+const NON_EDITABLE_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 
@@ -25,6 +27,7 @@ interface BatchListProps {
   batches: WorkBatch[];
   selectedBatchId: string | null;
   onSelect: (batch: WorkBatch) => void;
+  onEdit?: (batch: WorkBatch) => void;
   onCreateClick?: () => void;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -34,6 +37,7 @@ export default function BatchList({
   batches,
   selectedBatchId,
   onSelect,
+  onEdit,
   onCreateClick,
   emptyTitle = 'Sin lotes de producción',
   emptyDescription = 'Crea tu primer lote para empezar a gestionar la producción',
@@ -82,6 +86,19 @@ export default function BatchList({
                 <span>{batch.productionOrders?.length ?? 0} orden(es)</span>
               </div>
             </div>
+            {onEdit && !NON_EDITABLE_STATUSES.has(batch.status) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(batch);
+                }}
+                title="Editar lote"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </Card>
       ))}
