@@ -475,6 +475,7 @@ describe("ProductionService", () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue({
         id: orderId,
         status: "PENDING",
+        batchId: "batch-1",
       });
       mockPrismaService.productionOrder.update.mockResolvedValue({
         id: orderId,
@@ -482,11 +483,9 @@ describe("ProductionService", () => {
         postponedTo: newDate,
       });
 
-      const result = await service.postponeProductionOrder(
-        tenantId,
-        orderId,
-        newDate,
-      );
+      const result = await service.postponeProductionOrder(tenantId, orderId, {
+        scheduledFor: newDate,
+      });
 
       expect(result.data.postponedTo).toEqual(newDate);
       expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
@@ -495,11 +494,60 @@ describe("ProductionService", () => {
       });
     });
 
+    it("should move the order to another batch when batchId is provided", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+        batchId: "batch-1",
+      });
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({
+        id: "batch-2",
+      });
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+        batchId: "batch-2",
+      });
+
+      const result = await service.postponeProductionOrder(tenantId, orderId, {
+        batchId: "batch-2",
+      });
+
+      expect(result.data.batchId).toEqual("batch-2");
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { batchId: "batch-2" },
+      });
+    });
+
+    it("should throw NotFoundException when the target batch does not exist for tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        id: orderId,
+        status: "PENDING",
+        batchId: "batch-1",
+      });
+      mockPrismaService.workBatch.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, {
+          batchId: "batch-2",
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("should throw BadRequestException when neither scheduledFor nor batchId is provided", async () => {
+      await expect(
+        service.postponeProductionOrder(tenantId, orderId, {}),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it("should throw NotFoundException when order not found for tenant", async () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.postponeProductionOrder(tenantId, orderId, new Date()),
+        service.postponeProductionOrder(tenantId, orderId, {
+          scheduledFor: new Date(),
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -507,10 +555,13 @@ describe("ProductionService", () => {
       mockPrismaService.productionOrder.findFirst.mockResolvedValue({
         id: orderId,
         status: "IN_PROGRESS",
+        batchId: "batch-1",
       });
 
       await expect(
-        service.postponeProductionOrder(tenantId, orderId, new Date()),
+        service.postponeProductionOrder(tenantId, orderId, {
+          scheduledFor: new Date(),
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

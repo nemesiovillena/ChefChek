@@ -5,14 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { Package, Plus, Loader2, User, Trash2, Pencil } from 'lucide-react';
+import { Package, Plus, Loader2, User, Trash2, Pencil, CalendarClock } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useProductionBatches, useProductionOrders } from '@/hooks/use-production';
 import { useStaffMembers } from '@/hooks/use-production-staff';
-import type { CreateWorkBatchInput, WorkBatch } from '@/hooks/use-production';
+import type { CreateWorkBatchInput, ProductionOrder, WorkBatch } from '@/hooks/use-production';
 import { cn } from '@/lib/utils';
 import OrderCreateDialog from './order-create-dialog';
 import BatchCreateDialog from './batch-create-dialog';
+import { PostponeTaskDialog } from '../tasks/postpone-task-dialog';
 
 type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
 
@@ -59,6 +60,7 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
   const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [postponingOrder, setPostponingOrder] = useState<ProductionOrder | null>(null);
   const canEditBatch = batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED';
 
   // Mapa staffId → nombre para resolver las asignaciones sin otra petición.
@@ -182,6 +184,16 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
                       </div>
                     </div>
                     <div className="flex gap-2 shrink-0">
+                      {order.status === 'PENDING' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPostponingOrder(order)}
+                          title="Posponer o trasladar a otro lote"
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                        </Button>
+                      )}
                       {(order.status === 'PENDING' || order.status === 'IN_PROGRESS') && (
                         <Button
                           size="sm"
@@ -214,6 +226,16 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
           isSubmitting={isUpdating}
           onClose={() => setIsEditDialogOpen(false)}
           onSubmit={handleUpdateBatch}
+        />
+      )}
+
+      {postponingOrder && (
+        <PostponeTaskDialog
+          task={postponingOrder}
+          open={Boolean(postponingOrder)}
+          onOpenChange={(open) => {
+            if (!open) setPostponingOrder(null);
+          }}
         />
       )}
 

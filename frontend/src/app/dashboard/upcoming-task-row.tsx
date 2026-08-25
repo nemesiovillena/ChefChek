@@ -77,7 +77,7 @@ export function UpcomingTaskRow({
             type="button"
             onClick={onPostpone}
             onPointerDown={(e) => e.stopPropagation()}
-            title="Posponer tarea a otra fecha"
+            title="Posponer o trasladar tarea a otro lote"
             className="w-8 h-8 md:w-9 md:h-9 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant bg-surface-variant/40 hover:bg-surface-variant hover:text-primary active:scale-90 transition-all duration-150 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[20px]">event_repeat</span>
