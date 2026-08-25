@@ -4,7 +4,7 @@ import { test, expect } from "@playwright/test";
  * Regression: el tenant slug tecleado/pegado en el login acaba como valor de
  * header HTTP (X-Tenant-Slug), y los headers solo admiten ISO-8859-1. Texto
  * pegado en macOS puede llegar en forma NFD (acento combinante U+0301, fuera
- * de Latin-1): si se guarda crudo en sessionStorage, todo fetch posterior
+ * de Latin-1): si se guarda crudo en localStorage, todo fetch posterior
  * lanza "String contains non ISO-8859-1 code point" (p. ej. en Albaranes).
  *
  * El backend se mockea con page.route; solo se valida la lógica frontend.
@@ -64,7 +64,7 @@ test("el slug NFD se guarda saneado tras un login correcto", async ({
   await expect(page).toHaveURL(/\/dashboard/);
 
   const storedSlug = await page.evaluate(() =>
-    sessionStorage.getItem("tenant_slug"),
+    localStorage.getItem("tenant_slug"),
   );
   // Saneado a kebab ASCII: sin mayúsculas, espacios ni marcas combinantes.
   expect(storedSlug).toBe("chefchek-demo");
@@ -82,16 +82,16 @@ test("un login fallido no deja tenant_slug envenenado", async ({ page }) => {
   await fillLoginForm(page);
   await page.click('button[type="submit"]');
 
-  // Sigue en /login y el slug del intento fallido no queda en sessionStorage,
+  // Sigue en /login y el slug del intento fallido no queda en localStorage,
   // donde rompería los headers de todas las peticiones posteriores del tab.
   await expect(page).toHaveURL(/\/login/);
   // El dev server (Fast Refresh) puede disparar un reload transitorio justo
   // tras el submit; esperar a que la carga se asiente evita leer
-  // sessionStorage en mitad de una navegación y que evaluate() falle con
+  // localStorage en mitad de una navegación y que evaluate() falle con
   // "Execution context was destroyed".
   await page.waitForLoadState("load");
   const storedSlug = await page.evaluate(() =>
-    sessionStorage.getItem("tenant_slug"),
+    localStorage.getItem("tenant_slug"),
   );
   expect(storedSlug).toBeNull();
 });

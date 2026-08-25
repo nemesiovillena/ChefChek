@@ -13,6 +13,7 @@ describe("AlbaranStockService", () => {
   let notifications: jest.Mocked<NotificationsService>;
   let productSupplierOffersService: jest.Mocked<ProductSupplierOffersService>;
   let priceAgreementService: { evaluateAndRecord: jest.Mock };
+  let lotService: { createLotFromReception: jest.Mock };
 
   const mockTenantId = "tenant-123";
   const mockAlbaranId = "albaran-123";
@@ -91,6 +92,7 @@ describe("AlbaranStockService", () => {
     notifications = module.get(NotificationsService);
     productSupplierOffersService = module.get(ProductSupplierOffersService);
     priceAgreementService = module.get(PriceAgreementService);
+    lotService = module.get(LotService);
   });
 
   it("should be defined", () => {
@@ -190,6 +192,7 @@ describe("AlbaranStockService", () => {
         // automática de proveedor (product.update) y mantiene el foco de
         // este test en que el precio plano no se sobreescribe directamente.
         supplierId: "supplier-123",
+        tracksInventory: true,
       };
 
       const mockAlbaran = {
@@ -261,6 +264,75 @@ describe("AlbaranStockService", () => {
           quantity: 10,
         },
       });
+    });
+
+    it("should skip Lot/StockMovement/Stock for products without inventory tracking (service charges)", async () => {
+      const mockProduct = {
+        id: mockProductId,
+        name: "Portes y logística",
+        purchasePrice: 5,
+        netPrice: 5,
+        supplierId: "supplier-123",
+        // Cargo de servicio: la línea cuenta en el albarán y en precio/oferta,
+        // pero no es inventario físico.
+        tracksInventory: false,
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-001",
+        supplierId: "supplier-123",
+        warehouseId: mockWarehouseId,
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "Portes y logística",
+            quantity: 1,
+            unit: "und",
+            unitPrice: 5,
+            lot: "LOT-9",
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn().mockResolvedValue(mockProduct),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      // El precio/oferta de la línea sí se procesa...
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledTimes(1);
+      // ...pero nada de stock: ni lote, ni movimiento, ni registro.
+      expect(lotService.createLotFromReception).not.toHaveBeenCalled();
+      expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
+      expect(mockTx.stock.findFirst).not.toHaveBeenCalled();
+      expect(mockTx.stock.create).not.toHaveBeenCalled();
     });
 
     it("promotes the delivering supplier's offer to preferred even if it wasn't before, and still notifies on a real price change", async () => {
@@ -426,6 +498,9 @@ describe("AlbaranStockService", () => {
         name: "Test Product",
         purchasePrice: 5,
         netPrice: 5,
+        // Producto físico: los cargos de servicio (tracksInventory=false)
+        // omiten Lot/StockMovement/Stock en processStockOnConfirmation.
+        tracksInventory: true,
       };
 
       const mockExistingStock = {
@@ -757,6 +832,7 @@ describe("AlbaranStockService", () => {
         name: "Product 1",
         purchasePrice: 5,
         netPrice: 5,
+        tracksInventory: true,
       };
 
       const mockProduct2 = {
@@ -764,6 +840,7 @@ describe("AlbaranStockService", () => {
         name: "Product 2",
         purchasePrice: 10,
         netPrice: 10,
+        tracksInventory: true,
       };
 
       const mockAlbaran = {
@@ -835,6 +912,9 @@ describe("AlbaranStockService", () => {
         name: "Test Product",
         purchasePrice: 5,
         netPrice: 5,
+        // Producto físico: los cargos de servicio (tracksInventory=false)
+        // omiten Lot/StockMovement/Stock en processStockOnConfirmation.
+        tracksInventory: true,
       };
 
       const mockAlbaran = {
