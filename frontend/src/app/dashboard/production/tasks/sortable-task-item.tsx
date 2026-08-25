@@ -75,7 +75,7 @@ export function SortableTaskItem({
             variant="outline"
             onClick={onPostpone}
             onPointerDown={(e) => e.stopPropagation()}
-            title="Posponer tarea a otra fecha"
+            title="Posponer o trasladar tarea a otro lote"
           >
             <CalendarClock className="h-4 w-4" />
           </Button>

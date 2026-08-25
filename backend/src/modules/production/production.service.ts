@@ -237,8 +237,14 @@ export class ProductionService {
   async postponeProductionOrder(
     tenantId: string,
     orderId: string,
-    scheduledFor: Date,
+    data: { scheduledFor?: Date; batchId?: string },
   ): Promise<any> {
+    if (!data.scheduledFor && !data.batchId) {
+      throw new BadRequestException(
+        "Debes indicar una nueva fecha o un lote de destino",
+      );
+    }
+
     const existing = await this.prisma.productionOrder.findFirst({
       where: { id: orderId, tenantId, deletedAt: null },
     });
@@ -251,9 +257,22 @@ export class ProductionService {
       );
     }
 
+    const movesBatch = data.batchId && data.batchId !== existing.batchId;
+    if (movesBatch) {
+      const targetBatch = await this.prisma.workBatch.findFirst({
+        where: { id: data.batchId, tenantId, deletedAt: null },
+      });
+      if (!targetBatch) {
+        throw new NotFoundException("Lote de destino no encontrado");
+      }
+    }
+
     const order = await this.prisma.productionOrder.update({
       where: { id: orderId },
-      data: { postponedTo: scheduledFor },
+      data: {
+        ...(data.scheduledFor && { postponedTo: data.scheduledFor }),
+        ...(movesBatch && { batchId: data.batchId }),
+      },
     });
 
     return { success: true, data: order };

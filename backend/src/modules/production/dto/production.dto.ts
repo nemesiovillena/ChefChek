@@ -111,9 +111,14 @@ export class CreateProductionOrderDto {
 }
 
 export class PostponeProductionOrderDto {
+  @IsOptional()
   @Type(() => Date)
   @IsDate()
-  scheduledFor: Date;
+  scheduledFor?: Date;
+
+  @IsOptional()
+  @IsString()
+  batchId?: string;
 }
 
 export class ReorderProductionOrdersDto {
