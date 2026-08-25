@@ -64,12 +64,27 @@ export function usePostponeProductionTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ orderId, scheduledFor }: { orderId: string; scheduledFor: string }) => {
-      const response = await apiClient.patch(`/v1/production/orders/${orderId}/postpone`, { scheduledFor });
+    mutationFn: async ({
+      orderId,
+      scheduledFor,
+      batchId,
+    }: {
+      orderId: string;
+      scheduledFor?: string;
+      batchId?: string;
+    }) => {
+      const response = await apiClient.patch(`/v1/production/orders/${orderId}/postpone`, {
+        ...(scheduledFor && { scheduledFor }),
+        ...(batchId && { batchId }),
+      });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+      // Trasladar una tarea cambia el batchId: el listado de órdenes del lote
+      // origen y destino (Lotes/BatchDetailPanel) también queda stale.
+      queryClient.invalidateQueries({ queryKey: ['production-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['production-batches'] });
     },
   });
 }

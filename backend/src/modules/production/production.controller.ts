@@ -164,9 +164,11 @@ export class ProductionController {
 
   @Patch("orders/:orderId/postpone")
   @Roles("ADMIN", "USER")
-  @ApiOperation({ summary: "Posponer una orden de producción a otra fecha" })
+  @ApiOperation({
+    summary: "Posponer una orden de producción a otra fecha y/o lote",
+  })
   @ApiParam({ name: "orderId", description: "ID de la orden" })
-  @ApiResponse({ status: 200, description: "Orden pospuesta" })
+  @ApiResponse({ status: 200, description: "Orden pospuesta o trasladada" })
   async postponeProductionOrder(
     @Req() req: any,
     @Param("orderId") orderId: string,
@@ -175,7 +177,10 @@ export class ProductionController {
     return this.productionService.postponeProductionOrder(
       req.tenantId,
       orderId,
-      dto.scheduledFor,
+      {
+        scheduledFor: dto.scheduledFor,
+        batchId: dto.batchId,
+      },
     );
   }
 
