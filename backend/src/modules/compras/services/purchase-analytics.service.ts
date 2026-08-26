@@ -14,6 +14,13 @@ export interface TopSpendRow {
   cumulativePercent: number;
 }
 
+export interface TopQuantityRow {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string | null;
+}
+
 export interface SupplierSpendRow {
   supplierId: string;
   supplierName: string;
@@ -116,6 +123,46 @@ export class PurchaseAnalyticsService {
         cumulativePercent: cumulative,
       };
     });
+  }
+
+  /**
+   * Producto(s) más comprados por cantidad (no por gasto). Mismo dominio que
+   * `topSpend` (`PurchaseOrderLine.receivedQuantity`, pedidos conciliados) —
+   * usado por el asistente IA para "¿qué producto se compró más...?".
+   */
+  async topPurchasedByQuantity(
+    tenantId: string,
+    query: AnalyticsQueryDto,
+    limit = 10,
+  ): Promise<TopQuantityRow[]> {
+    const where = this.buildOrderConditions(tenantId, query, [
+      Prisma.sql`pol."receivedQuantity" IS NOT NULL`,
+      Prisma.sql`p."deletedAt" IS NULL`,
+    ]);
+
+    const rows = await this.prisma.$queryRaw<
+      {
+        productId: string;
+        productName: string;
+        quantity: number;
+        unit: string | null;
+      }[]
+    >(
+      Prisma.sql`
+        SELECT pol."productId" AS "productId", p.name AS "productName",
+               SUM(pol."receivedQuantity")::float AS quantity,
+               (array_agg(pol.unit ORDER BY pol."createdAt" DESC))[1] AS unit
+        FROM purchase_order_lines pol
+        JOIN purchase_orders po ON po.id = pol."orderId"
+        JOIN products p ON p.id = pol."productId"
+        WHERE ${where}
+        GROUP BY pol."productId", p.name
+        ORDER BY quantity DESC
+        LIMIT ${limit}
+      `,
+    );
+
+    return rows;
   }
 
   /** Totales, ticket medio y plazo medio de entrega (sentAt → primer albarán vinculado) por proveedor. */

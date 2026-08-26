@@ -88,6 +88,7 @@ model Tenant {
   supplierProductAliases     SupplierProductAlias[]
   ProductionTask             ProductionTask[]
   ProductionReport           ProductionReport[]
+  assistantConversations     AssistantConversation[]
 
   @@map("tenants")
 }
@@ -118,6 +119,7 @@ model User {
   updatedArticles   KnowledgeArticle[] @relation("ArticleUpdater")
   telegramUsers     TelegramUser[]
   AuditLog          AuditLog[]
+  assistantConversations AssistantConversation[]
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -2352,4 +2354,36 @@ model CatalogImportLine {
   @@index([catalogImportId])
   @@index([matchedProductId])
   @@map("catalog_import_lines")
+}
+
+// Asistente IA "Chefchek" — conversaciones en lenguaje natural sobre datos
+// del tenant (compras, precios, recetas, stock). Ver docs/system-architecture.md.
+model AssistantConversation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AssistantMessage[]
+
+  @@index([tenantId, userId])
+  @@map("assistant_conversations")
+}
+
+model AssistantMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // "user" | "assistant" | "tool"
+  content        String   @db.Text
+  toolCalls      Json? // [{name, params, result}] — auditoría/depuración
+  createdAt      DateTime @default(now())
+
+  conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("assistant_messages")
 }

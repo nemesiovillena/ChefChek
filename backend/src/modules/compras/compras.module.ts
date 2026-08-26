@@ -72,6 +72,8 @@ import { OcrModule } from "../ocr/ocr.module";
     OrderReconciliationService,
     PriceAgreementService,
     OfferResolutionService,
+    // Usada por AiAssistantModule (tools de consulta del asistente Chefchek).
+    PurchaseAnalyticsService,
   ],
 })
 export class ComprasModule {}
