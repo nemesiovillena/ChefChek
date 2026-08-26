@@ -32,8 +32,10 @@ describe("DashboardService", () => {
     },
     purchaseOrder: {
       count: jest.fn(),
+      findFirst: jest.fn(),
     },
     purchaseSchedule: {
+      findUnique: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
     },
     menu: {
@@ -152,6 +154,28 @@ describe("DashboardService", () => {
   });
 
   describe("calculateKPIs", () => {
+    // Fuentes vacías para llegar hasta el bloque de programados sin datos.
+    const mockEmptyKpiSources = () => {
+      prismaService.product.findMany.mockResolvedValue([]);
+      prismaService.product.count.mockResolvedValue(0);
+      prismaService.menu.findMany.mockResolvedValue([]);
+      prismaService.stock.findMany.mockResolvedValue([]);
+      prismaService.stock.count.mockResolvedValue(0);
+      prismaService.menuScan.groupBy.mockResolvedValue([]);
+      prismaService.digitalMenu.findMany.mockResolvedValue([]);
+      prismaService.digitalMenu.count.mockResolvedValue(0);
+      prismaService.dashboardAlert.count.mockResolvedValue(0);
+      prismaService.session.groupBy.mockResolvedValue([]);
+      prismaService.order.count.mockResolvedValue(0);
+      prismaService.order.aggregate.mockResolvedValue({ _sum: {} });
+      prismaService.recipe.count.mockResolvedValue(0);
+      prismaService.menu.count.mockResolvedValue(0);
+      prismaService.workBatch.count.mockResolvedValue(0);
+      prismaService.productionOrder.findMany.mockResolvedValue([]);
+      prismaService.purchaseOrder.count.mockResolvedValue(0);
+      prismaService.purchaseOrder.findFirst.mockResolvedValue(null);
+    };
+
     it("should calculate KPIs for tenant", async () => {
       const mockProducts = [
         { purchasePrice: 10 },
@@ -202,6 +226,8 @@ describe("DashboardService", () => {
       prismaService.productionOrder.findMany.mockResolvedValue(
         mockUpcomingOrders,
       );
+      prismaService.purchaseOrder.count.mockResolvedValue(0);
+      prismaService.purchaseOrder.findFirst.mockResolvedValue(null);
 
       const result = await service.calculateKPIs("tenant-1");
 
@@ -222,6 +248,36 @@ describe("DashboardService", () => {
         estimatedTime: 90,
         assignedStaffNames: [],
       });
+    });
+
+    it("anuncia el pedido programado pendiente de enviar con la hora de su programación", async () => {
+      mockEmptyKpiSources();
+      prismaService.purchaseOrder.findFirst.mockResolvedValue({
+        // 09:03 en Madrid (CEST): el cron genera pasados unos minutos de la
+        // hora configurada, pero el aviso debe mostrar "09:00".
+        createdAt: new Date("2026-09-02T07:03:00Z"),
+        supplier: { name: "Frutas Candela" },
+        events: [{ payload: { scheduleId: "schedule-1" } }],
+      });
+      prismaService.purchaseSchedule.findUnique.mockResolvedValue({
+        timeOfDay: "09:00",
+      });
+
+      const result = await service.calculateKPIs("tenant-1");
+
+      expect(result.data.nextScheduledPurchase).toEqual({
+        dateKey: "2026-09-02",
+        timeOfDay: "09:00",
+        supplierName: "Frutas Candela",
+      });
+    });
+
+    it("no anuncia ningún programado cuando ya se envió (sin BORRADOR pendiente)", async () => {
+      mockEmptyKpiSources();
+
+      const result = await service.calculateKPIs("tenant-1");
+
+      expect(result.data.nextScheduledPurchase).toBeNull();
     });
   });
 

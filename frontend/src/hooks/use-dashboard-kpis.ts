@@ -14,9 +14,11 @@ export interface UpcomingProductionTask {
   assignedStaffNames: string[];
 }
 
+// Pedido programado (generado por cron) aún pendiente de enviar. Al enviarlo
+// pasa a la pestaña Enviados y este aviso desaparece del dashboard.
 export interface NextScheduledPurchase {
   dateKey: string; // 'YYYY-MM-DD' en Europe/Madrid
-  timeOfDay: string; // 'HH:mm' en Europe/Madrid
+  timeOfDay: string; // 'HH:mm' configurada en la programación
   supplierName: string;
 }
 

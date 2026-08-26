@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
-import { PurchaseScheduleService } from "../compras/services/purchase-schedule.service";
+import { toMadridParts } from "../compras/services/purchase-schedule.service";
 import {
   DashboardQueryDto,
   CreateMetricDto,
@@ -66,7 +66,6 @@ export class DashboardService {
   }
 
   async calculateKPIs(tenantId: string) {
-    const now = new Date();
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
 
@@ -170,33 +169,55 @@ export class DashboardService {
       },
     });
 
-    // Próxima programación de pedido de compra habilitada (la más cercana
-    // entre todos los proveedores/listas), para avisar en la card de
-    // "Pedidos pendientes" del dashboard.
-    const enabledSchedules = await this.prisma.purchaseSchedule.findMany({
-      where: { tenantId, enabled: true },
-      select: {
-        daysOfWeek: true,
-        timeOfDay: true,
-        enabled: true,
-        lastRunAt: true,
+    // Pedido programado pendiente de enviar: el BORRADOR más antiguo generado
+    // por una programación (cron). Se anuncia en la card de "Pedidos
+    // pendientes" del dashboard; una vez enviado pasa a la pestaña Enviados
+    // y deja de anunciarse aquí.
+    const pendingScheduledOrder = await this.prisma.purchaseOrder.findFirst({
+      where: {
+        tenantId,
+        status: "BORRADOR",
+        events: { some: { type: "SCHEDULED_GENERATION" } },
+      },
+      orderBy: { createdAt: "asc" },
+      include: {
         supplier: { select: { name: true } },
+        events: {
+          where: { type: "SCHEDULED_GENERATION" },
+          select: { payload: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
-    const nextScheduledPurchase =
-      enabledSchedules
-        .map((schedule) => {
-          const next = PurchaseScheduleService.getNextRunAt(schedule, now);
-          return next
-            ? { ...next, supplierName: schedule.supplier.name }
-            : null;
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-        .sort((a, b) =>
-          `${a.dateKey}T${a.timeOfDay}`.localeCompare(
-            `${b.dateKey}T${b.timeOfDay}`,
-          ),
-        )[0] ?? null;
+
+    let nextScheduledPurchase: {
+      dateKey: string;
+      timeOfDay: string;
+      supplierName: string;
+    } | null = null;
+    if (pendingScheduledOrder) {
+      // La hora configurada en la programación (p. ej. "09:00") es más legible
+      // que la hora real de generación (el cron corre cada 5 min). Si la
+      // programación ya no existe, se usa la hora de generación.
+      const scheduleId = (
+        pendingScheduledOrder.events[0]?.payload as
+          | { scheduleId?: string }
+          | undefined
+      )?.scheduleId;
+      const schedule = scheduleId
+        ? await this.prisma.purchaseSchedule.findUnique({
+            where: { id: scheduleId },
+            select: { timeOfDay: true },
+          })
+        : null;
+      const { dateKey, hhmm } = toMadridParts(pendingScheduledOrder.createdAt);
+      nextScheduledPurchase = {
+        dateKey,
+        timeOfDay: schedule?.timeOfDay ?? hhmm,
+        supplierName: pendingScheduledOrder.supplier.name,
+      };
+    }
 
     // Lotes de producción activos
     const activeProductionBatches = await this.prisma.workBatch.count({

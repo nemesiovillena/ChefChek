@@ -172,7 +172,7 @@ export default function DashboardPage() {
           {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
         </span>
         {kpis?.nextScheduledPurchase && (
-          <p className="text-[11px] text-on-surface-variant mt-stack-xs">
+          <p className="text-[11px] text-error font-medium mt-stack-xs">
             Programado: {kpis.nextScheduledPurchase.supplierName} ·{' '}
             {formatNextScheduledDate(kpis.nextScheduledPurchase.dateKey)}{' '}
             {kpis.nextScheduledPurchase.timeOfDay}

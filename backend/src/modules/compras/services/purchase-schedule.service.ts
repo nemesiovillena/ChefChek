@@ -27,7 +27,7 @@ interface MadridClockParts {
 }
 
 /** Descompone un instante en día/hora/fecha locales de Europe/Madrid (sin dependencias externas). */
-function toMadridParts(date: Date): MadridClockParts {
+export function toMadridParts(date: Date): MadridClockParts {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TIMEZONE,
     weekday: "short",
