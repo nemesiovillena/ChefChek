@@ -647,7 +647,7 @@ export default function RecipesPage() {
                   className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-container)] active:bg-[var(--surface-container-high)] disabled:opacity-50 disabled:cursor-wait"
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-[var(--on-surface)]">
+                    <div className="text-sm font-medium text-[var(--on-surface)] break-words">
                       {recipe.name}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
