@@ -180,6 +180,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: true,
   },
+  {
+    id: "asistente-ia",
+    name: "Asistente IA",
+    description:
+      "Chefchek: consultas en lenguaje natural sobre precios, compras, recetas y stock",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: true,
+  },
 ];
 
 /**
