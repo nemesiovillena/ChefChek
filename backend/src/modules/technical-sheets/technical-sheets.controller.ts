@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   Req,
   UseGuards,
   Res,
@@ -166,7 +167,7 @@ export class TechnicalSheetsController {
 
   @Get("documents")
   @Roles("ADMIN", "USER", "VIEWER")
-  async getDocuments(@Req() req: any, @Body() filters?: any) {
+  async getDocuments(@Req() req: any, @Query() filters?: any) {
     const tenantId = req.tenantId;
     const documents = await this.technicalSheetsService.getDocuments(
       tenantId,

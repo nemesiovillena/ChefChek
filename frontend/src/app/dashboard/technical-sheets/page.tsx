@@ -3,25 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useTechnicalSheets, type TechnicalSheetResponse } from '@/hooks/use-technical-sheets';
+import { useConfirm } from '@/contexts/confirm.context';
+import { useNotification } from '@/components/notification-system';
+import { useTechnicalSheets, type TechnicalSheetDocument } from '@/hooks/use-technical-sheets';
+import { useRecipeOptions } from '@/hooks/use-recipes';
+import apiClient from '@/lib/api-client';
+import SubRecipeCombobox from '@/app/dashboard/recipes/components/sub-recipe-combobox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge, badgeVariants } from '@/components/ui/badge';
-import type { VariantProps } from 'class-variance-authority';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FileText,
   Plus,
   RefreshCw,
-  Edit,
+  Download,
+  Trash2,
   Loader2,
   Info,
-  Package,
-  Thermometer,
   AlertTriangle,
 } from 'lucide-react';
 
@@ -30,108 +30,108 @@ export const dynamic = 'force-dynamic';
 export default function TechnicalSheetsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { sheets, isLoading, error, refetch, createSheet, updateSheet, isCreating } = useTechnicalSheets();
+  const confirm = useConfirm();
+  const addNotification = useNotification();
+  const { sheets, isLoading, error, refetch, generateSheet, isGenerating, deleteSheet } =
+    useTechnicalSheets();
+  const { data: recipeOptions } = useRecipeOptions();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingSheetId, setEditingSheetId] = useState('');
-  const [newSheetName, setNewSheetName] = useState('');
-  const [newSheetDescription, setNewSheetDescription] = useState('');
-  const [newSheetNumber, setNewSheetNumber] = useState('');
   const [selectedRecipeId, setSelectedRecipeId] = useState('');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // Auth redirect
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Prevent isLoading if not authenticated
   if (authLoading || !isAuthenticated) {
     return null;
   }
 
-  const handleCreateSheet = async () => {
-    if (!newSheetName.trim()) return;
+  const recipeName = (recipeId?: string) =>
+    recipeOptions?.find((r) => r.id === recipeId)?.name;
 
-    try {
-      await createSheet({
-        name: newSheetName,
-        description: newSheetDescription || undefined,
-        sheetNumber: newSheetNumber || undefined,
-        recipeId: selectedRecipeId || undefined,
+  // El PDF no queda persistido: cada "ver" vuelve a generarlo con el mismo
+  // recipeId, igual que el botón "Ficha" en Recetas. La pestaña se abre
+  // SÍNCRONAMENTE dentro del gesto del usuario: iOS Safari bloquea
+  // window.open llamado tras un await.
+  const openPdf = async (recipeId: string, errorMessage: string) => {
+    const win = window.open('', '_blank');
+    if (!win) {
+      addNotification({
+        type: 'error',
+        title: 'Ventana bloqueada',
+        message: 'El navegador bloqueó la ventana emergente. Permite popups para este sitio e inténtalo de nuevo.',
       });
-      setIsCreateModalOpen(false);
-      setNewSheetName('');
-      setNewSheetDescription('');
-      setNewSheetNumber('');
-      setSelectedRecipeId('');
-      refetch();
-    } catch (error) {
-      console.error('Error creating sheet:', error);
+      return;
     }
-  };
-
-  const handleUpdateSheet = async (id: string) => {
-    if (!newSheetName.trim()) return;
-
-    try {
-      await updateSheet({
-        id,
-        data: {
-          name: newSheetName,
-          description: newSheetDescription || undefined,
-          sheetNumber: newSheetNumber || undefined,
-          recipeId: selectedRecipeId || undefined,
-        },
-      });
-      setIsEditMode(false);
-      setEditingSheetId('');
-      setNewSheetName('');
-      setNewSheetDescription('');
-      setNewSheetNumber('');
-      setSelectedRecipeId('');
-      setIsCreateModalOpen(false);
-      refetch();
-    } catch (error) {
-      console.error('Error updating sheet:', error);
-    }
-  };
-
-  const startEditSheet = (sheet: TechnicalSheetResponse) => {
-    setEditingSheetId(sheet.id);
-    setNewSheetName(sheet.name);
-    setNewSheetDescription(sheet.description || '');
-    setNewSheetNumber(sheet.sheetNumber || '');
-    setSelectedRecipeId(sheet.recipeId || '');
-    setIsEditMode(true);
-    setIsCreateModalOpen(true);
-  };
-
-  const handleEditClose = () => {
-    setIsEditMode(false);
-    setEditingSheetId('');
-    setNewSheetName('');
-    setNewSheetDescription('');
-    setNewSheetNumber('');
-    setSelectedRecipeId('');
-    setIsCreateModalOpen(false);
-  };
-
-  const getStatusBadge = (status: string) => {
-    type BadgeVariant = VariantProps<typeof badgeVariants>['variant'];
-    const statusConfig: Record<string, { label: string; variant: BadgeVariant }> = {
-      pending: { label: 'Pendiente', variant: 'secondary' },
-      draft: { label: 'Borrador', variant: 'default' },
-      published: { label: 'Publicado', variant: 'default' },
-      archived: { label: 'Archivado', variant: 'secondary' },
-    };
-    const config = statusConfig[status.toLowerCase()] || { label: status, variant: 'secondary' as BadgeVariant };
-    return (
-      <Badge variant={config.variant}>
-        {config.label}
-      </Badge>
+    win.document.write(
+      '<!doctype html><html><head><title>Generando PDF…</title></head>'
+      + '<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Generando PDF…</body></html>',
     );
+    try {
+      const response = await apiClient.post(
+        '/v1/technical-sheets/generate',
+        { recipeId, includeAllergens: true, includeCosts: true },
+        { responseType: 'blob' },
+      );
+      const url = URL.createObjectURL(
+        new Blob([response.data], { type: 'application/pdf' }),
+      );
+      win.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      win.close();
+      addNotification({ type: 'error', title: 'Error', message: errorMessage });
+    }
+  };
+
+  const handleCreateSheet = async () => {
+    if (!selectedRecipeId) return;
+    try {
+      await generateSheet(selectedRecipeId);
+      setIsCreateModalOpen(false);
+      setSelectedRecipeId('');
+      addNotification({
+        type: 'success',
+        title: 'Ficha generada',
+        message: 'La ficha técnica se generó correctamente.',
+      });
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo generar la ficha técnica.',
+      });
+    }
+  };
+
+  const handleView = async (sheet: TechnicalSheetDocument) => {
+    if (!sheet.recipeId) return;
+    setDownloadingId(sheet.id);
+    await openPdf(sheet.recipeId, 'No se pudo generar la ficha técnica');
+    setDownloadingId(null);
+  };
+
+  const handleDelete = async (sheet: TechnicalSheetDocument) => {
+    const ok = await confirm({
+      title: 'Eliminar ficha técnica',
+      description: `¿Estás seguro de eliminar "${sheet.name}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+    try {
+      await deleteSheet(sheet.id);
+      addNotification({ type: 'success', title: 'Ficha eliminada', message: sheet.name });
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo eliminar la ficha técnica.',
+      });
+    }
   };
 
   return (
@@ -139,7 +139,7 @@ export default function TechnicalSheetsPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Fichas Técnicas</h1>
         <p className="text-muted-foreground mt-1">
-          Sistema de gestión de fichas técnicas para artículos
+          Historial de fichas técnicas generadas para recetas
         </p>
       </div>
 
@@ -161,44 +161,31 @@ export default function TechnicalSheetsPage() {
         {isCreateModalOpen && (
           <Card className="p-6">
             <CardHeader>
-              <CardTitle>{isEditMode ? 'Editar Ficha Técnica' : 'Crear Nueva Ficha Técnica'}</CardTitle>
+              <CardTitle>Generar Ficha Técnica</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label>Nombre</Label>
-                <Input
-                  value={newSheetName}
-                  onChange={(e) => setNewSheetName(e.target.value)}
-                  placeholder="Ej: Ficha técnica de producto XYZ"
-                />
-              </div>
-              <div>
-                <Label>Descripción (opcional)</Label>
-                <Textarea
-                  value={newSheetDescription}
-                  onChange={(e) => setNewSheetDescription(e.target.value)}
-                  placeholder="Descripción de la ficha técnica"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label>Número de Ficha (opcional)</Label>
-                <Input
-                  value={newSheetNumber}
-                  onChange={(e) => setNewSheetNumber(e.target.value)}
-                  placeholder="Ej: FT-001"
+              <div className="flex gap-2">
+                <SubRecipeCombobox
+                  items={recipeOptions || []}
+                  value={selectedRecipeId}
+                  label={recipeName(selectedRecipeId)}
+                  onSelect={(item) => setSelectedRecipeId(item.id)}
+                  placeholder="Selecciona una receta..."
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => handleEditClose()} variant="outline">
+                <Button
+                  onClick={() => {
+                    setIsCreateModalOpen(false);
+                    setSelectedRecipeId('');
+                  }}
+                  variant="outline"
+                >
                   Cancelar
                 </Button>
-                <Button
-                  onClick={() => isEditMode ? handleUpdateSheet(editingSheetId) : handleCreateSheet()}
-                  disabled={isCreating}
-                >
-                  {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {isEditMode ? 'Guardar Cambios' : 'Crear Ficha'}
+                <Button onClick={handleCreateSheet} disabled={isGenerating || !selectedRecipeId}>
+                  {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Generar Ficha
                 </Button>
               </div>
             </CardContent>
@@ -225,11 +212,11 @@ export default function TechnicalSheetsPage() {
                   <FileText className="h-16 w-16 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Sin fichas técnicas</h3>
                   <p className="text-sm text-muted-foreground text-center mb-4">
-                    Crea tu primera ficha técnica para documentar artículos
+                    Genera tu primera ficha técnica para documentar una receta
                   </p>
                   <Button onClick={() => setIsCreateModalOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Crear Primera Ficha
+                    Generar Primera Ficha
                   </Button>
                 </Card>
               ) : (
@@ -239,59 +226,39 @@ export default function TechnicalSheetsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold">{sheet.name}</h3>
-                          <Badge variant="outline">
-                            <Info className="mr-1 h-3 w-3" />
-                            {sheet.sheetNumber || 'Sin número'}
-                          </Badge>
-                          {getStatusBadge(sheet.status)}
+                          <Badge variant="outline">v{sheet.version}</Badge>
                         </div>
-                        {sheet.description && (
-                          <p className="text-sm text-muted-foreground mb-2">{sheet.description}</p>
+                        {recipeName(sheet.recipeId) && (
+                          <p className="text-sm text-muted-foreground mb-2">
+                            Receta: {recipeName(sheet.recipeId)}
+                          </p>
                         )}
-                        {sheet.recipeName && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              Receta: {sheet.recipeName}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                          <div className="flex items-center gap-2">
-                            <Info className="h-4 w-4" />
-                            <span>Creado: {new Date(sheet.createdAt).toLocaleDateString()}</span>
-                          </div>
-                          {sheet.ingredients && sheet.ingredients.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4" />
-                              <span>{sheet.ingredients.length} ingredientes</span>
-                            </div>
-                          )}
-                          {sheet.temperatures && sheet.temperatures.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <Thermometer className="h-4 w-4" />
-                              <span>{sheet.temperatures.length} temperaturas</span>
-                            </div>
-                          )}
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Info className="h-4 w-4" />
+                          <span>Generado: {new Date(sheet.createdAt).toLocaleDateString()}</span>
                         </div>
-                        {sheet.ingredients && sheet.ingredients.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {sheet.ingredients.slice(0, 3).map((ingredient) => (
-                              <Badge key={ingredient.id} variant="secondary" className="text-xs">
-                                {ingredient.ingredientName}
-                              </Badge>
-                            ))}
-                            {sheet.ingredients.length > 3 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{sheet.ingredients.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => startEditSheet(sheet)}>
-                          <Edit className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={!sheet.recipeId || downloadingId === sheet.id}
+                          onClick={() => handleView(sheet)}
+                          title="Ver / descargar PDF"
+                        >
+                          {downloadingId === sheet.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(sheet)}
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

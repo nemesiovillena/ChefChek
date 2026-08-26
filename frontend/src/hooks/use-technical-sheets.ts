@@ -1,70 +1,54 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
-export interface TechnicalSheetResponse {
+export interface TechnicalSheetDocument {
   id: string;
   name: string;
-  description?: string;
-  sheetNumber?: string;
   recipeId?: string;
-  recipeName?: string;
-  status: string;
-  ingredients?: SheetIngredient[];
-  temperatures?: SheetTemperature[];
+  templateId?: string;
+  version: number;
   createdAt: string;
+  fileSize: number;
+  fileFormat: 'PDF' | 'DOCX';
+  url: string;
 }
 
-export interface SheetIngredient {
-  id: string;
-  ingredientName: string;
-  quantity: number;
-  unit: string;
-  temperature?: string;
-  note?: string;
-}
-
-export interface SheetTemperature {
-  id: string;
-  step: string;
-  minTemp?: number;
-  maxTemp?: number;
-  targetTemp?: number;
-  duration?: number;
-  note?: string;
-}
-
-export interface CreateSheetData {
-  name: string;
-  description?: string;
-  sheetNumber?: string;
-  recipeId?: string;
-}
-
+/**
+ * Fichas técnicas ya generadas. El backend no tiene CRUD de "sheets": cada
+ * fila es el registro de un PDF generado vía /generate (el PDF en sí no se
+ * persiste, solo su metadata), igual que el botón "Ficha" en Recetas.
+ */
 export function useTechnicalSheets() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['technical-sheets'],
     queryFn: async () => {
-      const response = await apiClient.get<TechnicalSheetResponse[]>('/v1/technical-sheets');
+      const response = await apiClient.get<TechnicalSheetDocument[]>(
+        '/v1/technical-sheets/documents',
+        { params: { type: 'TECHNICAL_SHEET' } },
+      );
       return response.data;
     },
   });
 
-  const createSheetMutation = useMutation({
-    mutationFn: async (data: CreateSheetData) => {
-      const response = await apiClient.post<TechnicalSheetResponse>('/v1/technical-sheets', data);
-      return response.data;
+  const generateSheetMutation = useMutation({
+    mutationFn: async (recipeId: string) => {
+      const response = await apiClient.post(
+        '/v1/technical-sheets/generate',
+        { recipeId, includeAllergens: true, includeCosts: true },
+        { responseType: 'blob' },
+      );
+      return response.data as Blob;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['technical-sheets'] });
     },
   });
 
-  const updateSheetMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateSheetData> }) => {
-      const response = await apiClient.patch<TechnicalSheetResponse>(`/v1/technical-sheets/${id}`, data);
-      return response.data;
+  const deleteSheetMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      await apiClient.delete(`/v1/technical-sheets/documents/${documentId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['technical-sheets'] });
@@ -76,8 +60,8 @@ export function useTechnicalSheets() {
     isLoading,
     error,
     refetch,
-    createSheet: createSheetMutation.mutateAsync,
-    updateSheet: updateSheetMutation.mutateAsync,
-    isCreating: createSheetMutation.isPending,
+    generateSheet: generateSheetMutation.mutateAsync,
+    isGenerating: generateSheetMutation.isPending,
+    deleteSheet: deleteSheetMutation.mutateAsync,
   };
 }
