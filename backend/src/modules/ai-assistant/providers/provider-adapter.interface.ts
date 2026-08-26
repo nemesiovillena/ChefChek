@@ -1,3 +1,16 @@
+export interface ToolCall {
+  id: string;
+  name: string;
+  params: Record<string, any>;
+  /**
+   * Solo Gemini 3.x ("thinking" models): firma opaca que la API devuelve junto
+   * a cada functionCall y EXIGE recibir de vuelta sin modificar en el turno
+   * siguiente ("Function call is missing a thought_signature..." 400 si no se
+   * reenvía). Los demás proveedores la ignoran sin problema.
+   */
+  thoughtSignature?: string;
+}
+
 /** Formato común de mensaje, normalizado entre proveedores. */
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -7,7 +20,7 @@ export interface ChatMessage {
   /** Solo en mensajes role="tool": nombre de la tool ejecutada (Gemini lo necesita explícito, no basta el id). */
   toolName?: string;
   /** Solo en mensajes role="assistant" que piden ejecutar tools. */
-  toolCalls?: Array<{ id: string; name: string; params: Record<string, any> }>;
+  toolCalls?: ToolCall[];
 }
 
 export interface ToolSchema {
@@ -25,7 +38,7 @@ export interface ToolSchema {
 
 export interface ProviderChatResult {
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; params: Record<string, any> }>;
+  toolCalls?: ToolCall[];
 }
 
 /**

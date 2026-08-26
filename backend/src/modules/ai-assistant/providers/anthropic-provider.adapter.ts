@@ -9,6 +9,9 @@ import {
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOKENS = 1024;
+// Sin timeout, un fallo de red deja la petición colgada indefinidamente
+// (undici's fetch no tiene límite propio) — reproducido en pruebas manuales.
+const REQUEST_TIMEOUT_MS = 30000;
 
 /**
  * Adaptador para la Messages API de Anthropic. A diferencia de OpenAI/Gemini,
@@ -44,15 +47,23 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
         : {}),
     };
 
-    const res = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (e: any) {
+      throw new BadGatewayException(
+        `No se pudo conectar con Anthropic: ${e?.message ?? e}`,
+      );
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

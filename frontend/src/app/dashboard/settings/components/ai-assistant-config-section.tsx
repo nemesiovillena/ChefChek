@@ -15,7 +15,7 @@ const PROVIDER_LABELS: Record<AiAssistantProvider, string> = {
   anthropic: 'Anthropic',
 };
 
-const MODEL_PLACEHOLDER: Record<AiAssistantProvider, string> = {
+const DEFAULT_MODEL: Record<AiAssistantProvider, string> = {
   openai: 'gpt-4o-mini',
   gemini: 'gemini-2.0-flash',
   anthropic: 'claude-3-5-haiku-latest',
@@ -39,19 +39,34 @@ export function AiAssistantConfigSection() {
   });
 
   const startEditing = () => {
+    const provider = (config?.provider ?? 'openai') as AiAssistantProvider;
     setForm({
-      provider: (config?.provider ?? 'openai') as AiAssistantProvider,
-      model: config?.model ?? '',
+      provider,
+      // Precargado con un modelo real por defecto (no un placeholder vacío):
+      // guardar sin tocar este campo debe dejar el asistente funcional, no
+      // silenciosamente sin "model" (el backend exige provider+model+apiKey
+      // completos o degrada a "sin configurar" — bug real detectado en la demo).
+      model: config?.model ?? DEFAULT_MODEL[provider],
       apiKey: '',
     });
     setEditing(true);
+  };
+
+  const handleProviderChange = (provider: AiAssistantProvider) => {
+    setForm((f) => ({
+      ...f,
+      provider,
+      // Si el modelo seguía siendo el default del proveedor anterior (el
+      // usuario no lo tocó a mano), lo cambiamos al default del nuevo.
+      model: f.model === DEFAULT_MODEL[f.provider] ? DEFAULT_MODEL[provider] : f.model,
+    }));
   };
 
   const handleSave = async () => {
     try {
       await saveMut.mutateAsync({
         provider: form.provider,
-        model: form.model.trim() || undefined,
+        model: form.model.trim() || DEFAULT_MODEL[form.provider],
         apiKey: form.apiKey || undefined,
       });
       setEditing(false);
@@ -112,9 +127,7 @@ export function AiAssistantConfigSection() {
           <div className="grid gap-3 sm:grid-cols-2">
             <select
               value={form.provider}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, provider: e.target.value as AiAssistantProvider }))
-              }
+              onChange={(e) => handleProviderChange(e.target.value as AiAssistantProvider)}
               className={inputCls}
             >
               {(Object.keys(PROVIDER_LABELS) as AiAssistantProvider[]).map((p) => (
@@ -126,7 +139,7 @@ export function AiAssistantConfigSection() {
             <input
               value={form.model}
               onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
-              placeholder={`Modelo (ej. ${MODEL_PLACEHOLDER[form.provider]})`}
+              placeholder="Modelo"
               className={inputCls}
             />
             <input

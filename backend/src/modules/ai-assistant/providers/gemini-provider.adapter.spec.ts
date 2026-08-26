@@ -70,6 +70,79 @@ describe("GeminiProviderAdapter", () => {
     ]);
   });
 
+  it("captura thoughtSignature de una functionCall (Gemini 3.x 'thinking' models la exigen de vuelta)", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  functionCall: {
+                    name: "get_top_purchased_products",
+                    args: {},
+                  },
+                  thoughtSignature: "opaque-sig-abc123",
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    }) as any;
+
+    const result = await adapter.chat(
+      "AQ.key",
+      "gemini-3.7-flash",
+      [{ role: "user", content: "?" }],
+      [],
+    );
+    expect(result.toolCalls?.[0].thoughtSignature).toBe("opaque-sig-abc123");
+  });
+
+  it("reenvía thoughtSignature en la parte functionCall al reconstruir el turno model (400 real reproducido si se omite)", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: "ok" }] } }],
+      }),
+    });
+    global.fetch = fetchMock as any;
+
+    await adapter.chat(
+      "AQ.key",
+      "gemini-3.7-flash",
+      [
+        { role: "user", content: "?" },
+        {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "get_top_purchased_products-0",
+              name: "get_top_purchased_products",
+              params: {},
+              thoughtSignature: "opaque-sig-abc123",
+            },
+          ],
+        },
+        {
+          role: "tool",
+          content: "{}",
+          toolCallId: "get_top_purchased_products-0",
+          toolName: "get_top_purchased_products",
+        },
+      ],
+      [],
+    );
+
+    const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+    expect(sentBody.contents[1].parts[0].thoughtSignature).toBe(
+      "opaque-sig-abc123",
+    );
+  });
+
   it("agrupa 2+ mensajes role='tool' consecutivos (parallel tool calling) en UN solo turno role='user', nunca dos user seguidos", async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,

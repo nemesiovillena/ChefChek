@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
@@ -38,6 +39,7 @@ export interface AskAssistantResult {
 
 @Injectable()
 export class AiAssistantService {
+  private readonly logger = new Logger(AiAssistantService.name);
   private readonly adapters: Record<AiAssistantProvider, ProviderAdapter>;
 
   constructor(
@@ -106,10 +108,16 @@ export class AiAssistantService {
           messages,
           toolSchemas,
         );
-      } catch {
+      } catch (e: any) {
         // Nunca reenviar el error crudo del proveedor al usuario (podría filtrar
         // detalles internos) ni dejar la conversación en un estado roto: se
         // responde con un mensaje propio y se corta el loop en este turno.
+        // Sí se loguea server-side para poder diagnosticar (proveedor/modelo,
+        // nunca la API key ni el contenido de la pregunta del usuario).
+        this.logger.error(
+          `adapter.chat falló (provider=${config.provider}, model=${config.model}): ${e?.message ?? e}`,
+          e?.stack,
+        );
         finalContent = PROVIDER_ERROR_MESSAGE;
         break;
       }
