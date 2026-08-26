@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import { useModules } from '@/features/modules/hooks/use-modules';
+import { AssistantFloatingWidget } from '@/components/assistant/assistant-floating-widget';
 import {
   SETTINGS_LINK,
   NAV_GROUPS,
@@ -347,6 +348,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="text-[10px] font-medium tracking-tight mt-0.5">Más</span>
         </button>
       </nav>
+
+      {isEnabled('asistente-ia') && <AssistantFloatingWidget />}
     </div>
   );
 }

@@ -56,6 +56,7 @@ import { SuperadminModule } from "./modules/superadmin/superadmin.module";
 import { CostingConfigModule } from "./modules/costing-config/costing-config.module";
 import { BackupModule } from "./modules/backup/backup.module";
 import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
+import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
     QRModule,
     AlbaranesModule,
     OcrConfigModule,
+    AiAssistantModule,
     TrashModule,
     GuardsModule,
     WebSocketModule,

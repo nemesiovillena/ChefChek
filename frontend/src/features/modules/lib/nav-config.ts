@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavSection[] = [
   {
     title: 'Herramientas',
     items: [
+      { label: 'Asistente IA', href: '/dashboard/asistente', moduleId: 'asistente-ia', icon: 'smart_toy' },
       { label: 'Sprint', href: '/dashboard/sprint-tracker', icon: 'track_changes' },
       { label: 'Papelera', href: '/dashboard/papelera', icon: 'delete' },
       { label: 'Copias de Seguridad', href: '/dashboard/backups', icon: 'cloud_sync' },
@@ -93,6 +94,7 @@ export const MOBILE_NAV: NavItem[] = [
  * Ordered so longer/more-specific prefixes are matched first.
  */
 export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
+  { prefix: '/dashboard/asistente', moduleId: 'asistente-ia' },
   { prefix: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento' },
   { prefix: '/dashboard/technical-sheets', moduleId: 'technical-sheets' },
   { prefix: '/dashboard/digital-menu', moduleId: 'digital-menu' },

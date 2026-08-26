@@ -69,6 +69,12 @@ ChefChek es una plataforma SaaS Multi-tenant modular diseñada para cocinas prof
 - **Wiki de Procedimientos**: Base de conocimiento interno
 - **Roadmap Tracker**: Sistema de seguimiento de desarrollo
 
+### Asistente IA (Chefchek)
+- **Tool-calling seguro**: el LLM (OpenAI/Gemini/Anthropic, proveedor por tenant) nunca genera SQL — elige entre un registro de funciones fijas (`ToolRegistryService`) que envuelven/extienden servicios existentes de compras, recetas y almacenes; `tenantId` siempre lo inyecta el orquestador desde la sesión, nunca el LLM
+- **Adaptadores finos por proveedor**: `fetch` nativo normalizado a una interfaz común (`ProviderAdapter`), sin SDKs por proveedor
+- **Config por tenant**: proveedor/modelo/API key cifrada en `Configuration` (categoría `ASSISTANT`, salt propio, independiente de `ocr-config`)
+- **UI**: widget flotante global + página `/dashboard/asistente`, historial persistido en `AssistantConversation`/`AssistantMessage`
+
 ## Flujo de Arquitectura
 
 ### 1. Solicitud del Cliente

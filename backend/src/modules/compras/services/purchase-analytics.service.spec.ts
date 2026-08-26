@@ -176,4 +176,28 @@ describe("PurchaseAnalyticsService", () => {
       ]);
     });
   });
+
+  describe("topPurchasedByQuantity", () => {
+    it("devuelve productos ordenados por cantidad recibida, no por gasto", async () => {
+      prismaMock.$queryRaw.mockResolvedValue([
+        { productId: "p1", productName: "Harina", quantity: 500, unit: "kilo" },
+        { productId: "p2", productName: "Salmón", quantity: 30, unit: "kilo" },
+      ]);
+
+      const result = await service.topPurchasedByQuantity(tenantId, {});
+
+      expect(result).toEqual([
+        { productId: "p1", productName: "Harina", quantity: 500, unit: "kilo" },
+        { productId: "p2", productName: "Salmón", quantity: 30, unit: "kilo" },
+      ]);
+    });
+
+    it("respeta el límite pasado (llega como parámetro a la query)", async () => {
+      prismaMock.$queryRaw.mockResolvedValue([]);
+      await service.topPurchasedByQuantity(tenantId, {}, 5);
+      const [sql] = prismaMock.$queryRaw.mock.calls[0];
+      expect(sql.strings.join("?")).toContain("LIMIT");
+      expect(sql.values).toContain(5);
+    });
+  });
 });

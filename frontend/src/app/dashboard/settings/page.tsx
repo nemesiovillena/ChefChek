@@ -12,6 +12,7 @@ import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-co
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
+import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -401,6 +402,11 @@ export default function SettingsPage() {
         {/* SMTP para envío de pedidos (módulo Compras) */}
         <div className="mb-6 mt-6">
           <SmtpConfigSection />
+        </div>
+
+        {/* Asistente IA "Chefchek" */}
+        <div className="mb-6">
+          <AiAssistantConfigSection />
         </div>
 
         {/* Texto fijo del pedido al proveedor */}
