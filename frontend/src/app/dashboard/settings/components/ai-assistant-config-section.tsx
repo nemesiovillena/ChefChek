@@ -17,7 +17,7 @@ const PROVIDER_LABELS: Record<AiAssistantProvider, string> = {
 
 const DEFAULT_MODEL: Record<AiAssistantProvider, string> = {
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-3.6-flash',
   anthropic: 'claude-3-5-haiku-latest',
 };
 
