@@ -84,7 +84,10 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
           </div>
         </div>
 
-        <div className="p-5 sm:p-6 md:p-8">
+        {/* pb-28: el menú móvil fijo (h-16, dashboard/layout.tsx) tapa el final
+            del contenido en este overlay a pantalla completa — mismo margen
+            que usa el wrapper de página normal para no repetir el problema. */}
+        <div className="p-5 pb-28 sm:p-6 sm:pb-28 md:p-8 md:pb-8">
           {recipe.description && (
             <p className="mb-6 whitespace-pre-line text-sm text-[var(--on-surface-variant)]">{recipe.description}</p>
           )}
