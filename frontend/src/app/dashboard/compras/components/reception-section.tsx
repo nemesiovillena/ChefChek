@@ -52,9 +52,12 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
             Recepción y discrepancias
           </h2>
           {albaranes.length > 0 ? (
-            <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+            <Link
+              href={`/dashboard/albaranes/${albaranes[0].id}/resumen?returnTo=${encodeURIComponent(`/dashboard/compras/pedidos/${order.id}`)}`}
+              className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800 transition hover:bg-green-200"
+            >
               <CheckCircle2 className="h-3.5 w-3.5" /> Albarán vinculado
-            </span>
+            </Link>
           ) : (
             <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
               <CircleAlert className="h-3.5 w-3.5" /> Sin albarán subido
