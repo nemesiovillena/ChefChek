@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCrud as createCrudHooks } from './use-api';
-import { useApiQuery } from './use-api';
+import { useApiQuery, useApiMutation } from './use-api';
 import { PaginatedResponse } from '@/types/api.types';
 import apiClient from '@/lib/api-client';
 
@@ -47,7 +47,7 @@ export interface Recipe {
   description?: string;
   elaboration?: string;
   notes?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   sourceUrl?: string;
   portions: number;
   portionSize?: number;
@@ -87,7 +87,7 @@ export interface CreateRecipeData {
   description?: string;
   elaboration?: string;
   notes?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   sourceUrl?: string;
   portions: number;
   portionSize?: number;
@@ -197,6 +197,13 @@ export function useUpdateRecipe() {
 
 export function useDeleteRecipe() {
   return useDelete();
+}
+
+export function useUploadRecipeImage() {
+  return useApiMutation<{ imageUrl: string }, FormData>(
+    '/v1/recipes/upload-image',
+    'POST'
+  );
 }
 
 export function useRecipeCost(id: string) {
