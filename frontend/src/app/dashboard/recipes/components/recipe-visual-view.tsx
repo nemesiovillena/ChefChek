@@ -53,7 +53,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
               disabled={isPrinting}
               title="Imprimir receta"
               aria-label="Imprimir receta"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-sm hover:bg-white disabled:opacity-50 disabled:cursor-wait transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1f2937] shadow-sm hover:bg-white disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
               <Printer className="h-4 w-4" />
             </button>
@@ -62,7 +62,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
               onClick={onClose}
               title="Cerrar"
               aria-label="Cerrar"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow-sm hover:bg-white transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1f2937] shadow-sm hover:bg-white transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
