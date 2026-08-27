@@ -15,7 +15,7 @@ describe("OrderReconciliationService", () => {
       update: jest.fn(),
     },
     purchaseOrderLine: { update: jest.fn(), findMany: jest.fn() },
-    product: { findMany: jest.fn() },
+    product: { findMany: jest.fn(), update: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
   const statusServiceMock = { transition: jest.fn() };
@@ -122,7 +122,12 @@ describe("OrderReconciliationService", () => {
 
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
-        data: { receivedQuantity: 10, receivedPrice: 12 },
+        data: {
+          receivedQuantity: 10,
+          receivedPrice: 12,
+          receivedSourceQuantity: null,
+          receivedSourceUnit: null,
+        },
       });
       expect(prismaMock.purchaseOrder.update).toHaveBeenCalledWith({
         where: { id: "o1" },
@@ -200,7 +205,12 @@ describe("OrderReconciliationService", () => {
 
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
-        data: { receivedQuantity: 10, receivedPrice: 13 },
+        data: {
+          receivedQuantity: 10,
+          receivedPrice: 13,
+          receivedSourceQuantity: null,
+          receivedSourceUnit: null,
+        },
       });
       expect(statusServiceMock.transition).toHaveBeenCalledWith(
         tenantId,
@@ -242,8 +252,323 @@ describe("OrderReconciliationService", () => {
 
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
-        data: { receivedQuantity: 1, receivedPrice: 5 }, // 10/10 uds = 1 caja; 0.5€ × 10 = 5€/caja
+        data: {
+          receivedQuantity: 1,
+          receivedPrice: 5, // 10/10 uds = 1 caja; 0.5€ × 10 = 5€/caja
+          receivedSourceQuantity: null,
+          receivedSourceUnit: null,
+        },
       });
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
+    it("pedido en ud + albarán en kg con peso medio aprendido → convierte y marca RECIBIDO", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 1,
+          referenceUnit: "kilo",
+          avgUnitWeight: 0.37,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 7.4, // kg servidos
+            unit: "kg",
+            unitPrice: 5, // €/kg
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0004",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 20,
+            unit: "ud",
+            expectedPrice: 1.85,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 20,
+          unit: "ud",
+          receivedQuantity: 20,
+          receivedPrice: 1.85,
+          receivedSourceUnit: "kg",
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      const updateArgs = prismaMock.purchaseOrderLine.update.mock.calls[0][0];
+      expect(updateArgs.data.receivedQuantity).toBeCloseTo(20); // 7,4 kg ÷ 0,37
+      expect(updateArgs.data.receivedPrice).toBeCloseTo(1.85); // 5 €/kg × 0,37
+      expect(updateArgs.data.receivedSourceQuantity).toBeCloseTo(7.4);
+      expect(updateArgs.data.receivedSourceUnit).toBe("kg");
+      expect(prismaMock.product.update).not.toHaveBeenCalled(); // ya había peso: no se toca
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
+    it("primera recepción cruzada sin peso → aprende del ratio de precios y cuadra en el mismo run", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 1,
+          referenceUnit: "kilo",
+          avgUnitWeight: null,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 7.4,
+            unit: "kg",
+            unitPrice: 5,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0005",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 20,
+            unit: "ud",
+            expectedPrice: 1.85,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 20,
+          unit: "ud",
+          receivedQuantity: 20,
+          receivedPrice: 1.85,
+          receivedSourceUnit: "kg",
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      const productArgs = prismaMock.product.update.mock.calls[0][0];
+      expect(productArgs.where.id).toBe("p1");
+      expect(productArgs.data.avgUnitWeight).toBeCloseTo(0.37); // 1,85 €/ud ÷ 5 €/kg
+      const updateArgs = prismaMock.purchaseOrderLine.update.mock.calls[0][0];
+      expect(updateArgs.data.receivedQuantity).toBeCloseTo(20);
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
+    it("sin peso y sin precios fiables → comportamiento histórico (kg crudos como uds, sin aprender)", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 1,
+          referenceUnit: "kilo",
+          avgUnitWeight: null,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 7.4,
+            unit: "kg",
+            unitPrice: 5,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0006",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 20,
+            unit: "ud",
+            expectedPrice: null,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 20,
+          unit: "ud",
+          receivedQuantity: 7.4,
+          receivedPrice: 5,
+          receivedSourceUnit: null,
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      expect(prismaMock.product.update).not.toHaveBeenCalled();
+      const updateArgs = prismaMock.purchaseOrderLine.update.mock.calls[0][0];
+      expect(updateArgs.data.receivedQuantity).toBeCloseTo(7.4); // sin puente: número crudo
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO_PARCIAL,
+        undefined,
+      );
+    });
+
+    it("pedido en kilos + albarán en uds (inverso) → convierte con el peso aprendido", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 1,
+          referenceUnit: "kilo",
+          avgUnitWeight: 0.37,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 20, // uds servidas
+            unit: "ud",
+            unitPrice: 1.85,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0007",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 7.4,
+            unit: "kilo",
+            expectedPrice: 5,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 7.4,
+          unit: "kilo",
+          receivedQuantity: 7.4,
+          receivedPrice: 5,
+          receivedSourceUnit: "ud",
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      const updateArgs = prismaMock.purchaseOrderLine.update.mock.calls[0][0];
+      expect(updateArgs.data.receivedQuantity).toBeCloseTo(7.4); // 20 ud × 0,37
+      expect(updateArgs.data.receivedPrice).toBeCloseTo(5); // 1,85 €/ud ÷ 0,37 kg/ud
+      expect(updateArgs.data.receivedSourceQuantity).toBeCloseTo(20);
+      expect(updateArgs.data.receivedSourceUnit).toBe("ud");
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
+    it("cobertura con tolerancia del 10% en líneas convertidas cruzadas (18,5/20 ud → RECIBIDO)", async () => {
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 1,
+          referenceUnit: "kilo",
+          avgUnitWeight: 0.37,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 6.85,
+            unit: "kg",
+            unitPrice: 5,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0008",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 20,
+            unit: "ud",
+            expectedPrice: 1.85,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      // 6,85 kg ÷ 0,37 = 18,51 ud: 7,4% por debajo de 20 → dentro del ±10%
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 20,
+          unit: "ud",
+          receivedQuantity: 18.51,
+          receivedPrice: 1.85,
+          receivedSourceUnit: "kg",
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
       expect(statusServiceMock.transition).toHaveBeenCalledWith(
         tenantId,
         "o1",

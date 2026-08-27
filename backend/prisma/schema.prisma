@@ -155,6 +155,11 @@ model Product {
   unitsPerFormat    Int    @default(1) // Unidades en el formato de compra (ej: 6 botellas por caja)
   referenceUnitSize Float  @default(1) // Tamaño de cada unidad en referenceUnits (ej: 1.5L por botella)
   unitSize          Float  @default(1) // Auto-calculado: unitsPerFormat × referenceUnitSize
+  // Peso/volumen medio de una unidad (en la magnitud base de referenceUnit:
+  // kg o L). Puente para conciliar pedidos en "ud" con albaranes en kg/L y
+  // viceversa. Se aprende del ratio de precios en la primera recepción
+  // cruzada; nunca se sobrescribe automáticamente (solo edición manual).
+  avgUnitWeight     Float?
 
   // Precios
   purchasePrice         Float
@@ -2150,8 +2155,10 @@ model PurchaseOrderLine {
   quantity         Float
   unit             String? // Unidad de la cantidad (formato de compra del producto)
   expectedPrice    Float? // Precio unitario esperado (oferta activa al crear el pedido)
-  receivedQuantity Float? // Rellenado al conciliar con el albarán
-  receivedPrice    Float? // Precio unitario real del albarán
+  receivedQuantity Float? // Rellenado al conciliar con el albarán, en la unidad de esta línea
+  receivedPrice    Float? // Precio unitario real del albarán, en la unidad de esta línea
+  receivedSourceQuantity Float? // Cantidad tal como venía en el albarán cuando su unidad difiere de la de la línea (ej. 7.4)
+  receivedSourceUnit     String? // Unidad original del albarán (ej. "kg")
   lineNotes        String?
   sortOrder        Int     @default(0)
 

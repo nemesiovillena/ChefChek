@@ -8,6 +8,7 @@ import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ocr/python-ocr.service";
 import { OcrConfigService } from "../ocr-config/ocr-config.service";
+import { ProductSupplierOffersService } from "../products/product-supplier-offers.service";
 import { AlbaranStatus } from "@prisma/client";
 
 describe("AlbaranesService", () => {
@@ -27,9 +28,12 @@ describe("AlbaranesService", () => {
       create: jest.fn(),
       update: jest.fn(),
     },
-    product: { findFirst: jest.fn() },
+    product: { findFirst: jest.fn(), update: jest.fn() },
     supplier: { findFirst: jest.fn() },
+    productPriceHistory: { create: jest.fn() },
+    purchaseOrderLine: { updateMany: jest.fn() },
     $queryRaw: jest.fn(),
+    $transaction: jest.fn(),
   };
   const numberService = {
     generateInternalNumber: jest.fn().mockResolvedValue("ALB-0001"),
@@ -52,6 +56,9 @@ describe("AlbaranesService", () => {
   const ocrConfigService = {
     resolveForUpload: jest.fn(),
   };
+  const offersService = {
+    upsertOffer: jest.fn(),
+  };
 
   beforeEach(async () => {
     // Por defecto la resolución no aporta modelo/key (path regex), igual que
@@ -70,6 +77,7 @@ describe("AlbaranesService", () => {
         { provide: LineMatchingService, useValue: lineMatching },
         { provide: PythonOcrService, useValue: pythonOcrService },
         { provide: OcrConfigService, useValue: ocrConfigService },
+        { provide: ProductSupplierOffersService, useValue: offersService },
       ],
     }).compile();
 
@@ -457,6 +465,193 @@ describe("AlbaranesService", () => {
         priceWithVat: 30,
         matchedProductId: "p1",
       });
+    });
+
+    it("rejects editing a line of a CONFIRMADO albaran (use correction)", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO }),
+      );
+
+      await expect(
+        service.updateLine("alb-1", "l1", { unitPrice: "7" } as any, "t1"),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("correctConfirmedLinePrice", () => {
+    const confirmedLine = {
+      id: "l1",
+      lineStatus: "CONFIRMADO",
+      matchedProductId: "p1",
+      quantity: 10,
+      unitPrice: 9.5,
+      totalPrice: null,
+    };
+
+    beforeEach(() => {
+      // La tx del servicio recibe un cliente con los mismos mocks.
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+      );
+    });
+
+    it("rejects albaranes that are not CONFIRMADO", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.REVISADO }),
+      );
+
+      await expect(
+        service.correctConfirmedLinePrice(
+          "alb-1",
+          "l1",
+          { unitPrice: "8" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rejects lines without a matched product", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          lines: [{ ...confirmedLine, matchedProductId: null }],
+        }),
+      );
+
+      await expect(
+        service.correctConfirmedLinePrice(
+          "alb-1",
+          "l1",
+          { unitPrice: "8" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("updates the line and re-syncs offer + linked order line", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          purchaseOrderId: "po-1",
+          lines: [confirmedLine],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+      offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
+      prisma.product.findFirst.mockResolvedValue({
+        id: "p1",
+        unitsPerFormat: 1,
+      });
+      prisma.purchaseOrderLine.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "8.9" } as any,
+        "t1",
+      );
+
+      // Línea: precio nuevo y bruto recalculado (10 × 8.9)
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "l1" },
+          data: expect.objectContaining({ unitPrice: 8.9, lineAmount: 89 }),
+        }),
+      );
+      // Oferta re-sincronizada con el coste efectivo y preferencia
+      expect(offersService.upsertOffer).toHaveBeenCalledWith(
+        "p1",
+        "s1",
+        "t1",
+        { purchasePrice: 8.9, netPrice: 8.9 },
+        expect.anything(),
+        "alb-1",
+        true,
+      );
+      // Pedido vinculado: precio recibido re-volcado
+      expect(prisma.purchaseOrderLine.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { orderId: "po-1", productId: "p1" },
+          data: { receivedPrice: 8.9 },
+        }),
+      );
+    });
+
+    it("uses net-of-paper effective price when applyDiscountToCost is on", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          applyDiscountToCost: true,
+          lines: [confirmedLine],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+      offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "9.5", totalPrice: "85.5" } as any,
+        "t1",
+      );
+
+      // Coste efectivo = neto del papel / cantidad = 85.5 / 10
+      expect(offersService.upsertOffer).toHaveBeenCalledWith(
+        "p1",
+        "s1",
+        "t1",
+        { purchasePrice: 8.55, netPrice: 8.55 },
+        expect.anything(),
+        "alb-1",
+        true,
+      );
+    });
+
+    it("falls back to flat product price when the albaran has no supplier", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: null,
+          lines: [confirmedLine],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+      prisma.product.findFirst.mockResolvedValue({
+        id: "p1",
+        purchasePrice: 9.5,
+        unitSize: 1,
+      });
+      prisma.productPriceHistory.create.mockResolvedValue({ id: "h-1" });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "8.9" } as any,
+        "t1",
+      );
+
+      expect(offersService.upsertOffer).not.toHaveBeenCalled();
+      expect(prisma.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "p1" },
+          data: expect.objectContaining({
+            purchasePrice: 8.9,
+            previousPurchasePrice: 9.5,
+          }),
+        }),
+      );
+      expect(prisma.productPriceHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            productId: "p1",
+            previousPrice: 9.5,
+            newPrice: 8.9,
+          }),
+        }),
+      );
     });
   });
 
