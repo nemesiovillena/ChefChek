@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bot, Loader2, Send, User } from 'lucide-react';
+import { Bot, Loader2, Mic, Send, User } from 'lucide-react';
 import { useAskAssistant, useAssistantConversation } from '@/hooks/use-ai-assistant';
+import { useSpeechToText } from '@/hooks/use-speech-to-text';
 
 interface LocalMessage {
   id: string;
@@ -36,6 +37,25 @@ export function AssistantChatPanel({
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Texto que había en el input al arrancar el dictado; el transcript de voz
+  // se le añade detrás en lugar de pisar lo que el usuario ya había escrito.
+  const dictationBaseRef = useRef('');
+
+  const handleTranscript = useCallback((transcript: string) => {
+    const base = dictationBaseRef.current;
+    setInput(base ? `${base} ${transcript}` : transcript);
+  }, []);
+
+  const speech = useSpeechToText({ onResult: handleTranscript });
+
+  const toggleDictation = () => {
+    if (speech.listening) {
+      speech.stop();
+      return;
+    }
+    dictationBaseRef.current = input.trim();
+    speech.start();
+  };
 
   // Al cambiar de conversación (o cargarla por primera vez), sincroniza el
   // historial visible desde el backend, filtrando los mensajes role="tool".
@@ -53,6 +73,7 @@ export function AssistantChatPanel({
   }, [messages, askMut.isPending]);
 
   const handleSend = async () => {
+    if (speech.listening) speech.stop();
     const message = input.trim();
     if (!message || askMut.isPending) return;
 
@@ -130,27 +151,53 @@ export function AssistantChatPanel({
         )}
       </div>
 
-      <div className={`flex items-center gap-2 border-t border-[var(--outline-variant)] ${compact ? 'p-2' : 'p-3'}`}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
+      <div className={`border-t border-[var(--outline-variant)] ${compact ? 'p-2' : 'p-3'}`}>
+        <div className="flex items-center gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={
+              speech.listening ? 'Escuchando… habla ahora' : 'Pregúntale algo a Chefchek…'
             }
-          }}
-          placeholder="Pregúntale algo a Chefchek…"
-          className="w-full rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)]"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim() || askMut.isPending}
-          aria-label="Enviar"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)] text-primary-foreground disabled:opacity-50"
-        >
-          <Send className="h-4 w-4" />
-        </button>
+            className="w-full rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm text-[var(--on-surface)] outline-none focus:border-[var(--primary)]"
+          />
+          {speech.supported && (
+            <button
+              type="button"
+              onClick={toggleDictation}
+              disabled={askMut.isPending}
+              aria-label={speech.listening ? 'Detener dictado' : 'Dictar pregunta por voz'}
+              aria-pressed={speech.listening}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors disabled:opacity-50 ${
+                speech.listening
+                  ? 'bg-[var(--error)] text-[var(--on-error)]'
+                  : 'text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-low)]'
+              }`}
+            >
+              {speech.listening && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-xl bg-[var(--error)] opacity-40" />
+              )}
+              <Mic className="relative h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || askMut.isPending}
+            aria-label="Enviar"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)] text-primary-foreground disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+        {speech.error && (
+          <p className="mt-1.5 px-1 text-xs text-[var(--error)]">{speech.error}</p>
+        )}
       </div>
     </div>
   );
