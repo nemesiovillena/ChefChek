@@ -431,9 +431,10 @@ export default function SettingsPage() {
             <h2 className="text-xl font-semibold">Claves API</h2>
           </div>
           <p className="text-sm text-gray-500 mb-6">
-            Configura las claves API de los proveedores de IA para la extracción de datos de albaranes.
-            La clave del motor de extracción seleccionado se guarda en el servidor (cifrada) y se
-            comparte entre todos tus dispositivos; el resto quedan solo en este navegador.
+            Configura las claves API de los proveedores de IA para la extracción de datos de albaranes
+            y el asistente Chefchek. La clave del motor de extracción seleccionado se guarda en el
+            servidor (cifrada) y se comparte entre todos tus dispositivos; el resto quedan solo en
+            este navegador.
           </p>
           <div className="space-y-6">
             {AI_PROVIDERS.map((provider) => {

@@ -87,6 +87,35 @@ export function setApiKey(providerId: string, key: string): void {
   } else {
     localStorage.removeItem(`${STORAGE_KEY_PREFIX}${providerId}`);
   }
+  notifyApiKeyChange();
+}
+
+const API_KEYS_CHANGED_EVENT = 'ai-api-keys-changed';
+
+function notifyApiKeyChange(): void {
+  window.dispatchEvent(new Event(API_KEYS_CHANGED_EVENT));
+}
+
+/**
+ * Suscripción reactiva a cambios en las API keys: evento propio (misma pestaña,
+ * p.ej. al guardar en la sección «Claves API») + evento `storage` (otras pestañas).
+ * Para usar con useSyncExternalStore.
+ */
+export function subscribeToApiKeyChanges(callback: () => void): () => void {
+  window.addEventListener(API_KEYS_CHANGED_EVENT, callback);
+  window.addEventListener('storage', callback);
+  return () => {
+    window.removeEventListener(API_KEYS_CHANGED_EVENT, callback);
+    window.removeEventListener('storage', callback);
+  };
+}
+
+/**
+ * Snapshot de qué providers tienen key guardada (string estable para
+ * useSyncExternalStore: cambia solo cuando la presencia de una key cambia).
+ */
+export function getApiKeyPresenceSnapshot(): string {
+  return AI_PROVIDERS.map((p) => `${p.id}:${getApiKey(p.id) ? 1 : 0}`).join('|');
 }
 
 /** Obtener la API key para un modelo específico (busca su provider) */
