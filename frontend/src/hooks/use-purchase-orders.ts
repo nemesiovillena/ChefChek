@@ -19,6 +19,8 @@ export interface PurchaseOrderLine {
   expectedPrice?: number | null;
   receivedQuantity?: number | null;
   receivedPrice?: number | null;
+  receivedSourceQuantity?: number | null;
+  receivedSourceUnit?: string | null;
   lineNotes?: string | null;
   product?: {
     id: string;
