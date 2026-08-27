@@ -36,6 +36,7 @@ import {
   UpdateAlbaranStatusDto,
   UpdateAlbaranLineDto,
   MatchLineDto,
+  CorrectAlbaranLinePriceDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 
@@ -209,6 +210,31 @@ export class AlbaranesController {
   ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.updateLine(id, lineId, dto, tenantId);
+  }
+
+  @Put(":id/lines/:lineId/correct-price")
+  @ApiOperation({
+    summary:
+      "Corregir el precio de una línea confirmada y re-sincronizar costes",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Precio corregido; oferta, coste, histórico y pedido actualizados",
+  })
+  async correctLinePrice(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: CorrectAlbaranLinePriceDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.correctConfirmedLinePrice(
+      id,
+      lineId,
+      dto,
+      tenantId,
+    );
   }
 
   @Post(":id/lines/:lineId/match")

@@ -194,6 +194,26 @@ export async function updateLine(
   return response.json();
 }
 
+// Corregir el precio de una línea YA confirmada. No es una edición normal:
+// el backend re-sincroniza oferta preferente, coste del artículo, histórico
+// de precios y el pedido vinculado con el precio corregido.
+export async function correctLinePrice(
+  albaranId: string,
+  lineId: string,
+  data: { unitPrice: number; totalPrice?: number | null }
+): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/correct-price`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error correcting price' }));
+    throw new Error(error.message || 'Error al corregir el precio');
+  }
+  return response.json();
+}
+
 // Match line to product
 export async function matchLine(albaranId: string, lineId: string, productId: string): Promise<AlbaranLine> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/match`, {

@@ -11,13 +11,15 @@ import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
 import { PythonOcrService } from "../ocr/python-ocr.service";
 import { OcrConfigService } from "../ocr-config/ocr-config.service";
+import { ProductSupplierOffersService } from "../products/product-supplier-offers.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
 import {
   UpdateAlbaranDto,
   UpdateAlbaranLineDto,
+  CorrectAlbaranLinePriceDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
-import { AlbaranStatus, PurchaseOrderStatus } from "@prisma/client";
+import { AlbaranStatus, LineStatus, PurchaseOrderStatus } from "@prisma/client";
 
 @Injectable()
 export class AlbaranesService {
@@ -40,6 +42,7 @@ export class AlbaranesService {
     private readonly lineMatching: LineMatchingService,
     private readonly pythonOcrService: PythonOcrService,
     private readonly ocrConfigService: OcrConfigService,
+    private readonly productSupplierOffersService: ProductSupplierOffersService,
   ) {}
 
   /** Create albaran with lines from manual entry */
@@ -242,7 +245,21 @@ export class AlbaranesService {
     dto: UpdateAlbaranLineDto,
     tenantId: string,
   ) {
-    await this.findOne(albaranId, tenantId);
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    // Edición genérica solo antes de confirmar: en un albarán confirmado el
+    // precio ya se propagó a oferta/coste/histórico/pedido y este endpoint
+    // no re-sincroniza nada (dejaría costes desincronizados en silencio).
+    // La corrección post-confirmación pasa por correctConfirmedLinePrice.
+    if (
+      albaran.status === AlbaranStatus.CONFIRMADO ||
+      albaran.status === AlbaranStatus.ARCHIVADO
+    ) {
+      throw new BadRequestException(
+        "No se puede editar una línea de un albarán confirmado o archivado. " +
+          "Usa la corrección de precio.",
+      );
+    }
 
     const line = await this.prisma.albaranLine.findFirst({
       where: { id: lineId, albaranId },
@@ -300,6 +317,143 @@ export class AlbaranesService {
     return this.prisma.albaranLine.update({
       where: { id: lineId },
       data: updateData,
+    });
+  }
+
+  /**
+   * Corrige el precio de una línea de un albarán YA confirmado y re-sincroniza
+   * lo que la confirmación asentó con el precio erróneo: la oferta del
+   * proveedor (vuelve a quedar preferente), el coste plano del artículo, el
+   * histórico de precios y el precio recibido del pedido vinculado. No toca
+   * stock ni lotes — la corrección es de precio; la cantidad no cambia.
+   */
+  async correctConfirmedLinePrice(
+    albaranId: string,
+    lineId: string,
+    dto: CorrectAlbaranLinePriceDto,
+    tenantId: string,
+  ) {
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    if (albaran.status !== AlbaranStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se pueden corregir precios de albaranes confirmados",
+      );
+    }
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+    if (line.lineStatus !== LineStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se pueden corregir líneas confirmadas",
+      );
+    }
+    if (!line.matchedProductId) {
+      throw new BadRequestException(
+        "La línea no tiene artículo vinculado: no hay coste que corregir",
+      );
+    }
+
+    const unitPrice = parseFloat(dto.unitPrice);
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+      throw new BadRequestException("Precio corregido no válido");
+    }
+    // Neto del papel: null explícito lo limpia; ausente conserva el actual.
+    const totalPrice =
+      dto.totalPrice === undefined
+        ? line.totalPrice
+        : dto.totalPrice === null
+          ? null
+          : parseFloat(dto.totalPrice);
+    if (
+      totalPrice !== null &&
+      (!Number.isFinite(totalPrice) || totalPrice < 0)
+    ) {
+      throw new BadRequestException("Importe neto no válido");
+    }
+
+    const quantity = Number(line.quantity);
+    // Mismo coste efectivo que asentó la confirmación (albaran-stock.service):
+    // con "aplicar descuento al coste" y neto del papel, manda el neto/qty.
+    const effectivePrice =
+      albaran.applyDiscountToCost && totalPrice !== null && quantity > 0
+        ? totalPrice / quantity
+        : unitPrice;
+
+    const productId = line.matchedProductId;
+    const supplierId = albaran.supplierId;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedLine = await tx.albaranLine.update({
+        where: { id: lineId },
+        data: {
+          unitPrice,
+          lineAmount: quantity * unitPrice,
+          totalPrice,
+        },
+      });
+
+      if (supplierId) {
+        // Reusa el pipeline de la confirmación: upsert de oferta + preferencia
+        // + sync del artículo + fila de histórico con traza al albarán.
+        await this.productSupplierOffersService.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: effectivePrice, netPrice: effectivePrice },
+          tx,
+          albaranId,
+          true,
+        );
+      } else {
+        // Albarán sin proveedor (raro): fallback plano, igual que en la
+        // confirmación — no existe oferta donde escribir.
+        const product = await tx.product.findFirst({
+          where: { id: productId, tenantId },
+        });
+        if (!product) {
+          throw new NotFoundException("Artículo no encontrado");
+        }
+        const currentPrice = Number(product.purchasePrice);
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            previousPurchasePrice: currentPrice,
+            purchasePrice: effectivePrice,
+            netPrice: effectivePrice,
+          },
+        });
+        await tx.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId: product.id,
+            supplierId: null,
+            albaranId,
+            previousPrice: currentPrice,
+            newPrice: effectivePrice,
+            previousUnitSize: product.unitSize,
+            newUnitSize: product.unitSize,
+          },
+        });
+      }
+
+      // Pedido vinculado: re-vuelca el precio recibido en su formato de
+      // compra (misma conversión que la conciliación: unitPrice × uds/formato).
+      if (albaran.purchaseOrderId) {
+        const product = await tx.product.findFirst({
+          where: { id: productId, tenantId },
+          select: { unitsPerFormat: true },
+        });
+        const unitsPerFormat = Math.max(product?.unitsPerFormat ?? 1, 1);
+        await tx.purchaseOrderLine.updateMany({
+          where: { orderId: albaran.purchaseOrderId, productId },
+          data: { receivedPrice: unitPrice * unitsPerFormat },
+        });
+      }
+
+      return updatedLine;
     });
   }
 
