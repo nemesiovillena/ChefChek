@@ -4,6 +4,57 @@
 
 ChefChek backend es una aplicación NestJS que usa Prisma ORM con PostgreSQL. Esta guía cubre el deployment en producción usando Docker y configuración de CI/CD.
 
+## Flujo de publicación: develop → main → producción
+
+Production (Dokploy, `app.chefchek.com` / `api.chefchek.com`) está conectada a la rama `main` con **autoDeploy en push**: cada merge a `main` construye y despliega frontend + backend + OCR automáticamente (~1-2 min). `develop` nunca despliega.
+
+```
+rama propia ──PR (squash)──▶ develop ──PR (merge)──▶ main ──▶ Dokploy despliega producción
+```
+
+### 1. Integrar trabajo en develop (siempre por PR)
+
+```bash
+git checkout develop && git pull        # develop al día
+git checkout -b feat/nombre-corto       # o fix/...
+
+# ... cambios y commits convencionales ...
+git add <ficheros>
+git commit -m "feat(ámbito): descripción"
+
+git push -u origin feat/nombre-corto
+gh pr create --base develop             # PR rama → develop
+```
+
+Esperar a que el CI pase (backend: lint/build/tests/E2E; frontend: lint/build/Playwright) y hacer **squash-merge** (develop queda con un commit limpio por PR):
+
+```bash
+gh pr merge --squash
+```
+
+### 2. Publicar en producción (PR develop → main)
+
+Se pueden acumular varios PRs en develop y saltar a main en bloque:
+
+```bash
+gh pr create --base main --head develop --title "release: lo que incluye"
+# CI verde otra vez →
+gh pr merge --merge                     # merge commit, NO squash aquí
+```
+
+El push del merge dispara Dokploy automáticamente (cada app vigila sus `watchPaths`: `frontend/**`, `backend/**`). No hay que tocar nada en Dokploy.
+
+### Reglas rápidas
+
+| Paso | Cómo |
+|---|---|
+| Integrar un cambio | PR rama propia → `develop`, squash-merge con CI verde |
+| Publicar en producción | PR `develop` → `main`, merge commit con CI verde |
+| ¿Cuándo se despliega? | Solo al tocar `main` (autoDeploy de Dokploy) |
+| Emergencia en producción | Rama `hotfix/*` desde `main` → PR a `main` y otro a `develop` |
+
+Detalle completo de ramas: [`git-branching-strategy.md`](./git-branching-strategy.md).
+
 ## Tech Stack
 
 - **Backend**: NestJS 10.x + TypeScript 5.x
