@@ -26,6 +26,12 @@ export interface AskAssistantResult {
 const CONVERSATIONS_KEY = ['ai-assistant-conversations'];
 const conversationKey = (id: string) => ['ai-assistant-conversation', id];
 
+// El asistente puede encadenar varias llamadas al proveedor de IA (tool-calling
+// multi-turno, MAX_TOOL_TURNS=4 en el backend); el timeout global de 30s del
+// cliente HTTP (api-client.ts) se queda corto para preguntas que requieren
+// varias vueltas, así que esta petición usa uno propio más holgado.
+const ASK_TIMEOUT_MS = 90000;
+
 /** Envía una pregunta al asistente Chefchek (síncrono, sin streaming). */
 export function useAskAssistant() {
   const invalidateQueries = useInvalidateQueries();
@@ -37,6 +43,7 @@ export function useAskAssistant() {
         invalidateQueries([CONVERSATIONS_KEY, conversationKey(data.conversationId)]);
       },
     },
+    { timeout: ASK_TIMEOUT_MS },
   );
 }
 
