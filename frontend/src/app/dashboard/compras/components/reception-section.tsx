@@ -12,15 +12,51 @@ const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR'
 // Unidades (und) sí deben coincidir exacto: no hay "0.3 unidades" de sobra.
 const QUANTITY_TOLERANCE_PERCENT = 0.02;
 const QUANTITY_TOLERANCE_ABSOLUTE = 0.01; // kg/L de margen mínimo (evita falsos positivos en pedidos pequeños)
+// Líneas conciliadas cruzando magnitudes (pedido en ud, albarán en kg/L o al
+// revés): la conversión usa el peso medio aprendido del artículo, que arrastra
+// redondeo — mismo criterio que la cobertura de estado en backend.
+const CROSS_CATEGORY_TOLERANCE_PERCENT = 0.1;
+const CROSS_CATEGORY_TOLERANCE_ABSOLUTE = 0.05; // ud de margen mínimo
 const PRICE_TOLERANCE_ABSOLUTE = 0.01; // € de margen por redondeo flotante, no oculta subidas reales
 
-function isQuantityMismatch(unit: string | null | undefined, ordered: number, received: number) {
+function isQuantityMismatch(
+  unit: string | null | undefined,
+  ordered: number,
+  received: number,
+  sourceUnit?: string | null,
+) {
   const symbol = unit ? normalizeUnitSymbol(unit) : null;
+  const sourceSymbol = sourceUnit ? normalizeUnitSymbol(sourceUnit) : null;
+  if (
+    symbol &&
+    sourceSymbol &&
+    symbol !== sourceSymbol &&
+    (symbol === 'und' || sourceSymbol === 'und')
+  ) {
+    const allowedDelta = Math.max(
+      ordered * CROSS_CATEGORY_TOLERANCE_PERCENT,
+      CROSS_CATEGORY_TOLERANCE_ABSOLUTE,
+    );
+    return Math.abs(received - ordered) > allowedDelta;
+  }
   if (symbol === 'kg' || symbol === 'L') {
     const allowedDelta = Math.max(ordered * QUANTITY_TOLERANCE_PERCENT, QUANTITY_TOLERANCE_ABSOLUTE);
     return Math.abs(received - ordered) > allowedDelta;
   }
   return received !== ordered;
+}
+
+/** Etiqueta corta de unidad para la celda: símbolo normalizado o texto breve. */
+function unitLabel(unit: string | null | undefined) {
+  const symbol = unit ? normalizeUnitSymbol(unit) : null;
+  if (symbol) return symbol === 'und' ? 'ud' : symbol;
+  const raw = (unit || '').trim();
+  return raw.length > 0 && raw.length <= 12 ? raw : '';
+}
+
+/** Cantidad legible: sin ceros de precisión flotante (7.4000000001 → 7.4). */
+function formatQty(qty: number) {
+  return Number(qty.toFixed(3));
 }
 
 function isPriceMismatch(expected: number, received: number) {
@@ -90,11 +126,12 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
               const receivedQuantity = line.receivedQuantity ?? null;
               const quantityMismatch =
                 receivedQuantity !== null &&
-                isQuantityMismatch(line.unit, line.quantity, receivedQuantity);
+                isQuantityMismatch(line.unit, line.quantity, receivedQuantity, line.receivedSourceUnit);
               const priceMismatch =
                 line.receivedPrice != null &&
                 line.expectedPrice != null &&
                 isPriceMismatch(line.expectedPrice, line.receivedPrice);
+              const orderedLabel = unitLabel(line.unit);
 
               return (
                 <tr
@@ -105,7 +142,8 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
                     {line.product?.name ?? line.productId}
                   </td>
                   <td className="px-4 py-2 text-right text-[var(--on-surface)]">
-                    {line.quantity}
+                    {formatQty(line.quantity)}
+                    {orderedLabel && <span className="ml-1 text-xs text-[var(--on-surface-variant)]">{orderedLabel}</span>}
                   </td>
                   <td
                     className={`px-4 py-2 text-right font-medium ${
@@ -114,7 +152,19 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
                         : 'text-[var(--on-surface)]'
                     }`}
                   >
-                    {receivedQuantity ?? '—'}
+                    {receivedQuantity != null ? (
+                      <>
+                        {formatQty(receivedQuantity)}
+                        {orderedLabel && <span className="ml-1 text-xs font-normal opacity-70">{orderedLabel}</span>}
+                        {line.receivedSourceQuantity != null && line.receivedSourceUnit && (
+                          <span className="block text-xs font-normal text-[var(--on-surface-variant)]">
+                            albarán: {formatQty(line.receivedSourceQuantity)} {line.receivedSourceUnit}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-2 text-right text-[var(--on-surface-variant)]">
                     {line.expectedPrice != null ? euro.format(line.expectedPrice) : '—'}

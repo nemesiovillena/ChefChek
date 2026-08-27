@@ -16,30 +16,33 @@
  * tenant: p.ej. symbol "kilo"/"litro"), así que la conversión no puede
  * depender de una única clave fija — debe reconocer alias equivalentes.
  */
-const UNIT_ALIASES: { [alias: string]: { category: string; toBase: number } } =
-  {
-    kg: { category: "peso", toBase: 1 },
-    kilo: { category: "peso", toBase: 1 },
-    kilos: { category: "peso", toBase: 1 },
-    kilogramo: { category: "peso", toBase: 1 },
-    kilogramos: { category: "peso", toBase: 1 },
-    g: { category: "peso", toBase: 0.001 },
-    gr: { category: "peso", toBase: 0.001 },
-    gramo: { category: "peso", toBase: 0.001 },
-    gramos: { category: "peso", toBase: 0.001 },
-    l: { category: "volumen", toBase: 1 },
-    litro: { category: "volumen", toBase: 1 },
-    litros: { category: "volumen", toBase: 1 },
-    ml: { category: "volumen", toBase: 0.001 },
-    cl: { category: "volumen", toBase: 0.01 },
-    ud: { category: "unidad", toBase: 1 },
-    und: { category: "unidad", toBase: 1 },
-    u: { category: "unidad", toBase: 1 },
-    unida: { category: "unidad", toBase: 1 },
-    unidad: { category: "unidad", toBase: 1 },
-    unidades: { category: "unidad", toBase: 1 },
-    units: { category: "unidad", toBase: 1 },
-  };
+type UnitCategory = "peso" | "volumen" | "unidad";
+
+const UNIT_ALIASES: {
+  [alias: string]: { category: UnitCategory; toBase: number };
+} = {
+  kg: { category: "peso", toBase: 1 },
+  kilo: { category: "peso", toBase: 1 },
+  kilos: { category: "peso", toBase: 1 },
+  kilogramo: { category: "peso", toBase: 1 },
+  kilogramos: { category: "peso", toBase: 1 },
+  g: { category: "peso", toBase: 0.001 },
+  gr: { category: "peso", toBase: 0.001 },
+  gramo: { category: "peso", toBase: 0.001 },
+  gramos: { category: "peso", toBase: 0.001 },
+  l: { category: "volumen", toBase: 1 },
+  litro: { category: "volumen", toBase: 1 },
+  litros: { category: "volumen", toBase: 1 },
+  ml: { category: "volumen", toBase: 0.001 },
+  cl: { category: "volumen", toBase: 0.01 },
+  ud: { category: "unidad", toBase: 1 },
+  und: { category: "unidad", toBase: 1 },
+  u: { category: "unidad", toBase: 1 },
+  unida: { category: "unidad", toBase: 1 },
+  unidad: { category: "unidad", toBase: 1 },
+  unidades: { category: "unidad", toBase: 1 },
+  units: { category: "unidad", toBase: 1 },
+};
 
 /**
  * Factor para pasar de la unidad usada en la receta (g, ml, ud…)
@@ -60,6 +63,17 @@ export function getUnitToReferenceFactor(
   }
 
   return unit.toBase / ref.toBase;
+}
+
+/**
+ * Metadatos de una unidad (categoría de magnitud y factor hacia la base de
+ * su categoría: kg / l / ud). null si no se reconoce ("Caja 6und", texto
+ * libre del formato de compra…). Fuente única: UNIT_ALIASES.
+ */
+export function getUnitMeta(
+  unit: string | null | undefined,
+): { category: "peso" | "volumen" | "unidad"; toBase: number } | null {
+  return UNIT_ALIASES[(unit || "").trim().toLowerCase()] ?? null;
 }
 
 /**
