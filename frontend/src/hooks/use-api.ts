@@ -7,7 +7,7 @@ import {
   UseQueryOptions,
   UseMutationOptions,
 } from '@tanstack/react-query';
-import axios, { AxiosResponse } from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import apiClient from '@/lib/api-client';
 import { ApiError, PaginatedResponse } from '@/types/api.types';
 
@@ -58,7 +58,8 @@ export function useApiMutation<TData, TVariables>(
   options?: Omit<
     UseMutationOptions<TData, Error, TVariables>,
     'mutationFn'
-  >
+  >,
+  requestConfig?: AxiosRequestConfig
 ) {
 
   return useMutation<TData, Error, TVariables>({
@@ -66,13 +67,13 @@ export function useApiMutation<TData, TVariables>(
       try {
         let response: AxiosResponse<TData>;
         if (method === 'DELETE') {
-          response = await apiClient.delete<TData>(url);
+          response = await apiClient.delete<TData>(url, requestConfig);
         } else if (method === 'POST') {
-          response = await apiClient.post<TData>(url, variables);
+          response = await apiClient.post<TData>(url, variables, requestConfig);
         } else if (method === 'PUT') {
-          response = await apiClient.put<TData>(url, variables);
+          response = await apiClient.put<TData>(url, variables, requestConfig);
         } else {
-          response = await apiClient.patch<TData>(url, variables);
+          response = await apiClient.patch<TData>(url, variables, requestConfig);
         }
         return response.data;
       } catch (error: unknown) {
