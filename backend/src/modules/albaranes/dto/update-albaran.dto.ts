@@ -104,3 +104,17 @@ export class MatchLineDto {
   @IsString()
   productId: string;
 }
+
+export class CorrectAlbaranLinePriceDto {
+  @ApiProperty({ description: "Precio por unidad corregido (sin IVA)" })
+  @IsString()
+  unitPrice: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Importe neto de la línea según papel (con descuento). null lo limpia; ausente conserva el actual.",
+  })
+  @IsOptional()
+  @IsString()
+  totalPrice?: string | null;
+}

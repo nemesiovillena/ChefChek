@@ -17,10 +17,11 @@ import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dia
 import { CreateProductInline } from '@/components/albaranes/create-product-inline';
 import { AddLineForm } from '@/components/albaranes/add-line-form';
 import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
+import { CorrectPriceDialog } from '@/components/albaranes/correct-price-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock, Pencil } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
@@ -48,6 +49,10 @@ export default function AlbaranLineasPage() {
 
   // Add manual line state
   const [showAddLine, setShowAddLine] = useState(false);
+
+  // Corrección de precio post-confirmación: la línea abierta + un seq para
+  // el key-reset (remonta el diálogo y rehidrata los drafts en cada apertura).
+  const [correction, setCorrection] = useState<{ line: AlbaranLine; seq: number } | null>(null);
 
   // Albaran status transition (Marcar Revisado / Confirmar desde esta pestaña)
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -218,6 +223,13 @@ export default function AlbaranLineasPage() {
 
   /** Whether a line can be edited (only PENDIENTE lines) */
   const isEditable = (line: AlbaranLine) => line.lineStatus === 'PENDIENTE';
+
+  /** Corrección de precio: solo en albaranes confirmados, líneas confirmadas
+   *  con artículo vinculado (sin artículo no hay coste que re-sincronizar). */
+  const canCorrectPrice = (line: AlbaranLine) =>
+    albaran?.status === 'CONFIRMADO' &&
+    line.lineStatus === 'CONFIRMADO' &&
+    !!line.matchedProduct;
 
   const getLineStatusBadge = (status: LineStatus) => {
     // Badge de solo icono (con tooltip) en vez de texto: la palabra completa
@@ -568,6 +580,27 @@ export default function AlbaranLineasPage() {
                               format={(v) => formatCurrency(Number(v))}
                               onSave={refetch}
                             />
+                          ) : canCorrectPrice(line) ? (
+                            // Precio ya asentado: mismo gesto que la edición
+                            // inline (lápiz sobre el valor), pero abre el
+                            // diálogo de corrección — cambia coste, oferta e
+                            // histórico, no es una edición silenciosa.
+                            <span
+                              className="group cursor-pointer inline-flex items-center gap-1"
+                              onClick={() => setCorrection({ line, seq: Date.now() })}
+                              title="Corregir precio asentado"
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  setCorrection({ line, seq: Date.now() });
+                                }
+                              }}
+                            >
+                              {formatCurrency(line.unitPrice)}
+                              <Pencil className="h-3 w-3 text-amber-500 opacity-70 transition-opacity group-hover:opacity-100" />
+                            </span>
                           ) : (
                             formatCurrency(line.unitPrice)
                           )}
@@ -772,6 +805,20 @@ export default function AlbaranLineasPage() {
         currentSupplierId={albaran?.supplier?.id}
         onSuccess={refetch}
       />
+
+      {/* Corrección de precio de una línea ya confirmada */}
+      {correction && (
+        <CorrectPriceDialog
+          key={`${correction.line.id}-${correction.seq}`}
+          open
+          onOpenChange={(v) => {
+            if (!v) setCorrection(null);
+          }}
+          albaran={albaran}
+          line={correction.line}
+          onSuccess={refetch}
+        />
+      )}
     </div>
   );
 }
