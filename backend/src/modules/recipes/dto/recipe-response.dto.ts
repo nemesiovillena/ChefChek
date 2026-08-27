@@ -86,6 +86,7 @@ export interface RecipeResponse {
   name: string;
   description?: string;
   elaboration: string;
+  imageUrl?: string | null;
   portions: number;
   portionSize: number;
   totalCost: number;

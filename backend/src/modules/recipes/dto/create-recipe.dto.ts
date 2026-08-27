@@ -57,6 +57,10 @@ export class CreateRecipeDto {
   elaboration?: string; // JSON de pasos: {"steps":[{description, equipment, time, temperature}]}
 
   @IsOptional()
+  @IsString()
+  imageUrl?: string | null;
+
+  @IsOptional()
   @IsNumber()
   @Min(1)
   portions?: number;

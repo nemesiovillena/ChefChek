@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
@@ -13,8 +14,10 @@ import {
   useUpdateRecipe,
   useDeleteRecipe,
   useDismissRecipeDuplicate,
+  useUploadRecipeImage,
   RecipeIngredient,
 } from '@/hooks/use-recipes';
+import { processImageForUpload } from '@/lib/image-processing';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string };
 import ElaborationStepEditor, {
@@ -25,8 +28,9 @@ import ElaborationStepEditor, {
 import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
+import RecipeVisualView from './components/recipe-visual-view';
 import { useInvalidateQueries } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, ImagePlus } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -77,12 +81,16 @@ export default function RecipesPage() {
   const updateRecipeMutation = useUpdateRecipe();
   const deleteRecipeMutation = useDeleteRecipe();
   const dismissDuplicateMutation = useDismissRecipeDuplicate();
+  const uploadRecipeImageMutation = useUploadRecipeImage();
   const invalidateQueries = useInvalidateQueries();
+  const recipeImageInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingRecipeImage, setIsUploadingRecipeImage] = useState(false);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showCostModal, setShowCostModal] = useState(false);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+  const [visualViewRecipe, setVisualViewRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'elaboracion' | 'clasificacion'>('general');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -194,6 +202,7 @@ export default function RecipesPage() {
   ]);
 
   const [subRecipes, setSubRecipes] = useState<SubRecipeRow[]>([]);
+  const [recipeImageUrl, setRecipeImageUrl] = useState('');
 
   // Peso total de los ingredientes en kg. Solo suma unidades de masa (kg/g);
   // l/ml y "unidades" no tienen un peso definido y se excluyen del total.
@@ -392,6 +401,35 @@ export default function RecipesPage() {
     setSubRecipes(updated);
   };
 
+  const handleRecipeImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = '';
+    if (!file) return;
+    setIsUploadingRecipeImage(true);
+    try {
+      // 1600px: foto de plato a pantalla completa, no un avatar — necesita
+      // más resolución que los 512px de processImageForUpload por defecto.
+      const processed = await processImageForUpload(file, 1600);
+      if (processed.size > 4 * 1024 * 1024) {
+        addNotification({ type: 'error', title: 'Error', message: 'El archivo no puede superar los 4 MB' });
+        return;
+      }
+      const form = new FormData();
+      form.append('file', processed);
+      const result = await uploadRecipeImageMutation.mutateAsync(form);
+      setRecipeImageUrl(result.imageUrl);
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Error al subir la foto',
+      });
+    } finally {
+      setIsUploadingRecipeImage(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -407,6 +445,9 @@ export default function RecipesPage() {
       name: formData.name,
       description: formData.description || undefined,
       elaboration: filledSteps.length > 0 ? serializeSteps(filledSteps) : undefined,
+      // '' + receta que ya tenía imagen = el usuario la quitó → null explícito
+      // para que el backend la borre (undefined = "no tocar", ver update()).
+      imageUrl: recipeImageUrl || (selectedRecipe?.imageUrl ? null : undefined),
       portions: parseInt(formData.portions, 10) || 1,
       portionSize: parseInt(formData.portionSize, 10) || 250,
       ingredients: ingredients
@@ -454,6 +495,7 @@ export default function RecipesPage() {
       setSubRecipes([]);
       setSelectedCategoryIds([]);
       setSelectedAllergenIds([]);
+      setRecipeImageUrl('');
       refetch();
     } catch (error: unknown) {
       addNotification({
@@ -492,6 +534,7 @@ export default function RecipesPage() {
     );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
     setSelectedAllergenIds(recipe.allergens || []);
+    setRecipeImageUrl(recipe.imageUrl || '');
     setActiveTab('general');
     setShowCreateForm(true);
   };
@@ -640,11 +683,10 @@ export default function RecipesPage() {
                 <button
                   key={recipe.id}
                   type="button"
-                  onClick={() => handleViewRecipeCard(recipe)}
-                  disabled={generatingSheetId === recipe.id}
+                  onClick={() => setVisualViewRecipe(recipe)}
                   title="Ver receta"
                   aria-label={`Ver receta: ${recipe.name}`}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-container)] active:bg-[var(--surface-container-high)] disabled:opacity-50 disabled:cursor-wait"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--surface-container)] active:bg-[var(--surface-container-high)]"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-[var(--on-surface)] break-words">
@@ -665,7 +707,7 @@ export default function RecipesPage() {
                       )}
                     </div>
                   </div>
-                  <BookOpen className="h-5 w-5 flex-shrink-0 text-purple-600 dark:text-purple-400" />
+                  <Eye className="h-5 w-5 flex-shrink-0 text-purple-600 dark:text-purple-400" />
                 </button>
               ))
             )}
@@ -771,6 +813,14 @@ export default function RecipesPage() {
                       </td>
                       <td className={tdActionsClass}>
                         <button
+                          onClick={() => setVisualViewRecipe(recipe)}
+                          title="Vista visual"
+                          aria-label="Vista visual"
+                          className={`${actionButtonClass} border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/30 dark:bg-sky-950/20 dark:text-sky-400 dark:hover:bg-sky-950/40`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleViewRecipeCard(recipe)}
                           disabled={generatingSheetId === recipe.id}
                           title="Receta (imprimir)"
@@ -854,6 +904,7 @@ export default function RecipesPage() {
                       setElaborationSteps(parseSteps(null));
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                       setSubRecipes([]);
+                      setRecipeImageUrl('');
                     }}
                     className="rounded-full p-1 text-[var(--on-surface-variant)] hover:text-[var(--on-surface)] hover:bg-[var(--on-surface)]/10 transition-colors"
                   >
@@ -941,6 +992,45 @@ export default function RecipesPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+
+                      <div>
+                        <label className={m3Label}>Foto</label>
+                        <input
+                          ref={recipeImageInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                          onChange={handleRecipeImageFileChange}
+                          className="hidden"
+                        />
+                        <div className="mt-1 flex items-center gap-3">
+                          {recipeImageUrl ? (
+                            <div className="relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">
+                              <Image src={recipeImageUrl} alt="" fill sizes="112px" className="object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => setRecipeImageUrl('')}
+                                title="Quitar foto"
+                                aria-label="Quitar foto"
+                                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex h-20 w-28 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-[var(--outline)]">
+                              <ImagePlus className="h-6 w-6" />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            disabled={isUploadingRecipeImage}
+                            onClick={() => recipeImageInputRef.current?.click()}
+                            className="rounded-full border border-[var(--outline-variant)] px-3 py-1.5 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--on-surface)]/5 disabled:opacity-50 disabled:cursor-wait transition-colors"
+                          >
+                            {isUploadingRecipeImage ? 'Subiendo…' : recipeImageUrl ? 'Cambiar foto' : 'Subir foto'}
+                          </button>
+                        </div>
                       </div>
 
                       <div>
@@ -1242,6 +1332,7 @@ export default function RecipesPage() {
                         setElaborationSteps(parseSteps(null));
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                         setSubRecipes([]);
+                        setRecipeImageUrl('');
                       }}
                       className="rounded-full px-5 py-2 text-sm font-medium text-[var(--primary)] hover:bg-[var(--on-surface)]/10 transition-colors"
                     >
@@ -1277,6 +1368,17 @@ export default function RecipesPage() {
               setShowCostModal(false);
               setSelectedRecipe(null);
             }}
+          />
+        )}
+
+        {/* Vista visual (imagen, ingredientes, pasos) */}
+        {visualViewRecipe && (
+          <RecipeVisualView
+            recipe={visualViewRecipe}
+            allergenById={allergenById}
+            isPrinting={generatingSheetId === visualViewRecipe.id}
+            onPrint={() => handleViewRecipeCard(visualViewRecipe)}
+            onClose={() => setVisualViewRecipe(null)}
           />
         )}
       </PageContainer>
