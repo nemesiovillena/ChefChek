@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // Fotos de stock elegidas desde el selector de imagen (Buscar imagen → Pexels).
+      { protocol: "https", hostname: "images.pexels.com" },
     ],
   },
 

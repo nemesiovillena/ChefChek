@@ -3,29 +3,36 @@
 import { useRef, useState } from 'react';
 import { Search, Upload, X, Loader2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
-import { useProductImageSearch } from '@/hooks/use-product-image-search';
-import ProductThumbnail from './product-thumbnail';
+import { useImageSearch } from '@/hooks/use-image-search';
+import ImageThumbnail from './image-thumbnail';
 
-interface ProductImagePickerProps {
+interface ImagePickerProps {
   imageUrl: string;
   onChange: (url: string) => void;
   defaultQuery: string;
   onUploadFile: (file: File) => void;
   uploading?: boolean;
+  /** Límite de tamaño del archivo subido, en MB. La feature puede validar más a fondo en onUploadFile. */
+  maxSizeMB?: number;
 }
 
-export default function ProductImagePicker({
+/**
+ * Selector de imagen compartido: buscar en stock (Pexels), subir archivo local
+ * o quitar. Guarda la URL elegida (hotlink de Pexels o ruta /uploads propia).
+ */
+export default function ImagePicker({
   imageUrl,
   onChange,
   defaultQuery,
   onUploadFile,
   uploading = false,
-}: ProductImagePickerProps) {
+  maxSizeMB = 2,
+}: ImagePickerProps) {
   const addNotification = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [query, setQuery] = useState(defaultQuery);
-  const { mutate: search, data: results, isPending: searching, error, reset } = useProductImageSearch();
+  const { mutate: search, data: results, isPending: searching, error, reset } = useImageSearch();
 
   const openPanel = () => {
     setQuery(defaultQuery);
@@ -46,8 +53,8 @@ export default function ProductImagePicker({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      addNotification({ type: 'warning', title: 'Archivo demasiado grande', message: 'La imagen no puede superar los 2 MB.' });
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      addNotification({ type: 'warning', title: 'Archivo demasiado grande', message: `La imagen no puede superar los ${maxSizeMB} MB.` });
       return;
     }
     onUploadFile(file);
@@ -56,7 +63,7 @@ export default function ProductImagePicker({
 
   return (
     <div className="flex items-start gap-3">
-      <ProductThumbnail imageUrl={imageUrl} size={56} />
+      <ImageThumbnail imageUrl={imageUrl} size={56} />
 
       <div className="flex-1">
         <div className="flex flex-wrap items-center gap-2">

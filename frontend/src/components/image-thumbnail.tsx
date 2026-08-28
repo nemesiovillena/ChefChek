@@ -3,18 +3,18 @@
 import { useState } from 'react';
 import { Tag } from 'lucide-react';
 
-interface ProductThumbnailProps {
+interface ImageThumbnailProps {
   imageUrl?: string | null;
   size?: number;
   className?: string;
 }
 
 /**
- * Miniatura de artículo con fallback "sin imagen" (icono Tag). Usa <img>
- * plano en vez de next/image porque las imágenes elegidas por búsqueda web
- * vienen de dominios arbitrarios, fuera de la whitelist de remotePatterns.
+ * Miniatura con fallback "sin imagen" (icono Tag). Usa <img> plano en vez de
+ * next/image porque las imágenes elegidas por búsqueda web pueden venir de
+ * dominios fuera de la whitelist de remotePatterns.
  */
-export default function ProductThumbnail({ imageUrl, size = 32, className = '' }: ProductThumbnailProps) {
+export default function ImageThumbnail({ imageUrl, size = 32, className = '' }: ImageThumbnailProps) {
   const [broken, setBroken] = useState(false);
   const showImage = Boolean(imageUrl) && !broken;
 
