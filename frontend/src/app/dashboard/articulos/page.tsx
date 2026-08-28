@@ -14,7 +14,7 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { Pencil, QrCode, Download, Trash2, X, ChevronUp, ChevronDown, RotateCcw, Sparkles } from 'lucide-react';
 import ArticuloModal from './components/articulo-modal';
 import ImportModal from './components/import-modal';
-import ProductThumbnail from './components/product-thumbnail';
+import ImageThumbnail from '@/components/image-thumbnail';
 import PaginationControls from '@/components/shared/pagination-controls';
 import { ProductPriceTrendBadge } from '@/components/products/product-price-trend-badge';
 import PageContainer from '@/components/shared/page-container';
@@ -757,7 +757,7 @@ export default function ArticulosPage() {
                     const productCatName = getCategoryDisplay(product.categoryId);
                     return (
                       <tr key={product.id} className={trHoverClass}>
-                        <td className="px-3 py-2"><ProductThumbnail imageUrl={product.imageUrl} size={32} /></td>
+                        <td className="px-3 py-2"><ImageThumbnail imageUrl={product.imageUrl} size={32} /></td>
                         <td className="px-3 py-3 max-w-[190px]">
                           <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={product.name}>{product.name}</div>
                         </td>
@@ -936,7 +936,7 @@ function ArticleContextCard({ product }: { product: Product }) {
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3">
-      <ProductThumbnail imageUrl={product.imageUrl} size={44} className="rounded-xl" />
+      <ImageThumbnail imageUrl={product.imageUrl} size={44} className="rounded-xl" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-[var(--on-surface)]">{product.name}</p>
         {meta && <p className="truncate text-xs text-[var(--on-surface-variant)]">{meta}</p>}

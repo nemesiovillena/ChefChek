@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import Image from 'next/image';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
@@ -29,8 +28,9 @@ import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import RecipeVisualView from './components/recipe-visual-view';
+import ImagePicker from '@/components/image-picker';
 import { useInvalidateQueries } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, ImagePlus } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -83,7 +83,6 @@ export default function RecipesPage() {
   const dismissDuplicateMutation = useDismissRecipeDuplicate();
   const uploadRecipeImageMutation = useUploadRecipeImage();
   const invalidateQueries = useInvalidateQueries();
-  const recipeImageInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingRecipeImage, setIsUploadingRecipeImage] = useState(false);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -401,11 +400,7 @@ export default function RecipesPage() {
     setSubRecipes(updated);
   };
 
-  const handleRecipeImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    // Reset so picking the same file again still fires onChange.
-    e.target.value = '';
-    if (!file) return;
+  const handleRecipeImageUpload = async (file: File) => {
     setIsUploadingRecipeImage(true);
     try {
       // 1600px: foto de plato a pantalla completa, no un avatar — necesita
@@ -996,40 +991,15 @@ export default function RecipesPage() {
 
                       <div>
                         <label className={m3Label}>Foto</label>
-                        <input
-                          ref={recipeImageInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                          onChange={handleRecipeImageFileChange}
-                          className="hidden"
-                        />
-                        <div className="mt-1 flex items-center gap-3">
-                          {recipeImageUrl ? (
-                            <div className="relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">
-                              <Image src={recipeImageUrl} alt="" fill sizes="112px" className="object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => setRecipeImageUrl('')}
-                                title="Quitar foto"
-                                aria-label="Quitar foto"
-                                className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex h-20 w-28 flex-shrink-0 items-center justify-center rounded-xl border border-dashed border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-[var(--outline)]">
-                              <ImagePlus className="h-6 w-6" />
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            disabled={isUploadingRecipeImage}
-                            onClick={() => recipeImageInputRef.current?.click()}
-                            className="rounded-full border border-[var(--outline-variant)] px-3 py-1.5 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--on-surface)]/5 disabled:opacity-50 disabled:cursor-wait transition-colors"
-                          >
-                            {isUploadingRecipeImage ? 'Subiendo…' : recipeImageUrl ? 'Cambiar foto' : 'Subir foto'}
-                          </button>
+                        <div className="mt-1">
+                          <ImagePicker
+                            imageUrl={recipeImageUrl}
+                            onChange={setRecipeImageUrl}
+                            defaultQuery={formData.name}
+                            onUploadFile={handleRecipeImageUpload}
+                            uploading={isUploadingRecipeImage}
+                            maxSizeMB={10}
+                          />
                         </div>
                       </div>
 
