@@ -7,7 +7,7 @@ import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
-import ProductImagePicker from './product-image-picker';
+import ImagePicker from '@/components/image-picker';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
@@ -312,7 +312,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
 
         {/* Foto del artículo */}
         <div className="mb-4">
-          <ProductImagePicker
+          <ImagePicker
             imageUrl={imageUrl}
             onChange={setImageUrl}
             defaultQuery={[formData.name, formData.brand].filter(Boolean).join(' ')}

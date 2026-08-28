@@ -10,8 +10,12 @@ export interface ImageSearchResult {
   sourcePage?: string;
 }
 
-/** Búsqueda de imágenes bajo demanda (disparada por el usuario, no cacheable por query). */
-export function useProductImageSearch() {
+/**
+ * Búsqueda de imágenes de stock bajo demanda (disparada por el usuario, no
+ * cacheable por query). El endpoint vive bajo /products pero es una búsqueda
+ * Pexels genérica por texto, sin lógica de producto — reutilizable en Recetas.
+ */
+export function useImageSearch() {
   return useMutation<ImageSearchResult[], Error, string>({
     mutationFn: async (query: string) => {
       const response = await apiClient.get<ImageSearchResult[]>(

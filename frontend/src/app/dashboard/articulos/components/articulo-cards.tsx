@@ -6,7 +6,7 @@ import { cn, formatEuro } from '@/lib/utils';
 import { Pencil, Trash2 } from 'lucide-react';
 import StockBadge from './stock-badge';
 import CategoryPill from './category-pill';
-import ProductThumbnail from './product-thumbnail';
+import ImageThumbnail from '@/components/image-thumbnail';
 
 interface ArticuloCardsProps {
   products: Product[];
@@ -88,7 +88,7 @@ export default function ArticuloCards({
             </div>
 
             {/* Image */}
-            <ProductThumbnail imageUrl={product.imageUrl} size={48} className="mb-2" />
+            <ImageThumbnail imageUrl={product.imageUrl} size={48} className="mb-2" />
 
             {/* Name + brand */}
             <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
