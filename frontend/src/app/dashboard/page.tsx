@@ -21,8 +21,12 @@ import {
   useReorderProductionTasks,
 } from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
+import { useSalaTasks, type SalaTask } from '@/hooks/use-sala-tasks';
+import { useModules } from '@/features/modules/hooks/use-modules';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
+import { SalaTaskRow } from './sala-task-row';
+import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -34,7 +38,11 @@ export const dynamic = 'force-dynamic';
 // Tope de tareas visibles en la card del dashboard; el resto se consulta en
 // /dashboard/production/tasks vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
 // que solo se muestra si realmente quedan tareas fuera de este tope.
-const DASHBOARD_TASKS_LIMIT = 6;
+const PRODUCTION_TASKS_LIMIT = 4;
+
+// Tope de notificaciones de sala visibles en su card resumen; el resto se
+// consulta en /dashboard/sala-notificaciones (tablero Kanban completo).
+const SALA_TASKS_LIMIT = 4;
 
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -44,6 +52,10 @@ export default function DashboardPage() {
   const completeTask = useCompleteProductionTask();
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
+  const { isEnabled } = useModules();
+  const salaNotificacionesEnabled = isEnabled('sala-notificaciones');
+  const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
+  const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -113,7 +125,7 @@ export default function DashboardPage() {
     if (!over || active.id === over.id || !kpis) return;
 
     const allTasks = kpis.upcomingProductionTasks ?? [];
-    const visible = allTasks.slice(0, DASHBOARD_TASKS_LIMIT);
+    const visible = allTasks.slice(0, PRODUCTION_TASKS_LIMIT);
     const oldIndex = visible.findIndex((t) => t.id === active.id);
     const newIndex = visible.findIndex((t) => t.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -121,7 +133,7 @@ export default function DashboardPage() {
     const reordered = arrayMove(visible, oldIndex, newIndex);
     queryClient.setQueryData(['dashboard-kpis'], {
       ...kpis,
-      upcomingProductionTasks: [...reordered, ...allTasks.slice(DASHBOARD_TASKS_LIMIT)],
+      upcomingProductionTasks: [...reordered, ...allTasks.slice(PRODUCTION_TASKS_LIMIT)],
     });
     reorderTasks.mutate(reordered.map((t) => t.id));
   };
@@ -248,8 +260,8 @@ export default function DashboardPage() {
     </div>
   );
 
-  const visibleTasks = kpis?.upcomingProductionTasks?.slice(0, DASHBOARD_TASKS_LIMIT) ?? [];
-  const hasMoreTasks = (kpis?.upcomingProductionTasks?.length ?? 0) > DASHBOARD_TASKS_LIMIT;
+  const visibleTasks = kpis?.upcomingProductionTasks?.slice(0, PRODUCTION_TASKS_LIMIT) ?? [];
+  const hasMoreTasks = (kpis?.upcomingProductionTasks?.length ?? 0) > PRODUCTION_TASKS_LIMIT;
 
   const tareasPendientesBoard = (
     <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
@@ -292,6 +304,53 @@ export default function DashboardPage() {
             className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
           >
             VER LISTA DE PREPARACIÓN COMPLETA
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // Pendientes primero (lo que sala aún no ha resuelto), luego en curso;
+  // completadas quedan fuera del resumen (solo visibles en el Kanban completo).
+  const activeSalaTasks = (salaTasks ?? [])
+    .filter((t) => t.status !== 'COMPLETADO')
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === 'PENDIENTE' ? -1 : 1;
+      return a.sortOrder - b.sortOrder;
+    });
+  const visibleSalaTasks = activeSalaTasks.slice(0, SALA_TASKS_LIMIT);
+  const hasMoreSalaTasks = activeSalaTasks.length > SALA_TASKS_LIMIT;
+
+  const salaTasksBoard = (
+    <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
+      <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
+        <h3 className="font-headline-md text-headline-md text-primary">Notificaciones de Sala</h3>
+        <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
+          {activeSalaTasks.length}
+        </span>
+      </div>
+      <div className="flex-1 divide-y divide-surface-variant">
+        {salaTasksLoading ? (
+          <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+            Cargando notificaciones...
+          </div>
+        ) : visibleSalaTasks.length > 0 ? (
+          visibleSalaTasks.map((task) => (
+            <SalaTaskRow key={task.id} task={task} onClick={() => setEditingSalaTask(task)} />
+          ))
+        ) : (
+          <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
+            Sin reservas, menús o encargos de sala
+          </div>
+        )}
+      </div>
+      {hasMoreSalaTasks && (
+        <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
+          <button
+            onClick={() => router.push('/dashboard/sala-notificaciones')}
+            className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          >
+            MOSTRAR TODAS
           </button>
         </div>
       )}
@@ -347,12 +406,13 @@ export default function DashboardPage() {
         {crearOrdenButton('hidden md:flex')}
       </section>
 
-      {/* Orden móvil: Tareas pendientes, Crear Tarea, Pedidos Pendientes,
-          Notificaciones y Alertas, Recetas, Compras. El resto de cards
-          (Bajo Stock, En Turno, Eficiencia, Telemetría, Temp. Cámara Fría)
-          no tienen datos reales todavía y quedan ocultas en móvil. */}
+      {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
+          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Compras. El
+          resto de cards (Bajo Stock, En Turno, Eficiencia, Telemetría, Temp.
+          Cámara Fría) no tienen datos reales todavía y quedan ocultas en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
         {tareasPendientesBoard}
+        {salaNotificacionesEnabled && salaTasksBoard}
         {crearOrdenButton('flex justify-center')}
         {pedidosPendientesCard}
         {notificacionesCard}
@@ -413,8 +473,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Task Board */}
-        <div className="md:col-span-8">
+        <div className="md:col-span-8 space-y-gutter">
           {tareasPendientesBoard}
+          {salaNotificacionesEnabled && salaTasksBoard}
         </div>
       </div>
 
@@ -453,6 +514,13 @@ export default function DashboardPage() {
         }}
       />
     )}
+    <SalaTaskModal
+      open={Boolean(editingSalaTask)}
+      onOpenChange={(open) => {
+        if (!open) setEditingSalaTask(null);
+      }}
+      task={editingSalaTask}
+    />
     </>
   );
 }
