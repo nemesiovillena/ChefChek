@@ -124,12 +124,28 @@ export function SalaTaskModal({ open, onOpenChange, task }: SalaTaskModalProps) 
     }
 
     try {
-      // form.guestCount ya es number | undefined (ver handleChange); no
-      // reprocesar con `||` aquí, o un 0 comensales válido se perdería.
+      // Los campos de texto opcionales quedan '' cuando el usuario no los
+      // toca (estado inicial del form). El backend los valida con
+      // @IsOptional(), que solo omite la validación si el valor es
+      // undefined — un '' sigue llegando a @IsEmail() y lo rechaza con 400
+      // (ej. "customerEmail must be an email" al crear sin rellenar email).
+      // Se normaliza aquí, en la frontera del formulario.
+      const emptyToUndefined = (value?: string | null) =>
+        value && value.trim() ? value.trim() : undefined;
+      const payload: SalaTaskInput = {
+        ...form,
+        title: form.title.trim(),
+        customerName: emptyToUndefined(form.customerName),
+        customerPhone: emptyToUndefined(form.customerPhone),
+        customerEmail: emptyToUndefined(form.customerEmail),
+        menuNotes: emptyToUndefined(form.menuNotes),
+        observations: emptyToUndefined(form.observations),
+        allergies: emptyToUndefined(form.allergies),
+      };
       if (isEditing && task) {
-        await updateTask.mutateAsync({ id: task.id, ...form });
+        await updateTask.mutateAsync({ id: task.id, ...payload });
       } else {
-        await createTask.mutateAsync(form);
+        await createTask.mutateAsync(payload);
       }
       onOpenChange(false);
     } catch {
