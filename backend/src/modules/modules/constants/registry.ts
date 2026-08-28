@@ -99,6 +99,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: true,
   },
   {
+    id: "sala-notificaciones",
+    name: "Notificaciones de Sala",
+    description:
+      "Reservas, menús y encargos que sala comunica a cocina (tablero Kanban)",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
+  {
     id: "seguridad",
     name: "Seguridad",
     description: "Control de alérgenos, APPCC y seguridad alimentaria",
