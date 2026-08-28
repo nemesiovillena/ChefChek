@@ -88,6 +88,7 @@ model Tenant {
   supplierProductAliases     SupplierProductAlias[]
   ProductionTask             ProductionTask[]
   ProductionReport           ProductionReport[]
+  salaTasks                  SalaTask[]
   assistantConversations     AssistantConversation[]
 
   @@map("tenants")
@@ -112,13 +113,13 @@ model User {
   deletedAt    DateTime?
 
   // tenantId is null for SUPERADMIN users (no tenant scope)
-  tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions          Session[]
-  knowledgeArticles KnowledgeArticle[]
-  articleVersions   KnowledgeVersion[]
-  updatedArticles   KnowledgeArticle[] @relation("ArticleUpdater")
-  telegramUsers     TelegramUser[]
-  AuditLog          AuditLog[]
+  tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions               Session[]
+  knowledgeArticles      KnowledgeArticle[]
+  articleVersions        KnowledgeVersion[]
+  updatedArticles        KnowledgeArticle[]      @relation("ArticleUpdater")
+  telegramUsers          TelegramUser[]
+  AuditLog               AuditLog[]
   assistantConversations AssistantConversation[]
 
   @@unique([email, tenantId])
@@ -605,6 +606,34 @@ model Notification {
   @@map("notifications")
 }
 
+// Notificaciones de Sala: reservas/menús/encargos que el responsable de sala
+// registra para comunicar a cocina. Tablero Kanban por status, sortOrder es
+// la posición dentro de la columna (la prioridad ES la posición, sin campo aparte).
+model SalaTask {
+  id            String    @id @default(cuid())
+  tenantId      String
+  title         String
+  eventDate     DateTime
+  guestCount    Int?
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+  menuNotes     String?   @db.Text
+  observations  String?   @db.Text
+  allergies     String?   @db.Text
+  status        String    @default("PENDIENTE") // PENDIENTE, EN_CURSO, COMPLETADO
+  sortOrder     Int       @default(0)
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, sortOrder])
+  @@map("sala_tasks")
+}
+
 // Menú y Cartas
 model Menu {
   id          String    @id @default(cuid())
@@ -1067,32 +1096,32 @@ model ProgressTracking {
 
 // Production - Production Order
 model ProductionOrder {
-  id            String    @id @default(cuid())
-  tenantId      String
-  batchId       String
-  title         String
-  recipeId      String?
-  recipeName    String?
-  quantity      Float?
-  unit          String?
-  estimatedTime Float?
-  orderNumber   String
-  orderType     String // PREPARATION, COOKING, PLATING
-  status        String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
-  scheduledFor  DateTime
-  postponedTo   DateTime?
-  sortOrder     Int?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  items         Json?
-  description   String?
-  assignedStaffIds String[] @default([])
-  actualTime    Float?
-  notes         String?
-  createdBy     String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id               String    @id @default(cuid())
+  tenantId         String
+  batchId          String
+  title            String
+  recipeId         String?
+  recipeName       String?
+  quantity         Float?
+  unit             String?
+  estimatedTime    Float?
+  orderNumber      String
+  orderType        String // PREPARATION, COOKING, PLATING
+  status           String // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  scheduledFor     DateTime
+  postponedTo      DateTime?
+  sortOrder        Int?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  items            Json?
+  description      String?
+  assignedStaffIds String[]  @default([])
+  actualTime       Float?
+  notes            String?
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   batch            WorkBatch         @relation(fields: [batchId], references: [id], onDelete: Cascade)
@@ -2101,13 +2130,13 @@ enum PurchaseOrderStatus {
 
 // Pedido de compra a un proveedor
 model PurchaseOrder {
-  id          String              @id @default(cuid())
-  tenantId    String
-  orderNumber String // Secuencial por tenant: PED-1, PED-2... (calcular con $queryRaw MAX sobre TODAS las filas, incluidas soft-deleted)
-  supplierId  String
-  locationId  String?
-  status      PurchaseOrderStatus @default(BORRADOR)
-  notes       String?
+  id              String              @id @default(cuid())
+  tenantId        String
+  orderNumber     String // Secuencial por tenant: PED-1, PED-2... (calcular con $queryRaw MAX sobre TODAS las filas, incluidas soft-deleted)
+  supplierId      String
+  locationId      String?
+  status          PurchaseOrderStatus @default(BORRADOR)
+  notes           String?
   // Artículos que el usuario quiere pedir pero aún no están en `lines`
   // (no comprados antes a este proveedor). Texto libre, una línea por
   // artículo; se renderiza como lista con el mismo bullet que `lines`,
@@ -2149,18 +2178,18 @@ model PurchaseOrder {
 
 // Línea de pedido: cantidad pedida vs recibida (conciliación con albarán)
 model PurchaseOrderLine {
-  id               String  @id @default(cuid())
-  orderId          String
-  productId        String
-  quantity         Float
-  unit             String? // Unidad de la cantidad (formato de compra del producto)
-  expectedPrice    Float? // Precio unitario esperado (oferta activa al crear el pedido)
-  receivedQuantity Float? // Rellenado al conciliar con el albarán, en la unidad de esta línea
-  receivedPrice    Float? // Precio unitario real del albarán, en la unidad de esta línea
+  id                     String  @id @default(cuid())
+  orderId                String
+  productId              String
+  quantity               Float
+  unit                   String? // Unidad de la cantidad (formato de compra del producto)
+  expectedPrice          Float? // Precio unitario esperado (oferta activa al crear el pedido)
+  receivedQuantity       Float? // Rellenado al conciliar con el albarán, en la unidad de esta línea
+  receivedPrice          Float? // Precio unitario real del albarán, en la unidad de esta línea
   receivedSourceQuantity Float? // Cantidad tal como venía en el albarán cuando su unidad difiere de la de la línea (ej. 7.4)
   receivedSourceUnit     String? // Unidad original del albarán (ej. "kg")
-  lineNotes        String?
-  sortOrder        Int     @default(0)
+  lineNotes              String?
+  sortOrder              Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2176,23 +2205,23 @@ model PurchaseOrderLine {
 // Lista de compra (checklist de artículos por proveedor). Base de los pedidos
 // manuales y de las programaciones (Sprint 6).
 model PurchaseList {
-  id         String    @id @default(cuid())
-  tenantId   String
-  supplierId String
-  locationId String?
-  name       String
+  id              String    @id @default(cuid())
+  tenantId        String
+  supplierId      String
+  locationId      String?
+  name            String
   // Notas libres del usuario (artículos sueltos a recordar, instrucciones al
   // proveedor, etc.). Texto plano, no estructurado: no genera líneas de
   // pedido ni afecta a stock/coste/reconciliación.
-  notes      String?
+  notes           String?
   // Artículos que el usuario quiere pedir pero no están en el catálogo del
   // proveedor (no comprados antes). Una línea por artículo; al generar el
   // pedido se transfieren a PurchaseOrder.additionalItems, que se renderiza
   // como lista con bullet tras el listado de artículos y antes de Notas.
   additionalItems String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier  Supplier           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
@@ -2373,8 +2402,8 @@ model AssistantConversation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages AssistantMessage[]
 
   @@index([tenantId, userId])

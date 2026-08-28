@@ -40,6 +40,12 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
       { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
       { label: 'Equipo', href: '/dashboard/users', moduleId: 'sala', icon: 'groups' },
+      {
+        label: 'Notificaciones de Sala',
+        href: '/dashboard/sala-notificaciones',
+        moduleId: 'sala-notificaciones',
+        icon: 'event_note',
+      },
     ],
   },
   {
@@ -109,6 +115,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/compras', moduleId: 'compras' },
   { prefix: '/dashboard/proveedores', moduleId: 'proveedores' },
   { prefix: '/dashboard/users', moduleId: 'sala' },
+  { prefix: '/dashboard/sala-notificaciones', moduleId: 'sala-notificaciones' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
 ];
 

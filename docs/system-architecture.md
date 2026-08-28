@@ -56,10 +56,18 @@ ChefChek es una plataforma SaaS Multi-tenant modular diseñada para cocinas prof
 - **Alertas**: Sistema de aviso de stock bajo
 - **Comparación**: Teórico vs real
 
-### Sala (Módulo QR)
-- **Carta Digital QR**: Landing pages personalizadas
-- **Branding**: Logotipos, colores corporativos
-- **Filtros**: Alérgenos interactivos en tiempo real
+### Sala (Módulos)
+
+**Carta Digital QR**
+- Landing pages personalizadas
+- Branding: Logotipos, colores corporativos
+- Filtros: Alérgenos interactivos en tiempo real
+
+**Notificaciones de Sala** (módulo gateado, desactivado por defecto)
+- CRUD de reservas, menús y encargos que sala comunica a cocina
+- Tablero Kanban multi-columna (Pendiente/En curso/Completado) con drag-and-drop
+- Card resumen en dashboard principal
+- Reordenamiento prioritario por columna
 
 ### Albaranes + OCR
 - **Albaranes**: Gestión, alta manual y upload de albaranes de proveedores

@@ -92,6 +92,26 @@
 **CartItem**
 - Ítems que componen menús y cartas digitales
 
+### Comunicación Sala-Cocina
+
+**SalaTask**
+- `id` (PK, String): Identificador único
+- `tenantId` (FK): Referencia al tenant
+- `title` (String): Título de la tarea (reserva, encargo, menú)
+- `eventDate` (DateTime): Fecha del evento/servicio
+- `guestCount` (Int?): Número de comensales
+- `customerName` (String?): Nombre del cliente
+- `customerPhone` (String?): Teléfono de contacto
+- `customerEmail` (String?): Email de contacto
+- `menuNotes` (Text?): Texto libre del menú/encargo
+- `observations` (Text?): Observaciones adicionales
+- `allergies` (Text?): Información de alergias
+- `status` (String): PENDIENTE | EN_CURSO | COMPLETADO
+- `sortOrder` (Int): Orden dentro de la columna (Kanban)
+- `createdBy` (FK User): Usuario que creó
+- `createdAt/updatedAt/deletedAt` (DateTime): Timestamps (soft-delete)
+- **Índice**: (tenantId, status, sortOrder) — búsqueda por tenant/columna
+
 ## Relaciones
 
 ### One-to-Many
