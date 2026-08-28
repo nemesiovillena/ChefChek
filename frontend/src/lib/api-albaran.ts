@@ -93,6 +93,16 @@ function getAuthHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * El backend envuelve los errores como {success:false, error:{message}} —
+ * leer solo `message` a nivel raíz dejaba el mensaje real oculto y el
+ * usuario veía siempre el texto genérico de cada llamada.
+ */
+function errorMessage(payload: unknown, fallback: string): string {
+  const err = payload as { message?: string; error?: { message?: string } } | undefined;
+  return err?.error?.message || err?.message || fallback;
+}
+
 // List albaranes with filters
 export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<AlbaranListResponse> {
   const params = new URLSearchParams();
@@ -110,7 +120,7 @@ export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<Albar
   const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error fetching albaranes' }));
-    throw new Error(error.message || 'Error fetching albaranes');
+    throw new Error(errorMessage(error, 'Error fetching albaranes'));
   }
   return response.json();
 }
@@ -123,7 +133,7 @@ export async function getAlbaran(id: string): Promise<Albaran> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error fetching albaran' }));
-    throw new Error(error.message || 'Error fetching albaran');
+    throw new Error(errorMessage(error, 'Error fetching albaran'));
   }
   return response.json();
 }
@@ -149,7 +159,7 @@ export async function updateAlbaran(
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error updating albaran' }));
-    throw new Error(error.message || 'Error updating albaran');
+    throw new Error(errorMessage(error, 'Error updating albaran'));
   }
   return response.json();
 }
@@ -163,7 +173,7 @@ export async function updateStatus(id: string, status: AlbaranStatus): Promise<A
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error updating status' }));
-    throw new Error(error.message || 'Error updating status');
+    throw new Error(errorMessage(error, 'Error updating status'));
   }
   return response.json();
 }
@@ -189,7 +199,7 @@ export async function updateLine(
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error updating line' }));
-    throw new Error(error.message || 'Error updating line');
+    throw new Error(errorMessage(error, 'Error updating line'));
   }
   return response.json();
 }
@@ -209,7 +219,7 @@ export async function correctLinePrice(
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error correcting price' }));
-    throw new Error(error.message || 'Error al corregir el precio');
+    throw new Error(errorMessage(error, 'Error al corregir el precio'));
   }
   return response.json();
 }
@@ -223,7 +233,7 @@ export async function matchLine(albaranId: string, lineId: string, productId: st
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error matching line' }));
-    throw new Error(error.message || 'Error matching line');
+    throw new Error(errorMessage(error, 'Error matching line'));
   }
   return response.json();
 }
@@ -236,7 +246,7 @@ export async function confirmLine(albaranId: string, lineId: string): Promise<Al
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error confirming line' }));
-    throw new Error(error.message || 'Error confirming line');
+    throw new Error(errorMessage(error, 'Error confirming line'));
   }
   return response.json();
 }
@@ -249,7 +259,7 @@ export async function rejectLine(albaranId: string, lineId: string): Promise<Alb
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error rejecting line' }));
-    throw new Error(error.message || 'Error rejecting line');
+    throw new Error(errorMessage(error, 'Error rejecting line'));
   }
   return response.json();
 }
@@ -262,7 +272,7 @@ export async function dismissSuggestion(albaranId: string, lineId: string): Prom
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error dismissing suggestion' }));
-    throw new Error(error.message || 'Error dismissing suggestion');
+    throw new Error(errorMessage(error, 'Error dismissing suggestion'));
   }
   return response.json();
 }
@@ -275,7 +285,7 @@ export async function deleteAlbaran(id: string): Promise<void> {
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error deleting albaran' }));
-    throw new Error(error.message || 'Error deleting albaran');
+    throw new Error(errorMessage(error, 'Error deleting albaran'));
   }
 }
 
@@ -323,7 +333,7 @@ export async function addAlbaranLine(
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Error adding line' }));
-    throw new Error(error.message || 'Error adding line');
+    throw new Error(errorMessage(error, 'Error adding line'));
   }
   return response.json();
 }
