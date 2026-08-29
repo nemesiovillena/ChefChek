@@ -69,25 +69,12 @@ export default function DashboardPage() {
   // Simulación activa de telemetría de temperatura de la cámara fría
   const [temp, setTemp] = useState(3.2);
 
-  // Animación del gráfico de eficiencia al cargar
-  const [efficiencyWidth, setEfficiencyWidth] = useState('0%');
-
   // Redirección si no está autenticado
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isLoading, isAuthenticated, router]);
-
-  // Efecto para animar la barra de eficiencia
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      const timer = setTimeout(() => {
-        setEfficiencyWidth('94.2%');
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, isAuthenticated]);
 
   // Unirse a rooms de WebSocket
   useEffect(() => {
@@ -321,8 +308,12 @@ export default function DashboardPage() {
   const visibleSalaTasks = activeSalaTasks.slice(0, SALA_TASKS_LIMIT);
   const hasMoreSalaTasks = activeSalaTasks.length > SALA_TASKS_LIMIT;
 
+  // Sin h-full a propósito: vive apilada junto a otras cards en la columna
+  // izquierda (space-y-gutter, flujo de bloque normal, no flex) — h-full ahí
+  // haría que intentara ocupar el 100% de la altura de la columna entera y
+  // desbordara la página (bug real que causaba scroll en el dashboard).
   const salaTasksBoard = (
-    <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
+    <div className="tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border">
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
         <h3 className="font-headline-md text-headline-md text-primary">Notificaciones de Sala</h3>
         <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
@@ -407,9 +398,9 @@ export default function DashboardPage() {
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
-          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Compras. El
-          resto de cards (Bajo Stock, En Turno, Eficiencia, Telemetría, Temp.
-          Cámara Fría) no tienen datos reales todavía y quedan ocultas en móvil. */}
+          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Compras.
+          Telemetría y Temp. Cámara Fría no tienen datos reales todavía y
+          quedan ocultas en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
         {tareasPendientesBoard}
         {salaNotificacionesEnabled && salaTasksBoard}
@@ -425,57 +416,13 @@ export default function DashboardPage() {
         {/* Key Indicators Column */}
         <div className="md:col-span-4 space-y-gutter">
           {pedidosPendientesCard}
-
-          <div className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border">
-            <div>
-              <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">Bajo Stock</p>
-              <span className="font-headline-lg text-headline-lg text-primary">
-                {formatKPIValue(kpis?.lowStockItems, kpisLoading)}
-              </span>
-            </div>
-            <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-              <span className={`material-symbols-outlined ${kpis?.lowStockItems && kpis.lowStockItems > 0 ? 'text-error animate-pulse' : 'text-on-surface-variant'}`}>
-                warning
-              </span>
-            </div>
-          </div>
-
-          <div className="tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border">
-            <div>
-              <p className="font-label-md text-label-md text-on-surface-variant mb-stack-xs uppercase">En Turno</p>
-              <span className="font-headline-lg text-headline-lg text-primary">
-                {formatKPIValue(kpis?.activeUsers, kpisLoading)}
-              </span>
-            </div>
-            <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-secondary">groups</span>
-            </div>
-          </div>
-
-          {/* Efficiency Index */}
-          <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
-            <div className="flex justify-between items-center mb-stack-md">
-              <p className="font-label-md text-label-md text-on-surface-variant uppercase">Índice de Eficiencia</p>
-              <span className="font-label-md text-label-md text-primary">94.2%</span>
-            </div>
-            <div className="h-1 bg-surface-variant rounded-full overflow-hidden">
-              <div
-                className="h-full bg-secondary-container transition-all duration-1000"
-                style={{ width: efficiencyWidth }}
-              ></div>
-            </div>
-            <p className="mt-stack-md font-body-md text-label-sm text-on-surface-variant italic">
-              Rendimiento 4% sobre la media del turno
-            </p>
-          </div>
-
+          {salaNotificacionesEnabled && salaTasksBoard}
           {notificacionesCard}
         </div>
 
         {/* Main Task Board */}
         <div className="md:col-span-8 space-y-gutter">
           {tareasPendientesBoard}
-          {salaNotificacionesEnabled && salaTasksBoard}
         </div>
       </div>
 

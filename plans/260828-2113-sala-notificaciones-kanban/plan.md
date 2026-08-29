@@ -74,3 +74,11 @@ Implementado vía `/ck:cook`. Resumen (detalle por fase en cada `phase-XX-*.md`)
 - **Code review:** score 6.5/10 en primera pasada; 2 bugs reales encontrados y corregidos (drag-and-drop del Kanban no reescribía `sortOrder` optimista → snap-back visual + riesgo de carrera; modal mostraba un borrador descartado al reabrir la misma tarea tras Cancelar), más 1 error de lint y 2 nits menores, todos corregidos. Reporte: `reports/code-reviewer-260829-0005-sala-notificaciones-review-report.md`.
 - **No verificado manualmente:** smoke-test de CRUD vía curl y prueba de arrastre real en navegador (sin sesión de browser ni backend corriendo con datos en este pase) — cubierto en su lugar por tests unitarios + code-review. Recomendado antes de considerar la feature 100% validada en producción.
 - **Desviación menor:** DTOs de la fase 1 consolidados en un solo archivo en vez de 3 (YAGNI, sin impacto funcional).
+
+## Post-release: fixes tras merge a main
+
+Encontrados probando en local después de mergear los PRs #62/#63, corregidos con `/ck:fix` y ya en `main`:
+1. **400 al crear sin campos opcionales** (`customerEmail must be an email`): `@IsOptional()` de class-validator no trata `''` como ausente. Fix: `@Transform(emptyStringAsUndefined)` en los DTOs + normalización espejo en el modal. Tests de regresión en `sala-task.dto.spec.ts`.
+2. **Card mal posicionada + scroll en el dashboard**: `salaTasksBoard` vivía en la columna derecha (`col-span-8`) junto a `tareasPendientesBoard`, ambas con `h-full` apiladas en un contenedor de flujo de bloque normal (`space-y-gutter`, no flex) — cada una intentaba ocupar el 100% de la altura de la columna, duplicando la altura real y desbordando la página. Fix: `salaTasksBoard` movida a la columna izquierda (junto a Pedidos Pendientes) sin `h-full`; `tareasPendientesBoard` queda sola en la columna derecha (donde `h-full` sí es correcto). De paso, a petición del usuario, se eliminaron las cards "Bajo Stock"/"En Turno"/"Índice de Eficiencia" (datos simulados, sin valor real) y su estado/efecto huérfano (`efficiencyWidth`).
+
+Code review de ambos fixes: 10/10, sin regresiones. Reportes en `reports/`.
