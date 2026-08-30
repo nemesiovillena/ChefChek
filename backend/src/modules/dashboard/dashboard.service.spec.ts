@@ -288,6 +288,37 @@ describe("DashboardService", () => {
       expect(result.data.nextScheduledPurchase).toBeNull();
     });
 
+    it("sin borrador del cron, anuncia la próxima ejecución de la programación activa más cercana", async () => {
+      mockEmptyKpiSources();
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-01T07:00:00Z")); // martes 09:00 Madrid
+      try {
+        prismaService.purchaseSchedule.findMany.mockResolvedValueOnce([
+          {
+            daysOfWeek: [3], // miércoles
+            timeOfDay: "08:00",
+            lastRunAt: null,
+            supplier: { name: "Lácteos Sur" },
+          },
+          {
+            daysOfWeek: [2], // martes: la hora de hoy ya pasó → siguiente martes
+            timeOfDay: "07:00",
+            lastRunAt: null,
+            supplier: { name: "Pescados Norte" },
+          },
+        ]);
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.nextScheduledPurchase).toEqual({
+          dateKey: "2026-09-02",
+          timeOfDay: "08:00",
+          supplierName: "Lácteos Sur",
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     it("incluye las cifras monetarias para un rol con acceso a coste", async () => {
       mockEmptyKpiSources();
       const result = await service.calculateKPIs("tenant-1", "USER");
