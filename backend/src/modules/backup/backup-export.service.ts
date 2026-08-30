@@ -7,6 +7,7 @@ import { BACKUP_DIR, BACKUP_SCHEMA_VERSION } from "./backup.constants";
 import { BackupIntrospectionService } from "./backup-introspection.service";
 import { BackupProgressRegistry } from "./backup-progress.registry";
 import { buildScopeClause } from "./backup-scope.util";
+import { quoteSqlIdent } from "./backup-sql-identifier.util";
 import { serializeRow } from "./backup.serializer";
 import { BackupPayload, BackupScope } from "./dto/backup.dto";
 
@@ -66,10 +67,12 @@ export class BackupExportService {
 
       const rows = scopeRes.whereText
         ? await this.prisma.$queryRawUnsafe(
-            `SELECT * FROM "${table}" WHERE ${scopeRes.whereText}`,
+            `SELECT * FROM ${quoteSqlIdent(table)} WHERE ${scopeRes.whereText}`,
             ...scopeRes.params,
           )
-        : await this.prisma.$queryRawUnsafe(`SELECT * FROM "${table}"`);
+        : await this.prisma.$queryRawUnsafe(
+            `SELECT * FROM ${quoteSqlIdent(table)}`,
+          );
 
       const list = (rows as Record<string, unknown>[]).map((r) =>
         serializeRow(r),
