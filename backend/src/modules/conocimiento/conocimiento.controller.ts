@@ -14,6 +14,10 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { ConocimientoService } from "./conocimiento.service";
 import {
   CreateKnowledgeCategoryDto,
@@ -28,8 +32,9 @@ import {
 } from "./dto/conocimiento.dto";
 
 @Controller("conocimiento")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("conocimiento")
+@RequireSection("conocimiento")
 export class ConocimientoController {
   constructor(private readonly conocimientoService: ConocimientoService) {}
 

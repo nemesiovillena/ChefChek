@@ -49,13 +49,18 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import * as fs from "fs";
 import * as path from "path";
 
 @ApiTags("Products")
 @Controller("api/v1/products")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("articulos")
+@RequireSection("articulos", "proveedores")
 export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
@@ -66,6 +71,7 @@ export class ProductsController {
 
   @Post()
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Crear un nuevo producto" })
   @ApiResponse({ status: 201, description: "Producto creado exitosamente" })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
@@ -77,6 +83,7 @@ export class ProductsController {
 
   @Get()
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Listar todos los productos del tenant" })
   @ApiResponse({ status: 200, description: "Lista de productos" })
   async findAll(@Query() query: ProductsQueryDto, @Req() req: any) {
@@ -89,6 +96,7 @@ export class ProductsController {
   // ignorando mayúsculas/espacios/acentos. No bloquea la creación.
   @Get("check-name")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({
     summary: "Comprobar artículos con nombre similar (accent-insensitive)",
   })
@@ -112,6 +120,7 @@ export class ProductsController {
   // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
   @Get("image-search")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Buscar imágenes de un artículo en internet" })
   @ApiResponse({ status: 200, description: "Lista de imágenes candidatas" })
   @ApiResponse({ status: 400, description: "Falta el término de búsqueda" })
@@ -129,6 +138,7 @@ export class ProductsController {
 
   @Post("backfill-images")
   @Roles("ADMIN", "OWNER", "SUPERADMIN")
+  @RequireSection("articulos")
   @ApiOperation({
     summary:
       "Asignar automáticamente (Pexels, primer resultado) una imagen a los artículos sin imageUrl",
@@ -145,6 +155,7 @@ export class ProductsController {
 
   @Get("categories")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Obtener todas las categorías de productos" })
   @ApiResponse({ status: 200, description: "Lista de categorías" })
   async getCategories(@Req() req: any) {
@@ -154,6 +165,7 @@ export class ProductsController {
 
   @Get("suppliers")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Obtener todos los proveedores" })
   @ApiResponse({ status: 200, description: "Lista de proveedores" })
   async getSuppliers(
@@ -171,6 +183,7 @@ export class ProductsController {
 
   @Get("units")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Listar unidades de medida del tenant" })
   @ApiResponse({ status: 200, description: "Lista de unidades" })
   async getUnits(@Req() req: any) {
@@ -180,6 +193,7 @@ export class ProductsController {
 
   @Post("units")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Crear unidad de medida" })
   @ApiResponse({ status: 201, description: "Unidad creada" })
   async createUnit(@Body() dto: CreateUnitOfMeasureDto, @Req() req: any) {
@@ -189,6 +203,7 @@ export class ProductsController {
 
   @Patch("units/:id")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Actualizar unidad de medida" })
   @ApiParam({ name: "id", description: "ID de la unidad" })
   async updateUnit(
@@ -202,6 +217,7 @@ export class ProductsController {
 
   @Delete("units/:id")
   @Roles("ADMIN")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Eliminar (desactivar) unidad de medida" })
   @ApiParam({ name: "id", description: "ID de la unidad" })
   async deleteUnit(@Param("id") id: string, @Req() req: any) {
@@ -211,6 +227,7 @@ export class ProductsController {
 
   @Post("suppliers")
   @Roles("ADMIN", "USER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Crear un nuevo proveedor" })
   @ApiResponse({ status: 201, description: "Proveedor creado" })
   async createSupplier(@Req() req: any, @Body() body: CreateSupplierDto) {
@@ -223,6 +240,7 @@ export class ProductsController {
 
   @Post("upload-image")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Subir imagen de ficha técnica o etiqueta" })
   @ApiConsumes("multipart/form-data")
   @UseInterceptors(
@@ -255,6 +273,7 @@ export class ProductsController {
 
   @Get("price-history")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Consultar historial de precios de un producto" })
   async getProductPriceHistory(
     @Query("productId") productId: string,
@@ -274,6 +293,7 @@ export class ProductsController {
 
   @Get("price-history/all")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({
     summary: "Historial de precios de todo el tenant (paginado)",
   })
@@ -294,6 +314,7 @@ export class ProductsController {
 
   @Get(":id/calculate")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Calcular costo de producto (incluye mermas)" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiResponse({ status: 200, description: "Costo calculado exitosamente" })
@@ -307,6 +328,7 @@ export class ProductsController {
   // No bloquea el borrado; el frontend lo muestra como aviso en el diálogo.
   @Get(":id/usage")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({
     summary: "Recetas/escandallos que usan este artículo (aviso pre-borrado)",
   })
@@ -326,6 +348,7 @@ export class ProductsController {
 
   @Get(":id/supplier-offers")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Listar ofertas de proveedor de un artículo" })
   @ApiParam({ name: "id", description: "ID del producto" })
   async listSupplierOffers(@Param("id") id: string, @Req() req: any) {
@@ -339,6 +362,7 @@ export class ProductsController {
 
   @Post(":id/supplier-offers")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Crear/actualizar la oferta de un proveedor" })
   @ApiParam({ name: "id", description: "ID del producto" })
   async createSupplierOffer(
@@ -359,6 +383,7 @@ export class ProductsController {
 
   @Patch(":id/supplier-offers/:offerId")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Actualizar precio/formato de una oferta" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiParam({ name: "offerId", description: "ID de la oferta" })
@@ -388,6 +413,7 @@ export class ProductsController {
 
   @Delete(":id/supplier-offers/:offerId")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Eliminar una oferta de proveedor" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiParam({ name: "offerId", description: "ID de la oferta" })
@@ -407,6 +433,7 @@ export class ProductsController {
 
   @Post(":id/supplier-offers/:offerId/set-preferred")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Marcar una oferta como preferente" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiParam({ name: "offerId", description: "ID de la oferta" })
@@ -430,6 +457,7 @@ export class ProductsController {
 
   @Get(":id")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Obtener un producto por ID" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiResponse({ status: 200, description: "Producto encontrado" })
@@ -441,6 +469,7 @@ export class ProductsController {
 
   @Patch(":id")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Actualizar un producto" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiResponse({
@@ -461,6 +490,7 @@ export class ProductsController {
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Eliminar un producto" })
   @ApiParam({ name: "id", description: "ID del producto" })
   @ApiResponse({ status: 204, description: "Producto eliminado exitosamente" })
@@ -473,6 +503,7 @@ export class ProductsController {
 
   @Post(":id/merge/:targetId")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({
     summary:
       "Fusionar un artículo duplicado (:id) en otro (:targetId); el origen queda dado de baja",
@@ -502,6 +533,7 @@ export class ProductsController {
 
   @Post(":id/duplicate-dismissals/:dismissedProductId")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({
     summary:
       "Descartar el aviso de posible duplicado entre dos artículos (no vuelve a avisar en ninguno de los dos)",
@@ -527,6 +559,7 @@ export class ProductsController {
 
   @Get("suppliers/stats/active-count")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Contador de proveedores activos" })
   @ApiResponse({ status: 200, description: "Contador de proveedores activos" })
   async getSuppliersStats(@Req() req: any) {
@@ -536,6 +569,7 @@ export class ProductsController {
 
   @Get("suppliers/:id")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Obtener proveedor por ID" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Proveedor encontrado" })
@@ -548,6 +582,7 @@ export class ProductsController {
 
   @Put("suppliers/:id")
   @Roles("ADMIN", "USER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Actualizar proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Proveedor actualizado" })
@@ -565,6 +600,7 @@ export class ProductsController {
   @Delete("suppliers/:id")
   @HttpCode(HttpStatus.OK)
   @Roles("ADMIN", "USER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Eliminar proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Proveedor eliminado" })
@@ -577,6 +613,7 @@ export class ProductsController {
 
   @Get("suppliers/:id/products")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Productos del proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Lista de productos" })
@@ -599,6 +636,7 @@ export class ProductsController {
 
   @Get("suppliers/:id/offers")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Ofertas (precio pactado) de un proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Lista de ofertas" })
@@ -609,6 +647,7 @@ export class ProductsController {
 
   @Get("suppliers/:id/price-trend")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Tendencia de precio del proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Tendencia de precio" })
@@ -619,6 +658,7 @@ export class ProductsController {
 
   @Get("suppliers/:id/price-history")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Histórico de precios del proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Lista de registros de precio" })
@@ -634,6 +674,7 @@ export class ProductsController {
 
   @Get("stock-status/count")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Resumen alertas de stock" })
   @ApiResponse({ status: 200, description: "Contadores de alertas" })
   async getStockAlertsCount(@Req() req: any) {
@@ -644,6 +685,7 @@ export class ProductsController {
   // Categories extras endpoints
   @Get("categories/:id/product-count")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Contador de productos en categoría" })
   @ApiParam({ name: "id", description: "ID de la categoría" })
   @ApiResponse({ status: 200, description: "Contador de productos" })
@@ -657,6 +699,7 @@ export class ProductsController {
 
   @Post("categories/reorder")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Reordenar categorías" })
   @ApiResponse({ status: 200, description: "Categorías reordenadas" })
   async reorderCategories(
@@ -672,6 +715,7 @@ export class ProductsController {
 
   @Patch("categories/:id/toggle-active")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Toggle estado activo de categoría" })
   @ApiParam({ name: "id", description: "ID de la categoría" })
   @ApiResponse({ status: 200, description: "Categoría actualizada" })
@@ -682,6 +726,7 @@ export class ProductsController {
 
   @Get("suppliers/:id/products/count")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Contar productos de un proveedor" })
   @ApiParam({ name: "id", description: "ID del proveedor" })
   @ApiResponse({ status: 200, description: "Número de productos" })
@@ -695,6 +740,7 @@ export class ProductsController {
 
   @Put("suppliers/:id/products/reassign")
   @Roles("ADMIN", "USER")
+  @RequireSection("proveedores")
   @ApiOperation({ summary: "Reasignar productos de un proveedor a otro" })
   @ApiParam({ name: "id", description: "ID del proveedor origen" })
   @ApiResponse({ status: 200, description: "Productos reasignados" })
@@ -713,6 +759,7 @@ export class ProductsController {
 
   @Post("bulk")
   @Roles("ADMIN", "USER")
+  @RequireSection("articulos")
   @ApiOperation({ summary: "Crear múltiples productos en lote (importación)" })
   @ApiResponse({ status: 201, description: "Productos creados exitosamente" })
   async createBulk(@Body() body: { products: any[] }, @Req() req: any) {

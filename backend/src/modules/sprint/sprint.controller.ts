@@ -22,11 +22,16 @@ import { SprintService } from "./sprint.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Sprint Tracker")
 @Controller("api/v1/sprints")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
+@RequireSection("sprint")
 export class SprintController {
   constructor(private readonly sprintService: SprintService) {}
 

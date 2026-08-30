@@ -1,10 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardService } from "./dashboard.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 
 describe("DashboardService", () => {
   let service: DashboardService;
   let prismaService: any;
+  let mockRoleAccess: { isSectionAllowed: jest.Mock };
 
   const mockPrismaService = {
     dashboardAlert: {
@@ -84,6 +86,12 @@ describe("DashboardService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RoleAccessService,
+          useValue: (mockRoleAccess = {
+            isSectionAllowed: jest.fn().mockResolvedValue(true),
+          }),
         },
       ],
     }).compile();
@@ -278,6 +286,62 @@ describe("DashboardService", () => {
       const result = await service.calculateKPIs("tenant-1");
 
       expect(result.data.nextScheduledPurchase).toBeNull();
+    });
+
+    it("sin borrador del cron, anuncia la próxima ejecución de la programación activa más cercana", async () => {
+      mockEmptyKpiSources();
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-01T07:00:00Z")); // martes 09:00 Madrid
+      try {
+        prismaService.purchaseSchedule.findMany.mockResolvedValueOnce([
+          {
+            daysOfWeek: [3], // miércoles
+            timeOfDay: "08:00",
+            lastRunAt: null,
+            supplier: { name: "Lácteos Sur" },
+          },
+          {
+            daysOfWeek: [2], // martes: la hora de hoy ya pasó → siguiente martes
+            timeOfDay: "07:00",
+            lastRunAt: null,
+            supplier: { name: "Pescados Norte" },
+          },
+        ]);
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.nextScheduledPurchase).toEqual({
+          dateKey: "2026-09-02",
+          timeOfDay: "08:00",
+          supplierName: "Lácteos Sur",
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("incluye las cifras monetarias para un rol con acceso a coste", async () => {
+      mockEmptyKpiSources();
+      const result = await service.calculateKPIs("tenant-1", "USER");
+      expect(result.data).toHaveProperty("averageCost");
+      expect(result.data).toHaveProperty("averageMargin");
+      expect(result.data).toHaveProperty("todayRevenue");
+      expect(result.data).toHaveProperty("monthlyRevenue");
+    });
+
+    it("elimina las cifras monetarias cuando el rol no puede ver coste", async () => {
+      mockEmptyKpiSources();
+      mockRoleAccess.isSectionAllowed.mockImplementation(
+        (_t: string, _r: string, key: string) =>
+          Promise.resolve(key !== "recipes.cost"),
+      );
+      const result = await service.calculateKPIs("tenant-1", "USER");
+      expect(result.data).not.toHaveProperty("averageCost");
+      expect(result.data).not.toHaveProperty("averageMargin");
+      expect(result.data).not.toHaveProperty("todayRevenue");
+      expect(result.data).not.toHaveProperty("monthlyRevenue");
+      // los contadores no monetarios siguen ahí
+      expect(result.data).toHaveProperty("upcomingProductionTasks");
+      expect(result.data).toHaveProperty("lowStockItems");
     });
   });
 

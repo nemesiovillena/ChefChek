@@ -103,6 +103,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   private getErrorCode(exception: unknown): string {
     if (exception instanceof HttpException) {
+      // Preserve a caller-supplied machine-readable code, e.g. a guard throwing
+      // `new ForbiddenException({ error: "SECTION_HIDDEN", ... })`. Keeps the
+      // frontend off brittle message-prefix matching.
+      const res = exception.getResponse();
+      if (
+        res &&
+        typeof res === "object" &&
+        "error" in res &&
+        typeof (res as { error: unknown }).error === "string"
+      ) {
+        return (res as { error: string }).error;
+      }
+
       const status = exception.getStatus();
       switch (status) {
         case 400:

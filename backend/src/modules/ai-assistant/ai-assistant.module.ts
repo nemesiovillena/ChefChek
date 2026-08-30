@@ -12,6 +12,7 @@ import { ComprasModule } from "../compras/compras.module";
 import { ProductsModule } from "../products/products.module";
 import { RecipesModule } from "../recipes/recipes.module";
 import { AlmacenesModule } from "../almacenes/almacenes.module";
+import { AlbaranesModule } from "../albaranes/albaranes.module";
 
 /**
  * Asistente IA "Chefchek": consultas en lenguaje natural sobre datos del
@@ -26,6 +27,7 @@ import { AlmacenesModule } from "../almacenes/almacenes.module";
     ProductsModule,
     RecipesModule,
     AlmacenesModule,
+    AlbaranesModule,
   ],
   controllers: [AiAssistantController],
   providers: [

@@ -8,12 +8,15 @@ import Link from 'next/link';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import { useModules } from '@/features/modules/hooks/use-modules';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { AssistantFloatingWidget } from '@/components/assistant/assistant-floating-widget';
 import {
   SETTINGS_LINK,
   NAV_GROUPS,
   MOBILE_NAV,
   moduleForPath,
+  sectionForPath,
+  sectionKeyForItem,
 } from '@/features/modules/lib/nav-config';
 
 export const dynamic = 'force-dynamic';
@@ -30,6 +33,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { modules, refetch, isEnabled } = useModules();
+  const { map: sectionAccess, refetch: refetchSections, canSee } = useSectionAccess();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return true;
     const savedTheme = localStorage.getItem('theme');
@@ -43,30 +47,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   /** Mobile-only "Más" drawer, grouping every category in one sheet. */
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Load module activation states for the current tenant once authenticated.
+  // Load module activation states + per-role section access for the current
+  // tenant once authenticated. `refetchSections` ensures a fresh map after a
+  // logout/login as a different user (the store is module-level).
   useEffect(() => {
-    if (isAuthenticated) refetch();
-  }, [isAuthenticated, refetch]);
+    if (isAuthenticated) {
+      refetch();
+      refetchSections();
+    }
+  }, [isAuthenticated, refetch, refetchSections]);
 
-  // Block direct URL access to disabled modules: redirect to /dashboard.
+  // Block direct URL access to disabled modules OR sections hidden for the
+  // user's role: redirect to /dashboard.
   useEffect(() => {
-    if (!modules) return; // wait until module states are loaded
+    if (!modules || !sectionAccess) return; // wait until states are loaded
     const mod = moduleForPath(pathname);
     if (mod && !isEnabled(mod)) {
       router.replace('/dashboard');
+      return;
     }
-  }, [pathname, modules, isEnabled, router]);
+    const section = sectionForPath(pathname);
+    if (section && !canSee(section)) {
+      router.replace('/dashboard');
+    }
+  }, [pathname, modules, sectionAccess, isEnabled, canSee, router]);
 
-  // React to a 403 from a disabled module (dispatched by api-client): refresh
-  // the module states and leave the blocked route.
+  // React to a 403 from a disabled module or a hidden section (dispatched by
+  // api-client): refresh state and leave the blocked route.
   useEffect(() => {
-    const onModuleDisabled = () => {
+    const onBlocked = () => {
       refetch();
+      refetchSections();
       if (pathname !== '/dashboard') router.replace('/dashboard');
     };
-    window.addEventListener('chefchek:module-disabled', onModuleDisabled);
-    return () => window.removeEventListener('chefchek:module-disabled', onModuleDisabled);
-  }, [refetch, pathname, router]);
+    window.addEventListener('chefchek:module-disabled', onBlocked);
+    window.addEventListener('chefchek:section-hidden', onBlocked);
+    return () => {
+      window.removeEventListener('chefchek:module-disabled', onBlocked);
+      window.removeEventListener('chefchek:section-hidden', onBlocked);
+    };
+  }, [refetch, refetchSections, pathname, router]);
 
   useEffect(() => {
     if (isDark) {
@@ -95,14 +115,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => document.removeEventListener('click', close, { capture: true });
   }, [openGroup]);
 
-  // Filter nav groups: drop empty groups (all items disabled).
+  // Filter nav groups: hide items whose module is disabled for the tenant OR
+  // whose section is hidden for the user's role; drop groups left empty.
   const visibleGroups = useMemo(
     () =>
       NAV_GROUPS.map((group) => ({
         ...group,
-        items: group.items.filter((item) => isEnabled(item.moduleId)),
+        items: group.items.filter(
+          (item) => isEnabled(item.moduleId) && canSee(sectionKeyForItem(item)),
+        ),
       })).filter((group) => group.items.length > 0),
-    [isEnabled],
+    [isEnabled, canSee],
   );
 
   if (isLoading) {
@@ -330,7 +353,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sleek, Compact Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-16 px-2 pb-safe bg-surface-container-high/95 backdrop-blur-md border-t border-border/80 shadow-lg md:hidden">
-        {MOBILE_NAV.filter((item) => isEnabled(item.moduleId)).map((item) => (
+        {MOBILE_NAV.filter(
+          (item) => isEnabled(item.moduleId) && canSee(sectionKeyForItem(item)),
+        ).map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -349,7 +374,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </button>
       </nav>
 
-      {isEnabled('asistente-ia') && <AssistantFloatingWidget />}
+      {isEnabled('asistente-ia') && canSee('asistente-ia') && <AssistantFloatingWidget />}
     </div>
   );
 }

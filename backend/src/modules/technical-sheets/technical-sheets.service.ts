@@ -2,8 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
 import {
   CreateTemplateDto,
@@ -17,7 +19,46 @@ import * as path from "path";
 
 @Injectable()
 export class TechnicalSheetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleAccess: RoleAccessService,
+  ) {}
+
+  /**
+   * Enforces the Recetas sub-capabilities on PDF generation. `recipeCardOnly`
+   * (the "imprimir receta" flow) is always allowed once the request reaches
+   * here — it carries no cost/allergen data. A full ficha requires
+   * `recipes.ficha`; embedding costs additionally requires `recipes.cost`.
+   */
+  private async assertPdfOptionsAllowed(
+    tenantId: string,
+    role: string | undefined,
+    dto: GenerateSheetDto | GenerateBatchDto,
+  ): Promise<void> {
+    if ((dto as GenerateSheetDto).recipeCardOnly) {
+      return;
+    }
+
+    const [canFicha, canCost] = await Promise.all([
+      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.ficha"),
+      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.cost"),
+    ]);
+
+    if (!canFicha) {
+      throw new ForbiddenException({
+        error: "SECTION_HIDDEN",
+        section: "recipes.ficha",
+        message: "Section 'recipes.ficha' is not available for your role",
+      });
+    }
+    if ((dto as GenerateSheetDto).includeCosts && !canCost) {
+      throw new ForbiddenException({
+        error: "SECTION_HIDDEN",
+        section: "recipes.cost",
+        message: "Section 'recipes.cost' is not available for your role",
+      });
+    }
+  }
 
   async createTemplate(
     tenantId: string,
@@ -113,7 +154,10 @@ export class TechnicalSheetsService {
     tenantId: string,
     userId: string,
     dto: GenerateSheetDto,
+    role?: string,
   ): Promise<Buffer> {
+    await this.assertPdfOptionsAllowed(tenantId, role, dto);
+
     const recipe = await this.prisma.recipe.findFirst({
       where: { id: dto.recipeId, tenantId },
       include: {
@@ -166,7 +210,10 @@ export class TechnicalSheetsService {
     tenantId: string,
     userId: string,
     dto: GenerateBatchDto,
+    role?: string,
   ): Promise<Buffer> {
+    await this.assertPdfOptionsAllowed(tenantId, role, dto);
+
     const recipes = await this.prisma.recipe.findMany({
       where: {
         id: { in: dto.recipeIds },

@@ -169,9 +169,19 @@ apiClient.interceptors.response.use(
     // refresh the navigation and redirect away from the blocked route. The
     // request is still rejected so callers can handle the error as usual.
     if (error.response?.status === 403 && typeof window !== 'undefined') {
-      const message = (error.response.data as { message?: string } | undefined)?.message ?? '';
+      const data = error.response.data as
+        | { message?: string; error?: { message?: string; code?: string } }
+        | undefined;
+      const code = data?.error?.code ?? '';
+      const message = data?.error?.message ?? data?.message ?? '';
       if (message.startsWith("Module '")) {
         window.dispatchEvent(new CustomEvent('chefchek:module-disabled'));
+      }
+      // SectionAccessGuard / role-access checks reject with a SECTION_HIDDEN
+      // code (GlobalExceptionFilter now preserves it); fall back to the message
+      // prefix for older responses.
+      if (code === 'SECTION_HIDDEN' || message.startsWith("Section '")) {
+        window.dispatchEvent(new CustomEvent('chefchek:section-hidden'));
       }
     }
 

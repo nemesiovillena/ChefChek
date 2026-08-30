@@ -23,6 +23,10 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { WarehousesService } from "./almacenes.service";
 import {
   CreateWarehouseDto,
@@ -36,8 +40,9 @@ import {
 
 @ApiTags("Almacenes")
 @Controller("api/v1/almacenes")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("almacenes")
+@RequireSection("almacenes")
 export class AlmacenesController {
   constructor(private readonly warehousesService: WarehousesService) {}
 

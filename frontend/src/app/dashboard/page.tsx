@@ -23,6 +23,7 @@ import {
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
 import { useSalaTasks, type SalaTask } from '@/hooks/use-sala-tasks';
 import { useModules } from '@/features/modules/hooks/use-modules';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
@@ -53,7 +54,16 @@ export default function DashboardPage() {
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
   const { isEnabled } = useModules();
-  const salaNotificacionesEnabled = isEnabled('sala-notificaciones');
+  const { canSee } = useSectionAccess();
+  const salaNotificacionesEnabled = isEnabled('sala-notificaciones') && canSee('sala-notificaciones');
+  // Producción oculta pero "ver tareas" activo → board de solo lectura.
+  const canSeeProduction = canSee('production');
+  const canSeePrepTasks = canSeeProduction || canSee('production.tasks');
+  const canSeeRecipes = canSee('recipes');
+  const canSeeCompras = canSee('compras');
+  const canSeeCosts = canSee('recipes.cost');
+  // Card de notificaciones/alertas: mayormente avisos de precio y compras.
+  const canSeeAlerts = canSeeCosts || canSeeCompras;
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
   const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
@@ -264,27 +274,41 @@ export default function DashboardPage() {
             Cargando tareas...
           </div>
         ) : visibleTasks.length > 0 ? (
-          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
-            <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-              {visibleTasks.map((task) => (
-                <UpcomingTaskRow
-                  key={task.id}
-                  task={task}
-                  onNavigate={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
-                  onComplete={(e) => handleCompleteTask(e, task)}
-                  onPostpone={(e) => handlePostponeClick(e, task)}
-                  completeDisabled={completeTask.isPending}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+          canSeeProduction ? (
+            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleTaskDragEnd}>
+              <SortableContext items={visibleTasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                {visibleTasks.map((task) => (
+                  <UpcomingTaskRow
+                    key={task.id}
+                    task={task}
+                    onNavigate={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
+                    onComplete={(e) => handleCompleteTask(e, task)}
+                    onPostpone={(e) => handlePostponeClick(e, task)}
+                    completeDisabled={completeTask.isPending}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            // Rol restringido: puede ver y completar tareas, sin navegar a
+            // Producción, sin reordenar ni posponer.
+            visibleTasks.map((task) => (
+              <UpcomingTaskRow
+                key={task.id}
+                task={task}
+                onComplete={(e) => handleCompleteTask(e, task)}
+                completeDisabled={completeTask.isPending}
+                readOnly
+              />
+            ))
+          )
         ) : (
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             No hay tareas de producción pendientes
           </div>
         )}
       </div>
-      {hasMoreTasks && (
+      {hasMoreTasks && canSeeProduction && (
         <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
           <button
             onClick={() => router.push('/dashboard/production/tasks')}
@@ -394,7 +418,7 @@ export default function DashboardPage() {
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
           <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal</h2>
         </div>
-        {crearOrdenButton('hidden md:flex')}
+        {canSeeProduction && crearOrdenButton('hidden md:flex')}
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
@@ -402,33 +426,33 @@ export default function DashboardPage() {
           Telemetría y Temp. Cámara Fría no tienen datos reales todavía y
           quedan ocultas en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
-        {tareasPendientesBoard}
+        {canSeePrepTasks && tareasPendientesBoard}
         {salaNotificacionesEnabled && salaTasksBoard}
-        {crearOrdenButton('flex justify-center')}
-        {pedidosPendientesCard}
-        {notificacionesCard}
-        {recetasCard}
-        {comprasCard}
+        {canSeeProduction && crearOrdenButton('flex justify-center')}
+        {canSeeCompras && pedidosPendientesCard}
+        {canSeeAlerts && notificacionesCard}
+        {canSeeRecipes && recetasCard}
+        {canSeeCompras && comprasCard}
       </div>
 
       {/* Bento Grid Content (escritorio) */}
       <div className="hidden md:grid md:grid-cols-12 gap-gutter mt-stack-xl">
         {/* Key Indicators Column */}
         <div className="md:col-span-4 space-y-gutter">
-          {pedidosPendientesCard}
+          {canSeeCompras && pedidosPendientesCard}
           {salaNotificacionesEnabled && salaTasksBoard}
-          {notificacionesCard}
+          {canSeeAlerts && notificacionesCard}
         </div>
 
         {/* Main Task Board */}
         <div className="md:col-span-8 space-y-gutter">
-          {tareasPendientesBoard}
+          {canSeePrepTasks && tareasPendientesBoard}
         </div>
       </div>
 
       {/* Atmospheric Secondary Layer (escritorio) */}
       <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter">
-        {recetasCard}
+        {canSeeRecipes && recetasCard}
 
         <div
           onClick={() => router.push('/dashboard/dashboard-interactivo')}

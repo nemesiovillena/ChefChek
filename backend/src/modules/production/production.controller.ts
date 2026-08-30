@@ -25,6 +25,11 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+  RequireSectionAny,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import {
   CreateWorkBatchDto,
@@ -45,8 +50,9 @@ import {
 
 @ApiTags("Production")
 @Controller("api/v1/production")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("production")
+@RequireSection("production")
 export class ProductionController {
   constructor(private readonly productionService: ProductionService) {}
 
@@ -147,6 +153,10 @@ export class ProductionController {
 
   @Put("orders/:orderId/complete")
   @Roles("ADMIN", "USER")
+  // Restricted "sala" role: sees the dashboard prep-task board (fed by
+  // /dashboard/kpis) and may complete tasks even with Producción hidden.
+  // RequireSectionAny replaces the class-level @RequireSection("production").
+  @RequireSectionAny("production", "production.tasks")
   @ApiOperation({ summary: "Completar una orden de producción" })
   @ApiParam({ name: "orderId", description: "ID de la orden" })
   @ApiResponse({ status: 200, description: "Orden completada" })

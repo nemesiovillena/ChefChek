@@ -42,6 +42,7 @@ import { CategoriesManagementModal } from '@/components/shared/categories-manage
 import PaginationControls from '@/components/shared/pagination-controls';
 import PageContainer from '@/components/shared/page-container';
 import PageHeader from '@/components/shared/page-header';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import {
   tableCardClass, tableScrollClass, tableClass, theadClass, thBaseClass, thSortableClass, thActionsClass,
   tbodyClass, trHoverClass, tdBaseClass, tdActionsClass, actionButtonClass,
@@ -84,6 +85,12 @@ export default function RecipesPage() {
   const uploadRecipeImageMutation = useUploadRecipeImage();
   const invalidateQueries = useInvalidateQueries();
   const [isUploadingRecipeImage, setIsUploadingRecipeImage] = useState(false);
+
+  // Per-role Recetas sub-capabilities. Absence ⇒ allowed (ADMIN+ always true).
+  const { canSee } = useSectionAccess();
+  const canViewCost = canSee('recipes.cost');
+  const canViewFicha = canSee('recipes.ficha');
+  const canEditRecipes = canSee('recipes.edit');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -567,7 +574,7 @@ export default function RecipesPage() {
     );
   };
 
-  const headerActions = (
+  const headerActions = canEditRecipes ? (
     <>
       <button
         onClick={() => setShowCategoriesModal(true)}
@@ -582,7 +589,7 @@ export default function RecipesPage() {
         Crear Receta
       </button>
     </>
-  );
+  ) : null;
 
   return (
     <div className="w-full">
@@ -717,7 +724,7 @@ export default function RecipesPage() {
                   {renderSortableHeader('Categorías', 'category')}
                   <th className={thBaseClass}>Alérgenos</th>
                   <th className={thBaseClass}>Raciones</th>
-                  {renderSortableHeader('Costo/Ración', 'costPerUnit')}
+                  {canViewCost && renderSortableHeader('Costo/Ración', 'costPerUnit')}
                   <th className={thBaseClass}>Estado</th>
                   <th className={thActionsClass}>Acciones</th>
                 </tr>
@@ -725,13 +732,14 @@ export default function RecipesPage() {
               <tbody className={tbodyClass}>
                 {sortedRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={canViewCost ? 7 : 6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       No hay recetas
                     </td>
                   </tr>
                 ) : (
                   sortedRecipes.map((recipe: Recipe) => {
                     const isOverTarget =
+                      canViewCost &&
                       recipe.pricing?.costPercentage != null &&
                       recipe.pricing.costPercentage > recipe.pricing.targetCostPercentage;
                     return (
@@ -785,26 +793,42 @@ export default function RecipesPage() {
                       <td className={tdBaseClass}>
                         {recipe.portions} ({recipe.portionSize}g)
                       </td>
-                      <td className={tdBaseClass}>
-                        {formatEuro(costPerPortionOf(recipe))}
-                      </td>
+                      {canViewCost && (
+                        <td className={tdBaseClass}>
+                          {formatEuro(costPerPortionOf(recipe))}
+                        </td>
+                      )}
                       <td className="px-3 py-3 whitespace-nowrap">
                         {/* Icono en vez de texto: "Activo"/"Desactivado" era una de
                             las columnas que más ensanchaba la fila y ocultaba la
                             papelera en el viewport de iPad (mismo criterio que en
                             líneas de albarán). */}
-                        <button
-                          onClick={() => handleToggleStatus(recipe)}
-                          title={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
-                          aria-label={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
-                            recipe.isActive
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                          }`}
-                        >
-                          {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                        </button>
+                        {canEditRecipes ? (
+                          <button
+                            onClick={() => handleToggleStatus(recipe)}
+                            title={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
+                            aria-label={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                              recipe.isActive
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`}
+                          >
+                            {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                          </button>
+                        ) : (
+                          <span
+                            title={recipe.isActive ? 'Activo' : 'Desactivado'}
+                            aria-label={recipe.isActive ? 'Activo' : 'Desactivado'}
+                            className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
+                              recipe.isActive
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`}
+                          >
+                            {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                          </span>
+                        )}
                       </td>
                       <td className={tdActionsClass}>
                         <button
@@ -824,39 +848,47 @@ export default function RecipesPage() {
                         >
                           <BookOpen className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleViewSheet(recipe)}
-                          disabled={generatingSheetId === recipe.id}
-                          title="Ficha técnica"
-                          aria-label="Ficha técnica"
-                          className={`${actionButtonClass} border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40`}
-                        >
-                          <FileText className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleViewCost(recipe)}
-                          title="Costo"
-                          aria-label="Costo"
-                          className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40`}
-                        >
-                          <Calculator className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(recipe)}
-                          title="Editar receta"
-                          aria-label="Editar receta"
-                          className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(recipe.id, recipe.name)}
-                          title="Eliminar receta"
-                          aria-label="Eliminar receta"
-                          className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {canViewFicha && (
+                          <button
+                            onClick={() => handleViewSheet(recipe)}
+                            disabled={generatingSheetId === recipe.id}
+                            title="Ficha técnica"
+                            aria-label="Ficha técnica"
+                            className={`${actionButtonClass} border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40`}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canViewCost && (
+                          <button
+                            onClick={() => handleViewCost(recipe)}
+                            title="Costo"
+                            aria-label="Costo"
+                            className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40`}
+                          >
+                            <Calculator className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canEditRecipes && (
+                          <button
+                            onClick={() => handleEdit(recipe)}
+                            title="Editar receta"
+                            aria-label="Editar receta"
+                            className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canEditRecipes && (
+                          <button
+                            onClick={() => handleDelete(recipe.id, recipe.name)}
+                            title="Eliminar receta"
+                            aria-label="Eliminar receta"
+                            className={`${actionButtonClass} border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-[var(--error)]/30 dark:bg-[var(--error)]/10 dark:text-[var(--error)] dark:hover:bg-[var(--error)]/20`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                     );
@@ -878,7 +910,7 @@ export default function RecipesPage() {
         </div>
 
         {/* Create/Edit Modal */}
-        {showCreateForm && (
+        {showCreateForm && canEditRecipes && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
             <div className="relative top-8 mx-auto w-full max-w-3xl mb-8 rounded-[28px] border border-[var(--outline-variant)] bg-[var(--surface-container-high)] shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)]">
               <div className="p-6">
@@ -1331,7 +1363,7 @@ export default function RecipesPage() {
         )}
 
         {/* Cost Modal */}
-        {showCostModal && selectedRecipe && (
+        {showCostModal && canViewCost && selectedRecipe && (
           <RecipeCostModal
             recipe={selectedRecipe}
             onClose={() => {

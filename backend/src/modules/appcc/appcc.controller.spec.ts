@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AppccController } from "./appcc.controller";
 import { AppccService } from "./appcc.service";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
@@ -47,6 +48,8 @@ describe("AppccController", () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

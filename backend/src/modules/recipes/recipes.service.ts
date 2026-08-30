@@ -230,6 +230,7 @@ export class RecipesService {
   async findAll(
     tenantId: string,
     query?: RecipesQueryDto,
+    includeCost = true,
   ): Promise<{
     data: RecipeResponse[];
     meta: { total: number; page: number; limit: number; totalPages: number };
@@ -283,7 +284,7 @@ export class RecipesService {
     ]);
 
     const data = await Promise.all(
-      recipes.map((recipe) => this.formatRecipeResponse(recipe)),
+      recipes.map((recipe) => this.formatRecipeResponse(recipe, includeCost)),
     );
 
     return {
@@ -308,7 +309,11 @@ export class RecipesService {
     });
   }
 
-  async findOne(tenantId: string, id: string): Promise<RecipeResponse> {
+  async findOne(
+    tenantId: string,
+    id: string,
+    includeCost = true,
+  ): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
       where: { id, tenantId },
       include: {
@@ -352,7 +357,7 @@ export class RecipesService {
       throw new NotFoundException(`Recipe with ID ${id} not found`);
     }
 
-    return this.formatRecipeResponse(recipe);
+    return this.formatRecipeResponse(recipe, includeCost);
   }
 
   async update(
@@ -788,7 +793,10 @@ export class RecipesService {
     };
   }
 
-  private async formatRecipeResponse(recipe: any): Promise<RecipeResponse> {
+  private async formatRecipeResponse(
+    recipe: any,
+    includeCost = true,
+  ): Promise<RecipeResponse> {
     const ingredients: IngredientResponse[] =
       recipe.ingredients?.map((ing: any) => {
         const product = ing.product;
@@ -906,7 +914,7 @@ export class RecipesService {
       costBreakdown.costPerPortion,
     );
 
-    return {
+    const base = {
       id: recipe.id,
       name: recipe.name,
       description: recipe.description,
@@ -914,22 +922,50 @@ export class RecipesService {
       imageUrl: recipe.imageUrl ?? null,
       portions: recipe.portions,
       portionSize: recipe.portionSize,
-      totalCost: costBreakdown.totalCost,
-      totalCostPerUnit: costBreakdown.costPerUnit,
-      sellingPriceWithVat: recipe.sellingPriceWithVat ?? null,
-      sellingPrice: recipe.sellingPrice ?? null,
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,
       isPublic: recipe.isPublic,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
+      categories,
+      allergens: Array.from(allergens),
+    };
+
+    // Roles without `recipes.cost` must not receive any cost/pricing figure —
+    // not just have it hidden in the UI (see authorization-model.md).
+    if (!includeCost) {
+      return {
+        ...base,
+        totalCost: 0,
+        totalCostPerUnit: 0,
+        sellingPriceWithVat: null,
+        sellingPrice: null,
+        ingredients: ingredients.map((ing) => ({
+          ...ing,
+          cost: 0,
+          referencePurchasePrice: 0,
+          realPrice: 0,
+        })),
+        subRecipes: subRecipes.map((sub) => ({
+          ...sub,
+          totalCost: 0,
+          costPerUnit: 0,
+          cost: 0,
+        })),
+      };
+    }
+
+    return {
+      ...base,
+      totalCost: costBreakdown.totalCost,
+      totalCostPerUnit: costBreakdown.costPerUnit,
+      sellingPriceWithVat: recipe.sellingPriceWithVat ?? null,
+      sellingPrice: recipe.sellingPrice ?? null,
       ingredients,
       subRecipes,
-      categories,
       costBreakdown,
       pricing,
-      allergens: Array.from(allergens),
     };
   }
 
