@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import * as fs from "fs";
 import * as path from "path";
+import { generateUploadFilename } from "../../common/utils/upload-filename.util";
 import {
   ApiTags,
   ApiOperation,
@@ -267,7 +268,7 @@ export class RecipesController {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const fileName = generateUploadFilename(file.originalname);
     const filePath = path.join(uploadsDir, fileName);
     fs.writeFileSync(filePath, file.buffer);
 

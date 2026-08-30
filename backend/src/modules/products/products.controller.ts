@@ -25,6 +25,7 @@ import {
 } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
+import { generateUploadFilename } from "../../common/utils/upload-filename.util";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import { PexelsImageSearchService } from "./pexels-image-search.service";
@@ -257,7 +258,7 @@ export class ProductsController {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const fileName = generateUploadFilename(file.originalname);
     const filePath = path.join(uploadsDir, fileName);
     fs.writeFileSync(filePath, file.buffer);
 
