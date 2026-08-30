@@ -55,6 +55,7 @@ import {
 import { UpdateCatalogImportLineDto } from "./dto/catalog-import.dto";
 import {
   CreatePurchaseScheduleDto,
+  SchedulePurchaseOrderDto,
   UpdatePurchaseScheduleDto,
 } from "./dto/purchase-schedule.dto";
 import {
@@ -306,6 +307,30 @@ export class ComprasController {
       id,
       req.user?.id,
       dto.channel,
+    );
+    return { success: true, data };
+  }
+
+  @Post("pedidos/:id/programar")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({
+    summary:
+      "Programar pedidos recurrentes como este: copia sus artículos a una lista nueva y crea una programación (BORRADOR + notificación en el día/hora elegidos, nunca envía)",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "El pedido no tiene artículos de catálogo",
+  })
+  async schedulePurchaseOrder(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: SchedulePurchaseOrderDto,
+  ) {
+    const data = await this.purchaseScheduleService.createFromOrder(
+      req.tenantId,
+      req.user?.id,
+      id,
+      dto,
     );
     return { success: true, data };
   }

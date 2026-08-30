@@ -8,6 +8,7 @@ import { useSuppliers } from '@/hooks/use-suppliers';
 import { useLocations } from '@/hooks/use-locations';
 import { usePurchaseLists } from '@/hooks/use-purchase-lists';
 import {
+  PURCHASE_SCHEDULE_DAYS,
   useCreatePurchaseSchedule,
   useDeletePurchaseSchedule,
   usePurchaseSchedules,
@@ -15,16 +16,7 @@ import {
   type PurchaseSchedule,
 } from '@/hooks/use-purchase-schedules';
 
-// 0=domingo…6=sábado (Date.getDay()); se muestran en orden L-D
-const DAY_LABELS: { value: number; label: string }[] = [
-  { value: 1, label: 'L' },
-  { value: 2, label: 'M' },
-  { value: 3, label: 'X' },
-  { value: 4, label: 'J' },
-  { value: 5, label: 'V' },
-  { value: 6, label: 'S' },
-  { value: 0, label: 'D' },
-];
+const DAY_LABELS = PURCHASE_SCHEDULE_DAYS;
 
 /** Próxima ejecución aproximada (cliente, informativa — el cron real vive en el backend). */
 function nextRun(daysOfWeek: number[], timeOfDay: string): string {
