@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Ban,
+  CalendarClock,
   Check,
   FileText,
   Loader2,
@@ -30,6 +31,7 @@ import {
 } from '@/hooks/use-purchase-orders';
 import { ProductSearchInput } from '../../components/product-search-input';
 import { SendOrderDialog } from '../../components/send-order-dialog';
+import { ScheduleOrderDialog } from '../../components/schedule-order-dialog';
 import { ReceptionSection } from '../../components/reception-section';
 import { openOrderPdf } from '@/hooks/use-order-sending';
 
@@ -81,6 +83,8 @@ const REVERTIBLE_STATUSES: PurchaseOrderStatus[] = [
   'CANCELADO',
 ];
 const REVERT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+/** Roles que pueden crear programaciones de compra (espejo de @Roles del controller). */
+const SCHEDULE_ROLES = ['ADMIN', 'USER', 'OWNER', 'SUPERADMIN'];
 
 export default function PedidoDetailPage() {
   const params = useParams<{ id: string }>();
@@ -156,10 +160,15 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   );
   const [dirty, setDirty] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [notes, setNotes] = useState(order.notes ?? '');
   const [additionalItems, setAdditionalItems] = useState(order.additionalItems ?? '');
 
   const canSend = order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
+  const canSchedule =
+    !!user?.role &&
+    SCHEDULE_ROLES.includes(user.role) &&
+    (order.lines ?? []).length > 0;
 
   const handlePdf = async () => {
     try {
@@ -585,6 +594,20 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         >
           <FileText className="h-4 w-4" /> PDF
         </button>
+        {canSchedule && (
+          <button
+            onClick={() => setScheduleOpen(true)}
+            disabled={isDraft && dirty}
+            title={
+              isDraft && dirty
+                ? 'Guarda los cambios primero'
+                : 'Repetir este pedido de forma recurrente'
+            }
+            className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+          >
+            <CalendarClock className="h-4 w-4" /> Programar
+          </button>
+        )}
         {STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => (
           <button
             key={to}
@@ -633,6 +656,12 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       </footer>
 
       <SendOrderDialog order={order} open={sendOpen} onOpenChange={setSendOpen} />
+
+      <ScheduleOrderDialog
+        order={order}
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+      />
 
       {hasReception && <ReceptionSection order={order} />}
 
