@@ -124,5 +124,8 @@
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
+  },
+  "overrides": {
+    "socket.io-parser": ">=4.2.7"
   }
 }

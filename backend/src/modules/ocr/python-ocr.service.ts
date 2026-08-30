@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios, { AxiosInstance } from "axios";
 import { IOcrService } from "./services/ocr-service.interface";
+import { assertPublicHttpUrl } from "../../common/utils/ssrf-safe-url.util";
 
 @Injectable()
 export class PythonOcrService implements IOcrService {
@@ -72,7 +73,8 @@ export class PythonOcrService implements IOcrService {
         );
         endpoint = "/ocr/image";
       } else {
-        // URL remota
+        // URL remota — barrera SSRF: solo http(s) hacia destinos públicos
+        assertPublicHttpUrl(fileUrl);
         const response = await fetch(fileUrl);
         const buffer = Buffer.from(await response.arrayBuffer());
         formData = new FormData();

@@ -7,6 +7,7 @@ import {
 } from "./backup-introspection.service";
 import { BackupProgressRegistry } from "./backup-progress.registry";
 import { buildScopeClause } from "./backup-scope.util";
+import { quoteSqlIdent } from "./backup-sql-identifier.util";
 import { deserializeRow } from "./backup.serializer";
 import { BackupPayload, BackupScope } from "./dto/backup.dto";
 
@@ -92,11 +93,11 @@ export class BackupRestoreService {
   ): Promise<void> {
     if (scopeRes.whereText) {
       await tx.$executeRawUnsafe(
-        `DELETE FROM "${table}" WHERE ${scopeRes.whereText}`,
+        `DELETE FROM ${quoteSqlIdent(table)} WHERE ${scopeRes.whereText}`,
         ...scopeRes.params,
       );
     } else {
-      await tx.$executeRawUnsafe(`DELETE FROM "${table}"`);
+      await tx.$executeRawUnsafe(`DELETE FROM ${quoteSqlIdent(table)}`);
     }
   }
 
@@ -140,7 +141,7 @@ export class BackupRestoreService {
         for (const c of selfRefCols) {
           const val = r[c];
           if (val !== undefined && val !== null) {
-            await tx.$executeRaw`UPDATE ${Prisma.raw(`"${table}"`)} SET ${Prisma.raw(`"${c}"`)} = ${val} WHERE ${Prisma.raw(`"id"`)} = ${r.id}`;
+            await tx.$executeRaw`UPDATE ${Prisma.raw(quoteSqlIdent(table))} SET ${Prisma.raw(quoteSqlIdent(c))} = ${val} WHERE ${Prisma.raw(`"id"`)} = ${r.id}`;
           }
         }
       }
@@ -155,7 +156,7 @@ export class BackupRestoreService {
     cols: ColumnMeta[],
     rows: Record<string, unknown>[],
   ): Promise<void> {
-    const colList = cols.map((c) => `"${c.name}"`).join(", ");
+    const colList = cols.map((c) => quoteSqlIdent(c.name)).join(", ");
     const valuesSql: string[] = [];
     const params: unknown[] = [];
     let p = 1;
@@ -166,7 +167,7 @@ export class BackupRestoreService {
       });
       valuesSql.push(`(${markers.join(", ")})`);
     }
-    const sql = `INSERT INTO "${table}" (${colList}) VALUES ${valuesSql.join(", ")}`;
+    const sql = `INSERT INTO ${quoteSqlIdent(table)} (${colList}) VALUES ${valuesSql.join(", ")}`;
     await tx.$executeRawUnsafe(sql, ...params);
   }
 
