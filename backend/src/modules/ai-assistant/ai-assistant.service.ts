@@ -15,6 +15,7 @@ import {
   ProviderAdapter,
 } from "./providers/provider-adapter.interface";
 import { AiAssistantProvider } from "./config/dto/ai-assistant-config.dto";
+import { RoleAccessService } from "../role-access/role-access.service";
 
 const MAX_TOOL_TURNS = 4;
 /** Ventana de historial mandada al proveedor — evita reventar el context window en conversaciones largas (plan.md fase 6, hallazgo de code review). */
@@ -32,6 +33,9 @@ Para CUALQUIER dato numérico o de negocio (precios, compras, stock, costes de r
 Si una función no encuentra lo que el usuario pide, dilo con claridad en vez de inventar una respuesta.
 Sé breve y directo: dale al usuario la cifra o el dato que pide, sin rodeos.`;
 
+/** Añadido al prompt cuando el rol no puede ver costes (sección `recipes.cost`). */
+const NO_COST_ACCESS_PROMPT = `\n\nIMPORTANTE: este usuario NO tiene permiso para ver costes ni precios de compra. Si pregunta por importes, coste de recetas, gasto en compras, márgenes o variaciones de precio, responde con claridad que no tienes acceso a esa información para su rol. Sí puedes informarle de qué artículos se han comprado y en qué cantidades, y del stock.`;
+
 export interface AskAssistantResult {
   conversationId: string;
   answer: string;
@@ -46,6 +50,7 @@ export class AiAssistantService {
     private readonly prisma: PrismaService,
     private readonly configService: AiAssistantConfigService,
     private readonly toolRegistry: ToolRegistryService,
+    private readonly roleAccess: RoleAccessService,
     openai: OpenAiProviderAdapter,
     gemini: GeminiProviderAdapter,
     anthropic: AnthropicProviderAdapter,
@@ -58,6 +63,7 @@ export class AiAssistantService {
     userId: string,
     conversationId: string | undefined,
     userMessage: string,
+    role?: string,
   ): Promise<AskAssistantResult> {
     const config = await this.configService.resolveForRequest(tenantId);
     if (!config) {
@@ -77,8 +83,19 @@ export class AiAssistantService {
     await this.saveMessage(conversation.id, "user", userMessage);
     const history = await this.loadRecentHistory(conversation.id);
 
+    const canViewCosts = await this.roleAccess.isSectionAllowed(
+      tenantId,
+      role,
+      "recipes.cost",
+    );
+
     const messages: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "system",
+        content: canViewCosts
+          ? SYSTEM_PROMPT
+          : SYSTEM_PROMPT + NO_COST_ACCESS_PROMPT,
+      },
       ...history.map(
         (m): ChatMessage => ({
           role: m.role as ChatMessage["role"],
@@ -94,7 +111,7 @@ export class AiAssistantService {
     ];
 
     const adapter = this.adapters[config.provider];
-    const toolSchemas = this.toolRegistry.getToolSchemas();
+    const toolSchemas = this.toolRegistry.getToolSchemas({ canViewCosts });
 
     let turns = 0;
     let finalContent: string | undefined;
@@ -144,6 +161,7 @@ export class AiAssistantService {
           tenantId,
           call.name,
           call.params,
+          canViewCosts,
         );
         messages.push({
           role: "tool",
@@ -204,12 +222,14 @@ export class AiAssistantService {
     tenantId: string,
     name: string,
     params: Record<string, any>,
+    canViewCosts: boolean,
   ): Promise<string> {
     try {
       const result = await this.toolRegistry.executeTool(
         tenantId,
         name,
         params,
+        { canViewCosts },
       );
       return JSON.stringify(result);
     } catch (e: any) {

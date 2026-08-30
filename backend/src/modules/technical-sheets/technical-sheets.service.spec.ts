@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { TechnicalSheetsService } from "./technical-sheets.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import {
   CreateTemplateDto,
   UpdateTemplateDto,
@@ -12,6 +13,7 @@ import {
 describe("TechnicalSheetsService", () => {
   let service: TechnicalSheetsService;
   let mockPrismaService: any;
+  let mockRoleAccess: { isSectionAllowed: jest.Mock };
 
   const tenantId = "test-tenant-id";
   const userId = "test-user-id";
@@ -129,6 +131,12 @@ describe("TechnicalSheetsService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RoleAccessService,
+          useValue: (mockRoleAccess = {
+            isSectionAllowed: jest.fn().mockResolvedValue(true),
+          }),
         },
       ],
     }).compile();
@@ -456,6 +464,52 @@ describe("TechnicalSheetsService", () => {
       );
 
       expect(result).toBeInstanceOf(Buffer);
+    });
+
+    describe("role gating (recipes.ficha / recipes.cost)", () => {
+      beforeEach(() => {
+        mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+        mockPrismaService.technicalSheetTemplate.findFirst.mockResolvedValue(
+          mockTemplate,
+        );
+        mockPrismaService.document.create.mockResolvedValue(mockDocument);
+      });
+
+      it("blocks a full ficha when recipes.ficha is not allowed", async () => {
+        mockRoleAccess.isSectionAllowed.mockImplementation(
+          (_t: string, _r: string, key: string) =>
+            Promise.resolve(key !== "recipes.ficha"),
+        );
+        await expect(
+          service.generateTechnicalSheet(tenantId, userId, generateDto, "USER"),
+        ).rejects.toMatchObject({ response: { section: "recipes.ficha" } });
+      });
+
+      it("blocks includeCosts when recipes.cost is not allowed", async () => {
+        mockRoleAccess.isSectionAllowed.mockImplementation(
+          (_t: string, _r: string, key: string) =>
+            Promise.resolve(key !== "recipes.cost"),
+        );
+        await expect(
+          service.generateTechnicalSheet(
+            tenantId,
+            userId,
+            { ...generateDto, includeCosts: true },
+            "USER",
+          ),
+        ).rejects.toMatchObject({ response: { section: "recipes.cost" } });
+      });
+
+      it("allows recipeCardOnly regardless of ficha/cost access", async () => {
+        mockRoleAccess.isSectionAllowed.mockResolvedValue(false);
+        const buf = await service.generateTechnicalSheet(
+          tenantId,
+          userId,
+          { recipeId, recipeCardOnly: true },
+          "USER",
+        );
+        expect(buf).toBeInstanceOf(Buffer);
+      });
     });
   });
 

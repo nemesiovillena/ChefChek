@@ -19,12 +19,17 @@ import {
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 
 @ApiTags("Notificaciones de Sala")
 @ApiBearerAuth()
 @Controller("api/v1/sala-tasks")
-@UseGuards(AuthGuard, TenantGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("sala-notificaciones")
+@RequireSection("sala-notificaciones")
 export class SalaTasksController {
   constructor(private readonly salaTasksService: SalaTasksService) {}
 

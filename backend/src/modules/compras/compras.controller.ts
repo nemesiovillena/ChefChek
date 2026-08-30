@@ -79,12 +79,17 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 
 @ApiTags("Compras")
 @ApiBearerAuth()
 @Controller("api/v1/compras")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("compras")
+@RequireSection("compras")
 export class ComprasController {
   constructor(
     private readonly locationsService: LocationsService,

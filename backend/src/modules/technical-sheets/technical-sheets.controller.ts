@@ -22,11 +22,19 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @Controller("api/v1/technical-sheets")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("technical-sheets")
+// Recipe-card printing (recipeCardOnly) is reached from Recetas even when the
+// Fichas Técnicas section is hidden -> allow either. Cost/ficha checks happen
+// in TechnicalSheetsService.generate against the request body.
+@RequireSection("technical-sheets", "recipes")
 export class TechnicalSheetsController {
   constructor(
     private readonly technicalSheetsService: TechnicalSheetsService,
@@ -116,6 +124,7 @@ export class TechnicalSheetsController {
           tenantId,
           userId,
           dto,
+          req.user?.role,
         );
 
       res.set({
@@ -148,6 +157,7 @@ export class TechnicalSheetsController {
         tenantId,
         userId,
         dto,
+        req.user?.role,
       );
 
       res.set({
@@ -220,6 +230,7 @@ export class TechnicalSheetsController {
       tenantId,
       userId,
       dto,
+      req.user?.role,
     );
 
     const base64 = pdfBuffer.toString("base64");

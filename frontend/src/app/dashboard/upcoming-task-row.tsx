@@ -6,43 +6,47 @@ import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
 
 interface UpcomingTaskRowProps {
   task: UpcomingProductionTask;
-  onNavigate: () => void;
   onComplete: (e: React.MouseEvent) => void;
-  onPostpone: (e: React.MouseEvent) => void;
   completeDisabled: boolean;
+  /** Row click → production detail. Omit in read-only mode (Producción hidden). */
+  onNavigate?: () => void;
+  /** Postpone action. Omit in read-only mode. */
+  onPostpone?: (e: React.MouseEvent) => void;
+  /**
+   * Read-only: no drag-reorder, no navigation, no postpone — only "complete".
+   * Used for the restricted role that can see prep tasks but not Producción.
+   */
+  readOnly?: boolean;
 }
 
-export function UpcomingTaskRow({
+/** Shared inner content — identical in draggable and read-only rows. */
+function RowBody({
   task,
-  onNavigate,
   onComplete,
   onPostpone,
   completeDisabled,
-}: UpcomingTaskRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-  });
+  showDragHandle,
+}: {
+  task: UpcomingProductionTask;
+  onComplete: (e: React.MouseEvent) => void;
+  onPostpone?: (e: React.MouseEvent) => void;
+  completeDisabled: boolean;
+  showDragHandle: boolean;
+}) {
   const inProgress = task.status === 'IN_PROGRESS';
   const lotDate = new Date(task.lotDate);
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      onClick={onNavigate}
-      {...attributes}
-      {...listeners}
-      className={`p-stack-md md:p-stack-lg flex items-center gap-stack-sm hover:bg-surface-variant transition-colors cursor-grab active:cursor-grabbing select-none active:scale-[0.995] duration-100 ${
-        isDragging ? 'relative z-10 opacity-90 shadow-lg bg-surface-container-high' : ''
-      }`}
-    >
+    <>
       <div className="flex items-center gap-stack-xs md:gap-stack-sm min-w-0 flex-1">
-        <span
-          title="Arrastrar para reordenar"
-          className="shrink-0 flex items-center text-on-surface-variant/40 -ml-1.5"
-        >
-          <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
-        </span>
+        {showDragHandle && (
+          <span
+            title="Arrastrar para reordenar"
+            className="shrink-0 flex items-center text-on-surface-variant/40 -ml-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
+          </span>
+        )}
         <div className={`w-2 h-12 shrink-0 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
         <div className="min-w-0">
           <h4 className="font-body-lg text-body-lg text-primary truncate">{task.title}</h4>
@@ -72,7 +76,7 @@ export function UpcomingTaskRow({
             </div>
           )}
         </div>
-        {!inProgress && (
+        {!inProgress && onPostpone && (
           <button
             type="button"
             onClick={onPostpone}
@@ -94,6 +98,77 @@ export function UpcomingTaskRow({
           <span className="material-symbols-outlined text-[20px]">task_alt</span>
         </button>
       </div>
+    </>
+  );
+}
+
+function SortableRow({
+  task,
+  onNavigate,
+  onComplete,
+  onPostpone,
+  completeDisabled,
+}: Omit<UpcomingTaskRowProps, 'readOnly'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      onClick={onNavigate}
+      {...attributes}
+      {...listeners}
+      className={`p-stack-md md:p-stack-lg flex items-center gap-stack-sm hover:bg-surface-variant transition-colors cursor-grab active:cursor-grabbing select-none active:scale-[0.995] duration-100 ${
+        isDragging ? 'relative z-10 opacity-90 shadow-lg bg-surface-container-high' : ''
+      }`}
+    >
+      <RowBody
+        task={task}
+        onComplete={onComplete}
+        onPostpone={onPostpone}
+        completeDisabled={completeDisabled}
+        showDragHandle
+      />
     </div>
+  );
+}
+
+function ReadOnlyRow({
+  task,
+  onComplete,
+  completeDisabled,
+}: Pick<UpcomingTaskRowProps, 'task' | 'onComplete' | 'completeDisabled'>) {
+  return (
+    <div className="p-stack-md md:p-stack-lg flex items-center gap-stack-sm select-none">
+      <RowBody
+        task={task}
+        onComplete={onComplete}
+        completeDisabled={completeDisabled}
+        showDragHandle={false}
+      />
+    </div>
+  );
+}
+
+export function UpcomingTaskRow(props: UpcomingTaskRowProps) {
+  if (props.readOnly) {
+    return (
+      <ReadOnlyRow
+        task={props.task}
+        onComplete={props.onComplete}
+        completeDisabled={props.completeDisabled}
+      />
+    );
+  }
+  return (
+    <SortableRow
+      task={props.task}
+      onNavigate={props.onNavigate}
+      onComplete={props.onComplete}
+      onPostpone={props.onPostpone}
+      completeDisabled={props.completeDisabled}
+    />
   );
 }

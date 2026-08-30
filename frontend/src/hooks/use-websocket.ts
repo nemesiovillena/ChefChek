@@ -1,6 +1,10 @@
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlerts } from './use-alerts';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
+
+/** Prefixes of price/cost alert titles hidden from roles without `recipes.cost`. */
+const COST_ALERT_TITLE_PREFIXES = ['Cambio de precio', 'Desviación de precio'];
 import {
   getWebSocketClient,
   type NotificationEvent,
@@ -50,6 +54,8 @@ export function useWebSocketNotifications() {
   const auth = useAuth();
   const { isAuthenticated, sessionId } = auth;
   const { alerts, markAsRead: persistMarkAsRead } = useAlerts(50);
+  const { canSee } = useSectionAccess();
+  const canViewCostAlerts = canSee('recipes.cost');
   // Solo las recibidas en vivo por WebSocket durante esta sesión — el
   // histórico persistido llega vía `alerts` (React Query) y se combina más
   // abajo como estado derivado, sin duplicarlo en un useState propio.
@@ -118,10 +124,15 @@ export function useWebSocketNotifications() {
       }));
 
     return [...wsNotifications, ...persisted]
+      .filter(
+        (n) =>
+          canViewCostAlerts ||
+          !COST_ALERT_TITLE_PREFIXES.some((p) => (n.title ?? '').startsWith(p)),
+      )
       .map((n) => (locallyReadIds.has(n.id) ? { ...n, read: true } : n))
       .sort((x, y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())
       .slice(0, 50);
-  }, [wsNotifications, alerts, locallyReadIds]);
+  }, [wsNotifications, alerts, locallyReadIds, canViewCostAlerts]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,

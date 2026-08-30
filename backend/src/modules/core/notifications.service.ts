@@ -3,6 +3,15 @@ import { PrismaService } from "../../common/services/prisma.service";
 import { WebSocketService } from "../../websocket/websocket.service";
 import { NotificationEvent } from "../../websocket/types/events";
 
+/**
+ * Alert `type` values that carry monetary figures (€) in their message and must
+ * be hidden from roles without the `recipes.cost` section.
+ */
+export const COST_ALERT_TYPES: ReadonlySet<string> = new Set([
+  "PRICE_CHANGE",
+  "PRICE_AGREEMENT_DEVIATION",
+]);
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -79,13 +88,14 @@ export class NotificationsService {
     productId?: string,
   ): Promise<void> {
     const direction = newPrice > oldPrice ? "aumentado" : "disminuido";
-    const alertType = percentageChange > 25 ? "ERROR" : "WARNING";
+    const severity = percentageChange > 25 ? "ERROR" : "WARNING";
 
     await this.createNotification(tenantId, {
-      type: alertType,
+      // Semantic type so no-cost roles can filter it out (COST_ALERT_TYPES).
+      type: "PRICE_CHANGE",
+      severity,
       title: `Cambio de precio: ${productName}`,
       message: `Precio ${direction} ${Math.abs(percentageChange).toFixed(1)}%. De ${oldPrice.toFixed(2)}€ a ${newPrice.toFixed(2)}€.`,
-      severity: alertType,
       ...(productId ? { entityType: "PRODUCT", entityId: productId } : {}),
     });
   }
@@ -114,11 +124,24 @@ export class NotificationsService {
     tenantId: string,
     userId?: string,
     limit: number = 50,
+    excludeCostAlerts = false,
   ) {
     const where: any = { tenantId };
 
     if (userId) {
       where.userId = userId;
+    }
+
+    if (excludeCostAlerts) {
+      // Hide price/cost alerts from roles without `recipes.cost`. Matches both
+      // the semantic type (new alerts) and the title prefix (historical rows).
+      where.NOT = {
+        OR: [
+          { type: { in: [...COST_ALERT_TYPES] } },
+          { title: { startsWith: "Cambio de precio" } },
+          { title: { startsWith: "Desviación de precio" } },
+        ],
+      };
     }
 
     const notifications = await this.prisma.alert.findMany({

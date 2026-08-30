@@ -10,6 +10,7 @@ import {
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 
 describe("DashboardController", () => {
   let controller: DashboardController;
@@ -44,6 +45,8 @@ describe("DashboardController", () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<DashboardController>(DashboardController);
@@ -73,6 +76,7 @@ describe("DashboardController", () => {
 
       expect(mockDashboardService.calculateKPIs).toHaveBeenCalledWith(
         mockReq.tenantId,
+        mockReq.user.role,
       );
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockKPIs);

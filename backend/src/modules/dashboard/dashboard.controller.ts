@@ -19,6 +19,10 @@ import {
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { DashboardService } from "./dashboard.service";
 import {
   DashboardQueryDto,
@@ -29,7 +33,7 @@ import {
 
 @ApiTags("Dashboard")
 @Controller("api/v1/dashboard")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
@@ -40,7 +44,10 @@ export class DashboardController {
   })
   @ApiResponse({ status: 200, description: "KPIs calculados exitosamente" })
   async getKPIs(@Req() req: any) {
-    return await this.dashboardService.calculateKPIs(req.tenantId);
+    return await this.dashboardService.calculateKPIs(
+      req.tenantId,
+      req.user?.role,
+    );
   }
 
   @Get("metrics")
@@ -51,6 +58,7 @@ export class DashboardController {
   }
 
   @Get("metrics/cost-trend")
+  @RequireSection("recipes.cost")
   @ApiOperation({ summary: "Obtener tendencia de costes por período" })
   @ApiResponse({ status: 200, description: "Tendencia de costes" })
   async getCostTrend(@Req() req: any, @Query("period") period?: string) {
@@ -58,6 +66,7 @@ export class DashboardController {
   }
 
   @Get("metrics/menu-margin")
+  @RequireSection("recipes.cost")
   @ApiOperation({ summary: "Analizar márgenes financieros de menús" })
   @ApiResponse({
     status: 200,

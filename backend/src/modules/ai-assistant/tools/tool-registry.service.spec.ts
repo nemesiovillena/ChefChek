@@ -102,6 +102,57 @@ describe("ToolRegistryService", () => {
     );
   });
 
+  describe("gating por coste (recipes.cost)", () => {
+    const COST_TOOLS = [
+      "get_recipe_cost",
+      "get_price_history",
+      "get_price_increases",
+      "get_top_spend_products",
+      "get_supplier_spend",
+      "get_pending_price_deviations",
+    ];
+
+    it("omite las tools de coste del schema cuando canViewCosts=false", () => {
+      const names = service
+        .getToolSchemas({ canViewCosts: false })
+        .map((s) => s.name);
+      for (const t of COST_TOOLS) {
+        expect(names).not.toContain(t);
+      }
+      // las no monetarias siguen expuestas
+      expect(names).toContain("get_top_purchased_products");
+      expect(names).toContain("get_low_stock_products");
+      expect(names).toContain("get_product_stock");
+    });
+
+    it("mantiene las 9 tools cuando canViewCosts=true (default)", () => {
+      expect(service.getToolSchemas({ canViewCosts: true })).toHaveLength(9);
+      expect(service.getToolSchemas()).toHaveLength(9);
+    });
+
+    it("executeTool rechaza una tool de coste cuando canViewCosts=false", async () => {
+      await expect(
+        service.executeTool(
+          "t1",
+          "get_recipe_cost",
+          { recipeName: "x" },
+          { canViewCosts: false },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("executeTool permite una tool no monetaria cuando canViewCosts=false", async () => {
+      await expect(
+        service.executeTool(
+          "t1",
+          "get_top_purchased_products",
+          { period: "week" },
+          { canViewCosts: false },
+        ),
+      ).resolves.toBeDefined();
+    });
+  });
+
   it("get_price_increases: tenant A nunca ve datos de tenant B con el mismo productId", async () => {
     const resultT1 = (await service.executeTool("t1", "get_price_increases", {
       period: "week",

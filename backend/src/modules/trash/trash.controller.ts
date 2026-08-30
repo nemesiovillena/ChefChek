@@ -19,13 +19,18 @@ import {
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { TrashService } from "./trash.service";
 
 @ApiTags("Trash")
 @ApiBearerAuth()
 @Controller("api/v1/trash")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
+@RequireSection("papelera")
 export class TrashController {
   constructor(private readonly trashService: TrashService) {}
 

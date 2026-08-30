@@ -8,6 +8,7 @@ import {
   ConflictException,
 } from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
@@ -48,6 +49,8 @@ describe("UsersController", () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

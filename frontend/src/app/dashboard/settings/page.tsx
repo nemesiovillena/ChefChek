@@ -8,6 +8,7 @@ import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, ge
 import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2, MessageSquare } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
+import { RoleAccessPanel } from './components/role-access-panel';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
@@ -522,6 +523,11 @@ export default function SettingsPage() {
         {/* Module Configuration */}
         <div className="mt-6">
           <ModuleListWidget />
+        </div>
+
+        {/* Permisos por rol (OWNER/ADMIN): qué apartados ven USER y VIEWER */}
+        <div className="mt-6">
+          <RoleAccessPanel />
         </div>
       </div>
     </div>
