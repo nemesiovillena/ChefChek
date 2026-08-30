@@ -254,6 +254,74 @@ export class ProductsService {
     return matches;
   }
 
+  /**
+   * Búsqueda de artículo tolerante para consultas conversacionales (asistente
+   * IA, dictado por voz). A diferencia de `findNameMatches` (afinada para el
+   * aviso de duplicados: primera palabra / contención mutua), aquí se exige que
+   * TODOS los tokens significativos de la consulta aparezcan en el nombre
+   * normalizado (`AND` de `ILIKE`). Ej.: "lomo alto de añojo" encuentra
+   * "CR.AÑOJO FRES LOMO ALTO S/H S/T PREMIUM *". Si el `AND` no devuelve nada,
+   * cae a `OR` (al menos un token). Sin `pg_trgm`, sin migración.
+   */
+  async searchByNameLoose(
+    tenantId: string,
+    query: string,
+  ): Promise<{ id: string; name: string }[]> {
+    const STOPWORDS = new Set([
+      "de",
+      "del",
+      "la",
+      "el",
+      "los",
+      "las",
+      "con",
+      "sin",
+      "y",
+    ]);
+    const normalized = (query ?? "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[-/(),.*]/g, " ");
+    const tokens = normalized
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+
+    if (tokens.length === 0) {
+      return [];
+    }
+
+    const normNameSql = Prisma.sql`translate(lower(trim(regexp_replace(p.name, '[-/(),.*]', ' ', 'g'))), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO})`;
+    const likeClauses = tokens.map(
+      (t) => Prisma.sql`${normNameSql} LIKE ${"%" + t + "%"}`,
+    );
+    const matchCountSql = Prisma.sql`(${Prisma.join(
+      tokens.map(
+        (t) =>
+          Prisma.sql`(CASE WHEN ${normNameSql} LIKE ${"%" + t + "%"} THEN 1 ELSE 0 END)`,
+      ),
+      " + ",
+    )})`;
+
+    const run = (whereClauses: Prisma.Sql, take: number) =>
+      this.prisma.$queryRaw<{ id: string; name: string }[]>(Prisma.sql`
+        SELECT p.id, p.name
+        FROM products p
+        WHERE p."tenantId" = ${tenantId}
+          AND p."deletedAt" IS NULL
+          AND (${whereClauses})
+        ORDER BY ${matchCountSql} DESC, LENGTH(p.name), p.name
+        LIMIT ${take}
+      `);
+
+    const andMatches = await run(Prisma.join(likeClauses, " AND "), 10);
+    if (andMatches.length > 0) {
+      return andMatches;
+    }
+    return run(Prisma.join(likeClauses, " OR "), 5);
+  }
+
   // Guarda el descarte en ambos sentidos: al editar cualquiera de los dos
   // artículos, el aviso de duplicado ya no debe mostrar al otro.
   async dismissDuplicate(

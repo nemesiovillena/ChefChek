@@ -1496,6 +1496,41 @@ describe("ProductsService", () => {
     });
   });
 
+  describe("searchByNameLoose", () => {
+    it("devuelve [] sin tocar la BD si solo hay stopwords / tokens cortos", async () => {
+      prismaService.$queryRaw.mockClear();
+      const res = await service.searchByNameLoose(tenantId, "de la el y");
+      expect(res).toEqual([]);
+      expect(prismaService.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("si el AND de tokens encuentra resultados, no ejecuta el fallback OR", async () => {
+      prismaService.$queryRaw.mockResolvedValueOnce([
+        { id: "p1", name: "CR.AÑOJO FRES LOMO ALTO S/H S/T PREMIUM *" },
+      ]);
+      const res = await service.searchByNameLoose(
+        tenantId,
+        "lomo alto de añojo",
+      );
+      expect(res).toEqual([
+        { id: "p1", name: "CR.AÑOJO FRES LOMO ALTO S/H S/T PREMIUM *" },
+      ]);
+      expect(prismaService.$queryRaw).toHaveBeenCalledTimes(1);
+    });
+
+    it("si el AND no encuentra nada, reintenta con OR", async () => {
+      prismaService.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: "p2", name: "LOMO DE CERDO ADOBADO" }]);
+      const res = await service.searchByNameLoose(
+        tenantId,
+        "lomo iberico bellota",
+      );
+      expect(res).toEqual([{ id: "p2", name: "LOMO DE CERDO ADOBADO" }]);
+      expect(prismaService.$queryRaw).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("edge cases", () => {
     it("should handle large page numbers gracefully", async () => {
       prismaService.$queryRaw

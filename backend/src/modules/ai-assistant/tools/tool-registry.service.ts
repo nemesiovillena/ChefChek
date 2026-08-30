@@ -13,6 +13,8 @@ import { createPriceHistoryTool } from "./price-history.tool";
 import { createPendingPriceDeviationsTool } from "./pending-price-deviations.tool";
 import { createRecipeCostTool } from "./recipe-cost.tool";
 import { createStockTools } from "./stock.tool";
+import { createLotTraceabilityTool } from "./lot-traceability.tool";
+import { LotService } from "../../albaranes/services/lot.service";
 
 /**
  * Tools that surface monetary figures (€): recipe cost, purchase spend, price
@@ -44,6 +46,7 @@ export class ToolRegistryService {
     productsService: ProductsService,
     recipesService: RecipesService,
     warehouses: WarehousesService,
+    lotService: LotService,
   ) {
     this.tools = [
       createPriceIncreasesTool(prisma),
@@ -53,6 +56,7 @@ export class ToolRegistryService {
       createPendingPriceDeviationsTool(priceAgreement),
       createRecipeCostTool(recipesService),
       ...createStockTools(warehouses, productsService),
+      createLotTraceabilityTool(lotService, productsService),
     ];
   }
 

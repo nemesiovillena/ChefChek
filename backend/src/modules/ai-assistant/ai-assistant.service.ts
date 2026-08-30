@@ -27,11 +27,25 @@ const TOOL_LIMIT_MESSAGE =
 const PROVIDER_ERROR_MESSAGE =
   "He tenido un problema para conectar con el proveedor de IA. Revisa la configuración en Ajustes → Asistente IA (modelo/API key) e inténtalo de nuevo.";
 
-const SYSTEM_PROMPT = `Eres "Chefchek", el asistente de IA de la aplicación ChefChek para hostelería.
+const SYSTEM_PROMPT_BASE = `Eres "Chefchek", el asistente de IA de la aplicación ChefChek para hostelería.
 Respondes SIEMPRE en español, con un tono cercano y profesional.
-Para CUALQUIER dato numérico o de negocio (precios, compras, stock, costes de receta, proveedores) DEBES usar una de las funciones disponibles — nunca inventes cifras ni asumas datos que no te haya devuelto una función.
+Para CUALQUIER dato numérico o de negocio (precios, compras, stock, costes de receta, proveedores, lotes) DEBES usar una de las funciones disponibles — nunca inventes cifras ni asumas datos que no te haya devuelto una función.
 Si una función no encuentra lo que el usuario pide, dilo con claridad en vez de inventar una respuesta.
 Sé breve y directo: dale al usuario la cifra o el dato que pide, sin rodeos.`;
+
+/**
+ * Ancla temporal para que el LLM pueda resolver expresiones relativas ("la
+ * semana pasada", "este mes") al llamar a las funciones. Sin esto el modelo
+ * adivina la fecha y falla.
+ */
+function buildSystemPrompt(now: Date): string {
+  const hoy = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    dateStyle: "full",
+  }).format(now);
+  return `${SYSTEM_PROMPT_BASE}
+Hoy es ${hoy} (zona horaria Europe/Madrid). "La semana pasada" = de lunes a domingo de la semana natural anterior; "esta semana" = lunes a hoy.`;
+}
 
 /** Añadido al prompt cuando el rol no puede ver costes (sección `recipes.cost`). */
 const NO_COST_ACCESS_PROMPT = `\n\nIMPORTANTE: este usuario NO tiene permiso para ver costes ni precios de compra. Si pregunta por importes, coste de recetas, gasto en compras, márgenes o variaciones de precio, responde con claridad que no tienes acceso a esa información para su rol. Sí puedes informarle de qué artículos se han comprado y en qué cantidades, y del stock.`;
@@ -89,12 +103,13 @@ export class AiAssistantService {
       "recipes.cost",
     );
 
+    const systemPrompt = buildSystemPrompt(new Date());
     const messages: ChatMessage[] = [
       {
         role: "system",
         content: canViewCosts
-          ? SYSTEM_PROMPT
-          : SYSTEM_PROMPT + NO_COST_ACCESS_PROMPT,
+          ? systemPrompt
+          : systemPrompt + NO_COST_ACCESS_PROMPT,
       },
       ...history.map(
         (m): ChatMessage => ({

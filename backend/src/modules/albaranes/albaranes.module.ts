@@ -43,6 +43,7 @@ import { OcrConfigModule } from "../ocr-config/ocr-config.module";
     SupplierMatchingService,
     LineMatchingService,
     AlbaranStockService,
+    LotService,
   ],
 })
 export class AlbaranesModule {}

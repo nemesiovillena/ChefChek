@@ -7,6 +7,7 @@ import { PriceAgreementService } from "../../compras/services/price-agreement.se
 import { ProductsService } from "../../products/products.service";
 import { RecipesService } from "../../recipes/recipes.service";
 import { WarehousesService } from "../../almacenes/almacenes.service";
+import { LotService } from "../../albaranes/services/lot.service";
 
 /**
  * Datos por tenant, para verificar que executeTool nunca cruza tenants aunque
@@ -47,6 +48,7 @@ describe("ToolRegistryService", () => {
   let productsMock: any;
   let recipesMock: any;
   let warehousesMock: any;
+  let lotServiceMock: any;
 
   beforeEach(async () => {
     prismaMock = {
@@ -66,12 +68,16 @@ describe("ToolRegistryService", () => {
       bySupplier: jest.fn().mockResolvedValue([]),
     };
     priceAgreementMock = { findAll: jest.fn().mockResolvedValue([]) };
-    productsMock = { findNameMatches: jest.fn().mockResolvedValue([]) };
+    productsMock = {
+      findNameMatches: jest.fn().mockResolvedValue([]),
+      searchByNameLoose: jest.fn().mockResolvedValue([]),
+    };
     recipesMock = {
       findNameMatches: jest.fn().mockResolvedValue([]),
       calculateRecipeCost: jest.fn(),
     };
     warehousesMock = { getStock: jest.fn().mockResolvedValue([]) };
+    lotServiceMock = { findLots: jest.fn().mockResolvedValue([]) };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -82,14 +88,15 @@ describe("ToolRegistryService", () => {
         { provide: ProductsService, useValue: productsMock },
         { provide: RecipesService, useValue: recipesMock },
         { provide: WarehousesService, useValue: warehousesMock },
+        { provide: LotService, useValue: lotServiceMock },
       ],
     }).compile();
     service = module.get(ToolRegistryService);
   });
 
-  it("expone 9 tools con schema sin tenantId en las propiedades", () => {
+  it("expone 10 tools con schema sin tenantId en las propiedades", () => {
     const schemas = service.getToolSchemas();
-    expect(schemas).toHaveLength(9);
+    expect(schemas).toHaveLength(10);
     for (const schema of schemas) {
       expect(schema.parameters.properties).not.toHaveProperty("tenantId");
       expect(schema.parameters.required ?? []).not.toContain("tenantId");
@@ -123,11 +130,12 @@ describe("ToolRegistryService", () => {
       expect(names).toContain("get_top_purchased_products");
       expect(names).toContain("get_low_stock_products");
       expect(names).toContain("get_product_stock");
+      expect(names).toContain("get_lot_traceability");
     });
 
-    it("mantiene las 9 tools cuando canViewCosts=true (default)", () => {
-      expect(service.getToolSchemas({ canViewCosts: true })).toHaveLength(9);
-      expect(service.getToolSchemas()).toHaveLength(9);
+    it("mantiene las 10 tools cuando canViewCosts=true (default)", () => {
+      expect(service.getToolSchemas({ canViewCosts: true })).toHaveLength(10);
+      expect(service.getToolSchemas()).toHaveLength(10);
     });
 
     it("executeTool rechaza una tool de coste cuando canViewCosts=false", async () => {
@@ -165,6 +173,51 @@ describe("ToolRegistryService", () => {
     expect(resultT1[0].productName).toBe("Salmón (t1)");
     // t2 tiene una bajada de precio, no una subida -> no debe aparecer
     expect(resultT2).toHaveLength(0);
+  });
+
+  describe("get_lot_traceability", () => {
+    it("está disponible aunque canViewCosts=false (el lote no es dato monetario)", async () => {
+      lotServiceMock.findLots.mockResolvedValueOnce([
+        {
+          productName: "CR.AÑOJO FRES LOMO ALTO",
+          lotNumber: "A1",
+          supplierName: "Mar Menor",
+          albaranNumber: "12345",
+          albaranInternalNumber: "000123",
+          albaranDate: "2026-08-24T00:00:00.000Z",
+          quantity: 3,
+          unit: "kg",
+          expiryDate: null,
+          source: "lot_record",
+        },
+      ]);
+      productsMock.searchByNameLoose.mockResolvedValueOnce([
+        { id: "p1", name: "CR.AÑOJO FRES LOMO ALTO" },
+      ]);
+
+      const res = (await service.executeTool(
+        "t1",
+        "get_lot_traceability",
+        { productName: "lomo alto añojo", supplierName: "Mar Menor" },
+        { canViewCosts: false },
+      )) as any;
+
+      expect(res.lotes).toHaveLength(1);
+      expect(res.lotes[0]).not.toHaveProperty("source");
+      expect(lotServiceMock.findLots).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: "t1", productIds: ["p1"] }),
+      );
+    });
+
+    it("pide artículo o lote si no se da ninguno", async () => {
+      const res = (await service.executeTool(
+        "t1",
+        "get_lot_traceability",
+        {},
+      )) as any;
+      expect(res.error).toMatch(/artículo o el número de lote/i);
+      expect(lotServiceMock.findLots).not.toHaveBeenCalled();
+    });
   });
 
   it("get_top_purchased_products inyecta tenantId al servicio subyacente, no al LLM", async () => {
