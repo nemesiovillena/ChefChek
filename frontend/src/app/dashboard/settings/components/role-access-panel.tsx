@@ -25,6 +25,9 @@ const PARENT_INDEPENDENT_SUBS = new Set(['production.tasks']);
  * "Permisos por rol": lets OWNER/ADMIN choose which sections USER and VIEWER
  * see in this tenant. ADMIN and above are never affected. Absence of a row ⇒
  * allowed, so the feature only ever removes access.
+ *
+ * Styling: M3 tokens (var(--...)) so it renders correctly in light and dark —
+ * matches ai-assistant-config-section / smtp-config-section.
  */
 export function RoleAccessPanel() {
   const { user } = useAuth();
@@ -34,23 +37,23 @@ export function RoleAccessPanel() {
   if (!isManager) return null;
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <div className="flex items-center gap-2 mb-1">
-        <ShieldCheck className="h-5 w-5 text-indigo-600" />
-        <h2 className="text-xl font-semibold">Permisos por rol</h2>
-      </div>
-      <p className="text-sm text-gray-500 mb-4">
+    <section className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-5">
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--on-surface)]">
+        <ShieldCheck className="h-5 w-5 text-[var(--primary)]" />
+        Permisos por rol
+      </h2>
+      <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
         Elige qué apartados ven los roles <strong>Usuario</strong> y <strong>Visor</strong> de tu
         organización. No afecta a administradores. Los cambios se aplican la próxima vez que el
         usuario recargue.
       </p>
 
       {isLoading || !data ? (
-        <div className="text-sm text-gray-500 py-4">Cargando…</div>
+        <div className="py-6 text-sm text-[var(--on-surface-variant)]">Cargando…</div>
       ) : (
         <RoleAccessMatrix key={JSON.stringify({ u: data.USER, v: data.VIEWER })} config={data} />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -115,7 +118,7 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
     <td className="px-3 py-2 text-center">
       <input
         type="checkbox"
-        className="h-4 w-4 accent-indigo-600 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+        className="h-4 w-4 cursor-pointer accent-[var(--primary)] [color-scheme:light_dark] disabled:cursor-not-allowed disabled:opacity-40"
         checked={draft[col][sectionKey] ?? true}
         disabled={disabled}
         onChange={() => toggle(col, sectionKey)}
@@ -125,14 +128,14 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto">
+    <div className="mt-4 space-y-4">
+      <div className="overflow-x-auto rounded-xl border border-[var(--outline-variant)]">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 text-gray-500">
+            <tr className="border-b border-[var(--outline-variant)] bg-[var(--surface-container-low)] text-[var(--on-surface-variant)]">
               <th className="px-3 py-2 text-left font-medium">Apartado</th>
-              <th className="px-3 py-2 text-center font-medium w-24">Usuario</th>
-              <th className="px-3 py-2 text-center font-medium w-24">Visor</th>
+              <th className="w-24 px-3 py-2 text-center font-medium">Usuario</th>
+              <th className="w-24 px-3 py-2 text-center font-medium">Visor</th>
             </tr>
           </thead>
           <tbody>
@@ -140,8 +143,8 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
               const kids = childrenOf(parent.key);
               return (
                 <Fragment key={parent.key}>
-                  <tr className="border-b border-gray-100">
-                    <td className="px-3 py-2 text-gray-800">{parent.label}</td>
+                  <tr className="border-b border-[var(--outline-variant)]">
+                    <td className="px-3 py-2 text-[var(--on-surface)]">{parent.label}</td>
                     <Cell col="USER" sectionKey={parent.key} />
                     <Cell col="VIEWER" sectionKey={parent.key} />
                   </tr>
@@ -150,8 +153,13 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
                     const viewerNA = child.key === 'recipes.edit';
                     const independent = PARENT_INDEPENDENT_SUBS.has(child.key);
                     return (
-                      <tr key={child.key} className="border-b border-gray-100 bg-gray-50/60">
-                        <td className="px-3 py-2 pl-8 text-gray-500">└ {child.label}</td>
+                      <tr
+                        key={child.key}
+                        className="border-b border-[var(--outline-variant)] bg-[var(--surface-container)]"
+                      >
+                        <td className="py-2 pl-8 pr-3 text-[var(--on-surface-variant)]">
+                          └ {child.label}
+                        </td>
                         <Cell
                           col="USER"
                           sectionKey={child.key}
@@ -180,11 +188,13 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
           type="button"
           onClick={handleSave}
           disabled={!dirty || updateMutation.isPending}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {updateMutation.isPending ? 'Guardando…' : 'Guardar'}
         </button>
-        {dirty && <span className="text-xs text-amber-600">Cambios sin guardar</span>}
+        {dirty && (
+          <span className="text-xs font-medium text-[var(--primary)]">Cambios sin guardar</span>
+        )}
       </div>
     </div>
   );
