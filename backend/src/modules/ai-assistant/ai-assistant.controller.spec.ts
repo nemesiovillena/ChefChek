@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { AiAssistantController } from "./ai-assistant.controller";
 import { AiAssistantService } from "./ai-assistant.service";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { ModuleGuard } from "../../guards/module.guard";
 import { RolesGuard } from "../../guards/roles.guard";
@@ -28,6 +29,8 @@ describe("AiAssistantController", () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
+      .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(AiAssistantController);
   });
@@ -35,7 +38,13 @@ describe("AiAssistantController", () => {
   it("ask: pasa tenantId/userId del request al servicio, nunca del body", async () => {
     const req = { tenantId: "t1", user: { id: "u1" } };
     await controller.ask(req, { message: "hola", conversationId: undefined });
-    expect(serviceMock.ask).toHaveBeenCalledWith("t1", "u1", undefined, "hola");
+    expect(serviceMock.ask).toHaveBeenCalledWith(
+      "t1",
+      "u1",
+      undefined,
+      "hola",
+      undefined,
+    );
   });
 
   it("listConversations: scoped a tenantId/userId del request", async () => {

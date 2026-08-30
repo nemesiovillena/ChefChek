@@ -3,6 +3,7 @@ import { TechnicalSheetsController } from "./technical-sheets.controller";
 import { TechnicalSheetsService } from "./technical-sheets.service";
 import { TemplateType } from "./dto/technical-sheets.dto";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
@@ -41,6 +42,8 @@ describe("TechnicalSheetsController", () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -178,6 +181,7 @@ describe("TechnicalSheetsController", () => {
         "tenant-1",
         "user-1",
         dto,
+        mockReq.user?.role,
       );
       expect(mockRes.set).toHaveBeenCalled();
       expect(mockRes.send).toHaveBeenCalledWith(pdfBuffer);
@@ -233,6 +237,7 @@ describe("TechnicalSheetsController", () => {
         "tenant-1",
         "user-1",
         dto,
+        mockReq.user?.role,
       );
       expect(mockRes.set).toHaveBeenCalled();
       expect(mockRes.send).toHaveBeenCalledWith(pdfBuffer);
@@ -344,6 +349,7 @@ describe("TechnicalSheetsController", () => {
         "tenant-1",
         "user-1",
         dto,
+        mockReq.user?.role,
       );
       expect(result.success).toBe(true);
       expect(result.data.base64).toBe(pdfBuffer.toString("base64"));

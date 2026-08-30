@@ -123,5 +123,17 @@ describe("GlobalExceptionFilter", () => {
         expect(body.error.code).toBe(code);
       });
     });
+
+    it("preserves a caller-supplied string `error` field as the code", () => {
+      process.env.NODE_ENV = "test";
+      const body = catchWith(
+        new HttpException(
+          { error: "SECTION_HIDDEN", section: "recipes.cost", message: "nope" },
+          403,
+        ),
+      );
+      expect(body.error.code).toBe("SECTION_HIDDEN");
+      expect(body.error.message).toBe("nope");
+    });
   });
 });

@@ -16,11 +16,16 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @Controller("api/v1/ai-assistant")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("asistente-ia")
+@RequireSection("asistente-ia")
 @Roles("ADMIN", "OWNER", "SUPERADMIN", "USER", "VIEWER")
 export class AiAssistantController {
   constructor(private readonly assistantService: AiAssistantService) {}
@@ -37,6 +42,7 @@ export class AiAssistantController {
       req.user.id,
       dto.conversationId,
       dto.message,
+      req.user?.role,
     );
     return { success: true, data };
   }

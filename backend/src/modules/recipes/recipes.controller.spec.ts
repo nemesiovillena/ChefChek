@@ -1,8 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RecipesController } from "./recipes.controller";
 import { RecipesService } from "./recipes.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
@@ -43,7 +45,13 @@ describe("RecipesController", () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RecipesController],
-      providers: [{ provide: RecipesService, useValue: mockRecipesService }],
+      providers: [
+        { provide: RecipesService, useValue: mockRecipesService },
+        {
+          provide: RoleAccessService,
+          useValue: { isSectionAllowed: jest.fn().mockResolvedValue(true) },
+        },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -52,6 +60,8 @@ describe("RecipesController", () => {
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -94,7 +104,11 @@ describe("RecipesController", () => {
 
       const result = await controller.findAll(mockReq as any, {});
 
-      expect(mockRecipesService.findAll).toHaveBeenCalledWith("tenant-1", {});
+      expect(mockRecipesService.findAll).toHaveBeenCalledWith(
+        "tenant-1",
+        {},
+        true,
+      );
       expect(result).toEqual({
         success: true,
         data: recipes,
@@ -112,6 +126,7 @@ describe("RecipesController", () => {
       expect(mockRecipesService.findAll).toHaveBeenCalledWith(
         "tenant-1",
         query,
+        true,
       );
     });
   });
@@ -125,6 +140,7 @@ describe("RecipesController", () => {
       expect(mockRecipesService.findOne).toHaveBeenCalledWith(
         "tenant-1",
         "recipe-1",
+        true,
       );
       expect(result).toEqual({
         success: true,

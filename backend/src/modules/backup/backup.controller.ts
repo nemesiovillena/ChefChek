@@ -18,6 +18,10 @@ import type { Response } from "express";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { BackupService } from "./backup.service";
 import { CreateBackupDto, RestoreExistingDto } from "./dto/backup.dto";
@@ -29,7 +33,8 @@ const RESTORE_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
  * global en superadmin-backup.controller.ts.
  */
 @Controller("api/v1/backups")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
+@RequireSection("backups")
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
 

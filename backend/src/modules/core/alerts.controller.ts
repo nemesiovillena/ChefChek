@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { Roles } from "../../decorators/roles.decorator";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -20,7 +21,10 @@ import { RolesGuard } from "../../guards/roles.guard";
 @Controller("api/v1/alerts")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class AlertsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly roleAccess: RoleAccessService,
+  ) {}
 
   @Get()
   @Roles("ADMIN", "USER", "VIEWER")
@@ -29,10 +33,16 @@ export class AlertsController {
       "Listar alertas del tenant (para hidratar la campana de Notificaciones)",
   })
   async findAll(@Query("limit") limit: string | undefined, @Req() req: any) {
+    const canViewCosts = await this.roleAccess.isSectionAllowed(
+      req.tenantId,
+      req.user?.role,
+      "recipes.cost",
+    );
     const result = await this.notificationsService.getUserNotifications(
       req.tenantId,
       undefined,
       limit ? parseInt(limit, 10) : 50,
+      !canViewCosts,
     );
 
     return {

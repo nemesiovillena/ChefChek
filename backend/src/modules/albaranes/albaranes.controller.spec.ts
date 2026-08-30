@@ -4,6 +4,7 @@ import { AlbaranesController } from "./albaranes.controller";
 import { AlbaranesService } from "./albaranes.service";
 import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { AuthGuard } from "../../guards/auth.guard";
+import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { ModuleGuard } from "../../guards/module.guard";
 
@@ -43,6 +44,8 @@ describe("AlbaranesController", () => {
       .overrideGuard(TenantGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(ModuleGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SectionAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

@@ -132,7 +132,7 @@ export class UsersController {
 ### 1. Chain de Guards
 
 ```
-Request → AuthGuard → TenantGuard → RolesGuard → Controller
+Request → AuthGuard → TenantGuard → RolesGuard → ModuleGuard → SectionAccessGuard → Controller
 ```
 
 **AuthGuard:**
@@ -149,6 +149,68 @@ Request → AuthGuard → TenantGuard → RolesGuard → Controller
 - Valida permisos del usuario
 - Verifica jerarquía de roles
 - Bloquea si insuficiente
+
+**ModuleGuard** (`@RequireModule("x")`):
+- Bloquea si el módulo `x` está desactivado para el tenant (per-tenant, ver
+  `MODULE_REGISTRY`). SUPERADMIN lo omite.
+
+**SectionAccessGuard** (`@RequireSection(...keys)`):
+- Capa de visibilidad **por rol, por tenant** encima de los módulos.
+- Solo afecta a `USER` y `VIEWER`; `ADMIN`/`OWNER`/`SUPERADMIN` siempre pasan.
+- Sin configuración guardada ⇒ todo permitido (la feature solo **resta** acceso).
+- Metadata de clase Y de método se evalúan por separado: `(alguna key de clase
+  permitida O sin keys de clase) Y (alguna key de método permitida O sin keys)`.
+- `@RequireSectionAny(...)` a nivel de handler **reemplaza** el gate de clase
+  (OR entre sus keys). Para un endpoint que debe seguir accesible con la sección
+  de su controlador oculta — p. ej. `PUT /production/orders/:id/complete` con
+  `@RequireSectionAny("production","production.tasks")`.
+- Rechaza con `403 { error: "SECTION_HIDDEN", section }`. `GlobalExceptionFilter`
+  preserva `error` como `code` (`errorResponse.error.code === "SECTION_HIDDEN"`);
+  el frontend matchea ese code (fallback: prefijo del mensaje).
+
+## Acceso por Sección (SectionAccessGuard)
+
+Módulo `backend/src/modules/role-access/`. Permite que OWNER/ADMIN elija, desde
+**Configuración → "Permisos por rol"**, qué apartados ven los roles `USER` y
+`VIEWER` de su organización.
+
+### Almacenamiento
+
+Reutiliza la tabla `Configuration` (`@@unique([tenantId, key])`), igual que el
+sistema de módulos:
+
+- `roleAccess.USER.<sectionKey> = "true" | "false"`
+- `roleAccess.VIEWER.<sectionKey> = "true" | "false"`
+- `category = "ROLE_ACCESS"`
+- Ausencia de fila ⇒ permitido.
+
+### Secciones
+
+`backend/src/modules/role-access/constants/section-registry.ts` — `SECTION_REGISTRY`.
+Secciones ligadas a módulo (heredan su id: `recipes`, `production`, `almacenes`,
+`compras`, `articulos`, `proveedores`, `menus`, `escandallos`, `appcc`,
+`allergens`, `digital-menu`, `conocimiento`, `technical-sheets`,
+`sala-notificaciones`, `sala`, `asistente-ia`), transversales sin módulo
+(`historico-precios`, `sprint`, `papelera`, `backups`) y sub-capacidades:
+
+| Sub-key | Efecto cuando está en `false` |
+|---|---|
+| `recipes.cost` | 403 en `GET /recipes/:id/calculate` y `metrics/*` de coste; `GET /recipes` y `GET /recipes/:id` devuelven el payload **sin** coste/PVP/márgenes (`formatRecipeResponse(recipe, includeCost)`); KPIs del dashboard sin importes €; alertas de precio (`PRICE_CHANGE`/`PRICE_AGREEMENT_DEVIATION`) filtradas de `/v1/alerts` y del feed WebSocket; Asistente IA sin las 6 tools de coste (`get_recipe_cost`, `get_price_history`, `get_price_increases`, `get_top_spend_products`, `get_supplier_spend`, `get_pending_price_deviations`) + aviso en el system prompt |
+| `recipes.ficha` | 403 al generar ficha técnica (salvo `recipeCardOnly:true`, la "impresión de receta") |
+| `recipes.edit` | 403 en escrituras de recetas; UI de solo lectura. Solo afecta a `USER` (`VIEWER` ya es RO) |
+| `production.tasks` | Permite completar tareas de preparación desde el dashboard aunque `production` esté oculto (`PUT /production/orders/:id/complete`) |
+
+Una sección ligada a un módulo desactivado para el tenant ⇒ `false` para todos
+(no se muestra en la pantalla de configuración).
+
+### Frontend
+
+- `GET /api/v1/role-access/me` → mapa plano `{ sectionKey: boolean }` del usuario.
+- Hook `useSectionAccess()` (store compartido + `useSyncExternalStore`) →
+  `canSee(sectionKey)`.
+- `nav-config.ts`: cada `NavItem` tiene `sectionKey` (fallback a `moduleId`);
+  `layout.tsx` filtra nav y redirige rutas ocultas a `/dashboard`.
+- `GET/PUT /api/v1/role-access` (`@Roles("ADMIN")`) para la pantalla de config.
 
 ### 2. Validación de Permisos en Servicios
 

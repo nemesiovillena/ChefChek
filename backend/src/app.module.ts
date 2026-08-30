@@ -58,6 +58,7 @@ import { CostingConfigModule } from "./modules/costing-config/costing-config.mod
 import { BackupModule } from "./modules/backup/backup.module";
 import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
 import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
+import { RoleAccessModule } from "./modules/role-access/role-access.module";
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
     GuardsModule,
     WebSocketModule,
     ModulesModule,
+    RoleAccessModule,
     SuperadminModule,
     BackupModule,
   ],

@@ -21,6 +21,10 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
 import { DigitalMenuService } from "./digital-menu.service";
 import {
   CreateDigitalMenuConfigDto,
@@ -32,8 +36,9 @@ import {
 
 @ApiTags("DigitalMenu")
 @Controller("digital-menu")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("digital-menu")
+@RequireSection("digital-menu")
 export class DigitalMenuController {
   constructor(private readonly digitalMenuService: DigitalMenuService) {}
 

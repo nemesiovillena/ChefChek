@@ -197,6 +197,8 @@ describe("NotificationsService", () => {
 
       expect(mockPrismaService.alert.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
+          type: "PRICE_CHANGE",
+          alertType: "PRICE_CHANGE",
           severity: "WARNING",
           title: "Cambio de precio: Aceite",
           message: "Precio aumentado 20.0%. De 10.00€ a 12.00€.",
@@ -278,6 +280,27 @@ describe("NotificationsService", () => {
       const result = await service.getUserNotifications("tenant-1");
 
       expect(result.data).toEqual([]);
+    });
+
+    it("excludes price/cost alerts when excludeCostAlerts is set", async () => {
+      mockPrismaService.alert.findMany.mockResolvedValue([]);
+
+      await service.getUserNotifications("tenant-1", undefined, 50, true);
+
+      expect(mockPrismaService.alert.findMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: "tenant-1",
+          NOT: {
+            OR: [
+              { type: { in: ["PRICE_CHANGE", "PRICE_AGREEMENT_DEVIATION"] } },
+              { title: { startsWith: "Cambio de precio" } },
+              { title: { startsWith: "Desviación de precio" } },
+            ],
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
     });
   });
 

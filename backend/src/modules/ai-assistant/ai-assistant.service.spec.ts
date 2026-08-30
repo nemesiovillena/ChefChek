@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AiAssistantService } from "./ai-assistant.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { AiAssistantConfigService } from "./config/ai-assistant-config.service";
 import { ToolRegistryService } from "./tools/tool-registry.service";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
@@ -87,6 +88,7 @@ describe("AiAssistantService", () => {
   let configMock: any;
   let toolRegistryMock: any;
   let openaiMock: any;
+  let roleAccessMock: { isSectionAllowed: jest.Mock };
 
   beforeEach(async () => {
     prismaMock = makePrismaMock();
@@ -120,6 +122,12 @@ describe("AiAssistantService", () => {
         { provide: OpenAiProviderAdapter, useValue: openaiMock },
         { provide: GeminiProviderAdapter, useValue: {} },
         { provide: AnthropicProviderAdapter, useValue: {} },
+        {
+          provide: RoleAccessService,
+          useValue: (roleAccessMock = {
+            isSectionAllowed: jest.fn().mockResolvedValue(true),
+          }),
+        },
       ],
     }).compile();
     service = module.get(AiAssistantService);
@@ -137,6 +145,32 @@ describe("AiAssistantService", () => {
     const result = await service.ask("t1", "u1", undefined, "hola chefchek");
     expect(result.answer).toBe("Todo bien por aquí.");
     expect(toolRegistryMock.executeTool).not.toHaveBeenCalled();
+  });
+
+  it("rol sin acceso a coste: pide schema y ejecuta tools con canViewCosts=false", async () => {
+    roleAccessMock.isSectionAllowed.mockImplementation(
+      (_t: string, _r: string, key: string) =>
+        Promise.resolve(key !== "recipes.cost"),
+    );
+    openaiMock.chat
+      .mockResolvedValueOnce({
+        toolCalls: [
+          { id: "c1", name: "get_top_purchased_products", params: {} },
+        ],
+      })
+      .mockResolvedValueOnce({ content: "listo" });
+
+    await service.ask("t1", "u1", undefined, "¿compramos tomate?", "USER");
+
+    expect(toolRegistryMock.getToolSchemas).toHaveBeenCalledWith({
+      canViewCosts: false,
+    });
+    expect(toolRegistryMock.executeTool).toHaveBeenCalledWith(
+      "t1",
+      "get_top_purchased_products",
+      {},
+      { canViewCosts: false },
+    );
   });
 
   it("respuesta con 1 tool call: ejecuta la tool y vuelve a llamar al provider", async () => {
@@ -163,6 +197,7 @@ describe("AiAssistantService", () => {
       "t1",
       "get_top_purchased_products",
       { period: "week" },
+      { canViewCosts: true },
     );
     expect(result.answer).toBe("Se compró más Harina (500 kg).");
     expect(openaiMock.chat).toHaveBeenCalledTimes(2);
@@ -224,12 +259,14 @@ describe("AiAssistantService", () => {
       "t1",
       "tool_a",
       {},
+      { canViewCosts: true },
     );
     expect(toolRegistryMock.executeTool).toHaveBeenNthCalledWith(
       2,
       "t1",
       "tool_b",
       {},
+      { canViewCosts: true },
     );
     expect(result.answer).toBe("Respuesta con ambos datos.");
   });

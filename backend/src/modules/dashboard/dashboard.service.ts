@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { toMadridParts } from "../compras/services/purchase-schedule.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import {
   DashboardQueryDto,
   CreateMetricDto,
@@ -13,7 +14,10 @@ import {
 export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleAccess: RoleAccessService,
+  ) {}
 
   // Métricas del Dashboard
   async getDashboardMetrics(tenantId: string, query: DashboardQueryDto) {
@@ -65,7 +69,7 @@ export class DashboardService {
     };
   }
 
-  async calculateKPIs(tenantId: string) {
+  async calculateKPIs(tenantId: string, role?: string) {
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
 
@@ -362,6 +366,19 @@ export class DashboardService {
         status: activeAlerts > 0 ? "CRITICAL" : "OK",
       },
     };
+
+    // Roles without cost visibility must not receive monetary figures.
+    const canViewCosts = await this.roleAccess.isSectionAllowed(
+      tenantId,
+      role,
+      "recipes.cost",
+    );
+    if (!canViewCosts) {
+      delete (kpis as Partial<typeof kpis>).averageCost;
+      delete (kpis as Partial<typeof kpis>).averageMargin;
+      delete (kpis as Partial<typeof kpis>).todayRevenue;
+      delete (kpis as Partial<typeof kpis>).monthlyRevenue;
+    }
 
     return {
       success: true,

@@ -1,10 +1,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardService } from "./dashboard.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 
 describe("DashboardService", () => {
   let service: DashboardService;
   let prismaService: any;
+  let mockRoleAccess: { isSectionAllowed: jest.Mock };
 
   const mockPrismaService = {
     dashboardAlert: {
@@ -84,6 +86,12 @@ describe("DashboardService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: RoleAccessService,
+          useValue: (mockRoleAccess = {
+            isSectionAllowed: jest.fn().mockResolvedValue(true),
+          }),
         },
       ],
     }).compile();
@@ -278,6 +286,31 @@ describe("DashboardService", () => {
       const result = await service.calculateKPIs("tenant-1");
 
       expect(result.data.nextScheduledPurchase).toBeNull();
+    });
+
+    it("incluye las cifras monetarias para un rol con acceso a coste", async () => {
+      mockEmptyKpiSources();
+      const result = await service.calculateKPIs("tenant-1", "USER");
+      expect(result.data).toHaveProperty("averageCost");
+      expect(result.data).toHaveProperty("averageMargin");
+      expect(result.data).toHaveProperty("todayRevenue");
+      expect(result.data).toHaveProperty("monthlyRevenue");
+    });
+
+    it("elimina las cifras monetarias cuando el rol no puede ver coste", async () => {
+      mockEmptyKpiSources();
+      mockRoleAccess.isSectionAllowed.mockImplementation(
+        (_t: string, _r: string, key: string) =>
+          Promise.resolve(key !== "recipes.cost"),
+      );
+      const result = await service.calculateKPIs("tenant-1", "USER");
+      expect(result.data).not.toHaveProperty("averageCost");
+      expect(result.data).not.toHaveProperty("averageMargin");
+      expect(result.data).not.toHaveProperty("todayRevenue");
+      expect(result.data).not.toHaveProperty("monthlyRevenue");
+      // los contadores no monetarios siguen ahí
+      expect(result.data).toHaveProperty("upcomingProductionTasks");
+      expect(result.data).toHaveProperty("lowStockItems");
     });
   });
 

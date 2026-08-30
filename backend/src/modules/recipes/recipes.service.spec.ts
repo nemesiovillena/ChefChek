@@ -258,6 +258,8 @@ describe("RecipesService", () => {
 
       expect(result).toBeDefined();
       expect(result.id).toBe(recipeId);
+      expect(result.costBreakdown).toBeDefined();
+      expect(result.pricing).toBeDefined();
       expect(mockPrismaService.recipe.findFirst).toHaveBeenCalledWith({
         where: { id: recipeId, tenantId },
         include: {
@@ -304,6 +306,24 @@ describe("RecipesService", () => {
       await expect(service.findOne(tenantId, recipeId)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it("strips every cost/pricing figure when includeCost is false", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+
+      const result = await service.findOne(tenantId, recipeId, false);
+
+      expect(result.costBreakdown).toBeUndefined();
+      expect(result.pricing).toBeUndefined();
+      expect(result.totalCost).toBe(0);
+      expect(result.totalCostPerUnit).toBe(0);
+      expect(result.sellingPrice).toBeNull();
+      expect(result.sellingPriceWithVat).toBeNull();
+      for (const ing of result.ingredients ?? []) {
+        expect(ing.cost).toBe(0);
+        expect(ing.referencePurchasePrice).toBe(0);
+        expect(ing.realPrice).toBe(0);
+      }
     });
   });
 

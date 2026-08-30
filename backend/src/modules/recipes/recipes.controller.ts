@@ -30,17 +30,36 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
+import {
+  SectionAccessGuard,
+  RequireSection,
+} from "../../guards/section-access.guard";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Recipes")
 @Controller("api/v1/recipes")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
 @RequireModule("recipes")
+@RequireSection("recipes")
 export class RecipesController {
-  constructor(private readonly recipesService: RecipesService) {}
+  constructor(
+    private readonly recipesService: RecipesService,
+    private readonly roleAccess: RoleAccessService,
+  ) {}
+
+  /** Whether the request's role may receive cost/pricing figures in payloads. */
+  private canViewCost(req: any): Promise<boolean> {
+    return this.roleAccess.isSectionAllowed(
+      req.tenantId,
+      req.user?.role,
+      "recipes.cost",
+    );
+  }
 
   @Post()
   @Roles("ADMIN", "USER")
+  @RequireSection("recipes.edit")
   @ApiOperation({ summary: "Crear una nueva receta/escandallo" })
   @ApiResponse({ status: 201, description: "Receta creada exitosamente" })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
@@ -61,7 +80,11 @@ export class RecipesController {
   @ApiResponse({ status: 200, description: "Lista de recetas" })
   async findAll(@Req() req: any, @Query() query: RecipesQueryDto) {
     const tenantId = req.tenantId;
-    const { data, meta } = await this.recipesService.findAll(tenantId, query);
+    const { data, meta } = await this.recipesService.findAll(
+      tenantId,
+      query,
+      await this.canViewCost(req),
+    );
     return {
       success: true,
       data,
@@ -119,7 +142,11 @@ export class RecipesController {
   @ApiResponse({ status: 404, description: "Receta no encontrada" })
   async findOne(@Req() req: any, @Param("id") id: string) {
     const tenantId = req.tenantId;
-    const recipe = await this.recipesService.findOne(tenantId, id);
+    const recipe = await this.recipesService.findOne(
+      tenantId,
+      id,
+      await this.canViewCost(req),
+    );
     return {
       success: true,
       data: recipe,
@@ -129,6 +156,7 @@ export class RecipesController {
 
   @Patch(":id")
   @Roles("ADMIN", "USER")
+  @RequireSection("recipes.edit")
   @ApiOperation({ summary: "Actualizar una receta" })
   @ApiParam({ name: "id", description: "ID de la receta" })
   @ApiResponse({ status: 200, description: "Receta actualizada exitosamente" })
@@ -170,6 +198,7 @@ export class RecipesController {
 
   @Post(":id/duplicate")
   @Roles("ADMIN", "USER")
+  @RequireSection("recipes.edit")
   @ApiOperation({ summary: "Duplicar una receta" })
   @ApiParam({ name: "id", description: "ID de la receta a duplicar" })
   @ApiResponse({ status: 201, description: "Receta duplicada exitosamente" })
@@ -190,6 +219,7 @@ export class RecipesController {
 
   @Get(":id/calculate")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("recipes.cost")
   @ApiOperation({
     summary: "Calcular costo de receta (escandallo completo con mermas)",
   })
@@ -214,6 +244,7 @@ export class RecipesController {
 
   @Post("upload-image")
   @Roles("ADMIN", "USER")
+  @RequireSection("recipes.edit")
   @ApiOperation({ summary: "Subir imagen de receta" })
   @UseInterceptors(
     FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }),
@@ -250,6 +281,7 @@ export class RecipesController {
 
   @Post(":id/duplicate-dismissals/:dismissedRecipeId")
   @Roles("ADMIN", "USER")
+  @RequireSection("recipes.edit")
   @ApiOperation({
     summary:
       "Descartar el aviso de posible duplicado entre dos recetas (no vuelve a avisar en ninguna de las dos)",
