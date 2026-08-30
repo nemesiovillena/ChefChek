@@ -73,12 +73,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname, modules, sectionAccess, isEnabled, canSee, router]);
 
   // React to a 403 from a disabled module or a hidden section (dispatched by
-  // api-client): refresh state and leave the blocked route.
+  // api-client): just refresh the module/section state. Redirecting is left to
+  // the effect above, which re-runs when that state changes and only leaves the
+  // route when the CURRENT page's section/module is the one that's hidden.
+  //
+  // Not redirecting here is deliberate: pages for an allowed section often embed
+  // calls to other sections (e.g. the Albaranes page loads the Artículos /
+  // Proveedores pickers). A 403 from one of those embedded calls must not kick
+  // the user off a page they are allowed to see.
   useEffect(() => {
     const onBlocked = () => {
       refetch();
       refetchSections();
-      if (pathname !== '/dashboard') router.replace('/dashboard');
     };
     window.addEventListener('chefchek:module-disabled', onBlocked);
     window.addEventListener('chefchek:section-hidden', onBlocked);
@@ -86,7 +92,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       window.removeEventListener('chefchek:module-disabled', onBlocked);
       window.removeEventListener('chefchek:section-hidden', onBlocked);
     };
-  }, [refetch, refetchSections, pathname, router]);
+  }, [refetch, refetchSections]);
 
   useEffect(() => {
     if (isDark) {

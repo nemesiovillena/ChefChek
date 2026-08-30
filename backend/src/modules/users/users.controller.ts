@@ -29,6 +29,7 @@ import {
 import { UsersService } from "./users.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
+import { generateUploadFilename } from "../../common/utils/upload-filename.util";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -77,7 +78,7 @@ export class UsersController {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
 
-    const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    const fileName = generateUploadFilename(file.originalname);
     fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
 
     return {
