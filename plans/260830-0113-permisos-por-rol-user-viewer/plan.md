@@ -173,3 +173,11 @@ Post-fix: `npx jest` 113 suites / **1754** verde; `bunx tsc` back+front limpio; 
 - `dashboard/kpis` como origen del board de tareas: Phase 2 y Phase 3 coinciden.
 - Sin contradicciones sin resolver.
 
+### Hotfix post-release (2026-08-31) — PR #75
+
+**Bug en producción**: un USER con Albaranes/Compras visibles pero Artículos/Proveedores ocultos era **expulsado a /dashboard** al abrir Albaranes o Compras. Causa: el handler de `chefchek:section-hidden` en `layout.tsx` hacía `router.replace('/dashboard')` ante *cualquier* 403 `SECTION_HIDDEN`, y esas páginas embeben llamadas a otras secciones (`useProducts`/`useSuppliers` en el formulario de albarán manual y en todas las pestañas de compras).
+
+**Fix**: el handler solo refresca estado; la redirección de ruta la decide únicamente el efecto proactivo (`sectionForPath(pathname)` + `canSee`), que solo abandona la ruta cuando la sección de la *página actual* es la oculta. Los selectores embebidos ya degradaban a `?? []` sin crash.
+
+Relacionado con el hallazgo H3 de la review (secciones con dependencias cruzadas). Los pickers embebidos siguen 403-eando en silencio — aceptable: un rol sin Artículos no puede casar líneas de albarán con productos, pero sí ver la lista de albaranes.
+
