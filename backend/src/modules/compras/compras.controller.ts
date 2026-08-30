@@ -19,6 +19,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
+import { generateUploadFilename } from "../../common/utils/upload-filename.util";
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -402,7 +403,7 @@ export class ComprasController {
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      const fileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+      const fileName = generateUploadFilename(file.originalname);
       fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
       photoUrl = `/uploads/pedidos-compra/${fileName}`;
     }

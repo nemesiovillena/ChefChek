@@ -126,6 +126,10 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "overrides": {
-    "socket.io-parser": ">=4.2.7"
+    "socket.io-parser": ">=4.2.7",
+    "qs": ">=6.15.2",
+    "form-data": ">=4.0.6",
+    "multer": ">=2.2.0",
+    "ws": ">=8.21.1"
   }
 }
