@@ -50,7 +50,13 @@ export function usePurchaseSchedules() {
 
 function useInvalidateSchedules() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    // El dashboard anuncia la próxima programación en la card de pedidos;
+    // crear una desde un pedido también materializa una lista de compra.
+    queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    queryClient.invalidateQueries({ queryKey: ['purchase-lists'] });
+  };
 }
 
 export function useCreatePurchaseSchedule() {
@@ -84,18 +90,15 @@ export interface SchedulePurchaseOrderInput {
 /**
  * Programa pedidos recurrentes usando un pedido existente como plantilla.
  * El backend crea una lista de compra con sus artículos y una programación
- * sobre ella, así que refrescamos ambas cachés.
+ * sobre ella.
  */
 export function useSchedulePurchaseOrder() {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateSchedules();
   return useMutation<PurchaseSchedule, Error, SchedulePurchaseOrderInput>({
     mutationFn: async ({ orderId, ...body }) =>
       (await apiClient.post(`/v1/compras/pedidos/${orderId}/programar`, body))
         .data,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['purchase-lists'] });
-    },
+    onSuccess: invalidate,
   });
 }
 

@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
-import { toMadridParts } from "../compras/services/purchase-schedule.service";
+import {
+  PurchaseScheduleService,
+  toMadridParts,
+} from "../compras/services/purchase-schedule.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import {
   DashboardQueryDto,
@@ -221,6 +224,46 @@ export class DashboardService {
         timeOfDay: schedule?.timeOfDay ?? hhmm,
         supplierName: pendingScheduledOrder.supplier.name,
       };
+    } else {
+      // Aún no hay borrador generado por el cron: se anuncia la próxima
+      // ejecución de la programación activa más cercana, para que el pedido
+      // programado aparezca en el dashboard desde que se crea la programación
+      // (no solo cuando el cron ya lo ha materializado en un BORRADOR).
+      const now = new Date();
+      const schedules = await this.prisma.purchaseSchedule.findMany({
+        where: { tenantId, enabled: true },
+        select: {
+          daysOfWeek: true,
+          timeOfDay: true,
+          lastRunAt: true,
+          supplier: { select: { name: true } },
+        },
+      });
+      for (const s of schedules) {
+        const next = PurchaseScheduleService.getNextRunAt(
+          {
+            daysOfWeek: s.daysOfWeek,
+            timeOfDay: s.timeOfDay,
+            enabled: true,
+            lastRunAt: s.lastRunAt,
+          },
+          now,
+        );
+        if (!next) {
+          continue;
+        }
+        const isSooner =
+          !nextScheduledPurchase ||
+          `${next.dateKey} ${next.timeOfDay}` <
+            `${nextScheduledPurchase.dateKey} ${nextScheduledPurchase.timeOfDay}`;
+        if (isSooner) {
+          nextScheduledPurchase = {
+            dateKey: next.dateKey,
+            timeOfDay: next.timeOfDay,
+            supplierName: s.supplier.name,
+          };
+        }
+      }
     }
 
     // Lotes de producción activos
