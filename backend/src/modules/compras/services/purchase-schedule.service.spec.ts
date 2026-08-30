@@ -1,5 +1,5 @@
 import { Test } from "@nestjs/testing";
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { PurchaseScheduleService } from "./purchase-schedule.service";
 import { PurchaseListService } from "./purchase-list.service";
 import { NotificationsService } from "../../core/notifications.service";
@@ -13,7 +13,7 @@ describe("PurchaseScheduleService", () => {
 
   const prismaMock = {
     supplier: { findFirst: jest.fn() },
-    purchaseList: { findFirst: jest.fn() },
+    purchaseList: { findFirst: jest.fn(), create: jest.fn() },
     location: { findFirst: jest.fn() },
     purchaseSchedule: {
       findMany: jest.fn(),
@@ -24,6 +24,7 @@ describe("PurchaseScheduleService", () => {
       delete: jest.fn(),
     },
     purchaseOrderEvent: { create: jest.fn() },
+    purchaseOrder: { findFirst: jest.fn() },
   };
   const purchaseListServiceMock = { generateOrder: jest.fn() };
   const notificationsServiceMock = { createNotification: jest.fn() };
@@ -149,6 +150,112 @@ describe("PurchaseScheduleService", () => {
             enabled: true,
             daysOfWeek: [1, 3, 5],
           }),
+        }),
+      );
+    });
+  });
+
+  describe("createFromOrder", () => {
+    const dto = { daysOfWeek: [1, 4], timeOfDay: "08:30" };
+
+    it("404 si el pedido no existe / no es del tenant", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        service.createFromOrder(tenantId, "u1", "ord-x", dto),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("400 si el pedido no tiene líneas de catálogo", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "ord-1",
+        orderNumber: "PED-9",
+        supplierId: "sup-1",
+        locationId: null,
+        additionalItems: null,
+        lines: [],
+      });
+      await expect(
+        service.createFromOrder(tenantId, "u1", "ord-1", dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("crea lista (sumando cantidades duplicadas) + programación sobre ella", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "ord-1",
+        orderNumber: "PED-9",
+        supplierId: "sup-1",
+        locationId: "loc-1",
+        additionalItems: "  hielo  ",
+        lines: [
+          { productId: "p1", quantity: 2 },
+          { productId: "p2", quantity: 5 },
+          { productId: "p1", quantity: 3 },
+        ],
+      });
+      prismaMock.purchaseList.create.mockResolvedValue({ id: "list-new" });
+      prismaMock.purchaseSchedule.create.mockResolvedValue({ id: "sch-new" });
+
+      const result = await service.createFromOrder(
+        tenantId,
+        "u1",
+        "ord-1",
+        dto,
+      );
+
+      expect(prismaMock.purchaseList.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId,
+            name: "Pedido PED-9",
+            supplierId: "sup-1",
+            locationId: "loc-1",
+            additionalItems: "hielo",
+            items: {
+              create: [
+                { productId: "p1", defaultQuantity: 5, sortOrder: 0 },
+                { productId: "p2", defaultQuantity: 5, sortOrder: 1 },
+              ],
+            },
+          }),
+        }),
+      );
+      expect(prismaMock.purchaseSchedule.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId,
+            supplierId: "sup-1",
+            listId: "list-new",
+            locationId: "loc-1",
+            daysOfWeek: [1, 4],
+            timeOfDay: "08:30",
+            enabled: true,
+            createdBy: "u1",
+          }),
+        }),
+      );
+      expect(result).toEqual({ id: "sch-new" });
+    });
+
+    it("usa listName si se pasa", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "ord-1",
+        orderNumber: "PED-9",
+        supplierId: "sup-1",
+        locationId: null,
+        additionalItems: null,
+        lines: [{ productId: "p1", quantity: 1 }],
+      });
+      prismaMock.purchaseList.create.mockResolvedValue({ id: "list-new" });
+      prismaMock.purchaseSchedule.create.mockResolvedValue({ id: "sch-new" });
+
+      await service.createFromOrder(tenantId, "u1", "ord-1", {
+        ...dto,
+        listName: "  Reposición lácteos  ",
+      });
+
+      expect(prismaMock.purchaseList.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ name: "Reposición lácteos" }),
         }),
       );
     });

@@ -1,10 +1,16 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseListService } from "./purchase-list.service";
 import { NotificationsService } from "../../core/notifications.service";
 import {
   CreatePurchaseScheduleDto,
+  SchedulePurchaseOrderDto,
   UpdatePurchaseScheduleDto,
 } from "../dto/purchase-schedule.dto";
 
@@ -167,6 +173,76 @@ export class PurchaseScheduleService {
         daysOfWeek: dto.daysOfWeek,
         timeOfDay: dto.timeOfDay,
         enabled: dto.enabled ?? true,
+        createdBy: userId,
+      },
+      include: INCLUDE,
+    });
+  }
+
+  /**
+   * Programa pedidos recurrentes usando un pedido existente como plantilla:
+   * copia sus artículos de catálogo (y los artículos fuera de catálogo) a una
+   * lista de compra nueva y crea la programación sobre esa lista. A partir de
+   * ahí es una programación normal: el cron genera un BORRADOR + notificación
+   * en cada día/hora, nunca envía nada.
+   */
+  async createFromOrder(
+    tenantId: string,
+    userId: string | undefined,
+    orderId: string,
+    dto: SchedulePurchaseOrderDto,
+  ) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenantId },
+      include: { lines: { select: { productId: true, quantity: true } } },
+    });
+    if (!order) {
+      throw new NotFoundException("Pedido no encontrado");
+    }
+    if (order.lines.length === 0) {
+      throw new BadRequestException(
+        "El pedido no tiene artículos de catálogo que programar.",
+      );
+    }
+
+    // PurchaseListItem es único por [listId, productId]: se suman las
+    // cantidades si el pedido repite un artículo en varias líneas.
+    const quantityByProduct = new Map<string, number>();
+    for (const line of order.lines) {
+      quantityByProduct.set(
+        line.productId,
+        (quantityByProduct.get(line.productId) ?? 0) + line.quantity,
+      );
+    }
+
+    const list = await this.prisma.purchaseList.create({
+      data: {
+        tenantId,
+        name: dto.listName?.trim() || `Pedido ${order.orderNumber}`,
+        supplierId: order.supplierId,
+        locationId: order.locationId,
+        additionalItems: order.additionalItems?.trim() || null,
+        items: {
+          create: [...quantityByProduct.entries()].map(
+            ([productId, quantity], index) => ({
+              productId,
+              defaultQuantity: quantity,
+              sortOrder: index,
+            }),
+          ),
+        },
+      },
+    });
+
+    return this.prisma.purchaseSchedule.create({
+      data: {
+        tenantId,
+        supplierId: order.supplierId,
+        listId: list.id,
+        locationId: order.locationId,
+        daysOfWeek: dto.daysOfWeek,
+        timeOfDay: dto.timeOfDay,
+        enabled: true,
         createdBy: userId,
       },
       include: INCLUDE,
