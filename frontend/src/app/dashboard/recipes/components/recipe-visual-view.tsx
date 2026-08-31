@@ -73,7 +73,8 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/90">
               <span className="inline-flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" />
-                {recipe.portions} raciones{recipe.portionSize ? ` · ${recipe.portionSize}g/ud` : ''}
+                {Number(recipe.portions.toFixed(2))} raciones
+                {recipe.portionSize ? ` · ${Number(recipe.portionSize.toFixed(2))} g/ud` : ''}
               </span>
               {recipe.categories?.map((cat) => (
                 <span key={cat.categoryId} className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">

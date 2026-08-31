@@ -60,15 +60,24 @@ export class CreateRecipeDto {
   @IsString()
   imageUrl?: string | null;
 
+  // Raciones. Admite decimales (p.ej. 2,5) y valores < 1 cuando el peso total
+  // elaborado es menor que el peso de una ración.
   @IsOptional()
   @IsNumber()
-  @Min(1)
+  @Min(0.01)
   portions?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   portionSize?: number;
+
+  // Peso total elaborado (g). Ancla de rendimiento: si viene, portionSize se
+  // deriva como totalYieldWeight / portions al guardar.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalYieldWeight?: number;
 
   @IsOptional()
   @IsArray()

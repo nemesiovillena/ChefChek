@@ -146,6 +146,7 @@ export class RecipesService {
       imageUrl,
       portions = 1,
       portionSize = 1,
+      totalYieldWeight,
       ingredients = [],
       subRecipes = [],
       isPublic = false,
@@ -154,6 +155,11 @@ export class RecipesService {
       sellingPriceWithVat,
     } = createRecipeDto;
     const sellingPrice = deriveSellingPriceFromVat(sellingPriceWithVat);
+    const yield_ = this.resolveYield({
+      portions,
+      portionSize,
+      totalYieldWeight,
+    });
 
     // Validar que elaboration, si viene, sea JSON válido (pasos estructurados)
     let parsedElaboration;
@@ -170,8 +176,8 @@ export class RecipesService {
       tenantId,
       ingredients,
       subRecipes,
-      portions,
-      portionSize,
+      yield_.portions,
+      yield_.portionSize,
     );
 
     // Crear receta
@@ -185,8 +191,9 @@ export class RecipesService {
             ? JSON.stringify(parsedElaboration)
             : null,
         imageUrl,
-        portions,
-        portionSize,
+        portions: yield_.portions,
+        portionSize: yield_.portionSize,
+        totalYieldWeight: yield_.totalYieldWeight,
         totalCost: costBreakdown.totalCost,
         totalCostPerUnit: costBreakdown.costPerUnit,
         sellingPriceWithVat,
@@ -410,6 +417,28 @@ export class RecipesService {
     } = updateRecipeDto;
     const sellingPrice = deriveSellingPriceFromVat(sellingPriceWithVat);
 
+    // Rendimiento: el frontend envía portions + totalYieldWeight ya reconciliados.
+    // - totalYieldWeight explícito → es el ancla (portionSize = total / portions).
+    // - portions y/o portionSize sin ancla (cliente API) → el peso total se recalcula
+    //   desde portions × portionSize, conservando el peso ración indicado/actual.
+    // - nada de rendimiento tocado → se conservan los valores actuales.
+    const yieldAnchorProvided =
+      updateRecipeDto.totalYieldWeight !== undefined &&
+      updateRecipeDto.totalYieldWeight !== null;
+    const yieldFieldsTouched =
+      updateRecipeDto.portionSize !== undefined ||
+      updateRecipeDto.portions !== undefined;
+    const effectiveTotalYieldWeight = yieldAnchorProvided
+      ? updateRecipeDto.totalYieldWeight
+      : yieldFieldsTouched
+        ? null
+        : recipe.totalYieldWeight;
+    const yield_ = this.resolveYield({
+      portions,
+      portionSize,
+      totalYieldWeight: effectiveTotalYieldWeight,
+    });
+
     // Validar y parsear elaboration si se actualiza
     if (
       elaboration !== undefined &&
@@ -431,8 +460,8 @@ export class RecipesService {
         tenantId,
         ingredients || recipe.ingredients,
         subRecipes || recipe.subRecipes,
-        portions,
-        portionSize,
+        yield_.portions,
+        yield_.portionSize,
       );
       totalCost = costBreakdown.totalCost;
     }
@@ -441,8 +470,8 @@ export class RecipesService {
     // así que se recalcula siempre a partir del costo total vigente
     const totalCostPerUnit = this.computeCostPerYieldUnit(
       totalCost,
-      portions,
-      portionSize,
+      yield_.portions,
+      yield_.portionSize,
     );
 
     const updatedRecipe = await this.prisma.recipe.update({
@@ -452,8 +481,9 @@ export class RecipesService {
         description,
         elaboration,
         imageUrl,
-        portions,
-        portionSize,
+        portions: yield_.portions,
+        portionSize: yield_.portionSize,
+        totalYieldWeight: yield_.totalYieldWeight,
         totalCost,
         totalCostPerUnit,
         version,
@@ -564,6 +594,7 @@ export class RecipesService {
       elaboration: originalRecipe.elaboration,
       portions: originalRecipe.portions,
       portionSize: originalRecipe.portionSize,
+      totalYieldWeight: originalRecipe.totalYieldWeight ?? undefined,
       ingredients: originalRecipe.ingredients?.map((ing) => ({
         productId: ing.productId,
         quantity: ing.quantity,
@@ -766,6 +797,39 @@ export class RecipesService {
     return portions > 0 ? totalCost / portions : totalCost;
   }
 
+  /**
+   * Devuelve el trío de rendimiento coherente con la invariante
+   * totalYieldWeight = portions × portionSize.
+   * - Si llega totalYieldWeight (> 0) es el ancla: portionSize se recalcula desde él.
+   * - Si no, se deriva totalYieldWeight de portions × portionSize (retrocompat con
+   *   clientes API que solo mandan portions/portionSize).
+   * La reconciliación según qué campo tocó el usuario la hace el frontend, que
+   * envía siempre portions + totalYieldWeight ya coherentes.
+   */
+  private resolveYield(input: {
+    portions: number;
+    portionSize: number;
+    totalYieldWeight?: number | null;
+  }): { portions: number; portionSize: number; totalYieldWeight: number } {
+    const portions = input.portions > 0 ? input.portions : 1;
+    if (
+      typeof input.totalYieldWeight === "number" &&
+      input.totalYieldWeight > 0
+    ) {
+      return {
+        portions,
+        totalYieldWeight: input.totalYieldWeight,
+        portionSize: input.totalYieldWeight / portions,
+      };
+    }
+    const portionSize = input.portionSize > 0 ? input.portionSize : 0;
+    return {
+      portions,
+      portionSize,
+      totalYieldWeight: portions * portionSize,
+    };
+  }
+
   private async createVersionSnapshot(recipeId: string): Promise<void> {
     // Implementar sistema de versionado completo
     // Esto podría crear una tabla RecipeVersion o similar
@@ -922,6 +986,7 @@ export class RecipesService {
       imageUrl: recipe.imageUrl ?? null,
       portions: recipe.portions,
       portionSize: recipe.portionSize,
+      totalYieldWeight: recipe.totalYieldWeight ?? null,
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,

@@ -73,8 +73,9 @@
 **Costeo**
 - `totalCost` (Float): Costo total
 - `totalCostPerUnit` (Float): Costo por porción
-- `portions` (Int): Número de porciones
-- `portionSize` (Float): Tamaño de porción
+- `portions` (Float): Número de raciones (admite decimales)
+- `portionSize` (Float): Peso de ración (g) — derivado de `totalYieldWeight / portions`
+- `totalYieldWeight` (Float?): Peso total elaborado (g); ancla de rendimiento
 
 **Versionado**
 - `version` (Int): Versión actual

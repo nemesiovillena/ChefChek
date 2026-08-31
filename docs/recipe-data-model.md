@@ -18,9 +18,12 @@ model Recipe {
   totalCost         Float            @default(0)
   totalCostPerUnit  Float            @default(0)
 
-  // Rendimiento
-  portions          Int              @default(1)
+  // Rendimiento. Invariante: totalYieldWeight = portions × portionSize.
+  // totalYieldWeight (peso total elaborado, g) es el ancla que introduce el
+  // usuario; portionSize se deriva al guardar. portions admite decimales.
+  portions          Float            @default(1)
   portionSize       Float            @default(1)
+  totalYieldWeight  Float?
 
   // Versionado
   version           Int              @default(1)
@@ -137,10 +140,25 @@ model RecipeSubRecipe {
 
 ```typescript
 {
-  portions: 10,                  // 10 porciones
-  portionSize: 150,              // 150g por porción
+  totalYieldWeight: 1500,        // peso total elaborado (g) — ancla
+  portions: 10,                  // 10 raciones (admite decimales, p.ej. 2,5)
+  portionSize: 150,              // 150g por ración — derivado = totalYieldWeight / portions
 }
 ```
+
+El usuario edita cualquiera de los tres campos y los otros se recalculan
+manteniendo `totalYieldWeight = portions × portionSize`:
+
+- **Editar peso total** → recalcula `portionSize`, raciones fijas.
+- **Editar raciones** → recalcula `portionSize`, peso total fijo (admite decimales
+  al teclear directamente).
+- **Editar peso ración** → raciones = redondeo al entero de `pesoTotal / pesoRación`
+  (no hay medias raciones al partir un peso); el peso total se reajusta a
+  `raciones × pesoRación`.
+
+El frontend envía el trío ya coherente; el backend (`RecipesService.resolveYield`)
+usa `totalYieldWeight` como ancla. Un `PATCH` con solo `portions` y/o `portionSize`
+(sin `totalYieldWeight`) recalcula el peso total desde `portions × portionSize`.
 
 **Cálculo de Porciones:**
 ```
