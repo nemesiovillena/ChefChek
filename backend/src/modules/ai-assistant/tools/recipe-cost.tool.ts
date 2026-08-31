@@ -1,4 +1,8 @@
 import { RecipesService } from "../../recipes/recipes.service";
+import {
+  resolveRecipeByName,
+  ambiguousMatchPayload,
+} from "./recipe-match.util";
 import { ToolDefinition } from "./tool-definition.interface";
 
 /** "¿Cuánto me cuesta la receta X?" — resuelve por nombre (fuzzy) y envuelve calculateRecipeCost. */
@@ -20,21 +24,23 @@ export function createRecipeCostTool(
       required: ["recipeName"],
     },
     handler: async (tenantId, params) => {
-      const matches = await recipesService.findNameMatches(
+      const resolution = await resolveRecipeByName(
+        recipesService,
         tenantId,
         params.recipeName,
       );
-      if (matches.length === 0) {
-        return {
-          error: `No encuentro ninguna receta llamada "${params.recipeName}".`,
-        };
+      if (resolution.status === "not_found") {
+        return { error: resolution.error };
+      }
+      if (resolution.status === "ambiguous") {
+        return ambiguousMatchPayload(params.recipeName, resolution.matches);
       }
       const cost = await recipesService.calculateRecipeCost(
         tenantId,
-        matches[0].id,
+        resolution.match.id,
       );
       return {
-        recipeName: matches[0].name,
+        recipeName: resolution.match.name,
         totalCost: cost.totalCost,
         costPerPortion: cost.costPerPortion,
         pricing: cost.pricing,

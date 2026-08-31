@@ -203,6 +203,61 @@ describe("AiAssistantService", () => {
     expect(openaiMock.chat).toHaveBeenCalledTimes(2);
   });
 
+  it("una tool que devuelve action la transporta en la respuesta y la persiste en el mensaje final", async () => {
+    openaiMock.chat
+      .mockResolvedValueOnce({
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "get_recipe_details",
+            params: { recipeName: "caramelo" },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        content: "Aquí tienes la receta del Caramelo.",
+      });
+
+    toolRegistryMock.executeTool.mockResolvedValueOnce({
+      recipeId: "rec-1",
+      name: "Caramelo",
+      elaborationSteps: ["Disolver el azúcar"],
+      action: { type: "open_recipe", recipeId: "rec-1", label: "Abrir receta" },
+    });
+
+    const result = await service.ask(
+      "t1",
+      "u1",
+      undefined,
+      "muéstrame la receta del caramelo",
+    );
+
+    expect(result.actions).toEqual([
+      { type: "open_recipe", recipeId: "rec-1", label: "Abrir receta" },
+    ]);
+    // El mensaje final (assistant, sin toolCalls) persiste las acciones
+    const finalSave = prismaMock.assistantMessage.create.mock.calls.find(
+      ([call]: any[]) => call.data.role === "assistant" && !call.data.toolCalls,
+    );
+    expect(finalSave?.[0].data.actions).toEqual([
+      { type: "open_recipe", recipeId: "rec-1", label: "Abrir receta" },
+    ]);
+  });
+
+  it("resultado de tool sin action no añade actions a la respuesta", async () => {
+    openaiMock.chat
+      .mockResolvedValueOnce({
+        toolCalls: [
+          { id: "call-1", name: "get_stock", params: { productId: "p1" } },
+        ],
+      })
+      .mockResolvedValueOnce({ content: "Hay 5 kg." });
+    toolRegistryMock.executeTool.mockResolvedValueOnce({ stock: 5 });
+
+    const result = await service.ask("t1", "u1", undefined, "¿stock de p1?");
+    expect(result).not.toHaveProperty("actions");
+  });
+
   it("respuesta con 2 tools encadenadas (2 turnos) antes de la respuesta final", async () => {
     openaiMock.chat
       .mockResolvedValueOnce({
