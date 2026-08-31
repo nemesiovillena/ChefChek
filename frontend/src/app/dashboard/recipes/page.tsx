@@ -62,6 +62,27 @@ const RECIPE_TABS = [
   { id: 'clasificacion', label: 'Clasificación' },
 ] as const;
 
+const EMPTY_RECIPE_FORM = {
+  name: '',
+  description: '',
+  portions: '1',
+  portionSize: '250',
+  totalYieldWeight: '250',
+};
+
+// Rendimiento de receta. Invariante: pesoTotalElaborado (g) = raciones × pesoRación (g).
+const parsePositive = (s: string): number => {
+  const n = parseFloat(String(s).replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+// Redondeo a 2 decimales: evita arrastre de coma flotante al recalcular campos.
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+// Raciones / gramos con hasta 2 decimales y sin ceros de relleno.
+const fmtYield = (n: number | null | undefined): string =>
+  n == null ? '—' : String(Number(n.toFixed(2)));
+const sanitizeDecimal = (v: string): string =>
+  v.replace(',', '.').replace(/[^\d.]/g, '');
+
 export default function RecipesPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -180,12 +201,38 @@ export default function RecipesPage() {
     [sortedRecipes],
   );
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    portions: '1',
-    portionSize: '250',
-  });
+  const [formData, setFormData] = useState(EMPTY_RECIPE_FORM);
+
+  // Los 3 campos de rendimiento se mantienen coherentes (T = R × P):
+  // - Editar peso ración → raciones = redondeo(pesoTotal / pesoRación) a entero
+  //   (no hay medias raciones al partir un peso); el peso total se reajusta al
+  //   entero de raciones y el peso ración se respeta tal cual se escribió.
+  // - Editar raciones → recalcula peso ración, peso total fijo. Admite decimales
+  //   cuando el usuario los teclea directamente.
+  // - Editar peso total → recalcula peso ración, raciones fijas.
+  const handleYieldChange = (
+    field: 'totalYieldWeight' | 'portions' | 'portionSize',
+    raw: string,
+  ) => {
+    const v = sanitizeDecimal(raw);
+    setFormData((f) => {
+      const next = { ...f, [field]: v };
+      const T = parsePositive(field === 'totalYieldWeight' ? v : f.totalYieldWeight);
+      const R = parsePositive(field === 'portions' ? v : f.portions);
+      const P = parsePositive(field === 'portionSize' ? v : f.portionSize);
+      if (field === 'portionSize') {
+        if (T > 0 && P > 0) {
+          const raciones = Math.max(1, Math.round(T / P));
+          next.portions = String(raciones);
+          next.totalYieldWeight = String(round2(raciones * P));
+        }
+      } else if (T > 0 && R > 0) {
+        // field === 'portions' o 'totalYieldWeight'
+        next.portionSize = String(round2(T / R));
+      }
+      return next;
+    });
+  };
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye la propia receta.
   const { matches: rawDuplicateRecipeNameMatches } = useRecipeNameCheck(formData.name, selectedRecipe?.id);
   // Descartes locales inmediatos: el backend ya no volverá a devolver estos
@@ -443,6 +490,14 @@ export default function RecipesPage() {
     }
 
     const filledSteps = elaborationSteps.filter((s) => s.description.trim());
+
+    // Rendimiento: se envía el trío ya coherente (T = R × P). El backend usa
+    // totalYieldWeight como ancla y deriva portionSize = totalYieldWeight / portions.
+    const raciones = parsePositive(formData.portions) || 1;
+    const pesoRacion = parsePositive(formData.portionSize) || 250;
+    const pesoTotal =
+      parsePositive(formData.totalYieldWeight) || round2(raciones * pesoRacion);
+
     const recipeData = {
       name: formData.name,
       description: formData.description || undefined,
@@ -450,8 +505,9 @@ export default function RecipesPage() {
       // '' + receta que ya tenía imagen = el usuario la quitó → null explícito
       // para que el backend la borre (undefined = "no tocar", ver update()).
       imageUrl: recipeImageUrl || (selectedRecipe?.imageUrl ? null : undefined),
-      portions: parseInt(formData.portions, 10) || 1,
-      portionSize: parseInt(formData.portionSize, 10) || 250,
+      portions: raciones,
+      portionSize: pesoRacion,
+      totalYieldWeight: pesoTotal,
       ingredients: ingredients
         .filter((ing) => ing.productId && ing.quantity > 0)
         .map((ing) => ({
@@ -486,12 +542,7 @@ export default function RecipesPage() {
       }
       setShowCreateForm(false);
       setSelectedRecipe(null);
-      setFormData({
-        name: '',
-        description: '',
-        portions: '1',
-        portionSize: '250',
-      });
+      setFormData(EMPTY_RECIPE_FORM);
       setElaborationSteps(parseSteps(null));
       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
       setSubRecipes([]);
@@ -516,6 +567,10 @@ export default function RecipesPage() {
       description: recipe.description || '',
       portions: recipe.portions.toString(),
       portionSize: recipe.portionSize?.toString() || '250',
+      totalYieldWeight: (
+        recipe.totalYieldWeight ??
+        (recipe.portions || 1) * (recipe.portionSize ?? 0)
+      ).toString(),
     });
     setElaborationSteps(parseSteps(recipe.elaboration));
     // El backend solo persiste wastePercentageOverride cuando se fijó
@@ -791,7 +846,7 @@ export default function RecipesPage() {
                         )}
                       </td>
                       <td className={tdBaseClass}>
-                        {recipe.portions} ({recipe.portionSize}g)
+                        {fmtYield(recipe.portions)} ({fmtYield(recipe.portionSize)} g)
                       </td>
                       {canViewCost && (
                         <td className={tdBaseClass}>
@@ -922,12 +977,7 @@ export default function RecipesPage() {
                     onClick={() => {
                       setShowCreateForm(false);
                       setSelectedRecipe(null);
-                      setFormData({
-                        name: '',
-                        description: '',
-                        portions: '1',
-                        portionSize: '250',
-                      });
+                      setFormData(EMPTY_RECIPE_FORM);
                       setElaborationSteps(parseSteps(null));
                       setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                       setSubRecipes([]);
@@ -1046,16 +1096,27 @@ export default function RecipesPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className={m3Label}>Peso total elaborado (g)</label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            name="totalYieldWeight"
+                            value={formData.totalYieldWeight}
+                            onChange={(e) => handleYieldChange('totalYieldWeight', e.target.value)}
+                            className={m3Field}
+                          />
+                        </div>
                         <div>
                           <label className={m3Label}>Raciones *</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             name="portions"
-                            min="1"
                             required
                             value={formData.portions}
-                            onChange={(e) => setFormData({ ...formData, portions: e.target.value })}
+                            onChange={(e) => handleYieldChange('portions', e.target.value)}
                             className={m3Field}
                           />
                         </div>
@@ -1066,14 +1127,16 @@ export default function RecipesPage() {
                             inputMode="decimal"
                             name="portionSize"
                             value={formData.portionSize}
-                            onChange={(e) => {
-                              const sanitized = e.target.value.replace(',', '.').replace(/[^\d.]/g, '');
-                              setFormData({ ...formData, portionSize: sanitized });
-                            }}
+                            onChange={(e) => handleYieldChange('portionSize', e.target.value)}
                             className={m3Field}
                           />
                         </div>
                       </div>
+                      <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
+                        Peso total = raciones × peso ración. Al cambiar el peso ración,
+                        las raciones se redondean al entero más cercano y el peso total
+                        se ajusta.
+                      </p>
 
                       {/* Ingredientes */}
                       <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
@@ -1325,12 +1388,7 @@ export default function RecipesPage() {
                       onClick={() => {
                         setShowCreateForm(false);
                         setSelectedRecipe(null);
-                        setFormData({
-                          name: '',
-                          description: '',
-                          portions: '1',
-                          portionSize: '250',
-                        });
+                        setFormData(EMPTY_RECIPE_FORM);
                         setElaborationSteps(parseSteps(null));
                         setIngredients([{ productId: '', productName: '', quantity: 0, unit: 'kg' }]);
                         setSubRecipes([]);

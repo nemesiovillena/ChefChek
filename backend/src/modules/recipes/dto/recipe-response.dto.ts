@@ -89,6 +89,7 @@ export interface RecipeResponse {
   imageUrl?: string | null;
   portions: number;
   portionSize: number;
+  totalYieldWeight?: number | null;
   totalCost: number;
   totalCostPerUnit: number;
   sellingPriceWithVat?: number | null;

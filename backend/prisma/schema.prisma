@@ -370,9 +370,12 @@ model Recipe {
   sellingPriceWithVat Float?
   sellingPrice        Float?
 
-  // Rendimiento
-  portions    Int   @default(1)
-  portionSize Float @default(1)
+  // Rendimiento. Invariante: totalYieldWeight = portions * portionSize.
+  // totalYieldWeight (peso total elaborado, g) es el ancla que introduce el usuario;
+  // portionSize se deriva al guardar. portions admite decimales (raciones fraccionarias).
+  portions         Float  @default(1)
+  portionSize      Float  @default(1)
+  totalYieldWeight Float? // peso total elaborado (g)
 
   // Versionado
   version       Int     @default(1)
