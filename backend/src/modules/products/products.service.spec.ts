@@ -181,6 +181,39 @@ describe("ProductsService", () => {
       );
     });
 
+    it("persists secondary conservation / shelf-life fields", async () => {
+      prismaService.product.create.mockResolvedValue({
+        id: "p1",
+        tenantId,
+        stocks: [],
+      });
+
+      await service.create(
+        {
+          name: "Lubina",
+          purchasePrice: 12,
+          secondaryShelfLifeDays: 3,
+          shelfLifeFrozenDays: 90,
+          storageCondition: "REFRIGERATED",
+          storageTempMin: 0,
+          storageTempMax: 4,
+        } as any,
+        tenantId,
+      );
+
+      expect(prismaService.product.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            secondaryShelfLifeDays: 3,
+            shelfLifeFrozenDays: 90,
+            storageCondition: "REFRIGERATED",
+            storageTempMin: 0,
+            storageTempMax: 4,
+          }),
+        }),
+      );
+    });
+
     it("should create product with minimal required fields", async () => {
       const createDto = {
         name: "Cebolla",

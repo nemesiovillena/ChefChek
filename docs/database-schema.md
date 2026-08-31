@@ -85,6 +85,29 @@
 - `RecipeIngredient`: Productos en receta
 - `RecipeSubRecipe`: Sub-recetas anidadas
 
+**Conservación / vida útil (etiquetado)** — todas nullable
+- `shelfLifeDays`, `shelfLifeFrozenDays` (Int?)
+- `storageCondition` (String? — `REFRIGERATED`|`FROZEN`|`AMBIENT`)
+- `storageTempMin`, `storageTempMax` (Float?, °C)
+- (En `Product` el equivalente es `secondaryShelfLifeDays` = vida útil tras apertura/manipulación, + los mismos campos de conservación.)
+
+### Etiquetado
+
+**FoodLabel** (`food_labels`) — etiqueta de cocina emitida (registro de trazabilidad)
+- `labelType` (`ELABORATED` plato de receta | `HANDLED` artículo manipulado)
+- `recipeId?` / `productId?` (FK SetNull), `itemName` snapshot
+- `lotNumber` — generado `PREFIJO-DDMMAA-NN` (ELABORATED) o del proveedor (HANDLED). `@@unique([tenantId, lotNumber])`
+- `sourceLotId?` (FK `Lot`), `productionOrderId?` (FK SetNull, sin UI v1)
+- `preparedAt`, `useByDate` (calculado), `manufacturerExpiryDate?`, `frozenAt?`/`frozenUseByDate?`
+- `storageCondition`, `storageTempMin/Max`, `allergens` (Int[] snapshot)
+- `createdByName` snapshot, `qrToken` (UUID v4 — credencial de la ficha pública)
+- `voidedAt?`/`voidReason?` (anulación soft, nunca borrado)
+
+**FoodLabelIngredientLot** (`food_label_ingredient_lots`) — 1 por ingrediente directo de una etiqueta ELABORATED
+- `productId?` (FK SetNull), `productName` snapshot, `lotId?` (FK `Lot`), `lotNumber` snapshot/texto libre
+
+Ver `food-labeling-system.md`.
+
 ### Menús y Cartas
 
 **Menu**

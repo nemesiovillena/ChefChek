@@ -198,6 +198,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: true,
   },
+  {
+    id: "etiquetado",
+    name: "Etiquetado",
+    description:
+      "Etiquetas de cocina con trazabilidad para platos elaborados y artículos manipulados",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
 ];
 
 /**
