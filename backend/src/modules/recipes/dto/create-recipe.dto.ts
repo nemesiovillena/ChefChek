@@ -4,11 +4,14 @@ import {
   IsOptional,
   IsArray,
   IsBoolean,
+  IsIn,
+  IsInt,
   Min,
   ValidateNested,
   IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { STORAGE_CONDITIONS } from "../../../common/constants/storage-condition.constant";
 
 class IngredientDto {
   @IsString()
@@ -114,4 +117,29 @@ export class CreateRecipeDto {
   @IsNumber()
   @Min(0)
   sellingPriceWithVat?: number;
+
+  // ── Conservación / vida útil (etiquetado) ──────────────────────────────
+  // Valores por defecto al emitir una etiqueta del plato elaborado; editables
+  // en cada etiqueta. Todos opcionales.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  shelfLifeDays?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  shelfLifeFrozenDays?: number;
+
+  @IsOptional()
+  @IsIn(STORAGE_CONDITIONS as unknown as string[])
+  storageCondition?: (typeof STORAGE_CONDITIONS)[number];
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMin?: number;
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMax?: number;
 }

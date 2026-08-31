@@ -52,6 +52,11 @@ export interface Recipe {
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number | null;
+  shelfLifeDays?: number | null;
+  shelfLifeFrozenDays?: number | null;
+  storageCondition?: string | null;
+  storageTempMin?: number | null;
+  storageTempMax?: number | null;
   totalCost: number;
   totalCostPerUnit?: number;
   sellingPriceWithVat?: number | null;
@@ -93,6 +98,11 @@ export interface CreateRecipeData {
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number;
+  shelfLifeDays?: number | null;
+  shelfLifeFrozenDays?: number | null;
+  storageCondition?: string | null;
+  storageTempMin?: number | null;
+  storageTempMax?: number | null;
   ingredients: RecipeIngredient[];
   subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
   categoryIds?: string[];

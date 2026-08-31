@@ -11,9 +11,11 @@ import {
   IsBoolean,
   ValidateNested,
   IsIn,
+  IsInt,
   IsDateString,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
+import { STORAGE_CONDITIONS } from "../../../common/constants/storage-condition.constant";
 
 export class NutritionalInfoDto {
   @IsOptional() @IsNumber() @Min(0) energyKj?: number;
@@ -185,6 +187,31 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   maximumStock?: number;
+
+  // ── Conservación / vida útil tras apertura o manipulación (etiquetado) ──
+  // Caducidad secundaria: valores por defecto al emitir una etiqueta de
+  // artículo manipulado/reenvasado; editables en cada etiqueta.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  secondaryShelfLifeDays?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  shelfLifeFrozenDays?: number;
+
+  @IsOptional()
+  @IsIn(STORAGE_CONDITIONS as unknown as string[])
+  storageCondition?: (typeof STORAGE_CONDITIONS)[number];
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMin?: number;
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMax?: number;
 }
 
 export class UpdateProductDto {
@@ -346,6 +373,31 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0)
   maximumStock?: number;
+
+  // ── Conservación / vida útil tras apertura o manipulación (etiquetado) ──
+  // Caducidad secundaria: valores por defecto al emitir una etiqueta de
+  // artículo manipulado/reenvasado; editables en cada etiqueta.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  secondaryShelfLifeDays?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  shelfLifeFrozenDays?: number;
+
+  @IsOptional()
+  @IsIn(STORAGE_CONDITIONS as unknown as string[])
+  storageCondition?: (typeof STORAGE_CONDITIONS)[number];
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMin?: number;
+
+  @IsOptional()
+  @IsNumber()
+  storageTempMax?: number;
 }
 
 export class ProductsQueryDto {

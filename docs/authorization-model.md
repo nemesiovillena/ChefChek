@@ -189,7 +189,7 @@ sistema de módulos:
 `backend/src/modules/role-access/constants/section-registry.ts` — `SECTION_REGISTRY`.
 Secciones ligadas a módulo (heredan su id: `recipes`, `production`, `almacenes`,
 `compras`, `articulos`, `proveedores`, `menus`, `escandallos`, `appcc`,
-`allergens`, `digital-menu`, `conocimiento`, `technical-sheets`,
+`allergens`, `etiquetado`, `digital-menu`, `conocimiento`, `technical-sheets`,
 `sala-notificaciones`, `sala`, `asistente-ia`), transversales sin módulo
 (`historico-precios`, `sprint`, `papelera`, `backups`) y sub-capacidades:
 
@@ -199,6 +199,7 @@ Secciones ligadas a módulo (heredan su id: `recipes`, `production`, `almacenes`
 | `recipes.ficha` | 403 al generar ficha técnica (salvo `recipeCardOnly:true`, la "impresión de receta") |
 | `recipes.edit` | 403 en escrituras de recetas; UI de solo lectura. Solo afecta a `USER` (`VIEWER` ya es RO) |
 | `production.tasks` | Permite completar tareas de preparación desde el dashboard aunque `production` esté oculto (`PUT /production/orders/:id/complete`) |
+| `etiquetado.emit` | 403 al crear / anular / imprimir etiquetas y en `GET /etiquetado/prep-context`. Sin `etiquetado.emit`, `etiquetado` solo permite ver el listado y el detalle. El endpoint público `/etiquetado/public/trace/:qrToken` no pasa por guards. |
 
 Una sección ligada a un módulo desactivado para el tenant ⇒ `false` para todos
 (no se muestra en la pantalla de configuración).

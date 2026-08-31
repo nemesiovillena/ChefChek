@@ -14,6 +14,7 @@ import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/us
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
+import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -353,6 +354,8 @@ export default function SettingsPage() {
             initialTheoreticalPriceMultiplier={costingConfig?.theoreticalPriceMultiplier ?? 4}
           />
         </div>
+
+        <EtiquetadoConfigSection />
 
         {/* Motor de extracción (OCR de albaranes) */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">

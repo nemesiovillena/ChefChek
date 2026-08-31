@@ -160,6 +160,45 @@ describe("RecipesService", () => {
       expect(mockPrismaService.recipe.create).toHaveBeenCalled();
     });
 
+    it("persists conservation / shelf-life fields", async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        ...createRecipeDto,
+        shelfLifeDays: 5,
+        shelfLifeFrozenDays: 60,
+        storageCondition: "REFRIGERATED",
+        storageTempMin: 0,
+        storageTempMax: 4,
+      });
+
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            shelfLifeDays: 5,
+            shelfLifeFrozenDays: 60,
+            storageCondition: "REFRIGERATED",
+            storageTempMin: 0,
+            storageTempMax: 4,
+          }),
+        }),
+      );
+    });
+
+    it("defaults conservation fields to null when omitted", async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, createRecipeDto);
+
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ storageCondition: null }),
+        }),
+      );
+    });
+
     it("should throw BadRequestException if elaboration is not valid JSON", async () => {
       const invalidDto = {
         ...createRecipeDto,

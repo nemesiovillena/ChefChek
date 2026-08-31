@@ -29,8 +29,9 @@ import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import RecipeVisualView from './components/recipe-visual-view';
 import ImagePicker from '@/components/image-picker';
+import ConservationFieldset from '@/components/conservation-fieldset';
 import { useInvalidateQueries } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, Tag } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -43,6 +44,7 @@ import PaginationControls from '@/components/shared/pagination-controls';
 import PageContainer from '@/components/shared/page-container';
 import PageHeader from '@/components/shared/page-header';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
+import { useModules } from '@/features/modules/hooks/use-modules';
 import {
   tableCardClass, tableScrollClass, tableClass, theadClass, thBaseClass, thSortableClass, thActionsClass,
   tbodyClass, trHoverClass, tdBaseClass, tdActionsClass, actionButtonClass,
@@ -68,6 +70,19 @@ const EMPTY_RECIPE_FORM = {
   portions: '1',
   portionSize: '250',
   totalYieldWeight: '250',
+  shelfLifeDays: '',
+  shelfLifeFrozenDays: '',
+  storageCondition: '',
+  storageTempMin: '',
+  storageTempMax: '',
+};
+
+/** '' → undefined; número válido → número; en otro caso undefined. Para el
+ * payload de conservación de la etiqueta (todos los campos opcionales). */
+const numOrUndef = (s: string): number | undefined => {
+  if (s.trim() === '') return undefined;
+  const n = parseFloat(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : undefined;
 };
 
 // Rendimiento de receta. Invariante: pesoTotalElaborado (g) = raciones × pesoRación (g).
@@ -109,9 +124,11 @@ export default function RecipesPage() {
 
   // Per-role Recetas sub-capabilities. Absence ⇒ allowed (ADMIN+ always true).
   const { canSee } = useSectionAccess();
+  const { isEnabled } = useModules();
   const canViewCost = canSee('recipes.cost');
   const canViewFicha = canSee('recipes.ficha');
   const canEditRecipes = canSee('recipes.edit');
+  const canLabel = isEnabled('etiquetado') && canSee('etiquetado.emit');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -119,6 +136,7 @@ export default function RecipesPage() {
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [visualViewRecipe, setVisualViewRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'elaboracion' | 'clasificacion'>('general');
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -520,6 +538,11 @@ export default function RecipesPage() {
       subRecipes: subRecipes.filter((s) => s.subRecipeId && s.quantity > 0),
       categoryIds: selectedCategoryIds,
       allergens: selectedAllergenIds,
+      shelfLifeDays: numOrUndef(formData.shelfLifeDays),
+      shelfLifeFrozenDays: numOrUndef(formData.shelfLifeFrozenDays),
+      storageCondition: formData.storageCondition || undefined,
+      storageTempMin: numOrUndef(formData.storageTempMin),
+      storageTempMax: numOrUndef(formData.storageTempMax),
     };
 
     try {
@@ -571,6 +594,11 @@ export default function RecipesPage() {
         recipe.totalYieldWeight ??
         (recipe.portions || 1) * (recipe.portionSize ?? 0)
       ).toString(),
+      shelfLifeDays: recipe.shelfLifeDays?.toString() ?? '',
+      shelfLifeFrozenDays: recipe.shelfLifeFrozenDays?.toString() ?? '',
+      storageCondition: recipe.storageCondition ?? '',
+      storageTempMin: recipe.storageTempMin?.toString() ?? '',
+      storageTempMax: recipe.storageTempMax?.toString() ?? '',
     });
     setElaborationSteps(parseSteps(recipe.elaboration));
     // El backend solo persiste wastePercentageOverride cuando se fijó
@@ -924,6 +952,16 @@ export default function RecipesPage() {
                             <Calculator className="h-4 w-4" />
                           </button>
                         )}
+                        {canLabel && (
+                          <button
+                            onClick={() => router.push(`/dashboard/etiquetado/nueva?recipeId=${recipe.id}`)}
+                            title="Etiquetar"
+                            aria-label="Etiquetar"
+                            className={`${actionButtonClass} border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 dark:border-teal-900/30 dark:bg-teal-950/20 dark:text-teal-400 dark:hover:bg-teal-950/40`}
+                          >
+                            <Tag className="h-4 w-4" />
+                          </button>
+                        )}
                         {canEditRecipes && (
                           <button
                             onClick={() => handleEdit(recipe)}
@@ -1137,6 +1175,18 @@ export default function RecipesPage() {
                         las raciones se redondean al entero más cercano y el peso total
                         se ajusta.
                       </p>
+
+                      <ConservationFieldset
+                        value={{
+                          shelfLifeDays: formData.shelfLifeDays,
+                          shelfLifeFrozenDays: formData.shelfLifeFrozenDays,
+                          storageCondition: formData.storageCondition,
+                          storageTempMin: formData.storageTempMin,
+                          storageTempMax: formData.storageTempMax,
+                        }}
+                        onChange={(patch) => setFormData((f) => ({ ...f, ...patch }))}
+                        shelfLifeLabel="Vida útil tras elaboración (días)"
+                      />
 
                       {/* Ingredientes */}
                       <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
