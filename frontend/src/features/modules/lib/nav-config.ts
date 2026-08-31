@@ -76,6 +76,7 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
       { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: 'warning' },
+      { label: 'Etiquetado', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: 'label' },
     ],
   },
   {
@@ -129,6 +130,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/users', moduleId: 'sala' },
   { prefix: '/dashboard/sala-notificaciones', moduleId: 'sala-notificaciones' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
+  { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
 ];
 
 /** Returns the moduleId governing a pathname, or undefined if transversal. */

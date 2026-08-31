@@ -1,10 +1,18 @@
 import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
 
+/** Botón de navegación que el backend adjunta a una respuesta del asistente. */
+export interface AssistantAction {
+  type: 'open_recipe';
+  recipeId: string;
+  label: string;
+}
+
 export interface AssistantMessage {
   id: string;
   role: 'user' | 'assistant' | 'tool';
   content: string;
   createdAt: string;
+  actions?: AssistantAction[] | null;
 }
 
 export interface AssistantConversationSummary {
@@ -21,6 +29,7 @@ export interface AssistantConversationDetail extends AssistantConversationSummar
 export interface AskAssistantResult {
   conversationId: string;
   answer: string;
+  actions?: AssistantAction[];
 }
 
 const CONVERSATIONS_KEY = ['ai-assistant-conversations'];

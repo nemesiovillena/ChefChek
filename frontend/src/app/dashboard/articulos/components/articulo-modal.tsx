@@ -1,13 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Tag } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
+import { useModules } from '@/features/modules/hooks/use-modules';
 import { useCreateProduct, useUpdateProduct, useUploadProductImage, useMergeProduct, useDismissDuplicate, Product, CreateProductData } from '@/hooks/use-products';
 import { useProductNameCheck } from '@/hooks/use-product-name-check';
 import { useConfirm } from '@/contexts/confirm.context';
 import { CategoryTreeNode } from '@/hooks/use-categories';
 import PesoPrecioFields from './peso-precio-fields';
 import ImagePicker from '@/components/image-picker';
+import ConservationFieldset from '@/components/conservation-fieldset';
 import TabAlergenos from './tab-alergenos';
 import TabProveedorStock from './tab-proveedor-stock';
 import TabNutricion from './tab-nutricion';
@@ -21,6 +26,7 @@ const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
   { id: 'mermas', label: 'Mermas' },
+  { id: 'conservacion', label: 'Conservación' },
   { id: 'alergenos', label: 'Alérgenos' },
   { id: 'nutricion', label: 'Nutrición' },
   { id: 'codigos', label: 'Códigos' },
@@ -61,6 +67,11 @@ const emptyFormData = {
   minimumStock: '',
   maximumStock: '',
   tracksInventory: true,
+  secondaryShelfLifeDays: '',
+  shelfLifeFrozenDays: '',
+  storageCondition: '',
+  storageTempMin: '',
+  storageTempMax: '',
 };
 
 const emptyNutrition = {
@@ -93,7 +104,19 @@ function deriveFormData(article: Product | null | undefined) {
     minimumStock: article.stocks?.[0]?.minimumStock?.toString() || '',
     maximumStock: article.stocks?.[0]?.maximumStock?.toString() || '',
     tracksInventory: article.tracksInventory ?? true,
+    secondaryShelfLifeDays: article.secondaryShelfLifeDays?.toString() ?? '',
+    shelfLifeFrozenDays: article.shelfLifeFrozenDays?.toString() ?? '',
+    storageCondition: article.storageCondition ?? '',
+    storageTempMin: article.storageTempMin?.toString() ?? '',
+    storageTempMax: article.storageTempMax?.toString() ?? '',
   };
+}
+
+/** '' → undefined; número válido → número. Campos de conservación opcionales. */
+function numOrUndef(s: string): number | undefined {
+  if (s.trim() === '') return undefined;
+  const n = parseFloat(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : undefined;
 }
 
 /** Derive initial nutrition values from the article prop (pure derivation, no setState). */
@@ -144,6 +167,10 @@ interface ArticuloModalFormProps {
 function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: ArticuloModalFormProps) {
   const addNotification = useNotification();
   const confirm = useConfirm();
+  const router = useRouter();
+  const { canSee } = useSectionAccess();
+  const { isEnabled } = useModules();
+  const canLabel = isEnabled('etiquetado') && canSee('etiquetado.emit');
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadImageMutation = useUploadProductImage();
@@ -247,6 +274,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
       tracksInventory: formData.tracksInventory,
       minimumStock: parseFloat(formData.minimumStock) || undefined,
       maximumStock: parseFloat(formData.maximumStock) || undefined,
+      secondaryShelfLifeDays: numOrUndef(formData.secondaryShelfLifeDays),
+      shelfLifeFrozenDays: numOrUndef(formData.shelfLifeFrozenDays),
+      storageCondition: formData.storageCondition || undefined,
+      storageTempMin: numOrUndef(formData.storageTempMin),
+      storageTempMax: numOrUndef(formData.storageTempMax),
     };
 
     try {
@@ -420,6 +452,38 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
               setFormData={(data) => setFormData({ ...formData, ...data })}
             />
           )}
+          {activeTab === 'conservacion' && (
+            <ConservationFieldset
+              value={{
+                shelfLifeDays: formData.secondaryShelfLifeDays,
+                shelfLifeFrozenDays: formData.shelfLifeFrozenDays,
+                storageCondition: formData.storageCondition,
+                storageTempMin: formData.storageTempMin,
+                storageTempMax: formData.storageTempMax,
+              }}
+              onChange={(patch) =>
+                setFormData((f) => ({
+                  ...f,
+                  ...(patch.shelfLifeDays !== undefined
+                    ? { secondaryShelfLifeDays: patch.shelfLifeDays }
+                    : {}),
+                  ...(patch.shelfLifeFrozenDays !== undefined
+                    ? { shelfLifeFrozenDays: patch.shelfLifeFrozenDays }
+                    : {}),
+                  ...(patch.storageCondition !== undefined
+                    ? { storageCondition: patch.storageCondition }
+                    : {}),
+                  ...(patch.storageTempMin !== undefined
+                    ? { storageTempMin: patch.storageTempMin }
+                    : {}),
+                  ...(patch.storageTempMax !== undefined
+                    ? { storageTempMax: patch.storageTempMax }
+                    : {}),
+                }))
+              }
+              shelfLifeLabel="Vida útil tras apertura/manipulación (días)"
+            />
+          )}
           {activeTab === 'alergenos' && (
             <TabAlergenos
               allergens={allergens}
@@ -458,6 +522,19 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
 
         {/* Footer buttons */}
         <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-zinc-800">
+          {article?.id && canLabel && (
+            <button
+              type="button"
+              onClick={() => {
+                router.push(`/dashboard/etiquetado/nueva?productId=${article.id}`);
+                onClose();
+              }}
+              className="mr-auto inline-flex items-center gap-2 px-6 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 transition-colors"
+            >
+              <Tag className="h-4 w-4" />
+              Etiquetar
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}

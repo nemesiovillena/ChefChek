@@ -87,6 +87,11 @@ export interface Product {
   imageUrl?: string;
   isActive: boolean;
   tracksInventory: boolean;
+  secondaryShelfLifeDays?: number | null;
+  shelfLifeFrozenDays?: number | null;
+  storageCondition?: string | null;
+  storageTempMin?: number | null;
+  storageTempMax?: number | null;
   tenantId: string;
   category?: ProductCategory;
   supplier?: ProductSupplier;
@@ -144,6 +149,11 @@ export interface CreateProductData {
   nutritionalInfo?: NutritionalInfoInput;
   minimumStock?: number;
   maximumStock?: number;
+  secondaryShelfLifeDays?: number;
+  shelfLifeFrozenDays?: number;
+  storageCondition?: string;
+  storageTempMin?: number;
+  storageTempMax?: number;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {

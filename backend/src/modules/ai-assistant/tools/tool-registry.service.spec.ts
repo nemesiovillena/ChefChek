@@ -75,6 +75,7 @@ describe("ToolRegistryService", () => {
     recipesMock = {
       findNameMatches: jest.fn().mockResolvedValue([]),
       calculateRecipeCost: jest.fn(),
+      findOne: jest.fn(),
     };
     warehousesMock = { getStock: jest.fn().mockResolvedValue([]) };
     lotServiceMock = { findLots: jest.fn().mockResolvedValue([]) };
@@ -94,9 +95,9 @@ describe("ToolRegistryService", () => {
     service = module.get(ToolRegistryService);
   });
 
-  it("expone 10 tools con schema sin tenantId en las propiedades", () => {
+  it("expone 11 tools con schema sin tenantId en las propiedades", () => {
     const schemas = service.getToolSchemas();
-    expect(schemas).toHaveLength(10);
+    expect(schemas).toHaveLength(11);
     for (const schema of schemas) {
       expect(schema.parameters.properties).not.toHaveProperty("tenantId");
       expect(schema.parameters.required ?? []).not.toContain("tenantId");
@@ -131,11 +132,12 @@ describe("ToolRegistryService", () => {
       expect(names).toContain("get_low_stock_products");
       expect(names).toContain("get_product_stock");
       expect(names).toContain("get_lot_traceability");
+      expect(names).toContain("get_recipe_details");
     });
 
-    it("mantiene las 10 tools cuando canViewCosts=true (default)", () => {
-      expect(service.getToolSchemas({ canViewCosts: true })).toHaveLength(10);
-      expect(service.getToolSchemas()).toHaveLength(10);
+    it("mantiene las 11 tools cuando canViewCosts=true (default)", () => {
+      expect(service.getToolSchemas({ canViewCosts: true })).toHaveLength(11);
+      expect(service.getToolSchemas()).toHaveLength(11);
     });
 
     it("executeTool rechaza una tool de coste cuando canViewCosts=false", async () => {

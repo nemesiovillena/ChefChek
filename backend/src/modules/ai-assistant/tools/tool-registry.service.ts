@@ -12,6 +12,7 @@ import { createPurchaseSpendTools } from "./purchase-spend.tool";
 import { createPriceHistoryTool } from "./price-history.tool";
 import { createPendingPriceDeviationsTool } from "./pending-price-deviations.tool";
 import { createRecipeCostTool } from "./recipe-cost.tool";
+import { createRecipeDetailsTool } from "./recipe-details.tool";
 import { createStockTools } from "./stock.tool";
 import { createLotTraceabilityTool } from "./lot-traceability.tool";
 import { LotService } from "../../albaranes/services/lot.service";
@@ -55,6 +56,7 @@ export class ToolRegistryService {
       createPriceHistoryTool(prisma, productsService),
       createPendingPriceDeviationsTool(priceAgreement),
       createRecipeCostTool(recipesService),
+      createRecipeDetailsTool(recipesService),
       ...createStockTools(warehouses, productsService),
       createLotTraceabilityTool(lotService, productsService),
     ];

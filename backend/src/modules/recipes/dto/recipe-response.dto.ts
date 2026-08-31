@@ -90,6 +90,11 @@ export interface RecipeResponse {
   portions: number;
   portionSize: number;
   totalYieldWeight?: number | null;
+  shelfLifeDays?: number | null;
+  shelfLifeFrozenDays?: number | null;
+  storageCondition?: string | null;
+  storageTempMin?: number | null;
+  storageTempMax?: number | null;
   totalCost: number;
   totalCostPerUnit: number;
   sellingPriceWithVat?: number | null;

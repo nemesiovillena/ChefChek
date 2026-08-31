@@ -90,6 +90,7 @@ model Tenant {
   ProductionReport           ProductionReport[]
   salaTasks                  SalaTask[]
   assistantConversations     AssistantConversation[]
+  foodLabels                 FoodLabel[]
 
   @@map("tenants")
 }
@@ -201,25 +202,37 @@ model Product {
 
   manualPurchaseDate DateTime? // Fecha de compra editada manualmente en el listado
 
-  tenant                 Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category               Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier               Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients      RecipeIngredient[]
-  stockMovements         StockMovement[]
-  stocks                 Stock[]
-  purchaseFormats        PurchaseFormat[]
-  nutritionalInfo        NutritionalInfo?
-  albaranLines           AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
-  albaranLineSuggestions AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
-  priceHistory           ProductPriceHistory[]
-  supplierOffers         ProductSupplierOffer[]
-  purchaseOrderLines     PurchaseOrderLine[]
-  purchaseListItems      PurchaseListItem[]
-  catalogImportLines     CatalogImportLine[]
-  lots                   Lot[]
-  supplierAliases        SupplierProductAlias[]
-  duplicateDismissals    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
-  duplicateDismissedBy   ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
+  // Conservación / vida útil (etiquetado). Semántica = tras apertura o
+  // manipulación/reenvasado (caducidad secundaria). Todos opcionales; valores
+  // por defecto al emitir una etiqueta de artículo manipulado, editables en
+  // cada etiqueta.
+  secondaryShelfLifeDays Int? // días de vida útil tras apertura/manipulación
+  shelfLifeFrozenDays    Int? // días de vida útil si se congela
+  storageCondition       String? // REFRIGERATED | FROZEN | AMBIENT
+  storageTempMin         Float? // °C
+  storageTempMax         Float? // °C
+
+  tenant                  Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category                Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier                Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients       RecipeIngredient[]
+  stockMovements          StockMovement[]
+  stocks                  Stock[]
+  purchaseFormats         PurchaseFormat[]
+  nutritionalInfo         NutritionalInfo?
+  albaranLines            AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
+  albaranLineSuggestions  AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
+  priceHistory            ProductPriceHistory[]
+  supplierOffers          ProductSupplierOffer[]
+  purchaseOrderLines      PurchaseOrderLine[]
+  purchaseListItems       PurchaseListItem[]
+  catalogImportLines      CatalogImportLine[]
+  lots                    Lot[]
+  supplierAliases         SupplierProductAlias[]
+  duplicateDismissals     ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
+  duplicateDismissedBy    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
+  foodLabels              FoodLabel[]
+  foodLabelIngredientLots FoodLabelIngredientLot[]
 
   @@index([tenantId])
   @@index([name])
@@ -377,6 +390,15 @@ model Recipe {
   portionSize      Float  @default(1)
   totalYieldWeight Float? // peso total elaborado (g)
 
+  // Conservación / vida útil (etiquetado). Todos opcionales; se usan como
+  // valores por defecto al emitir una etiqueta del plato elaborado y son
+  // editables puntualmente en cada etiqueta.
+  shelfLifeDays       Int? // días de vida útil tras elaboración (condición por defecto)
+  shelfLifeFrozenDays Int? // días de vida útil si se congela
+  storageCondition    String? // REFRIGERATED | FROZEN | AMBIENT
+  storageTempMin      Float? // °C
+  storageTempMax      Float? // °C
+
   // Versionado
   version       Int     @default(1)
   parentVersion String?
@@ -398,6 +420,7 @@ model Recipe {
   translations         RecipeTranslation[]
   duplicateDismissals  RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalRecipe")
   duplicateDismissedBy RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalDismissed")
+  foodLabels           FoodLabel[]
 
   @@index([tenantId])
   @@index([name])
@@ -1133,6 +1156,7 @@ model ProductionOrder {
   milestones       Milestone[]
   alerts           ProductionAlert[]
   miseEnPlaceItems MiseEnPlaceItem[]
+  foodLabels       FoodLabel[]
 
   @@map("production_orders")
 }
@@ -1971,12 +1995,90 @@ model Lot {
   warehouse   Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
-  stockMovements StockMovement[]
+  stockMovements          StockMovement[]
+  foodLabels              FoodLabel[]
+  foodLabelIngredientLots FoodLabelIngredientLot[]
 
   @@index([tenantId])
   @@index([productId])
   @@index([lotNumber])
   @@map("lots")
+}
+
+// Etiqueta de cocina emitida (registro de trazabilidad, re-imprimible).
+// labelType ELABORATED = plato elaborado a partir de una receta;
+// HANDLED = artículo comprado manipulado/reenvasado para conservar.
+// Los campos snapshot (itemName, allergens, createdByName, storage*) preservan
+// el estado en el momento de emisión y sobreviven al borrado/renombrado de la
+// receta/artículo de origen. Anular = voidedAt (nunca borrado físico).
+model FoodLabel {
+  id                     String    @id @default(cuid())
+  tenantId               String
+  labelType              String // ELABORATED | HANDLED
+  recipeId               String? // ELABORATED
+  productId              String? // HANDLED
+  itemName               String // snapshot del nombre
+  lotNumber              String // generado (ELABORATED) o del proveedor (HANDLED)
+  sourceLotId            String? // HANDLED: Lot de proveedor del que sale
+  productionOrderId      String? // vínculo opcional (sin picker en v1)
+  preparedAt             DateTime // fecha/hora de elaboración o de manipulación/reenvasado
+  manufacturerExpiryDate DateTime? // caducidad original de fábrica (HANDLED)
+  useByDate              DateTime // consumo preferente calculado
+  frozenAt               DateTime? // si se congela
+  frozenUseByDate        DateTime? // consumo desde congelado calculado
+  storageCondition       String // REFRIGERATED | FROZEN | AMBIENT (snapshot)
+  storageTempMin         Float?
+  storageTempMax         Float?
+  shelfLifeDaysApplied   Int? // días de vida útil usados en el cálculo (snapshot)
+  quantity               Float?
+  quantityUnit           String?
+  portions               Float? // raciones (fraccionarias permitidas)
+  allergens              Int[]     @default([]) // snapshot de IDs de alérgeno
+  notes                  String?
+  createdByUserId        String
+  createdByName          String // snapshot (nombre completo; la vista pública solo muestra iniciales/rol)
+  reprintCount           Int       @default(0)
+  qrToken                String    @unique @default(uuid()) // UUID v4 (aleatorio, no adivinable); credencial de la ficha pública sin login
+  voidedAt               DateTime?
+  voidReason             String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  tenant          Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipe          Recipe?                  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  product         Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sourceLot       Lot?                     @relation(fields: [sourceLotId], references: [id], onDelete: SetNull)
+  productionOrder ProductionOrder?         @relation(fields: [productionOrderId], references: [id], onDelete: SetNull)
+  ingredientLots  FoodLabelIngredientLot[]
+
+  @@unique([tenantId, lotNumber])
+  @@index([tenantId])
+  @@index([tenantId, preparedAt])
+  @@index([recipeId])
+  @@index([productId])
+  @@map("food_labels")
+}
+
+// Trazabilidad hacia atrás de una etiqueta ELABORATED: el lote declarado para
+// cada ingrediente directo de la receta (selección manual al etiquetar).
+// lotNumber es texto libre / snapshot; lotId enlaza a un Lot registrado si el
+// usuario eligió uno.
+model FoodLabelIngredientLot {
+  id           String  @id @default(cuid())
+  foodLabelId  String
+  productId    String? // ingrediente
+  productName  String // snapshot
+  lotId        String? // Lot registrado elegido, si lo hay
+  lotNumber    String // snapshot o texto libre ("" / "SIN ESPECIFICAR" permitido)
+  quantityUsed Float?
+  unit         String?
+
+  foodLabel FoodLabel @relation(fields: [foodLabelId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  lot       Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+
+  @@index([foodLabelId])
+  @@map("food_label_ingredient_lots")
 }
 
 // Unidades de medida configurables por tenant
@@ -2419,6 +2521,7 @@ model AssistantMessage {
   role           String // "user" | "assistant" | "tool"
   content        String   @db.Text
   toolCalls      Json? // [{name, params, result}] — auditoría/depuración
+  actions        Json? // [{type:'open_recipe', recipeId, label}] — botones de navegación adjuntos a la respuesta
   createdAt      DateTime @default(now())
 
   conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

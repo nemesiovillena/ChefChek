@@ -59,6 +59,7 @@ import { BackupModule } from "./modules/backup/backup.module";
 import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
 import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
 import { RoleAccessModule } from "./modules/role-access/role-access.module";
+import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { RoleAccessModule } from "./modules/role-access/role-access.module";
     RoleAccessModule,
     SuperadminModule,
     BackupModule,
+    EtiquetadoModule,
   ],
   controllers: [
     TenantsController,

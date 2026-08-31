@@ -10,6 +10,18 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 ---
 
+## 2026-09-01 — Sistema de Etiquetado de Alimentos (módulo `etiquetado`)
+
+- Nuevo módulo `etiquetado` (`defaultEnabled: false`, secciones `etiquetado` / `etiquetado.emit`): emite e historifica etiquetas de cocina con trazabilidad para platos elaborados (desde receta) y artículos manipulados (desde artículo + lote de proveedor).
+- Modelos nuevos `FoodLabel` + `FoodLabelIngredientLot` (aditivos). Columnas de conservación/vida útil nullable en `Recipe` y `Product`, editables en sus modales.
+- Nº de lote autogenerado `PREFIJO-DDMMAA-NN`; consumo preferente calculado (elaboración + vida útil, override por etiqueta).
+- PDF con pdfkit: térmica 57×40 / 57×32 + A4 rejilla (70×37 y 63,5×38), QR a la ficha pública.
+- Ficha pública `/e/[qrToken]` (Server Component, sin login) — ficha completa salvo el nombre del responsable (iniciales). Endpoint backend público con rate-limit propio.
+- Botón "Etiquetar" en la fila de Recetas y en el pie del modal de Artículo.
+- Ver `food-labeling-system.md`.
+
+---
+
 ## Estado real — 2026-08-10 (Órdenes de Producción: receta decoupled)
 
 - **ProductionOrder contrato actualizado**: `recipeId`, `recipeName`, `quantity`, `unit` ahora son opcionales. `title` (texto libre obligatorio) identifica la orden, sustituyendo `recipeName` como identificador principal. Nuevo campo `description` opcional.

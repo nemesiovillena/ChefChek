@@ -133,6 +133,18 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     moduleId: "allergens",
     defaultAllowed: true,
   },
+  {
+    key: "etiquetado",
+    label: "Etiquetado",
+    moduleId: "etiquetado",
+    defaultAllowed: true,
+  },
+  {
+    key: "etiquetado.emit",
+    label: "Emitir etiquetas",
+    parent: "etiquetado",
+    defaultAllowed: true,
+  },
 
   // ── Contenido ───────────────────────────────────────────────────────────
   { key: "menus", label: "Menús", moduleId: "menus", defaultAllowed: true },
