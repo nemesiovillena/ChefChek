@@ -2521,6 +2521,7 @@ model AssistantMessage {
   role           String // "user" | "assistant" | "tool"
   content        String   @db.Text
   toolCalls      Json? // [{name, params, result}] — auditoría/depuración
+  actions        Json? // [{type:'open_recipe', recipeId, label}] — botones de navegación adjuntos a la respuesta
   createdAt      DateTime @default(now())
 
   conversation AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
