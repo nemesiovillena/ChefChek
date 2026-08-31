@@ -85,7 +85,7 @@ Base ya existente que se reutiliza (ver reporte de scout): modelo `Lot` (1 por l
 | 3 | [Backend PDF+QR+trazabilidad](./phase-03-backend-pdf-qr-trazabilidad.md) | Pending | Completed |
 | 4 | [Config conservación en Recetas y Artículos](./phase-04-config-conservaci-n-en-recetas-y-art-culos.md) | Pending | Completed |
 | 5 | [Frontend módulo Etiquetado](./phase-05-frontend-m-dulo-etiquetado.md) | Pending | Completed |
-| 6 | [Botones Etiquetar + pulido y docs](./phase-06-botones-etiquetar-pulido-y-docs.md) | Pending | 4, 5 |
+| 6 | [Botones Etiquetar + pulido y docs](./phase-06-botones-etiquetar-pulido-y-docs.md) | Pending | Completed |
 
 Paralelizable: 3 y 4 tras la 1/2 (ficheros distintos). 4 depende solo de 1 (columnas Prisma) pero su frontend toca modales que conviven con la 5 — coordinar en 6.
 
@@ -159,3 +159,37 @@ Paralelizable: 3 y 4 tras la 1/2 (ficheros distintos). 4 depende solo de 1 (colu
 - "extraer `LotService` a módulo compartido" (fase 2) → degradado a nota; `AlbaranesModule` ya lo exporta. ✔
 - Picker de orden de producción (fase 5) → eliminado de v1; `productionOrderId` permanece solo como columna. ✔
 - Sin contradicciones abiertas.
+
+---
+
+## Ejecución (implementación) — 2026-09-01
+
+Fases 1-6 implementadas en `feat/etiquetado-alimentos` (desde `develop`), sin commitear.
+Backend: `jest` 1850/1850 (125 suites), `tsc`/`nest build`/`eslint` limpios.
+Frontend: `tsc`/`next build` (Next 16)/`eslint` limpios.
+
+### Code review (code-reviewer, DONE_WITH_CONCERNS) — hallazgos resueltos
+
+| # | Hallazgo | Fix |
+|---|---|---|
+| H1 | `LotNumberService`: el `MAX(CAST(... AS INTEGER))` escaneaba también lotes HANDLED (nº de proveedor en texto libre) → un lote tipo `X-DDMMAA-9999999999` reventaba el CAST (integer overflow) y bloqueaba el alta de etiquetas ELABORATED de ese día para todo el tenant | Query acotada: `labelType = 'ELABORATED'` + regex exacta `^[A-Z0-9]{1,4}-DDMMAA-[0-9]{1,6}$` + `::BIGINT`. Test hostil añadido. |
+| H2 | `computeUseByDate` fijaba fin-de-día en zona del servidor (UTC en prod) pero todo se renderiza en `Europe/Madrid` → el consumo preferente se imprimía un día tarde | Reescrito: día natural en Madrid de `from` + N días, materializado a mediodía UTC (la etiqueta solo imprime fecha). Test cross-TZ + cambio de mes/año. |
+| M1 | VIEWER (rol solo-lectura) podía crear/anular etiquetas | `@Roles("ADMIN","USER")` en `POST /labels` y `POST /labels/:id/void` (+ `RolesGuard` en el controller). |
+| M2 | Reintento de nº de lote: en el último intento relanzaba el `P2002` crudo (500) en vez del `ConflictException` (409) | `break` en el último intento → cae al `ConflictException`. |
+| L1 | La ficha pública exponía `notes` (texto libre del operario) | `notes` fuera de la proyección pública (sí en el detalle interno y en el PDF). |
+| L2 | `qrToken` era `cuid()` (no cripto-aleatorio) | `@default(uuid())` (UUID v4). |
+
+No-issues verificados por el reviewer: aislamiento por tenant en todos los paths autenticados, atomicidad del create anidado, migración 100% aditiva, sin regresión en recipes/products, sin `useEffect` nuevo en frontend, SQL sin inyección.
+
+### Fase 7 (extra, a petición del usuario) — Perfiles de etiquetadora configurables
+
+Decisión: **solo térmica configurable** (medidas dependen de la impresora del usuario); A4 = presets built-in. Ubicación: **Ajustes → sección "Etiquetas"**.
+
+- `EtiquetadoConfigService` — perfiles térmicos `{id,name,widthMm,heightMm}` por tenant en `Configuration` (key `ETIQUETADO_THERMAL_PROFILES`), validación 20–200 mm, 2 por defecto. `resolveSpec(tenantId, format)` traduce `thermal:<id>` / `a4-*` → `LabelSpec`.
+- `GET /api/v1/etiquetado/config` (todos) + `PUT` (`ADMIN`).
+- `FoodLabelPdfService.generate(label, LabelSpec, copies)` — ya no recibe clave fija.
+- Frontend: `useEtiquetadoConfig` + `labelFormatOptions`; selectores de formato en `nueva`/`[id]` dinámicos; `settings/components/etiquetado-config-section.tsx` (CRUD de perfiles, auto-oculto si el módulo está off).
+
+### Pendiente
+
+- Finalize: `/ck:project-management` (sync plan), `docs-manager`, commit (pendiente OK del usuario), journal.

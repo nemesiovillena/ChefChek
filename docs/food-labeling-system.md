@@ -46,7 +46,7 @@ sobreviven al borrado/renombrado de la receta o el artículo de origen.
 | `storageTempMin/Max` | °C |
 | `allergens` | `Int[]` snapshot de códigos UE |
 | `createdByName` | nombre completo (solo se expone en el detalle autenticado) |
-| `qrToken` | `cuid()` opaco → credencial de la ficha pública |
+| `qrToken` | UUID v4 (`@default(uuid())`) → credencial de la ficha pública |
 | `voidedAt` / `voidReason` | anulación soft |
 
 ### `FoodLabelIngredientLot` (`food_label_ingredient_lots`)
@@ -80,9 +80,11 @@ Ej. `JARR-310826-01`.
 
 ## Cálculo de fechas
 
-- `useByDate` = `preparedAt` + días de vida útil efectivos (override en la
-  etiqueta > config de la entidad). Se fija a fin del día local (23:59). Si no
-  hay días definidos ni fecha explícita → error de validación.
+- `useByDate` = día natural en `Europe/Madrid` de (`preparedAt` + días de vida
+  útil efectivos), donde efectivos = override en la etiqueta > config de la
+  entidad. Se materializa como mediodía UTC de ese día (la etiqueta solo imprime
+  la fecha, sin hora; independiente de la zona del servidor). Si no hay días
+  definidos ni fecha explícita → error de validación.
 - `frozenUseByDate` = `frozenAt` + `shelfLifeFrozenDays`, solo si se marca
   "se congela".
 
@@ -97,8 +99,13 @@ Autenticado (`AuthGuard, TenantGuard, ModuleGuard, SectionAccessGuard` +
 | `GET` | `/labels` | `etiquetado` — paginado, filtros `labelType`, `lotNumber`, rango `preparedAt`, `includeVoided` |
 | `GET` | `/labels/:id` | `etiquetado` |
 | `GET` | `/labels/:id/pdf?format=&copies=&reprint=1` | `etiquetado.emit` |
-| `POST` | `/labels/:id/void` | `etiquetado.emit` |
+| `POST` | `/labels/:id/void` | `etiquetado.emit` + rol ≥ USER |
 | `GET` | `/prep-context?recipeId=` \| `?productId=` | `etiquetado.emit` |
+| `GET` | `/config` | `etiquetado` |
+| `PUT` | `/config` | rol `ADMIN` |
+
+`POST /labels` y `POST /labels/:id/void` exigen además rol ≥ USER
+(`@Roles("ADMIN","USER")`) — VIEWER es solo lectura.
 
 Público (sin guards, rate-limit propio 20/min):
 
@@ -109,17 +116,23 @@ responsable**, que sale como iniciales (`responsibleInitials`).
 
 ## PDF
 
-`FoodLabelPdfService` (pdfkit). Presets (`label-presets.ts`):
+`FoodLabelPdfService` (pdfkit) recibe una `LabelSpec` resuelta (no una clave
+fija):
 
-| Formato | Uso |
-|---|---|
-| `thermal-57x40` | térmica, preset principal |
-| `thermal-57x32` | térmica compacto (sin lista de ingredientes) |
-| `a4-70x37` | A4 rejilla 3×8 (24/hoja, tipo Apli) |
-| `a4-63x38` | A4 rejilla 3×7 (21/hoja) |
+- **Térmica**: medidas de la etiquetadora del tenant, configurables en Ajustes →
+  Etiquetas (`GET/PUT /api/v1/etiquetado/config`, PUT solo `ADMIN`, guardado en
+  `Configuration` con key `ETIQUETADO_THERMAL_PROFILES`). Cada perfil: `{ id,
+  name, widthMm, heightMm }` (20–200 mm). Un tenant nuevo trae 2 perfiles por
+  defecto (57×40 y 57×32). Si el alto < 36 mm la etiqueta omite la lista de
+  ingredientes.
+- **Hoja A4**: presets estándar built-in **no configurables** (`a4-70x37` =
+  Apli 3×8, `a4-63x38` = Apli 3×7). Márgenes/gutters en `label-presets.ts`,
+  ajustables con un PDF real sin tocar la lógica de render.
 
-El QR codifica `${APP_URL}/e/${qrToken}`. Márgenes de las rejillas A4 en
-constantes, ajustables con un PDF real sin tocar la lógica de render.
+El `format` que llega al endpoint de PDF es `thermal:<profileId>` o
+`a4-70x37` / `a4-63x38`; `EtiquetadoConfigService.resolveSpec` lo traduce.
+
+El QR codifica `${APP_URL}/e/${qrToken}`.
 
 ## Frontend
 
@@ -142,8 +155,10 @@ constantes, ajustables con un PDF real sin tocar la lógica de render.
 - Desglose de lotes en sub-recetas.
 - Picker de Orden de Producción (solo la columna `productionOrderId`).
 - Plantillas de etiqueta personalizables (layout fijo).
+- Configuración de rejilla A4 por el usuario (los stocks A4 son estándar; solo la
+  térmica es configurable).
 
 ## Preguntas abiertas
 
-- Medidas exactas de la etiquetadora térmica del usuario y stock A4 concreto →
-  afinar `LABEL_PRESETS`.
+- Ninguna pendiente de producto. Afinado fino de márgenes A4 con un PDF real de
+  la impresora del usuario si hiciera falta.

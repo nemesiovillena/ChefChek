@@ -100,7 +100,7 @@
 - `sourceLotId?` (FK `Lot`), `productionOrderId?` (FK SetNull, sin UI v1)
 - `preparedAt`, `useByDate` (calculado), `manufacturerExpiryDate?`, `frozenAt?`/`frozenUseByDate?`
 - `storageCondition`, `storageTempMin/Max`, `allergens` (Int[] snapshot)
-- `createdByName` snapshot, `qrToken` (cuid opaco — credencial de la ficha pública)
+- `createdByName` snapshot, `qrToken` (UUID v4 — credencial de la ficha pública)
 - `voidedAt?`/`voidReason?` (anulación soft, nunca borrado)
 
 **FoodLabelIngredientLot** (`food_label_ingredient_lots`) — 1 por ingrediente directo de una etiqueta ELABORATED

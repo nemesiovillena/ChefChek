@@ -1,10 +1,12 @@
 ---
 phase: 6
-title: "Botones Etiquetar + pulido y docs"
-status: pending
+title: Botones Etiquetar + pulido y docs
+status: completed
 priority: P2
-effort: "~0.5 sesión"
-dependencies: [4, 5]
+effort: ~0.5 sesión
+dependencies:
+  - 4
+  - 5
 ---
 
 # Phase 6: Botones "Etiquetar" + pulido y docs
