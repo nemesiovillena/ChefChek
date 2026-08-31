@@ -51,6 +51,7 @@ export interface Recipe {
   sourceUrl?: string;
   portions: number;
   portionSize?: number;
+  totalYieldWeight?: number | null;
   totalCost: number;
   totalCostPerUnit?: number;
   sellingPriceWithVat?: number | null;
@@ -91,6 +92,7 @@ export interface CreateRecipeData {
   sourceUrl?: string;
   portions: number;
   portionSize?: number;
+  totalYieldWeight?: number;
   ingredients: RecipeIngredient[];
   subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
   categoryIds?: string[];

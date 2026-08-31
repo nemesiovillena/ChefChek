@@ -93,6 +93,7 @@ describe("RecipesService", () => {
     elaboration: JSON.stringify({ type: "doc", content: [] }),
     portions: 4,
     portionSize: 200,
+    totalYieldWeight: 800,
     totalCost: 15.5,
     totalCostPerUnit: 0.155,
     version: 1,
@@ -403,6 +404,155 @@ describe("RecipesService", () => {
         where: { recipeId },
       });
       expect(mockPrismaService.recipeIngredient.createMany).toHaveBeenCalled();
+    });
+  });
+
+  describe("rendimiento (peso total elaborado)", () => {
+    it("create con totalYieldWeight deriva portionSize = total / raciones", async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        name: "R",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 8,
+        portionSize: 999, // debe ignorarse frente al ancla
+        totalYieldWeight: 2000,
+        ingredients: [
+          { productId: "product-1", quantity: 100, unit: "Gramos" },
+        ],
+        subRecipes: [],
+      });
+
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 8,
+            portionSize: 250,
+            totalYieldWeight: 2000,
+          }),
+        }),
+      );
+    });
+
+    it("create sin totalYieldWeight lo deriva de raciones × peso ración", async () => {
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        name: "R",
+        elaboration: JSON.stringify({ type: "doc", content: [] }),
+        portions: 4,
+        portionSize: 125,
+        ingredients: [
+          { productId: "product-1", quantity: 100, unit: "Gramos" },
+        ],
+        subRecipes: [],
+      });
+
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 4,
+            portionSize: 125,
+            totalYieldWeight: 500,
+          }),
+        }),
+      );
+    });
+
+    it("update con totalYieldWeight recalcula peso ración y deja raciones", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, { totalYieldWeight: 1200 });
+
+      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 4,
+            portionSize: 300,
+            totalYieldWeight: 1200,
+          }),
+        }),
+      );
+    });
+
+    it("update acepta raciones decimales", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, {
+        portions: 2.5,
+        totalYieldWeight: 1000,
+      });
+
+      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 2.5,
+            portionSize: 400,
+            totalYieldWeight: 1000,
+          }),
+        }),
+      );
+    });
+
+    it("update solo con portionSize (cliente legacy) conserva raciones y recalcula el total", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, { portionSize: 300 });
+
+      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 4,
+            portionSize: 300,
+            totalYieldWeight: 1200, // 4 × 300, no el ancla previa (800)
+          }),
+        }),
+      );
+    });
+
+    it("update solo con portions (cliente legacy) conserva el peso ración", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, { portions: 6 });
+
+      expect(mockPrismaService.recipe.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            portions: 6,
+            portionSize: 200, // conservado (mockRecipe.portionSize)
+            totalYieldWeight: 1200, // 6 × 200
+          }),
+        }),
+      );
+    });
+
+    it("update ajeno al rendimiento (renombrar) conserva coste y rendimiento", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
+      mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
+
+      await service.update(tenantId, recipeId, { name: "Nuevo nombre" });
+
+      const data = mockPrismaService.recipe.update.mock.calls[0][0].data;
+      expect(data.portions).toBe(mockRecipe.portions);
+      expect(data.portionSize).toBe(mockRecipe.portionSize);
+      expect(data.totalYieldWeight).toBe(mockRecipe.totalYieldWeight);
+      // coste inalterado: sin cambios en ingredientes/subRecipes se reusa recipe.totalCost
+      expect(data.totalCost).toBe(mockRecipe.totalCost);
+      expect(data.totalCostPerUnit).toBeCloseTo(
+        mockRecipe.totalCost / (mockRecipe.portions * mockRecipe.portionSize),
+        10,
+      );
     });
   });
 
