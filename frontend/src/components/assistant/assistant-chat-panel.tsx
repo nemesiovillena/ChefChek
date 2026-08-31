@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bot, Loader2, Mic, Send, User } from 'lucide-react';
-import { useAskAssistant, useAssistantConversation } from '@/hooks/use-ai-assistant';
+import { Bot, BookOpen, Loader2, Mic, Send, User } from 'lucide-react';
+import { useAskAssistant, useAssistantConversation, AssistantAction } from '@/hooks/use-ai-assistant';
 import { useSpeechToText } from '@/hooks/use-speech-to-text';
 
 interface LocalMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  actions?: AssistantAction[];
 }
 
 interface AssistantChatPanelProps {
@@ -64,7 +65,13 @@ export function AssistantChatPanel({
     setMessages(
       conversation.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m) => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content })),
+        .map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          // Solo acciones con tipo conocido; el resto se ignora sin romper el render
+          actions: (m.actions ?? []).filter((a): a is AssistantAction => a?.type === 'open_recipe'),
+        })),
     );
   }, [conversation]);
 
@@ -87,7 +94,12 @@ export function AssistantChatPanel({
       localIdCounter += 1;
       setMessages((prev) => [
         ...prev,
-        { id: `local-${localIdCounter}`, role: 'assistant', content: result.answer },
+        {
+          id: `local-${localIdCounter}`,
+          role: 'assistant',
+          content: result.answer,
+          actions: result.actions ?? [],
+        },
       ]);
       if (!conversationId && result.conversationId) {
         onConversationIdChange?.(result.conversationId);
@@ -133,6 +145,19 @@ export function AssistantChatPanel({
               }`}
             >
               {m.content}
+              {m.role === 'assistant' &&
+                m.actions?.map((a) =>
+                  a.type === 'open_recipe' ? (
+                    <Link
+                      key={a.recipeId}
+                      href={`/dashboard/recipes?recipe=${a.recipeId}`}
+                      className="mt-2 flex items-center gap-1.5 rounded-full border border-[var(--outline-variant)] px-3 py-1 text-xs font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--surface-container)]"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      {a.label}
+                    </Link>
+                  ) : null,
+                )}
               {m.role === 'assistant' && m.content.includes(NO_CONFIG_MARKER) && (
                 <Link
                   href="/dashboard/settings"

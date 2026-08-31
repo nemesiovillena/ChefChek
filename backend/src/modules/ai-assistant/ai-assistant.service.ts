@@ -15,6 +15,7 @@ import {
   ProviderAdapter,
 } from "./providers/provider-adapter.interface";
 import { AiAssistantProvider } from "./config/dto/ai-assistant-config.dto";
+import { AssistantAction, extractAssistantAction } from "./assistant-actions";
 import { RoleAccessService } from "../role-access/role-access.service";
 
 const MAX_TOOL_TURNS = 4;
@@ -53,6 +54,8 @@ const NO_COST_ACCESS_PROMPT = `\n\nIMPORTANTE: este usuario NO tiene permiso par
 export interface AskAssistantResult {
   conversationId: string;
   answer: string;
+  /** Botones de navegación adjuntos a la respuesta (p.ej. "Abrir receta"). */
+  actions?: AssistantAction[];
 }
 
 @Injectable()
@@ -130,6 +133,10 @@ export class AiAssistantService {
 
     let turns = 0;
     let finalContent: string | undefined;
+    // Acciones de navegación recogidas de los resultados de las tools de este
+    // turno (convención `result.action`); viajan al frontend y se persisten en
+    // el mensaje final para que el botón sobreviva a una recarga del historial.
+    const actions: AssistantAction[] = [];
 
     while (turns < MAX_TOOL_TURNS) {
       let result;
@@ -172,12 +179,15 @@ export class AiAssistantService {
       );
 
       for (const call of result.toolCalls) {
-        const toolResultText = await this.runTool(
+        const { text: toolResultText, action } = await this.runTool(
           tenantId,
           call.name,
           call.params,
           canViewCosts,
         );
+        if (action && !actions.some((a) => a.recipeId === action.recipeId)) {
+          actions.push(action);
+        }
         messages.push({
           role: "tool",
           content: toolResultText,
@@ -193,7 +203,13 @@ export class AiAssistantService {
     }
 
     const answer = finalContent ?? TOOL_LIMIT_MESSAGE;
-    await this.saveMessage(conversation.id, "assistant", answer);
+    await this.saveMessage(
+      conversation.id,
+      "assistant",
+      answer,
+      undefined,
+      actions,
+    );
     // Toca updatedAt para que listConversations() (orden por actividad reciente)
     // refleje la conversación real, no solo su fecha de creación (hallazgo de code review).
     await this.prisma.assistantConversation.update({
@@ -201,7 +217,9 @@ export class AiAssistantService {
       data: {},
     });
 
-    return { conversationId: conversation.id, answer };
+    return actions.length
+      ? { conversationId: conversation.id, answer, actions }
+      : { conversationId: conversation.id, answer };
   }
 
   async listConversations(tenantId: string, userId: string) {
@@ -232,13 +250,18 @@ export class AiAssistantService {
     return conversation;
   }
 
-  /** Ejecuta un tool y siempre devuelve texto para el LLM — nunca lanza (una tool desconocida/rota se reporta como resultado, no rompe la request). */
+  /**
+   * Ejecuta un tool y siempre devuelve texto para el LLM — nunca lanza (una
+   * tool desconocida/rota se reporta como resultado, no rompe la request).
+   * Devuelve también la acción de navegación que la tool haya adjuntado, si
+   * hay (ver assistant-actions.ts).
+   */
   private async runTool(
     tenantId: string,
     name: string,
     params: Record<string, any>,
     canViewCosts: boolean,
-  ): Promise<string> {
+  ): Promise<{ text: string; action: AssistantAction | null }> {
     try {
       const result = await this.toolRegistry.executeTool(
         tenantId,
@@ -246,11 +269,17 @@ export class AiAssistantService {
         params,
         { canViewCosts },
       );
-      return JSON.stringify(result);
+      return {
+        text: JSON.stringify(result),
+        action: extractAssistantAction(result),
+      };
     } catch (e: any) {
-      return JSON.stringify({
-        error: e?.message ?? "Error ejecutando la función",
-      });
+      return {
+        text: JSON.stringify({
+          error: e?.message ?? "Error ejecutando la función",
+        }),
+        action: null,
+      };
     }
   }
 
@@ -310,6 +339,7 @@ export class AiAssistantService {
     role: "user" | "assistant" | "tool",
     content: string,
     toolCalls?: unknown,
+    actions?: AssistantAction[],
   ) {
     await this.prisma.assistantMessage.create({
       data: {
@@ -317,6 +347,7 @@ export class AiAssistantService {
         role,
         content,
         ...(toolCalls ? { toolCalls: toolCalls as any } : {}),
+        ...(actions?.length ? { actions: actions as any } : {}),
       },
     });
   }

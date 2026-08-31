@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/auth.context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
@@ -29,7 +29,7 @@ import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import RecipeVisualView from './components/recipe-visual-view';
 import ImagePicker from '@/components/image-picker';
-import { useInvalidateQueries } from '@/hooks/use-api';
+import { useInvalidateQueries, useApiQuery } from '@/hooks/use-api';
 import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
@@ -119,6 +119,27 @@ export default function RecipesPage() {
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [visualViewRecipe, setVisualViewRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'elaboracion' | 'clasificacion'>('general');
+
+  // Deep link ?recipe=<id> (p.ej. botón "Abrir receta" del asistente IA):
+  // fetchea la receta y abre su vista visual. Derivado en render (sin efecto):
+  // el param manda mientras esté en la URL y se limpia al cerrar la vista.
+  const searchParams = useSearchParams();
+  const deepLinkRecipeId = searchParams.get('recipe');
+  const { data: deepLinkRecipe, error: deepLinkError } = useApiQuery<Recipe>(
+    ['recipes', deepLinkRecipeId ?? 'deep-link'],
+    `/v1/recipes/${deepLinkRecipeId ?? ''}`,
+    { enabled: !!deepLinkRecipeId },
+  );
+  const deepLinkViewRecipe =
+    deepLinkRecipeId && deepLinkRecipe?.id === deepLinkRecipeId
+      ? deepLinkRecipe
+      : null;
+  // Vista activa: deep link si lo hay, si no la abierta con un click en la tabla
+  const activeVisualRecipe = deepLinkViewRecipe ?? visualViewRecipe;
+  const closeVisualView = () => {
+    setVisualViewRecipe(null);
+    if (deepLinkViewRecipe) router.replace('/dashboard/recipes');
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -1431,14 +1452,21 @@ export default function RecipesPage() {
           />
         )}
 
+        {/* Enlace del asistente apuntando a una receta que ya no existe */}
+        {deepLinkError && deepLinkRecipeId && !activeVisualRecipe && (
+          <p className="text-sm text-[var(--error)]">
+            La receta enlazada ya no existe o no es accesible.
+          </p>
+        )}
+
         {/* Vista visual (imagen, ingredientes, pasos) */}
-        {visualViewRecipe && (
+        {activeVisualRecipe && (
           <RecipeVisualView
-            recipe={visualViewRecipe}
+            recipe={activeVisualRecipe}
             allergenById={allergenById}
-            isPrinting={generatingSheetId === visualViewRecipe.id}
-            onPrint={() => handleViewRecipeCard(visualViewRecipe)}
-            onClose={() => setVisualViewRecipe(null)}
+            isPrinting={generatingSheetId === activeVisualRecipe.id}
+            onPrint={() => handleViewRecipeCard(activeVisualRecipe)}
+            onClose={closeVisualView}
           />
         )}
       </PageContainer>
