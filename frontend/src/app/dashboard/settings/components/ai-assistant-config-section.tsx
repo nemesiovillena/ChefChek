@@ -38,25 +38,27 @@ interface AssistantModelOption {
   desc: string;
 }
 
-/** Catálogo de modelos del asistente. Solo proveedores con adapter en backend
- *  (openai/gemini/anthropic); el id se envía tal cual al proveedor. La rejilla
- *  solo muestra los modelos cuyo proveedor tiene API key configurada. */
+/** Catálogo de modelos del asistente — mismo patrón que OCR_MODELS del motor de
+ *  extracción: se muestran TODOS en la rejilla y bajo ella un aviso de si el
+ *  proveedor tiene API key. Solo proveedores con adapter en backend
+ *  (openai/gemini/anthropic); el id se envía tal cual al proveedor. */
 const AI_ASSISTANT_MODELS: AssistantModelOption[] = [
+  // OpenAI
+  { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas' },
+  { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o', cost: '~0,02 €', desc: 'OpenAI, más preciso en preguntas complejas' },
   { id: 'gpt-5.2', provider: 'openai', name: 'GPT-5.2', cost: '~0,01 €', desc: 'Rápido y económico para consultas cortas' },
-  { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas' },
-  { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio' },
-  // Varias opciones de Gemini: 3.6 Flash es la más barata pero sufre picos de
-  // saturación (503 "high demand"); 2.0 Flash es más estable, y "flash-latest"
-  // sigue siempre a la última Flash disponible. gemini-2.5-flash NO se ofrece:
-  // Google devuelve 404 "no longer available to new users" para keys nuevas.
-  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato; puede saturarse en horas punta' },
+  // Gemini — gemini-2.5-flash NO se ofrece: Google devuelve 404 "no longer
+  // available to new users" para keys nuevas.
   { id: 'gemini-2.0-flash', provider: 'gemini', name: 'Gemini 2.0 Flash', cost: '~0,002 €', desc: 'Estable y rápido, sin picos de saturación' },
   { id: 'gemini-flash-latest', provider: 'gemini', name: 'Gemini Flash (última)', cost: '~0,002 €', desc: 'Siempre la última versión Flash disponible' },
-  { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas' },
+  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato; puede saturarse en horas punta (503)' },
+  // Anthropic
+  { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio' },
+  { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas' },
 ];
 
-/** Último recurso del prefill cuando no hay config ni keys visibles. */
-const DEFAULT_MODEL_ID = 'gpt-4o-mini';
+/** Último recurso del prefill cuando no hay nada configurado. */
+const DEFAULT_MODEL_ID = AI_ASSISTANT_MODELS[0].id;
 
 function modelName(id: string | null | undefined): string {
   return AI_ASSISTANT_MODELS.find((m) => m.id === id)?.name ?? id ?? '';
@@ -64,10 +66,10 @@ function modelName(id: string | null | undefined): string {
 
 /**
  * Configuración del modelo IA del asistente "Chefchek" (chat en lenguaje
- * natural sobre precios/compras/recetas/stock), por tenant. Solo se ofrecen
- * modelos de proveedores con API key ya configurada en «Claves API» (o con la
- * key del propio asistente ya guardada en el servidor); al guardar, la key del
- * almacén local se sincroniza al servidor cifrada, igual que el motor OCR.
+ * natural sobre precios/compras/recetas/stock), por tenant. La rejilla muestra
+ * todos los modelos (igual que el motor OCR) y avisa si falta la API key del
+ * proveedor; sin key para el proveedor elegido no se puede guardar. Al guardar,
+ * la key del almacén local «Claves API» se sincroniza al servidor cifrada.
  */
 export function AiAssistantConfigSection() {
   const addNotification = useNotification();
@@ -85,25 +87,24 @@ export function AiAssistantConfigSection() {
 
   const hasLocalKey = (p: AiAssistantProvider) => Boolean(getApiKey(KEY_STORE_PROVIDER[p]));
   const hasServerKey = (p: AiAssistantProvider) => Boolean(config?.hasApiKey) && config?.provider === p;
-  const isModelVisible = (m: AssistantModelOption) => hasLocalKey(m.provider) || hasServerKey(m.provider);
-  const visibleModels = AI_ASSISTANT_MODELS.filter(isModelVisible);
+  /** Hay una API key utilizable para ese proveedor (local en «Claves API», o ya
+   *  guardada en el servidor si no se cambia de proveedor). */
+  const keyReady = (p: AiAssistantProvider) => hasLocalKey(p) || hasServerKey(p);
 
   const startEditing = () => {
     const savedInCatalog = AI_ASSISTANT_MODELS.find((m) => m.id === config?.model);
     let provider: AiAssistantProvider;
     let model: string;
-    if (savedInCatalog && isModelVisible(savedInCatalog)) {
-      // La config guardada sigue siendo elegible: preseleccionarla tal cual.
+    if (savedInCatalog) {
       provider = savedInCatalog.provider;
       model = savedInCatalog.id;
-    } else if (config?.model && config.provider && (hasLocalKey(config.provider) || hasServerKey(config.provider))) {
-      // Modelo guardado fuera del catálogo (p.ej. un id retirado) con key aún
-      // disponible: conservarlo — guardar sin tocar nada no debe cambiar nada.
+    } else if (config?.model && config.provider) {
+      // Modelo guardado fuera del catálogo (p.ej. un id retirado): conservarlo.
       provider = config.provider;
       model = config.model;
     } else {
-      provider = visibleModels[0]?.provider ?? 'openai';
-      model = visibleModels[0]?.id ?? DEFAULT_MODEL_ID;
+      provider = AI_ASSISTANT_MODELS[0].provider;
+      model = DEFAULT_MODEL_ID;
     }
     setForm({ provider, model });
     setEditing(true);
@@ -140,6 +141,8 @@ export function AiAssistantConfigSection() {
   };
 
   const selectedModel = AI_ASSISTANT_MODELS.find((m) => m.id === form.model);
+  const selectedProvider = selectedModel?.provider ?? form.provider;
+  const selectedKeyReady = keyReady(selectedProvider);
 
   return (
     <section className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-5">
@@ -149,9 +152,8 @@ export function AiAssistantConfigSection() {
       </h2>
       <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
         Modelo de IA que usa el asistente para responder preguntas sobre precios,
-        compras, recetas y stock. Solo aparecen los modelos con API key ya
-        configurada en «Claves API» (más abajo); la key se guarda cifrada en el
-        servidor.
+        compras, recetas y stock. Elige cualquier modelo; necesitas la API key de
+        su proveedor en «Claves API» (más abajo) — se guarda cifrada en el servidor.
       </p>
 
       {isLoading ? (
@@ -178,17 +180,11 @@ export function AiAssistantConfigSection() {
             {config?.provider ? 'Editar' : 'Configurar'}
           </button>
         </div>
-      ) : visibleModels.length === 0 ? (
-        <p className="mt-4 flex items-start gap-1 text-xs text-amber-600">
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          Configura primero la API key de un proveedor en «Claves API», más
-          abajo — sus modelos aparecerán aquí automáticamente.
-        </p>
       ) : (
         <div className="mt-4 space-y-3">
           {/* Rejilla de modelos — misma interfaz que el motor de extracción OCR */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-            {visibleModels.map((model) => {
+            {AI_ASSISTANT_MODELS.map((model) => {
               const isSelected = form.model === model.id;
               return (
                 <button
@@ -213,21 +209,29 @@ export function AiAssistantConfigSection() {
             })}
           </div>
 
-          {/* Descripción del modelo elegido + confirmación de key */}
+          {/* Descripción del modelo elegido + aviso de key (igual que el motor OCR) */}
           <p className="text-xs text-[var(--on-surface-variant)]">
             {selectedModel
               ? `${selectedModel.name} — ${selectedModel.desc}.`
               : `Modelo personalizado: ${form.model}`}
           </p>
-          <p className="flex items-center gap-1 text-xs text-green-600">
-            <CheckCircle2 className="h-3 w-3" />
-            API key de {PROVIDER_LABELS[selectedModel?.provider ?? form.provider]} configurada
-          </p>
+          {selectedKeyReady ? (
+            <p className="flex items-center gap-1 text-xs text-green-600">
+              <CheckCircle2 className="h-3 w-3" />
+              API key de {PROVIDER_LABELS[selectedProvider]} configurada
+            </p>
+          ) : (
+            <p className="flex items-start gap-1 text-xs text-amber-600">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              Configura la clave de {PROVIDER_LABELS[selectedProvider]} en «Claves
+              API», más abajo, para poder usar este modelo.
+            </p>
+          )}
 
           <div className="flex gap-2">
             <button
               onClick={handleSave}
-              disabled={saveMut.isPending}
+              disabled={saveMut.isPending || !selectedKeyReady}
               className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               {saveMut.isPending ? 'Guardando…' : 'Guardar'}
