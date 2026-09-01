@@ -27,6 +27,10 @@ const TOOL_LIMIT_MESSAGE =
   "No he conseguido completar la respuesta con los datos disponibles. ¿Puedes reformular la pregunta de forma más concreta?";
 const PROVIDER_ERROR_MESSAGE =
   "He tenido un problema para conectar con el proveedor de IA. Revisa la configuración en Ajustes → Asistente IA (modelo/API key) e inténtalo de nuevo.";
+/** El proveedor respondió 404: el modelo configurado ya no existe (los
+ *  proveedores retiran modelos con frecuencia). El usuario debe elegir otro. */
+const MODEL_UNAVAILABLE_MESSAGE =
+  "El modelo de IA configurado ya no está disponible en el proveedor. Ve a Ajustes → Asistente IA y elige otro modelo.";
 
 const SYSTEM_PROMPT_BASE = `Eres "Chefchek", el asistente de IA de la aplicación ChefChek para hostelería.
 Respondes SIEMPRE en español, con un tono cercano y profesional.
@@ -157,7 +161,12 @@ export class AiAssistantService {
           `adapter.chat falló (provider=${config.provider}, model=${config.model}): ${e?.message ?? e}`,
           e?.stack,
         );
-        finalContent = PROVIDER_ERROR_MESSAGE;
+        // Un 404 del proveedor = modelo retirado: mensaje accionable en vez del
+        // genérico (el adaptador formatea "<Proveedor> respondió 404: ...").
+        finalContent =
+          typeof e?.message === "string" && e.message.includes("respondió 404")
+            ? MODEL_UNAVAILABLE_MESSAGE
+            : PROVIDER_ERROR_MESSAGE;
         break;
       }
 

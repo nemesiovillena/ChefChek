@@ -338,6 +338,20 @@ describe("AiAssistantService", () => {
     expect(result.answer).toContain("Ajustes");
   });
 
+  it("si el proveedor responde 404 (modelo retirado), pide elegir otro modelo", async () => {
+    openaiMock.chat.mockRejectedValueOnce(
+      new Error(
+        'OpenAI respondió 404: {"error":{"message":"model gpt-x no longer available"}}',
+      ),
+    );
+
+    const result = await service.ask("t1", "u1", undefined, "pregunta");
+
+    expect(result.answer).toContain("ya no está disponible");
+    expect(result.answer).toContain("elige otro modelo");
+    expect(result.answer).not.toContain("404");
+  });
+
   it("toca updatedAt de la conversación tras responder (para que el listado ordene por actividad real)", async () => {
     openaiMock.chat.mockResolvedValueOnce({ content: "ok" });
     const result = await service.ask("t1", "u1", undefined, "hola");
