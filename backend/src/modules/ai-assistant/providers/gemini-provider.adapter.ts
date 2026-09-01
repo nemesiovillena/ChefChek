@@ -1,15 +1,13 @@
-import { Injectable, BadGatewayException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   ChatMessage,
   ProviderAdapter,
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
+import { postJsonWithRetry } from "./provider-http.util";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-// Sin timeout, un fallo de red deja la petición colgada indefinidamente
-// (undici's fetch no tiene límite propio) — reproducido en pruebas manuales.
-const REQUEST_TIMEOUT_MS = 30000;
 
 /**
  * Adaptador para la Generative Language API de Gemini. Roles distintos
@@ -49,28 +47,10 @@ export class GeminiProviderAdapter implements ProviderAdapter {
     };
 
     const url = `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (e: any) {
-      throw new BadGatewayException(
-        `No se pudo conectar con Gemini: ${e?.message ?? e}`,
-      );
-    }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new BadGatewayException(
-        `Gemini respondió ${res.status}: ${text.slice(0, 300)}`,
-      );
-    }
-
-    const data: any = await res.json();
+    const data: any = await postJsonWithRetry("Gemini", url, {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const parts: any[] = data.candidates?.[0]?.content?.parts ?? [];
 
     const textParts = parts.filter((p) => p.text).map((p) => p.text);
