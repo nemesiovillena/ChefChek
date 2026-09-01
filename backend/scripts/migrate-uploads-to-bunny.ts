@@ -7,22 +7,25 @@
  *   - `uploads/backups/**`                                 → Storage Zone privada
  *     (`BUNNY_BACKUP_STORAGE_ZONE`). Rellena `Backup.storageKey`.
  *
- * Idempotente: re-subir sobrescribe; las URLs ya migradas (http…) se ignoran.
+ * Idempotente: re-subir sobrescribe; las URLs ya migradas se ignoran.
  * NO borra los ficheros locales — hazlo a mano tras verificar en producción.
  *
- * Uso:
- *   NODE_ENV=production ts-node scripts/migrate-uploads-to-bunny.ts [--dry-run]
+ * Standalone (sin imports de `../src`) para poder compilarse a `dist/scripts/` y
+ * ejecutarse dentro del contenedor de producción:
+ *   node dist/scripts/migrate-uploads-to-bunny.js [--dry-run]
+ * En local: `bunx ts-node scripts/migrate-uploads-to-bunny.ts --dry-run`.
  */
-import { ConfigService } from "@nestjs/config";
 import { PrismaClient } from "@prisma/client";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { BunnyStorageService } from "../src/common/bunny/bunny-storage.service";
-import { BACKUP_STORAGE_PREFIX } from "../src/modules/backup/backup.constants";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 const IMAGE_CATEGORIES = ["users", "recipes", "products", "pedidos-compra"];
+const BACKUP_STORAGE_PREFIX = "backups";
+const STORAGE_HOST =
+  process.env.BUNNY_STORAGE_HOSTNAME || "storage.bunnycdn.com";
+const CDN_URL = (process.env.BUNNY_CDN_URL || "").replace(/\/+$/, "");
 const MIME_BY_EXT: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
@@ -32,10 +35,35 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 const prisma = new PrismaClient();
-const bunny = new BunnyStorageService(new ConfigService());
 
 function log(...args: unknown[]): void {
   console.log(DRY_RUN ? "[dry-run]" : "[migrate]", ...args);
+}
+
+function cleanKey(key: string): string {
+  return key
+    .split(/[/\\]+/)
+    .filter((seg) => seg !== "" && seg !== "." && seg !== "..")
+    .join("/");
+}
+
+/** PUT a una Storage Zone de Bunny (mismo contrato que BunnyStorageService). */
+async function bunnyPut(
+  zone: string,
+  password: string,
+  key: string,
+  body: Buffer,
+  contentType: string,
+): Promise<void> {
+  const url = `https://${STORAGE_HOST}/${zone}/${cleanKey(key)}`;
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { AccessKey: password, "Content-Type": contentType },
+    body: new Uint8Array(body),
+  });
+  if (!res.ok) {
+    throw new Error(`Bunny PUT ${key} → ${res.status} ${await res.text()}`);
+  }
 }
 
 /** `/uploads/users/x.jpg` (o `uploads/users/x.jpg`) → `${CDN}/uploads/users/x.jpg`. */
@@ -44,16 +72,18 @@ function toCdnUrl(stored: string): string | null {
     /^\/?(uploads\/(?:users|recipes|products|pedidos-compra)\/[^/]+)$/,
   );
   if (!m) return null;
-  return `${(process.env.BUNNY_CDN_URL || "").replace(/\/+$/, "")}/${m[1]}`;
+  return `${CDN_URL}/${m[1]}`;
 }
 
-async function uploadImagesFromDisk(): Promise<void> {
+async function uploadImagesFromDisk(
+  zone: string,
+  password: string,
+): Promise<void> {
   const root = join(process.cwd(), "uploads");
   for (const cat of IMAGE_CATEGORIES) {
     const dir = join(root, cat);
     if (!existsSync(dir)) continue;
-    const files = await readdir(dir);
-    for (const name of files) {
+    for (const name of await readdir(dir)) {
       const full = join(dir, name);
       if (!(await stat(full)).isFile()) continue;
       const key = `uploads/${cat}/${name}`;
@@ -63,7 +93,7 @@ async function uploadImagesFromDisk(): Promise<void> {
         log("PUT", key);
         continue;
       }
-      await bunny.uploadImage(key, await readFile(full), contentType);
+      await bunnyPut(zone, password, key, await readFile(full), contentType);
       log("subida", key);
     }
   }
@@ -116,7 +146,7 @@ async function rewriteIncidentPhotos(): Promise<void> {
   }
 }
 
-async function migrateBackups(): Promise<void> {
+async function migrateBackups(zone: string, password: string): Promise<void> {
   const localRoot = join(process.cwd(), "uploads", "backups");
   const rows = await prisma.backup.findMany({
     where: { filename: { not: null }, storageKey: null },
@@ -132,7 +162,13 @@ async function migrateBackups(): Promise<void> {
     const key = `${BACKUP_STORAGE_PREFIX}/${dir}/${row.filename}`;
     log("backup", row.id, "→", key);
     if (!DRY_RUN) {
-      await bunny.uploadBackup(key, await readFile(localPath));
+      await bunnyPut(
+        zone,
+        password,
+        key,
+        await readFile(localPath),
+        "application/json",
+      );
       await prisma.backup.update({
         where: { id: row.id },
         data: { storageKey: key },
@@ -142,21 +178,26 @@ async function migrateBackups(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  if (!bunny.imagesEnabled || !bunny.backupsEnabled) {
+  const imgZone = process.env.BUNNY_STORAGE_ZONE;
+  const imgPass = process.env.BUNNY_STORAGE_PASSWORD;
+  const bkZone = process.env.BUNNY_BACKUP_STORAGE_ZONE;
+  const bkPass = process.env.BUNNY_BACKUP_STORAGE_PASSWORD;
+  if (!imgZone || !imgPass || !CDN_URL || !bkZone || !bkPass) {
     throw new Error(
-      "Bunny no está configurado. Define BUNNY_STORAGE_ZONE/PASSWORD, BUNNY_CDN_URL, " +
-        "BUNNY_BACKUP_STORAGE_ZONE/PASSWORD antes de migrar.",
+      "Faltan variables: BUNNY_STORAGE_ZONE, BUNNY_STORAGE_PASSWORD, " +
+        "BUNNY_CDN_URL, BUNNY_BACKUP_STORAGE_ZONE, BUNNY_BACKUP_STORAGE_PASSWORD.",
     );
   }
+
   log("subiendo imágenes de disco a Bunny…");
-  await uploadImagesFromDisk();
+  await uploadImagesFromDisk(imgZone, imgPass);
   log("reescribiendo URLs en BD…");
   await rewriteImageColumn("user", "avatarUrl");
   await rewriteImageColumn("recipe", "imageUrl");
   await rewriteImageColumn("product", "imageUrl");
   await rewriteIncidentPhotos();
   log("migrando backups…");
-  await migrateBackups();
+  await migrateBackups(bkZone, bkPass);
   log("hecho.");
 }
 

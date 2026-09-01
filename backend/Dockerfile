@@ -16,8 +16,9 @@ COPY . .
 # Generate Prisma client
 RUN bunx prisma generate
 
-# Build application
-RUN bun run build
+# Build application (+ scripts one-shot en dist/scripts para poder ejecutarlos
+# dentro del contenedor de runtime, p.ej. la migración de uploads a Bunny).
+RUN bun run build && bun run build:scripts
 
 # Stage 2: Production dependencies (bun, prod-only)
 FROM oven/bun:1.3.14 AS prod-deps

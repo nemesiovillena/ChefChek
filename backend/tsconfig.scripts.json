@@ -1,8 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true
+    "outDir": "./dist/scripts",
+    "rootDir": "./scripts",
+    "noEmit": false,
+    "declaration": false,
+    "incremental": false
   },
-  "include": ["scripts/**/*.ts", "src/**/*"],
+  "include": ["scripts/**/*.ts"],
   "exclude": ["node_modules", "dist", "test"]
 }

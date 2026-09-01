@@ -22,7 +22,7 @@
 - `main.ts` — **fail-closed**: `useStaticAssets("/uploads")` solo si NINGUNA zona Bunny está configurada (dev puro). En cuanto Bunny está activo, no se sirve estático. `Dockerfile` runner fija `ENV NODE_ENV=production`.
 - `frontend/next.config.ts` — `remotePatterns` += host exacto `chefchek.b-cdn.net` (rewrite `/uploads` se mantiene como fallback dev).
 - Descarga de backups: streaming (`openBackupDownload` → pipe), no bufferiza el export entero. `readBackupJson` (string completo) solo para restaurar.
-- `scripts/migrate-uploads-to-bunny.ts` — one-shot: sube ficheros existentes + reescribe URLs en BD (`user.avatarUrl`, `recipe.imageUrl`, `product.imageUrl`, `PurchaseOrderEvent.payload.photoUrl`) + `Backup.storageKey`. `--dry-run`. No borra local. Type-check: `tsconfig.scripts.json` + `bun run typecheck:scripts`.
+- `scripts/migrate-uploads-to-bunny.ts` — one-shot: sube ficheros existentes + reescribe URLs en BD (`user.avatarUrl`, `recipe.imageUrl`, `product.imageUrl`, `PurchaseOrderEvent.payload.photoUrl`) + `Backup.storageKey`. `--dry-run`. No borra local. Standalone (sin imports de `../src`) → se compila a `dist/scripts/` (`bun run build:scripts`, incluido en el `Dockerfile`). En prod: `node dist/scripts/migrate-uploads-to-bunny.js`. Type-check: `bun run typecheck:scripts`.
 - Tests: `bunny-storage.service.spec.ts` + `backup.service.spec.ts` nuevos (rutas Bunny/disco de read/download/delete); specs de controllers de subida actualizados. jest **128 suites / 1883 verdes**. `nest build` + typecheck front + typecheck scripts OK. eslint OK.
 
 ## Code review (2026-09-01)
@@ -31,7 +31,7 @@
 - **H1** (fail-open por `NODE_ENV`) → gate de estático ahora fail-closed sobre `bunny.*Enabled`; `Dockerfile` fija `NODE_ENV=production`.
 - **M1** (OOM en descarga) → streaming.
 - **M2** (sin tests de rutas de backup) → `backup.service.spec.ts`.
-- **M3** (script fuera de tsc) → `tsconfig.scripts.json` + script npm.
+- **M3** (script fuera de tsc) → `tsconfig.scripts.json` + `typecheck:scripts` + `build:scripts` (compila el script standalone a `dist/scripts/` para ejecutarlo en el contenedor de prod).
 - **L1** código muerto → `keyFromCdnUrl`/`deleteImage` eliminados (limpieza de imagen huérfana al reemplazar: pendiente, YAGNI).
 - **L2** `cleanKey` → split/filter/join.
 - **L3** → host CDN exacto.
