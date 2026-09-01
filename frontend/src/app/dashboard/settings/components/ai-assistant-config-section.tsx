@@ -45,7 +45,13 @@ const AI_ASSISTANT_MODELS: AssistantModelOption[] = [
   { id: 'gpt-5.2', provider: 'openai', name: 'GPT-5.2', cost: '~0,01 €', desc: 'Rápido y económico para consultas cortas' },
   { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas' },
   { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio' },
-  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato, respuestas muy rápidas' },
+  // Varias opciones de Gemini: 3.6 Flash es la más barata pero sufre picos de
+  // saturación (503 "high demand"); 2.0 Flash es más estable, y "flash-latest"
+  // sigue siempre a la última Flash disponible. gemini-2.5-flash NO se ofrece:
+  // Google devuelve 404 "no longer available to new users" para keys nuevas.
+  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato; puede saturarse en horas punta' },
+  { id: 'gemini-2.0-flash', provider: 'gemini', name: 'Gemini 2.0 Flash', cost: '~0,002 €', desc: 'Estable y rápido, sin picos de saturación' },
+  { id: 'gemini-flash-latest', provider: 'gemini', name: 'Gemini Flash (última)', cost: '~0,002 €', desc: 'Siempre la última versión Flash disponible' },
   { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas' },
 ];
 
