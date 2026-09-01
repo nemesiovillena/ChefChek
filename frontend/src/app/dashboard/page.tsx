@@ -22,6 +22,7 @@ import {
 } from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
 import { useSalaTasks, type SalaTask } from '@/hooks/use-sala-tasks';
+import { useRowsThatFit } from '@/hooks/use-rows-that-fit';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
@@ -36,9 +37,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// Tope de tareas visibles en la card del dashboard; el resto se consulta en
-// /dashboard/production/tasks vía el botón "VER LISTA DE PREPARACIÓN COMPLETA",
-// que solo se muestra si realmente quedan tareas fuera de este tope.
+// Mínimo de tareas de prep. visibles en la card del dashboard. En escritorio la
+// card estira su altura para igualar la columna izquierda, así que se muestran
+// tantas tareas como quepan enteras en ese alto (useRowsThatFit); este valor es
+// solo el suelo. El resto se consulta en /dashboard/production/tasks vía el
+// botón "VER LISTA DE PREPARACIÓN COMPLETA", que solo aparece si de verdad
+// quedan tareas fuera de lo mostrado.
 const PRODUCTION_TASKS_LIMIT = 4;
 
 // Tope de notificaciones de sala visibles en su card resumen; el resto se
@@ -70,6 +74,9 @@ export default function DashboardPage() {
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   );
+  // Escritorio: nº de tareas de prep. que caben enteras en el alto de la card
+  // (la impone la columna izquierda). En móvil / card oculta mide 0 → PRODUCTION_TASKS_LIMIT.
+  const { ref: prepListRef, rows: prepRowsThatFit } = useRowsThatFit(PRODUCTION_TASKS_LIMIT);
 
   // WebSocket hooks
   const { notifications, markAsRead, markAllAsRead } = useWebSocketNotifications();
@@ -122,7 +129,8 @@ export default function DashboardPage() {
     if (!over || active.id === over.id || !kpis) return;
 
     const allTasks = kpis.upcomingProductionTasks ?? [];
-    const visible = allTasks.slice(0, PRODUCTION_TASKS_LIMIT);
+    const visibleCount = Math.min(prepRowsThatFit, allTasks.length);
+    const visible = allTasks.slice(0, visibleCount);
     const oldIndex = visible.findIndex((t) => t.id === active.id);
     const newIndex = visible.findIndex((t) => t.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -130,7 +138,7 @@ export default function DashboardPage() {
     const reordered = arrayMove(visible, oldIndex, newIndex);
     queryClient.setQueryData(['dashboard-kpis'], {
       ...kpis,
-      upcomingProductionTasks: [...reordered, ...allTasks.slice(PRODUCTION_TASKS_LIMIT)],
+      upcomingProductionTasks: [...reordered, ...allTasks.slice(visibleCount)],
     });
     reorderTasks.mutate(reordered.map((t) => t.id));
   };
@@ -285,18 +293,44 @@ export default function DashboardPage() {
     </div>
   );
 
-  const visibleTasks = kpis?.upcomingProductionTasks?.slice(0, PRODUCTION_TASKS_LIMIT) ?? [];
-  const hasMoreTasks = (kpis?.upcomingProductionTasks?.length ?? 0) > PRODUCTION_TASKS_LIMIT;
+  const allPrepTasks = kpis?.upcomingProductionTasks ?? [];
 
-  const tareasPendientesBoard = (
+  // fillContainer: escritorio, la card estira su alto → mostrar tantas tareas
+  // como quepan (prepRowsThatFit). Móvil: card a contenido → tope fijo.
+  const renderPrepTasksBoard = (fillContainer: boolean) => {
+    const visibleCount = fillContainer
+      ? Math.min(prepRowsThatFit, allPrepTasks.length)
+      : PRODUCTION_TASKS_LIMIT;
+    const visibleTasks = allPrepTasks.slice(0, visibleCount);
+    const hasMoreTasks = allPrepTasks.length > visibleTasks.length;
+    // Fase del contenido de la lista: mientras es "loading" o "empty" se mide
+    // contra un placeholder, no una fila real. Cambiar el `key` con la fase
+    // fuerza un remount del contenedor (re-attach del ref) justo cuando la
+    // primera fila real aparece (o la lista vuelve a vaciarse), para que la
+    // medición no se quede pegada a la altura del placeholder.
+    const listPhase = kpisLoading ? 'loading' : allPrepTasks.length === 0 ? 'empty' : 'rows';
+
+    return (
     <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
         <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
         <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
-          {kpis?.upcomingProductionTasks?.length ?? 0}
+          {allPrepTasks.length}
         </span>
       </div>
-      <div className="flex-1 divide-y divide-surface-variant">
+      <div
+        ref={fillContainer ? prepListRef : undefined}
+        key={fillContainer ? listPhase : undefined}
+        // flex-basis explícito en px (no flex-1/0%): con altura de card indefinida
+        // durante el cálculo intrínseco del grid, una base en "0%" cae a "auto" y
+        // el panel crece con su contenido, inflando la fila del grid entero (bug
+        // real: dejaba un hueco bajo la columna izquierda). "0px" no tiene ese
+        // fallback, así que el panel no aporta altura intrínseca y el sobrante
+        // real se resuelve con overflow-y-auto en vez de crecer la card.
+        className={`divide-y divide-surface-variant${
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' flex-1'
+        }`}
+      >
         {kpisLoading ? (
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             Cargando tareas...
@@ -347,7 +381,8 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   // Pendientes primero (lo que sala aún no ha resuelto), luego en curso;
   // completadas quedan fuera del resumen (solo visibles en el Kanban completo).
@@ -454,7 +489,7 @@ export default function DashboardPage() {
           Telemetría y Temp. Cámara Fría no tienen datos reales todavía y
           quedan ocultas en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
-        {canSeePrepTasks && tareasPendientesBoard}
+        {canSeePrepTasks && renderPrepTasksBoard(false)}
         {salaNotificacionesEnabled && salaTasksBoard}
         {canSeeProduction && crearOrdenButton('flex justify-center')}
         {canSeeCompras && pedidosPendientesCard}
@@ -474,7 +509,7 @@ export default function DashboardPage() {
 
         {/* Main Task Board */}
         <div className="md:col-span-8 space-y-gutter">
-          {canSeePrepTasks && tareasPendientesBoard}
+          {canSeePrepTasks && renderPrepTasksBoard(true)}
         </div>
       </div>
 
