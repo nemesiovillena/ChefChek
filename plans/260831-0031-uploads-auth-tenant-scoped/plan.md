@@ -1,6 +1,6 @@
 # Plan — Migrar `/uploads` a Bunny.net Storage (cerrar exposición pública)
 
-**Estado:** IMPLEMENTADO en `feat/uploads-bunny-storage` (2026-09-01), sin commitear · **Origen:** hallazgo MEDIO-1 de la auditoría (`plans/reports/security-audit-260831-0018-*.md`) + cuenta Bunny.net.
+**Estado:** EN PR → https://github.com/nemesiovillena/ChefChek/pull/94 (base `develop`, commit `a5f93dd`) · **Origen:** hallazgo MEDIO-1 de la auditoría (`plans/reports/security-audit-260831-0018-*.md`) + cuenta Bunny.net.
 
 **Pendiente antes de mergear:**
 1. **[BLOQUEANTE] Reapuntar el Pull Zone `chefchek`.** Probado 2026-09-01: `chefchek.b-cdn.net/<key>` devuelve el 404 de la app Next de ChefChek, no el fichero de la Storage Zone → el Origin del Pull Zone apunta a la web app, no a la Storage Zone. En Bunny: Pull Zone `chefchek` → Origin → Origin Type = **Storage Zone** → `chefchek`. (Storage API de ambas zonas PUT/GET/DELETE verificada OK; passwords válidos.)
