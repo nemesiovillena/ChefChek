@@ -22,6 +22,7 @@
   white-space: nowrap;
   word-wrap: normal;
   direction: ltr;
+  font-feature-settings: "liga";
   -webkit-font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
   /* Antes de que cargue la fuente, el nombre literal del icono ("warning",
@@ -32,6 +33,17 @@
   width: 1em;
   height: 1em;
   overflow: hidden;
+  /* Navegadores que no pueden cargar la fuente variable de iconos (Edge
+     antiguo) muestran el nombre del glifo como texto, recortado a una letra
+     por el `overflow: hidden` de arriba. Ocultar el span hasta que el script
+     de layout.tsx confirme vía document.fonts que la fuente cargó de verdad
+     (añade .ms-fonts-ready a <html>). Si la fuente no carga, los iconos
+     quedan en blanco en vez de mostrar texto basura. */
+  visibility: hidden;
+}
+
+.ms-fonts-ready .material-symbols-outlined {
+  visibility: visible;
 }
 
 @custom-variant dark (&:is(.dark *));
