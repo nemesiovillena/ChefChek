@@ -6,7 +6,9 @@ import {
 } from "@nestjs/common";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
+import type { Readable } from "node:stream";
 import { PrismaService } from "../../common/services/prisma.service";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import { Backup, Prisma } from "@prisma/client";
 import { BACKUP_DIR, BACKUP_SCHEMA_VERSION } from "./backup.constants";
 import { BackupExportService } from "./backup-export.service";
@@ -28,6 +30,7 @@ export class BackupService {
     private readonly restoreService: BackupRestoreService,
     private readonly introspection: BackupIntrospectionService,
     private readonly progress: BackupProgressRegistry,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   // ───────────────────────────────────────────────────────── EXPORT
@@ -95,6 +98,7 @@ export class BackupService {
         data: {
           status: "COMPLETED",
           filename: result.filename,
+          storageKey: result.storageKey,
           fileSizeBytes: BigInt(Buffer.byteLength(result.json, "utf8")),
           rowCount: result.rowCount,
           checksum: result.checksum,
@@ -159,6 +163,7 @@ export class BackupService {
         data: {
           status: "COMPLETED",
           filename: pre.filename,
+          storageKey: pre.storageKey,
           fileSizeBytes: BigInt(Buffer.byteLength(pre.json, "utf8")),
           rowCount: pre.rowCount,
           checksum: pre.checksum,
@@ -263,16 +268,13 @@ export class BackupService {
     if (
       backup.kind !== "EXPORT" ||
       backup.status !== "COMPLETED" ||
-      !backup.filename
+      (!backup.filename && !backup.storageKey)
     ) {
       throw new BadRequestException(
         "La copia no está disponible para restaurar.",
       );
     }
-    const { readFile } = await import("node:fs/promises");
-    const payload = this.parseJson(
-      await readFile(this.filepathOf(backup), "utf8"),
-    );
+    const payload = this.parseJson(await this.readBackupJson(backup));
     return this.restoreFromPayload(
       payload,
       scope,
@@ -369,22 +371,57 @@ export class BackupService {
     userId: string | null,
   ): Promise<void> {
     const row = await this.getOne(id, scope, tenantId);
-    if (row.filename) {
-      try {
+    try {
+      if (row.storageKey && this.bunny.backupsEnabled) {
+        await this.bunny.deleteBackup(row.storageKey);
+      } else if (row.filename) {
         await unlink(this.filepathOf(row));
-      } catch {
-        // archivo ya ausente: no bloquear el borrado del registro
       }
+    } catch {
+      // archivo ya ausente: no bloquear el borrado del registro
     }
     await this.prisma.backup.delete({ where: { id } });
     this.progress.clear(id);
     await this.audit(row.tenantId, userId, "BACKUP_DELETE", id, { scope });
   }
 
-  /** Ruta absoluta del archivo de una copia (para descarga). */
+  /** Ruta absoluta del archivo local de una copia (fallback sin Bunny). */
   filepathOf(row: Backup): string {
     const dir = row.scope === "GLOBAL" ? "global" : (row.tenantId ?? "unknown");
     return join(process.cwd(), BACKUP_DIR, dir, row.filename ?? "");
+  }
+
+  /**
+   * Contenido JSON de una copia: de la Storage Zone privada de Bunny si tiene
+   * `storageKey`, o del disco local en caso contrario. Carga el export entero en
+   * memoria — usar solo para restaurar (que necesita el string completo).
+   */
+  async readBackupJson(row: Backup): Promise<string> {
+    if (row.storageKey && this.bunny.backupsEnabled) {
+      const buf = await this.bunny.downloadBackup(row.storageKey);
+      return buf.toString("utf8");
+    }
+    const { readFile } = await import("node:fs/promises");
+    return readFile(this.filepathOf(row), "utf8");
+  }
+
+  /**
+   * Stream de descarga de una copia + nombre de fichero sugerido. Para el
+   * endpoint de descarga: hace pipe sin cargar el export completo en heap
+   * (los backups GLOBAL pueden ser de cientos de MB).
+   */
+  async openBackupDownload(
+    row: Backup,
+  ): Promise<{ stream: Readable; filename: string }> {
+    const filename = row.filename ?? `backup-${row.id}.json`;
+    if (row.storageKey && this.bunny.backupsEnabled) {
+      return {
+        stream: await this.bunny.openBackupStream(row.storageKey),
+        filename,
+      };
+    }
+    const { createReadStream } = await import("node:fs");
+    return { stream: createReadStream(this.filepathOf(row)), filename };
   }
 
   // ───────────────────────────────────────────────────────── HELPERS

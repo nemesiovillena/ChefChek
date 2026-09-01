@@ -15,6 +15,7 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
 import { BadRequestException } from "@nestjs/common";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import * as fs from "fs";
 
 jest.mock("fs", () => ({
@@ -80,6 +81,11 @@ describe("ProductsController", () => {
         {
           provide: ProductImageBackfillService,
           useValue: mockProductImageBackfillService,
+        },
+        {
+          provide: BunnyStorageService,
+          // imagesEnabled=false → el helper cae a disco local (fs mockeado).
+          useValue: { imagesEnabled: false },
         },
       ],
     })

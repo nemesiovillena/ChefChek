@@ -3,7 +3,12 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PrismaService } from "../../common/services/prisma.service";
-import { BACKUP_DIR, BACKUP_SCHEMA_VERSION } from "./backup.constants";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
+import {
+  BACKUP_DIR,
+  BACKUP_SCHEMA_VERSION,
+  BACKUP_STORAGE_PREFIX,
+} from "./backup.constants";
 import { BackupIntrospectionService } from "./backup-introspection.service";
 import { BackupProgressRegistry } from "./backup-progress.registry";
 import { buildScopeClause } from "./backup-scope.util";
@@ -18,6 +23,8 @@ export interface ExportResult {
   checksum: string;
   rowCount: number;
   filename: string;
+  /** Key en la Storage Zone de backups si se subió a Bunny; null si a disco. */
+  storageKey: string | null;
   /** Tablas que NO se respaldaron por carecer de regla de scope. */
   coverageGap: string[];
 }
@@ -30,6 +37,7 @@ export class BackupExportService {
     private readonly prisma: PrismaService,
     private readonly introspection: BackupIntrospectionService,
     private readonly progress: BackupProgressRegistry,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   /**
@@ -108,9 +116,21 @@ export class BackupExportService {
     const safeSlug = (tenantSlug ?? dir).replace(/[^a-zA-Z0-9-_]/g, "_");
     const ts = payload.meta.exportedAt.replace(/[:.]/g, "-");
     const filename = `${scope === "GLOBAL" ? "global" : safeSlug}_${ts}.json`;
-    const fullPath = join(process.cwd(), BACKUP_DIR, dir, filename);
-    await mkdir(join(process.cwd(), BACKUP_DIR, dir), { recursive: true });
-    await writeFile(fullPath, json, "utf8");
+
+    // Zona privada de Bunny (sin Pull Zone) si está configurada; si no, disco
+    // local — sin servir de forma estática (ver main.ts).
+    let storageKey: string | null = null;
+    if (this.bunny.backupsEnabled) {
+      storageKey = `${BACKUP_STORAGE_PREFIX}/${dir}/${filename}`;
+      await this.bunny.uploadBackup(storageKey, Buffer.from(json, "utf8"));
+    } else {
+      await mkdir(join(process.cwd(), BACKUP_DIR, dir), { recursive: true });
+      await writeFile(
+        join(process.cwd(), BACKUP_DIR, dir, filename),
+        json,
+        "utf8",
+      );
+    }
 
     if (coverageGap.length) {
       this.logger.warn(
@@ -118,6 +138,14 @@ export class BackupExportService {
       );
     }
 
-    return { payload, json, checksum, rowCount, filename, coverageGap };
+    return {
+      payload,
+      json,
+      checksum,
+      rowCount,
+      filename,
+      storageKey,
+      coverageGap,
+    };
   }
 }

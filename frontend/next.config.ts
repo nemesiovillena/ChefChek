@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       // Fotos de stock elegidas desde el selector de imagen (Buscar imagen → Pexels).
       { protocol: "https", hostname: "images.pexels.com" },
+      // Imágenes subidas (avatares, recetas, artículos, incidencias) servidas
+      // desde la Pull Zone de Bunny.net. Host exacto — no `*.b-cdn.net`, que
+      // dejaría al optimizador hacer proxy de cualquier zona de Bunny.
+      { protocol: "https", hostname: "chefchek.b-cdn.net" },
     ],
   },
 

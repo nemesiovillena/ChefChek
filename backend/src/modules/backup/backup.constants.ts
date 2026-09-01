@@ -93,5 +93,11 @@ export const IMPLICIT_JOIN_TABLES: Record<
   _SprintToTeamMember: { scopeCol: "A", parent: "sprints" },
 };
 
-/** Directorio (relativo a process.cwd()) donde se escriben los archivos .json. */
+/**
+ * Directorio local (relativo a `process.cwd()`) donde se escriben los .json
+ * cuando Bunny NO está configurado (solo dev). Ya NO se sirve de forma estática.
+ */
 export const BACKUP_DIR = "uploads/backups";
+
+/** Prefijo de las keys en la Storage Zone privada de backups de Bunny. */
+export const BACKUP_STORAGE_PREFIX = "backups";

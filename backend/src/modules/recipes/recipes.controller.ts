@@ -14,9 +14,8 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import * as fs from "fs";
-import * as path from "path";
-import { generateUploadFilename } from "../../common/utils/upload-filename.util";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import {
   ApiTags,
   ApiOperation,
@@ -47,6 +46,7 @@ export class RecipesController {
   constructor(
     private readonly recipesService: RecipesService,
     private readonly roleAccess: RoleAccessService,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   /** Whether the request's role may receive cost/pricing figures in payloads. */
@@ -262,17 +262,7 @@ export class RecipesController {
       );
     }
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "recipes");
-    /* istanbul ignore next */
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const fileName = generateUploadFilename(file.originalname);
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, file.buffer);
-
-    const imageUrl = `/uploads/recipes/${fileName}`;
+    const imageUrl = await storeUploadedImage(this.bunny, "recipes", file);
     return {
       success: true,
       data: { imageUrl },

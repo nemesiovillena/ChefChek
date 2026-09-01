@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import {
   BadRequestException,
   Body,
@@ -19,7 +17,8 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
-import { generateUploadFilename } from "../../common/utils/upload-filename.util";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -110,6 +109,7 @@ export class ComprasController {
     private readonly purchaseScheduleService: PurchaseScheduleService,
     private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   // ── Texto fijo del pedido al proveedor (generado desde lista) ──
@@ -399,13 +399,7 @@ export class ComprasController {
     let photoUrl: string | undefined;
     if (file) {
       assertAllowedImageType(file);
-      const uploadsDir = path.join(process.cwd(), "uploads", "pedidos-compra");
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-      }
-      const fileName = generateUploadFilename(file.originalname);
-      fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
-      photoUrl = `/uploads/pedidos-compra/${fileName}`;
+      photoUrl = await storeUploadedImage(this.bunny, "pedidos-compra", file);
     }
 
     const data = await this.purchaseOrderService.reportIncident(

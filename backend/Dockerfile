@@ -42,6 +42,10 @@ FROM node:20-bullseye-slim AS runner
 
 WORKDIR /app
 
+# Runtime is always production here. Some safety gates key off this (p.ej. no
+# servir /uploads como estático si Bunny no está configurado).
+ENV NODE_ENV=production
+
 # Built app + prod node_modules (with generated Prisma client)
 COPY --from=builder /app/dist ./dist
 COPY --from=prod-deps /app/node_modules ./node_modules
