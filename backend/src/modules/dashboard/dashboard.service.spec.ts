@@ -260,24 +260,61 @@ describe("DashboardService", () => {
 
     it("anuncia el pedido programado pendiente de enviar con la hora de su programación", async () => {
       mockEmptyKpiSources();
-      prismaService.purchaseOrder.findFirst.mockResolvedValue({
-        // 09:03 en Madrid (CEST): el cron genera pasados unos minutos de la
-        // hora configurada, pero el aviso debe mostrar "09:00".
-        createdAt: new Date("2026-09-02T07:03:00Z"),
-        supplier: { name: "Frutas Candela" },
-        events: [{ payload: { scheduleId: "schedule-1" } }],
-      });
-      prismaService.purchaseSchedule.findUnique.mockResolvedValue({
-        timeOfDay: "09:00",
-      });
+      // Reloj fijo (el borrador es del 02/09): sin esto, correr la suite el
+      // 2026-09-02 real haría isToday true y rompería la aserción.
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-01T07:00:00Z"));
+      try {
+        prismaService.purchaseOrder.findFirst.mockResolvedValue({
+          // 09:03 en Madrid (CEST): el cron genera pasados unos minutos de la
+          // hora configurada, pero el aviso debe mostrar "09:00".
+          createdAt: new Date("2026-09-02T07:03:00Z"),
+          supplier: { name: "Frutas Candela" },
+          events: [{ payload: { scheduleId: "schedule-1" } }],
+        });
+        prismaService.purchaseSchedule.findUnique.mockResolvedValue({
+          timeOfDay: "09:00",
+        });
 
-      const result = await service.calculateKPIs("tenant-1");
+        const result = await service.calculateKPIs("tenant-1");
 
-      expect(result.data.nextScheduledPurchase).toEqual({
-        dateKey: "2026-09-02",
-        timeOfDay: "09:00",
-        supplierName: "Frutas Candela",
-      });
+        expect(result.data.nextScheduledPurchase).toEqual({
+          dateKey: "2026-09-02",
+          timeOfDay: "09:00",
+          supplierName: "Frutas Candela",
+          isToday: false,
+          isPendingDraft: true,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it("marca isToday cuando la próxima ejecución de la programación activa es hoy", async () => {
+      mockEmptyKpiSources();
+      // Martes 09:00 Madrid; la programación corre hoy a las 11:00.
+      jest.useFakeTimers().setSystemTime(new Date("2026-09-01T07:00:00Z"));
+      try {
+        prismaService.purchaseSchedule.findMany.mockResolvedValueOnce([
+          {
+            daysOfWeek: [2],
+            timeOfDay: "11:00",
+            lastRunAt: null,
+            supplier: { name: "Frutas Candela" },
+          },
+        ]);
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.nextScheduledPurchase).toEqual({
+          dateKey: "2026-09-01",
+          timeOfDay: "11:00",
+          supplierName: "Frutas Candela",
+          isToday: true,
+          isPendingDraft: false,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it("no anuncia ningún programado cuando ya se envió (sin BORRADOR pendiente)", async () => {
@@ -313,6 +350,8 @@ describe("DashboardService", () => {
           dateKey: "2026-09-02",
           timeOfDay: "08:00",
           supplierName: "Lácteos Sur",
+          isToday: false,
+          isPendingDraft: false,
         });
       } finally {
         jest.useRealTimers();

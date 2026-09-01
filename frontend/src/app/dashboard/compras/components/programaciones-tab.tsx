@@ -18,28 +18,30 @@ import {
 
 const DAY_LABELS = PURCHASE_SCHEDULE_DAYS;
 
-/** Próxima ejecución aproximada (cliente, informativa — el cron real vive en el backend). */
-function nextRun(daysOfWeek: number[], timeOfDay: string): string {
-  if (daysOfWeek.length === 0) return '—';
-  const now = new Date();
-  for (let offset = 0; offset < 8; offset++) {
-    const candidate = new Date(now);
-    candidate.setDate(now.getDate() + offset);
-    const dow = candidate.getDay();
-    if (!daysOfWeek.includes(dow)) continue;
-    const [h, m] = timeOfDay.split(':').map(Number);
-    candidate.setHours(h, m, 0, 0);
-    if (candidate.getTime() >= now.getTime()) {
-      return candidate.toLocaleString('es-ES', {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    }
-  }
-  return '—';
+/** `yyyy-mm-dd` (dateKey de Madrid del backend) → `dd/mm`. Solo formatea, nunca compara. */
+function formatDateKey(dateKey: string): string {
+  const [, month, day] = dateKey.split('-');
+  return `${day}/${month}`;
+}
+
+/** Cuándo se generó el borrador pendiente: "hoy HH:mm" o "dd/mm HH:mm". */
+function formatGeneratedAt(iso: string, generatedToday: boolean): string {
+  const date = new Date(iso);
+  const hhmm = date.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return generatedToday
+    ? `hoy ${hhmm}`
+    : `${date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })} ${hhmm}`;
+}
+
+/** Hora "HH:mm" de un timestamp, para la línea "Última:". */
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export function ProgramacionesTab({ canManage }: { canManage: boolean }) {
@@ -242,12 +244,32 @@ export function ProgramacionesTab({ canManage }: { canManage: boolean }) {
                   {' · '}
                   {schedule.timeOfDay}
                 </span>
-                <span>
-                  Próxima: {schedule.enabled ? nextRun(schedule.daysOfWeek, schedule.timeOfDay) : '—'}
-                </span>
+                {schedule.pendingDraft ? (
+                  <span className="font-bold text-[var(--error)]">
+                    Pendiente de enviar · generado{' '}
+                    {formatGeneratedAt(
+                      schedule.pendingDraft.generatedAt,
+                      schedule.pendingDraft.generatedToday,
+                    )}
+                  </span>
+                ) : schedule.runsToday && schedule.nextRunAt ? (
+                  <span className="font-bold text-[var(--primary)]">
+                    Hoy · {schedule.nextRunAt.timeOfDay}
+                  </span>
+                ) : schedule.enabled && schedule.nextRunAt ? (
+                  <span>
+                    Próxima: {formatDateKey(schedule.nextRunAt.dateKey)} ·{' '}
+                    {schedule.nextRunAt.timeOfDay}
+                  </span>
+                ) : (
+                  <span>Próxima: —</span>
+                )}
                 {schedule.lastRunAt && (
                   <span>
-                    Última: {new Date(schedule.lastRunAt).toLocaleString('es-ES')}
+                    Última:{' '}
+                    {schedule.ranToday
+                      ? `hoy ${formatTime(schedule.lastRunAt)}`
+                      : new Date(schedule.lastRunAt).toLocaleString('es-ES')}
                   </span>
                 )}
               </p>

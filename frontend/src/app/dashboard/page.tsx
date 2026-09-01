@@ -155,7 +155,8 @@ export default function DashboardPage() {
   };
 
   // 'YYYY-MM-DD' -> 'DD/MM' para la card de Pedidos Pendientes.
-  const formatNextScheduledDate = (dateKey: string) => {
+  const formatNextScheduledDate = (dateKey: string, isToday: boolean) => {
+    if (isToday) return 'HOY';
     const [, month, day] = dateKey.split('-');
     return `${day}/${month}`;
   };
@@ -181,10 +182,37 @@ export default function DashboardPage() {
           {formatKPIValue(kpis?.pendingOrders, kpisLoading)}
         </span>
         {kpis?.nextScheduledPurchase && (
-          <p className="text-[11px] text-error font-medium mt-stack-xs">
-            Programado: {kpis.nextScheduledPurchase.supplierName} ·{' '}
-            {formatNextScheduledDate(kpis.nextScheduledPurchase.dateKey)}{' '}
-            {kpis.nextScheduledPurchase.timeOfDay}
+          <p
+            className={`text-[11px] mt-stack-xs ${
+              kpis.nextScheduledPurchase.isPendingDraft
+                ? 'text-error font-bold'
+                : 'text-error font-medium'
+            }`}
+          >
+            {kpis.nextScheduledPurchase.isPendingDraft ? (
+              <>
+                Pendiente de enviar · {kpis.nextScheduledPurchase.supplierName} ·{' '}
+                {formatNextScheduledDate(
+                  kpis.nextScheduledPurchase.dateKey,
+                  kpis.nextScheduledPurchase.isToday,
+                )}{' '}
+                {kpis.nextScheduledPurchase.timeOfDay}
+              </>
+            ) : (
+              <>
+                {kpis.nextScheduledPurchase.isToday && (
+                  <span className="mr-1 inline-flex items-center rounded-full bg-primary px-1.5 py-0.5 align-middle text-[9px] font-bold text-primary-foreground">
+                    HOY
+                  </span>
+                )}
+                Programado: {kpis.nextScheduledPurchase.supplierName} ·{' '}
+                {formatNextScheduledDate(
+                  kpis.nextScheduledPurchase.dateKey,
+                  kpis.nextScheduledPurchase.isToday,
+                )}{' '}
+                {kpis.nextScheduledPurchase.timeOfDay}
+              </>
+            )}
           </p>
         )}
       </div>

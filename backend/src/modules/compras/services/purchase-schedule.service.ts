@@ -61,6 +61,29 @@ export interface ScheduleClockInput {
   lastRunAt: Date | null;
 }
 
+/** BORRADOR generado por el cron de una programación, aún sin enviar. */
+export interface SchedulePendingDraft {
+  orderId: string;
+  generatedAt: Date;
+}
+
+/**
+ * Estado "HOY" de una programación para el listado: cuándo correrá, si corre
+ * hoy, si ya corrió hoy y si tiene un pedido pendiente de enviar. Todo en
+ * reloj Europe/Madrid (el mismo que el cron) para que la UI nunca contradiga
+ * al backend.
+ */
+export interface ScheduleStatus {
+  nextRunAt: { dateKey: string; timeOfDay: string } | null;
+  runsToday: boolean;
+  ranToday: boolean;
+  pendingDraft: {
+    orderId: string;
+    generatedAt: string;
+    generatedToday: boolean;
+  } | null;
+}
+
 const INCLUDE = {
   supplier: { select: { id: true, name: true } },
   list: { select: { id: true, name: true } },
@@ -135,12 +158,89 @@ export class PurchaseScheduleService {
     return null;
   }
 
+  /**
+   * Estado HOY de una programación para el listado (ver ScheduleStatus).
+   * Pura y testeable con un reloj inyectado, hermana de shouldRun/getNextRunAt.
+   */
+  static describeSchedule(
+    schedule: ScheduleClockInput,
+    draft: SchedulePendingDraft | null,
+    now: Date,
+  ): ScheduleStatus {
+    const today = toMadridParts(now).dateKey;
+    const next = PurchaseScheduleService.getNextRunAt(schedule, now);
+    return {
+      nextRunAt: next,
+      runsToday: next?.dateKey === today,
+      ranToday:
+        !!schedule.lastRunAt &&
+        toMadridParts(schedule.lastRunAt).dateKey === today,
+      pendingDraft: draft && {
+        orderId: draft.orderId,
+        generatedAt: draft.generatedAt.toISOString(),
+        // "Generado hoy" se decide por el día DEL DRAFT, no por lastRunAt:
+        // un borrador acumulado de otro día no debe vestirse de hoy.
+        generatedToday: toMadridParts(draft.generatedAt).dateKey === today,
+      },
+    };
+  }
+
   async findAll(tenantId: string) {
-    return this.prisma.purchaseSchedule.findMany({
+    const schedules = await this.prisma.purchaseSchedule.findMany({
       where: { tenantId },
       include: INCLUDE,
       orderBy: { createdAt: "desc" },
     });
+    if (schedules.length === 0) {
+      return [];
+    }
+
+    // Pedidos BORRADOR generados por el cron, aún sin enviar, para señalizar
+    // en cada programación cuál tiene algo pendiente de enviar HOY. El vínculo
+    // programación→pedido vive en el payload del evento SCHEDULED_GENERATION
+    // (mismo mecanismo que usa el dashboard para anunciarlos).
+    const drafts = await this.prisma.purchaseOrder.findMany({
+      where: {
+        tenantId,
+        status: "BORRADOR",
+        events: { some: { type: "SCHEDULED_GENERATION" } },
+      },
+      // Orden explícito para que el último set() del Map sea el borrador más
+      // reciente, sin depender del orden de retorno por defecto de la BD.
+      orderBy: { createdAt: "asc" },
+      include: {
+        events: {
+          where: { type: "SCHEDULED_GENERATION" },
+          select: { payload: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+    const draftBySchedule = new Map<string, SchedulePendingDraft>();
+    for (const draft of drafts) {
+      const scheduleId = (
+        draft.events[0]?.payload as { scheduleId?: string } | undefined
+      )?.scheduleId;
+      if (scheduleId) {
+        // Si una misma programación acumula varios borradores sin enviar,
+        // gana el más reciente del listado: basta señalizar que hay pendiente.
+        draftBySchedule.set(scheduleId, {
+          orderId: draft.id,
+          generatedAt: draft.createdAt,
+        });
+      }
+    }
+
+    const now = new Date();
+    return schedules.map((schedule) => ({
+      ...schedule,
+      ...PurchaseScheduleService.describeSchedule(
+        schedule,
+        draftBySchedule.get(schedule.id) ?? null,
+        now,
+      ),
+    }));
   }
 
   async findOne(tenantId: string, id: string) {

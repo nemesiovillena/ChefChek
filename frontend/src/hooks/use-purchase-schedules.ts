@@ -18,6 +18,25 @@ export interface PurchaseSchedule {
   location: { id: string; name: string } | null;
 }
 
+/**
+ * Fila del listado GET /programaciones: la programación + el estado HOY
+ * que calcula el backend. Las mutaciones (create/update) devuelven la
+ * entidad cruda, sin estos campos — por eso el tipo va separado.
+ */
+export interface PurchaseScheduleWithStatus extends PurchaseSchedule {
+  /** Estado HOY calculado server-side (Europe/Madrid, consciente de lastRunAt). */
+  nextRunAt: { dateKey: string; timeOfDay: string } | null;
+  runsToday: boolean;
+  ranToday: boolean;
+  /** BORRADOR generado por el cron de esta programación, aún sin enviar. */
+  pendingDraft: {
+    orderId: string;
+    generatedAt: string;
+    /** El draft se generó hoy (día del draft, no lastRunAt). */
+    generatedToday: boolean;
+  } | null;
+}
+
 export interface PurchaseScheduleInput {
   supplierId: string;
   listId: string;
@@ -45,7 +64,7 @@ export const PURCHASE_SCHEDULE_DAYS: { value: number; label: string }[] = [
 ];
 
 export function usePurchaseSchedules() {
-  return useApiQuery<PurchaseSchedule[]>(QUERY_KEY, BASE_URL);
+  return useApiQuery<PurchaseScheduleWithStatus[]>(QUERY_KEY, BASE_URL);
 }
 
 function useInvalidateSchedules() {
