@@ -139,7 +139,14 @@ export function usePurchaseOrder(id: string | null) {
 
 function useInvalidateOrders() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+  return () => {
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    // Enviar/revertir un pedido cambia el estado "Pendiente de enviar" de su
+    // programación y la card del dashboard que lo anuncia; sin esto, ambas
+    // se quedan stale hasta el siguiente refetch.
+    queryClient.invalidateQueries({ queryKey: ['purchase-schedules'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+  };
 }
 
 export function useCreatePurchaseOrder() {

@@ -20,6 +20,10 @@ export interface NextScheduledPurchase {
   dateKey: string; // 'YYYY-MM-DD' en Europe/Madrid
   timeOfDay: string; // 'HH:mm' configurada en la programación
   supplierName: string;
+  /** El dateKey es hoy (Europe/Madrid), computado server-side. */
+  isToday: boolean;
+  /** Es un BORRADOR del cron pendiente de enviar (vs. próxima ejecución futura). */
+  isPendingDraft: boolean;
 }
 
 interface KPIs {
