@@ -221,7 +221,6 @@ describe("AiAssistantService", () => {
     toolRegistryMock.executeTool.mockResolvedValueOnce({
       recipeId: "rec-1",
       name: "Caramelo",
-      elaborationSteps: ["Disolver el azúcar"],
       action: { type: "open_recipe", recipeId: "rec-1", label: "Abrir receta" },
     });
 

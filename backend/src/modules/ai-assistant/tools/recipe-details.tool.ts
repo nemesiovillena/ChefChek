@@ -6,60 +6,12 @@ import {
 import { ToolDefinition } from "./tool-definition.interface";
 
 /**
- * Espejo minimalista del parseSteps del frontend
- * (recipes/components/elaboration-step-editor.tsx): admite el formato
- * estructurado {steps:[{description,...}]}, el legacy TipTap JSON y texto
- * plano. Devuelve solo las descripciones — el detalle (equipo/tiempo/temp)
- * se ve en la ficha.
- */
-function parseElaborationSteps(
-  elaboration: string | null | undefined,
-): string[] {
-  if (!elaboration?.trim()) {
-    return [];
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(elaboration);
-  } catch {
-    return elaboration
-      .split(/\n+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  if (Array.isArray((parsed as { steps?: unknown })?.steps)) {
-    return (parsed as { steps: Array<Record<string, unknown>> }).steps
-      .map((s) =>
-        typeof s.description === "string" ? s.description.trim() : "",
-      )
-      .filter(Boolean);
-  }
-  if (
-    (parsed as { type?: string })?.type === "doc" &&
-    Array.isArray((parsed as { content?: unknown[] })?.content)
-  ) {
-    const texts: string[] = [];
-    const extract = (node: unknown) => {
-      if (!node || typeof node !== "object") {
-        return;
-      }
-      const n = node as { text?: unknown; content?: unknown[] };
-      if (typeof n.text === "string" && n.text.trim()) {
-        texts.push(n.text.trim());
-      }
-      n.content?.forEach(extract);
-    };
-    (parsed as { content: unknown[] }).content.forEach(extract);
-    return texts;
-  }
-  return [];
-}
-
-/**
- * "Muéstrame la receta X" — contenido SIN costes: raciones, ingredientes con
- * cantidades, sub-recetas y pasos de elaboración. El resultado incluye un
- * `action` open_recipe que el backend convierte en botón de navegación a la
- * vista visual de la ficha.
+ * "Muéstrame la receta X" — resuelve el nombre y devuelve SOLO el identificador
+ * más un `action` open_recipe que el backend convierte en botón "Abrir receta".
+ *
+ * Decisión de producto: el chat NO reproduce el contenido de la receta
+ * (ingredientes, cantidades, pasos); el usuario abre la ficha visual con el
+ * botón. Si el nombre no resuelve a una única receta se pide desambiguación.
  */
 export function createRecipeDetailsTool(
   recipesService: RecipesService,
@@ -67,7 +19,7 @@ export function createRecipeDetailsTool(
   return {
     name: "get_recipe_details",
     description:
-      "Contenido de una receta buscada por nombre: raciones, ingredientes con cantidades, sub-recetas y pasos de elaboración. NO incluye costes ni precios (para eso está get_recipe_cost).",
+      "Localiza una receta por nombre para ofrecer al usuario un botón que abre su ficha. NO devuelve ingredientes, cantidades ni pasos: responde de forma breve (p. ej. «Aquí tienes la receta X») y deja que el usuario la abra con el botón. Para costes está get_recipe_cost.",
     parameters: {
       type: "object",
       properties: {
@@ -90,37 +42,12 @@ export function createRecipeDetailsTool(
       if (resolution.status === "ambiguous") {
         return ambiguousMatchPayload(params.recipeName, resolution.matches);
       }
-      // includeCost=false: la tool es de contenido; el coste vive en
-      // get_recipe_cost, que sí está sujeto al permiso recipes.cost.
-      const recipe = await recipesService.findOne(
-        tenantId,
-        resolution.match.id,
-        false,
-      );
       return {
-        recipeId: recipe.id,
-        name: recipe.name,
-        description: recipe.description || undefined,
-        portions: recipe.portions,
-        portionSize: recipe.portionSize ?? undefined,
-        totalYieldWeight: recipe.totalYieldWeight ?? undefined,
-        categories:
-          recipe.categories?.map((c) => c.categoryName).filter(Boolean) ?? [],
-        ingredients: recipe.ingredients.map((i) => ({
-          name: i.productName ?? `(artículo ${i.productId})`,
-          quantity: i.quantity,
-          unit: i.unit,
-        })),
-        subRecipes:
-          recipe.subRecipes?.map((s) => ({
-            name: s.subRecipeName,
-            quantity: s.quantity,
-            unit: s.unit,
-          })) ?? [],
-        elaborationSteps: parseElaborationSteps(recipe.elaboration),
+        recipeId: resolution.match.id,
+        name: resolution.match.name,
         action: {
           type: "open_recipe",
-          recipeId: recipe.id,
+          recipeId: resolution.match.id,
           label: "Abrir receta",
         },
       };
