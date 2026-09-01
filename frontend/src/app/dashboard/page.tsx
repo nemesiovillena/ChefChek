@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const canSeeRecipes = canSee('recipes');
   const canSeeCompras = canSee('compras');
   const canSeeCosts = canSee('recipes.cost');
+  const canSeeEtiquetado = isEnabled('etiquetado') && canSee('etiquetado');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
@@ -462,6 +463,40 @@ export default function DashboardPage() {
     </div>
   );
 
+  const etiquetadoCard = (
+    <div
+      onClick={() => router.push('/dashboard/etiquetado')}
+      className="group relative tonal-layer-2 rounded-xl p-stack-lg flex flex-col justify-between gap-stack-md border border-border overflow-hidden cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+    >
+      {/* Motivo de etiqueta impresa: esquina troquelada + perforación */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-7 -top-7 h-16 w-16 rotate-45 border border-dashed border-border/70 group-hover:border-secondary/60 transition-colors"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-3 top-3 h-1.5 w-1.5 rounded-full border border-border group-hover:border-secondary/70 transition-colors"
+      />
+
+      <div className="flex items-center gap-stack-md">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary transition-transform duration-300 group-hover:-rotate-6">
+          <span className="material-symbols-outlined text-[22px]">label</span>
+        </span>
+        <div>
+          <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Etiquetado</h5>
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Trazabilidad y caducidades</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-stack-sm text-on-surface-variant group-hover:text-secondary transition-colors">
+        <span className="font-label-sm text-label-sm">Ir al módulo</span>
+        <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:translate-x-1">
+          arrow_forward
+        </span>
+      </div>
+    </div>
+  );
+
   const crearOrdenButton = (extraClassName: string) => (
     <button
       onClick={() => router.push('/dashboard/production')}
@@ -485,7 +520,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
-          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Compras.
+          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Etiquetado, Compras.
           Telemetría y Temp. Cámara Fría no tienen datos reales todavía y
           quedan ocultas en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
@@ -495,6 +530,7 @@ export default function DashboardPage() {
         {canSeeCompras && pedidosPendientesCard}
         {canSeeAlerts && notificacionesCard}
         {canSeeRecipes && recetasCard}
+        {canSeeEtiquetado && etiquetadoCard}
         {canSeeCompras && comprasCard}
       </div>
 
@@ -517,13 +553,17 @@ export default function DashboardPage() {
       <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter">
         {canSeeRecipes && recetasCard}
 
-        <div
-          onClick={() => router.push('/dashboard/dashboard-interactivo')}
-          className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
-        >
-          <span className="material-symbols-outlined text-[40px] text-on-surface-variant hover:text-secondary transition-colors">monitoring</span>
-          <p className="font-label-md text-label-md text-on-surface-variant">Telemetría de Cocina en Vivo</p>
-        </div>
+        {canSeeEtiquetado ? (
+          etiquetadoCard
+        ) : (
+          <div
+            onClick={() => router.push('/dashboard/dashboard-interactivo')}
+            className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
+          >
+            <span className="material-symbols-outlined text-[40px] text-on-surface-variant hover:text-secondary transition-colors">monitoring</span>
+            <p className="font-label-md text-label-md text-on-surface-variant">Telemetría de Cocina en Vivo</p>
+          </div>
+        )}
 
         <div className="tonal-layer-2 rounded-xl p-stack-lg flex flex-col justify-between border border-border">
           <div>
