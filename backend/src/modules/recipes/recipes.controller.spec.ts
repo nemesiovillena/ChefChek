@@ -8,6 +8,7 @@ import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 
 describe("RecipesController", () => {
   let controller: RecipesController;
@@ -50,6 +51,10 @@ describe("RecipesController", () => {
         {
           provide: RoleAccessService,
           useValue: { isSectionAllowed: jest.fn().mockResolvedValue(true) },
+        },
+        {
+          provide: BunnyStorageService,
+          useValue: { imagesEnabled: false },
         },
       ],
     })

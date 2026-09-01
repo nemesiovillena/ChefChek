@@ -6,6 +6,7 @@ import helmet from "helmet";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import { AppLogger } from "./common/logger/logger.service";
+import { BunnyStorageService } from "./common/bunny/bunny-storage.service";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
 import { NestExpressApplication } from "@nestjs/platform-express";
@@ -47,8 +48,20 @@ async function bootstrap() {
   // Cookie parser for Lucia Auth sessions
   app.use(cookieParser());
 
-  // Serve uploaded files statically
-  app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads/" });
+  // Ficheros subidos: con Bunny.net configurado las imágenes se sirven por CDN y
+  // los backups se leen por endpoint autenticado. El estático local es SOLO el
+  // fallback de desarrollo mientras Bunny no está configurado. Fail-closed: en
+  // cuanto Bunny está activo NO se sirve `/uploads` estático — servirlo exponía
+  // escaneos y exports de BD sin sesión ni control de tenant.
+  const bunny = app.get(BunnyStorageService);
+  if (!bunny.imagesEnabled && !bunny.backupsEnabled) {
+    logger.warn(
+      "Bunny.net no configurado: sirviendo /uploads como estático local (solo dev).",
+    );
+    app.useStaticAssets(join(process.cwd(), "uploads"), {
+      prefix: "/uploads/",
+    });
+  }
 
   // Request ID middleware
   app.use(

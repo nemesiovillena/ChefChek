@@ -25,7 +25,8 @@ import {
 } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
-import { generateUploadFilename } from "../../common/utils/upload-filename.util";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import { PexelsImageSearchService } from "./pexels-image-search.service";
@@ -54,9 +55,6 @@ import {
   SectionAccessGuard,
   RequireSection,
 } from "../../guards/section-access.guard";
-import * as fs from "fs";
-import * as path from "path";
-
 @ApiTags("Products")
 @Controller("api/v1/products")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
@@ -68,6 +66,7 @@ export class ProductsController {
     private readonly productSupplierOffersService: ProductSupplierOffersService,
     private readonly pexelsImageSearchService: PexelsImageSearchService,
     private readonly productImageBackfillService: ProductImageBackfillService,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   @Post()
@@ -253,16 +252,7 @@ export class ProductsController {
     }
     assertAllowedImageType(file);
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "products");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const fileName = generateUploadFilename(file.originalname);
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, file.buffer);
-
-    const url = `/uploads/products/${fileName}`;
+    const url = await storeUploadedImage(this.bunny, "products", file);
     return {
       success: true,
       data: { url },

@@ -16,8 +16,9 @@ COPY . .
 # Generate Prisma client
 RUN bunx prisma generate
 
-# Build application
-RUN bun run build
+# Build application (+ scripts one-shot en dist/scripts para poder ejecutarlos
+# dentro del contenedor de runtime, p.ej. la migración de uploads a Bunny).
+RUN bun run build && bun run build:scripts
 
 # Stage 2: Production dependencies (bun, prod-only)
 FROM oven/bun:1.3.14 AS prod-deps
@@ -41,6 +42,10 @@ RUN bunx prisma generate
 FROM node:20-bullseye-slim AS runner
 
 WORKDIR /app
+
+# Runtime is always production here. Some safety gates key off this (p.ej. no
+# servir /uploads como estático si Bunny no está configurado).
+ENV NODE_ENV=production
 
 # Built app + prod node_modules (with generated Prisma client)
 COPY --from=builder /app/dist ./dist

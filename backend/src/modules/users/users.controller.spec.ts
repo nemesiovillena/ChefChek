@@ -12,6 +12,7 @@ import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 
 describe("UsersController", () => {
   let controller: UsersController;
@@ -39,6 +40,10 @@ describe("UsersController", () => {
         {
           provide: UsersService,
           useValue: mockUsersService,
+        },
+        {
+          provide: BunnyStorageService,
+          useValue: { imagesEnabled: false },
         },
       ],
     })
