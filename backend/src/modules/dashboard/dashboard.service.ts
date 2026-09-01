@@ -202,7 +202,10 @@ export class DashboardService {
       dateKey: string;
       timeOfDay: string;
       supplierName: string;
+      isToday: boolean;
+      isPendingDraft: boolean;
     } | null = null;
+    const now = new Date();
     if (pendingScheduledOrder) {
       // La hora configurada en la programación (p. ej. "09:00") es más legible
       // que la hora real de generación (el cron corre cada 5 min). Si la
@@ -223,13 +226,14 @@ export class DashboardService {
         dateKey,
         timeOfDay: schedule?.timeOfDay ?? hhmm,
         supplierName: pendingScheduledOrder.supplier.name,
+        isToday: dateKey === toMadridParts(now).dateKey,
+        isPendingDraft: true,
       };
     } else {
       // Aún no hay borrador generado por el cron: se anuncia la próxima
       // ejecución de la programación activa más cercana, para que el pedido
       // programado aparezca en el dashboard desde que se crea la programación
       // (no solo cuando el cron ya lo ha materializado en un BORRADOR).
-      const now = new Date();
       const schedules = await this.prisma.purchaseSchedule.findMany({
         where: { tenantId, enabled: true },
         select: {
@@ -261,6 +265,8 @@ export class DashboardService {
             dateKey: next.dateKey,
             timeOfDay: next.timeOfDay,
             supplierName: s.supplier.name,
+            isToday: next.dateKey === toMadridParts(now).dateKey,
+            isPendingDraft: false,
           };
         }
       }

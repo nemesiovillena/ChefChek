@@ -24,7 +24,7 @@ describe("PurchaseScheduleService", () => {
       delete: jest.fn(),
     },
     purchaseOrderEvent: { create: jest.fn() },
-    purchaseOrder: { findFirst: jest.fn() },
+    purchaseOrder: { findFirst: jest.fn(), findMany: jest.fn() },
   };
   const purchaseListServiceMock = { generateOrder: jest.fn() };
   const notificationsServiceMock = { createNotification: jest.fn() };
@@ -103,6 +103,179 @@ describe("PurchaseScheduleService", () => {
           WED_12_00_MADRID,
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("describeSchedule (pura)", () => {
+    // Miércoles 12:00 Madrid (reloj fijo del spec)
+    const base = {
+      daysOfWeek: [3],
+      timeOfDay: "09:00",
+      enabled: true,
+      lastRunAt: null as Date | null,
+    };
+
+    it("hora de hoy ya pasada → próxima es la semana que viene, sin flags HOY", () => {
+      const status = PurchaseScheduleService.describeSchedule(
+        base,
+        null,
+        WED_12_00_MADRID,
+      );
+      expect(status.nextRunAt).toEqual({
+        dateKey: "2026-07-22",
+        timeOfDay: "09:00",
+      });
+      expect(status.runsToday).toBe(false);
+      expect(status.ranToday).toBe(false);
+      expect(status.pendingDraft).toBeNull();
+    });
+
+    it("hora de hoy aún no llegada → runsToday true", () => {
+      const status = PurchaseScheduleService.describeSchedule(
+        { ...base, timeOfDay: "13:00" },
+        null,
+        WED_12_00_MADRID,
+      );
+      expect(status.nextRunAt).toEqual({
+        dateKey: "2026-07-15",
+        timeOfDay: "13:00",
+      });
+      expect(status.runsToday).toBe(true);
+    });
+
+    it("lastRunAt de hoy → ranToday true (aunque la próxima sea futura)", () => {
+      const lastRunAt = new Date("2026-07-15T08:00:00Z"); // 10:00 Madrid, hoy
+      const status = PurchaseScheduleService.describeSchedule(
+        { ...base, lastRunAt },
+        null,
+        WED_12_00_MADRID,
+      );
+      expect(status.ranToday).toBe(true);
+      expect(status.nextRunAt?.dateKey).toBe("2026-07-22"); // ya generó hoy
+    });
+
+    it("draft pendiente → pendingDraft con orderId e ISO", () => {
+      const draft = {
+        orderId: "po-1",
+        generatedAt: new Date("2026-07-15T08:03:00Z"),
+      };
+      const status = PurchaseScheduleService.describeSchedule(
+        base,
+        draft,
+        WED_12_00_MADRID,
+      );
+      expect(status.pendingDraft).toEqual({
+        orderId: "po-1",
+        generatedAt: "2026-07-15T08:03:00.000Z",
+        generatedToday: true, // 10:03 Madrid, mismo día que el reloj del spec
+      });
+    });
+
+    it("draft acumulado de otro día → generatedToday false aunque siga pendiente", () => {
+      const draft = {
+        orderId: "po-1",
+        generatedAt: new Date("2026-07-14T08:03:00Z"), // ayer
+      };
+      const status = PurchaseScheduleService.describeSchedule(
+        base,
+        draft,
+        WED_12_00_MADRID,
+      );
+      expect(status.pendingDraft).toEqual({
+        orderId: "po-1",
+        generatedAt: "2026-07-14T08:03:00.000Z",
+        generatedToday: false,
+      });
+    });
+
+    it("deshabilitada → nextRunAt null y flags false", () => {
+      const status = PurchaseScheduleService.describeSchedule(
+        { ...base, enabled: false },
+        null,
+        WED_12_00_MADRID,
+      );
+      expect(status.nextRunAt).toBeNull();
+      expect(status.runsToday).toBe(false);
+    });
+
+    it("frontera de medianoche: 23:30 UTC es jueves en Madrid, no miércoles", () => {
+      // 2026-07-15T23:30:00Z = jueves 01:30 en Madrid (CEST)
+      const status = PurchaseScheduleService.describeSchedule(
+        { ...base, daysOfWeek: [4], timeOfDay: "09:00" }, // jueves
+        null,
+        new Date("2026-07-15T23:30:00Z"),
+      );
+      expect(status.runsToday).toBe(true);
+      expect(status.nextRunAt?.dateKey).toBe("2026-07-16");
+    });
+  });
+
+  describe("findAll", () => {
+    it("devuelve programaciones enriquecidas con el estado HOY y el draft pendiente", async () => {
+      const schedule = {
+        id: "s1",
+        tenantId,
+        daysOfWeek: [3],
+        timeOfDay: "13:00",
+        enabled: true,
+        lastRunAt: null,
+        supplier: { id: "sup1", name: "Sup" },
+        list: { id: "l1", name: "Lista" },
+        location: null,
+      };
+      const draft = {
+        id: "po-1",
+        createdAt: new Date("2026-07-15T08:03:00Z"),
+        events: [{ payload: { scheduleId: "s1" } }],
+      };
+      prismaMock.purchaseSchedule.findMany.mockResolvedValue([schedule]);
+      prismaMock.purchaseOrder.findMany.mockResolvedValue([draft]);
+
+      const result = await service.findAll(tenantId);
+
+      expect(prismaMock.purchaseOrder.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tenantId,
+            status: "BORRADOR",
+            events: { some: { type: "SCHEDULED_GENERATION" } },
+          }),
+        }),
+      );
+      expect(result[0].pendingDraft.orderId).toBe("po-1");
+      expect(result[0]).toMatchObject({
+        id: "s1",
+        runsToday: expect.any(Boolean),
+        ranToday: expect.any(Boolean),
+      });
+    });
+
+    it("sin programaciones no consulta borradores", async () => {
+      prismaMock.purchaseSchedule.findMany.mockResolvedValue([]);
+      await service.findAll(tenantId);
+      expect(prismaMock.purchaseOrder.findMany).not.toHaveBeenCalled();
+    });
+
+    it("borrador cuyo evento no trae scheduleId no se vincula a nadie", async () => {
+      const schedule = {
+        id: "s1",
+        tenantId,
+        daysOfWeek: [3],
+        timeOfDay: "13:00",
+        enabled: true,
+        lastRunAt: null,
+        supplier: { id: "sup1", name: "Sup" },
+        list: { id: "l1", name: "Lista" },
+        location: null,
+      };
+      prismaMock.purchaseSchedule.findMany.mockResolvedValue([schedule]);
+      prismaMock.purchaseOrder.findMany.mockResolvedValue([
+        { id: "po-2", createdAt: new Date(), events: [{ payload: {} }] },
+      ]);
+
+      const result = await service.findAll(tenantId);
+
+      expect(result[0].pendingDraft).toBeNull();
     });
   });
 
