@@ -137,13 +137,18 @@ export function usePurchaseOrder(id: string | null) {
   });
 }
 
-function useInvalidateOrders() {
+/**
+ * Invalidación común a toda mutación que cambia el estado de un pedido:
+ * enviar/revertir modifica el estado "Pendiente de enviar" de su programación
+ * y la card del dashboard que lo anuncia (además del badge de pedidos). Sin
+ * esto, ambas se quedan stale hasta el siguiente refetch. Lo usan también
+ * los hooks de otras vías (p. ej. use-order-sending, el diálogo "Enviar al
+ * proveedor"), que cambian el estado por fuera de las transiciones.
+ */
+export function useInvalidateOrders() {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-    // Enviar/revertir un pedido cambia el estado "Pendiente de enviar" de su
-    // programación y la card del dashboard que lo anuncia; sin esto, ambas
-    // se quedan stale hasta el siguiente refetch.
     queryClient.invalidateQueries({ queryKey: ['purchase-schedules'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard-kpis'] });
   };
