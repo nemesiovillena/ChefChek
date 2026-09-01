@@ -16,8 +16,6 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import * as fs from "fs";
-import * as path from "path";
 import {
   ApiTags,
   ApiOperation,
@@ -29,7 +27,8 @@ import {
 import { UsersService } from "./users.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import { assertAllowedImageType } from "../../common/utils/image-upload.util";
-import { generateUploadFilename } from "../../common/utils/upload-filename.util";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -46,7 +45,10 @@ import { Roles } from "../../decorators/roles.decorator";
 @RequireModule("sala")
 @RequireSection("sala")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly bunny: BunnyStorageService,
+  ) {}
 
   @Post()
   @Roles("ADMIN")
@@ -72,18 +74,11 @@ export class UsersController {
 
     assertAllowedImageType(file);
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "users");
-    /* istanbul ignore next */
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const fileName = generateUploadFilename(file.originalname);
-    fs.writeFileSync(path.join(uploadsDir, fileName), file.buffer);
+    const avatarUrl = await storeUploadedImage(this.bunny, "users", file);
 
     return {
       success: true,
-      data: { avatarUrl: `/uploads/users/${fileName}` },
+      data: { avatarUrl },
       message: "Avatar uploaded successfully",
     };
   }

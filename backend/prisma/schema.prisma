@@ -2157,6 +2157,9 @@ model Backup {
   type           BackupType   @default(MANUAL)
   format         String       @default("json")
   filename       String?
+  // Ruta del .json en la Storage Zone privada de Bunny (p.ej.
+  // "backups/<tenantSlug>/<filename>"). Null en copias antiguas escritas a disco.
+  storageKey     String?
   fileSizeBytes  BigInt?
   rowCount       Int?
   checksum       String?

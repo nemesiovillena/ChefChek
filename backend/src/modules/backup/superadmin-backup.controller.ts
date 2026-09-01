@@ -58,13 +58,25 @@ export class SuperadminBackupController {
   @Get(":id/download")
   async download(@Param("id") id: string, @Res() res: Response) {
     const row = await this.backupService.getOne(id, "GLOBAL", null);
-    if (!row.filename) {
+    if (!row.filename && !row.storageKey) {
       res
         .status(HttpStatus.NOT_FOUND)
         .json({ success: false, error: "Sin archivo" });
       return;
     }
-    res.download(this.backupService.filepathOf(row), row.filename);
+    const { stream, filename } =
+      await this.backupService.openBackupDownload(row);
+    res.set({
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+    });
+    stream.on("error", () => {
+      if (!res.headersSent) {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      res.end();
+    });
+    stream.pipe(res);
   }
 
   @Delete(":id")

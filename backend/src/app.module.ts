@@ -9,6 +9,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { PrismaModule } from "./common/services/prisma.module";
+import { BunnyStorageModule } from "./common/bunny/bunny-storage.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { UsersModule } from "./modules/users/users.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -68,6 +69,7 @@ import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
       envFilePath: ".env",
     }),
     PrismaModule,
+    BunnyStorageModule,
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     TenantsModule,
