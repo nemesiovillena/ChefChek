@@ -5,11 +5,9 @@ import {
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
+import { postJsonWithRetry } from "./provider-http.util";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-// Sin timeout, un fallo de red deja la petición colgada indefinidamente
-// (undici's fetch no tiene límite propio) — reproducido en pruebas manuales.
-const REQUEST_TIMEOUT_MS = 30000;
 
 /** Adaptador para la Chat Completions API de OpenAI (tool calling). */
 @Injectable()
@@ -38,31 +36,13 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
         : {}),
     };
 
-    let res: Response;
-    try {
-      res = await fetch(OPENAI_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (e: any) {
-      throw new BadGatewayException(
-        `No se pudo conectar con OpenAI: ${e?.message ?? e}`,
-      );
-    }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new BadGatewayException(
-        `OpenAI respondió ${res.status}: ${text.slice(0, 300)}`,
-      );
-    }
-
-    const data: any = await res.json();
+    const data: any = await postJsonWithRetry("OpenAI", OPENAI_URL, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
     const message = data.choices?.[0]?.message;
     if (!message) {
       throw new BadGatewayException("Respuesta de OpenAI sin contenido");

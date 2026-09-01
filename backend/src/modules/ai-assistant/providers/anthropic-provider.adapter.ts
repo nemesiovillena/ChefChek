@@ -1,17 +1,15 @@
-import { Injectable, BadGatewayException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   ChatMessage,
   ProviderAdapter,
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
+import { postJsonWithRetry } from "./provider-http.util";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOKENS = 1024;
-// Sin timeout, un fallo de red deja la petición colgada indefinidamente
-// (undici's fetch no tiene límite propio) — reproducido en pruebas manuales.
-const REQUEST_TIMEOUT_MS = 30000;
 
 /**
  * Adaptador para la Messages API de Anthropic. A diferencia de OpenAI/Gemini,
@@ -47,32 +45,14 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
         : {}),
     };
 
-    let res: Response;
-    try {
-      res = await fetch(ANTHROPIC_URL, {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": ANTHROPIC_VERSION,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-    } catch (e: any) {
-      throw new BadGatewayException(
-        `No se pudo conectar con Anthropic: ${e?.message ?? e}`,
-      );
-    }
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new BadGatewayException(
-        `Anthropic respondió ${res.status}: ${text.slice(0, 300)}`,
-      );
-    }
-
-    const data: any = await res.json();
+    const data: any = await postJsonWithRetry("Anthropic", ANTHROPIC_URL, {
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
     const blocks: any[] = data.content ?? [];
 
     const textBlocks = blocks
