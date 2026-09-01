@@ -1,12 +1,14 @@
 # Plan — Migrar `/uploads` a Bunny.net Storage (cerrar exposición pública)
 
-**Estado:** EN PR → https://github.com/nemesiovillena/ChefChek/pull/94 (base `develop`, commit `a5f93dd`) · **Origen:** hallazgo MEDIO-1 de la auditoría (`plans/reports/security-audit-260831-0018-*.md`) + cuenta Bunny.net.
+**Estado:** MERGEADO a `develop` (#94 → `cef8488`) · release PR a `main` → https://github.com/nemesiovillena/ChefChek/pull/101 (**sin mergear**, bloqueado por los pasos 1-2). **Origen:** hallazgo MEDIO-1 de la auditoría + cuenta Bunny.net.
 
-**Pendiente antes de mergear:**
-1. **[BLOQUEANTE] Reapuntar el Pull Zone `chefchek`.** Probado 2026-09-01: `chefchek.b-cdn.net/<key>` devuelve el 404 de la app Next de ChefChek, no el fichero de la Storage Zone → el Origin del Pull Zone apunta a la web app, no a la Storage Zone. En Bunny: Pull Zone `chefchek` → Origin → Origin Type = **Storage Zone** → `chefchek`. (Storage API de ambas zonas PUT/GET/DELETE verificada OK; passwords válidos.)
-2. Fijar en Dokploy los 5 env (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_PASSWORD`, `BUNNY_CDN_URL`, `BUNNY_BACKUP_STORAGE_ZONE`, `BUNNY_BACKUP_STORAGE_PASSWORD`) — sin ellos el arranque en prod falla a propósito.
-3. Correr `scripts/migrate-uploads-to-bunny.ts` en prod tras el deploy (`--dry-run` primero).
-4. Rotar secretos Bunny (expuestos en chat).
+**Pasos de despliegue (en orden — el deploy CRASH-LOOPEA si 1-2 no están hechos):**
+1. **Bunny — Pull Zone `chefchek` → Origin.** Probado 2026-09-01: `chefchek.b-cdn.net/<key>` devuelve el 404 de la app Next, no el fichero de la Storage Zone → el Origin apunta a la web app. Cambiar Origin Type = **Bunny Storage Zone → `chefchek`**. (Storage API de ambas zonas PUT/GET/DELETE verificada OK; passwords válidos.)
+2. **Dokploy backend — 5 env:** `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_PASSWORD`, `BUNNY_CDN_URL`, `BUNNY_BACKUP_STORAGE_ZONE`, `BUNNY_BACKUP_STORAGE_PASSWORD`. Sin ellas `onModuleInit` lanza en prod (fail-closed).
+3. Mergear PR #101 → deploy.
+4. En la consola del backend: `node dist/scripts/migrate-uploads-to-bunny.js --dry-run` y luego sin flag. Idempotente.
+5. Verificar imágenes → retirar el volumen `uploads/`.
+6. (Opcional) rotar passwords de las Storage Zones + actualizar las 2 env.
 
 ## Config Bunny confirmada (2026-09-01)
 
