@@ -1,8 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
-import type { PurchaseOrder } from './use-purchase-orders';
+import { useInvalidateOrders, type PurchaseOrder } from './use-purchase-orders';
 
 export type SendChannel = 'EMAIL' | 'WHATSAPP' | 'PHONE' | 'WEB';
 
@@ -28,7 +28,7 @@ export function useSendPreview(orderId: string, enabled: boolean) {
 }
 
 export function useSendOrder() {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateOrders();
   return useMutation<
     PurchaseOrder,
     Error,
@@ -37,8 +37,7 @@ export function useSendOrder() {
     mutationFn: async ({ orderId, channel }) =>
       (await apiClient.post(`${ORDERS_URL}/${orderId}/enviar`, { channel }))
         .data,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] }),
+    onSuccess: invalidate,
   });
 }
 
