@@ -77,6 +77,14 @@ export function getUnitMeta(
 }
 
 /**
+ * Símbolo de unidad para mostrar al usuario. El formulario de recetas
+ * guarda "units" para unidades sueltas; el resto de la app usa "ud".
+ */
+export function formatUnitSymbol(unit: string): string {
+  return unit.trim().toLowerCase() === "units" ? "ud" : unit;
+}
+
+/**
  * Costo del ingrediente por unidad usada en la receta (€/g, €/ml o €/ud).
  *
  * El descuento fijo del proveedor (`discountPercentage`) se aplica sobre el

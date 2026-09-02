@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { X, Printer, Clock, Thermometer, Wrench, ChefHat, Users } from 'lucide-react';
 import { Recipe } from '@/hooks/use-recipes';
+import { formatUnitSymbol } from '@/lib/unit-symbols';
 import { parseSteps } from './elaboration-step-editor';
 import AllergenBadge from '@/components/shared/allergen-badge';
 
@@ -118,7 +119,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                     >
                       <span className="text-[var(--on-surface)]">{ing.productName || 'Sin nombre'}</span>
                       <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
-                        {ing.quantity} {ing.unit}
+                        {ing.quantity} {formatUnitSymbol(ing.unit)}
                       </span>
                     </li>
                   ))}
@@ -138,7 +139,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                       >
                         <span className="text-[var(--on-surface)]">{sub.subRecipeName}</span>
                         <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
-                          {sub.quantity} {sub.unit}
+                          {sub.quantity} {formatUnitSymbol(sub.unit)}
                         </span>
                       </li>
                     ))}

@@ -2,6 +2,7 @@
 
 import { Recipe, RecipeCost } from '@/hooks/use-recipes';
 import { formatEuro } from '@/lib/utils';
+import { formatUnitSymbol } from '@/lib/unit-symbols';
 
 const formatPercent = (value: number, decimals = 1) => `${value.toFixed(decimals)}%`;
 
@@ -27,10 +28,10 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
             {costData.ingredients.map((ingredient, index) => (
               <tr key={index}>
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{ingredient.productName}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.grossWeight} {ingredient.unit}</td>
+                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.grossWeight} {formatUnitSymbol(ingredient.unit)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.yieldPercentage, 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.wastePercentage, 0)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.netWeight.toFixed(2)} {ingredient.unit}</td>
+                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.netWeight.toFixed(2)} {formatUnitSymbol(ingredient.unit)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatEuro(ingredient.realPrice)}/{ingredient.referenceUnit}</td>
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-medium whitespace-nowrap">{formatEuro(ingredient.cost)}</td>
               </tr>
@@ -61,7 +62,7 @@ export function SubRecipesTable({ recipe }: { recipe: Recipe }) {
               <tr key={index}>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{sub.subRecipeName}</td>
                 <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{sub.quantity}</td>
-                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{sub.unit}</td>
+                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{formatUnitSymbol(sub.unit)}</td>
                 <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100 text-right font-medium">{formatEuro(sub.cost)}</td>
               </tr>
             ))}
