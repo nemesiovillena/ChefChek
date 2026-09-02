@@ -465,7 +465,7 @@ export default function DashboardPage() {
 
   const etiquetadoCard = (
     <div
-      onClick={() => router.push('/dashboard/etiquetado')}
+      onClick={() => router.push('/dashboard/etiquetado/nueva')}
       className="group relative tonal-layer-2 rounded-xl p-stack-lg flex flex-col justify-between gap-stack-md border border-border overflow-hidden cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
     >
       {/* Motivo de etiqueta impresa: esquina troquelada + perforación */}
@@ -489,9 +489,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex items-center gap-stack-sm text-on-surface-variant group-hover:text-secondary transition-colors">
-        <span className="font-label-sm text-label-sm">Ir al módulo</span>
-        <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:translate-x-1">
-          arrow_forward
+        <span className="font-label-sm text-label-sm">Crear etiqueta</span>
+        <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:rotate-90">
+          add
         </span>
       </div>
     </div>
