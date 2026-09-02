@@ -16,14 +16,14 @@ export class SalaTasksService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(tenantId: string, userId: string, dto: CreateSalaTaskDto) {
-    // Nueva tarea entra al final de su columna.
-    const last = await this.prisma.salaTask.findFirst({
+    // Nueva tarea entra arriba del todo de su columna (sortOrder mínimo - 1).
+    const first = await this.prisma.salaTask.findFirst({
       where: {
         tenantId,
         status: dto.status ?? SalaTaskStatus.PENDIENTE,
         deletedAt: null,
       },
-      orderBy: { sortOrder: "desc" },
+      orderBy: { sortOrder: "asc" },
       select: { sortOrder: true },
     });
 
@@ -40,7 +40,7 @@ export class SalaTasksService {
         observations: dto.observations,
         allergies: dto.allergies,
         status: dto.status ?? SalaTaskStatus.PENDIENTE,
-        sortOrder: (last?.sortOrder ?? -1) + 1,
+        sortOrder: (first?.sortOrder ?? 1) - 1,
         createdBy: userId,
       },
     });

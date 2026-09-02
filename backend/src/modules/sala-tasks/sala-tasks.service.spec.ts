@@ -33,11 +33,11 @@ describe("SalaTasksService", () => {
   });
 
   describe("create", () => {
-    it("appends the new task at the end of its column (last sortOrder + 1)", async () => {
+    it("prepends the new task at the top of its column (min sortOrder - 1)", async () => {
       mockPrismaService.salaTask.findFirst.mockResolvedValue({ sortOrder: 2 });
       mockPrismaService.salaTask.create.mockResolvedValue({
         id: "t1",
-        sortOrder: 3,
+        sortOrder: 1,
       });
 
       const result = await service.create(TENANT_ID, "user-1", {
@@ -45,19 +45,24 @@ describe("SalaTasksService", () => {
         eventDate: new Date("2026-09-01"),
       });
 
+      expect(mockPrismaService.salaTask.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: { sortOrder: "asc" },
+        }),
+      );
       expect(mockPrismaService.salaTask.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             tenantId: TENANT_ID,
             status: SalaTaskStatus.PENDIENTE,
-            sortOrder: 3,
+            sortOrder: 1,
             createdBy: "user-1",
           }),
         }),
       );
       expect(result).toEqual({
         success: true,
-        data: { id: "t1", sortOrder: 3 },
+        data: { id: "t1", sortOrder: 1 },
       });
     });
 
