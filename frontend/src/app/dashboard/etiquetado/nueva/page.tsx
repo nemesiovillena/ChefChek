@@ -41,6 +41,16 @@ const num = (s: string): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+/**
+ * Valores por defecto de temperatura / vida útil al elegir una condición de
+ * conservación en el formulario de etiqueta. Solo se aplican cuando el usuario
+ * cambia la condición a mano, para ahorrar tecleo; siguen siendo editables.
+ */
+const CONDITION_DEFAULTS: Record<string, Partial<ConservationValue>> = {
+  FROZEN: { storageTempMin: '-15', shelfLifeFrozenDays: '90' },
+  REFRIGERATED: { storageTempMin: '2', shelfLifeDays: '5' },
+};
+
 function conservationFromConfig(c: {
   storageCondition: string | null;
   storageTempMin: number | null;
@@ -355,7 +365,14 @@ export default function NuevaEtiquetaPage() {
             value={effectiveConservation}
             onChange={(patch) => {
               setConservationTouched(true);
-              setConservation({ ...effectiveConservation, ...patch });
+              const next = { ...effectiveConservation, ...patch };
+              if (
+                patch.storageCondition !== undefined &&
+                patch.storageCondition !== effectiveConservation.storageCondition
+              ) {
+                Object.assign(next, CONDITION_DEFAULTS[patch.storageCondition] ?? {});
+              }
+              setConservation(next);
             }}
             shelfLifeLabel={
               labelType === 'ELABORATED'
