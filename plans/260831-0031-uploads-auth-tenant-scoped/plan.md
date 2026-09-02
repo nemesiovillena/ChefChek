@@ -1,14 +1,14 @@
 # Plan — Migrar `/uploads` a Bunny.net Storage (cerrar exposición pública)
 
-**Estado:** MERGEADO a `develop` (#94 → `cef8488`) · release PR a `main` → https://github.com/nemesiovillena/ChefChek/pull/101 (**sin mergear**, bloqueado por los pasos 1-2). **Origen:** hallazgo MEDIO-1 de la auditoría + cuenta Bunny.net.
+**Estado:** EN PRODUCCIÓN (2026-09-01). #94 → `develop` (`cef8488`), #101 → `main` (`9543534`). Deploy sano (health 200 estable). Migración corrida en prod: 3 avatares → CDN (verificado `chefchek.b-cdn.net/uploads/users/*` = 200), 3 backups → zona privada + `storageKey`. `api.chefchek.com/uploads/*` = 404 (agujero MEDIO-1 cerrado). **Origen:** hallazgo MEDIO-1 de la auditoría + cuenta Bunny.net.
 
-**Pasos de despliegue (en orden — el deploy CRASH-LOOPEA si 1-2 no están hechos):**
-1. **Bunny — Pull Zone `chefchek` → Origin.** Probado 2026-09-01: `chefchek.b-cdn.net/<key>` devuelve el 404 de la app Next, no el fichero de la Storage Zone → el Origin apunta a la web app. Cambiar Origin Type = **Bunny Storage Zone → `chefchek`**. (Storage API de ambas zonas PUT/GET/DELETE verificada OK; passwords válidos.)
-2. **Dokploy backend — 5 env:** `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_PASSWORD`, `BUNNY_CDN_URL`, `BUNNY_BACKUP_STORAGE_ZONE`, `BUNNY_BACKUP_STORAGE_PASSWORD`. Sin ellas `onModuleInit` lanza en prod (fail-closed).
-3. Mergear PR #101 → deploy.
-4. En la consola del backend: `node dist/scripts/migrate-uploads-to-bunny.js --dry-run` y luego sin flag. Idempotente.
-5. Verificar imágenes → retirar el volumen `uploads/`.
-6. (Opcional) rotar passwords de las Storage Zones + actualizar las 2 env.
+**Pasos de despliegue ejecutados:**
+1. ✅ Bunny — Pull Zone `chefchek` → Origin Type = Storage Zone `chefchek`.
+2. ✅ Dokploy backend — 5 env `BUNNY_*`.
+3. ✅ Merge #101 → deploy (sin crash).
+4. ✅ `node dist/scripts/migrate-uploads-to-bunny.js` en la consola del backend.
+5. Pendiente usuario: verificar avatar + descarga de backup en la UI → retirar el volumen `uploads/`.
+6. (Opcional) rotar passwords de las Storage Zones — el usuario decidió NO por ahora.
 
 ## Config Bunny confirmada (2026-09-01)
 
