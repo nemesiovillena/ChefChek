@@ -6,7 +6,10 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
-import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
+import {
+  calculateProductCostPerUnit,
+  formatUnitSymbol,
+} from "../../common/utils/product-costing.util";
 import {
   CreateTemplateDto,
   UpdateTemplateDto,
@@ -448,7 +451,7 @@ export class TechnicalSheetsService {
       totalCost += cost;
 
       doc.text(
-        `${index + 1}. ${ingredient.product.name} - ${ingredient.quantity} ${ingredient.unit || "g"}`,
+        `${index + 1}. ${ingredient.product.name} - ${ingredient.quantity} ${formatUnitSymbol(ingredient.unit || "g")}`,
         { continued: options.includeCosts },
       );
 

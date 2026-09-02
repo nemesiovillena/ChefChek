@@ -1277,7 +1277,7 @@ export default function RecipesPage() {
                                     <option value="g">g</option>
                                     <option value="l">l</option>
                                     <option value="ml">ml</option>
-                                    <option value="units">u</option>
+                                    <option value="units">ud</option>
                                   </select>
                                   <input
                                     type="number"
@@ -1374,7 +1374,7 @@ export default function RecipesPage() {
                                   <option value="g">g</option>
                                   <option value="l">l</option>
                                   <option value="ml">ml</option>
-                                  <option value="units">u</option>
+                                  <option value="units">ud</option>
                                 </select>
                                 <button
                                   type="button"

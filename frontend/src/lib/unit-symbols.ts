@@ -11,3 +11,11 @@ export function normalizeUnitSymbol(unit: string): 'kg' | 'L' | 'und' | null {
   if (u === 'und' || u === 'ud' || u === 'unida' || u === 'unidad' || u === 'unidades') return 'und';
   return null;
 }
+
+/**
+ * Símbolo tal como se muestra al usuario. El formulario de recetas guarda
+ * "units" para unidades sueltas; el resto de la app muestra "ud".
+ */
+export function formatUnitSymbol(unit: string): string {
+  return unit === 'units' ? 'ud' : unit;
+}
