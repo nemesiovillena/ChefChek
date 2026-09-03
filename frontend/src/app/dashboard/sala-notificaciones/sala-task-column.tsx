@@ -1,7 +1,6 @@
 'use client';
 
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { SalaTask, SalaTaskStatus } from '@/hooks/use-sala-tasks';
 import { SalaTaskCard } from './sala-task-card';
 
@@ -29,17 +28,15 @@ export function SalaTaskColumn({ status, title, tasks, onTaskClick }: SalaTaskCo
         ref={setNodeRef}
         className={`flex-1 p-stack-sm space-y-stack-sm transition-colors ${isOver ? 'bg-secondary-container/10' : ''}`}
       >
-        <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
-          {tasks.length === 0 ? (
-            <p className="text-center font-label-sm text-label-sm text-on-surface-variant py-stack-lg">
-              Sin notificaciones
-            </p>
-          ) : (
-            tasks.map((task) => (
-              <SalaTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
-            ))
-          )}
-        </SortableContext>
+        {tasks.length === 0 ? (
+          <p className="text-center font-label-sm text-label-sm text-on-surface-variant py-stack-lg">
+            Sin notificaciones
+          </p>
+        ) : (
+          tasks.map((task) => (
+            <SalaTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+          ))
+        )}
       </div>
     </div>
   );

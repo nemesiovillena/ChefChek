@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import {
+  compareSalaTasksByEventDate,
   useSalaTasks,
   useReorderSalaTasks,
   type SalaTask,
@@ -42,7 +43,7 @@ function groupByStatus(tasks: SalaTask[]): Record<SalaTaskStatus, SalaTask[]> {
     grouped[task.status]?.push(task);
   }
   for (const status of Object.keys(grouped) as SalaTaskStatus[]) {
-    grouped[status].sort((a, b) => a.sortOrder - b.sortOrder);
+    grouped[status].sort(compareSalaTasksByEventDate);
   }
   return grouped;
 }
@@ -88,39 +89,20 @@ export default function SalaNotificacionesPage() {
     const destStatus = isStatus(String(over.id))
       ? (over.id as SalaTaskStatus)
       : findStatusOf(String(over.id));
-    if (!destStatus) return;
-    if (sourceStatus === destStatus && active.id === over.id) return;
+    // El orden dentro de cada columna es cronológico: arrastrar solo sirve
+    // para mover la notificación a otra columna (cambiar su estado).
+    if (!destStatus || sourceStatus === destStatus) return;
 
-    const next = { ...grouped, [sourceStatus]: [...grouped[sourceStatus]], [destStatus]: [...grouped[destStatus]] };
-    const sourceList = next[sourceStatus];
-    const activeIndex = sourceList.findIndex((t) => t.id === active.id);
-    if (activeIndex === -1) return;
-    const [moved] = sourceList.splice(activeIndex, 1);
+    const nextTasks = tasks.map((t) =>
+      t.id === active.id ? { ...t, status: destStatus } : t,
+    );
+    queryClient.setQueryData(['sala-tasks'], nextTasks);
 
-    if (sourceStatus === destStatus) {
-      const overIndex = sourceList.findIndex((t) => t.id === over.id);
-      sourceList.splice(overIndex === -1 ? sourceList.length : overIndex, 0, moved);
-    } else {
-      const destList = next[destStatus];
-      const overIndex = destList.findIndex((t) => t.id === over.id);
-      destList.splice(overIndex === -1 ? destList.length : overIndex, 0, { ...moved, status: destStatus });
-    }
-
-    // Reescribe sortOrder en cada card de las columnas afectadas ANTES de
-    // cachear: si no, el cache optimista sigue con el sortOrder viejo y
-    // groupByStatus() lo revierte visualmente en el siguiente render hasta
-    // que responde el reorder (y un segundo drag rápido operaría sobre esa
-    // lista ya desincronizada).
-    next[sourceStatus] = next[sourceStatus].map((t, i) => ({ ...t, sortOrder: i }));
-    next[destStatus] = next[destStatus].map((t, i) => ({ ...t, sortOrder: i }));
-
-    const flat = COLUMNS.flatMap((c) => next[c.status]);
-    queryClient.setQueryData(['sala-tasks'], flat);
-
-    const affectedStatuses = new Set([sourceStatus, destStatus]);
-    const items = flat
-      .filter((t) => affectedStatuses.has(t.status))
-      .map((t) => ({ id: t.id, status: t.status, sortOrder: t.sortOrder }));
+    // sortOrder ya no gobierna la visualización, pero el endpoint de reorder
+    // lo exige (>= 0): se envían índices secuenciales de las columnas afectadas.
+    const items = nextTasks
+      .filter((t) => t.status === sourceStatus || t.status === destStatus)
+      .map((t, i) => ({ id: t.id, status: t.status, sortOrder: i }));
     reorderTasks.mutate(items);
   };
 
