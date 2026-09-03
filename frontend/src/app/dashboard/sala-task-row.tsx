@@ -7,9 +7,9 @@ interface SalaTaskRowProps {
   onClick: () => void;
 }
 
-// Fila de solo lectura para el resumen del dashboard (sin drag-and-drop: la
-// prioridad se reordena en el tablero Kanban de /dashboard/sala-notificaciones,
-// donde sí tiene sentido porque cada columna es su propia cola de prioridad).
+// Fila de solo lectura para el resumen del dashboard (sin drag-and-drop: aquí
+// el orden es cronológico por fecha del evento; el Kanban de
+// /dashboard/sala-notificaciones permite arrastrar entre columnas de estado).
 export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
   const eventDate = new Date(task.eventDate);
   const inProgress = task.status === 'EN_CURSO';

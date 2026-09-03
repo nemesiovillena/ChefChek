@@ -1,6 +1,6 @@
 'use client';
 
-import { useSortable } from '@dnd-kit/sortable';
+import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { SalaTask } from '@/hooks/use-sala-tasks';
 
@@ -9,8 +9,10 @@ interface SalaTaskCardProps {
   onClick: () => void;
 }
 
+// Arrastrable solo para moverse entre columnas (cambio de estado): el orden
+// dentro de cada columna es cronológico, no manual.
 export function SalaTaskCard({ task, onClick }: SalaTaskCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
   const eventDate = new Date(task.eventDate);
@@ -18,7 +20,7 @@ export function SalaTaskCard({ task, onClick }: SalaTaskCardProps) {
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{ transform: CSS.Transform.toString(transform) }}
       onClick={onClick}
       {...attributes}
       {...listeners}

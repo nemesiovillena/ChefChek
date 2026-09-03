@@ -36,6 +36,15 @@ export interface SalaTaskInput {
 
 const QUERY_KEY = ['sala-tasks'];
 
+// Orden cronológico del evento (más próximo primero); empates por orden de
+// creación. Rige en la card del dashboard y en las columnas del Kanban.
+export function compareSalaTasksByEventDate(a: SalaTask, b: SalaTask): number {
+  const byDate = new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+  return byDate !== 0
+    ? byDate
+    : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+}
+
 export function useSalaTasks(enabled: boolean = true) {
   return useApiQuery<SalaTask[]>(QUERY_KEY, '/v1/sala-tasks', { enabled });
 }

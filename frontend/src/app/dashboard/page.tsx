@@ -21,7 +21,7 @@ import {
   useReorderProductionTasks,
 } from '@/hooks/use-dashboard-kpis';
 import type { UpcomingProductionTask } from '@/hooks/use-dashboard-kpis';
-import { useSalaTasks, type SalaTask } from '@/hooks/use-sala-tasks';
+import { compareSalaTasksByEventDate, useSalaTasks, type SalaTask } from '@/hooks/use-sala-tasks';
 import { useRowsThatFit } from '@/hooks/use-rows-that-fit';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
@@ -385,14 +385,11 @@ export default function DashboardPage() {
     );
   };
 
-  // Pendientes primero (lo que sala aún no ha resuelto), luego en curso;
-  // completadas quedan fuera del resumen (solo visibles en el Kanban completo).
+  // Orden cronológico por fecha del evento (más próximo primero, sin separar
+  // por estado); completadas quedan fuera del resumen (solo en el Kanban).
   const activeSalaTasks = (salaTasks ?? [])
     .filter((t) => t.status !== 'COMPLETADO')
-    .sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'PENDIENTE' ? -1 : 1;
-      return a.sortOrder - b.sortOrder;
-    });
+    .sort(compareSalaTasksByEventDate);
   const visibleSalaTasks = activeSalaTasks.slice(0, SALA_TASKS_LIMIT);
   const hasMoreSalaTasks = activeSalaTasks.length > SALA_TASKS_LIMIT;
 
