@@ -85,6 +85,13 @@ const REVERTIBLE_STATUSES: PurchaseOrderStatus[] = [
 const REVERT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 /** Roles que pueden crear programaciones de compra (espejo de @Roles del controller). */
 const SCHEDULE_ROLES = ['ADMIN', 'USER', 'OWNER', 'SUPERADMIN'];
+/**
+ * Roles que pueden editar, transicionar estado o reportar incidencias del
+ * pedido (espejo de @Roles("ADMIN", "USER") en compras.controller.ts para
+ * esos endpoints). VIEWER es de solo lectura en el backend: sin este check
+ * el botón se mostraba igualmente y el submit fallaba con 403.
+ */
+const MANAGE_ORDER_ROLES = ['ADMIN', 'USER', 'OWNER', 'SUPERADMIN'];
 
 export default function PedidoDetailPage() {
   const params = useParams<{ id: string }>();
@@ -164,7 +171,10 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const [notes, setNotes] = useState(order.notes ?? '');
   const [additionalItems, setAdditionalItems] = useState(order.additionalItems ?? '');
 
-  const canSend = order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
+  const canManageOrder = !!user?.role && MANAGE_ORDER_ROLES.includes(user.role);
+  const canSend =
+    canManageOrder &&
+    (order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO');
   const canSchedule =
     !!user?.role &&
     SCHEDULE_ROLES.includes(user.role) &&
@@ -569,7 +579,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       )}
 
       <footer className="flex flex-wrap items-center gap-3 border-t border-[var(--outline-variant)] pt-4">
-        {isDraft && (
+        {isDraft && canManageOrder && (
           <button
             onClick={handleSave}
             disabled={!dirty || lines.length === 0 || updateMut.isPending}
@@ -608,7 +618,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             <CalendarClock className="h-4 w-4" /> Programar
           </button>
         )}
-        {STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => (
+        {canManageOrder && STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => (
           <button
             key={to}
             onClick={() => handleTransition(to)}
@@ -624,7 +634,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             {label}
           </button>
         ))}
-        {hasReception && (
+        {hasReception && canManageOrder && (
           <button
             onClick={handleReportIncident}
             disabled={incidentMut.isPending}
@@ -644,7 +654,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             <Undo2 className="h-4 w-4" /> Deshacer (volver a Borrador)
           </button>
         )}
-        {(order.status === 'BORRADOR' || order.status === 'CANCELADO') && (
+        {canManageOrder && (order.status === 'BORRADOR' || order.status === 'CANCELADO') && (
           <button
             onClick={handleDelete}
             disabled={deleteMut.isPending}
