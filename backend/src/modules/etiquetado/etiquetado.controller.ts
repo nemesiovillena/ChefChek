@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -26,6 +27,7 @@ import { FoodLabelService } from "./services/food-label.service";
 import { FoodLabelContextService } from "./services/food-label-context.service";
 import { FoodLabelPdfService } from "./services/food-label-pdf.service";
 import { CreateFoodLabelDto } from "./dto/create-food-label.dto";
+import { UpdateFoodLabelDto } from "./dto/update-food-label.dto";
 import { ListFoodLabelsDto } from "./dto/list-food-labels.dto";
 import { VoidFoodLabelDto } from "./dto/void-food-label.dto";
 import { UpdateEtiquetadoConfigDto } from "./dto/update-etiquetado-config.dto";
@@ -95,6 +97,17 @@ export class EtiquetadoController {
   @Get("labels/:id")
   async getOne(@Req() req: any, @Param("id") id: string) {
     return this.foodLabels.getById(req.tenantId, id);
+  }
+
+  @Patch("labels/:id")
+  @Roles("ADMIN", "USER")
+  @RequireSection("etiquetado.emit")
+  async update(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: UpdateFoodLabelDto,
+  ) {
+    return this.foodLabels.update(req.tenantId, req.user, id, dto);
   }
 
   @Get("labels/:id/pdf")
