@@ -307,14 +307,14 @@ export default function NuevaEtiquetaPage() {
               {selectedName}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
               <label>
                 <span className={labelClass}>
                   {labelType === 'ELABORATED' ? 'Elaboración' : 'Manipulación'}
                 </span>
                 <input
                   type="datetime-local"
-                  className={fieldClass}
+                  className={`${fieldClass} h-10`}
                   style={{ colorScheme: 'light dark' }}
                   value={preparedAt}
                   onChange={(e) => setPreparedAt(e.target.value)}
@@ -327,15 +327,15 @@ export default function NuevaEtiquetaPage() {
               </label>
               <label>
                 <span className={labelClass}>Cantidad</span>
-                <div className="mt-1 flex gap-2">
+                <div className="flex gap-2">
                   <input
-                    className={fieldClass}
+                    className={`${fieldClass} h-10`}
                     inputMode="decimal"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                   />
                   <input
-                    className={`${fieldClass} w-20`}
+                    className={`${fieldClass} h-10 w-20`}
                     placeholder="ud/kg"
                     value={quantityUnit}
                     onChange={(e) => setQuantityUnit(e.target.value)}
@@ -350,7 +350,7 @@ export default function NuevaEtiquetaPage() {
                 <label>
                   <span className={labelClass}>Raciones</span>
                   <input
-                    className={fieldClass}
+                    className={`${fieldClass} h-10`}
                     inputMode="decimal"
                     value={portions}
                     onChange={(e) => setPortions(e.target.value)}
