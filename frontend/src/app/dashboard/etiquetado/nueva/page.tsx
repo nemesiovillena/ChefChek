@@ -12,6 +12,7 @@ import {
   useProductPrepContext,
   useCreateFoodLabel,
   useEtiquetadoConfig,
+  effectiveLabelFormat,
   labelFormatOptions,
   openLabelPdf,
   type CreateFoodLabelInput,
@@ -94,22 +95,27 @@ export default function NuevaEtiquetaPage() {
 
   // ELABORATED
   const [ingredientLots, setIngredientLots] = useState<Record<string, string>>({});
+  // Nº de lote escrito a mano cuando el lote no está registrado (opción
+  // «manual:» del selector).
+  const [manualIngredientLots, setManualIngredientLots] = useState<
+    Record<string, string>
+  >({});
   // HANDLED
   const [sourceLotId, setSourceLotId] = useState('');
   const [manualLot, setManualLot] = useState('');
   const [manufacturerExpiry, setManufacturerExpiry] = useState('');
 
-  const [format, setFormat] = useState('');
   const [copies, setCopies] = useState('1');
 
   const recipeOptions = useRecipeOptions();
   const productSearch = useProductSearch(300);
   const etiquetadoConfig = useEtiquetadoConfig();
-  const formatOptions = useMemo(
-    () => labelFormatOptions(etiquetadoConfig.data),
-    [etiquetadoConfig.data],
-  );
-  const selectedFormat = format || formatOptions[0]?.value || '';
+  // El formato se elige una vez en Configuración → Etiquetas; aquí solo se
+  // imprime el número de copias.
+  const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
+  const printFormatLabel =
+    labelFormatOptions(etiquetadoConfig.data).find((o) => o.value === printFormat)
+      ?.label ?? '';
 
   const recipeCtx = useRecipePrepContext(labelType === 'ELABORATED' ? recipeId : null);
   const productCtx = useProductPrepContext(labelType === 'HANDLED' ? productId : null);
@@ -140,6 +146,28 @@ export default function NuevaEtiquetaPage() {
       return;
     }
 
+    if (!printFormat) {
+      addNotification({
+        type: 'error',
+        title: 'Falta el formato de etiqueta',
+        message: 'No hay formatos configurados: define uno en Ajustes → Etiquetas.',
+      });
+      return;
+    }
+
+    // El consumo preferente: congelado → vida útil de congelado; si no, la normal.
+    const shelfLifeFrozenDays = num(effectiveConservation.shelfLifeFrozenDays);
+    if (freeze ? !shelfLifeFrozenDays : !shelfLifeDays) {
+      addNotification({
+        type: 'error',
+        title: 'Falta el consumo preferente',
+        message: freeze
+          ? 'Indica los días de vida útil de congelado (en Conservación y vida útil).'
+          : 'Indica los días de vida útil (en Conservación y vida útil) o configúralos en la receta/artículo.',
+      });
+      return;
+    }
+
     const input: CreateFoodLabelInput = {
       labelType: labelType as LabelType,
       preparedAt: new Date(preparedAt).toISOString(),
@@ -157,21 +185,23 @@ export default function NuevaEtiquetaPage() {
 
     if (labelType === 'ELABORATED') {
       input.recipeId = recipeId ?? undefined;
-      input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => ({
-        productId: ing.productId,
-        productName: ing.productName,
-        lotId: ingredientLots[ing.productId]?.startsWith('lot:')
-          ? ingredientLots[ing.productId].slice(4)
-          : undefined,
-        lotNumber:
-          ingredientLots[ing.productId]?.startsWith('lot:')
-            ? (ing.availableLots.find(
-                (l) => l.id === ingredientLots[ing.productId].slice(4),
-              )?.lotNumber ?? '')
-            : (ingredientLots[ing.productId] ?? ''),
-        quantityUsed: ing.quantity,
-        unit: ing.unit,
-      }));
+      input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => {
+        const raw = ingredientLots[ing.productId] ?? '';
+        const isLinked = raw.startsWith('lot:');
+        return {
+          productId: ing.productId,
+          productName: ing.productName,
+          lotId: isLinked ? raw.slice(4) : undefined,
+          lotNumber: isLinked
+            ? (ing.availableLots.find((l) => l.id === raw.slice(4))
+                ?.lotNumber ?? '')
+            : raw === 'manual:'
+              ? (manualIngredientLots[ing.productId] ?? '').trim()
+              : raw,
+          quantityUsed: ing.quantity,
+          unit: ing.unit,
+        };
+      });
     } else {
       input.productId = productId ?? undefined;
       input.sourceLotId = sourceLotId || undefined;
@@ -188,7 +218,7 @@ export default function NuevaEtiquetaPage() {
         title: 'Etiqueta creada',
         message: `Lote ${created.lotNumber}`,
       });
-      await openLabelPdf(created.id, selectedFormat, Number(copies) || 1, {
+      await openLabelPdf(created.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
           addNotification({ type: 'error', title: 'PDF', message: m }),
       });
@@ -307,46 +337,67 @@ export default function NuevaEtiquetaPage() {
               {selectedName}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
               <label>
                 <span className={labelClass}>
                   {labelType === 'ELABORATED' ? 'Elaboración' : 'Manipulación'}
                 </span>
                 <input
                   type="datetime-local"
-                  className={fieldClass}
+                  className={`${fieldClass} h-10`}
                   style={{ colorScheme: 'light dark' }}
                   value={preparedAt}
-                  onChange={(e) => setPreparedAt(e.target.value)}
+                  onChange={(e) => {
+                    setPreparedAt(e.target.value);
+                    // En escritorio el picker queda abierto tras elegir el día
+                    // (espera la hora): se cierra al perder el foco. En táctil
+                    // no se fuerza, para no cerrar los wheels a mitad de edición.
+                    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                      e.target.blur();
+                    }
+                  }}
                 />
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  {labelType === 'ELABORATED'
+                    ? 'Cuándo se preparó el plato; el consumo preferente se calcula desde esta fecha.'
+                    : 'Cuándo se manipuló o envasó; el consumo preferente se calcula desde esta fecha.'}
+                </span>
               </label>
               <label>
                 <span className={labelClass}>Cantidad</span>
-                <div className="mt-1 flex gap-2">
+                <div className="flex gap-2">
                   <input
-                    className={fieldClass}
+                    className={`${fieldClass} h-10`}
                     inputMode="decimal"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                   />
                   <input
-                    className={`${fieldClass} w-20`}
+                    className={`${fieldClass} h-10 w-20`}
                     placeholder="ud/kg"
                     value={quantityUnit}
                     onChange={(e) => setQuantityUnit(e.target.value)}
                   />
                 </div>
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  Cuánto producto hay en el envase: peso, volumen o unidades
+                  (ej. 2,5 kg). Opcional.
+                </span>
               </label>
               {labelType === 'ELABORATED' && (
                 <label>
                   <span className={labelClass}>Raciones</span>
                   <input
-                    className={fieldClass}
+                    className={`${fieldClass} h-10`}
                     inputMode="decimal"
                     value={portions}
                     onChange={(e) => setPortions(e.target.value)}
                     placeholder={recipeCtx.data?.portions?.toString() ?? ''}
                   />
+                  <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                    Nº de platos que rinde lo preparado (ej. 8). Si preparaste
+                    más cantidad que la receta, ajústalo. Opcional.
+                  </span>
                 </label>
               )}
             </div>
@@ -355,10 +406,26 @@ export default function NuevaEtiquetaPage() {
               <input
                 type="checkbox"
                 checked={freeze}
-                onChange={(e) => setFreeze(e.target.checked)}
+                onChange={(e) => {
+                  setFreeze(e.target.checked);
+                  if (e.target.checked) {
+                    // Congelar implica conservación «Congelado»: sincroniza el
+                    // selector y aplica sus valores por defecto.
+                    setConservationTouched(true);
+                    setConservation({
+                      ...effectiveConservation,
+                      storageCondition: 'FROZEN',
+                      ...CONDITION_DEFAULTS.FROZEN,
+                    });
+                  }
+                }}
               />
               Se congela
             </label>
+            <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
+              Marca la conservación como «Congelado» y calcula el consumo
+              preferente con la vida útil de congelado.
+            </p>
           </div>
 
           <ConservationFieldset
@@ -373,6 +440,11 @@ export default function NuevaEtiquetaPage() {
                 Object.assign(next, CONDITION_DEFAULTS[patch.storageCondition] ?? {});
               }
               setConservation(next);
+              if (patch.storageCondition !== undefined) {
+                // La condición manda sobre el checkbox: solo «Congelado» congela
+                // (sella frozenAt y calcula el consumo preferente congelado).
+                setFreeze(patch.storageCondition === 'FROZEN');
+              }
             }}
             shelfLifeLabel={
               labelType === 'ELABORATED'
@@ -384,31 +456,53 @@ export default function NuevaEtiquetaPage() {
           {/* ELABORATED: lotes de ingredientes */}
           {labelType === 'ELABORATED' && (recipeCtx.data?.ingredients.length ?? 0) > 0 && (
             <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-              <div className="mb-2 text-sm font-semibold">Lotes de ingredientes</div>
+              <div className="mb-1 text-sm font-semibold">Lotes de ingredientes</div>
+              <p className="mb-2 text-xs text-[var(--on-surface-variant)]">
+                Elige el lote usado en cada ingrediente. Si todavía no está
+                registrado en el sistema, selecciona «Otro nº de lote…» y
+                escríbelo tal cual figure en el envase: quedará grabado en la
+                etiqueta.
+              </p>
               <div className="space-y-2">
                 {recipeCtx.data!.ingredients.map((ing) => (
                   <div key={ing.productId} className="grid grid-cols-2 items-center gap-3">
                     <span className="text-sm">{ing.productName}</span>
                     {ing.availableLots.length > 0 ? (
-                      <select
-                        className={fieldClass}
-                        style={{ colorScheme: 'light dark' }}
-                        value={ingredientLots[ing.productId] ?? ''}
-                        onChange={(e) =>
-                          setIngredientLots((m) => ({
-                            ...m,
-                            [ing.productId]: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Sin especificar</option>
-                        {ing.availableLots.map((l) => (
-                          <option key={l.id} value={`lot:${l.id}`}>
-                            {l.lotNumber}
-                            {l.supplierName ? ` · ${l.supplierName}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                      <div>
+                        <select
+                          className={fieldClass}
+                          style={{ colorScheme: 'light dark' }}
+                          value={ingredientLots[ing.productId] ?? ''}
+                          onChange={(e) =>
+                            setIngredientLots((m) => ({
+                              ...m,
+                              [ing.productId]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Sin especificar</option>
+                          {ing.availableLots.map((l) => (
+                            <option key={l.id} value={`lot:${l.id}`}>
+                              {l.lotNumber}
+                              {l.supplierName ? ` · ${l.supplierName}` : ''}
+                            </option>
+                          ))}
+                          <option value="manual:">Otro nº de lote…</option>
+                        </select>
+                        {(ingredientLots[ing.productId] ?? '') === 'manual:' && (
+                          <input
+                            className={`${fieldClass} mt-2`}
+                            placeholder="Nº de lote del envase"
+                            value={manualIngredientLots[ing.productId] ?? ''}
+                            onChange={(e) =>
+                              setManualIngredientLots((m) => ({
+                                ...m,
+                                [ing.productId]: e.target.value,
+                              }))
+                            }
+                          />
+                        )}
+                      </div>
                     ) : (
                       <input
                         className={fieldClass}
@@ -498,21 +592,6 @@ export default function NuevaEtiquetaPage() {
           {/* Impresión */}
           <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
             <label>
-              <span className={labelClass}>Formato</span>
-              <select
-                className={fieldClass}
-                style={{ colorScheme: 'light dark' }}
-                value={selectedFormat}
-                onChange={(e) => setFormat(e.target.value)}
-              >
-                {formatOptions.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
               <span className={labelClass}>Copias</span>
               <input
                 className={`${fieldClass} w-24`}
@@ -527,6 +606,10 @@ export default function NuevaEtiquetaPage() {
               ) : null}
               Guardar e imprimir
             </Button>
+            <p className="w-full text-xs text-[var(--on-surface-variant)]">
+              Formato: {printFormatLabel || '—'}. Se elige en Configuración →
+              Etiquetas.
+            </p>
           </div>
         </div>
       )}

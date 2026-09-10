@@ -30,9 +30,18 @@ export class ThermalProfileDto {
 }
 
 export class UpdateEtiquetadoConfigDto {
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => ThermalProfileDto)
-  thermalProfiles!: ThermalProfileDto[];
+  thermalProfiles?: ThermalProfileDto[];
+
+  /**
+   * Formato de impresión por defecto: 'thermal:<perfilId>' o preset A4.
+   * String vacío = quitar la preferencia. Opcional (actualización parcial).
+   */
+  @IsOptional()
+  @IsString()
+  defaultFormat?: string;
 }

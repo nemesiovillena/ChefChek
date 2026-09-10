@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 import * as QRCode from "qrcode";
 import type { FoodLabel, FoodLabelIngredientLot, Lot } from "@prisma/client";
 import { A4_SIZE_PT, LabelSpec, mm } from "../constants/label-presets";
+import { euAllergenName } from "../../../common/constants/eu-allergens";
 
 export type FoodLabelForPdf = FoodLabel & {
   ingredientLots: FoodLabelIngredientLot[];
@@ -130,9 +131,9 @@ export class FoodLabelPdfService {
 
     doc.fillColor("#000");
 
-    // Nombre del producto
+    // Nombre del producto (completo: admite varias líneas)
     doc.font("Helvetica-Bold").fontSize(7);
-    y = this.line(doc, label.itemName, box.x, y, box.w, 8);
+    y = this.wrappedLine(doc, label.itemName, box.x, y, box.w, 8, 3);
 
     // Nº de lote (destacado) — nunca debe truncarse
     doc.font("Helvetica-Bold").fontSize(8.5);
@@ -145,23 +146,21 @@ export class FoodLabelPdfService {
     doc.font("Helvetica").fontSize(6);
     y = this.line(doc, `${prepWord}: ${prep}`, box.x, y + 0.5, w(), 7);
     doc.font("Helvetica-Bold").fontSize(6.5);
-    y = this.line(doc, `Consumo pref.: ${useBy}`, box.x, y, w(), 7.5);
+    y = this.line(doc, `Consumir: ${useBy}`, box.x, y, w(), 7.5);
 
-    if (label.frozenUseByDate) {
-      doc.font("Helvetica").fontSize(5.5);
-      y = this.line(
-        doc,
-        `Congelado ${this.fmtDate(label.frozenAt)} · consumir ${this.fmtDate(label.frozenUseByDate)}`,
-        box.x,
-        y,
-        w(),
-        6.5,
-      );
-    }
-
-    // Conservación
+    // Congelado: fecha + temperaturas en una sola línea (el consumo
+    // preferente ya está arriba; la palabra CONGELADO y el segundo
+    // "consumir" sobraban). Sin congelado: conservación normal.
     doc.font("Helvetica").fontSize(6);
-    y = this.line(doc, this.storageText(label), box.x, y + 0.5, w(), 7);
+    if (label.frozenAt) {
+      const temps = this.tempsText(label);
+      const frozenTxt = `congelado ${this.fmtDate(label.frozenAt)}${
+        temps ? ` · ${temps}` : ""
+      }`;
+      y = this.line(doc, frozenTxt, box.x, y + 0.5, w(), 7);
+    } else {
+      y = this.line(doc, this.storageText(label), box.x, y + 0.5, w(), 7);
+    }
 
     // HANDLED: proveedor + caducidad fabricante
     if (label.labelType === "HANDLED") {
@@ -181,20 +180,28 @@ export class FoodLabelPdfService {
       }
     }
 
-    // Alérgenos
+    // La línea de responsable va anclada abajo; el resto no debe invadirla.
+    const bottomLimit = box.y + box.h - 7;
+
+    // Alérgenos — nombres en texto (Reg. UE 1169/2011), en negrita.
+    // Con nombres (no números) la lista es más larga: se deja envolver.
     if (label.allergens.length) {
-      doc.font("Helvetica-Oblique").fontSize(5.5);
-      y = this.line(
+      const names = label.allergens.map((a) => euAllergenName(a)).join(", ");
+      doc.font("Helvetica-Bold").fontSize(5.5);
+      y = this.wrappedLine(
         doc,
-        `Alérgenos (cód. UE): ${label.allergens.join(", ")}`,
+        `Alérgenos: ${names}`,
         box.x,
         y,
-        w(),
+        narrowW,
         6.5,
+        2,
       );
     }
 
-    // Ingredientes con lote (solo formatos grandes, ELABORATED)
+    // Ingredientes con lote (solo formatos grandes, ELABORATED). Se listan
+    // TODOS con su nº de lote; el bloque se reparte en tantas líneas como
+    // quepan hasta la línea de responsable, sin pasar por debajo del QR.
     if (
       preset.showIngredients &&
       label.labelType === "ELABORATED" &&
@@ -205,12 +212,13 @@ export class FoodLabelPdfService {
         label.ingredientLots
           .map((il) =>
             il.lotNumber
-              ? `${il.productName} (L:${il.lotNumber})`
-              : il.productName,
+              ? `${il.productName.toLowerCase()} (L:${il.lotNumber})`
+              : il.productName.toLowerCase(),
           )
           .join(", ");
       doc.font("Helvetica").fontSize(5);
-      y = this.line(doc, txt, box.x, y, narrowW, 6);
+      const maxLines = Math.max(1, Math.floor((bottomLimit - y) / 6));
+      y = this.wrappedLine(doc, txt, box.x, y, narrowW, 6, maxLines);
     }
 
     // Responsable (abajo del todo)
@@ -264,18 +272,51 @@ export class FoodLabelPdfService {
     return y + lh;
   }
 
-  private storageText(label: FoodLabelForPdf): string {
-    const cond =
-      STORAGE_LABEL[label.storageCondition] ?? label.storageCondition;
+  /**
+   * Como `line` pero permitiendo salto de línea hasta `maxLines`, para texto
+   * que no debe recortarse (el nombre del producto). Si aun así no cabe,
+   * elipsis en la última línea visible.
+   */
+  private wrappedLine(
+    doc: PDFKit.PDFDocument,
+    text: string,
+    x: number,
+    y: number,
+    w: number,
+    lh: number,
+    maxLines: number,
+  ): number {
+    const used = Math.min(
+      doc.heightOfString(text, { width: w }),
+      maxLines * lh,
+    );
+    doc.text(text, x, y, {
+      width: w,
+      height: used,
+      lineBreak: true,
+      ellipsis: true,
+    });
+    return y + used;
+  }
+
+  /** Rango de temperaturas de conservación, p. ej. "0–4 °C" o "≤ 4 °C". */
+  private tempsText(label: FoodLabelForPdf): string {
     const min = label.storageTempMin;
     const max = label.storageTempMax;
     if (min !== null && max !== null) {
-      return `${cond}  ${min}–${max} °C`;
+      return `${min}–${max} °C`;
     }
     if (max !== null) {
-      return `${cond}  ≤ ${max} °C`;
+      return `≤ ${max} °C`;
     }
-    return cond;
+    return "";
+  }
+
+  private storageText(label: FoodLabelForPdf): string {
+    const cond =
+      STORAGE_LABEL[label.storageCondition] ?? label.storageCondition;
+    const temps = this.tempsText(label);
+    return temps ? `${cond}  ${temps}` : cond;
   }
 
   private fmtDate(d: Date | null): string {

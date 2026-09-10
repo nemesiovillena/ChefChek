@@ -9,6 +9,7 @@ import {
 } from "../constants/label-presets";
 
 const THERMAL_PROFILES_KEY = "ETIQUETADO_THERMAL_PROFILES";
+const DEFAULT_FORMAT_KEY = "ETIQUETADO_DEFAULT_FORMAT";
 
 export interface ThermalProfile {
   id: string;
@@ -61,6 +62,15 @@ export class EtiquetadoConfigService {
     }
   }
 
+  /** Formato de impresión por defecto ('thermal:<id>' o preset A4). Null = sin preferencia. */
+  async getDefaultFormat(tenantId: string): Promise<string | null> {
+    const row = await this.prisma.configuration.findUnique({
+      where: { tenantId_key: { tenantId, key: DEFAULT_FORMAT_KEY } },
+    });
+    const value = row?.value.trim();
+    return value || null;
+  }
+
   /** Config completa para la UI: perfiles térmicos + presets A4 built-in. */
   async getConfig(tenantId: string) {
     return {
@@ -69,7 +79,51 @@ export class EtiquetadoConfigService {
         id,
         name: A4_BUILTIN_PRESETS[id].name,
       })),
+      defaultFormat: await this.getDefaultFormat(tenantId),
     };
+  }
+
+  /**
+   * Fija (o limpia, con string vacío) el formato de impresión por defecto.
+   * `profiles` permite validar contra los perfiles que se están guardando en
+   * la misma petición; si no llega, se usan los actuales.
+   */
+  async setDefaultFormat(
+    tenantId: string,
+    userId: string,
+    format: string,
+    profiles?: ThermalProfile[],
+  ): Promise<string | null> {
+    const clean = format.trim();
+    if (!clean) {
+      await this.prisma.configuration.deleteMany({
+        where: { tenantId, key: DEFAULT_FORMAT_KEY },
+      });
+      return null;
+    }
+    const list = profiles ?? (await this.getThermalProfiles(tenantId));
+    const isThermal =
+      clean.startsWith("thermal:") &&
+      list.some((p) => `thermal:${p.id}` === clean);
+    const isA4 = BUILTIN_A4_FORMATS.includes(clean as A4Format);
+    if (!isThermal && !isA4) {
+      throw new BadRequestException(
+        "Formato por defecto no válido: elige un perfil térmico o un formato A4",
+      );
+    }
+    await this.prisma.configuration.upsert({
+      where: { tenantId_key: { tenantId, key: DEFAULT_FORMAT_KEY } },
+      create: {
+        tenantId,
+        key: DEFAULT_FORMAT_KEY,
+        value: clean,
+        category: "ETIQUETADO",
+        description: "Formato de impresión de etiquetas por defecto",
+        updatedBy: userId,
+      },
+      update: { value: clean, updatedBy: userId },
+    });
+    return clean;
   }
 
   async setThermalProfiles(

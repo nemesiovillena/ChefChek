@@ -64,12 +64,6 @@ export class FoodLabelService {
       );
     }
 
-    const useByDate = this.resolveUseByDate(
-      dto.useByDate,
-      preparedAt,
-      conservation.shelfLifeDays,
-    );
-
     const freeze = Boolean(dto.freeze);
     const frozenAt = freeze
       ? dto.frozenAt
@@ -80,6 +74,16 @@ export class FoodLabelService {
       frozenAt && conservation.shelfLifeFrozenDays !== null
         ? computeUseByDate(frozenAt, conservation.shelfLifeFrozenDays)
         : null;
+
+    // Congelado: el consumo preferente ES la fecha límite de congelado (la
+    // vida útil en refrigerado ya no aplica). Sin congelar: vida útil normal.
+    const useByDate = this.resolveUseByDate({
+      explicit: dto.useByDate,
+      preparedAt,
+      shelfLifeDays: conservation.shelfLifeDays,
+      frozenUseByDate,
+      freeze,
+    });
 
     const sourceLot = await this.resolveSourceLot(
       tenantId,
@@ -278,16 +282,31 @@ export class FoodLabelService {
 
   // ── helpers ────────────────────────────────────────────────────────────
 
-  private resolveUseByDate(
-    explicit: string | undefined,
-    preparedAt: Date,
-    shelfLifeDays: number | null,
-  ): Date {
-    if (explicit) {
-      return new Date(explicit);
+  /**
+   * Fecha de consumo preferente de la etiqueta. Si se congela, manda la
+   * fecha límite de congelado (la vida útil en refrigerado no aplica); si
+   * no, la vida útil normal contada desde la elaboración/manipulación.
+   */
+  private resolveUseByDate(input: {
+    explicit: string | undefined;
+    preparedAt: Date;
+    shelfLifeDays: number | null;
+    frozenUseByDate: Date | null;
+    freeze: boolean;
+  }): Date {
+    if (input.explicit) {
+      return new Date(input.explicit);
     }
-    if (shelfLifeDays !== null) {
-      return computeUseByDate(preparedAt, shelfLifeDays);
+    if (input.freeze) {
+      if (input.frozenUseByDate) {
+        return input.frozenUseByDate;
+      }
+      throw new BadRequestException(
+        "Falta el consumo preferente: indica los días de vida útil de congelado.",
+      );
+    }
+    if (input.shelfLifeDays !== null) {
+      return computeUseByDate(input.preparedAt, input.shelfLifeDays);
     }
     throw new BadRequestException(
       "Falta el consumo preferente: configura los días de vida útil en la receta/artículo o indica la fecha en la etiqueta.",
