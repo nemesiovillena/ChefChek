@@ -180,14 +180,28 @@ export class FoodLabelPdfService {
       }
     }
 
-    // Alérgenos — nombres en texto (Reg. UE 1169/2011), en negrita
+    // La línea de responsable va anclada abajo; el resto no debe invadirla.
+    const bottomLimit = box.y + box.h - 7;
+
+    // Alérgenos — nombres en texto (Reg. UE 1169/2011), en negrita.
+    // Con nombres (no números) la lista es más larga: se deja envolver.
     if (label.allergens.length) {
       const names = label.allergens.map((a) => euAllergenName(a)).join(", ");
       doc.font("Helvetica-Bold").fontSize(5.5);
-      y = this.line(doc, `Alérgenos: ${names}`, box.x, y, w(), 6.5);
+      y = this.wrappedLine(
+        doc,
+        `Alérgenos: ${names}`,
+        box.x,
+        y,
+        narrowW,
+        6.5,
+        2,
+      );
     }
 
-    // Ingredientes con lote (solo formatos grandes, ELABORATED)
+    // Ingredientes con lote (solo formatos grandes, ELABORATED). Se listan
+    // TODOS con su nº de lote; el bloque se reparte en tantas líneas como
+    // quepan hasta la línea de responsable, sin pasar por debajo del QR.
     if (
       preset.showIngredients &&
       label.labelType === "ELABORATED" &&
@@ -203,7 +217,8 @@ export class FoodLabelPdfService {
           )
           .join(", ");
       doc.font("Helvetica").fontSize(5);
-      y = this.line(doc, txt, box.x, y, narrowW, 6);
+      const maxLines = Math.max(1, Math.floor((bottomLimit - y) / 6));
+      y = this.wrappedLine(doc, txt, box.x, y, narrowW, 6, maxLines);
     }
 
     // Responsable (abajo del todo)

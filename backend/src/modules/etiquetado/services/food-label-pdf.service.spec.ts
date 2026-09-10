@@ -137,6 +137,36 @@ describe("FoodLabelPdfService", () => {
     expect(text).toContain("L:L-4471");
   });
 
+  it("prints every ingredient with its lot, wrapping as needed", async () => {
+    const buf = await service.generate(
+      makeLabel({
+        ingredientLots: [
+          { productName: "Sal de cocina", lotNumber: "" },
+          { productName: "Pimienta negra molida bote 750 g", lotNumber: "" },
+          { productName: "Almidón de maíz", lotNumber: "" },
+          { productName: "Vinalopó joven blanco", lotNumber: "V-22" },
+          { productName: "Tomillo", lotNumber: "" },
+          { productName: "Carrillada de cerdo sin hueso", lotNumber: "262894" },
+        ] as FoodLabelForPdf["ingredientLots"],
+      }),
+      thermalSpec(57, 40),
+      1,
+    );
+    const text = pdfText(buf);
+    for (const name of [
+      "sal de cocina",
+      "pimienta negra",
+      "almidón de maíz",
+      "vinalopó joven blanco",
+      "tomillo",
+      "carrillada de cerdo sin hueso",
+    ]) {
+      expect(text).toContain(name);
+    }
+    expect(text).toContain("L:262894");
+    expect(text).toContain("L:V-22");
+  });
+
   it("frozen label merges freeze date and temps into one line", async () => {
     const buf = await service.generate(
       makeLabel({
