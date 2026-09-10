@@ -94,6 +94,11 @@ export default function NuevaEtiquetaPage() {
 
   // ELABORATED
   const [ingredientLots, setIngredientLots] = useState<Record<string, string>>({});
+  // Nº de lote escrito a mano cuando el lote no está registrado (opción
+  // «manual:» del selector).
+  const [manualIngredientLots, setManualIngredientLots] = useState<
+    Record<string, string>
+  >({});
   // HANDLED
   const [sourceLotId, setSourceLotId] = useState('');
   const [manualLot, setManualLot] = useState('');
@@ -157,21 +162,23 @@ export default function NuevaEtiquetaPage() {
 
     if (labelType === 'ELABORATED') {
       input.recipeId = recipeId ?? undefined;
-      input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => ({
-        productId: ing.productId,
-        productName: ing.productName,
-        lotId: ingredientLots[ing.productId]?.startsWith('lot:')
-          ? ingredientLots[ing.productId].slice(4)
-          : undefined,
-        lotNumber:
-          ingredientLots[ing.productId]?.startsWith('lot:')
-            ? (ing.availableLots.find(
-                (l) => l.id === ingredientLots[ing.productId].slice(4),
-              )?.lotNumber ?? '')
-            : (ingredientLots[ing.productId] ?? ''),
-        quantityUsed: ing.quantity,
-        unit: ing.unit,
-      }));
+      input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => {
+        const raw = ingredientLots[ing.productId] ?? '';
+        const isLinked = raw.startsWith('lot:');
+        return {
+          productId: ing.productId,
+          productName: ing.productName,
+          lotId: isLinked ? raw.slice(4) : undefined,
+          lotNumber: isLinked
+            ? (ing.availableLots.find((l) => l.id === raw.slice(4))
+                ?.lotNumber ?? '')
+            : raw === 'manual:'
+              ? (manualIngredientLots[ing.productId] ?? '').trim()
+              : raw,
+          quantityUsed: ing.quantity,
+          unit: ing.unit,
+        };
+      });
     } else {
       input.productId = productId ?? undefined;
       input.sourceLotId = sourceLotId || undefined;
@@ -418,31 +425,53 @@ export default function NuevaEtiquetaPage() {
           {/* ELABORATED: lotes de ingredientes */}
           {labelType === 'ELABORATED' && (recipeCtx.data?.ingredients.length ?? 0) > 0 && (
             <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-              <div className="mb-2 text-sm font-semibold">Lotes de ingredientes</div>
+              <div className="mb-1 text-sm font-semibold">Lotes de ingredientes</div>
+              <p className="mb-2 text-xs text-[var(--on-surface-variant)]">
+                Elige el lote usado en cada ingrediente. Si todavía no está
+                registrado en el sistema, selecciona «Otro nº de lote…» y
+                escríbelo tal cual figure en el envase: quedará grabado en la
+                etiqueta.
+              </p>
               <div className="space-y-2">
                 {recipeCtx.data!.ingredients.map((ing) => (
                   <div key={ing.productId} className="grid grid-cols-2 items-center gap-3">
                     <span className="text-sm">{ing.productName}</span>
                     {ing.availableLots.length > 0 ? (
-                      <select
-                        className={fieldClass}
-                        style={{ colorScheme: 'light dark' }}
-                        value={ingredientLots[ing.productId] ?? ''}
-                        onChange={(e) =>
-                          setIngredientLots((m) => ({
-                            ...m,
-                            [ing.productId]: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Sin especificar</option>
-                        {ing.availableLots.map((l) => (
-                          <option key={l.id} value={`lot:${l.id}`}>
-                            {l.lotNumber}
-                            {l.supplierName ? ` · ${l.supplierName}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                      <div>
+                        <select
+                          className={fieldClass}
+                          style={{ colorScheme: 'light dark' }}
+                          value={ingredientLots[ing.productId] ?? ''}
+                          onChange={(e) =>
+                            setIngredientLots((m) => ({
+                              ...m,
+                              [ing.productId]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">Sin especificar</option>
+                          {ing.availableLots.map((l) => (
+                            <option key={l.id} value={`lot:${l.id}`}>
+                              {l.lotNumber}
+                              {l.supplierName ? ` · ${l.supplierName}` : ''}
+                            </option>
+                          ))}
+                          <option value="manual:">Otro nº de lote…</option>
+                        </select>
+                        {(ingredientLots[ing.productId] ?? '') === 'manual:' && (
+                          <input
+                            className={`${fieldClass} mt-2`}
+                            placeholder="Nº de lote del envase"
+                            value={manualIngredientLots[ing.productId] ?? ''}
+                            onChange={(e) =>
+                              setManualIngredientLots((m) => ({
+                                ...m,
+                                [ing.productId]: e.target.value,
+                              }))
+                            }
+                          />
+                        )}
+                      </div>
                     ) : (
                       <input
                         className={fieldClass}
