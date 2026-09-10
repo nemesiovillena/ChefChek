@@ -336,6 +336,10 @@ export default function NuevaEtiquetaPage() {
                     onChange={(e) => setQuantityUnit(e.target.value)}
                   />
                 </div>
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  Cuánto producto hay en el envase: peso, volumen o unidades
+                  (ej. 2,5 kg). Opcional.
+                </span>
               </label>
               {labelType === 'ELABORATED' && (
                 <label>
@@ -347,6 +351,10 @@ export default function NuevaEtiquetaPage() {
                     onChange={(e) => setPortions(e.target.value)}
                     placeholder={recipeCtx.data?.portions?.toString() ?? ''}
                   />
+                  <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                    Nº de platos que rinde lo preparado (ej. 8). Si preparaste
+                    más cantidad que la receta, ajústalo. Opcional.
+                  </span>
                 </label>
               )}
             </div>
@@ -359,6 +367,9 @@ export default function NuevaEtiquetaPage() {
               />
               Se congela
             </label>
+            <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
+              El consumo preferente se calculará con la vida útil de congelado.
+            </p>
           </div>
 
           <ConservationFieldset
