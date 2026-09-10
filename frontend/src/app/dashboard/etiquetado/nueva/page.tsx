@@ -155,6 +155,19 @@ export default function NuevaEtiquetaPage() {
       return;
     }
 
+    // El consumo preferente: congelado → vida útil de congelado; si no, la normal.
+    const shelfLifeFrozenDays = num(effectiveConservation.shelfLifeFrozenDays);
+    if (freeze ? !shelfLifeFrozenDays : !shelfLifeDays) {
+      addNotification({
+        type: 'error',
+        title: 'Falta el consumo preferente',
+        message: freeze
+          ? 'Indica los días de vida útil de congelado (en Conservación y vida útil).'
+          : 'Indica los días de vida útil (en Conservación y vida útil) o configúralos en la receta/artículo.',
+      });
+      return;
+    }
+
     const input: CreateFoodLabelInput = {
       labelType: labelType as LabelType,
       preparedAt: new Date(preparedAt).toISOString(),

@@ -91,6 +91,41 @@ describe("FoodLabelService", () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
+    it("frozen label: consumption date comes from the frozen shelf life, not the refrigerated one", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue({
+        ...recipe,
+        shelfLifeFrozenDays: 90,
+      });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "ELABORATED",
+        recipeId: "r1",
+        preparedAt: "2026-08-31T10:00:00.000Z",
+        frozenAt: "2026-08-31T10:00:00.000Z",
+        freeze: true,
+      });
+
+      // 31 ago + 90 días de congelado = 29 nov (no el 5 sep de la vida útil normal)
+      expect(new Date(result.useByDate).getDate()).toBe(29);
+      expect(result.useByDate).toEqual(result.frozenUseByDate);
+      expect(result.shelfLifeDaysApplied).toBe(5);
+    });
+
+    it("frozen label without frozen shelf life is rejected even if the normal one exists", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "ELABORATED",
+          recipeId: "r1",
+          freeze: true,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
     it("rejects when no storage condition can be resolved", async () => {
       mockPrisma.recipe.findFirst.mockResolvedValue({
         ...recipe,
