@@ -19,6 +19,7 @@ import {
 import PDFDocument from "pdfkit";
 import * as fs from "fs";
 import * as path from "path";
+import { euAllergenName } from "../../common/constants/eu-allergens";
 
 @Injectable()
 export class TechnicalSheetsService {
@@ -796,24 +797,7 @@ export class TechnicalSheetsService {
   }
 
   private getAllergenName(allergenId: number): string {
-    const allergens: Record<number, string> = {
-      1: "Gluten",
-      2: "Crustáceos",
-      3: "Huevos",
-      4: "Pescado",
-      5: "Cacahuetes",
-      6: "Soja",
-      7: "Leche",
-      8: "Apio",
-      9: "Mostaza",
-      10: "Sésamo",
-      11: "Sulfitos",
-      12: "Altramuces",
-      13: "Moluscos",
-      14: "Frutos de Cáscara",
-    };
-
-    return allergens[allergenId] || `Alérgeno ${allergenId}`;
+    return euAllergenName(allergenId);
   }
 
   // Formato monetario español: coma decimal y símbolo detrás ("12,34 €")

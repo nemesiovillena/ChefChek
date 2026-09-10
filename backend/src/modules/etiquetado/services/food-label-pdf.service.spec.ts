@@ -1,9 +1,42 @@
+import { inflateSync } from "zlib";
 import { FoodLabelForPdf, FoodLabelPdfService } from "./food-label-pdf.service";
 import {
   A4_BUILTIN_PRESETS,
   LabelSpec,
   thermalSpec,
 } from "../constants/label-presets";
+
+/**
+ * Texto legible de un PDF de pdfkit: los streams van comprimidos (Flate) y
+ * el texto se escribe como cadenas hex <...> (WinAnsi) dentro de operadores
+ * TJ/Tj, con cortes por palabra. Se inflan los streams y se decodifican y
+ * concatenan las cadenas en orden. La imagen del QR no es deflate y su
+ * contenido binario es irrelevante para las aserciones.
+ */
+function pdfText(buf: Buffer): string {
+  const raw = buf.toString("latin1");
+  let streams = "";
+  const re = /stream\r?\n([\s\S]*?)endstream/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    try {
+      streams += inflateSync(Buffer.from(m[1], "latin1")).toString("latin1");
+    } catch {
+      streams += m[1];
+    }
+  }
+  let out = "";
+  const tok = /<([0-9A-Fa-f\s]*)>|\(((?:[^()\\]|\\.)*)\)/g;
+  let t: RegExpExecArray | null;
+  while ((t = tok.exec(streams)) !== null) {
+    if (t[1] !== undefined) {
+      out += Buffer.from(t[1].replace(/\s+/g, ""), "hex").toString("latin1");
+    } else if (t[2] !== undefined) {
+      out += t[2].replace(/\\([()\\])/g, "$1");
+    }
+  }
+  return out;
+}
 
 const a4 = (id: "a4-70x37" | "a4-63x38"): LabelSpec => {
   const { name: _n, ...spec } = A4_BUILTIN_PRESETS[id];
@@ -81,6 +114,47 @@ describe("FoodLabelPdfService", () => {
     const buf = await service.generate(makeLabel(), a4("a4-70x37"), 24);
     const pages = buf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? [];
     expect(pages.length).toBe(1);
+  });
+
+  it("renders the full item name wrapped, without ellipsis", async () => {
+    const buf = await service.generate(makeLabel(), thermalSpec(57, 40), 1);
+    const text = pdfText(buf);
+    // En 57 mm el nombre no cabe en una línea: se parte, no se recorta
+    expect(text).toContain("estofado");
+    expect(text).toContain("temperatura");
+  });
+
+  it("prints allergen names in text, one bold Consumir, lowercase ingredients with lot", async () => {
+    const buf = await service.generate(makeLabel(), thermalSpec(57, 40), 1);
+    const text = pdfText(buf);
+    expect(text).toContain("Gluten");
+    expect(text).toContain("Leche");
+    expect(text).toContain("Consumir:");
+    expect(text).not.toContain("Consumo pref.");
+    // Ingrediente en minúsculas (el nombre propio del producto no lo es)
+    // y su nº de lote
+    expect(text).toContain("jarrete");
+    expect(text).toContain("L:L-4471");
+  });
+
+  it("frozen label merges freeze date and temps into one line", async () => {
+    const buf = await service.generate(
+      makeLabel({
+        frozenAt: new Date("2026-08-31T10:00:00.000Z"),
+        frozenUseByDate: new Date("2026-11-29T11:00:00.000Z"),
+        useByDate: new Date("2026-11-29T11:00:00.000Z"),
+        storageCondition: "FROZEN",
+        storageTempMin: -18,
+        storageTempMax: -12,
+      }),
+      thermalSpec(57, 40),
+      1,
+    );
+    const text = pdfText(buf);
+    expect(text).toContain("congelado");
+    expect(text).toContain("31/08/26");
+    // La palabra CONGELADO (línea de conservación) ya no se imprime
+    expect(text).not.toContain("CONGELADO");
   });
 
   it("renders a HANDLED label with supplier + manufacturer expiry", async () => {
