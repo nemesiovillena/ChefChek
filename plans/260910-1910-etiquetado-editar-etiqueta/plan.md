@@ -1,6 +1,6 @@
 # Editar etiqueta APPCC (edición directa con límites)
 
-## Estado: en curso
+## Estado: implementado — PR #118 (base develop), CI en curso, verificado en local
 
 ## Problema
 El módulo solo permite crear + anular + reimprimir. El usuario se equivoca (refrigerado↔congelado,
