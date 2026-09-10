@@ -363,12 +363,25 @@ export default function NuevaEtiquetaPage() {
               <input
                 type="checkbox"
                 checked={freeze}
-                onChange={(e) => setFreeze(e.target.checked)}
+                onChange={(e) => {
+                  setFreeze(e.target.checked);
+                  if (e.target.checked) {
+                    // Congelar implica conservación «Congelado»: sincroniza el
+                    // selector y aplica sus valores por defecto.
+                    setConservationTouched(true);
+                    setConservation({
+                      ...effectiveConservation,
+                      storageCondition: 'FROZEN',
+                      ...CONDITION_DEFAULTS.FROZEN,
+                    });
+                  }
+                }}
               />
               Se congela
             </label>
             <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
-              El consumo preferente se calculará con la vida útil de congelado.
+              Marca la conservación como «Congelado» y calcula el consumo
+              preferente con la vida útil de congelado.
             </p>
           </div>
 
@@ -384,6 +397,11 @@ export default function NuevaEtiquetaPage() {
                 Object.assign(next, CONDITION_DEFAULTS[patch.storageCondition] ?? {});
               }
               setConservation(next);
+              if (patch.storageCondition !== undefined) {
+                // La condición manda sobre el checkbox: solo «Congelado» congela
+                // (sella frozenAt y calcula el consumo preferente congelado).
+                setFreeze(patch.storageCondition === 'FROZEN');
+              }
             }}
             shelfLifeLabel={
               labelType === 'ELABORATED'
