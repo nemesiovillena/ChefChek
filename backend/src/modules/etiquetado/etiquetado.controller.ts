@@ -53,12 +53,31 @@ export class EtiquetadoController {
   @Put("config")
   @Roles("ADMIN")
   async updateConfig(@Req() req: any, @Body() dto: UpdateEtiquetadoConfigDto) {
-    const thermalProfiles = await this.config.setThermalProfiles(
-      req.tenantId,
-      dto.thermalProfiles,
-      req.user.id,
-    );
-    return { thermalProfiles };
+    if (dto.thermalProfiles === undefined && dto.defaultFormat === undefined) {
+      throw new BadRequestException("Nada que actualizar");
+    }
+    if (dto.thermalProfiles !== undefined) {
+      const profiles = await this.config.setThermalProfiles(
+        req.tenantId,
+        dto.thermalProfiles,
+        req.user.id,
+      );
+      if (dto.defaultFormat !== undefined) {
+        await this.config.setDefaultFormat(
+          req.tenantId,
+          req.user.id,
+          dto.defaultFormat,
+          profiles,
+        );
+      }
+    } else if (dto.defaultFormat !== undefined) {
+      await this.config.setDefaultFormat(
+        req.tenantId,
+        req.user.id,
+        dto.defaultFormat,
+      );
+    }
+    return this.config.getConfig(req.tenantId);
   }
 
   @Post("labels")

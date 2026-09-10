@@ -5,6 +5,7 @@ import { Tag, Plus, Trash2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
+  labelFormatOptions,
   useEtiquetadoConfig,
   useUpdateEtiquetadoConfig,
   type ThermalProfile,
@@ -36,7 +37,12 @@ export function EtiquetadoConfigSection() {
   const updateConfig = useUpdateEtiquetadoConfig();
 
   const [drafts, setDrafts] = useState<DraftProfile[] | null>(null);
+  const [defaultFormatDraft, setDefaultFormatDraft] = useState<string | null>(null);
   const rows = drafts ?? (config?.thermalProfiles ?? []).map(toDraft);
+
+  const formatOptions = labelFormatOptions(config);
+  const defaultFormat =
+    defaultFormatDraft ?? config?.defaultFormat ?? formatOptions[0]?.value ?? '';
 
   if (!isEnabled('etiquetado')) return null;
 
@@ -66,9 +72,13 @@ export function EtiquetadoConfigSection() {
       return;
     }
     try {
-      await updateConfig.mutateAsync(parsed);
+      await updateConfig.mutateAsync({
+        thermalProfiles: parsed,
+        defaultFormat,
+      });
       setDrafts(null);
-      addNotification({ type: 'success', title: 'Guardado', message: 'Perfiles de etiqueta actualizados.' });
+      setDefaultFormatDraft(null);
+      addNotification({ type: 'success', title: 'Guardado', message: 'Configuración de etiquetas actualizada.' });
     } catch (e: unknown) {
       addNotification({
         type: 'error',
@@ -89,6 +99,28 @@ export function EtiquetadoConfigSection() {
         de cocina. Las hojas A4 son formatos estándar y no necesitan
         configuración.
       </p>
+
+      <label className="block text-sm mb-4">
+        <span className="block text-gray-600 dark:text-gray-400">
+          Formato de impresión por defecto
+        </span>
+        <select
+          className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+          style={{ colorScheme: 'light dark' }}
+          value={defaultFormat}
+          onChange={(e) => setDefaultFormatDraft(e.target.value)}
+        >
+          {formatOptions.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-gray-500">
+          Al crear o reimprimir una etiqueta se usa este formato; ahí solo
+          eliges el número de copias.
+        </span>
+      </label>
 
       <div className="space-y-2">
         {rows.map((r, i) => (
@@ -145,7 +177,10 @@ export function EtiquetadoConfigSection() {
         <button
           type="button"
           onClick={save}
-          disabled={updateConfig.isPending || drafts === null}
+          disabled={
+            updateConfig.isPending ||
+            (drafts === null && defaultFormatDraft === null)
+          }
           className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {updateConfig.isPending ? 'Guardando…' : 'Guardar'}

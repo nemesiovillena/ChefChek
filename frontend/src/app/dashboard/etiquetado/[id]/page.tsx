@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Printer, Ban } from 'lucide-react';
@@ -10,6 +10,7 @@ import {
   useFoodLabel,
   useVoidFoodLabel,
   useEtiquetadoConfig,
+  effectiveLabelFormat,
   labelFormatOptions,
   openLabelPdf,
 } from '@/hooks/use-food-labels';
@@ -41,14 +42,13 @@ export default function EtiquetaDetailPage() {
   const { data: label, isLoading } = useFoodLabel(id);
   const voidLabel = useVoidFoodLabel();
   const etiquetadoConfig = useEtiquetadoConfig();
-  const formatOptions = useMemo(
-    () => labelFormatOptions(etiquetadoConfig.data),
-    [etiquetadoConfig.data],
-  );
+  // El formato de impresión se elige en Configuración → Etiquetas.
+  const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
+  const printFormatLabel =
+    labelFormatOptions(etiquetadoConfig.data).find((o) => o.value === printFormat)
+      ?.label ?? '';
 
-  const [format, setFormat] = useState('');
   const [copies, setCopies] = useState('1');
-  const selectedFormat = format || formatOptions[0]?.value || '';
 
   if (isLoading) {
     return (
@@ -62,7 +62,7 @@ export default function EtiquetaDetailPage() {
   }
 
   const onReprint = () =>
-    openLabelPdf(label.id, selectedFormat, Number(copies) || 1, {
+    openLabelPdf(label.id, printFormat, Number(copies) || 1, {
       reprint: true,
       onError: (m) => addNotification({ type: 'error', title: 'PDF', message: m }),
     });
@@ -180,21 +180,6 @@ export default function EtiquetaDetailPage() {
 
       <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
         <label className="text-sm">
-          <span className="block text-[var(--on-surface-variant)]">Formato</span>
-          <select
-            className="mt-1 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
-            style={{ colorScheme: 'light dark' }}
-            value={selectedFormat}
-            onChange={(e) => setFormat(e.target.value)}
-          >
-            {formatOptions.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
           <span className="block text-[var(--on-surface-variant)]">Copias</span>
           <input
             className="mt-1 w-20 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
@@ -213,6 +198,10 @@ export default function EtiquetaDetailPage() {
             Anular
           </Button>
         )}
+        <p className="w-full text-xs text-[var(--on-surface-variant)]">
+          Formato: {printFormatLabel || '—'}. Se elige en Configuración →
+          Etiquetas.
+        </p>
       </div>
     </div>
   );
