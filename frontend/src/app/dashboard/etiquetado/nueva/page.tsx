@@ -319,6 +319,11 @@ export default function NuevaEtiquetaPage() {
                   value={preparedAt}
                   onChange={(e) => setPreparedAt(e.target.value)}
                 />
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  {labelType === 'ELABORATED'
+                    ? 'Cuándo se preparó el plato; el consumo preferente se calcula desde esta fecha.'
+                    : 'Cuándo se manipuló o envasó; el consumo preferente se calcula desde esta fecha.'}
+                </span>
               </label>
               <label>
                 <span className={labelClass}>Cantidad</span>
