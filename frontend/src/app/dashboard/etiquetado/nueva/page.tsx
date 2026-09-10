@@ -12,6 +12,7 @@ import {
   useProductPrepContext,
   useCreateFoodLabel,
   useEtiquetadoConfig,
+  effectiveLabelFormat,
   labelFormatOptions,
   openLabelPdf,
   type CreateFoodLabelInput,
@@ -104,17 +105,17 @@ export default function NuevaEtiquetaPage() {
   const [manualLot, setManualLot] = useState('');
   const [manufacturerExpiry, setManufacturerExpiry] = useState('');
 
-  const [format, setFormat] = useState('');
   const [copies, setCopies] = useState('1');
 
   const recipeOptions = useRecipeOptions();
   const productSearch = useProductSearch(300);
   const etiquetadoConfig = useEtiquetadoConfig();
-  const formatOptions = useMemo(
-    () => labelFormatOptions(etiquetadoConfig.data),
-    [etiquetadoConfig.data],
-  );
-  const selectedFormat = format || formatOptions[0]?.value || '';
+  // El formato se elige una vez en Configuración → Etiquetas; aquí solo se
+  // imprime el número de copias.
+  const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
+  const printFormatLabel =
+    labelFormatOptions(etiquetadoConfig.data).find((o) => o.value === printFormat)
+      ?.label ?? '';
 
   const recipeCtx = useRecipePrepContext(labelType === 'ELABORATED' ? recipeId : null);
   const productCtx = useProductPrepContext(labelType === 'HANDLED' ? productId : null);
@@ -141,6 +142,15 @@ export default function NuevaEtiquetaPage() {
         type: 'error',
         title: 'Falta la conservación',
         message: 'Indica la condición de conservación.',
+      });
+      return;
+    }
+
+    if (!printFormat) {
+      addNotification({
+        type: 'error',
+        title: 'Falta el formato de etiqueta',
+        message: 'No hay formatos configurados: define uno en Ajustes → Etiquetas.',
       });
       return;
     }
@@ -195,7 +205,7 @@ export default function NuevaEtiquetaPage() {
         title: 'Etiqueta creada',
         message: `Lote ${created.lotNumber}`,
       });
-      await openLabelPdf(created.id, selectedFormat, Number(copies) || 1, {
+      await openLabelPdf(created.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
           addNotification({ type: 'error', title: 'PDF', message: m }),
       });
@@ -561,21 +571,6 @@ export default function NuevaEtiquetaPage() {
           {/* Impresión */}
           <div className="flex flex-wrap items-end gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
             <label>
-              <span className={labelClass}>Formato</span>
-              <select
-                className={fieldClass}
-                style={{ colorScheme: 'light dark' }}
-                value={selectedFormat}
-                onChange={(e) => setFormat(e.target.value)}
-              >
-                {formatOptions.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
               <span className={labelClass}>Copias</span>
               <input
                 className={`${fieldClass} w-24`}
@@ -590,6 +585,10 @@ export default function NuevaEtiquetaPage() {
               ) : null}
               Guardar e imprimir
             </Button>
+            <p className="w-full text-xs text-[var(--on-surface-variant)]">
+              Formato: {printFormatLabel || '—'}. Se elige en Configuración →
+              Etiquetas.
+            </p>
           </div>
         </div>
       )}

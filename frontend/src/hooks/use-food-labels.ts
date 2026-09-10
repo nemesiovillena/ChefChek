@@ -224,6 +224,8 @@ export interface ThermalProfile {
 export interface EtiquetadoConfig {
   thermalProfiles: ThermalProfile[];
   a4Presets: Array<{ id: string; name: string }>;
+  /** 'thermal:<perfilId>' o preset A4. Null = sin preferencia guardada. */
+  defaultFormat: string | null;
 }
 
 export function useEtiquetadoConfig() {
@@ -236,10 +238,13 @@ export function useEtiquetadoConfig() {
 export function useUpdateEtiquetadoConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (thermalProfiles: ThermalProfile[]) => {
-      const res = await apiClient.put<{ thermalProfiles: ThermalProfile[] }>(
+    mutationFn: async (payload: {
+      thermalProfiles?: ThermalProfile[];
+      defaultFormat?: string;
+    }) => {
+      const res = await apiClient.put<EtiquetadoConfig>(
         '/v1/etiquetado/config',
-        { thermalProfiles },
+        payload,
       );
       return res.data;
     },
@@ -259,6 +264,22 @@ export function labelFormatOptions(
     })),
     ...config.a4Presets.map((a) => ({ value: a.id, label: a.name })),
   ];
+}
+
+/**
+ * Formato con el que se imprime por defecto: el guardado en Configuración →
+ * Etiquetas o, si no hay (o quedó huérfano al borrar un perfil), el primero
+ * disponible.
+ */
+export function effectiveLabelFormat(
+  config: EtiquetadoConfig | undefined,
+): string {
+  if (!config) return '';
+  const options = labelFormatOptions(config);
+  return config.defaultFormat &&
+    options.some((o) => o.value === config.defaultFormat)
+    ? config.defaultFormat
+    : (options[0]?.value ?? '');
 }
 
 /**
