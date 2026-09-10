@@ -347,7 +347,15 @@ export default function NuevaEtiquetaPage() {
                   className={`${fieldClass} h-10`}
                   style={{ colorScheme: 'light dark' }}
                   value={preparedAt}
-                  onChange={(e) => setPreparedAt(e.target.value)}
+                  onChange={(e) => {
+                    setPreparedAt(e.target.value);
+                    // En escritorio el picker queda abierto tras elegir el día
+                    // (espera la hora): se cierra al perder el foco. En táctil
+                    // no se fuerza, para no cerrar los wheels a mitad de edición.
+                    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                      e.target.blur();
+                    }
+                  }}
                 />
                 <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
                   {labelType === 'ELABORATED'
