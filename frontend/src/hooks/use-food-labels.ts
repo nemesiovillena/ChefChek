@@ -42,6 +42,9 @@ export interface FoodLabel {
   qrToken: string;
   voidedAt: string | null;
   voidReason: string | null;
+  editedAt: string | null;
+  editedByName: string | null;
+  editCount: number;
   createdAt: string;
   ingredientLots: FoodLabelIngredientLot[];
   recipe: { id: string; name: string } | null;
@@ -148,6 +151,28 @@ export interface CreateFoodLabelInput {
   }>;
 }
 
+/**
+ * Corrección de una etiqueta el mismo día, antes de reimprimir. Solo los
+ * campos que no rompen la trazabilidad; el backend recalcula el consumo
+ * preferente. Enviar `null` en una fecha la borra.
+ */
+export interface UpdateFoodLabelInput {
+  preparedAt?: string;
+  manufacturerExpiryDate?: string | null;
+  useByDate?: string;
+  freeze?: boolean;
+  frozenAt?: string;
+  storageCondition?: StorageCondition;
+  storageTempMin?: number;
+  storageTempMax?: number;
+  shelfLifeDays?: number;
+  shelfLifeFrozenDays?: number;
+  quantity?: number;
+  quantityUnit?: string;
+  portions?: number;
+  notes?: string;
+}
+
 export const FOOD_LABELS_KEY = ['food-labels'];
 
 export function useFoodLabels(query: FoodLabelListQuery) {
@@ -191,6 +216,26 @@ export function useCreateFoodLabel() {
   return useMutation({
     mutationFn: async (input: CreateFoodLabelInput) => {
       const res = await apiClient.post<FoodLabel>('/v1/etiquetado/labels', input);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+  });
+}
+
+export function useUpdateFoodLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UpdateFoodLabelInput;
+    }) => {
+      const res = await apiClient.patch<FoodLabel>(
+        `/v1/etiquetado/labels/${id}`,
+        input,
+      );
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),

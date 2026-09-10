@@ -2041,6 +2041,13 @@ model FoodLabel {
   qrToken                String    @unique @default(uuid()) // UUID v4 (aleatorio, no adivinable); credencial de la ficha pública sin login
   voidedAt               DateTime?
   voidReason             String?
+  // Corrección de errores el mismo día, antes de reimprimir. editLog es un
+  // array de { at, by, changes: { campo: { from, to } } }.
+  editedAt               DateTime?
+  editedByUserId         String?
+  editedByName           String?
+  editCount              Int       @default(0)
+  editLog                Json?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
