@@ -12,6 +12,7 @@ describe("FoodLabelService", () => {
     recipe: { findFirst: jest.fn() },
     product: { findFirst: jest.fn() },
     lot: { findFirst: jest.fn(), findMany: jest.fn() },
+    albaranLine: { findFirst: jest.fn(), findMany: jest.fn() },
     foodLabel: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -25,6 +26,7 @@ describe("FoodLabelService", () => {
 
   const mockLotNumber = {
     generateElaboratedLot: jest.fn().mockResolvedValue("JARR-310826-01"),
+    formatDatePart: jest.fn().mockReturnValue("020926"),
     maxRetries: 5,
   };
 
@@ -219,6 +221,82 @@ describe("FoodLabelService", () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    const rodaballo = {
+      id: "p2",
+      name: "Rodaballo de Makro",
+      allergens: [4],
+      secondaryShelfLifeDays: 3,
+      shelfLifeFrozenDays: null,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+      supplier: { name: "Makro" },
+    };
+
+    it("no lot: anchors on the chosen purchase (date + supplier), generates an internal id", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.albaranLine.findFirst.mockResolvedValue({
+        matchedProductId: "p2",
+        albaran: {
+          date: new Date("2026-09-02T00:00:00.000Z"),
+          supplier: { name: "Makro" },
+        },
+      });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl9",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourcePurchaseLineId: "line1",
+        preparedAt: "2026-09-10T10:00:00.000Z",
+      });
+
+      expect(result.supplierName).toBe("Makro");
+      expect(new Date(result.purchaseDate).getDate()).toBe(2);
+      expect(result.sourceLotId).toBeNull();
+      // identificador interno, no vacío (satisface @@unique)
+      expect(result.lotNumber).toMatch(/^[A-Z0-9]+-C020926/);
+    });
+
+    it("no lot and no purchase chosen is rejected", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "HANDLED",
+          productId: "p2",
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("snapshots the supplier name from the source lot", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.lot.findFirst.mockResolvedValue({
+        id: "lot2",
+        lotNumber: "L-777",
+        expiryDate: null,
+        productId: "p2",
+        receivedAt: new Date("2026-09-01T00:00:00.000Z"),
+        supplier: { name: "Pescados SL" },
+      });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl10",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourceLotId: "lot2",
+      });
+
+      expect(result.lotNumber).toBe("L-777");
+      expect(result.supplierName).toBe("Pescados SL");
+      expect(result.purchaseDate).toBeNull();
+    });
   });
 
   describe("void", () => {
@@ -244,6 +322,111 @@ describe("FoodLabelService", () => {
       await expect(
         service.void(TENANT, "fl1", undefined),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe("update", () => {
+    const editableLabel = () => ({
+      id: "fl1",
+      tenantId: TENANT,
+      labelType: "ELABORATED",
+      recipeId: "r1",
+      productId: null,
+      preparedAt: new Date("2026-08-31T10:00:00.000Z"),
+      manufacturerExpiryDate: null,
+      useByDate: new Date("2026-09-05T12:00:00.000Z"),
+      frozenAt: null,
+      frozenUseByDate: null,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+      shelfLifeDaysApplied: 5,
+      quantity: 2,
+      quantityUnit: "kg",
+      portions: 8,
+      notes: null,
+      editLog: null,
+      reprintCount: 0,
+      voidedAt: null,
+      createdAt: new Date(),
+    });
+
+    const recipe = {
+      id: "r1",
+      name: "Jarrete de ternera",
+      allergens: [1, 7],
+      shelfLifeDays: 5,
+      shelfLifeFrozenDays: 90,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+    };
+
+    it("switching to frozen recomputes the use-by date from the frozen shelf life and logs the change", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(editableLabel());
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.foodLabel.update.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.update(TENANT, USER, "fl1", {
+        freeze: true,
+        frozenAt: "2026-08-31T10:00:00.000Z",
+      });
+
+      // 31 ago + 90 días de congelado = 29 nov
+      expect(new Date(result.useByDate).getDate()).toBe(29);
+      expect(result.frozenUseByDate).toEqual(result.useByDate);
+      expect(result.editCount).toEqual({ increment: 1 });
+      expect(result.editedByName).toBe("Ana López");
+      const entry = result.editLog[0];
+      expect(entry.by).toBe("Ana López");
+      expect(entry.changes.frozenAt).toBeDefined();
+      expect(entry.changes.useByDate).toBeDefined();
+    });
+
+    it("rejects a voided label", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        ...editableLabel(),
+        voidedAt: new Date(),
+      });
+      await expect(
+        service.update(TENANT, USER, "fl1", { notes: "x" }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("rejects a label that has been reprinted", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        ...editableLabel(),
+        reprintCount: 1,
+      });
+      await expect(
+        service.update(TENANT, USER, "fl1", { notes: "x" }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("rejects a label created on a previous day", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        ...editableLabel(),
+        createdAt: new Date("2020-01-01T09:00:00.000Z"),
+      });
+      await expect(
+        service.update(TENANT, USER, "fl1", { notes: "x" }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("returns the label untouched when nothing actually changed", async () => {
+      const label = editableLabel();
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(label);
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+
+      const result = await service.update(TENANT, USER, "fl1", {
+        notes: null as unknown as string,
+      });
+
+      expect(result).toBe(label);
+      expect(mockPrisma.foodLabel.update).not.toHaveBeenCalled();
     });
   });
 

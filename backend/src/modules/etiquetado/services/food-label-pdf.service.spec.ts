@@ -187,6 +187,29 @@ describe("FoodLabelPdfService", () => {
     expect(text).not.toContain("CONGELADO");
   });
 
+  it("HANDLED without a lot: prints 'LOTE compra <fecha>' and the supplier", async () => {
+    const buf = await service.generate(
+      makeLabel({
+        labelType: "HANDLED",
+        recipeId: null,
+        productId: "p2",
+        itemName: "Rodaballo de Makro",
+        lotNumber: "RODA-C020926",
+        sourceLotId: null,
+        supplierName: "Makro",
+        purchaseDate: new Date("2026-09-02T00:00:00.000Z"),
+        ingredientLots: [],
+        sourceLot: null,
+      }),
+      thermalSpec(57, 40),
+      1,
+    );
+    const text = pdfText(buf);
+    expect(text).toContain("compra 02/09/26");
+    expect(text).not.toContain("RODA-C020926");
+    expect(text).toContain("Prov.: Makro");
+  });
+
   it("renders a HANDLED label with supplier + manufacturer expiry", async () => {
     const buf = await service.generate(
       makeLabel({

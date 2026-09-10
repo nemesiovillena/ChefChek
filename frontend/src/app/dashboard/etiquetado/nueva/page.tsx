@@ -100,8 +100,9 @@ export default function NuevaEtiquetaPage() {
   const [manualIngredientLots, setManualIngredientLots] = useState<
     Record<string, string>
   >({});
-  // HANDLED
-  const [sourceLotId, setSourceLotId] = useState('');
+  // HANDLED — origen del artículo: '' (lote a mano) | 'lot:<id>' (lote
+  // registrado) | 'purchase:<albaranLineId>' (compra sin lote).
+  const [sourceRef, setSourceRef] = useState('');
   const [manualLot, setManualLot] = useState('');
   const [manufacturerExpiry, setManufacturerExpiry] = useState('');
 
@@ -204,8 +205,13 @@ export default function NuevaEtiquetaPage() {
       });
     } else {
       input.productId = productId ?? undefined;
-      input.sourceLotId = sourceLotId || undefined;
-      input.lotNumber = sourceLotId ? undefined : manualLot.trim() || undefined;
+      input.sourceLotId = sourceRef.startsWith('lot:')
+        ? sourceRef.slice(4)
+        : undefined;
+      input.sourcePurchaseLineId = sourceRef.startsWith('purchase:')
+        ? sourceRef.slice(9)
+        : undefined;
+      input.lotNumber = sourceRef ? undefined : manualLot.trim() || undefined;
       input.manufacturerExpiryDate = manufacturerExpiry
         ? new Date(manufacturerExpiry).toISOString()
         : undefined;
@@ -528,33 +534,66 @@ export default function NuevaEtiquetaPage() {
             </div>
           )}
 
-          {/* HANDLED: lote de proveedor */}
+          {/* HANDLED: origen del artículo (lote o compra) */}
           {labelType === 'HANDLED' && (
             <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
               <label className="block">
-                <span className={labelClass}>Lote del proveedor</span>
+                <span className={labelClass}>Lote o compra del proveedor</span>
                 <select
                   className={fieldClass}
                   style={{ colorScheme: 'light dark' }}
-                  value={sourceLotId}
+                  value={sourceRef}
                   onChange={(e) => {
-                    setSourceLotId(e.target.value);
-                    const lot = productCtx.data?.lots.find((l) => l.id === e.target.value);
+                    setSourceRef(e.target.value);
+                    const lotId = e.target.value.startsWith('lot:')
+                      ? e.target.value.slice(4)
+                      : '';
+                    const lot = productCtx.data?.lots.find(
+                      (l) => l.id === lotId,
+                    );
                     if (lot?.expiryDate) {
                       setManufacturerExpiry(lot.expiryDate.slice(0, 10));
                     }
                   }}
                 >
-                  <option value="">— (escribir a mano)</option>
-                  {(productCtx.data?.lots ?? []).map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.lotNumber}
-                      {l.supplierName ? ` · ${l.supplierName}` : ''}
-                    </option>
-                  ))}
+                  <option value="">— (escribir el lote a mano)</option>
+                  {(productCtx.data?.lots ?? []).length > 0 && (
+                    <optgroup label="Lotes registrados">
+                      {productCtx.data!.lots.map((l) => (
+                        <option key={l.id} value={`lot:${l.id}`}>
+                          {l.lotNumber}
+                          {l.supplierName ? ` · ${l.supplierName}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {(productCtx.data?.purchases ?? []).length > 0 && (
+                    <optgroup label="Compras sin lote">
+                      {productCtx.data!.purchases.map((p) => (
+                        <option
+                          key={p.albaranLineId}
+                          value={`purchase:${p.albaranLineId}`}
+                        >
+                          compra{' '}
+                          {new Intl.DateTimeFormat('es-ES', {
+                            timeZone: 'Europe/Madrid',
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: '2-digit',
+                          }).format(new Date(p.date))}
+                          {p.supplierName ? ` · ${p.supplierName}` : ''}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  Si el artículo no trae lote (habitual en Makro), elige la
+                  compra: la etiqueta pondrá «LOTE compra {'{'}fecha{'}'}» y el
+                  proveedor.
+                </span>
               </label>
-              {!sourceLotId && (
+              {!sourceRef && (
                 <label className="mt-3 block">
                   <span className={labelClass}>Nº de lote (texto libre)</span>
                   <input

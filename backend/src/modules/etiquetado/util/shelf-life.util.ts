@@ -60,6 +60,13 @@ function madridCalendarDay(date: Date): { y: number; m: number; d: number } {
   return { y: get("year"), m: get("month"), d: get("day") };
 }
 
+/** True si `a` y `b` caen en el mismo día natural en Europe/Madrid. */
+export function isSameMadridDay(a: Date, b: Date): boolean {
+  const da = madridCalendarDay(a);
+  const db = madridCalendarDay(b);
+  return da.y === db.y && da.m === db.m && da.d === db.d;
+}
+
 /**
  * Fecha de consumo preferente: el DÍA NATURAL en Europe/Madrid resultante de
  * sumar `shelfLifeDays` días a la fecha (en Madrid) de `from`. La etiqueta solo

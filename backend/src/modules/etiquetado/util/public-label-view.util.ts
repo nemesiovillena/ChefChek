@@ -50,8 +50,9 @@ export function toPublicLabelView(label: FoodLabelWithRelations) {
     // login (sí se ve en el detalle interno autenticado y en el PDF impreso).
     responsibleInitials: toInitials(label.createdByName),
     voidedAt: label.voidedAt,
-    supplier: label.sourceLot?.supplier?.name ?? null,
+    supplier: label.supplierName ?? label.sourceLot?.supplier?.name ?? null,
     sourceLotNumber: label.sourceLot?.lotNumber ?? null,
+    purchaseDate: label.purchaseDate,
     ingredientLots: label.ingredientLots.map((il) => ({
       productName: il.productName,
       lotNumber: il.lotNumber,

@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Printer, Ban } from 'lucide-react';
+import { ArrowLeft, Loader2, Printer, Ban, Pencil } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
   useFoodLabel,
   useVoidFoodLabel,
+  useUpdateFoodLabel,
   useEtiquetadoConfig,
   effectiveLabelFormat,
   labelFormatOptions,
   openLabelPdf,
+  type UpdateFoodLabelInput,
 } from '@/hooks/use-food-labels';
+import EditLabelForm from './edit-label-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +37,18 @@ const STORAGE_LABEL: Record<string, string> = {
   AMBIENT: 'Temperatura ambiente',
 };
 
+/** Mismo día natural en Europe/Madrid que ahora. */
+const isTodayMadrid = (iso: string): boolean => {
+  const key = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  return key(new Date(iso)) === key(new Date());
+};
+
 export default function EtiquetaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -41,6 +56,7 @@ export default function EtiquetaDetailPage() {
   const confirm = useConfirm();
   const { data: label, isLoading } = useFoodLabel(id);
   const voidLabel = useVoidFoodLabel();
+  const updateLabel = useUpdateFoodLabel();
   const etiquetadoConfig = useEtiquetadoConfig();
   // El formato de impresión se elige en Configuración → Etiquetas.
   const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
@@ -49,6 +65,7 @@ export default function EtiquetaDetailPage() {
       ?.label ?? '';
 
   const [copies, setCopies] = useState('1');
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) {
     return (
@@ -66,6 +83,40 @@ export default function EtiquetaDetailPage() {
       reprint: true,
       onError: (m) => addNotification({ type: 'error', title: 'PDF', message: m }),
     });
+
+  // Corrección solo antes de reimprimir y el mismo día (el backend lo exige).
+  const canEdit =
+    !label.voidedAt &&
+    label.reprintCount === 0 &&
+    isTodayMadrid(label.createdAt);
+
+  const onSaveEdit = async (input: UpdateFoodLabelInput) => {
+    if (Object.keys(input).length === 0) {
+      setEditing(false);
+      return;
+    }
+    try {
+      await updateLabel.mutateAsync({ id: label.id, input });
+      setEditing(false);
+      addNotification({
+        type: 'success',
+        title: 'Etiqueta corregida',
+        message: 'Imprime la versión corregida y descarta la anterior.',
+      });
+      // Reimpresión de la corrección: no cuenta como "reimpresión" (no bloquea
+      // seguir corrigiendo el mismo día).
+      await openLabelPdf(label.id, printFormat, Number(copies) || 1, {
+        onError: (m) =>
+          addNotification({ type: 'error', title: 'PDF', message: m }),
+      });
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo corregir',
+        message: e instanceof Error ? e.message : 'Error al guardar',
+      });
+    }
+  };
 
   const onVoid = async () => {
     const ok = await confirm({
@@ -118,7 +169,16 @@ export default function EtiquetaDetailPage() {
       </div>
 
       <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-        {row('Lote', <span className="font-mono">{label.lotNumber}</span>)}
+        {row(
+          'Lote',
+          label.labelType === 'HANDLED' &&
+            !label.sourceLotId &&
+            label.purchaseDate ? (
+            <span className="font-mono">compra {fmt(label.purchaseDate)}</span>
+          ) : (
+            <span className="font-mono">{label.lotNumber}</span>
+          ),
+        )}
         {row('Tipo', label.labelType === 'ELABORATED' ? 'Plato elaborado' : 'Artículo manipulado')}
         {row(
           label.labelType === 'ELABORATED' ? 'Elaboración' : 'Manipulación',
@@ -154,12 +214,35 @@ export default function EtiquetaDetailPage() {
               .filter(Boolean)
               .join(' · '),
           )}
-        {label.sourceLot?.supplier?.name &&
-          row('Proveedor', label.sourceLot.supplier.name)}
+        {(label.supplierName ?? label.sourceLot?.supplier?.name) &&
+          row(
+            'Proveedor',
+            label.supplierName ?? label.sourceLot?.supplier?.name,
+          )}
+        {label.purchaseDate &&
+          row('Fecha de compra', fmt(label.purchaseDate))}
         {row('Responsable', label.createdByName)}
         {row('Reimpresiones', label.reprintCount)}
+        {label.editCount > 0 &&
+          label.editedByName &&
+          row(
+            'Última corrección',
+            `${fmt(label.editedAt, true)} · ${label.editedByName}`,
+          )}
         {label.notes && row('Notas', label.notes)}
       </div>
+
+      {editing && (
+        <div className="mt-4">
+          <EditLabelForm
+            key={label.editCount}
+            label={label}
+            saving={updateLabel.isPending}
+            onCancel={() => setEditing(false)}
+            onSave={onSaveEdit}
+          />
+        </div>
+      )}
 
       {label.ingredientLots.length > 0 && (
         <div className="mt-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
@@ -192,6 +275,12 @@ export default function EtiquetaDetailPage() {
           <Printer className="mr-2 h-4 w-4" />
           Reimprimir
         </Button>
+        {canEdit && !editing && (
+          <Button variant="outline" onClick={() => setEditing(true)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Corregir
+          </Button>
+        )}
         {!label.voidedAt && (
           <Button variant="destructive" onClick={onVoid} disabled={voidLabel.isPending}>
             <Ban className="mr-2 h-4 w-4" />

@@ -23,6 +23,8 @@ export interface FoodLabel {
   itemName: string;
   lotNumber: string;
   sourceLotId: string | null;
+  supplierName: string | null;
+  purchaseDate: string | null;
   preparedAt: string;
   manufacturerExpiryDate: string | null;
   useByDate: string;
@@ -42,6 +44,9 @@ export interface FoodLabel {
   qrToken: string;
   voidedAt: string | null;
   voidReason: string | null;
+  editedAt: string | null;
+  editedByName: string | null;
+  editCount: number;
   createdAt: string;
   ingredientLots: FoodLabelIngredientLot[];
   recipe: { id: string; name: string } | null;
@@ -109,12 +114,23 @@ export interface RecipePrepContext {
   subRecipes: Array<{ subRecipeId: string; name: string }>;
 }
 
+/** Compra confirmada de un artículo sin nº de lote (típico de Makro). */
+export interface ProductPurchase {
+  albaranLineId: string;
+  date: string;
+  supplierName: string | null;
+  albaranNumber: string | null;
+  quantity: number;
+  unit: string | null;
+}
+
 export interface ProductPrepContext {
   productId: string;
   name: string;
   allergens: number[];
   conservation: ConservationConfig;
   lots: PrepContextLot[];
+  purchases: ProductPurchase[];
   manufacturerExpiryCandidate: string | null;
 }
 
@@ -123,6 +139,7 @@ export interface CreateFoodLabelInput {
   recipeId?: string;
   productId?: string;
   sourceLotId?: string;
+  sourcePurchaseLineId?: string;
   lotNumber?: string;
   preparedAt?: string;
   manufacturerExpiryDate?: string;
@@ -146,6 +163,28 @@ export interface CreateFoodLabelInput {
     quantityUsed?: number;
     unit?: string;
   }>;
+}
+
+/**
+ * Corrección de una etiqueta el mismo día, antes de reimprimir. Solo los
+ * campos que no rompen la trazabilidad; el backend recalcula el consumo
+ * preferente. Enviar `null` en una fecha la borra.
+ */
+export interface UpdateFoodLabelInput {
+  preparedAt?: string;
+  manufacturerExpiryDate?: string | null;
+  useByDate?: string;
+  freeze?: boolean;
+  frozenAt?: string;
+  storageCondition?: StorageCondition;
+  storageTempMin?: number;
+  storageTempMax?: number;
+  shelfLifeDays?: number;
+  shelfLifeFrozenDays?: number;
+  quantity?: number;
+  quantityUnit?: string;
+  portions?: number;
+  notes?: string;
 }
 
 export const FOOD_LABELS_KEY = ['food-labels'];
@@ -191,6 +230,26 @@ export function useCreateFoodLabel() {
   return useMutation({
     mutationFn: async (input: CreateFoodLabelInput) => {
       const res = await apiClient.post<FoodLabel>('/v1/etiquetado/labels', input);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+  });
+}
+
+export function useUpdateFoodLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UpdateFoodLabelInput;
+    }) => {
+      const res = await apiClient.patch<FoodLabel>(
+        `/v1/etiquetado/labels/${id}`,
+        input,
+      );
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
