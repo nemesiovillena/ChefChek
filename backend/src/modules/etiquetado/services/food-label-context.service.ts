@@ -20,6 +20,20 @@ export interface AvailableLot {
 }
 
 /**
+ * Compra confirmada de un artículo que NO trae nº de lote (típico de Makro).
+ * Se ofrece en el formulario de etiqueta como alternativa al lote: la etiqueta
+ * se ancla en la fecha de compra y hereda el proveedor.
+ */
+export interface ProductPurchase {
+  albaranLineId: string;
+  date: string;
+  supplierName: string | null;
+  albaranNumber: string | null;
+  quantity: number;
+  unit: string | null;
+}
+
+/**
  * Datos para pre-rellenar el formulario de alta de etiqueta:
  * - receta → ingredientes directos + lotes disponibles por ingrediente + config
  *   de conservación. Las sub-recetas se listan por nombre (sin lotes en v1).
@@ -105,6 +119,7 @@ export class FoodLabelContextService {
 
     const lots =
       (await this.lotsByProduct(tenantId, [productId])).get(productId) ?? [];
+    const purchases = await this.purchasesWithoutLot(tenantId, productId);
 
     return {
       productId: product.id,
@@ -118,8 +133,53 @@ export class FoodLabelContextService {
         shelfLifeFrozenDays: product.shelfLifeFrozenDays,
       } satisfies ConservationConfig,
       lots,
+      purchases,
       manufacturerExpiryCandidate: lots[0]?.expiryDate ?? null,
     };
+  }
+
+  /**
+   * Compras confirmadas del artículo cuya línea no generó un Lot (no traía nº
+   * de lote). Las que sí tienen lote ya salen en `lots`.
+   */
+  private async purchasesWithoutLot(
+    tenantId: string,
+    productId: string,
+  ): Promise<ProductPurchase[]> {
+    const lines = await this.prisma.albaranLine.findMany({
+      where: {
+        matchedProductId: productId,
+        lotRecord: null,
+        albaran: {
+          tenantId,
+          deletedAt: null,
+          status: { in: ["CONFIRMADO", "ARCHIVADO"] },
+        },
+      },
+      select: {
+        id: true,
+        quantity: true,
+        unit: true,
+        albaran: {
+          select: {
+            date: true,
+            albaranNumber: true,
+            internalNumber: true,
+            supplier: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { albaran: { date: "desc" } },
+      take: 20,
+    });
+    return lines.map((l) => ({
+      albaranLineId: l.id,
+      date: l.albaran.date.toISOString(),
+      supplierName: l.albaran.supplier?.name ?? null,
+      albaranNumber: l.albaran.albaranNumber ?? l.albaran.internalNumber,
+      quantity: l.quantity,
+      unit: l.unit ?? null,
+    }));
   }
 
   private recipeConservation(recipe: {

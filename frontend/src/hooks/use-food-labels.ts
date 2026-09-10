@@ -23,6 +23,8 @@ export interface FoodLabel {
   itemName: string;
   lotNumber: string;
   sourceLotId: string | null;
+  supplierName: string | null;
+  purchaseDate: string | null;
   preparedAt: string;
   manufacturerExpiryDate: string | null;
   useByDate: string;
@@ -112,12 +114,23 @@ export interface RecipePrepContext {
   subRecipes: Array<{ subRecipeId: string; name: string }>;
 }
 
+/** Compra confirmada de un artículo sin nº de lote (típico de Makro). */
+export interface ProductPurchase {
+  albaranLineId: string;
+  date: string;
+  supplierName: string | null;
+  albaranNumber: string | null;
+  quantity: number;
+  unit: string | null;
+}
+
 export interface ProductPrepContext {
   productId: string;
   name: string;
   allergens: number[];
   conservation: ConservationConfig;
   lots: PrepContextLot[];
+  purchases: ProductPurchase[];
   manufacturerExpiryCandidate: string | null;
 }
 
@@ -126,6 +139,7 @@ export interface CreateFoodLabelInput {
   recipeId?: string;
   productId?: string;
   sourceLotId?: string;
+  sourcePurchaseLineId?: string;
   lotNumber?: string;
   preparedAt?: string;
   manufacturerExpiryDate?: string;

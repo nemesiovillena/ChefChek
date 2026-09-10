@@ -31,6 +31,7 @@ interface PublicLabel {
   voidedAt: string | null;
   supplier: string | null;
   sourceLotNumber: string | null;
+  purchaseDate: string | null;
   ingredientLots: Array<{ productName: string; lotNumber: string }>;
 }
 
@@ -98,7 +99,13 @@ export default async function PublicLabelPage({
         Trazabilidad · ChefChek
       </div>
       <h1 className="text-xl font-bold">{label.itemName}</h1>
-      <div className="mt-1 font-mono text-lg font-semibold">{label.lotNumber}</div>
+      <div className="mt-1 font-mono text-lg font-semibold">
+        {label.labelType === 'HANDLED' &&
+        !label.sourceLotNumber &&
+        label.purchaseDate
+          ? `compra ${fmt(label.purchaseDate)}`
+          : label.lotNumber}
+      </div>
       {label.voidedAt && (
         <div className="mt-2 inline-block rounded bg-[#b8232c] px-2 py-0.5 text-xs font-bold text-white">
           ANULADA
@@ -145,6 +152,9 @@ export default async function PublicLabelPage({
           />
         )}
         {label.supplier && <Row k="Proveedor" v={label.supplier} />}
+        {label.purchaseDate && (
+          <Row k="Fecha de compra" v={fmt(label.purchaseDate)} />
+        )}
         <Row k="Responsable" v={label.responsibleInitials} />
       </div>
 

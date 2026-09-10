@@ -2018,8 +2018,10 @@ model FoodLabel {
   recipeId               String? // ELABORATED
   productId              String? // HANDLED
   itemName               String // snapshot del nombre
-  lotNumber              String // generado (ELABORATED) o del proveedor (HANDLED)
+  lotNumber              String // generado (ELABORATED), del proveedor (HANDLED con lote) o placeholder (HANDLED sin lote, se imprime "compra <fecha>")
   sourceLotId            String? // HANDLED: Lot de proveedor del que sale
+  supplierName           String? // HANDLED: nombre del proveedor (snapshot); se imprime siempre
+  purchaseDate           DateTime? // HANDLED sin lote: fecha de la compra/recepción; ancla de trazabilidad y lo que se imprime como "LOTE compra <fecha>"
   productionOrderId      String? // vínculo opcional (sin picker en v1)
   preparedAt             DateTime // fecha/hora de elaboración o de manipulación/reenvasado
   manufacturerExpiryDate DateTime? // caducidad original de fábrica (HANDLED)

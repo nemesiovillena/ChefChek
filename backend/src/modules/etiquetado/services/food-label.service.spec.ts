@@ -12,6 +12,7 @@ describe("FoodLabelService", () => {
     recipe: { findFirst: jest.fn() },
     product: { findFirst: jest.fn() },
     lot: { findFirst: jest.fn(), findMany: jest.fn() },
+    albaranLine: { findFirst: jest.fn(), findMany: jest.fn() },
     foodLabel: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -25,6 +26,7 @@ describe("FoodLabelService", () => {
 
   const mockLotNumber = {
     generateElaboratedLot: jest.fn().mockResolvedValue("JARR-310826-01"),
+    formatDatePart: jest.fn().mockReturnValue("020926"),
     maxRetries: 5,
   };
 
@@ -218,6 +220,82 @@ describe("FoodLabelService", () => {
           sourceLotId: "lot1",
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    const rodaballo = {
+      id: "p2",
+      name: "Rodaballo de Makro",
+      allergens: [4],
+      secondaryShelfLifeDays: 3,
+      shelfLifeFrozenDays: null,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+      supplier: { name: "Makro" },
+    };
+
+    it("no lot: anchors on the chosen purchase (date + supplier), generates an internal id", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.albaranLine.findFirst.mockResolvedValue({
+        matchedProductId: "p2",
+        albaran: {
+          date: new Date("2026-09-02T00:00:00.000Z"),
+          supplier: { name: "Makro" },
+        },
+      });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl9",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourcePurchaseLineId: "line1",
+        preparedAt: "2026-09-10T10:00:00.000Z",
+      });
+
+      expect(result.supplierName).toBe("Makro");
+      expect(new Date(result.purchaseDate).getDate()).toBe(2);
+      expect(result.sourceLotId).toBeNull();
+      // identificador interno, no vacío (satisface @@unique)
+      expect(result.lotNumber).toMatch(/^[A-Z0-9]+-C020926/);
+    });
+
+    it("no lot and no purchase chosen is rejected", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "HANDLED",
+          productId: "p2",
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("snapshots the supplier name from the source lot", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.lot.findFirst.mockResolvedValue({
+        id: "lot2",
+        lotNumber: "L-777",
+        expiryDate: null,
+        productId: "p2",
+        receivedAt: new Date("2026-09-01T00:00:00.000Z"),
+        supplier: { name: "Pescados SL" },
+      });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl10",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourceLotId: "lot2",
+      });
+
+      expect(result.lotNumber).toBe("L-777");
+      expect(result.supplierName).toBe("Pescados SL");
+      expect(result.purchaseDate).toBeNull();
     });
   });
 
