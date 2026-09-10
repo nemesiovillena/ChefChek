@@ -63,6 +63,15 @@ export class CreateFoodLabelDto {
   sourceLotId?: string;
 
   /**
+   * HANDLED sin lote: id de la línea de albarán confirmado de la que sale el
+   * artículo. La etiqueta hereda proveedor y fecha de compra, y se imprime
+   * "LOTE compra <fecha>" en vez de un nº de lote.
+   */
+  @IsOptional()
+  @IsString()
+  sourcePurchaseLineId?: string;
+
+  /**
    * HANDLED: nº de lote en texto libre cuando no hay `Lot` registrado
    * (`sourceLotId`). Si se pasa `sourceLotId`, este campo se ignora y se toma
    * el del `Lot`.

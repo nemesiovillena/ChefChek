@@ -135,9 +135,14 @@ export class FoodLabelPdfService {
     doc.font("Helvetica-Bold").fontSize(7);
     y = this.wrappedLine(doc, label.itemName, box.x, y, box.w, 8, 3);
 
-    // Nº de lote (destacado) — nunca debe truncarse
+    // Nº de lote (destacado) — nunca debe truncarse. HANDLED sin lote de
+    // proveedor: se ancla en la fecha de compra ("LOTE compra <fecha>").
     doc.font("Helvetica-Bold").fontSize(8.5);
-    y = this.line(doc, `LOTE ${label.lotNumber}`, box.x, y + 0.5, box.w, 10);
+    const lotText =
+      label.labelType === "HANDLED" && !label.sourceLotId && label.purchaseDate
+        ? `compra ${this.fmtDate(label.purchaseDate)}`
+        : label.lotNumber;
+    y = this.line(doc, `LOTE ${lotText}`, box.x, y + 0.5, box.w, 10);
 
     // Fechas
     const prep = this.fmtDateTime(label.preparedAt);
@@ -162,9 +167,9 @@ export class FoodLabelPdfService {
       y = this.line(doc, this.storageText(label), box.x, y + 0.5, w(), 7);
     }
 
-    // HANDLED: proveedor + caducidad fabricante
+    // HANDLED: proveedor (siempre que se conozca) + caducidad fabricante
     if (label.labelType === "HANDLED") {
-      const supplier = label.sourceLot?.supplier?.name;
+      const supplier = label.supplierName ?? label.sourceLot?.supplier?.name;
       const parts: string[] = [];
       if (supplier) {
         parts.push(`Prov.: ${supplier}`);

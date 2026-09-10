@@ -169,7 +169,16 @@ export default function EtiquetaDetailPage() {
       </div>
 
       <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-        {row('Lote', <span className="font-mono">{label.lotNumber}</span>)}
+        {row(
+          'Lote',
+          label.labelType === 'HANDLED' &&
+            !label.sourceLotId &&
+            label.purchaseDate ? (
+            <span className="font-mono">compra {fmt(label.purchaseDate)}</span>
+          ) : (
+            <span className="font-mono">{label.lotNumber}</span>
+          ),
+        )}
         {row('Tipo', label.labelType === 'ELABORATED' ? 'Plato elaborado' : 'Artículo manipulado')}
         {row(
           label.labelType === 'ELABORATED' ? 'Elaboración' : 'Manipulación',
@@ -205,8 +214,13 @@ export default function EtiquetaDetailPage() {
               .filter(Boolean)
               .join(' · '),
           )}
-        {label.sourceLot?.supplier?.name &&
-          row('Proveedor', label.sourceLot.supplier.name)}
+        {(label.supplierName ?? label.sourceLot?.supplier?.name) &&
+          row(
+            'Proveedor',
+            label.supplierName ?? label.sourceLot?.supplier?.name,
+          )}
+        {label.purchaseDate &&
+          row('Fecha de compra', fmt(label.purchaseDate))}
         {row('Responsable', label.createdByName)}
         {row('Reimpresiones', label.reprintCount)}
         {label.editCount > 0 &&

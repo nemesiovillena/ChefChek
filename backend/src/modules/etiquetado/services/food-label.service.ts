@@ -15,6 +15,7 @@ import {
   resolveConservation,
 } from "../util/shelf-life.util";
 import { StorageCondition } from "../constants/storage-condition.constant";
+import { deriveLotPrefix } from "../util/lot-prefix.util";
 import { CreateFoodLabelDto } from "../dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "../dto/update-food-label.dto";
 import { ListFoodLabelsDto } from "../dto/list-food-labels.dto";
@@ -87,10 +88,33 @@ export class FoodLabelService {
       dto.sourceLotId,
       base.productId,
     );
+    const purchase = await this.resolvePurchaseLine(
+      tenantId,
+      dto.labelType,
+      dto.sourcePurchaseLineId,
+      base.productId,
+    );
 
     const manufacturerExpiryDate = dto.manufacturerExpiryDate
       ? new Date(dto.manufacturerExpiryDate)
       : (sourceLot?.expiryDate ?? null);
+
+    // HANDLED: nº de lote del proveedor (del Lot, o escrito a mano). Si no hay
+    // (típico de Makro), la etiqueta se ancla en la fecha de compra.
+    const supplierLotNumber =
+      dto.labelType === "HANDLED"
+        ? (sourceLot?.lotNumber ?? dto.lotNumber ?? "").trim()
+        : "";
+    const purchaseDate = supplierLotNumber
+      ? null
+      : (purchase?.date ?? sourceLot?.receivedAt ?? null);
+    const supplierName =
+      dto.labelType === "HANDLED"
+        ? (sourceLot?.supplier?.name ??
+          purchase?.supplierName ??
+          base.supplierName ??
+          null)
+        : null;
 
     const ingredientLotRows =
       dto.labelType === "ELABORATED"
@@ -105,6 +129,8 @@ export class FoodLabelService {
         productId: dto.labelType === "HANDLED" ? base.entityId : null,
         itemName: base.name,
         sourceLotId: sourceLot?.id ?? null,
+        supplierName,
+        purchaseDate,
         productionOrderId: dto.productionOrderId ?? null,
         preparedAt,
         manufacturerExpiryDate,
@@ -128,16 +154,18 @@ export class FoodLabelService {
       };
 
     if (dto.labelType === "HANDLED") {
-      const lotNumber = (sourceLot?.lotNumber ?? dto.lotNumber ?? "").trim();
-      if (!lotNumber) {
+      if (supplierLotNumber) {
+        return this.prisma.foodLabel.create({
+          data: { ...commonData, lotNumber: supplierLotNumber },
+          include: FOOD_LABEL_INCLUDE,
+        });
+      }
+      if (!purchaseDate) {
         throw new BadRequestException(
-          "Falta el nº de lote: elige un lote de proveedor o escríbelo.",
+          "Falta el lote: elige un lote de proveedor, la compra de la que sale el artículo, o escribe el nº de lote.",
         );
       }
-      return this.prisma.foodLabel.create({
-        data: { ...commonData, lotNumber },
-        include: FOOD_LABEL_INCLUDE,
-      });
+      return this.createHandledWithoutLot(commonData, base.name, purchaseDate);
     }
 
     // ELABORATED: nº de lote autogenerado con reintento ante colisión.
@@ -172,6 +200,45 @@ export class FoodLabelService {
     }
     throw new ConflictException(
       "No se pudo asignar un nº de lote libre; reinténtalo.",
+    );
+  }
+
+  /**
+   * HANDLED sin lote: identificador interno único `PREFIJO-C<DDMMAA>[-N]` (no
+   * se imprime; la etiqueta muestra "compra <fecha>"). Reintenta ante colisión
+   * con la restricción `@@unique([tenantId, lotNumber])`.
+   */
+  private async createHandledWithoutLot(
+    commonData: Omit<Prisma.FoodLabelUncheckedCreateInput, "lotNumber">,
+    productName: string,
+    purchaseDate: Date,
+  ) {
+    const stem = `${deriveLotPrefix(productName)}-C${this.lotNumberService.formatDatePart(
+      purchaseDate,
+    )}`;
+    const maxRetries = this.lotNumberService.maxRetries;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const lotNumber = attempt === 0 ? stem : `${stem}-${attempt + 1}`;
+      try {
+        return await this.prisma.foodLabel.create({
+          data: { ...commonData, lotNumber },
+          include: FOOD_LABEL_INCLUDE,
+        });
+      } catch (err) {
+        const isDupLot =
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002";
+        if (isDupLot && attempt < maxRetries) {
+          continue;
+        }
+        if (isDupLot) {
+          break;
+        }
+        throw err;
+      }
+    }
+    throw new ConflictException(
+      "No se pudo asignar un identificador de etiqueta; reinténtalo.",
     );
   }
 
@@ -569,6 +636,7 @@ export class FoodLabelService {
       productId: null as string | null,
       name: recipe.name,
       allergens: recipe.allergens ?? [],
+      supplierName: null as string | null,
       conservation: {
         storageCondition: recipe.storageCondition as StorageCondition | null,
         storageTempMin: recipe.storageTempMin,
@@ -596,6 +664,7 @@ export class FoodLabelService {
         storageCondition: true,
         storageTempMin: true,
         storageTempMax: true,
+        supplier: { select: { name: true } },
       },
     });
     if (!product) {
@@ -606,6 +675,7 @@ export class FoodLabelService {
       productId: product.id as string | null,
       name: product.name,
       allergens: product.allergens ?? [],
+      supplierName: product.supplier?.name ?? null,
       conservation: {
         storageCondition: product.storageCondition as StorageCondition | null,
         storageTempMin: product.storageTempMin,
@@ -627,7 +697,14 @@ export class FoodLabelService {
     }
     const lot = await this.prisma.lot.findFirst({
       where: { id: sourceLotId, tenantId },
-      select: { id: true, lotNumber: true, expiryDate: true, productId: true },
+      select: {
+        id: true,
+        lotNumber: true,
+        expiryDate: true,
+        productId: true,
+        receivedAt: true,
+        supplier: { select: { name: true } },
+      },
     });
     if (!lot) {
       throw new NotFoundException("Lote de proveedor no encontrado");
@@ -638,6 +715,42 @@ export class FoodLabelService {
       );
     }
     return lot;
+  }
+
+  /**
+   * HANDLED sin lote: valida la línea de compra elegida y devuelve fecha +
+   * proveedor para anclar la trazabilidad de la etiqueta.
+   */
+  private async resolvePurchaseLine(
+    tenantId: string,
+    labelType: string,
+    lineId: string | undefined,
+    productId: string | null,
+  ): Promise<{ date: Date; supplierName: string | null } | null> {
+    if (labelType !== "HANDLED" || !lineId) {
+      return null;
+    }
+    const line = await this.prisma.albaranLine.findFirst({
+      where: { id: lineId, albaran: { tenantId, deletedAt: null } },
+      select: {
+        matchedProductId: true,
+        albaran: {
+          select: { date: true, supplier: { select: { name: true } } },
+        },
+      },
+    });
+    if (!line) {
+      throw new NotFoundException("Compra no encontrada");
+    }
+    if (productId && line.matchedProductId !== productId) {
+      throw new BadRequestException(
+        "La compra seleccionada no es de ese artículo",
+      );
+    }
+    return {
+      date: line.albaran.date,
+      supplierName: line.albaran.supplier?.name ?? null,
+    };
   }
 
   private async buildIngredientLotRows(
