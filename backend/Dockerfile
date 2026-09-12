@@ -53,11 +53,20 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/prisma ./prisma
 COPY package.json ./
 
-# dumb-init for signal forwarding, libssl1.1 for Prisma engine, wget for healthcheck.
+# dumb-init for signal forwarding. libssl1.1 (Prisma engine) is NOT
+# apt-installed: node:20-bullseye-slim already ships libssl.so.1.1/
+# libcrypto.so.1.1 baked into the base image, and asking apt for the package
+# anyway (previous version of this step) makes it try to fetch the latest
+# point release from the live bullseye-security mirror, which only keeps
+# the newest build in its pool and 404s shortly after each rotation (broke
+# prod deploys on 2026-09-10 and 2026-09-12). wget/ca-certificates were also
+# dropped: unused (the HEALTHCHECK below uses `node -e` against the http
+# module, not wget) and Node bundles its own root CA list, so nothing here
+# needs the OS trust store.
 # DEBIAN_FRONTEND=noninteractive silences debconf's TTY-fallback warnings emitted
 # during non-interactive docker build (Dialog/Readline/Teletype noise on stderr).
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y dumb-init libssl1.1 wget && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends dumb-init && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
