@@ -16,6 +16,11 @@ package-lock.json
 backend/uploads/
 backend/backups/
 
+# Mismos directorios de runtime, generados en la raíz cuando un script se
+# ejecuta desde el cwd equivocado en vez de backend/.
+/uploads/
+/public/
+
 # Dev artifacts
 repomix-output.xml
 *.traineddata
