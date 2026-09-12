@@ -313,7 +313,7 @@ export class TechnicalSheetsService {
   ): Promise<Buffer> {
     const doc = new PDFDocument({
       size: options.format === "LETTER" ? [612, 792] : [595.28, 841.89],
-      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      margins: { top: 36, bottom: 36, left: 40, right: 40 },
     });
 
     const chunks: Buffer[] = [];
@@ -356,7 +356,10 @@ export class TechnicalSheetsService {
     }
 
     if (layout.nutrition.visible) {
-      this.generateNutrition(doc, recipe, template, styles);
+      const nutrition = this.getRecipeNutrition(recipe);
+      if (nutrition) {
+        this.generateNutrition(doc, nutrition, styles);
+      }
     }
 
     if (layout.footer.visible) {
@@ -370,6 +373,18 @@ export class TechnicalSheetsService {
     return Buffer.concat(chunks);
   }
 
+  // Piso de legibilidad: el interlineado se puede apretar para compactar la
+  // ficha, pero el cuerpo de texto nunca baja de 12px.
+  private static readonly MIN_BODY_FONT_SIZE = 12;
+  private static readonly COMPACT_LINE_GAP = 0.4;
+
+  private bodyFontSize(styles: any): number {
+    return Math.max(
+      styles?.fontSize || 12,
+      TechnicalSheetsService.MIN_BODY_FONT_SIZE,
+    );
+  }
+
   private generateHeader(
     doc: any,
     recipe: any,
@@ -379,16 +394,19 @@ export class TechnicalSheetsService {
   ): void {
     doc.fontSize(styles.headerFontSize || 18).font("Helvetica-Bold");
     doc.text(recipeCardOnly ? "RECETA" : "FICHA TÉCNICA", { align: "center" });
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    doc.fontSize(24).font("Helvetica-Bold");
+    doc.fontSize(20).font("Helvetica-Bold");
     doc.text(recipe.name, { align: "center" });
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    if (recipe.description) {
-      doc.fontSize(styles.fontSize || 12).font("Helvetica");
+    // La ficha completa muestra las notas como campo de Información General
+    // (izquierda, con su etiqueta); solo la "Receta" de cocina, que no tiene
+    // esa sección, las mantiene aquí bajo el título.
+    if (recipeCardOnly && recipe.description) {
+      doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
       doc.text(recipe.description, { align: "center" });
-      doc.moveDown();
+      doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
     }
   }
 
@@ -400,17 +418,27 @@ export class TechnicalSheetsService {
   ): void {
     doc.fontSize(16).font("Helvetica-Bold");
     doc.text("INFORMACIÓN GENERAL");
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    doc.fontSize(styles.fontSize || 12).font("Helvetica");
+    doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
 
-    const info = [
-      [`Código:`, recipe.code || "N/A"],
+    // Código: solo si la receta tiene uno asignado; no hay valor "N/A" que mostrar.
+    const info: Array<[string, string | number]> = [];
+    if (recipe.code) {
+      info.push([`Código:`, recipe.code]);
+    }
+    info.push(
       [`Porciones:`, recipe.yield || 1],
       [`Rendimiento:`, `${recipe.portionWeight || 100}g`],
       [`Tiempo preparación:`, `${recipe.preparationTime || 30} min`],
       [`Tiempo cocción:`, `${recipe.cookingTime || 60} min`],
-    ];
+    );
+    // Notas: mismo campo que "description" en el formulario de la receta.
+    // Va al final porque suele ser el valor más largo y puede envolver a
+    // varias líneas; el resto de campos son de una sola línea.
+    if (recipe.description) {
+      info.push([`Notas:`, recipe.description]);
+    }
 
     // Lista en dos columnas alineadas: etiqueta en negrita, valor en normal.
     const labelWidth = 150;
@@ -425,7 +453,7 @@ export class TechnicalSheetsService {
     });
 
     doc.x = left;
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
   }
 
   private generateIngredients(
@@ -437,9 +465,9 @@ export class TechnicalSheetsService {
   ): void {
     doc.fontSize(16).font("Helvetica-Bold");
     doc.text("INGREDIENTES");
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    doc.fontSize(styles.fontSize || 12).font("Helvetica");
+    doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
 
     let totalCost = 0;
 
@@ -460,7 +488,7 @@ export class TechnicalSheetsService {
         doc.text(` (Costo: ${this.formatEuro(cost)})`, { align: "right" });
       }
 
-      doc.moveDown();
+      doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
       if (options.includeAllergens && ingredient.product.allergens) {
         const allergenIds: number[] = ingredient.product.allergens;
@@ -468,19 +496,19 @@ export class TechnicalSheetsService {
         if (allergenNames.length > 0) {
           doc.text(`   Alérgenos: ${allergenNames.join(", ")}`);
           this.drawAllergenIcons(doc, allergenIds);
-          doc.moveDown();
+          doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
         }
       }
     });
 
     if (options.includeCosts) {
-      doc.moveDown();
+      doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       doc.font("Helvetica-Bold");
       doc.text(`Costo Total Ingredientes: ${this.formatEuro(totalCost)}`);
       doc.font("Helvetica");
     }
 
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
   }
 
   private generatePreparation(
@@ -491,45 +519,62 @@ export class TechnicalSheetsService {
   ): void {
     doc.fontSize(16).font("Helvetica-Bold");
     doc.text("ELABORACIÓN");
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    doc.fontSize(styles.fontSize || 12).font("Helvetica");
+    doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
 
     const steps = this.parsePreparationSteps(recipe.elaboration);
     steps.forEach((step, index) => {
       doc.text(`${index + 1}. ${step.text}`);
-      doc.moveDown();
+      doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       if (step.equipment) {
         doc.text(`   Utensilios: ${step.equipment}`);
-        doc.moveDown();
+        doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       }
       if (step.time) {
         doc.text(`   Tiempo: ${step.time}`);
-        doc.moveDown();
+        doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       }
       if (step.temperature) {
         doc.text(`   Temperatura: ${step.temperature}`);
-        doc.moveDown();
+        doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       }
     });
 
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
+  }
+
+  // Nutrición real o estimada a partir de los ingredientes; null si no hay
+  // ningún dato (todo a 0), para que la sección no se dibuje sin contenido.
+  private getRecipeNutrition(recipe: any): {
+    calories: number;
+    proteins: number;
+    carbs: number;
+    fats: number;
+    fiber: number;
+  } | null {
+    const nutrition =
+      recipe.nutrition || this.calculateEstimatedNutrition(recipe);
+    const hasData = Object.values(nutrition).some((value) => Number(value) > 0);
+    return hasData ? nutrition : null;
   }
 
   private generateNutrition(
     doc: any,
-    recipe: any,
-    template: any,
+    nutrition: {
+      calories: number;
+      proteins: number;
+      carbs: number;
+      fats: number;
+      fiber: number;
+    },
     styles: any,
   ): void {
     doc.fontSize(16).font("Helvetica-Bold");
     doc.text("INFORMACIÓN NUTRICIONAL (Estimada)");
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
 
-    doc.fontSize(styles.fontSize || 12).font("Helvetica");
-
-    const nutrition =
-      recipe.nutrition || this.calculateEstimatedNutrition(recipe);
+    doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
 
     const info = [
       [`Energía:`, `${nutrition.calories || 0} kcal`],
@@ -552,7 +597,7 @@ export class TechnicalSheetsService {
     });
 
     doc.x = left;
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
   }
 
   private generateFooter(
@@ -561,7 +606,7 @@ export class TechnicalSheetsService {
     styles: any,
     options: GenerateSheetDto,
   ): void {
-    doc.fontSize(10).font("Helvetica");
+    doc.fontSize(TechnicalSheetsService.MIN_BODY_FONT_SIZE).font("Helvetica");
 
     if (options.branding?.companyName) {
       doc.text(options.branding.companyName, { align: "center" });
@@ -575,7 +620,7 @@ export class TechnicalSheetsService {
       doc.text(options.branding.contact, { align: "center" });
     }
 
-    doc.moveDown();
+    doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
     doc.text(`Generado: ${new Date().toLocaleDateString("es-ES")}`, {
       align: "center",
     });
