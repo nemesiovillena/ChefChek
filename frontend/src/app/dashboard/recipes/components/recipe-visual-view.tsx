@@ -35,11 +35,11 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
       aria-label={`Receta: ${recipe.name}`}
       className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-[2px]"
     >
-      <div className="mx-auto min-h-full w-full max-w-5xl bg-[var(--surface-container-high)] md:my-6 md:overflow-hidden md:rounded-[28px] md:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.25)]">
+      <div className="mx-auto min-h-full w-full max-w-5xl bg-[var(--surface-container-high)] md:my-6 md:overflow-hidden md:rounded-[28px] md:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.25)] lg:max-w-6xl xl:max-w-[1320px]">
         {/* Hero */}
-        <div className="relative h-56 w-full sm:h-72 md:h-80">
+        <div className="relative h-56 w-full sm:h-72 md:h-80 xl:h-[26rem]">
           {recipe.imageUrl ? (
-            <Image src={recipe.imageUrl} alt={recipe.name} fill sizes="(min-width: 768px) 896px, 100vw" className="object-cover" priority />
+            <Image src={recipe.imageUrl} alt={recipe.name} fill sizes="(min-width: 1280px) 1320px, (min-width: 768px) 896px, 100vw" className="object-cover" priority />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--tonal-2),var(--surface-container-highest))]">
               <ChefHat className="h-16 w-16 text-[var(--on-surface-variant)] opacity-40" />
@@ -89,9 +89,9 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
         {/* pb-28: el menú móvil fijo (h-16, dashboard/layout.tsx) tapa el final
             del contenido en este overlay a pantalla completa — mismo margen
             que usa el wrapper de página normal para no repetir el problema. */}
-        <div className="p-5 pb-28 sm:p-6 sm:pb-28 md:p-8 md:pb-8">
+        <div className="p-5 pb-28 sm:p-6 sm:pb-28 md:p-8 md:pb-8 xl:p-10 xl:pb-10">
           {recipe.description && (
-            <p className="mb-6 whitespace-pre-line text-sm text-[var(--on-surface-variant)]">{recipe.description}</p>
+            <p className="mb-6 whitespace-pre-line text-base text-[var(--on-surface-variant)] xl:max-w-3xl">{recipe.description}</p>
           )}
 
           {recipe.allergens.length > 0 && (
@@ -103,7 +103,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
             </div>
           )}
 
-          <div className="grid gap-8 md:grid-cols-[280px_1fr]">
+          <div className="grid gap-8 md:grid-cols-[280px_1fr] xl:grid-cols-[340px_1fr] xl:gap-12">
             <aside className="md:sticky md:top-6 md:self-start">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">
                 Ingredientes
@@ -115,7 +115,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                   {recipe.ingredients.map((ing, i) => (
                     <li
                       key={`${ing.productId}-${i}`}
-                      className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0"
+                      className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                     >
                       <span className="text-[var(--on-surface)]">{ing.productName || 'Sin nombre'}</span>
                       <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
@@ -135,7 +135,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                     {recipe.subRecipes.map((sub) => (
                       <li
                         key={sub.id}
-                        className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0"
+                        className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                       >
                         <span className="text-[var(--on-surface)]">{sub.subRecipeName}</span>
                         <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
@@ -165,7 +165,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                         {i + 1}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm text-[var(--on-surface)]">{step.description}</p>
+                        <p className="text-sm text-[var(--on-surface)] md:text-base">{step.description}</p>
                         {(step.equipment || step.time || step.temperature) && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {step.equipment && (
