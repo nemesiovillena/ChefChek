@@ -219,36 +219,71 @@ describe("RecipesService", () => {
       );
     });
 
-    // Regresión: repetir un artículo en dos líneas de ingredientes (p.ej.
-    // azúcar para el almíbar y para la crema en un tiramisú) violaba la
-    // restricción única recipe_ingredients(recipeId, productId) en Prisma sin
-    // capturar, y el GlobalExceptionFilter lo convertía en un 500 genérico.
-    // Debe fallar antes, con un 400 claro, sin llegar a tocar la base de datos.
-    it("should throw BadRequestException if the same ingredient is repeated", async () => {
-      await expect(
-        service.create(tenantId, {
-          ...createRecipeDto,
-          ingredients: [
-            { productId: "product-1", quantity: 50, unit: "Gramos" },
-            { productId: "product-1", quantity: 30, unit: "Gramos" },
-          ],
+    // Una receta puede usar el mismo artículo en dos líneas con fin distinto
+    // (ej. azúcar para el almíbar y para la crema en un tiramisú): cada línea
+    // es una cantidad independiente y debe sumarse, no fusionarse ni
+    // rechazarse. No hay unique(recipeId, productId) en el schema a propósito.
+    it("should allow the same ingredient repeated in two lines and sum their cost", async () => {
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        ...createRecipeDto,
+        ingredients: [
+          { productId: "product-1", quantity: 50, unit: "Gramos" },
+          { productId: "product-1", quantity: 30, unit: "Gramos" },
+        ],
+      });
+
+      // 50 g + 30 g × 0,01 €/g = 0,8 € — ambas líneas contribuyen al coste
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            totalCost: 0.8,
+            ingredients: {
+              create: [
+                expect.objectContaining({
+                  productId: "product-1",
+                  quantity: 50,
+                }),
+                expect.objectContaining({
+                  productId: "product-1",
+                  quantity: 30,
+                }),
+              ],
+            },
+          }),
         }),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrismaService.recipe.create).not.toHaveBeenCalled();
+      );
     });
 
-    it("should throw BadRequestException if the same sub-recipe is repeated", async () => {
-      await expect(
-        service.create(tenantId, {
-          ...createRecipeDto,
-          ingredients: [],
-          subRecipes: [
-            { subRecipeId: "sub-recipe-1", quantity: 1, unit: "raciones" },
-            { subRecipeId: "sub-recipe-1", quantity: 2, unit: "raciones" },
-          ],
+    it("should allow the same sub-recipe repeated in two lines and sum their cost", async () => {
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+      mockPrismaService.$queryRaw
+        .mockResolvedValueOnce([]) // productos (sin ingredientes)
+        .mockResolvedValueOnce([
+          {
+            id: "sub-recipe-1",
+            totalCost: 20,
+            totalCostPerUnit: 0.2,
+            portions: 4,
+          },
+        ]);
+
+      await service.create(tenantId, {
+        ...createRecipeDto,
+        ingredients: [],
+        subRecipes: [
+          { subRecipeId: "sub-recipe-1", quantity: 1, unit: "raciones" },
+          { subRecipeId: "sub-recipe-1", quantity: 2, unit: "raciones" },
+        ],
+      });
+
+      // costPerPortion = 20/4 = 5€; (1 + 2) raciones × 5€ = 15€
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalCost: 15 }),
         }),
-      ).rejects.toThrow(BadRequestException);
-      expect(mockPrismaService.recipe.create).not.toHaveBeenCalled();
+      );
     });
   });
 
