@@ -461,7 +461,10 @@ model RecipeIngredient {
   recipe  Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([recipeId, productId])
+  // Sin unique(recipeId, productId) a propósito: una receta puede usar el
+  // mismo artículo en dos líneas con fin distinto (ej. azúcar para el
+  // almíbar y para la crema en un tiramisú) — cada línea es una cantidad
+  // independiente, no se fusionan.
   @@map("recipe_ingredients")
 }
 
@@ -475,7 +478,7 @@ model RecipeSubRecipe {
   parentRecipe Recipe @relation("ParentRecipe", fields: [parentRecipeId], references: [id], onDelete: Cascade)
   subRecipe    Recipe @relation("SubRecipe", fields: [subRecipeId], references: [id], onDelete: Cascade)
 
-  @@unique([parentRecipeId, subRecipeId])
+  // Sin unique(parentRecipeId, subRecipeId): misma razón que RecipeIngredient.
   @@map("recipe_sub_recipes")
 }
 

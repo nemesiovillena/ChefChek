@@ -176,8 +176,6 @@ export class RecipesService {
       }
     }
 
-    this.assertNoDuplicateReferences(ingredients, subRecipes);
-
     // Calcular costos iniciales
     const costBreakdown = await this.calculateCost(
       tenantId,
@@ -469,8 +467,6 @@ export class RecipesService {
       }
     }
 
-    this.assertNoDuplicateReferences(ingredients, subRecipes);
-
     // Recalcular costos si hay cambios en ingredientes
     let totalCost = recipe.totalCost;
 
@@ -648,43 +644,6 @@ export class RecipesService {
       subRecipes: recipe.subRecipes || [],
       pricing: recipe.pricing!,
     };
-  }
-
-  /**
-   * `recipe_ingredients` y `recipe_sub_recipes` tienen restricción única por
-   * (recetaId, productoId/subRecetaId) — sin este chequeo previo, repetir un
-   * artículo en dos líneas (p.ej. azúcar para el almíbar y para la crema en
-   * un tiramisú) hace que Prisma lance una violación de constraint sin
-   * capturar, que el GlobalExceptionFilter convierte en un 500 genérico
-   * "Internal server error" sin pista para el usuario.
-   */
-  private assertNoDuplicateReferences(
-    ingredients?: Array<{ productId: string; productName?: string }>,
-    subRecipes?: Array<{ subRecipeId: string }>,
-  ): void {
-    if (ingredients) {
-      const seen = new Set<string>();
-      for (const ing of ingredients) {
-        if (seen.has(ing.productId)) {
-          throw new BadRequestException(
-            `El artículo "${ing.productName ?? ing.productId}" está repetido en varias líneas de ingredientes. Combina la cantidad en una sola línea.`,
-          );
-        }
-        seen.add(ing.productId);
-      }
-    }
-
-    if (subRecipes) {
-      const seen = new Set<string>();
-      for (const sub of subRecipes) {
-        if (seen.has(sub.subRecipeId)) {
-          throw new BadRequestException(
-            "Hay una sub-receta repetida en varias líneas. Combina la cantidad en una sola línea.",
-          );
-        }
-        seen.add(sub.subRecipeId);
-      }
-    }
   }
 
   private async calculateCost(
