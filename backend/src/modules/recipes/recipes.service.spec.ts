@@ -218,6 +218,38 @@ describe("RecipesService", () => {
         NotFoundException,
       );
     });
+
+    // Regresión: repetir un artículo en dos líneas de ingredientes (p.ej.
+    // azúcar para el almíbar y para la crema en un tiramisú) violaba la
+    // restricción única recipe_ingredients(recipeId, productId) en Prisma sin
+    // capturar, y el GlobalExceptionFilter lo convertía en un 500 genérico.
+    // Debe fallar antes, con un 400 claro, sin llegar a tocar la base de datos.
+    it("should throw BadRequestException if the same ingredient is repeated", async () => {
+      await expect(
+        service.create(tenantId, {
+          ...createRecipeDto,
+          ingredients: [
+            { productId: "product-1", quantity: 50, unit: "Gramos" },
+            { productId: "product-1", quantity: 30, unit: "Gramos" },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.recipe.create).not.toHaveBeenCalled();
+    });
+
+    it("should throw BadRequestException if the same sub-recipe is repeated", async () => {
+      await expect(
+        service.create(tenantId, {
+          ...createRecipeDto,
+          ingredients: [],
+          subRecipes: [
+            { subRecipeId: "sub-recipe-1", quantity: 1, unit: "raciones" },
+            { subRecipeId: "sub-recipe-1", quantity: 2, unit: "raciones" },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.recipe.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("findAll", () => {
