@@ -1,10 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
   PurchaseScheduleService,
   toMadridParts,
 } from "../compras/services/purchase-schedule.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { EtiquetadoConfigService } from "../etiquetado/services/etiquetado-config.service";
 import {
   DashboardQueryDto,
   CreateMetricDto,
@@ -20,6 +22,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roleAccess: RoleAccessService,
+    private readonly etiquetadoConfig: EtiquetadoConfigService,
   ) {}
 
   // Métricas del Dashboard
@@ -272,6 +275,83 @@ export class DashboardService {
       }
     }
 
+    // Etiquetas (FoodLabel) próximas a caducar o ya caducadas, dentro del
+    // umbral configurado del tenant — misma fórmula que el filtro
+    // `expiringWithinDays` de FoodLabelService.list(). `nearest` compara la
+    // más próxima entre congeladas (por frozenUseByDate) y frescas (por
+    // useByDate) en JS — Prisma no soporta `ORDER BY COALESCE(...)` sin SQL
+    // crudo, y con 2 queries indexadas + comparación de 2 candidatos es
+    // barato y exacto (la fecha efectiva real, no una aproximación).
+    const expiryWarningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    const expiryThreshold = new Date(
+      Date.now() + expiryWarningDays * 24 * 60 * 60 * 1000,
+    );
+    const expiringLabelSelect = {
+      id: true,
+      itemName: true,
+      labelType: true,
+      useByDate: true,
+      frozenUseByDate: true,
+    } satisfies Prisma.FoodLabelSelect;
+    const expiringLabelsWhere: Prisma.FoodLabelWhereInput = {
+      tenantId,
+      voidedAt: null,
+      OR: [
+        { frozenUseByDate: { not: null, lte: expiryThreshold } },
+        { frozenUseByDate: null, useByDate: { lte: expiryThreshold } },
+      ],
+    };
+    const [expiringLabelsCount, freshNearest, frozenNearest] =
+      await Promise.all([
+        this.prisma.foodLabel.count({ where: expiringLabelsWhere }),
+        this.prisma.foodLabel.findFirst({
+          where: {
+            tenantId,
+            voidedAt: null,
+            frozenUseByDate: null,
+            useByDate: { lte: expiryThreshold },
+          },
+          orderBy: { useByDate: "asc" },
+          select: expiringLabelSelect,
+        }),
+        this.prisma.foodLabel.findFirst({
+          where: {
+            tenantId,
+            voidedAt: null,
+            frozenUseByDate: { not: null, lte: expiryThreshold },
+          },
+          orderBy: { frozenUseByDate: "asc" },
+          select: expiringLabelSelect,
+        }),
+      ]);
+    const nearestExpiringLabel = [freshNearest, frozenNearest]
+      .filter((c): c is NonNullable<typeof c> => c !== null && c !== undefined)
+      .reduce<(typeof freshNearest & typeof frozenNearest) | null>((min, c) => {
+        if (!min) {
+          return c;
+        }
+        const cTime = (c.frozenUseByDate ?? c.useByDate).getTime();
+        const minTime = (min.frozenUseByDate ?? min.useByDate).getTime();
+        return cTime < minTime ? c : min;
+      }, null);
+    const expiringLabels = {
+      count: expiringLabelsCount,
+      nearest: nearestExpiringLabel
+        ? {
+            id: nearestExpiringLabel.id,
+            itemName: nearestExpiringLabel.itemName,
+            labelType: nearestExpiringLabel.labelType as
+              | "ELABORATED"
+              | "HANDLED",
+            useByDate: (
+              nearestExpiringLabel.frozenUseByDate ??
+              nearestExpiringLabel.useByDate
+            ).toISOString(),
+          }
+        : null,
+    };
+
     // Lotes de producción activos
     const activeProductionBatches = await this.prisma.workBatch.count({
       where: { tenantId, deletedAt: null, status: "IN_PROGRESS" },
@@ -381,6 +461,7 @@ export class DashboardService {
       pendingOrders,
       scheduledDraftOrders,
       nextScheduledPurchase,
+      expiringLabels,
       todayRevenue: todayRevenue._sum.totalAmount || 0,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
       activeProductionBatches,

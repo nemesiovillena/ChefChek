@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import {
+  DEFAULT_EXPIRY_WARNING_DAYS,
   DEFAULT_THERMAL_PROFILES,
   EtiquetadoConfigService,
 } from "./etiquetado-config.service";
@@ -130,6 +131,58 @@ describe("EtiquetadoConfigService", () => {
       expect(mockPrisma.configuration.deleteMany).toHaveBeenCalledWith({
         where: { tenantId: "t1", key: "ETIQUETADO_DEFAULT_FORMAT" },
       });
+    });
+  });
+
+  describe("expiryWarningDays", () => {
+    it("returns the default when nothing is stored", async () => {
+      mockPrisma.configuration.findUnique.mockResolvedValue(null);
+      expect(await service.getExpiryWarningDays("t1")).toBe(
+        DEFAULT_EXPIRY_WARNING_DAYS,
+      );
+    });
+
+    it("returns the default when the stored value is out of range", async () => {
+      mockPrisma.configuration.findUnique.mockResolvedValue({ value: "99" });
+      expect(await service.getExpiryWarningDays("t1")).toBe(
+        DEFAULT_EXPIRY_WARNING_DAYS,
+      );
+    });
+
+    it("returns the stored value when valid", async () => {
+      mockPrisma.configuration.findUnique.mockResolvedValue({ value: "3" });
+      expect(await service.getExpiryWarningDays("t1")).toBe(3);
+    });
+
+    it("rejects non-integer or out-of-range values on save", async () => {
+      await expect(
+        service.setExpiryWarningDays("t1", 0, "u1"),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.setExpiryWarningDays("t1", 31, "u1"),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.setExpiryWarningDays("t1", 2.5, "u1"),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("persists a valid value", async () => {
+      mockPrisma.configuration.upsert.mockResolvedValue({});
+      expect(await service.setExpiryWarningDays("t1", 7, "u1")).toBe(7);
+      expect(mockPrisma.configuration.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            key: "ETIQUETADO_EXPIRY_WARNING_DAYS",
+            value: "7",
+          }),
+        }),
+      );
+    });
+
+    it("getConfig includes expiryWarningDays", async () => {
+      mockPrisma.configuration.findUnique.mockResolvedValue(null);
+      const config = await service.getConfig("t1");
+      expect(config.expiryWarningDays).toBe(DEFAULT_EXPIRY_WARNING_DAYS);
     });
   });
 

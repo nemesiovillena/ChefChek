@@ -441,22 +441,34 @@ async function getItemProfitability(itemId: string): Promise<number> {
 ### Obtener Métricas KPI
 
 ```http
-GET /api/v1/dashboard/kpi-metrics?period={period}&type={type}
+GET /api/v1/dashboard/kpis
 Authorization: Bearer {token}
 
 Response 200:
 {
-  "id": "uuid",
-  "type": "TOTAL_COST",
-  "value": 15000.50,
-  "previousValue": 14000.00,
-  "changePercentage": 7.18,
-  "date": "2026-05-31T10:30:00Z",
-  "tenantId": "uuid-tenant-id",
-  "createdAt": "2026-05-31T10:30:00Z",
-  "updatedAt": "2026-05-31T10:30:00Z"
+  "data": {
+    "expiringLabels": {
+      "count": 3,
+      "nearest": {
+        "id": "uuid-label",
+        "itemName": "Fondo de pescado",
+        "labelType": "ELABORATED",
+        "useByDate": "2026-09-16T00:00:00Z"
+      }
+    },
+    "averageCost": { "current": 15000.50, "target": 14250.00, "changePercent": 5.26, "status": "OK" },
+    "averageMargin": { "current": 68.5, "target": 75.35, "changePercent": -9.17, "status": "WARNING" }
+  },
+  "metadata": {
+    "timestamp": "2026-05-31T10:30:00Z",
+    "tenantId": "uuid-tenant-id"
+  }
 }
 ```
+
+Campo `expiringLabels` (solo si módulo `etiquetado` está habilitado):
+- `count`: número total de etiquetas con `useByDate` (o `frozenUseByDate`) ≤ `now + expiryWarningDays`
+- `nearest`: etiqueta más próxima a caducar (`null` si no hay ninguna dentro del umbral); ordena fresca vs. congelada por su respectiva fecha efectiva
 
 ### Obtener Salud Financiera
 

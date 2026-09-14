@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Tag, Plus, Trash2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
+import { useAuth } from '@/contexts/auth.context';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
   labelFormatOptions,
@@ -31,6 +32,7 @@ const toDraft = (p: ThermalProfile): DraftProfile => ({
  * son formatos estándar built-in y no se configuran aquí.
  */
 export function EtiquetadoConfigSection() {
+  const { user } = useAuth();
   const { isEnabled } = useModules();
   const addNotification = useNotification();
   const { data: config } = useEtiquetadoConfig();
@@ -38,11 +40,19 @@ export function EtiquetadoConfigSection() {
 
   const [drafts, setDrafts] = useState<DraftProfile[] | null>(null);
   const [defaultFormatDraft, setDefaultFormatDraft] = useState<string | null>(null);
+  const [expiryWarningDaysDraft, setExpiryWarningDaysDraft] = useState<string | null>(null);
   const rows = drafts ?? (config?.thermalProfiles ?? []).map(toDraft);
 
   const formatOptions = labelFormatOptions(config);
   const defaultFormat =
     defaultFormatDraft ?? config?.defaultFormat ?? formatOptions[0]?.value ?? '';
+  const expiryWarningDays =
+    expiryWarningDaysDraft ?? String(config?.expiryWarningDays ?? '');
+  // Backend: PUT /etiquetado/config exige @Roles("ADMIN") en todo el
+  // endpoint (también thermalProfiles/defaultFormat, ya así antes de este
+  // cambio) — este flag solo oculta el input nuevo en el cliente; no
+  // introduce ni corrige el gate del resto de la sección.
+  const isAdmin = user?.role === 'ADMIN';
 
   if (!isEnabled('etiquetado')) return null;
 
@@ -71,13 +81,25 @@ export function EtiquetadoConfigSection() {
       addNotification({ type: 'error', title: 'Medidas no válidas', message: 'Revisa el ancho y alto en mm.' });
       return;
     }
+    const parsedWarningDays = isAdmin && expiryWarningDaysDraft !== null
+      ? parseInt(expiryWarningDaysDraft, 10)
+      : undefined;
+    if (
+      parsedWarningDays !== undefined
+      && (!Number.isInteger(parsedWarningDays) || parsedWarningDays < 1 || parsedWarningDays > 30)
+    ) {
+      addNotification({ type: 'error', title: 'Umbral no válido', message: 'El umbral debe ser un número entero entre 1 y 30 días.' });
+      return;
+    }
     try {
       await updateConfig.mutateAsync({
         thermalProfiles: parsed,
         defaultFormat,
+        ...(parsedWarningDays !== undefined ? { expiryWarningDays: parsedWarningDays } : {}),
       });
       setDrafts(null);
       setDefaultFormatDraft(null);
+      setExpiryWarningDaysDraft(null);
       addNotification({ type: 'success', title: 'Guardado', message: 'Configuración de etiquetas actualizada.' });
     } catch (e: unknown) {
       addNotification({
@@ -121,6 +143,28 @@ export function EtiquetadoConfigSection() {
           eliges el número de copias.
         </span>
       </label>
+
+      {isAdmin && (
+        <label className="block text-sm mb-4">
+          <span className="block text-gray-600 dark:text-gray-400">
+            Aviso de caducidad (días de antelación)
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={30}
+            inputMode="numeric"
+            value={expiryWarningDays}
+            onChange={(e) => setExpiryWarningDaysDraft(e.target.value)}
+            className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+          />
+          <span className="mt-1 block text-xs text-gray-500">
+            Panel de Caducidades (APPCC) y la card del dashboard marcan una
+            etiqueta como &quot;próxima a caducar&quot; cuando falten menos de
+            estos días. Entre 1 y 30.
+          </span>
+        </label>
+      )}
 
       <div className="space-y-2">
         {rows.map((r, i) => (
@@ -179,7 +223,7 @@ export function EtiquetadoConfigSection() {
           onClick={save}
           disabled={
             updateConfig.isPending ||
-            (drafts === null && defaultFormatDraft === null)
+            (drafts === null && defaultFormatDraft === null && expiryWarningDaysDraft === null)
           }
           className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
         >

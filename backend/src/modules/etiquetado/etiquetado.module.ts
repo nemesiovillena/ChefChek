@@ -20,6 +20,6 @@ import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
     LotNumberService,
     EtiquetadoConfigService,
   ],
-  exports: [FoodLabelService],
+  exports: [FoodLabelService, EtiquetadoConfigService],
 })
 export class EtiquetadoModule {}

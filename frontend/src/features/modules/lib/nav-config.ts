@@ -77,6 +77,10 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
       { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: 'warning' },
       { label: 'Etiquetado', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: 'label' },
+      // Cuelga de /dashboard/appcc pero los datos son de FoodLabel (módulo
+      // etiquetado) — moduleId aquí debe ser 'etiquetado', no 'appcc'; ver
+      // entrada específica en ROUTE_MODULE_MAP más abajo.
+      { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: 'schedule' },
     ],
   },
   {
@@ -113,6 +117,9 @@ export const MOBILE_NAV: NavItem[] = [
  * Ordered so longer/more-specific prefixes are matched first.
  */
 export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
+  // Más específico que '/dashboard/appcc' — debe ir antes (los datos son de
+  // FoodLabel, módulo etiquetado, no del módulo appcc).
+  { prefix: '/dashboard/appcc/caducidades', moduleId: 'etiquetado' },
   { prefix: '/dashboard/asistente', moduleId: 'asistente-ia' },
   { prefix: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento' },
   { prefix: '/dashboard/technical-sheets', moduleId: 'technical-sheets' },

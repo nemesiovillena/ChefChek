@@ -19,9 +19,13 @@ import { deriveLotPrefix } from "../util/lot-prefix.util";
 import { CreateFoodLabelDto } from "../dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "../dto/update-food-label.dto";
 import { ListFoodLabelsDto } from "../dto/list-food-labels.dto";
+import { EtiquetadoConfigService } from "./etiquetado-config.service";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+const MS_PER_DAY = 86_400_000;
+
+export type ExpiryStatus = "ok" | "expiring_soon" | "expired";
 
 interface SessionUser {
   id: string;
@@ -48,9 +52,60 @@ export class FoodLabelService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly lotNumberService: LotNumberService,
+    private readonly etiquetadoConfig: EtiquetadoConfigService,
   ) {}
 
+  /**
+   * `daysUntilExpiry`/`expiryStatus` son campos derivados, calculados en cada
+   * lectura contra el umbral vigente del tenant (no se persisten) — así no
+   * quedan desincronizados si el umbral cambia en Settings.
+   */
+  private computeExpiryFields(
+    label: {
+      useByDate: Date;
+      frozenUseByDate: Date | null;
+      voidedAt: Date | null;
+    },
+    warningDays: number,
+  ): { daysUntilExpiry: number | null; expiryStatus: ExpiryStatus | null } {
+    if (label.voidedAt) {
+      return { daysUntilExpiry: null, expiryStatus: null };
+    }
+    const effectiveExpiry = label.frozenUseByDate ?? label.useByDate;
+    const daysUntilExpiry = Math.floor(
+      (effectiveExpiry.getTime() - Date.now()) / MS_PER_DAY,
+    );
+    const expiryStatus: ExpiryStatus =
+      daysUntilExpiry < 0
+        ? "expired"
+        : daysUntilExpiry <= warningDays
+          ? "expiring_soon"
+          : "ok";
+    return { daysUntilExpiry, expiryStatus };
+  }
+
+  private withExpiry<
+    T extends {
+      useByDate: Date;
+      frozenUseByDate: Date | null;
+      voidedAt: Date | null;
+    },
+  >(label: T, warningDays: number) {
+    return { ...label, ...this.computeExpiryFields(label, warningDays) };
+  }
+
   async create(tenantId: string, user: SessionUser, dto: CreateFoodLabelDto) {
+    const label = await this.createLabel(tenantId, user, dto);
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    return this.withExpiry(label, warningDays);
+  }
+
+  private async createLabel(
+    tenantId: string,
+    user: SessionUser,
+    dto: CreateFoodLabelDto,
+  ) {
     const preparedAt = dto.preparedAt ? new Date(dto.preparedAt) : new Date();
 
     const base =
@@ -266,21 +321,57 @@ export class FoodLabelService {
           }
         : {}),
       ...(query.includeVoided ? {} : { voidedAt: null }),
+      ...(query.expiringWithinDays !== undefined
+        ? {
+            OR: [
+              {
+                frozenUseByDate: {
+                  not: null,
+                  lte: new Date(
+                    Date.now() + query.expiringWithinDays * MS_PER_DAY,
+                  ),
+                },
+              },
+              {
+                frozenUseByDate: null,
+                useByDate: {
+                  lte: new Date(
+                    Date.now() + query.expiringWithinDays * MS_PER_DAY,
+                  ),
+                },
+              },
+            ],
+          }
+        : {}),
     };
+
+    // `useByDate` se usa tal cual para ordenar "próxima caducidad primero";
+    // no distingue congeladas (frozenUseByDate). Prisma no soporta ORDER BY
+    // COALESCE sin SQL crudo — aproximación aceptada conscientemente para el
+    // listado paginado (las congeladas son minoría y su vida útil suele ser
+    // mucho más larga). El filtro `expiringWithinDays` y el `nearest` del
+    // dashboard sí usan la fecha efectiva exacta (comparan ambos candidatos).
+    const orderBy: Prisma.FoodLabelOrderByWithRelationInput =
+      query.sortBy === "useByDate"
+        ? { useByDate: "asc" }
+        : { preparedAt: "desc" };
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.foodLabel.findMany({
         where,
         include: FOOD_LABEL_INCLUDE,
-        orderBy: { preparedAt: "desc" },
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.prisma.foodLabel.count({ where }),
     ]);
 
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+
     return {
-      data,
+      data: data.map((label) => this.withExpiry(label, warningDays)),
       total,
       page,
       pageSize,
@@ -296,7 +387,9 @@ export class FoodLabelService {
     if (!label) {
       throw new NotFoundException("Etiqueta no encontrada");
     }
-    return label;
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    return this.withExpiry(label, warningDays);
   }
 
   /** Sin tenant: el `qrToken` es la credencial. Usado por la ficha pública. */
@@ -335,6 +428,18 @@ export class FoodLabelService {
    * traza en `editLog`. Rechaza si está anulada, ya reimpresa o no es de hoy.
    */
   async update(
+    tenantId: string,
+    user: SessionUser,
+    id: string,
+    dto: UpdateFoodLabelDto,
+  ) {
+    const updated = await this.updateLabel(tenantId, user, id, dto);
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    return this.withExpiry(updated, warningDays);
+  }
+
+  private async updateLabel(
     tenantId: string,
     user: SessionUser,
     id: string,

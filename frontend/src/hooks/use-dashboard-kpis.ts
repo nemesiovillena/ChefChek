@@ -26,6 +26,20 @@ export interface NextScheduledPurchase {
   isPendingDraft: boolean;
 }
 
+// Etiquetas (FoodLabel) próximas a caducar o ya caducadas, dentro del umbral
+// configurado del tenant (Settings → Etiquetado). `nearest` es una
+// aproximación por `useByDate` (no distingue congeladas) — para el detalle
+// exacto por etiqueta, ver el panel `/dashboard/appcc/caducidades`.
+export interface ExpiringLabelsSummary {
+  count: number;
+  nearest: {
+    id: string;
+    itemName: string;
+    labelType: 'ELABORATED' | 'HANDLED';
+    useByDate: string;
+  } | null;
+}
+
 interface KPIs {
   totalProducts: number;
   totalRecipes: number;
@@ -35,6 +49,7 @@ interface KPIs {
   pendingOrders: number;
   scheduledDraftOrders: number;
   nextScheduledPurchase: NextScheduledPurchase | null;
+  expiringLabels: ExpiringLabelsSummary | null;
   todayRevenue: number;
   monthlyRevenue: number;
   activeProductionBatches: number;

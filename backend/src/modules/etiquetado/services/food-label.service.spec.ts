@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { FoodLabelService } from "./food-label.service";
 import { LotNumberService } from "./lot-number.service";
+import { EtiquetadoConfigService } from "./etiquetado-config.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 
 describe("FoodLabelService", () => {
@@ -30,16 +31,22 @@ describe("FoodLabelService", () => {
     maxRetries: 5,
   };
 
+  const mockEtiquetadoConfig = {
+    getExpiryWarningDays: jest.fn().mockResolvedValue(5),
+  };
+
   const TENANT = "t1";
   const USER = { id: "u1", name: "Ana López" };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(5);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FoodLabelService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: LotNumberService, useValue: mockLotNumber },
+        { provide: EtiquetadoConfigService, useValue: mockEtiquetadoConfig },
       ],
     }).compile();
     service = module.get(FoodLabelService);
@@ -425,7 +432,10 @@ describe("FoodLabelService", () => {
         notes: null as unknown as string,
       });
 
-      expect(result).toBe(label);
+      // No toBe(label): update() ahora envuelve el resultado con los campos
+      // derivados de caducidad (nueva referencia), aunque los datos base no
+      // cambien y no se llame a prisma.update.
+      expect(result).toMatchObject(label);
       expect(mockPrisma.foodLabel.update).not.toHaveBeenCalled();
     });
   });
@@ -444,6 +454,101 @@ describe("FoodLabelService", () => {
       await service.list(TENANT, { includeVoided: true });
       const where2 = mockPrisma.foodLabel.findMany.mock.calls[0][0].where;
       expect(where2.voidedAt).toBeUndefined();
+    });
+  });
+
+  describe("expiry fields (daysUntilExpiry / expiryStatus)", () => {
+    const DAY = 86_400_000;
+    const baseLabel = (overrides: Record<string, unknown> = {}) => ({
+      id: "fl1",
+      tenantId: TENANT,
+      useByDate: new Date(Date.now() + 10 * DAY),
+      frozenUseByDate: null,
+      voidedAt: null,
+      ...overrides,
+    });
+
+    it("marks 'ok' when far from the configured threshold", async () => {
+      mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({ useByDate: new Date(Date.now() + 10 * DAY) }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.expiryStatus).toBe("ok");
+      expect(result.daysUntilExpiry).toBeGreaterThan(2);
+    });
+
+    it("marks 'expiring_soon' (not 'expired') exactly at daysUntilExpiry === 0", async () => {
+      mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
+      // Mismo instante que "ahora": floor((0)/DAY) = 0, el límite exacto
+      // entre 'expired' (< 0) y 'expiring_soon' (<= warningDays).
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({ useByDate: new Date(Date.now()) }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.daysUntilExpiry).toBe(0);
+      expect(result.expiryStatus).toBe("expiring_soon");
+    });
+
+    it("marks 'expiring_soon' when within the configured threshold", async () => {
+      mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({ useByDate: new Date(Date.now() + 1 * DAY) }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.expiryStatus).toBe("expiring_soon");
+    });
+
+    it("marks 'expired' when the effective date is in the past", async () => {
+      mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({ useByDate: new Date(Date.now() - 1 * DAY) }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.expiryStatus).toBe("expired");
+      expect(result.daysUntilExpiry).toBeLessThan(0);
+    });
+
+    it("uses frozenUseByDate over useByDate when the label is frozen", async () => {
+      mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({
+          useByDate: new Date(Date.now() - 1 * DAY), // ya caducado en fresco
+          frozenUseByDate: new Date(Date.now() + 30 * DAY), // congelado, lejos
+        }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.expiryStatus).toBe("ok");
+    });
+
+    it("returns null expiry fields for a voided label", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({
+          voidedAt: new Date(),
+          useByDate: new Date(Date.now() - 1 * DAY),
+        }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
+      expect(result.daysUntilExpiry).toBeNull();
+      expect(result.expiryStatus).toBeNull();
+    });
+
+    it("list: expiringWithinDays filters by effective expiry (frozen or not)", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, { expiringWithinDays: 3 });
+      const where = mockPrisma.foodLabel.findMany.mock.calls[0][0].where;
+      expect(where.OR).toHaveLength(2);
+      expect(where.OR[0].frozenUseByDate.not).toBeNull();
+      expect(where.OR[1].frozenUseByDate).toBeNull();
+    });
+
+    it("list: sortBy=useByDate orders ascending instead of preparedAt desc", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, { sortBy: "useByDate" });
+      const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toEqual({ useByDate: "asc" });
     });
   });
 });

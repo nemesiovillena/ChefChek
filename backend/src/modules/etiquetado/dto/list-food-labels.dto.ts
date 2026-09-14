@@ -55,4 +55,15 @@ export class ListFoodLabelsDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  /** Filtra a etiquetas con `daysUntilExpiry <= N` (incluye ya caducadas). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  expiringWithinDays?: number;
+
+  @IsOptional()
+  @IsIn(["preparedAt", "useByDate"])
+  sortBy?: "preparedAt" | "useByDate";
 }
