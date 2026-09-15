@@ -23,6 +23,8 @@ export interface IngredientResponse {
   realPrice: number;
   /** Unidad de referencia del producto (kg, L, ud) — para etiquetar referencePurchasePrice/realPrice */
   referenceUnit: string;
+  /** Nota libre de la línea (ej. "para el mascarpone") — distingue líneas repetidas del mismo artículo */
+  note: string | null;
 }
 
 export interface SubRecipeResponse {
@@ -35,6 +37,8 @@ export interface SubRecipeResponse {
   costPerUnit: number;
   /** Costo de la cantidad usada, con la unidad ya convertida (g/kg/ml/L/ud/raciones) */
   cost: number;
+  /** Nota libre de la línea — distingue líneas repetidas de la misma sub-receta */
+  note: string | null;
 }
 
 export interface RecipeCategoryResponse {

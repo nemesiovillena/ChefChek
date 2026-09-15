@@ -34,6 +34,12 @@ class IngredientDto {
   @IsNumber()
   @Min(0)
   wastePercentageOverride?: number;
+
+  // Nota libre para distinguir dos líneas del mismo artículo con fin
+  // distinto (ej. "para el mascarpone" / "para el café").
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 class SubRecipeDto {
@@ -45,6 +51,10 @@ class SubRecipeDto {
 
   @IsString()
   unit: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class CreateRecipeDto {

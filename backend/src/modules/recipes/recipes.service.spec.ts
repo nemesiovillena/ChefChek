@@ -285,6 +285,44 @@ describe("RecipesService", () => {
         }),
       );
     });
+
+    // Nota libre por línea: permite distinguir "azúcar para el mascarpone"
+    // de "azúcar para el café" en la ficha, sin fusionar ni bloquear líneas.
+    it("persists the ingredient note and returns it in the response", async () => {
+      const recipeWithNote = {
+        ...mockRecipe,
+        ingredients: [
+          {
+            ...mockIngredient,
+            note: "para el mascarpone",
+          },
+        ],
+      };
+      mockPrismaService.recipe.create.mockResolvedValue(recipeWithNote);
+
+      const result = await service.create(tenantId, {
+        ...createRecipeDto,
+        ingredients: [
+          {
+            productId: "product-1",
+            quantity: 100,
+            unit: "Gramos",
+            note: "para el mascarpone",
+          },
+        ],
+      });
+
+      expect(mockPrismaService.recipe.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ingredients: {
+              create: [expect.objectContaining({ note: "para el mascarpone" })],
+            },
+          }),
+        }),
+      );
+      expect(result.ingredients?.[0].note).toBe("para el mascarpone");
+    });
   });
 
   describe("findAll", () => {

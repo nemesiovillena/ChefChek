@@ -27,7 +27,12 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
           <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
             {costData.ingredients.map((ingredient, index) => (
               <tr key={index}>
-                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">{ingredient.productName}</td>
+                <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                  {ingredient.productName}
+                  {ingredient.note && (
+                    <div className="text-xs font-normal text-gray-400 dark:text-gray-500">{ingredient.note}</div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.grossWeight} {formatUnitSymbol(ingredient.unit)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.yieldPercentage, 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.wastePercentage, 0)}</td>
