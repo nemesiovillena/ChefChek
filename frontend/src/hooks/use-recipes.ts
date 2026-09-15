@@ -56,6 +56,8 @@ export interface Recipe {
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number | null;
+  preparationTimeMinutes?: number | null;
+  cookingTimeMinutes?: number | null;
   shelfLifeDays?: number | null;
   shelfLifeFrozenDays?: number | null;
   storageCondition?: string | null;
@@ -102,6 +104,8 @@ export interface CreateRecipeData {
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number;
+  preparationTimeMinutes?: number | null;
+  cookingTimeMinutes?: number | null;
   shelfLifeDays?: number | null;
   shelfLifeFrozenDays?: number | null;
   storageCondition?: string | null;

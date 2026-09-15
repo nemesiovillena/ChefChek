@@ -76,6 +76,7 @@
 - `portions` (Float): Número de raciones (admite decimales)
 - `portionSize` (Float): Peso de ración (g) — derivado de `totalYieldWeight / portions`
 - `totalYieldWeight` (Float?): Peso total elaborado (g); ancla de rendimiento
+- `preparationTimeMinutes`, `cookingTimeMinutes` (Int?): Tiempos de la ficha técnica; sin valor no aparecen en el PDF (no se rellenan con un dato inventado)
 
 **Versionado**
 - `version` (Int): Versión actual

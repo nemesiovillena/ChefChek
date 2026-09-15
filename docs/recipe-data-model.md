@@ -25,6 +25,11 @@ model Recipe {
   portionSize       Float            @default(1)
   totalYieldWeight  Float?
 
+  // Tiempos de la ficha técnica (min). Opcionales — sin valor no se muestran
+  // en el PDF (nunca se rellenan con un dato inventado).
+  preparationTimeMinutes  Int?
+  cookingTimeMinutes      Int?
+
   // Versionado
   version           Int              @default(1)
   parentVersion     String?
