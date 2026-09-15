@@ -23,6 +23,9 @@ import ConservationFieldset, {
   EMPTY_CONSERVATION,
   type ConservationValue,
 } from '@/components/conservation-fieldset';
+import ResponsibleField, {
+  type ResponsibleValue,
+} from '@/components/responsible-field';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +95,7 @@ export default function NuevaEtiquetaPage() {
   const [freeze, setFreeze] = useState(false);
   const [conservation, setConservation] = useState<ConservationValue>(EMPTY_CONSERVATION);
   const [conservationTouched, setConservationTouched] = useState(false);
+  const [responsible, setResponsible] = useState<ResponsibleValue>({});
 
   // ELABORATED
   const [ingredientLots, setIngredientLots] = useState<Record<string, string>>({});
@@ -156,6 +160,15 @@ export default function NuevaEtiquetaPage() {
       return;
     }
 
+    if (!responsible.responsibleUserId && !responsible.responsibleName?.trim()) {
+      addNotification({
+        type: 'error',
+        title: 'Falta el responsable',
+        message: 'Indica quién ha realizado la elaboración o manipulación.',
+      });
+      return;
+    }
+
     // El consumo preferente: congelado → vida útil de congelado; si no, la normal.
     const shelfLifeFrozenDays = num(effectiveConservation.shelfLifeFrozenDays);
     if (freeze ? !shelfLifeFrozenDays : !shelfLifeDays) {
@@ -182,6 +195,8 @@ export default function NuevaEtiquetaPage() {
       portions: num(portions),
       notes: notes.trim() || undefined,
       freeze,
+      responsibleUserId: responsible.responsibleUserId,
+      responsibleName: responsible.responsibleName?.trim() || undefined,
     };
 
     if (labelType === 'ELABORATED') {
@@ -406,6 +421,14 @@ export default function NuevaEtiquetaPage() {
                   </span>
                 </label>
               )}
+            </div>
+
+            <div className="mt-3">
+              <ResponsibleField value={responsible} onChange={setResponsible} />
+              <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                Quién ha realizado la {labelType === 'ELABORATED' ? 'elaboración' : 'manipulación'};
+                queda impreso en la etiqueta.
+              </span>
             </div>
 
             <label className="mt-3 flex items-center gap-2 text-sm">

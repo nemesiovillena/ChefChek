@@ -155,6 +155,20 @@ export class CreateFoodLabelDto {
   @IsString()
   notes?: string;
 
+  /**
+   * Responsable real de la elaboración/manipulación (puede no ser quien tiene
+   * la sesión abierta: dispositivo compartido en cocina). Si se manda, prima
+   * sobre `responsibleName` y se resuelve al nombre actual de ese usuario.
+   */
+  @IsOptional()
+  @IsString()
+  responsibleUserId?: string;
+
+  /** Responsable en texto libre (opción "Otro" cuando no está en Usuarios). */
+  @IsOptional()
+  @IsString()
+  responsibleName?: string;
+
   /** Solo ELABORATED: lotes de los ingredientes directos. */
   @IsOptional()
   @IsArray()
