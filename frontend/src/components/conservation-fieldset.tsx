@@ -1,5 +1,7 @@
 'use client';
 
+import { useConservationDefaults } from '@/hooks/use-conservation-defaults';
+
 /**
  * Campos de conservación / vida útil compartidos por el modal de Receta y el de
  * Artículo. Alimentan los valores por defecto de la etiqueta (módulo
@@ -7,6 +9,10 @@
  *
  * Trabaja con strings (igual que el `formData` de ambos modales); el padre
  * convierte a número al construir el payload.
+ *
+ * Al elegir Refrigerado/Congelado se autorrellenan temperatura y vida útil con
+ * los defaults del tenant (configurables en Ajustes), para no tener que
+ * teclearlos salvo que se quieran modificar.
  */
 
 export const STORAGE_CONDITION_OPTIONS = [
@@ -49,8 +55,23 @@ export default function ConservationFieldset({
   labelClass = 'block text-sm font-medium text-[var(--on-surface)]',
   fieldClass = 'mt-1 block w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base text-[var(--on-surface)]',
 }: ConservationFieldsetProps) {
+  const { data: defaults } = useConservationDefaults();
   const set = (field: keyof ConservationValue) => (v: string) =>
     onChange({ [field]: v });
+
+  const handleConditionChange = (condition: string) => {
+    const patch: Partial<ConservationValue> = { storageCondition: condition };
+    if (condition === 'REFRIGERATED' && defaults) {
+      patch.storageTempMin = String(defaults.refrigerated.tempMin);
+      patch.storageTempMax = String(defaults.refrigerated.tempMax);
+      patch.shelfLifeDays = String(defaults.refrigerated.shelfLifeDays);
+    } else if (condition === 'FROZEN' && defaults) {
+      patch.storageTempMin = String(defaults.frozen.tempMin);
+      patch.storageTempMax = String(defaults.frozen.tempMax);
+      patch.shelfLifeFrozenDays = String(defaults.frozen.shelfLifeDays);
+    }
+    onChange(patch);
+  };
 
   return (
     <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
@@ -63,7 +84,7 @@ export default function ConservationFieldset({
           <label className={labelClass}>Condición de conservación</label>
           <select
             value={value.storageCondition}
-            onChange={(e) => set('storageCondition')(e.target.value)}
+            onChange={(e) => handleConditionChange(e.target.value)}
             className={fieldClass}
             style={{ colorScheme: 'light dark' }}
           >
@@ -124,8 +145,9 @@ export default function ConservationFieldset({
       </div>
 
       <p className="mt-2 text-xs text-[var(--on-surface-variant)]">
-        Se usan como valores por defecto al generar una etiqueta; puedes
-        ajustarlos en cada etiqueta.
+        Al elegir Refrigerado o Congelado se rellenan solos con los valores
+        por defecto de Ajustes → Conservación; puedes editarlos aquí sin
+        problema.
       </p>
     </div>
   );
