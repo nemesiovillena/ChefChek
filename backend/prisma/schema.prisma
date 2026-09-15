@@ -390,6 +390,11 @@ model Recipe {
   portionSize      Float  @default(1)
   totalYieldWeight Float? // peso total elaborado (g)
 
+  // Tiempos de la ficha técnica. Opcionales — sin valor no se muestran en el
+  // PDF (nunca se rellenan con un dato inventado, ver INFORMACIÓN GENERAL).
+  preparationTimeMinutes Int? // tiempo de preparación (min)
+  cookingTimeMinutes     Int? // tiempo de cocción/horneado (min)
+
   // Conservación / vida útil (etiquetado). Todos opcionales; se usan como
   // valores por defecto al emitir una etiqueta del plato elaborado y son
   // editables puntualmente en cada etiqueta.

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
+import PDFDocument from "pdfkit";
 import { TechnicalSheetsService } from "./technical-sheets.service";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
@@ -58,10 +59,11 @@ describe("TechnicalSheetsService", () => {
     name: "Test Recipe",
     code: "REC-001",
     description: "A delicious test recipe",
-    yield: 4,
-    portionWeight: 250,
-    preparationTime: 30,
-    cookingTime: 60,
+    portions: 4,
+    portionSize: 62.5,
+    totalYieldWeight: 250,
+    preparationTimeMinutes: 30,
+    cookingTimeMinutes: 60,
     elaboration: "Step 1: Prep ingredients\nStep 2: Cook\nStep 3: Serve",
     ingredients: [
       {
@@ -802,6 +804,68 @@ describe("TechnicalSheetsService", () => {
       );
 
       expect(result).toBeInstanceOf(Buffer);
+    });
+
+    it("renders the recipe's real portions/rendimiento/times in INFORMACIÓN GENERAL, not hardcoded defaults", async () => {
+      const recipeWithRealData = {
+        ...mockRecipe,
+        portions: 8,
+        portionSize: 125,
+        totalYieldWeight: 1000,
+        preparationTimeMinutes: 45,
+        cookingTimeMinutes: 90,
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(recipeWithRealData);
+      mockPrismaService.technicalSheetTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
+      mockPrismaService.document.create.mockResolvedValue(mockDocument);
+
+      const textSpy = jest.spyOn(PDFDocument.prototype, "text");
+
+      await service.generateTechnicalSheet(tenantId, userId, generateDto);
+
+      const renderedTexts = textSpy.mock.calls.map((call) => String(call[0]));
+      expect(renderedTexts).toContain("8");
+      expect(renderedTexts).toContain("1000g");
+      expect(renderedTexts).toContain("45 min");
+      expect(renderedTexts).toContain("90 min");
+      // Los literales hardcodeados del bug original nunca deben aparecer
+      // cuando la receta trae sus propios valores.
+      expect(renderedTexts).not.toContain("100g");
+      expect(renderedTexts).not.toContain("30 min");
+      expect(renderedTexts).not.toContain("60 min");
+
+      textSpy.mockRestore();
+    });
+
+    it("omits Tiempo preparación/cocción when the recipe has no real time recorded", async () => {
+      const recipeWithoutTimes = {
+        ...mockRecipe,
+        preparationTimeMinutes: null,
+        cookingTimeMinutes: null,
+      };
+
+      mockPrismaService.recipe.findFirst.mockResolvedValue(recipeWithoutTimes);
+      mockPrismaService.technicalSheetTemplate.findFirst.mockResolvedValue(
+        mockTemplate,
+      );
+      mockPrismaService.document.create.mockResolvedValue(mockDocument);
+
+      const textSpy = jest.spyOn(PDFDocument.prototype, "text");
+
+      await service.generateTechnicalSheet(tenantId, userId, generateDto);
+
+      const renderedTexts = textSpy.mock.calls.map((call) => String(call[0]));
+      expect(
+        renderedTexts.some((t) => t.startsWith("Tiempo preparación")),
+      ).toBe(false);
+      expect(renderedTexts.some((t) => t.startsWith("Tiempo cocción"))).toBe(
+        false,
+      );
+
+      textSpy.mockRestore();
     });
   });
 });

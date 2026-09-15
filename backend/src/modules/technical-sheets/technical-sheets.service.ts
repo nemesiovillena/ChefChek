@@ -427,12 +427,29 @@ export class TechnicalSheetsService {
     if (recipe.code) {
       info.push([`Código:`, recipe.code]);
     }
-    info.push(
-      [`Porciones:`, recipe.yield || 1],
-      [`Rendimiento:`, `${recipe.portionWeight || 100}g`],
-      [`Tiempo preparación:`, `${recipe.preparationTime || 30} min`],
-      [`Tiempo cocción:`, `${recipe.cookingTime || 60} min`],
-    );
+    info.push([`Porciones:`, recipe.portions ?? 1]);
+    // Rendimiento (peso total elaborado): normalmente ya viene calculado
+    // (totalYieldWeight = portions × portionSize), pero se recalcula como
+    // respaldo por si llega una receta con el ancla sin fijar.
+    const yieldWeight =
+      recipe.totalYieldWeight ??
+      (recipe.portions && recipe.portionSize
+        ? recipe.portions * recipe.portionSize
+        : null);
+    if (yieldWeight) {
+      info.push([`Rendimiento:`, `${yieldWeight}g`]);
+    }
+    // Tiempos: solo si la receta los tiene guardados; sin dato real no se
+    // inventa un valor por defecto.
+    if (recipe.preparationTimeMinutes) {
+      info.push([
+        `Tiempo preparación:`,
+        `${recipe.preparationTimeMinutes} min`,
+      ]);
+    }
+    if (recipe.cookingTimeMinutes) {
+      info.push([`Tiempo cocción:`, `${recipe.cookingTimeMinutes} min`]);
+    }
     // Notas: mismo campo que "description" en el formulario de la receta.
     // Va al final porque suele ser el valor más largo y puede envolver a
     // varias líneas; el resto de campos son de una sola línea.

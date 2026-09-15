@@ -70,6 +70,8 @@ const EMPTY_RECIPE_FORM = {
   portions: '1',
   portionSize: '250',
   totalYieldWeight: '250',
+  preparationTimeMinutes: '',
+  cookingTimeMinutes: '',
   shelfLifeDays: '',
   shelfLifeFrozenDays: '',
   storageCondition: '',
@@ -546,6 +548,8 @@ export default function RecipesPage() {
       portions: raciones,
       portionSize: pesoRacion,
       totalYieldWeight: pesoTotal,
+      preparationTimeMinutes: numOrUndef(formData.preparationTimeMinutes),
+      cookingTimeMinutes: numOrUndef(formData.cookingTimeMinutes),
       ingredients: ingredients
         .filter((ing) => ing.productId && ing.quantity > 0)
         .map((ing) => ({
@@ -617,6 +621,8 @@ export default function RecipesPage() {
         recipe.totalYieldWeight ??
         (recipe.portions || 1) * (recipe.portionSize ?? 0)
       ).toString(),
+      preparationTimeMinutes: recipe.preparationTimeMinutes?.toString() ?? '',
+      cookingTimeMinutes: recipe.cookingTimeMinutes?.toString() ?? '',
       shelfLifeDays: recipe.shelfLifeDays?.toString() ?? '',
       shelfLifeFrozenDays: recipe.shelfLifeFrozenDays?.toString() ?? '',
       storageCondition: recipe.storageCondition ?? '',
@@ -1199,6 +1205,33 @@ export default function RecipesPage() {
                         las raciones se redondean al entero más cercano y el peso total
                         se ajusta.
                       </p>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className={m3Label}>Tiempo preparación (min)</label>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            name="preparationTimeMinutes"
+                            value={formData.preparationTimeMinutes}
+                            onChange={(e) => setFormData({ ...formData, preparationTimeMinutes: e.target.value })}
+                            className={m3Field}
+                          />
+                        </div>
+                        <div>
+                          <label className={m3Label}>Tiempo cocción (min)</label>
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            name="cookingTimeMinutes"
+                            value={formData.cookingTimeMinutes}
+                            onChange={(e) => setFormData({ ...formData, cookingTimeMinutes: e.target.value })}
+                            className={m3Field}
+                          />
+                        </div>
+                      </div>
 
                       <ConservationFieldset
                         value={{
