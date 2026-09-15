@@ -217,6 +217,7 @@ export class RecipesService {
             quantity: ing.quantity,
             unit: ing.unit,
             wastePercentageOverride: ing.wastePercentageOverride,
+            note: ing.note,
           })),
         },
         subRecipes:
@@ -226,6 +227,7 @@ export class RecipesService {
                   subRecipeId: sub.subRecipeId,
                   quantity: sub.quantity,
                   unit: sub.unit,
+                  note: sub.note,
                 })),
               }
             : undefined,
@@ -540,6 +542,7 @@ export class RecipesService {
           quantity: ing.quantity,
           unit: ing.unit,
           wastePercentageOverride: ing.wastePercentageOverride,
+          note: ing.note,
         })),
       });
     }
@@ -554,6 +557,7 @@ export class RecipesService {
           subRecipeId: sub.subRecipeId,
           quantity: sub.quantity,
           unit: sub.unit,
+          note: sub.note,
         })),
       });
     }
@@ -620,11 +624,13 @@ export class RecipesService {
         quantity: ing.quantity,
         unit: ing.unit,
         wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
+        note: ing.note ?? undefined,
       })),
       subRecipes: originalRecipe.subRecipes?.map((sub) => ({
         subRecipeId: sub.subRecipeId,
         quantity: sub.quantity,
         unit: sub.unit,
+        note: sub.note ?? undefined,
       })),
       categoryIds: originalRecipe.categories?.map((cat) => cat.categoryId),
       isPublic: false,
@@ -923,6 +929,7 @@ export class RecipesService {
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
           referenceUnit: product?.referenceUnit || "kilo",
+          note: ing.note ?? null,
         };
       }) || [];
 
@@ -940,6 +947,7 @@ export class RecipesService {
           sub.unit,
           sub.subRecipe,
         ),
+        note: sub.note ?? null,
       })) || [];
 
     const categories =

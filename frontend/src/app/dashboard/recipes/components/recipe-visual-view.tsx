@@ -117,7 +117,12 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                       key={`${ing.productId}-${i}`}
                       className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                     >
-                      <span className="text-[var(--on-surface)]">{ing.productName || 'Sin nombre'}</span>
+                      <span className="text-[var(--on-surface)]">
+                        {ing.productName || 'Sin nombre'}
+                        {ing.note && (
+                          <span className="block text-xs text-[var(--on-surface-variant)]">{ing.note}</span>
+                        )}
+                      </span>
                       <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
                         {ing.quantity} {formatUnitSymbol(ing.unit)}
                       </span>
@@ -137,7 +142,12 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                         key={sub.id}
                         className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                       >
-                        <span className="text-[var(--on-surface)]">{sub.subRecipeName}</span>
+                        <span className="text-[var(--on-surface)]">
+                          {sub.subRecipeName}
+                          {sub.note && (
+                            <span className="block text-xs text-[var(--on-surface-variant)]">{sub.note}</span>
+                          )}
+                        </span>
                         <span className="flex-shrink-0 font-medium text-[var(--on-surface-variant)]">
                           {sub.quantity} {formatUnitSymbol(sub.unit)}
                         </span>

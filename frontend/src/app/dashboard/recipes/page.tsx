@@ -18,7 +18,7 @@ import {
 } from '@/hooks/use-recipes';
 import { processImageForUpload } from '@/lib/image-processing';
 
-type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string };
+type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string; note?: string };
 import ElaborationStepEditor, {
   ElaborationStep,
   parseSteps,
@@ -554,8 +554,11 @@ export default function RecipesPage() {
           quantity: ing.quantity,
           unit: ing.unit,
           wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
+          note: ing.note?.trim() || undefined,
         })),
-      subRecipes: subRecipes.filter((s) => s.subRecipeId && s.quantity > 0),
+      subRecipes: subRecipes
+        .filter((s) => s.subRecipeId && s.quantity > 0)
+        .map((s) => ({ ...s, note: s.note?.trim() || undefined })),
       categoryIds: selectedCategoryIds,
       allergens: selectedAllergenIds,
       shelfLifeDays: numOrUndef(formData.shelfLifeDays),
@@ -635,6 +638,7 @@ export default function RecipesPage() {
         subRecipeId: s.subRecipeId,
         quantity: s.quantity,
         unit: s.unit,
+        note: s.note ?? undefined,
       })) || [],
     );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
@@ -1254,11 +1258,20 @@ export default function RecipesPage() {
                                     index % 2 === 1 ? 'bg-[var(--surface-container)]/50' : ''
                                   }`}
                                 >
-                                  <ProductCombobox
-                                    value={ingredient.productId}
-                                    label={ingredient.productName}
-                                    onSelect={(product) => handleProductSelect(index, product)}
-                                  />
+                                  <div className="min-w-0">
+                                    <ProductCombobox
+                                      value={ingredient.productId}
+                                      label={ingredient.productName}
+                                      onSelect={(product) => handleProductSelect(index, product)}
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Nota opcional (ej. para el mascarpone)"
+                                      value={ingredient.note ?? ''}
+                                      onChange={(e) => handleIngredientChange(index, 'note', e.target.value)}
+                                      className="mt-1 w-full rounded-md border-0 bg-transparent px-0 text-xs text-[var(--on-surface-variant)] placeholder:text-[var(--outline)] focus:outline-none focus:ring-0"
+                                    />
+                                  </div>
                                   <input
                                     type="number"
                                     step="0.001"
@@ -1349,12 +1362,21 @@ export default function RecipesPage() {
                           <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
                             {subRecipes.map((sub, index) => (
                               <div key={index} className="flex gap-2 items-center">
-                                <SubRecipeCombobox
-                                  items={allActiveRecipeOptions.filter((r) => r.id !== selectedRecipe?.id)}
-                                  value={sub.subRecipeId}
-                                  label={allActiveRecipeOptions.find((r) => r.id === sub.subRecipeId)?.name}
-                                  onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
-                                />
+                                <div className="min-w-0 flex-1">
+                                  <SubRecipeCombobox
+                                    items={allActiveRecipeOptions.filter((r) => r.id !== selectedRecipe?.id)}
+                                    value={sub.subRecipeId}
+                                    label={allActiveRecipeOptions.find((r) => r.id === sub.subRecipeId)?.name}
+                                    onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Nota opcional"
+                                    value={sub.note ?? ''}
+                                    onChange={(e) => handleSubRecipeChange(index, 'note', e.target.value)}
+                                    className="mt-1 w-full rounded-md border-0 bg-transparent px-0 text-xs text-[var(--on-surface-variant)] placeholder:text-[var(--outline)] focus:outline-none focus:ring-0"
+                                  />
+                                </div>
                                 <input
                                   type="number"
                                   step="0.001"

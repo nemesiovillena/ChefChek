@@ -15,6 +15,8 @@ export interface RecipeIngredient {
   wastePercentage?: number;
   /** true si la merma viene del artículo (Product.wastePercentage > 0) — solo lectura */
   hasArticleWaste?: boolean;
+  /** Nota libre (ej. "para el mascarpone") para distinguir líneas repetidas del mismo artículo */
+  note?: string | null;
 }
 
 export interface RecipeSubRecipeItem {
@@ -27,6 +29,8 @@ export interface RecipeSubRecipeItem {
   costPerUnit: number;
   /** Costo de la cantidad usada, con la unidad ya convertida por el backend */
   cost: number;
+  /** Nota libre — distingue líneas repetidas de la misma sub-receta */
+  note?: string | null;
 }
 
 export interface RecipePricing {
@@ -104,7 +108,7 @@ export interface CreateRecipeData {
   storageTempMin?: number | null;
   storageTempMax?: number | null;
   ingredients: RecipeIngredient[];
-  subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string }>;
+  subRecipes?: Array<{ subRecipeId: string; quantity: number; unit: string; note?: string }>;
   categoryIds?: string[];
   allergens?: number[];
   sellingPriceWithVat?: number;
@@ -128,6 +132,7 @@ export interface RecipeCostIngredient {
   referencePurchasePrice: number;
   realPrice: number;
   referenceUnit: string;
+  note?: string | null;
 }
 
 export interface RecipeCost {

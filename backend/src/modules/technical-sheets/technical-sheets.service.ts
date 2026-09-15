@@ -479,8 +479,11 @@ export class TechnicalSheetsService {
         calculateProductCostPerUnit(ingredient.product, ingredient.unit);
       totalCost += cost;
 
+      const label = ingredient.note
+        ? `${ingredient.product.name} (${ingredient.note})`
+        : ingredient.product.name;
       doc.text(
-        `${index + 1}. ${ingredient.product.name} - ${ingredient.quantity} ${formatUnitSymbol(ingredient.unit || "g")}`,
+        `${index + 1}. ${label} - ${ingredient.quantity} ${formatUnitSymbol(ingredient.unit || "g")}`,
         { continued: options.includeCosts },
       );
 
