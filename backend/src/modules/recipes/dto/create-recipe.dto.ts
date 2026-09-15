@@ -92,6 +92,17 @@ export class CreateRecipeDto {
   @Min(0)
   totalYieldWeight?: number;
 
+  // Tiempos de la ficha técnica (min). Opcionales — sin valor no aparecen en el PDF.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  preparationTimeMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  cookingTimeMinutes?: number;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
