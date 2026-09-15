@@ -118,7 +118,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                       className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                     >
                       <span className="text-[var(--on-surface)]">
-                        {ing.productName || 'Sin nombre'}
+                        <span className="lowercase">{ing.productName || 'Sin nombre'}</span>
                         {ing.note && (
                           <span className="block text-xs text-[var(--on-surface-variant)]">{ing.note}</span>
                         )}
@@ -143,7 +143,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                         className="flex items-baseline justify-between gap-3 border-b border-[var(--outline-variant)] pb-2 text-sm last:border-0 md:text-base"
                       >
                         <span className="text-[var(--on-surface)]">
-                          {sub.subRecipeName}
+                          <span className="lowercase">{sub.subRecipeName}</span>
                           {sub.note && (
                             <span className="block text-xs text-[var(--on-surface-variant)]">{sub.note}</span>
                           )}

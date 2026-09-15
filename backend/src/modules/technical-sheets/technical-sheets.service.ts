@@ -479,9 +479,13 @@ export class TechnicalSheetsService {
         calculateProductCostPerUnit(ingredient.product, ingredient.unit);
       totalCost += cost;
 
+      // Minúscula uniforme: el catálogo de artículos mezcla mayúsculas y
+      // minúsculas según cómo se dieron de alta; en la ficha debe verse
+      // homogéneo. Solo visual — el nombre real del artículo no se toca.
+      const productName = ingredient.product.name.toLowerCase();
       const label = ingredient.note
-        ? `${ingredient.product.name} (${ingredient.note})`
-        : ingredient.product.name;
+        ? `${productName} (${ingredient.note})`
+        : productName;
       doc.text(
         `${index + 1}. ${label} - ${ingredient.quantity} ${formatUnitSymbol(ingredient.unit || "g")}`,
         { continued: options.includeCosts },
