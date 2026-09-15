@@ -28,7 +28,7 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
             {costData.ingredients.map((ingredient, index) => (
               <tr key={index}>
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                  {ingredient.productName}
+                  <span className="lowercase">{ingredient.productName}</span>
                   {ingredient.note && (
                     <div className="text-xs font-normal text-gray-400 dark:text-gray-500">{ingredient.note}</div>
                   )}
