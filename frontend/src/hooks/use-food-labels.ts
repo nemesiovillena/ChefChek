@@ -4,6 +4,7 @@ import { useApiQuery } from './use-api';
 
 export type LabelType = 'ELABORATED' | 'HANDLED';
 export type StorageCondition = 'REFRIGERATED' | 'FROZEN' | 'AMBIENT';
+export type ExpiryStatus = 'ok' | 'expiring_soon' | 'expired';
 
 export interface FoodLabelIngredientLot {
   id: string;
@@ -48,6 +49,10 @@ export interface FoodLabel {
   editedByName: string | null;
   editCount: number;
   createdAt: string;
+  /** Negativo si ya caducó. `null` en etiquetas anuladas. */
+  daysUntilExpiry: number | null;
+  /** `null` en etiquetas anuladas. */
+  expiryStatus: ExpiryStatus | null;
   ingredientLots: FoodLabelIngredientLot[];
   recipe: { id: string; name: string } | null;
   product: { id: string; name: string } | null;
@@ -78,6 +83,9 @@ export interface FoodLabelListQuery {
   includeVoided?: boolean;
   page?: number;
   pageSize?: number;
+  /** Filtra a `daysUntilExpiry <= N` (incluye ya caducadas). */
+  expiringWithinDays?: number;
+  sortBy?: 'preparedAt' | 'useByDate';
 }
 
 export interface ConservationConfig {
@@ -285,6 +293,8 @@ export interface EtiquetadoConfig {
   a4Presets: Array<{ id: string; name: string }>;
   /** 'thermal:<perfilId>' o preset A4. Null = sin preferencia guardada. */
   defaultFormat: string | null;
+  /** Días de antelación para marcar una etiqueta como "próxima a caducar". */
+  expiryWarningDays: number;
 }
 
 export function useEtiquetadoConfig() {
@@ -300,6 +310,7 @@ export function useUpdateEtiquetadoConfig() {
     mutationFn: async (payload: {
       thermalProfiles?: ThermalProfile[];
       defaultFormat?: string;
+      expiryWarningDays?: number;
     }) => {
       const res = await apiClient.put<EtiquetadoConfig>(
         '/v1/etiquetado/config',

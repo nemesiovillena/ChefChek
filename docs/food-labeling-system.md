@@ -96,13 +96,19 @@ Autenticado (`AuthGuard, TenantGuard, ModuleGuard, SectionAccessGuard` +
 | Método | Ruta | Sección |
 |---|---|---|
 | `POST` | `/labels` | `etiquetado.emit` |
-| `GET` | `/labels` | `etiquetado` — paginado, filtros `labelType`, `lotNumber`, rango `preparedAt`, `includeVoided` |
+| `GET` | `/labels` | `etiquetado` — paginado, filtros `labelType`, `lotNumber`, `expiringWithinDays`, rango `preparedAt`, `includeVoided`, `sortBy: 'preparedAt'\|'useByDate'` |
 | `GET` | `/labels/:id` | `etiquetado` |
 | `GET` | `/labels/:id/pdf?format=&copies=&reprint=1` | `etiquetado.emit` |
 | `POST` | `/labels/:id/void` | `etiquetado.emit` + rol ≥ USER |
 | `GET` | `/prep-context?recipeId=` \| `?productId=` | `etiquetado.emit` |
 | `GET` | `/config` | `etiquetado` |
 | `PUT` | `/config` | rol `ADMIN` |
+
+Campos derivados en cada `FoodLabel` (GET `/labels`, GET `/labels/:id`, POST/PUT `/labels`):
+- `daysUntilExpiry: number` — días restantes hasta caducidad (negativo si ya caducó)
+- `expiryStatus: 'ok' | 'expiring_soon' | 'expired'` — estado basado en `expiryWarningDays` del tenant
+
+Config (`/config`): ahora incluye `expiryWarningDays` (1–30 días, default 5), umbral configurable por admin para alertas de caducidad.
 
 `POST /labels` y `POST /labels/:id/void` exigen además rol ≥ USER
 (`@Roles("ADMIN","USER")`) — VIEWER es solo lectura.
@@ -136,11 +142,13 @@ El QR codifica `${APP_URL}/e/${qrToken}`.
 
 ## Frontend
 
-- `/dashboard/etiquetado` — listado + histórico.
+- `/dashboard/etiquetado` — listado + histórico de emisión.
 - `/dashboard/etiquetado/nueva` — alta (wizard 2 pasos). Acepta `?recipeId=` /
   `?productId=` para preseleccionar desde la ficha de Receta / Artículo.
 - `/dashboard/etiquetado/[id]` — detalle interno (nombre completo del
   responsable, reimprimir, anular).
+- `/dashboard/appcc/caducidades` — panel de gestión de caducidades (listado de
+  etiquetas ELABORATED + HANDLED con alerta visual por proximidad a vencimiento).
 - `/e/[qrToken]` — **ficha pública** (Server Component, fuera de `/dashboard`,
   sin login). Es lo que abre el QR.
 - Botón "Etiquetar" en la fila de Recetas y en el pie del modal de Artículo,

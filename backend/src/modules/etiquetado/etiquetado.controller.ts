@@ -55,7 +55,11 @@ export class EtiquetadoController {
   @Put("config")
   @Roles("ADMIN")
   async updateConfig(@Req() req: any, @Body() dto: UpdateEtiquetadoConfigDto) {
-    if (dto.thermalProfiles === undefined && dto.defaultFormat === undefined) {
+    if (
+      dto.thermalProfiles === undefined &&
+      dto.defaultFormat === undefined &&
+      dto.expiryWarningDays === undefined
+    ) {
       throw new BadRequestException("Nada que actualizar");
     }
     if (dto.thermalProfiles !== undefined) {
@@ -77,6 +81,13 @@ export class EtiquetadoController {
         req.tenantId,
         req.user.id,
         dto.defaultFormat,
+      );
+    }
+    if (dto.expiryWarningDays !== undefined) {
+      await this.config.setExpiryWarningDays(
+        req.tenantId,
+        dto.expiryWarningDays,
+        req.user.id,
       );
     }
     return this.config.getConfig(req.tenantId);

@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -44,4 +45,11 @@ export class UpdateEtiquetadoConfigDto {
   @IsOptional()
   @IsString()
   defaultFormat?: string;
+
+  /** Días de antelación para marcar una etiqueta como "próxima a caducar". */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  expiryWarningDays?: number;
 }

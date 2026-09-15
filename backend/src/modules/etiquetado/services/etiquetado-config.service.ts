@@ -10,6 +10,12 @@ import {
 
 const THERMAL_PROFILES_KEY = "ETIQUETADO_THERMAL_PROFILES";
 const DEFAULT_FORMAT_KEY = "ETIQUETADO_DEFAULT_FORMAT";
+const EXPIRY_WARNING_DAYS_KEY = "ETIQUETADO_EXPIRY_WARNING_DAYS";
+
+/** Umbral de aviso de caducidad por defecto (días) para un tenant nuevo. */
+export const DEFAULT_EXPIRY_WARNING_DAYS = 5;
+const EXPIRY_WARNING_DAYS_MIN = 1;
+const EXPIRY_WARNING_DAYS_MAX = 30;
 
 export interface ThermalProfile {
   id: string;
@@ -71,6 +77,48 @@ export class EtiquetadoConfigService {
     return value || null;
   }
 
+  /** Umbral (días) para marcar una etiqueta como "próxima a caducar". */
+  async getExpiryWarningDays(tenantId: string): Promise<number> {
+    const row = await this.prisma.configuration.findUnique({
+      where: { tenantId_key: { tenantId, key: EXPIRY_WARNING_DAYS_KEY } },
+    });
+    const parsed = row ? Number(row.value) : NaN;
+    return Number.isFinite(parsed) &&
+      parsed >= EXPIRY_WARNING_DAYS_MIN &&
+      parsed <= EXPIRY_WARNING_DAYS_MAX
+      ? parsed
+      : DEFAULT_EXPIRY_WARNING_DAYS;
+  }
+
+  async setExpiryWarningDays(
+    tenantId: string,
+    days: number,
+    userId: string,
+  ): Promise<number> {
+    if (
+      !Number.isInteger(days) ||
+      days < EXPIRY_WARNING_DAYS_MIN ||
+      days > EXPIRY_WARNING_DAYS_MAX
+    ) {
+      throw new BadRequestException(
+        `El umbral debe ser un entero entre ${EXPIRY_WARNING_DAYS_MIN} y ${EXPIRY_WARNING_DAYS_MAX} días`,
+      );
+    }
+    await this.prisma.configuration.upsert({
+      where: { tenantId_key: { tenantId, key: EXPIRY_WARNING_DAYS_KEY } },
+      create: {
+        tenantId,
+        key: EXPIRY_WARNING_DAYS_KEY,
+        value: String(days),
+        category: "ETIQUETADO",
+        description: "Días de antelación para avisar de caducidad próxima",
+        updatedBy: userId,
+      },
+      update: { value: String(days), updatedBy: userId },
+    });
+    return days;
+  }
+
   /** Config completa para la UI: perfiles térmicos + presets A4 built-in. */
   async getConfig(tenantId: string) {
     return {
@@ -80,6 +128,7 @@ export class EtiquetadoConfigService {
         name: A4_BUILTIN_PRESETS[id].name,
       })),
       defaultFormat: await this.getDefaultFormat(tenantId),
+      expiryWarningDays: await this.getExpiryWarningDays(tenantId),
     };
   }
 

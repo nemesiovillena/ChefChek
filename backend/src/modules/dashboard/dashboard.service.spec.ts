@@ -2,11 +2,13 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardService } from "./dashboard.service";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { EtiquetadoConfigService } from "../etiquetado/services/etiquetado-config.service";
 
 describe("DashboardService", () => {
   let service: DashboardService;
   let prismaService: any;
   let mockRoleAccess: { isSectionAllowed: jest.Mock };
+  let mockEtiquetadoConfig: { getExpiryWarningDays: jest.Mock };
 
   const mockPrismaService = {
     dashboardAlert: {
@@ -77,6 +79,10 @@ describe("DashboardService", () => {
     staffMember: {
       findMany: jest.fn(),
     },
+    foodLabel: {
+      count: jest.fn().mockResolvedValue(0),
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   };
 
   beforeEach(async () => {
@@ -91,6 +97,12 @@ describe("DashboardService", () => {
           provide: RoleAccessService,
           useValue: (mockRoleAccess = {
             isSectionAllowed: jest.fn().mockResolvedValue(true),
+          }),
+        },
+        {
+          provide: EtiquetadoConfigService,
+          useValue: (mockEtiquetadoConfig = {
+            getExpiryWarningDays: jest.fn().mockResolvedValue(5),
           }),
         },
       ],
@@ -381,6 +393,144 @@ describe("DashboardService", () => {
       // los contadores no monetarios siguen ahí
       expect(result.data).toHaveProperty("upcomingProductionTasks");
       expect(result.data).toHaveProperty("lowStockItems");
+    });
+
+    describe("expiringLabels", () => {
+      it("returns count 0 and nearest null when nothing is expiring", async () => {
+        mockEmptyKpiSources();
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.expiringLabels).toEqual({
+          count: 0,
+          nearest: null,
+        });
+      });
+
+      it("reports the nearest expiring label and respects the tenant threshold", async () => {
+        mockEmptyKpiSources();
+        mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(3);
+        prismaService.foodLabel.count.mockResolvedValue(2);
+        prismaService.foodLabel.findFirst.mockResolvedValue({
+          id: "fl1",
+          itemName: "Fondo de pescado",
+          labelType: "ELABORATED",
+          useByDate: new Date("2026-09-16T10:00:00.000Z"),
+          frozenUseByDate: null,
+        });
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(mockEtiquetadoConfig.getExpiryWarningDays).toHaveBeenCalledWith(
+          "tenant-1",
+        );
+        expect(result.data.expiringLabels).toEqual({
+          count: 2,
+          nearest: {
+            id: "fl1",
+            itemName: "Fondo de pescado",
+            labelType: "ELABORATED",
+            useByDate: "2026-09-16T10:00:00.000Z",
+          },
+        });
+      });
+
+      // findFirst se llama dos veces en paralelo (candidata fresca por
+      // useByDate, candidata congelada por frozenUseByDate) — se distingue
+      // por la forma del `where.frozenUseByDate` recibido, no por orden.
+      const mockFreshAndFrozenCandidates = (fresh: any, frozen: any) => {
+        prismaService.foodLabel.findFirst.mockImplementation(
+          ({ where }: any) =>
+            where.frozenUseByDate === null
+              ? Promise.resolve(fresh)
+              : Promise.resolve(frozen),
+        );
+      };
+
+      it("picks the frozen candidate when its frozenUseByDate is nearer than the fresh candidate's useByDate", async () => {
+        mockEmptyKpiSources();
+        prismaService.foodLabel.count.mockResolvedValue(2);
+        mockFreshAndFrozenCandidates(
+          {
+            id: "fl-fresh",
+            itemName: "Fondo de pescado",
+            labelType: "ELABORATED",
+            useByDate: new Date("2026-09-20T00:00:00.000Z"),
+            frozenUseByDate: null,
+          },
+          {
+            id: "fl2",
+            itemName: "Solomillo reenvasado",
+            labelType: "HANDLED",
+            useByDate: new Date("2026-09-10T00:00:00.000Z"),
+            frozenUseByDate: new Date("2026-09-12T00:00:00.000Z"),
+          },
+        );
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.expiringLabels?.nearest?.id).toBe("fl2");
+        expect(result.data.expiringLabels?.nearest?.useByDate).toBe(
+          "2026-09-12T00:00:00.000Z",
+        );
+      });
+
+      it("picks the fresh candidate when its useByDate is nearer than the frozen candidate's frozenUseByDate", async () => {
+        mockEmptyKpiSources();
+        prismaService.foodLabel.count.mockResolvedValue(2);
+        mockFreshAndFrozenCandidates(
+          {
+            id: "fl-fresh",
+            itemName: "Fondo de pescado",
+            labelType: "ELABORATED",
+            useByDate: new Date("2026-09-10T00:00:00.000Z"),
+            frozenUseByDate: null,
+          },
+          {
+            id: "fl2",
+            itemName: "Solomillo reenvasado",
+            labelType: "HANDLED",
+            useByDate: new Date("2026-09-05T00:00:00.000Z"),
+            frozenUseByDate: new Date("2026-09-20T00:00:00.000Z"),
+          },
+        );
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.expiringLabels?.nearest?.id).toBe("fl-fresh");
+        expect(result.data.expiringLabels?.nearest?.useByDate).toBe(
+          "2026-09-10T00:00:00.000Z",
+        );
+      });
+
+      it("returns the only existing candidate when one side has none", async () => {
+        mockEmptyKpiSources();
+        prismaService.foodLabel.count.mockResolvedValue(1);
+        mockFreshAndFrozenCandidates(null, {
+          id: "fl2",
+          itemName: "Solomillo reenvasado",
+          labelType: "HANDLED",
+          useByDate: new Date("2026-09-10T00:00:00.000Z"),
+          frozenUseByDate: new Date("2026-10-20T00:00:00.000Z"),
+        });
+
+        const result = await service.calculateKPIs("tenant-1");
+
+        expect(result.data.expiringLabels?.nearest?.id).toBe("fl2");
+        expect(result.data.expiringLabels?.nearest?.useByDate).toBe(
+          "2026-10-20T00:00:00.000Z",
+        );
+      });
+
+      it("excludes voided labels from the query (voidedAt: null in the where clause)", async () => {
+        mockEmptyKpiSources();
+
+        await service.calculateKPIs("tenant-1");
+
+        const where = prismaService.foodLabel.count.mock.calls[0][0].where;
+        expect(where.voidedAt).toBeNull();
+        expect(where.tenantId).toBe("tenant-1");
+      });
     });
   });
 

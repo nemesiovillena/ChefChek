@@ -84,9 +84,6 @@ export default function DashboardPage() {
   const { joinDashboard } = useWebSocketRooms();
   const [showAllNotifications, setShowAllNotifications] = useState(false);
 
-  // Simulación activa de telemetría de temperatura de la cámara fría
-  const [temp, setTemp] = useState(3.2);
-
   // Redirección si no está autenticado
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -100,20 +97,6 @@ export default function DashboardPage() {
       joinDashboard();
     }
   }, [isLoading, isAuthenticated, joinDashboard]);
-
-  // Efecto para variar sutilmente la temperatura simulando telemetría real
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      const interval = setInterval(() => {
-        setTemp(t => {
-          const diff = (Math.random() - 0.5) * 0.2;
-          const next = parseFloat((t + diff).toFixed(1));
-          return next >= 2.8 && next <= 3.6 ? next : t;
-        });
-      }, 6000);
-      return () => clearInterval(interval);
-    }
-  }, [isLoading, isAuthenticated]);
 
   const handleCompleteTask = async (e: React.MouseEvent, task: NonNullable<typeof kpis>['upcomingProductionTasks'][number]) => {
     e.stopPropagation();
@@ -450,6 +433,44 @@ export default function DashboardPage() {
     </div>
   );
 
+  // Teaser de alertas de caducidad (FoodLabel próximas a caducar/caducadas,
+  // umbral configurable en Settings → Etiquetado). Sin popup — decisión del
+  // usuario: el aviso vive aquí, título en rojo cuando count > 0. Con
+  // count === 0 sigue visible en tono neutral (no deja hueco en el grid).
+  const hasExpiringLabels = (kpis?.expiringLabels?.count ?? 0) > 0;
+  const caducidadesAlertCard = (
+    <div
+      onClick={() => router.push('/dashboard/appcc/caducidades')}
+      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+    >
+      <div>
+        <p
+          className={`font-label-md text-label-md mb-stack-xs uppercase ${
+            hasExpiringLabels ? 'text-error font-bold' : 'text-on-surface-variant'
+          }`}
+        >
+          Caducidades
+        </p>
+        <span className="font-headline-lg text-headline-lg text-primary">
+          {formatKPIValue(kpis?.expiringLabels?.count, kpisLoading)}
+        </span>
+        {hasExpiringLabels && kpis?.expiringLabels?.nearest && (
+          <p className="text-[11px] mt-stack-xs text-error font-medium">
+            {kpis.expiringLabels.nearest.itemName}
+          </p>
+        )}
+        {!hasExpiringLabels && !kpisLoading && (
+          <p className="text-[11px] mt-stack-xs text-on-surface-variant">
+            Sin avisos
+          </p>
+        )}
+      </div>
+      <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
+        <span className="material-symbols-outlined text-secondary">schedule</span>
+      </div>
+    </div>
+  );
+
   const comprasCard = (
     <div
       onClick={() => router.push('/dashboard/compras')}
@@ -517,15 +538,16 @@ export default function DashboardPage() {
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
-          Pedidos Pendientes, Notificaciones y Alertas, Recetas, Etiquetado, Compras.
-          Telemetría y Temp. Cámara Fría no tienen datos reales todavía y
-          quedan ocultas en móvil. */}
+          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, Recetas,
+          Etiquetado, Compras. Telemetría de Cocina en Vivo no tiene datos
+          reales todavía y queda oculta en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
         {canSeePrepTasks && renderPrepTasksBoard(false)}
         {salaNotificacionesEnabled && salaTasksBoard}
         {canSeeProduction && crearOrdenButton('flex justify-center')}
         {canSeeCompras && pedidosPendientesCard}
         {canSeeAlerts && notificacionesCard}
+        {canSeeEtiquetado && caducidadesAlertCard}
         {canSeeRecipes && recetasCard}
         {canSeeEtiquetado && etiquetadoCard}
         {canSeeCompras && comprasCard}
@@ -546,9 +568,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Atmospheric Secondary Layer (escritorio) */}
+      {/* Atmospheric Secondary Layer (escritorio). Las 3 columnas usan ternarios
+          (no `&&`) para que ninguna quede vacía cuando falta un permiso —
+          un tenant con recetas activo pero etiquetado desactivado (o
+          viceversa) no debe ver un hueco en el grid. */}
       <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter">
-        {canSeeRecipes && recetasCard}
+        {canSeeEtiquetado ? (
+          caducidadesAlertCard
+        ) : (
+          <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
+            <span className="material-symbols-outlined text-[40px] text-on-surface-variant">schedule</span>
+            <p className="font-label-md text-label-md text-on-surface-variant">Caducidades no disponible</p>
+          </div>
+        )}
 
         {canSeeEtiquetado ? (
           etiquetadoCard
@@ -562,18 +594,14 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="tonal-layer-2 rounded-xl p-stack-lg flex flex-col justify-between border border-border">
-          <div>
-            <h5 className="font-label-md text-label-md text-on-surface-variant uppercase">Temp. Cámara Fría</h5>
-            <p className="font-headline-lg text-headline-lg text-primary transition-all duration-500 font-mono tracking-tight">
-              {temp}°C
-            </p>
+        {canSeeRecipes ? (
+          recetasCard
+        ) : (
+          <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
+            <span className="material-symbols-outlined text-[40px] text-on-surface-variant">receipt_long</span>
+            <p className="font-label-md text-label-md text-on-surface-variant">Recetas no disponible</p>
           </div>
-          <div className="flex items-center gap-stack-sm text-secondary">
-            <span className="material-symbols-outlined text-[16px] animate-pulse">check_circle</span>
-            <span className="font-label-sm text-label-sm">Zona de Conservación Óptima</span>
-          </div>
-        </div>
+        )}
       </section>
     </div>
     {postponingTask && (
