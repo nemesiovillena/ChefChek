@@ -158,7 +158,7 @@ export default function DashboardPage() {
   const pedidosPendientesCard = (
     <div
       onClick={() => router.push('/dashboard/compras')}
-      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors shrink-0"
     >
       {!!kpis?.scheduledDraftOrders && kpis.scheduledDraftOrders > 0 && (
         <span
@@ -214,9 +214,17 @@ export default function DashboardPage() {
     </div>
   );
 
-  const notificacionesCard = (
-    <div className="tonal-layer-2 p-stack-lg rounded-xl border border-border">
-      <div className="flex justify-between items-center mb-stack-md">
+  // fillContainer: escritorio, la card vive en un panel flex-1 dentro de la
+  // columna izquierda (mismo hueco que Sala) → sin tope fijo, con scroll
+  // interno solo si de verdad hay más avisos de los que caben. Móvil: card a
+  // contenido, con el tope fijo max-h-80 de siempre.
+  const renderNotificacionesCard = (fillContainer: boolean) => (
+    <div
+      className={`tonal-layer-2 p-stack-lg rounded-xl border border-border${
+        fillContainer ? ' flex-1 min-h-[150px] flex flex-col' : ''
+      }`}
+    >
+      <div className={`flex justify-between items-center mb-stack-md${fillContainer ? ' shrink-0' : ''}`}>
         <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
         <div className="flex items-center gap-stack-md shrink-0">
           <button
@@ -233,7 +241,16 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
-      <div className="space-y-stack-sm max-h-80 overflow-y-auto pr-1">
+      {/* max-h-80 SIEMPRE (no solo en móvil): con datos reales, el contenido
+          de la lista se cuela en el cálculo de "tamaño mínimo automático"
+          del flex/grid ancestro pese a min-h-0, e infla el bento entero
+          (bug real, visto en pantalla: la card creció a ~1880px con 20
+          notificaciones). Un max-height explícito no depende de ese cálculo
+          y lo corta de raíz; flex-1 sigue aprovechando el hueco disponible
+          hasta ese tope. */}
+      <div
+        className={`space-y-stack-sm overflow-y-auto pr-1 max-h-80${fillContainer ? ' flex-1 min-h-0' : ''}`}
+      >
         {(() => {
           const visibleNotifications = showAllNotifications
             ? notifications
@@ -376,19 +393,30 @@ export default function DashboardPage() {
   const visibleSalaTasks = activeSalaTasks.slice(0, SALA_TASKS_LIMIT);
   const hasMoreSalaTasks = activeSalaTasks.length > SALA_TASKS_LIMIT;
 
-  // Sin h-full a propósito: vive apilada junto a otras cards en la columna
-  // izquierda (space-y-gutter, flujo de bloque normal, no flex) — h-full ahí
-  // haría que intentara ocupar el 100% de la altura de la columna entera y
-  // desbordara la página (bug real que causaba scroll en el dashboard).
-  const salaTasksBoard = (
-    <div className="tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border">
+  // fillContainer: escritorio, panel flex-1 dentro de la columna izquierda
+  // (mismo hueco disponible que Alertas, repartido por el grid-rows
+  // minmax(0,1fr) del bento) — sin tope fijo, con scroll interno solo si de
+  // verdad hay más notificaciones de las que caben. Móvil: card a
+  // contenido, ya acotada por SALA_TASKS_LIMIT.
+  const renderSalaTasksBoard = (fillContainer: boolean) => (
+    <div
+      className={`tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border${
+        fillContainer ? ' flex-1 min-h-[150px]' : ''
+      }`}
+    >
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
         <h3 className="font-headline-md text-headline-md text-primary">Notificaciones de Sala</h3>
         <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
           {activeSalaTasks.length}
         </span>
       </div>
-      <div className="flex-1 divide-y divide-surface-variant">
+      {/* max-h-80 igual que en Alertas: aunque SALA_TASKS_LIMIT ya acota a 4
+          filas, mantiene el mismo tope defensivo por consistencia. */}
+      <div
+        className={`divide-y divide-surface-variant max-h-80${
+          fillContainer ? ' flex-1 min-h-0 overflow-y-auto' : ' flex-1'
+        }`}
+      >
         {salaTasksLoading ? (
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             Cargando notificaciones...
@@ -418,7 +446,7 @@ export default function DashboardPage() {
 
   const recetasCard = (
     <div
-      className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 border border-border cursor-pointer"
+      className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 md:h-32 border border-border cursor-pointer"
       onClick={() => router.push('/dashboard/recipes')}
     >
       <Image
@@ -441,7 +469,7 @@ export default function DashboardPage() {
   const caducidadesAlertCard = (
     <div
       onClick={() => router.push('/dashboard/appcc/caducidades')}
-      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+      className="relative tonal-layer-2 p-stack-lg md:p-stack-md rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
     >
       <div>
         <p
@@ -484,7 +512,7 @@ export default function DashboardPage() {
   const etiquetadoCard = (
     <div
       onClick={() => router.push('/dashboard/etiquetado/nueva')}
-      className="group relative tonal-layer-2 rounded-xl p-stack-lg flex flex-col justify-between gap-stack-md border border-border overflow-hidden cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+      className="group relative tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex flex-col justify-between gap-stack-md md:gap-stack-sm border border-border overflow-hidden cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
     >
       {/* Motivo de etiqueta impresa: esquina troquelada + perforación */}
       <div
@@ -518,7 +546,7 @@ export default function DashboardPage() {
   const crearOrdenButton = (extraClassName: string) => (
     <button
       onClick={() => router.push('/dashboard/production')}
-      className={`bg-primary text-primary-foreground px-stack-lg py-stack-md rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all items-center gap-stack-sm cursor-pointer ${extraClassName}`}
+      className={`bg-primary text-primary-foreground px-stack-lg py-stack-md md:py-stack-sm rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all items-center gap-stack-sm cursor-pointer ${extraClassName}`}
     >
       <span className="material-symbols-outlined text-[18px]">add_notes</span>
       CREAR ORDEN PRODUCCIÓN
@@ -527,9 +555,21 @@ export default function DashboardPage() {
 
   return (
     <>
-    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
+    {/* h- (no min-h) a propósito en desktop: flex-1 en el bento de abajo
+        necesita una altura DEFINIDA en este contenedor para repartir el
+        hueco sobrante — con min-h (indefinida mientras el contenido no la
+        supere) el navegador no tiene referencia y cada rama de flex/grid
+        cae a su tamaño de contenido en cascada (probado: infla la página
+        en vez de encajar). Con h- fija, si todo cabe con el mínimo legible
+        de cada panel (min-h-[150px] en Sala/Alertas), el bento se estira
+        exacto; si no cabe, sus hijos simplemente desbordan esta caja (sin
+        overflow:hidden en ningún nivel) y es el documento quien hace scroll
+        normal — nunca se recorta contenido a mitad de fila.
+        Chrome fijo restado: header pt-16(64) + layout md:pb-8(32) del
+        layout.tsx + md:pt-stack-md(16) + md:pb-8(32) propios = 9rem. */}
+    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-8 pt-8 md:pt-stack-md md:flex md:flex-col md:h-[calc(100dvh-9rem)]">
       {/* Header Section */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md">
+      <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
           <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal</h2>
@@ -543,27 +583,43 @@ export default function DashboardPage() {
           reales todavía y queda oculta en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
         {canSeePrepTasks && renderPrepTasksBoard(false)}
-        {salaNotificacionesEnabled && salaTasksBoard}
+        {salaNotificacionesEnabled && renderSalaTasksBoard(false)}
         {canSeeProduction && crearOrdenButton('flex justify-center')}
         {canSeeCompras && pedidosPendientesCard}
-        {canSeeAlerts && notificacionesCard}
+        {canSeeAlerts && renderNotificacionesCard(false)}
         {canSeeEtiquetado && caducidadesAlertCard}
         {canSeeRecipes && recetasCard}
         {canSeeEtiquetado && etiquetadoCard}
         {canSeeCompras && comprasCard}
       </div>
 
-      {/* Bento Grid Content (escritorio) */}
-      <div className="hidden md:grid md:grid-cols-12 gap-gutter mt-stack-xl">
+      {/* Bento Grid Content (escritorio). grid-rows minmax(0,1fr): si hay
+          hueco de sobra, la fila lo llena entero (cards estiradas). Sin
+          min-h-0 aquí ni en las columnas a propósito: cada nivel debe
+          seguir respetando el mínimo real de su contenido (Sala/Alertas
+          con min-h-[150px] más abajo). Si ese mínimo no cabe en el hueco
+          disponible, la fila — y con ella toda la página — crece por
+          encima del viewport en vez de recortar contenido; forzar
+          min-h-0 aquí lo evitaba, pero a costa de que el contenido se
+          desbordara por detrás de la franja inferior en vez de empujarla
+          hacia abajo (bug real, visto en pantalla: Caducidades solapada
+          sobre Notificaciones y Alertas). */}
+      <div className="hidden md:grid md:grid-cols-12 gap-gutter mt-stack-md md:flex-1 md:grid-rows-[minmax(0,1fr)]">
         {/* Key Indicators Column */}
-        <div className="md:col-span-4 space-y-gutter">
+        <div className="md:col-span-4 md:flex md:flex-col md:gap-gutter">
           {canSeeCompras && pedidosPendientesCard}
-          {salaNotificacionesEnabled && salaTasksBoard}
-          {canSeeAlerts && notificacionesCard}
+          {salaNotificacionesEnabled && renderSalaTasksBoard(true)}
+          {canSeeAlerts && renderNotificacionesCard(true)}
         </div>
 
-        {/* Main Task Board */}
-        <div className="md:col-span-8 space-y-gutter">
+        {/* Main Task Board. min-h-0 SÍ hace falta aquí (a diferencia del
+            resto del bento): el `h-full` de renderPrepTasksBoard resuelve
+            contra un ancestro de altura indefinida durante el cálculo de
+            tamaño mínimo intrínseco del grid, y eso infla esta columna a
+            un valor absurdo (visto en pantalla: ~1880px con el board
+            vacío). min-h-0 neutraliza esa contribución sin afectar al
+            stretch real una vez la fila del grid ya está resuelta. */}
+        <div className="md:col-span-8 md:min-h-0">
           {canSeePrepTasks && renderPrepTasksBoard(true)}
         </div>
       </div>
@@ -572,7 +628,7 @@ export default function DashboardPage() {
           (no `&&`) para que ninguna quede vacía cuando falta un permiso —
           un tenant con recetas activo pero etiquetado desactivado (o
           viceversa) no debe ver un hueco en el grid. */}
-      <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter">
+      <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter md:shrink-0">
         {canSeeEtiquetado ? (
           caducidadesAlertCard
         ) : (
