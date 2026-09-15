@@ -156,6 +156,12 @@ export class EtiquetadoController {
     return this.foodLabels.void(req.tenantId, id, dto.reason);
   }
 
+  @Get("responsibles")
+  @RequireSection("etiquetado.emit")
+  async responsibles(@Req() req: any) {
+    return this.foodLabels.listResponsibleCandidates(req.tenantId);
+  }
+
   @Get("prep-context")
   @RequireSection("etiquetado.emit")
   async prepContext(

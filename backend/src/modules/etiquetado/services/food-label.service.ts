@@ -176,6 +176,11 @@ export class FoodLabelService {
         ? await this.buildIngredientLotRows(tenantId, dto)
         : [];
 
+    const responsibleName = await this.resolveResponsibleName(tenantId, user, {
+      responsibleUserId: dto.responsibleUserId,
+      responsibleName: dto.responsibleName,
+    });
+
     const commonData: Omit<Prisma.FoodLabelUncheckedCreateInput, "lotNumber"> =
       {
         tenantId,
@@ -202,7 +207,7 @@ export class FoodLabelService {
         allergens: base.allergens,
         notes: dto.notes ?? null,
         createdByUserId: user.id,
-        createdByName: user.name?.trim() || "—",
+        createdByName: responsibleName,
         ingredientLots: ingredientLotRows.length
           ? { create: ingredientLotRows }
           : undefined,
@@ -504,6 +509,16 @@ export class FoodLabelService {
           : null
         : label.manufacturerExpiryDate;
 
+    // El responsable solo se recalcula si se manda uno de los dos campos;
+    // si no, se conserva el snapshot original (no lo pisa el que corrige).
+    const createdByName =
+      dto.responsibleUserId || dto.responsibleName
+        ? await this.resolveResponsibleName(tenantId, user, {
+            responsibleUserId: dto.responsibleUserId,
+            responsibleName: dto.responsibleName,
+          })
+        : label.createdByName;
+
     const next = {
       preparedAt,
       manufacturerExpiryDate,
@@ -521,6 +536,7 @@ export class FoodLabelService {
           : label.quantityUnit,
       portions: dto.portions !== undefined ? dto.portions : label.portions,
       notes: dto.notes !== undefined ? dto.notes?.trim() || null : label.notes,
+      createdByName,
     };
 
     const changes = this.diffLabel(label, next);
@@ -563,6 +579,47 @@ export class FoodLabelService {
       where: { id },
       data: { reprintCount: { increment: 1 } },
     });
+  }
+
+  /**
+   * Usuarios activos del tenant para elegir "quién lo prepara" al emitir o
+   * corregir una etiqueta. Sin depender del módulo Sala (Usuarios): esta
+   * lista es propia de Etiquetado.
+   */
+  async listResponsibleCandidates(tenantId: string) {
+    return this.prisma.user.findMany({
+      where: { tenantId, isActive: true, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /**
+   * Nombre del responsable real de la elaboración/manipulación: si se elige
+   * de la lista de Usuarios, se resuelve su nombre actual (evita que el
+   * cliente falsee el nombre de otra persona); si es texto libre ("Otro"),
+   * se usa tal cual; si no se manda nada, se conserva el comportamiento
+   * histórico (nombre de quien tiene la sesión abierta).
+   */
+  private async resolveResponsibleName(
+    tenantId: string,
+    user: SessionUser,
+    input: { responsibleUserId?: string; responsibleName?: string },
+  ): Promise<string> {
+    if (input.responsibleUserId) {
+      const staff = await this.prisma.user.findFirst({
+        where: { id: input.responsibleUserId, tenantId },
+        select: { name: true },
+      });
+      if (!staff) {
+        throw new BadRequestException("El responsable seleccionado no existe");
+      }
+      return staff.name.trim();
+    }
+    if (input.responsibleName?.trim()) {
+      return input.responsibleName.trim();
+    }
+    return user.name?.trim() || "—";
   }
 
   // ── helpers ────────────────────────────────────────────────────────────

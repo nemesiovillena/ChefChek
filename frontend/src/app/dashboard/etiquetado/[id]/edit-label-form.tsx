@@ -6,6 +6,9 @@ import { Loader2 } from 'lucide-react';
 import ConservationFieldset, {
   ConservationValue,
 } from '@/components/conservation-fieldset';
+import ResponsibleField, {
+  type ResponsibleValue,
+} from '@/components/responsible-field';
 import {
   FoodLabel,
   StorageCondition,
@@ -93,6 +96,7 @@ export default function EditLabelForm({
   const [quantityUnit, setQuantityUnit] = useState(initial.quantityUnit);
   const [portions, setPortions] = useState(initial.portions);
   const [notes, setNotes] = useState(initial.notes);
+  const [responsible, setResponsible] = useState<ResponsibleValue>({});
 
   const prepWord =
     label.labelType === 'ELABORATED' ? 'elaboración' : 'manipulación';
@@ -144,6 +148,11 @@ export default function EditLabelForm({
     if (notes.trim() !== initial.notes.trim()) {
       input.notes = notes.trim();
     }
+    if (responsible.responsibleUserId) {
+      input.responsibleUserId = responsible.responsibleUserId;
+    } else if (responsible.responsibleName?.trim()) {
+      input.responsibleName = responsible.responsibleName.trim();
+    }
 
     onSave(input);
   };
@@ -173,6 +182,17 @@ export default function EditLabelForm({
           }}
         />
       </label>
+
+      <div>
+        <ResponsibleField
+          value={responsible}
+          onChange={setResponsible}
+          label={`Responsable (actual: ${label.createdByName})`}
+        />
+        <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+          Déjalo sin elegir para no cambiarlo.
+        </span>
+      </div>
 
       <ConservationFieldset
         value={cons}
