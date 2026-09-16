@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { DigitalMenuService } from "./digital-menu.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import {
   CreateDigitalMenuConfigDto,
   UpdateDigitalMenuConfigDto,
@@ -90,6 +91,12 @@ describe("DigitalMenuService", () => {
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          // Sin credenciales de Bunny: generateQRCodeUrl cae al fallback de
+          // disco local de storeUploadedImage (mismo camino que en dev real).
+          provide: BunnyStorageService,
+          useValue: { imagesEnabled: false },
         },
       ],
     }).compile();

@@ -5,6 +5,8 @@ import {
   Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
 import {
   CreateDigitalMenuConfigDto,
   UpdateDigitalMenuConfigDto,
@@ -13,14 +15,15 @@ import {
   RegisterScanDto,
 } from "./dto/digital-menu.dto";
 import QRCode from "qrcode";
-import * as fs from "fs";
-import * as path from "path";
 
 @Injectable()
 export class DigitalMenuService {
   private readonly logger = new Logger(DigitalMenuService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bunny: BunnyStorageService,
+  ) {}
 
   async createConfig(tenantId: string, dto: CreateDigitalMenuConfigDto) {
     const menu = await this.prisma.menu.findFirst({
@@ -228,34 +231,25 @@ export class DigitalMenuService {
     };
   }
 
+  /**
+   * Genera el QR y lo sube por el mismo camino que el resto de imágenes del
+   * proyecto (Bunny.net en prod, `uploads/` local en dev — ver
+   * storeUploadedImage). Antes se escribía en `public/qrcodes/digital-menu/`,
+   * una ruta que ningún servidor estático servía (ni backend ni frontend) y
+   * que además se perdía en cada redeploy: el QR jamás era accesible.
+   */
   private async generateQRCodeUrl(
     configId: string,
     format: string = "png",
     size: number = 300,
     customColor: string = "#000000",
   ): Promise<string> {
-    // Generar URL pública del menú
     const baseUrl = process.env.APP_URL || "http://localhost:3000";
     const publicUrl = `${baseUrl}/api/v1/digital-menu/public/${configId}`;
 
     try {
-      // Directorio para almacenar QR codes
-      const qrDir = path.join(
-        process.cwd(),
-        "public",
-        "qrcodes",
-        "digital-menu",
-      );
-      if (!fs.existsSync(qrDir)) {
-        fs.mkdirSync(qrDir, { recursive: true });
-      }
-
-      // Ruta del archivo QR
-      const qrFileName = `${configId}.${format}`;
-      const qrFilePath = path.join(qrDir, qrFileName);
-
-      // Generar QR code real con opciones personalizadas
-      const qrOptions: any = {
+      const qrOptions: QRCode.QRCodeToBufferOptions &
+        QRCode.QRCodeToStringOptions = {
         width: size,
         margin: 2,
         color: {
@@ -264,19 +258,16 @@ export class DigitalMenuService {
         },
       };
 
-      if (format === "png") {
-        await QRCode.toFile(qrFilePath, publicUrl, qrOptions);
-      } else {
-        // Generar SVG para otros formatos
-        const svgString = (await QRCode.toString(
-          publicUrl,
-          qrOptions,
-        )) as unknown as string;
-        fs.writeFileSync(qrFilePath, svgString);
-      }
+      const isPng = format === "png";
+      const buffer = isPng
+        ? await QRCode.toBuffer(publicUrl, qrOptions)
+        : Buffer.from(await QRCode.toString(publicUrl, qrOptions), "utf8");
 
-      // Retornar URL pública del QR
-      return `${baseUrl}/qrcodes/digital-menu/${qrFileName}`;
+      return await storeUploadedImage(this.bunny, "digital-menu-qr", {
+        buffer,
+        originalname: `qr.${format}`,
+        mimetype: isPng ? "image/png" : "image/svg+xml",
+      } as Express.Multer.File);
     } catch (error) {
       this.logger.error("Error generating QR code:", error);
       // Fallback a URL mock si falla la generación
