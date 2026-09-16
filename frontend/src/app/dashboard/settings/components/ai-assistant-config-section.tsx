@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, Bot, Check, CheckCircle2, Loader2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
+  ASSISTANT_KEY_STORE_PROVIDER,
   getApiKey,
   getApiKeyPresenceSnapshot,
   subscribeToApiKeyChanges,
@@ -20,13 +21,8 @@ const PROVIDER_LABELS: Record<AiAssistantProvider, string> = {
   anthropic: 'Anthropic',
 };
 
-/** Proveedor del almacén «Claves API» (AI_PROVIDERS) que corresponde a cada
- *  proveedor del asistente — el id de Gemini allí es "google". */
-const KEY_STORE_PROVIDER: Record<AiAssistantProvider, string> = {
-  openai: 'openai',
-  gemini: 'google',
-  anthropic: 'anthropic',
-};
+/** Proveedor del almacén «Claves API» que corresponde a cada proveedor del asistente. */
+const KEY_STORE_PROVIDER = ASSISTANT_KEY_STORE_PROVIDER as Record<AiAssistantProvider, string>;
 
 /** Modelo elegible en la rejilla (mismo patrón que OCR_MODELS del motor OCR). */
 interface AssistantModelOption {
@@ -167,7 +163,15 @@ export function AiAssistantConfigSection() {
             <p className="text-sm text-[var(--on-surface)]">
               {config.model ? modelName(config.model) : PROVIDER_LABELS[config.provider]}
               {' · '}
-              {config.hasApiKey ? 'API key guardada' : 'sin API key'}
+              {keyReady(config.provider) ? (
+                <span className="inline-flex items-center gap-1 font-medium text-green-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> API key configurada
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-medium text-amber-600">
+                  <AlertTriangle className="h-3.5 w-3.5" /> sin API key — añádela en «Claves API»
+                </span>
+              )}
             </p>
           ) : (
             <p className="text-sm italic text-[var(--on-surface-variant)]">
@@ -183,25 +187,33 @@ export function AiAssistantConfigSection() {
         </div>
       ) : (
         <div className="mt-4 space-y-3">
-          {/* Rejilla de modelos — misma interfaz que el motor de extracción OCR */}
+          {/* Rejilla de modelos — misma interfaz que el motor de extracción OCR.
+              *  Se muestran todos, pero solo son utilizables los del proveedor
+              *  con API key agregada («Claves API» o servidor); el resto queda
+              *  atenuado y no seleccionable. */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
             {AI_ASSISTANT_MODELS.map((model) => {
               const isSelected = form.model === model.id;
+              const usable = keyReady(model.provider);
               return (
                 <button
                   key={model.id}
                   type="button"
+                  disabled={!usable}
                   onClick={() => handleModelPick(model)}
                   className={`relative rounded-lg border p-2 text-left transition-colors ${
                     isSelected
                       ? 'border-[var(--primary)] bg-[var(--surface-container-low)] ring-1 ring-[var(--primary)]'
                       : 'border-[var(--outline-variant)] hover:border-[var(--primary)]'
-                  }`}
+                  } ${usable ? '' : 'cursor-not-allowed opacity-40 hover:border-[var(--outline-variant)]'}`}
                 >
                   {isSelected && (
                     <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] text-primary-foreground">
                       <Check className="h-2.5 w-2.5" strokeWidth={3} />
                     </span>
+                  )}
+                  {usable && !isSelected && (
+                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-green-500" aria-hidden="true" />
                   )}
                   <div className="truncate text-xs font-medium text-[var(--on-surface)]">{model.name}</div>
                   <div className="text-[10px] text-[var(--on-surface-variant)]">{model.cost}/llamada</div>
@@ -209,6 +221,9 @@ export function AiAssistantConfigSection() {
               );
             })}
           </div>
+          <p className="text-[10px] text-[var(--on-surface-variant)]">
+            Los modelos atenuados necesitan la API key de su proveedor en «Claves API».
+          </p>
 
           {/* Descripción del modelo elegido + aviso de key (igual que el motor OCR) */}
           <p className="text-xs text-[var(--on-surface-variant)]">

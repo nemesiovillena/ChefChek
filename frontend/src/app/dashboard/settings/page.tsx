@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useRouter } from 'next/navigation';
-import { AI_PROVIDERS, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, getProviderForModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
+import { AI_PROVIDERS, ASSISTANT_KEY_STORE_PROVIDER, OCR_MODELS, getApiKey, getApiKeyForModel, getOcrModel, getProviderForModel, sanitizeApiKey, setApiKey, setOcrModel } from '@/lib/ai-api-keys';
 import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2, MessageSquare } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
@@ -12,6 +12,7 @@ import { RoleAccessPanel } from './components/role-access-panel';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
+import { useAiAssistantConfig } from '@/hooks/use-ai-assistant-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
@@ -97,6 +98,20 @@ export default function SettingsPage() {
   // Hay key si está en localStorage (este navegador) o en el servidor (otro dispositivo).
   const ocrModelHasApiKey =
     ocrModelNeedsApiKey && (!!getApiKeyForModel(ocrModel) || !!ocrServerConfig?.hasApiKey);
+
+  // Asistente IA: para saber si su proveedor tiene key guardada en el servidor.
+  const { data: assistantConfig } = useAiAssistantConfig();
+  // Providers con key guardada en el servidor (cifrada, compartida entre
+  // dispositivos): el motor OCR activo y el proveedor del asistente. Solo
+  // esos dos persisten clave en servidor; el resto viven en este navegador.
+  const serverKeyProviderIds = new Set<string>();
+  if (ocrModelNeedsApiKey && ocrServerConfig?.hasApiKey) {
+    const ocrProvider = getProviderForModel(ocrModel);
+    if (ocrProvider) serverKeyProviderIds.add(ocrProvider);
+  }
+  if (assistantConfig?.hasApiKey && assistantConfig.provider) {
+    serverKeyProviderIds.add(ASSISTANT_KEY_STORE_PROVIDER[assistantConfig.provider]);
+  }
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -446,6 +461,9 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {AI_PROVIDERS.map((provider) => {
               const hasKey = !!apiKeys[provider.id];
+              // Key en el servidor para algún motor que la usa (OCR/asistente):
+              // agregada desde otro dispositivo aunque este navegador no la tenga.
+              const hasServerKey = serverKeyProviderIds.has(provider.id);
               const validity = isKeyValid(provider.id);
               const isSaved = savedKeys[provider.id];
               const isShown = showKeys[provider.id];
@@ -455,9 +473,17 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">{provider.name}</span>
-                      {hasKey && (
+                      {hasKey ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           <Check className="h-3 w-3" /> Configurada
+                        </span>
+                      ) : hasServerKey ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/30">
+                          <CheckCircle2 className="h-3 w-3" /> Guardada en el servidor
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                          Sin clave
                         </span>
                       )}
                     </div>
