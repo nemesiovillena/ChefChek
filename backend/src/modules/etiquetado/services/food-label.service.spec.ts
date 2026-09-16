@@ -14,6 +14,7 @@ describe("FoodLabelService", () => {
     product: { findFirst: jest.fn() },
     lot: { findFirst: jest.fn(), findMany: jest.fn() },
     albaranLine: { findFirst: jest.fn(), findMany: jest.fn() },
+    user: { findFirst: jest.fn(), findMany: jest.fn() },
     foodLabel: {
       create: jest.fn(),
       findFirst: jest.fn(),
@@ -165,6 +166,61 @@ describe("FoodLabelService", () => {
       });
       expect(result.id).toBe("fl2");
       expect(mockPrisma.foodLabel.create).toHaveBeenCalledTimes(2);
+    });
+
+    it("responsibleName (free text) overrides the session user as createdByName", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "ELABORATED",
+        recipeId: "r1",
+        preparedAt: "2026-08-31T10:00:00.000Z",
+        responsibleName: "Marta Ruiz",
+      });
+
+      expect(result.createdByName).toBe("Marta Ruiz");
+      expect(result.createdByUserId).toBe(USER.id);
+      expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("responsibleUserId resolves the current name of that user (not client-supplied text)", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.user.findFirst.mockResolvedValue({ name: "Iñaki Etxeberria" });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "ELABORATED",
+        recipeId: "r1",
+        preparedAt: "2026-08-31T10:00:00.000Z",
+        responsibleUserId: "staff1",
+        responsibleName: "texto que debe ignorarse",
+      });
+
+      expect(mockPrisma.user.findFirst).toHaveBeenCalledWith({
+        where: { id: "staff1", tenantId: TENANT },
+        select: { name: true },
+      });
+      expect(result.createdByName).toBe("Iñaki Etxeberria");
+    });
+
+    it("rejects a responsibleUserId that does not exist in the tenant", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "ELABORATED",
+          recipeId: "r1",
+          responsibleUserId: "ghost",
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
@@ -352,6 +408,7 @@ describe("FoodLabelService", () => {
       quantityUnit: "kg",
       portions: 8,
       notes: null,
+      createdByName: "Warynessy",
       editLog: null,
       reprintCount: 0,
       voidedAt: null,
@@ -391,6 +448,26 @@ describe("FoodLabelService", () => {
       expect(entry.by).toBe("Ana López");
       expect(entry.changes.frozenAt).toBeDefined();
       expect(entry.changes.useByDate).toBeDefined();
+    });
+
+    it("corrects the responsible name (createdByName) without touching editedByName", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(editableLabel());
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.foodLabel.update.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.update(TENANT, USER, "fl1", {
+        responsibleName: "Marta Ruiz",
+      });
+
+      expect(result.createdByName).toBe("Marta Ruiz");
+      expect(result.editedByName).toBe("Ana López");
+      expect(result.editLog[0].changes.createdByName).toEqual({
+        from: "Warynessy",
+        to: "Marta Ruiz",
+      });
     });
 
     it("rejects a voided label", async () => {

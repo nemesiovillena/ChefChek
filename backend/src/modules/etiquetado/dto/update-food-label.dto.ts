@@ -79,4 +79,14 @@ export class UpdateFoodLabelDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /** Corrige el responsable de la etiqueta (ver CreateFoodLabelDto). */
+  @IsOptional()
+  @IsString()
+  responsibleUserId?: string;
+
+  /** Corrige el responsable en texto libre (opción "Otro"). */
+  @IsOptional()
+  @IsString()
+  responsibleName?: string;
 }
