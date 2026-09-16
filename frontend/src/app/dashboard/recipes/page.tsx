@@ -626,8 +626,15 @@ export default function RecipesPage() {
           message: 'Receta actualizada correctamente',
         });
       } else {
-        await createRecipeMutation.mutateAsync(recipeData);
+        const createdRecipe = await createRecipeMutation.mutateAsync(recipeData);
         invalidateQueries([['recipe-options']]);
+        // Si el filtro de categoría activo excluiría la receta recién creada
+        // (p.ej. creada sin categoría con un filtro puesto), se limpia para
+        // que sea visible sin recargar: cambiar la key del query refetchea.
+        if (selectedCategory && !createdRecipe.categories?.some((c) => c.categoryId === selectedCategory)) {
+          setSelectedCategory('');
+          setPage(1);
+        }
         addNotification({
           type: 'success',
           title: 'Receta creada',
