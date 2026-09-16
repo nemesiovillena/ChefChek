@@ -61,6 +61,7 @@ import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
 import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
 import { RoleAccessModule } from "./modules/role-access/role-access.module";
 import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
+import { ConservationDefaultsModule } from "./modules/conservation-defaults/conservation-defaults.module";
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
     QRModule,
     AlbaranesModule,
     OcrConfigModule,
+    ConservationDefaultsModule,
     AiAssistantModule,
     TrashModule,
     GuardsModule,

@@ -68,8 +68,8 @@ const EMPTY_RECIPE_FORM = {
   name: '',
   description: '',
   portions: '1',
-  portionSize: '250',
-  totalYieldWeight: '250',
+  portionSize: '',
+  totalYieldWeight: '',
   preparationTimeMinutes: '',
   cookingTimeMinutes: '',
   shelfLifeDays: '',
@@ -533,10 +533,13 @@ export default function RecipesPage() {
 
     // Rendimiento: se envía el trío ya coherente (T = R × P). El backend usa
     // totalYieldWeight como ancla y deriva portionSize = totalYieldWeight / portions.
+    // Si el usuario no ha introducido ningún peso, no se fuerza ninguno (0 →
+    // el backend y las vistas ya tratan un peso vacío como "sin especificar").
     const raciones = parsePositive(formData.portions) || 1;
-    const pesoRacion = parsePositive(formData.portionSize) || 250;
+    const pesoRacion = parsePositive(formData.portionSize);
     const pesoTotal =
-      parsePositive(formData.totalYieldWeight) || round2(raciones * pesoRacion);
+      parsePositive(formData.totalYieldWeight) ||
+      (pesoRacion > 0 ? round2(raciones * pesoRacion) : 0);
 
     const recipeData = {
       name: formData.name,
@@ -616,11 +619,13 @@ export default function RecipesPage() {
       name: recipe.name,
       description: recipe.description || '',
       portions: recipe.portions.toString(),
-      portionSize: recipe.portionSize?.toString() || '250',
-      totalYieldWeight: (
-        recipe.totalYieldWeight ??
-        (recipe.portions || 1) * (recipe.portionSize ?? 0)
-      ).toString(),
+      portionSize: recipe.portionSize ? recipe.portionSize.toString() : '',
+      totalYieldWeight: (() => {
+        const total =
+          recipe.totalYieldWeight ??
+          (recipe.portions || 1) * (recipe.portionSize ?? 0);
+        return total > 0 ? total.toString() : '';
+      })(),
       preparationTimeMinutes: recipe.preparationTimeMinutes?.toString() ?? '',
       cookingTimeMinutes: recipe.cookingTimeMinutes?.toString() ?? '',
       shelfLifeDays: recipe.shelfLifeDays?.toString() ?? '',
@@ -904,7 +909,8 @@ export default function RecipesPage() {
                         )}
                       </td>
                       <td className={tdBaseClass}>
-                        {fmtYield(recipe.portions)} ({fmtYield(recipe.portionSize)} g)
+                        {fmtYield(recipe.portions)}
+                        {recipe.portionSize ? ` (${fmtYield(recipe.portionSize)} g)` : ''}
                       </td>
                       {canViewCost && (
                         <td className={tdBaseClass}>

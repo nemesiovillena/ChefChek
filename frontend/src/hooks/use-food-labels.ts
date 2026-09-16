@@ -163,6 +163,9 @@ export interface CreateFoodLabelInput {
   quantityUnit?: string;
   portions?: number;
   notes?: string;
+  /** Responsable real de la elaboración/manipulación (ver ResponsibleField). */
+  responsibleUserId?: string;
+  responsibleName?: string;
   ingredientLots?: Array<{
     productId?: string;
     productName: string;
@@ -193,6 +196,13 @@ export interface UpdateFoodLabelInput {
   quantityUnit?: string;
   portions?: number;
   notes?: string;
+  responsibleUserId?: string;
+  responsibleName?: string;
+}
+
+export interface ResponsibleOption {
+  id: string;
+  name: string;
 }
 
 export const FOOD_LABELS_KEY = ['food-labels'];
@@ -230,6 +240,14 @@ export function useProductPrepContext(productId: string | null) {
     ['etiquetado-prep-context', 'product', productId ?? ''],
     `/v1/etiquetado/prep-context?productId=${productId}`,
     { enabled: Boolean(productId) },
+  );
+}
+
+/** Usuarios activos del tenant para elegir "quién lo prepara" (ver etiquetas). */
+export function useResponsibleOptions() {
+  return useApiQuery<ResponsibleOption[]>(
+    ['etiquetado-responsibles'],
+    '/v1/etiquetado/responsibles',
   );
 }
 
