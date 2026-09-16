@@ -15,6 +15,7 @@ import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
+import { ConservationDefaultsSection } from './components/conservation-defaults-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -356,6 +357,8 @@ export default function SettingsPage() {
         </div>
 
         <EtiquetadoConfigSection />
+
+        <ConservationDefaultsSection />
 
         {/* Motor de extracción (OCR de albaranes) */}
         <div className="bg-white shadow rounded-lg mb-6 p-6">
