@@ -84,11 +84,8 @@ export default function EtiquetaDetailPage() {
       onError: (m) => addNotification({ type: 'error', title: 'PDF', message: m }),
     });
 
-  // Corrección solo antes de reimprimir y el mismo día (el backend lo exige).
-  const canEdit =
-    !label.voidedAt &&
-    label.reprintCount === 0 &&
-    isTodayMadrid(label.createdAt);
+  // Corrección solo el mismo día y si no está anulada (el backend lo exige).
+  const canEdit = !label.voidedAt && isTodayMadrid(label.createdAt);
 
   const onSaveEdit = async (input: UpdateFoodLabelInput) => {
     if (Object.keys(input).length === 0) {

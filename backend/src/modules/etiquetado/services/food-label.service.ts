@@ -215,10 +215,22 @@ export class FoodLabelService {
 
     if (dto.labelType === "HANDLED") {
       if (supplierLotNumber) {
-        return this.prisma.foodLabel.create({
-          data: { ...commonData, lotNumber: supplierLotNumber },
-          include: FOOD_LABEL_INCLUDE,
-        });
+        try {
+          return await this.prisma.foodLabel.create({
+            data: { ...commonData, lotNumber: supplierLotNumber },
+            include: FOOD_LABEL_INCLUDE,
+          });
+        } catch (err) {
+          if (
+            err instanceof Prisma.PrismaClientKnownRequestError &&
+            err.code === "P2002"
+          ) {
+            throw new ConflictException(
+              `Ya existe una etiqueta con el lote "${supplierLotNumber}" para este tenant. Si es una corrección, edita la etiqueta existente; si es otra porción del mismo lote, ajusta el nº de lote (p.ej. "${supplierLotNumber}-2").`,
+            );
+          }
+          throw err;
+        }
       }
       if (!purchaseDate) {
         throw new BadRequestException(
@@ -428,9 +440,9 @@ export class FoodLabelService {
   }
 
   /**
-   * Corrige una etiqueta el mismo día, antes de reimprimirla (errores de
-   * conservación, fecha, cantidad…). Recalcula el consumo preferente y deja
-   * traza en `editLog`. Rechaza si está anulada, ya reimpresa o no es de hoy.
+   * Corrige una etiqueta el mismo día (errores de conservación, fecha,
+   * cantidad…), reimpresa o no. Recalcula el consumo preferente y deja
+   * traza en `editLog`. Rechaza si está anulada o no es de hoy.
    */
   async update(
     tenantId: string,
@@ -696,17 +708,11 @@ export class FoodLabelService {
 
   private assertEditable(label: {
     voidedAt: Date | null;
-    reprintCount: number;
     createdAt: Date;
   }): void {
     if (label.voidedAt) {
       throw new ConflictException(
         "La etiqueta está anulada: crea una nueva en su lugar.",
-      );
-    }
-    if (label.reprintCount > 0) {
-      throw new ConflictException(
-        "La etiqueta ya se ha reimpreso: anúlala y crea una nueva con los datos corregidos.",
       );
     }
     if (!isSameMadridDay(label.createdAt, new Date())) {
