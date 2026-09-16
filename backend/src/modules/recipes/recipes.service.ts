@@ -324,11 +324,35 @@ export class RecipesService {
    */
   async findAllOptions(
     tenantId: string,
-  ): Promise<{ id: string; name: string }[]> {
-    return this.prisma.recipe.findMany({
+    includeCost = true,
+  ): Promise<{ id: string; name: string; pricePerKgOrL: number | null }[]> {
+    const recipes = await this.prisma.recipe.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        totalCostPerUnit: true,
+        portions: true,
+        portionSize: true,
+        totalYieldWeight: true,
+      },
       orderBy: { name: "asc" },
+    });
+
+    return recipes.map((r) => {
+      const hasValidYield =
+        (r.totalYieldWeight ?? r.portions * r.portionSize) > 0;
+      return {
+        id: r.id,
+        name: r.name,
+        // totalCostPerUnit persistido (€/g o €/ml, se reescribe al guardar)
+        // × 1000. kg y L se tratan como equivalentes a g/ml (densidad=1),
+        // igual que en el cálculo de coste de sub-recetas.
+        pricePerKgOrL:
+          includeCost && hasValidYield
+            ? Math.round(r.totalCostPerUnit * 1000 * 100) / 100
+            : null,
+      };
     });
   }
 

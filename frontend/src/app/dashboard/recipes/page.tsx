@@ -307,6 +307,18 @@ export default function RecipesPage() {
     }, 0);
   }, [ingredients]);
 
+  // Precio de referencia €/kg-L de la receta guardada, para que al usarla como
+  // sub-receta se vea de un vistazo. costBreakdown.costPerUnit es €/g (o €/ml,
+  // se tratan como equivalentes) calculado en vivo; ×1000 = €/kg-L. Solo
+  // existe para una receta ya guardada (selectedRecipe) y se recalcula al
+  // guardar, igual que el resto del costeo.
+  const referencePricePerKgOrL = useMemo(() => {
+    if (!selectedRecipe) return null;
+    const costPerUnit = selectedRecipe.costBreakdown?.costPerUnit ?? selectedRecipe.totalCostPerUnit;
+    if (!costPerUnit) return null;
+    return costPerUnit * 1000;
+  }, [selectedRecipe]);
+
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -1212,6 +1224,15 @@ export default function RecipesPage() {
                         se ajusta.
                       </p>
 
+                      {canViewCost && referencePricePerKgOrL != null && (
+                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
+                          <span className="text-[var(--on-surface-variant)]">Precio de referencia:</span>
+                          <span className="font-semibold text-[var(--on-surface)]">
+                            {formatEuro(referencePricePerKgOrL)}/kg-L
+                          </span>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className={m3Label}>Tiempo preparación (min)</label>
@@ -1406,6 +1427,9 @@ export default function RecipesPage() {
                                     items={allActiveRecipeOptions.filter((r) => r.id !== selectedRecipe?.id)}
                                     value={sub.subRecipeId}
                                     label={allActiveRecipeOptions.find((r) => r.id === sub.subRecipeId)?.name}
+                                    selectedPricePerKgOrL={
+                                      allActiveRecipeOptions.find((r) => r.id === sub.subRecipeId)?.pricePerKgOrL
+                                    }
                                     onSelect={(item) => handleSubRecipeChange(index, 'subRecipeId', item.id)}
                                   />
                                   <input
