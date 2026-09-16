@@ -19,6 +19,11 @@ import {
 import { processImageForUpload } from '@/lib/image-processing';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string; note?: string };
+
+// Unidades de ingrediente/sub-receta con peso conocido, convertidas a gramos
+// (densidad=1 para l/ml/cl — misma convención que calculateSubRecipeCost en
+// backend). "units"/"raciones" no tienen peso conocido en el sistema.
+const KNOWN_WEIGHT_UNIT_FACTORS: Record<string, number> = { kg: 1000, g: 1, l: 1000, ml: 1, cl: 10 };
 import ElaborationStepEditor, {
   ElaborationStep,
   parseSteps,
@@ -307,6 +312,28 @@ export default function RecipesPage() {
     }, 0);
   }, [ingredients]);
 
+  // Estimación del peso total elaborado (g) a partir de ingredientes y
+  // sub-recetas con unidad de peso/volumen conocida (kg/l ×1000, cl ×10,
+  // g/ml ×1, densidad=1 — misma convención que calculateSubRecipeCost en
+  // backend). Ingredientes/sub-recetas en "unidades" o "raciones" no tienen
+  // un peso conocido en el sistema y quedan fuera (se avisa con
+  // hasUnknownWeightItems). Se usa como sugerencia/fallback de "Peso total
+  // elaborado" cuando el usuario no ha puesto un valor a mano.
+  const estimatedYieldWeight = useMemo(() => {
+    let grams = 0;
+    let hasUnknownWeightItems = false;
+    [...ingredients, ...subRecipes].forEach((row) => {
+      if (!row.quantity) return;
+      const factor = KNOWN_WEIGHT_UNIT_FACTORS[row.unit];
+      if (factor != null) {
+        grams += row.quantity * factor;
+      } else {
+        hasUnknownWeightItems = true;
+      }
+    });
+    return { grams: Math.round(grams * 100) / 100, hasUnknownWeightItems };
+  }, [ingredients, subRecipes]);
+
   // Precio de referencia €/kg-L de la receta guardada, para que al usarla como
   // sub-receta se vea de un vistazo. costBreakdown.costPerUnit es €/g (o €/ml,
   // se tratan como equivalentes) calculado en vivo; ×1000 = €/kg-L. Solo
@@ -545,13 +572,15 @@ export default function RecipesPage() {
 
     // Rendimiento: se envía el trío ya coherente (T = R × P). El backend usa
     // totalYieldWeight como ancla y deriva portionSize = totalYieldWeight / portions.
-    // Si el usuario no ha introducido ningún peso, no se fuerza ninguno (0 →
-    // el backend y las vistas ya tratan un peso vacío como "sin especificar").
+    // Si el usuario no ha puesto peso ni peso/ración a mano, se usa el
+    // estimado por ingredientes (ver estimatedYieldWeight) como último
+    // recurso antes de dejarlo en 0 ("sin especificar").
     const raciones = parsePositive(formData.portions) || 1;
     const pesoRacion = parsePositive(formData.portionSize);
     const pesoTotal =
       parsePositive(formData.totalYieldWeight) ||
-      (pesoRacion > 0 ? round2(raciones * pesoRacion) : 0);
+      (pesoRacion > 0 ? round2(raciones * pesoRacion) : 0) ||
+      estimatedYieldWeight.grams;
 
     const recipeData = {
       name: formData.name,
@@ -1191,8 +1220,21 @@ export default function RecipesPage() {
                             name="totalYieldWeight"
                             value={formData.totalYieldWeight}
                             onChange={(e) => handleYieldChange('totalYieldWeight', e.target.value)}
+                            placeholder={
+                              estimatedYieldWeight.grams > 0 ? String(estimatedYieldWeight.grams) : undefined
+                            }
                             className={m3Field}
                           />
+                          {estimatedYieldWeight.grams > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleYieldChange('totalYieldWeight', String(estimatedYieldWeight.grams))}
+                              className="mt-1 text-xs font-medium text-[var(--primary)] hover:underline"
+                            >
+                              Usar estimado por ingredientes ({estimatedYieldWeight.grams} g)
+                              {estimatedYieldWeight.hasUnknownWeightItems ? '*' : ''}
+                            </button>
+                          )}
                         </div>
                         <div>
                           <label className={m3Label}>Raciones *</label>
@@ -1221,8 +1263,16 @@ export default function RecipesPage() {
                       <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
                         Peso total = raciones × peso ración. Al cambiar el peso ración,
                         las raciones se redondean al entero más cercano y el peso total
-                        se ajusta.
+                        se ajusta. Si lo dejas en blanco, se usa el estimado por
+                        ingredientes al guardar.
                       </p>
+                      {estimatedYieldWeight.hasUnknownWeightItems && (
+                        <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
+                          * El estimado no incluye ingredientes o sub-recetas en
+                          unidades/raciones (sin peso conocido en el sistema) — ajusta a
+                          mano si hace falta.
+                        </p>
+                      )}
 
                       {canViewCost && referencePricePerKgOrL != null && (
                         <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
