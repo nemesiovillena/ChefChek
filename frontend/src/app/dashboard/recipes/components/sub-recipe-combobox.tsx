@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Check, ChevronsUpDown, BookOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import {
   Command,
   CommandEmpty,
@@ -16,6 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 interface SubRecipeOption {
   id: string;
   name: string;
+  /** €/kg o €/L de la receta (null si no hay permiso de coste o no tiene rendimiento válido). */
+  pricePerKgOrL?: number | null;
 }
 
 interface SubRecipeComboboxProps {
@@ -25,6 +27,8 @@ interface SubRecipeComboboxProps {
   value: string;
   /** Nombre a mostrar en el trigger cuando hay selección. */
   label?: string;
+  /** €/kg o €/L de la sub-receta seleccionada, para mostrarlo en el trigger. */
+  selectedPricePerKgOrL?: number | null;
   /** Recibe la opción elegida. */
   onSelect: (item: SubRecipeOption) => void;
   placeholder?: string;
@@ -39,6 +43,7 @@ export default function SubRecipeCombobox({
   items,
   value,
   label,
+  selectedPricePerKgOrL,
   onSelect,
   placeholder = 'Buscar receta...',
 }: SubRecipeComboboxProps) {
@@ -52,6 +57,11 @@ export default function SubRecipeCombobox({
             <>
               <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{label}</span>
+              {selectedPricePerKgOrL != null && (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  ({formatEuro(selectedPricePerKgOrL)}/kg-L)
+                </span>
+              )}
             </>
           ) : (
             <span className="text-muted-foreground">{placeholder}</span>
@@ -76,6 +86,11 @@ export default function SubRecipeCombobox({
                 >
                   <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="flex-1 truncate">{item.name}</span>
+                  {item.pricePerKgOrL != null && (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {formatEuro(item.pricePerKgOrL)}/kg-L
+                    </span>
+                  )}
                   <Check
                     className={cn(
                       'ml-1 h-4 w-4 shrink-0',

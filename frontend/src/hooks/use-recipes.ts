@@ -198,7 +198,7 @@ export function useRecipes(query?: RecipesQuery) {
  * recetas, no solo la página visible del listado principal (paginado).
  */
 export function useRecipeOptions() {
-  return useApiQuery<{ id: string; name: string }[]>(
+  return useApiQuery<{ id: string; name: string; pricePerKgOrL: number | null }[]>(
     ['recipe-options'],
     '/v1/recipes/options'
   );
