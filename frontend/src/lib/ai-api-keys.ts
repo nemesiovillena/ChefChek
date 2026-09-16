@@ -60,6 +60,14 @@ export const AI_PROVIDERS: AIProvider[] = [
   },
 ];
 
+/** Proveedor del almacén «Claves API» (AI_PROVIDERS) que corresponde a cada
+ *  proveedor del asistente IA — el id de Gemini allí es "google". */
+export const ASSISTANT_KEY_STORE_PROVIDER: Record<string, string> = {
+  openai: 'openai',
+  gemini: 'google',
+  anthropic: 'anthropic',
+};
+
 const STORAGE_KEY_PREFIX = 'ai_api_key_';
 
 /**
