@@ -635,6 +635,21 @@ export default function RecipesPage() {
           setSelectedCategory('');
           setPage(1);
         }
+        // Igual con la búsqueda activa: si el nombre o la descripción de la
+        // receta no la matchean (mismo contains insensitive que el backend),
+        // se limpia para que sea visible sin recargar.
+        if (debouncedSearch) {
+          const query = debouncedSearch.toLowerCase();
+          const matchesSearch =
+            createdRecipe.name.toLowerCase().includes(query) ||
+            createdRecipe.description?.toLowerCase().includes(query);
+          if (!matchesSearch) {
+            if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+            setSearchTerm('');
+            setDebouncedSearch('');
+            setPage(1);
+          }
+        }
         addNotification({
           type: 'success',
           title: 'Receta creada',
