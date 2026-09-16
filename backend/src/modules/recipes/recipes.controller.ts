@@ -102,7 +102,10 @@ export class RecipesController {
   })
   async findAllOptions(@Req() req: any) {
     const tenantId = req.tenantId;
-    const data = await this.recipesService.findAllOptions(tenantId);
+    const data = await this.recipesService.findAllOptions(
+      tenantId,
+      await this.canViewCost(req),
+    );
     return {
       success: true,
       data,

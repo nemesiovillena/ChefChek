@@ -395,6 +395,65 @@ describe("RecipesService", () => {
     });
   });
 
+  describe("findAllOptions", () => {
+    it("should compute pricePerKgOrL from persisted totalCostPerUnit × 1000", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([
+        {
+          id: "r1",
+          name: "Salsa boloñesa",
+          totalCostPerUnit: 0.0034, // €/g
+          portions: 4,
+          portionSize: 250,
+          totalYieldWeight: 1000,
+        },
+      ]);
+
+      const result = await service.findAllOptions(tenantId, true);
+
+      expect(result).toEqual([
+        { id: "r1", name: "Salsa boloñesa", pricePerKgOrL: 3.4 },
+      ]);
+    });
+
+    it("should return null pricePerKgOrL when the caller cannot view cost", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([
+        {
+          id: "r1",
+          name: "Salsa boloñesa",
+          totalCostPerUnit: 0.0034,
+          portions: 4,
+          portionSize: 250,
+          totalYieldWeight: 1000,
+        },
+      ]);
+
+      const result = await service.findAllOptions(tenantId, false);
+
+      expect(result).toEqual([
+        { id: "r1", name: "Salsa boloñesa", pricePerKgOrL: null },
+      ]);
+    });
+
+    it("should return null pricePerKgOrL when the recipe has no valid yield", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([
+        {
+          id: "r1",
+          name: "Sin rendimiento",
+          totalCostPerUnit: 0.0034,
+          portions: 0,
+          portionSize: 0,
+          totalYieldWeight: null,
+        },
+      ]);
+
+      const result = await service.findAllOptions(tenantId, true);
+
+      expect(result).toEqual([
+        { id: "r1", name: "Sin rendimiento", pricePerKgOrL: null },
+      ]);
+    });
+  });
+
   describe("findOne", () => {
     it("should return a recipe by id", async () => {
       mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
