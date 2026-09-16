@@ -360,6 +360,31 @@ describe("FoodLabelService", () => {
       expect(result.supplierName).toBe("Pescados SL");
       expect(result.purchaseDate).toBeNull();
     });
+
+    it("rejects with a clear message when the supplier lot number is already used (e.g. after void+recreate)", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.lot.findFirst.mockResolvedValue({
+        id: "lot2",
+        lotNumber: "L-777",
+        expiryDate: null,
+        productId: "p2",
+        receivedAt: new Date("2026-09-01T00:00:00.000Z"),
+        supplier: { name: "Pescados SL" },
+      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError("unique", {
+        code: "P2002",
+        clientVersion: "test",
+      });
+      mockPrisma.foodLabel.create.mockRejectedValueOnce(p2002);
+
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "HANDLED",
+          productId: "p2",
+          sourceLotId: "lot2",
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
   });
 
   describe("void", () => {
@@ -480,14 +505,22 @@ describe("FoodLabelService", () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
-    it("rejects a label that has been reprinted", async () => {
+    it("allows correcting a label that has already been reprinted (same day)", async () => {
       mockPrisma.foodLabel.findFirst.mockResolvedValue({
         ...editableLabel(),
-        reprintCount: 1,
+        reprintCount: 2,
       });
-      await expect(
-        service.update(TENANT, USER, "fl1", { notes: "x" }),
-      ).rejects.toBeInstanceOf(ConflictException);
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.foodLabel.update.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.update(TENANT, USER, "fl1", {
+        notes: "corregido tras reimprimir",
+      });
+
+      expect(result.notes).toBe("corregido tras reimprimir");
     });
 
     it("rejects a label created on a previous day", async () => {
