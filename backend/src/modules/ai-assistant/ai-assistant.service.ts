@@ -31,6 +31,15 @@ const PROVIDER_ERROR_MESSAGE =
  *  proveedores retiran modelos con frecuencia). El usuario debe elegir otro. */
 const MODEL_UNAVAILABLE_MESSAGE =
   "El modelo de IA configurado ya no está disponible en el proveedor. Ve a Ajustes → Asistente IA y elige otro modelo.";
+/** El proveedor respondió 429/5xx tras agotar los reintentos de
+ *  `postJsonWithRetry` (saturación puntual, no un problema de configuración).
+ *  Ver plan.md fase 6 / journal 260901: confundir esto con un fallo de config
+ *  hace que el usuario pierda tiempo cambiando de modelo o API key sin motivo. */
+const PROVIDER_OVERLOADED_MESSAGE =
+  "El proveedor de IA está saturado en este momento (fallo temporal, no es un problema de tu configuración). Espera unos segundos y vuelve a intentarlo, o prueba con otro modelo en Ajustes → Asistente IA.";
+/** Códigos que `postJsonWithRetry` ya reintentó sin éxito — ver RETRYABLE_STATUS
+ *  en provider-http.util.ts. */
+const RETRYABLE_STATUS_PATTERN = /respondió (429|500|502|503|504):/;
 
 const SYSTEM_PROMPT_BASE = `Eres "Chefchek", el asistente de IA de la aplicación ChefChek para hostelería.
 Respondes SIEMPRE en español, con un tono cercano y profesional.
@@ -163,10 +172,16 @@ export class AiAssistantService {
         );
         // Un 404 del proveedor = modelo retirado: mensaje accionable en vez del
         // genérico (el adaptador formatea "<Proveedor> respondió 404: ...").
-        finalContent =
-          typeof e?.message === "string" && e.message.includes("respondió 404")
-            ? MODEL_UNAVAILABLE_MESSAGE
-            : PROVIDER_ERROR_MESSAGE;
+        // Un 429/5xx = saturación transitoria ya reintentada sin éxito: mensaje
+        // distinto para no confundirlo con un fallo real de configuración.
+        const message = typeof e?.message === "string" ? e.message : "";
+        if (message.includes("respondió 404")) {
+          finalContent = MODEL_UNAVAILABLE_MESSAGE;
+        } else if (RETRYABLE_STATUS_PATTERN.test(message)) {
+          finalContent = PROVIDER_OVERLOADED_MESSAGE;
+        } else {
+          finalContent = PROVIDER_ERROR_MESSAGE;
+        }
         break;
       }
 

@@ -351,6 +351,20 @@ describe("AiAssistantService", () => {
     expect(result.answer).not.toContain("404");
   });
 
+  it("si el proveedor responde 503 (saturado) tras agotar reintentos, avisa que es temporal y no de configuración", async () => {
+    openaiMock.chat.mockRejectedValueOnce(
+      new Error(
+        'Gemini respondió 503: {"error":{"message":"This model is currently experiencing high demand","status":"UNAVAILABLE"}}',
+      ),
+    );
+
+    const result = await service.ask("t1", "u1", undefined, "pregunta");
+
+    expect(result.answer).toContain("saturado");
+    expect(result.answer).toContain("no es un problema de tu configuración");
+    expect(result.answer).not.toContain("503");
+  });
+
   it("toca updatedAt de la conversación tras responder (para que el listado ordene por actividad real)", async () => {
     openaiMock.chat.mockResolvedValueOnce({ content: "ok" });
     const result = await service.ask("t1", "u1", undefined, "hola");
