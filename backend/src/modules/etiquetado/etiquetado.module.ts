@@ -7,6 +7,7 @@ import { EtiquetadoPublicController } from "./etiquetado-public.controller";
 import { FoodLabelService } from "./services/food-label.service";
 import { FoodLabelContextService } from "./services/food-label-context.service";
 import { FoodLabelPdfService } from "./services/food-label-pdf.service";
+import { FoodLabelZplService } from "./services/food-label-zpl.service";
 import { LotNumberService } from "./services/lot-number.service";
 import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
 
@@ -17,6 +18,7 @@ import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
     FoodLabelService,
     FoodLabelContextService,
     FoodLabelPdfService,
+    FoodLabelZplService,
     LotNumberService,
     EtiquetadoConfigService,
   ],

@@ -120,25 +120,37 @@ Público (sin guards, rate-limit propio 20/min):
 La respuesta pública devuelve la ficha completa **salvo el nombre del
 responsable**, que sale como iniciales (`responsibleInitials`).
 
-## PDF
+## Salida de impresión: PDF (A4) + ZPL (térmica Zebra)
 
-`FoodLabelPdfService` (pdfkit) recibe una `LabelSpec` resuelta (no una clave
-fija):
+Dos generadores independientes, con las reglas de negocio de cada campo
+(fechas, LOTE, alérgenos, congelado, HANDLED...) compartidas en
+`util/food-label-print-format.util.ts` para que no diverjan:
 
-- **Térmica**: medidas de la etiquetadora del tenant, configurables en Ajustes →
-  Etiquetas (`GET/PUT /api/v1/etiquetado/config`, PUT solo `ADMIN`, guardado en
-  `Configuration` con key `ETIQUETADO_THERMAL_PROFILES`). Cada perfil: `{ id,
-  name, widthMm, heightMm }` (20–200 mm). Un tenant nuevo trae 2 perfiles por
-  defecto (57×40 y 57×32). Si el alto < 36 mm la etiqueta omite la lista de
-  ingredientes.
-- **Hoja A4**: presets estándar built-in **no configurables** (`a4-70x37` =
-  Apli 3×8, `a4-63x38` = Apli 3×7). Márgenes/gutters en `label-presets.ts`,
-  ajustables con un PDF real sin tocar la lógica de render.
+- **`FoodLabelPdfService`** (pdfkit) — solo hojas **A4**. Presets estándar
+  built-in **no configurables** (`a4-70x37` = Apli 3×8, `a4-63x38` = Apli
+  3×7). Márgenes/gutters en `label-presets.ts`, ajustables con un PDF real sin
+  tocar la lógica de render. `GET /labels/:id/pdf?format=a4-70x37|a4-63x38`.
+- **`FoodLabelZplService`** — etiquetas **térmicas** (Zebra ZD220D por USB +
+  Zebra Browser Print). Genera ZPL puro (texto), sin dependencias de
+  hardware; el envío a la impresora lo hace el frontend. Medidas + DPI del
+  perfil del tenant, configurables en Ajustes → Etiquetas (`GET/PUT
+  /api/v1/etiquetado/config`, PUT solo `ADMIN`, guardado en `Configuration`
+  con key `ETIQUETADO_THERMAL_PROFILES`). Cada perfil: `{ id, name, widthMm,
+  heightMm, dpi }` (mm 20–200, dpi 100–600; dpi por defecto 203 = Zebra
+  ZD220D). Un tenant nuevo trae 2 perfiles por defecto (60×40 y 57×32). Si el
+  alto < 36 mm la etiqueta omite la lista de ingredientes. Ajuste de texto vía
+  `^FB` nativo de ZPL (recorta sin "…" si no cabe, sin medir texto como
+  pdfkit — decisión deliberada, ver plan). Negrita en LOTE/Consumir/Alérgenos/
+  nombre vía "doble impresión" desplazada 1 dot (la fuente escalable 0 de
+  Zebra no tiene variante bold real). Copias vía `^PQ<n>`, no repitiendo el
+  bloque de etiqueta. `GET /labels/:id/zpl?format=thermal:<profileId>`.
 
-El `format` que llega al endpoint de PDF es `thermal:<profileId>` o
-`a4-70x37` / `a4-63x38`; `EtiquetadoConfigService.resolveSpec` lo traduce.
+El `format` que llega a `/pdf` debe ser un preset A4 (`resolveSpec` rechaza
+cualquier otro valor); el que llega a `/zpl` es `thermal:<profileId>`
+(`resolveThermalProfile`, cae al primer perfil si el id no existe).
 
-El QR codifica `${APP_URL}/e/${qrToken}`.
+El QR codifica `${APP_URL}/e/${qrToken}` (dinámico por etiqueta) en ambos
+generadores.
 
 ## Frontend
 

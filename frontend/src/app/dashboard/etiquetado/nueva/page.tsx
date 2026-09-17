@@ -14,7 +14,7 @@ import {
   useEtiquetadoConfig,
   effectiveLabelFormat,
   labelFormatOptions,
-  openLabelPdf,
+  printLabel,
   type CreateFoodLabelInput,
   type LabelType,
   type StorageCondition,
@@ -239,9 +239,17 @@ export default function NuevaEtiquetaPage() {
         title: 'Etiqueta creada',
         message: `Lote ${created.lotNumber}`,
       });
-      await openLabelPdf(created.id, printFormat, Number(copies) || 1, {
+      await printLabel(created.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
-          addNotification({ type: 'error', title: 'PDF', message: m }),
+          addNotification({ type: 'error', title: 'Impresión', message: m }),
+        onSuccess: printFormat.startsWith('thermal:')
+          ? () =>
+              addNotification({
+                type: 'success',
+                title: 'Enviada a la impresora',
+                message: '',
+              })
+          : undefined,
       });
       router.push(`/dashboard/etiquetado/${created.id}`);
     } catch (e: unknown) {

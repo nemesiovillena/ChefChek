@@ -86,11 +86,11 @@ describe("EtiquetadoConfigService", () => {
       mockPrisma.configuration.findUnique.mockImplementation(
         ({ where }: any) =>
           where.tenantId_key.key === "ETIQUETADO_DEFAULT_FORMAT"
-            ? { value: "thermal:default-57x40" }
+            ? { value: "thermal:default-60x40" }
             : null,
       );
       const config = await service.getConfig("t1");
-      expect(config.defaultFormat).toBe("thermal:default-57x40");
+      expect(config.defaultFormat).toBe("thermal:default-60x40");
       expect(config.thermalProfiles).toEqual(DEFAULT_THERMAL_PROFILES);
     });
 
@@ -100,7 +100,7 @@ describe("EtiquetadoConfigService", () => {
         "t1",
         "u1",
         "thermal:rollo",
-        [{ id: "rollo", name: "Rollo", widthMm: 57, heightMm: 40 }],
+        [{ id: "rollo", name: "Rollo", widthMm: 57, heightMm: 40, dpi: 203 }],
       );
       expect(saved).toBe("thermal:rollo");
       expect(mockPrisma.configuration.upsert).toHaveBeenCalledWith(
@@ -192,24 +192,34 @@ describe("EtiquetadoConfigService", () => {
       expect(spec.kind).toBe("a4");
     });
 
+    it("rejects a thermal format: el PDF ya no sirve etiquetas térmicas", async () => {
+      await expect(
+        service.resolveSpec("t1", "thermal:r1"),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("rejects an empty/unknown format", async () => {
+      await expect(service.resolveSpec("t1")).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe("resolveThermalProfile", () => {
     it("resolves a thermal profile by id", async () => {
       mockPrisma.configuration.findUnique.mockResolvedValue({
         value: JSON.stringify([
-          { id: "r1", name: "R1", widthMm: 60, heightMm: 45 },
+          { id: "r1", name: "R1", widthMm: 60, heightMm: 45, dpi: 203 },
         ]),
       });
-      const spec = await service.resolveSpec("t1", "thermal:r1");
-      expect(spec).toMatchObject({
-        kind: "thermal",
-        widthMm: 60,
-        heightMm: 45,
-      });
+      const profile = await service.resolveThermalProfile("t1", "thermal:r1");
+      expect(profile).toMatchObject({ widthMm: 60, heightMm: 45, dpi: 203 });
     });
 
     it("falls back to the first thermal profile for an unknown format", async () => {
       mockPrisma.configuration.findUnique.mockResolvedValue(null);
-      const spec = await service.resolveSpec("t1", "garbage");
-      expect(spec).toMatchObject({ kind: "thermal", widthMm: 57 });
+      const profile = await service.resolveThermalProfile("t1", "garbage");
+      expect(profile).toMatchObject({ widthMm: 60, dpi: 203 });
     });
   });
 });

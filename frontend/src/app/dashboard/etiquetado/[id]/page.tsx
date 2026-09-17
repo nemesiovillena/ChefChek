@@ -13,7 +13,7 @@ import {
   useEtiquetadoConfig,
   effectiveLabelFormat,
   labelFormatOptions,
-  openLabelPdf,
+  printLabel,
   type UpdateFoodLabelInput,
 } from '@/hooks/use-food-labels';
 import EditLabelForm from './edit-label-form';
@@ -66,6 +66,8 @@ export default function EtiquetaDetailPage() {
 
   const [copies, setCopies] = useState('1');
   const [editing, setEditing] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const isThermal = printFormat.startsWith('thermal:');
 
   if (isLoading) {
     return (
@@ -78,11 +80,26 @@ export default function EtiquetaDetailPage() {
     return <div className="p-8 text-center">Etiqueta no encontrada.</div>;
   }
 
-  const onReprint = () =>
-    openLabelPdf(label.id, printFormat, Number(copies) || 1, {
-      reprint: true,
-      onError: (m) => addNotification({ type: 'error', title: 'PDF', message: m }),
-    });
+  const onReprint = async () => {
+    setPrinting(true);
+    try {
+      await printLabel(label.id, printFormat, Number(copies) || 1, {
+        reprint: true,
+        onError: (m) =>
+          addNotification({ type: 'error', title: 'Impresión', message: m }),
+        onSuccess: isThermal
+          ? () =>
+              addNotification({
+                type: 'success',
+                title: 'Enviada a la impresora',
+                message: '',
+              })
+          : undefined,
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   // Corrección solo el mismo día y si no está anulada (el backend lo exige).
   const canEdit = !label.voidedAt && isTodayMadrid(label.createdAt);
@@ -102,9 +119,9 @@ export default function EtiquetaDetailPage() {
       });
       // Reimpresión de la corrección: no cuenta como "reimpresión" (no bloquea
       // seguir corrigiendo el mismo día).
-      await openLabelPdf(label.id, printFormat, Number(copies) || 1, {
+      await printLabel(label.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
-          addNotification({ type: 'error', title: 'PDF', message: m }),
+          addNotification({ type: 'error', title: 'Impresión', message: m }),
       });
     } catch (e: unknown) {
       addNotification({
@@ -268,9 +285,13 @@ export default function EtiquetaDetailPage() {
             onChange={(e) => setCopies(e.target.value)}
           />
         </label>
-        <Button onClick={onReprint}>
-          <Printer className="mr-2 h-4 w-4" />
-          Reimprimir
+        <Button onClick={onReprint} disabled={printing}>
+          {printing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Printer className="mr-2 h-4 w-4" />
+          )}
+          {printing ? 'Enviando…' : 'Reimprimir'}
         </Button>
         {canEdit && !editing && (
           <Button variant="outline" onClick={() => setEditing(true)}>

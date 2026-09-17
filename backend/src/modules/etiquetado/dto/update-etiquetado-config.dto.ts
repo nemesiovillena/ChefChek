@@ -28,6 +28,13 @@ export class ThermalProfileDto {
   @Min(20)
   @Max(200)
   heightMm!: number;
+
+  /** DPI de la impresora térmica (Zebra ZD220D = 203). Opcional: por defecto 203. */
+  @IsOptional()
+  @IsNumber()
+  @Min(100)
+  @Max(600)
+  dpi?: number;
 }
 
 export class UpdateEtiquetadoConfigDto {
