@@ -7,12 +7,14 @@ import { ProductsController } from "./products.controller";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { UsersModule } from "../users/users.module";
+import { AlbaranesModule } from "../albaranes/albaranes.module";
 
 @Module({
   imports: [
     PrismaModule,
     forwardRef(() => AuthModule),
     forwardRef(() => UsersModule),
+    forwardRef(() => AlbaranesModule),
   ],
   controllers: [ProductsController],
   providers: [
