@@ -20,11 +20,13 @@ import TabMermas from './tab-mermas';
 import TabCodigos from './tab-codigos';
 import { ProductPriceHistoryChart } from '@/components/products/product-price-history-chart';
 import { ProductPriceHistoryTable } from '@/components/products/product-price-history-table';
+import { ProductLotHistoryTable } from '@/components/products/product-lot-history-table';
 
 const TABS: Array<{ id: string; label: string; editOnly?: boolean }> = [
   { id: 'formato-precio', label: 'Formato y Precio' },
   { id: 'proveedor-stock', label: 'Proveedor y Stock' },
   { id: 'historial-precios', label: 'Hist. Precios', editOnly: true },
+  { id: 'lotes', label: 'Lotes', editOnly: true },
   { id: 'mermas', label: 'Mermas' },
   { id: 'conservacion', label: 'Conservación' },
   { id: 'alergenos', label: 'Alérgenos' },
@@ -517,6 +519,9 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
               <ProductPriceHistoryChart productId={article.id} referenceUnit={article.referenceUnit} />
               <ProductPriceHistoryTable productId={article.id} referenceUnit={article.referenceUnit} />
             </div>
+          )}
+          {activeTab === 'lotes' && article?.id && (
+            <ProductLotHistoryTable productId={article.id} />
           )}
         </div>
 
