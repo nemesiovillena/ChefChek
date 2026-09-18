@@ -5,8 +5,8 @@ import {
   A4Format,
   BUILTIN_A4_FORMATS,
   LabelSpec,
-  thermalSpec,
 } from "../constants/label-presets";
+import { DEFAULT_ZPL_DPI } from "../constants/zpl-presets";
 
 const THERMAL_PROFILES_KEY = "ETIQUETADO_THERMAL_PROFILES";
 const DEFAULT_FORMAT_KEY = "ETIQUETADO_DEFAULT_FORMAT";
@@ -22,30 +22,37 @@ export interface ThermalProfile {
   name: string;
   widthMm: number;
   heightMm: number;
+  /** DPI de la impresora térmica (Zebra ZD220D = 203). Configurable por si cambia el modelo. */
+  dpi: number;
 }
 
 /**
  * Perfiles de etiquetadora térmica por defecto para un tenant nuevo. Las hojas
  * A4 no se configuran (son formatos estándar built-in); solo la térmica, que
- * depende de la impresora del usuario.
+ * depende de la impresora del usuario (genera ZPL, no PDF — ver
+ * `FoodLabelZplService`).
  */
 export const DEFAULT_THERMAL_PROFILES: ThermalProfile[] = [
   {
-    id: "default-57x40",
-    name: "Térmica 57 × 40 mm",
-    widthMm: 57,
+    id: "default-60x40",
+    name: "Térmica 60 × 40 mm",
+    widthMm: 60,
     heightMm: 40,
+    dpi: DEFAULT_ZPL_DPI,
   },
   {
     id: "default-57x32",
     name: "Térmica 57 × 32 mm",
     widthMm: 57,
     heightMm: 32,
+    dpi: DEFAULT_ZPL_DPI,
   },
 ];
 
 const MM_MIN = 20;
 const MM_MAX = 200;
+const DPI_MIN = 100;
+const DPI_MAX = 600;
 
 @Injectable()
 export class EtiquetadoConfigService {
@@ -182,6 +189,7 @@ export class EtiquetadoConfigService {
       name: string;
       widthMm: number;
       heightMm: number;
+      dpi?: number;
     }>,
     userId: string,
   ): Promise<ThermalProfile[]> {
@@ -211,11 +219,18 @@ export class EtiquetadoConfigService {
           `Medidas fuera de rango (${MM_MIN}–${MM_MAX} mm) en "${p.name || id}"`,
         );
       }
+      const dpi = p.dpi === undefined ? DEFAULT_ZPL_DPI : Number(p.dpi);
+      if (!Number.isFinite(dpi) || dpi < DPI_MIN || dpi > DPI_MAX) {
+        throw new BadRequestException(
+          `DPI fuera de rango (${DPI_MIN}–${DPI_MAX}) en "${p.name || id}"`,
+        );
+      }
       return {
         id,
         name: (p.name || `Etiqueta ${width}×${height}`).trim().slice(0, 60),
         widthMm: Math.round(width * 10) / 10,
         heightMm: Math.round(height * 10) / 10,
+        dpi: Math.round(dpi),
       };
     });
 
@@ -236,20 +251,30 @@ export class EtiquetadoConfigService {
   }
 
   /**
-   * Traduce el `format` que llega en la query del endpoint de PDF a una
-   * `LabelSpec` resuelta:
-   * - `a4-70x37` / `a4-63x38` → preset A4 built-in.
-   * - `thermal:<id>` → perfil térmico del tenant (o el primero si el id no existe).
-   * - cualquier otro / vacío → primer perfil térmico del tenant.
+   * Traduce un preset A4 (`a4-70x37` / `a4-63x38`) a la `LabelSpec` resuelta
+   * que consume `FoodLabelPdfService`. Las etiquetas térmicas ya no pasan por
+   * aquí — generan ZPL (`resolveThermalProfile` + `FoodLabelZplService`).
    */
   async resolveSpec(tenantId: string, format?: string): Promise<LabelSpec> {
-    if (format && BUILTIN_A4_FORMATS.includes(format as A4Format)) {
-      const { name: _name, ...spec } = A4_BUILTIN_PRESETS[format as A4Format];
-      return spec;
+    if (!format || !BUILTIN_A4_FORMATS.includes(format as A4Format)) {
+      throw new BadRequestException(
+        "El PDF solo admite hojas A4; usa el endpoint ZPL para etiquetas térmicas",
+      );
     }
+    const { name: _name, ...spec } = A4_BUILTIN_PRESETS[format as A4Format];
+    return spec;
+  }
+
+  /**
+   * Resuelve el perfil de etiquetadora térmica del tenant para `format`
+   * (`thermal:<id>`, o el primero disponible si el id no llega o no existe).
+   */
+  async resolveThermalProfile(
+    tenantId: string,
+    format?: string,
+  ): Promise<ThermalProfile> {
     const profiles = await this.getThermalProfiles(tenantId);
     const id = format?.startsWith("thermal:") ? format.slice(8) : null;
-    const profile = (id && profiles.find((p) => p.id === id)) || profiles[0];
-    return thermalSpec(profile.widthMm, profile.heightMm);
+    return (id && profiles.find((p) => p.id === id)) || profiles[0];
   }
 }

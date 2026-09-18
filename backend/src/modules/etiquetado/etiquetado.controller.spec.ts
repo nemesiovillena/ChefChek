@@ -4,6 +4,7 @@ import { EtiquetadoController } from "./etiquetado.controller";
 import { FoodLabelService } from "./services/food-label.service";
 import { FoodLabelContextService } from "./services/food-label-context.service";
 import { FoodLabelPdfService } from "./services/food-label-pdf.service";
+import { FoodLabelZplService } from "./services/food-label-zpl.service";
 import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -32,12 +33,14 @@ describe("EtiquetadoController", () => {
         { provide: FoodLabelService, useValue: foodLabels },
         { provide: FoodLabelContextService, useValue: context },
         { provide: FoodLabelPdfService, useValue: { generate: jest.fn() } },
+        { provide: FoodLabelZplService, useValue: { generate: jest.fn() } },
         {
           provide: EtiquetadoConfigService,
           useValue: {
             getConfig: jest.fn(),
             setThermalProfiles: jest.fn(),
             resolveSpec: jest.fn(),
+            resolveThermalProfile: jest.fn(),
           },
         },
       ],

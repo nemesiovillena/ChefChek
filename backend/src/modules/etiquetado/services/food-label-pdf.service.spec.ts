@@ -1,10 +1,6 @@
 import { inflateSync } from "zlib";
 import { FoodLabelForPdf, FoodLabelPdfService } from "./food-label-pdf.service";
-import {
-  A4_BUILTIN_PRESETS,
-  LabelSpec,
-  thermalSpec,
-} from "../constants/label-presets";
+import { A4_BUILTIN_PRESETS, LabelSpec } from "../constants/label-presets";
 
 /**
  * Texto legible de un PDF de pdfkit: los streams van comprimidos (Flate) y
@@ -97,17 +93,10 @@ function makeLabel(overrides: Partial<FoodLabelForPdf> = {}): FoodLabelForPdf {
 describe("FoodLabelPdfService", () => {
   const service = new FoodLabelPdfService();
 
-  it("produces a valid PDF for a thermal label", async () => {
-    const buf = await service.generate(makeLabel(), thermalSpec(57, 40), 1);
+  it("produces a valid PDF for an A4 sheet", async () => {
+    const buf = await service.generate(makeLabel(), a4("a4-70x37"), 1);
     expect(buf.length).toBeGreaterThan(0);
     expect(buf.subarray(0, 5).toString()).toBe("%PDF-");
-  });
-
-  it("produces one page per copy on thermal format", async () => {
-    const buf = await service.generate(makeLabel(), thermalSpec(57, 32), 3);
-    // pdfkit escribe "/Type /Page" (con espacio) una vez por página
-    const pages = buf.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? [];
-    expect(pages.length).toBe(3);
   });
 
   it("lays 24 copies onto a single A4 page (3x8 grid)", async () => {
@@ -116,16 +105,8 @@ describe("FoodLabelPdfService", () => {
     expect(pages.length).toBe(1);
   });
 
-  it("renders the full item name wrapped, without ellipsis", async () => {
-    const buf = await service.generate(makeLabel(), thermalSpec(57, 40), 1);
-    const text = pdfText(buf);
-    // En 57 mm el nombre no cabe en una línea: se parte, no se recorta
-    expect(text).toContain("estofado");
-    expect(text).toContain("temperatura");
-  });
-
   it("prints allergen names in text, one bold Consumir, lowercase ingredients with lot", async () => {
-    const buf = await service.generate(makeLabel(), thermalSpec(57, 40), 1);
+    const buf = await service.generate(makeLabel(), a4("a4-70x37"), 1);
     const text = pdfText(buf);
     expect(text).toContain("Gluten");
     expect(text).toContain("Leche");
@@ -135,36 +116,6 @@ describe("FoodLabelPdfService", () => {
     // y su nº de lote
     expect(text).toContain("jarrete");
     expect(text).toContain("L:L-4471");
-  });
-
-  it("prints every ingredient with its lot, wrapping as needed", async () => {
-    const buf = await service.generate(
-      makeLabel({
-        ingredientLots: [
-          { productName: "Sal de cocina", lotNumber: "" },
-          { productName: "Pimienta negra molida bote 750 g", lotNumber: "" },
-          { productName: "Almidón de maíz", lotNumber: "" },
-          { productName: "Vinalopó joven blanco", lotNumber: "V-22" },
-          { productName: "Tomillo", lotNumber: "" },
-          { productName: "Carrillada de cerdo sin hueso", lotNumber: "262894" },
-        ] as FoodLabelForPdf["ingredientLots"],
-      }),
-      thermalSpec(57, 40),
-      1,
-    );
-    const text = pdfText(buf);
-    for (const name of [
-      "sal de cocina",
-      "pimienta negra",
-      "almidón de maíz",
-      "vinalopó joven blanco",
-      "tomillo",
-      "carrillada de cerdo sin hueso",
-    ]) {
-      expect(text).toContain(name);
-    }
-    expect(text).toContain("L:262894");
-    expect(text).toContain("L:V-22");
   });
 
   it("frozen label merges freeze date and temps into one line", async () => {
@@ -177,7 +128,7 @@ describe("FoodLabelPdfService", () => {
         storageTempMin: -18,
         storageTempMax: -12,
       }),
-      thermalSpec(57, 40),
+      a4("a4-70x37"),
       1,
     );
     const text = pdfText(buf);
@@ -201,7 +152,7 @@ describe("FoodLabelPdfService", () => {
         ingredientLots: [],
         sourceLot: null,
       }),
-      thermalSpec(57, 40),
+      a4("a4-70x37"),
       1,
     );
     const text = pdfText(buf);

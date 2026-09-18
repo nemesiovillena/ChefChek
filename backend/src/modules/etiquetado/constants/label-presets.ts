@@ -2,42 +2,32 @@
 export const mm = (v: number): number => (v * 72) / 25.4;
 
 /**
- * Especificación resuelta de una etiqueta que consume `FoodLabelPdfService`.
- * - `thermal`: medidas de la etiquetadora del tenant (configurables en Ajustes).
- * - `a4`: rejilla de hoja A4, preset estándar built-in (no configurable).
+ * Especificación resuelta de una hoja A4 que consume `FoodLabelPdfService`.
+ * Preset estándar built-in (no configurable) para impresoras láser normales.
+ * Las etiquetas térmicas (Zebra) usan ZPL — ver `zpl-presets.ts`.
  */
-export type LabelSpec =
-  | {
-      kind: "thermal";
-      widthMm: number;
-      heightMm: number;
-      paddingMm: number;
-      showIngredients: boolean;
-    }
-  | {
-      kind: "a4";
-      cols: number;
-      rows: number;
-      labelWmm: number;
-      labelHmm: number;
-      marginXmm: number;
-      marginYmm: number;
-      gutterXmm: number;
-      gutterYmm: number;
-      paddingMm: number;
-      showIngredients: boolean;
-    };
+export type LabelSpec = {
+  kind: "a4";
+  cols: number;
+  rows: number;
+  labelWmm: number;
+  labelHmm: number;
+  marginXmm: number;
+  marginYmm: number;
+  gutterXmm: number;
+  gutterYmm: number;
+  paddingMm: number;
+  showIngredients: boolean;
+};
 
-/** Umbral de alto (mm) por debajo del cual la etiqueta térmica omite la lista de ingredientes. */
-export const THERMAL_INGREDIENTS_MIN_HEIGHT_MM = 36;
-
-export const THERMAL_PADDING_MM = 2.5;
+/** Umbral de alto (mm) por debajo del cual la etiqueta omite la lista de ingredientes. */
+export const LABEL_INGREDIENTS_MIN_HEIGHT_MM = 36;
 
 export type A4Format = "a4-70x37" | "a4-63x38";
 
 export const BUILTIN_A4_FORMATS: A4Format[] = ["a4-70x37", "a4-63x38"];
 
-type A4Preset = Extract<LabelSpec, { kind: "a4" }> & { name: string };
+type A4Preset = LabelSpec & { name: string };
 
 /**
  * Presets de hoja A4 estándar (referencias tipo Apli). Los márgenes/gutters son
@@ -75,13 +65,3 @@ export const A4_BUILTIN_PRESETS: Record<A4Format, A4Preset> = {
 };
 
 export const A4_SIZE_PT: [number, number] = [mm(210), mm(297)];
-
-export function thermalSpec(widthMm: number, heightMm: number): LabelSpec {
-  return {
-    kind: "thermal",
-    widthMm,
-    heightMm,
-    paddingMm: THERMAL_PADDING_MM,
-    showIngredients: heightMm >= THERMAL_INGREDIENTS_MIN_HEIGHT_MM,
-  };
-}

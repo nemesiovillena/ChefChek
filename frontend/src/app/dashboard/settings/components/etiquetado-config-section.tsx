@@ -11,12 +11,14 @@ import {
   useUpdateEtiquetadoConfig,
   type ThermalProfile,
 } from '@/hooks/use-food-labels';
+import { ZebraPrinterStatus } from './zebra-printer-status';
 
 interface DraftProfile {
   id: string;
   name: string;
   widthMm: string;
   heightMm: string;
+  dpi: string;
 }
 
 const toDraft = (p: ThermalProfile): DraftProfile => ({
@@ -24,6 +26,7 @@ const toDraft = (p: ThermalProfile): DraftProfile => ({
   name: p.name,
   widthMm: String(p.widthMm),
   heightMm: String(p.heightMm),
+  dpi: String(p.dpi ?? 203),
 });
 
 /**
@@ -65,7 +68,7 @@ export function EtiquetadoConfigSection() {
   const add = () =>
     setDrafts([
       ...rows,
-      { id: `rollo-${Date.now()}`, name: '', widthMm: '57', heightMm: '40' },
+      { id: `rollo-${Date.now()}`, name: '', widthMm: '60', heightMm: '40', dpi: '203' },
     ]);
 
   const remove = (i: number) => setDrafts(rows.filter((_, idx) => idx !== i));
@@ -76,6 +79,7 @@ export function EtiquetadoConfigSection() {
       name: r.name.trim() || `Etiqueta ${r.widthMm}×${r.heightMm}`,
       widthMm: parseFloat(r.widthMm.replace(',', '.')),
       heightMm: parseFloat(r.heightMm.replace(',', '.')),
+      dpi: parseInt(r.dpi, 10) || 203,
     }));
     if (parsed.some((p) => !Number.isFinite(p.widthMm) || !Number.isFinite(p.heightMm))) {
       addNotification({ type: 'error', title: 'Medidas no válidas', message: 'Revisa el ancho y alto en mm.' });
@@ -117,9 +121,9 @@ export function EtiquetadoConfigSection() {
         <h2 className="text-xl font-semibold">Etiquetas</h2>
       </div>
       <p className="text-sm text-gray-500 mb-4">
-        Medidas de tu etiquetadora térmica (rollo). Se usan al imprimir etiquetas
-        de cocina. Las hojas A4 son formatos estándar y no necesitan
-        configuración.
+        Medidas y DPI de tu etiquetadora térmica Zebra (rollo). Se generan como
+        ZPL y se envían directas a la impresora. Las hojas A4 son formatos
+        estándar y no necesitan configuración.
       </p>
 
       <label className="block text-sm mb-4">
@@ -196,6 +200,16 @@ export function EtiquetadoConfigSection() {
                 className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
               />
             </label>
+            <label className="text-sm">
+              <span className="block text-gray-600 dark:text-gray-400">DPI</span>
+              <input
+                inputMode="numeric"
+                value={r.dpi}
+                onChange={(e) => patch(i, 'dpi', e.target.value)}
+                placeholder="203"
+                className="mt-1 w-20 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+              />
+            </label>
             <button
               type="button"
               onClick={() => remove(i)}
@@ -230,6 +244,8 @@ export function EtiquetadoConfigSection() {
           {updateConfig.isPending ? 'Guardando…' : 'Guardar'}
         </button>
       </div>
+
+      <ZebraPrinterStatus />
     </div>
   );
 }

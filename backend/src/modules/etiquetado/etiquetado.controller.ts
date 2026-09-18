@@ -26,6 +26,8 @@ import {
 import { FoodLabelService } from "./services/food-label.service";
 import { FoodLabelContextService } from "./services/food-label-context.service";
 import { FoodLabelPdfService } from "./services/food-label-pdf.service";
+import { FoodLabelZplService } from "./services/food-label-zpl.service";
+import { zplSpec } from "./constants/zpl-presets";
 import { CreateFoodLabelDto } from "./dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "./dto/update-food-label.dto";
 import { ListFoodLabelsDto } from "./dto/list-food-labels.dto";
@@ -44,6 +46,7 @@ export class EtiquetadoController {
     private readonly foodLabels: FoodLabelService,
     private readonly context: FoodLabelContextService,
     private readonly pdf: FoodLabelPdfService,
+    private readonly zpl: FoodLabelZplService,
     private readonly config: EtiquetadoConfigService,
   ) {}
 
@@ -143,6 +146,34 @@ export class EtiquetadoController {
       "Content-Length": buffer.length,
     });
     res.send(buffer);
+  }
+
+  /** ZPL crudo para etiquetadoras térmicas Zebra (envío directo por USB vía Zebra Browser Print). */
+  @Get("labels/:id/zpl")
+  @RequireSection("etiquetado.emit")
+  async zplLabel(
+    @Req() req: any,
+    @Res() res: Response,
+    @Param("id") id: string,
+    @Query("format") format?: string,
+    @Query("copies") copies?: string,
+    @Query("reprint") reprint?: string,
+  ) {
+    const label = await this.foodLabels.getById(req.tenantId, id);
+    const profile = await this.config.resolveThermalProfile(
+      req.tenantId,
+      format,
+    );
+    const spec = zplSpec(profile.widthMm, profile.heightMm, profile.dpi);
+    const zpl = this.zpl.generate(label, spec, Number(copies) || 1);
+    if (reprint === "1") {
+      await this.foodLabels.markReprinted(req.tenantId, id);
+    }
+    res.set({
+      "Content-Type": "text/plain; charset=utf-8",
+      "Content-Disposition": `inline; filename="etiqueta-${label.lotNumber}.zpl"`,
+    });
+    res.send(zpl);
   }
 
   @Post("labels/:id/void")

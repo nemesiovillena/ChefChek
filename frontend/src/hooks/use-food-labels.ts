@@ -1,6 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
+import {
+  getDefaultZebraPrinter,
+  listZebraPrinters,
+  type ZebraDevice,
+} from '@/lib/zebra-browser-print';
 
 export type LabelType = 'ELABORATED' | 'HANDLED';
 export type StorageCondition = 'REFRIGERATED' | 'FROZEN' | 'AMBIENT';
@@ -304,6 +309,8 @@ export interface ThermalProfile {
   name: string;
   widthMm: number;
   heightMm: number;
+  /** DPI de la impresora térmica (Zebra ZD220D = 203). Determina el tamaño en dots del ZPL. */
+  dpi: number;
 }
 
 export interface EtiquetadoConfig {
@@ -407,4 +414,95 @@ export async function openLabelPdf(
     win.close();
     opts.onError?.('No se pudo generar la etiqueta');
   }
+}
+
+const ZEBRA_DEVICE_UID_KEY = 'zebra_printer_uid';
+
+/** Impresora Zebra preferida (recordada en este navegador; ver Ajustes → Etiquetas). */
+export function getPreferredZebraDeviceUid(): string | null {
+  try {
+    return localStorage.getItem(ZEBRA_DEVICE_UID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setPreferredZebraDeviceUid(uid: string | null): void {
+  try {
+    if (uid) {
+      localStorage.setItem(ZEBRA_DEVICE_UID_KEY, uid);
+    } else {
+      localStorage.removeItem(ZEBRA_DEVICE_UID_KEY);
+    }
+  } catch {
+    // Almacenamiento no disponible (Safari privado, etc.) — no es crítico.
+  }
+}
+
+async function resolveZebraDevice(): Promise<ZebraDevice> {
+  const preferredUid = getPreferredZebraDeviceUid();
+  if (preferredUid) {
+    try {
+      const devices = await listZebraPrinters();
+      const match = devices.find((d) => d.uid === preferredUid);
+      if (match) return match;
+    } catch {
+      // Si no se puede listar, se intenta igualmente con la impresora por defecto.
+    }
+  }
+  return getDefaultZebraPrinter();
+}
+
+/**
+ * Manda la etiqueta térmica directa a la Zebra: ZPL crudo por USB vía Zebra
+ * Browser Print (sin pasar por PDF/driver). No abre ventana — no hay nada
+ * que "ver", solo confirmar con una notificación.
+ */
+export async function printLabelZpl(
+  labelId: string,
+  format: LabelPdfFormat,
+  copies: number,
+  opts: {
+    reprint?: boolean;
+    onError?: (msg: string) => void;
+    onSuccess?: () => void;
+  } = {},
+): Promise<void> {
+  try {
+    const res = await apiClient.get<string>(
+      `/v1/etiquetado/labels/${labelId}/zpl`,
+      {
+        params: { format, copies, ...(opts.reprint ? { reprint: 1 } : {}) },
+        responseType: 'text',
+      },
+    );
+    const device = await resolveZebraDevice();
+    await device.send(res.data);
+    opts.onSuccess?.();
+  } catch (e: unknown) {
+    opts.onError?.(
+      e instanceof Error ? e.message : 'No se pudo imprimir la etiqueta',
+    );
+  }
+}
+
+/**
+ * Imprime con el formato configurado: PDF en pestaña nueva para hojas A4, ZPL
+ * directo a la Zebra (Browser Print) para perfiles térmicos.
+ */
+export async function printLabel(
+  labelId: string,
+  format: LabelPdfFormat,
+  copies: number,
+  opts: {
+    reprint?: boolean;
+    onError?: (msg: string) => void;
+    onSuccess?: () => void;
+  } = {},
+): Promise<void> {
+  if (format.startsWith('thermal:')) {
+    return printLabelZpl(labelId, format, copies, opts);
+  }
+  await openLabelPdf(labelId, format, copies, opts);
+  opts.onSuccess?.();
 }
