@@ -501,6 +501,31 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         </table>
       </section>
 
+      {isDraft && (
+        <ProductSearchInput
+          // Sin supplierId a propósito: en un borrador se puede pedir puntualmente
+          // un artículo que no está vinculado a este proveedor (mismo criterio que
+          // las listas de compra). Sin oferta de este proveedor, el precio queda
+          // en blanco y editable (ver purchase-order.service buildLines).
+          excludeIds={lines.map((l) => l.productId)}
+          placeholder="Escribe el nombre del artículo y pulsa + para añadirlo al pedido..."
+          showAddButton
+          onSelect={(product) => {
+            setLines((prev) => [
+              ...prev,
+              {
+                productId: product.id,
+                name: product.name,
+                unit: product.purchaseFormat || product.referenceUnit || '',
+                quantity: 1,
+                expectedPrice: null,
+              },
+            ]);
+            setDirty(true);
+          }}
+        />
+      )}
+
       {isDraft ? (
         <div>
           <label htmlFor="order-additional-items" className="block text-xs font-medium text-[var(--on-surface-variant)]">
@@ -556,26 +581,6 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         order.notes && (
           <p className="text-sm italic text-[var(--on-surface-variant)]">{order.notes}</p>
         )
-      )}
-
-      {isDraft && (
-        <ProductSearchInput
-          supplierId={order.supplierId}
-          excludeIds={lines.map((l) => l.productId)}
-          onSelect={(product) => {
-            setLines((prev) => [
-              ...prev,
-              {
-                productId: product.id,
-                name: product.name,
-                unit: product.purchaseFormat || product.referenceUnit || '',
-                quantity: 1,
-                expectedPrice: null,
-              },
-            ]);
-            setDirty(true);
-          }}
-        />
       )}
 
       <footer className="flex flex-wrap items-center gap-3 border-t border-[var(--outline-variant)] pt-4">
