@@ -28,7 +28,7 @@ import type { PurchaseOrder } from '@/hooks/use-purchase-orders';
 /**
  * Diálogo "Enviar pedido": ofrece solo los canales declarados en
  * Supplier.orderMethods. EMAIL envía de verdad (SMTP + PDF adjunto);
- * WhatsApp abre wa.me con el mensaje y el usuario confirma; teléfono/web
+ * WhatsApp abre la app (whatsapp://, sin pestaña; wa.me como respaldo web) con el mensaje y el usuario confirma; teléfono/web
  * son registro manual.
  */
 export function SendOrderDialog({
@@ -138,17 +138,26 @@ export function SendOrderDialog({
                   <MessageCircle className="h-4 w-4 text-[var(--primary)]" />
                   WhatsApp
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <a
-                    href={preview.whatsappUrl ?? '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={preview.whatsappAppUrl ?? '#'}
                     onClick={() => setWhatsappOpened(true)}
-                    aria-disabled={!preview.whatsappUrl}
+                    aria-disabled={!preview.whatsappAppUrl}
                     className={outlineBtn}
                   >
                     <ExternalLink className="h-4 w-4" /> Abrir WhatsApp
                   </a>
+                  {preview.whatsappUrl && (
+                    <a
+                      href={preview.whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setWhatsappOpened(true)}
+                      className="text-xs text-[var(--on-surface-variant)] underline"
+                    >
+                      ¿Sin app? WhatsApp Web
+                    </a>
+                  )}
                   <button
                     onClick={() => send('WHATSAPP')}
                     disabled={!whatsappOpened || sendMut.isPending}

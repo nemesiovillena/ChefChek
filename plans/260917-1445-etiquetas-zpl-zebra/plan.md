@@ -22,9 +22,16 @@ Branch: develop
 ## Pendiente para cerrar del todo (requiere al usuario)
 
 1. ~~Descargar el SDK~~ — resuelto: se carga desde jsDelivr (`zebra-browser-print@1.0.1`, verificado que es el SDK oficial de Zebra republicado, misma API). Sin pasos de instalación en el repo.
-2. Instalar la app de escritorio "Zebra Browser Print" en el PC que imprime (Windows/macOS) y conectar la Zebra por USB — el usuario la instalará más adelante.
-3. Probar desde Ajustes → Etiquetas → "Comprobar" / "Imprimir prueba".
-4. Con la impresora real: verificar tamaño físico del QR, tamaños de fuente/posiciones (`computeZplLayout` en `food-label-zpl.service.ts`), densidad/oscuridad y calibración del rollo. Ajustar solo las constantes `*_MM` de ese archivo si algo no cuadra.
+2. **Impresión real será desde el PC Windows** (decisión del usuario, 2026-09-21) — la Zebra se conectará por USB ahí, no al Mac de desarrollo. El Mac se usó solo para probar la instalación de Browser Print.
+3. Con la impresora real (en Windows): verificar tamaño físico del QR, tamaños de fuente/posiciones (`computeZplLayout` en `food-label-zpl.service.ts`), densidad/oscuridad y calibración del rollo. Ajustar solo las constantes `*_MM` de ese archivo si algo no cuadra.
+
+### Troubleshooting de Browser Print ya resuelto en el Mac (2026-09-21)
+
+Validado end-to-end salvo el envío final (sin Zebra física conectada al Mac):
+1. `Unable to Start Browser Print... port 9100 already in use` → un proceso `java` (driver/servicio HP) ya ocupaba el puerto. Se resolvió matando ese proceso (`lsof -i :9100` → `kill <PID>`).
+2. `No se pudo conectar con Zebra Browser Print` (tras resolver el puerto) → causa real: ChefChek se sirve por HTTPS, así que el SDK usa `https://localhost:9101` (no el 9100 plano) y ese certificado autofirmado no estaba aceptado en el navegador. Fix (una vez por navegador): visitar `https://localhost:9101/ssl_support`, aceptar el certificado, reintentar.
+3. `Failed to write to device: No value for name` (al enviar) → esperado: no hay ninguna Zebra USB conectada a este Mac (la real irá al PC Windows), así que Browser Print no tiene un dispositivo real al que escribir. No es un bug de nuestro código — se resolverá solo al probar con la impresora física conectada.
+4. Sospecha inicial de incompatibilidad con Apple Silicon (M4) — **descartada**: Browser Print llegó a arrancar y responder en todos los pasos, nunca hubo bloqueo de arquitectura. No hizo falta instalar Rosetta.
 
 ## Notas técnicas
 

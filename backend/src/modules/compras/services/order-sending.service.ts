@@ -61,6 +61,11 @@ export class OrderSendingService {
       text,
       email: order.supplier.email || null,
       phone: order.supplier.phone || null,
+      // Enlace directo a la app (no deja pestaña abierta) y respaldo web
+      // (wa.me → WhatsApp Web) para dispositivos sin la app instalada.
+      whatsappAppUrl: whatsappNumber
+        ? `whatsapp://send?phone=${whatsappNumber}&text=${encodeURIComponent(text)}`
+        : null,
       whatsappUrl: whatsappNumber
         ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`
         : null,

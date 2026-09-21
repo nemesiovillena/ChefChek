@@ -81,6 +81,9 @@ describe("OrderSendingService", () => {
       expect(preview.whatsappUrl).toMatch(
         /^https:\/\/wa\.me\/34612345678\?text=/,
       );
+      expect(preview.whatsappAppUrl).toMatch(
+        /^whatsapp:\/\/send\?phone=34612345678&text=/,
+      );
       expect(preview.email).toBe("pedidos@pescados.example");
     });
 
