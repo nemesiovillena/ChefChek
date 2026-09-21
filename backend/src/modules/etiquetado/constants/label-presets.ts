@@ -20,9 +20,6 @@ export type LabelSpec = {
   showIngredients: boolean;
 };
 
-/** Umbral de alto (mm) por debajo del cual la etiqueta omite la lista de ingredientes. */
-export const LABEL_INGREDIENTS_MIN_HEIGHT_MM = 36;
-
 export type A4Format = "a4-70x37" | "a4-63x38";
 
 export const BUILTIN_A4_FORMATS: A4Format[] = ["a4-70x37", "a4-63x38"];
