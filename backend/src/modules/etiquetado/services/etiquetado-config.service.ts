@@ -30,19 +30,21 @@ export interface ThermalProfile {
  * Perfiles de etiquetadora térmica por defecto para un tenant nuevo. Las hojas
  * A4 no se configuran (son formatos estándar built-in); solo la térmica, que
  * depende de la impresora del usuario (genera ZPL, no PDF — ver
- * `FoodLabelZplService`).
+ * `FoodLabelZplService`). 60×40 es el formato principal (con QR); 57×32 el
+ * compacto (sin QR, más sitio para ingredientes). Una migración añade
+ * ambos a los tenants que ya tenían perfiles guardados.
  */
 export const DEFAULT_THERMAL_PROFILES: ThermalProfile[] = [
   {
     id: "default-60x40",
-    name: "Térmica 60 × 40 mm",
+    name: "Principal",
     widthMm: 60,
     heightMm: 40,
     dpi: DEFAULT_ZPL_DPI,
   },
   {
     id: "default-57x32",
-    name: "Térmica 57 × 32 mm",
+    name: "Compacto",
     widthMm: 57,
     heightMm: 32,
     dpi: DEFAULT_ZPL_DPI,

@@ -1,7 +1,5 @@
-import {
-  computeZplLayout,
-  FoodLabelZplService,
-} from "./food-label-zpl.service";
+import { FoodLabelZplService } from "./food-label-zpl.service";
+import { computeZplLayout } from "../util/food-label-zpl-layout.util";
 import { zplSpec } from "../constants/zpl-presets";
 import type { FoodLabelForPrint } from "../types/food-label-for-print.type";
 
@@ -61,6 +59,8 @@ function makeLabel(
 describe("FoodLabelZplService", () => {
   const service = new FoodLabelZplService();
   const spec60x40 = zplSpec(60, 40, 203);
+  const spec57x32 = zplSpec(57, 32, 203);
+  const spec57x51 = zplSpec(57, 51, 203);
 
   it("sizes the label from mm to dots at the profile's dpi (60x40mm @203dpi)", () => {
     const zpl = service.generate(makeLabel(), spec60x40, 1);
@@ -151,10 +151,34 @@ describe("FoodLabelZplService", () => {
     expect(zpl).toContain("Prov.: Makro");
   });
 
-  it("omits ingredients on a label short enough to hide them", () => {
-    const shortSpec = zplSpec(57, 32, 203);
-    const zpl = service.generate(makeLabel(), shortSpec, 1);
-    expect(zpl).not.toContain("Ingr.:");
+  it("sizes the compact 57x32mm label @203dpi to 456x256 dots", () => {
+    const zpl = service.generate(makeLabel(), spec57x32, 1);
+    expect(zpl).toContain("^PW456");
+    expect(zpl).toContain("^LL256");
+  });
+
+  it("compact 57x32 label drops the QR and prints the ingredients instead", () => {
+    const zpl = service.generate(makeLabel(), spec57x32, 1);
+    expect(zpl).not.toContain("^BQ");
+    expect(zpl).not.toContain("/e/");
+    expect(zpl).toContain("Ingr.:");
+    expect(zpl).toContain("huevos");
+  });
+
+  it("standard 60x40 label prints both the QR and the ingredients", () => {
+    const zpl = service.generate(makeLabel(), spec60x40, 1);
+    expect(zpl).toContain("^BQN,2,");
+    expect(zpl).toContain("Ingr.:");
+  });
+
+  it("voided compact label still prints ANULADA without a QR", () => {
+    const zpl = service.generate(
+      makeLabel({ voidedAt: new Date("2026-09-01T10:00:00.000Z") }),
+      spec57x32,
+      1,
+    );
+    expect(zpl).toContain("ANULADA");
+    expect(zpl).not.toContain("^BQ");
   });
 
   it("strips ZPL control characters (^ ~) from free text", () => {
@@ -195,7 +219,7 @@ describe("FoodLabelZplService", () => {
       });
       expect(layout.widthDots).toBe(480);
       expect(layout.heightDots).toBe(320);
-      expect(layout.qr.modules).toBe(33);
+      expect(layout.qr?.modules).toBe(33);
       // Todo campo declara su propia posición/tamaño — nada implícito.
       for (const field of [
         layout.product,
@@ -213,9 +237,94 @@ describe("FoodLabelZplService", () => {
         expect(field.fontHeightDots).toBeGreaterThan(0);
       }
       // El QR cabe dentro del lienzo.
-      expect(
-        layout.qr.x + layout.qr.magnification * layout.qr.modules,
-      ).toBeLessThanOrEqual(layout.widthDots);
+      const qr = layout.qr;
+      if (!qr) {
+        throw new Error("expected a QR on a standard label");
+      }
+      expect(qr.x + qr.magnification * qr.modules).toBeLessThanOrEqual(
+        layout.widthDots,
+      );
+    });
+
+    it("compact 57x32 has no QR and text spans the full content width", () => {
+      const layout = computeZplLayout(spec57x32, {
+        qrModules: 0,
+        hasHandledExtra: false,
+        hasAllergens: true,
+      });
+      expect(layout.widthDots).toBe(456);
+      expect(layout.heightDots).toBe(256);
+      expect(layout.qr).toBeNull();
+      const fullWidth = layout.widthDots - layout.padDots * 2;
+      expect(layout.product.widthDots).toBe(fullWidth);
+      expect(layout.lot.widthDots).toBe(fullWidth);
+    });
+
+    it("standard 60x40 keeps text narrower than the full width beside the QR", () => {
+      const layout = computeZplLayout(spec60x40, {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: true,
+      });
+      const fullWidth = layout.widthDots - layout.padDots * 2;
+      expect(layout.product.widthDots).toBeLessThan(fullWidth);
+    });
+
+    // Regresión de solape: la pila de campos (hasta `ingredients.y`) debe
+    // terminar antes de la línea del responsable en TODOS los casos.
+    it.each([
+      ["60x40", spec60x40, 33],
+      ["57x32", spec57x32, 0],
+      ["57x51", spec57x51, 33],
+    ])(
+      "%s: the field stack never runs into the responsable line",
+      (_name, spec, qrModules) => {
+        for (const hasHandledExtra of [false, true]) {
+          for (const hasAllergens of [false, true]) {
+            const layout = computeZplLayout(spec, {
+              qrModules,
+              hasHandledExtra,
+              hasAllergens,
+            });
+            expect(layout.ingredients.y).toBeLessThanOrEqual(
+              layout.responsable.y,
+            );
+          }
+        }
+      },
+    );
+
+    it("57x51 is a standard label: QR beside the text and plenty of ingredient lines", () => {
+      const layout = computeZplLayout(spec57x51, {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: true,
+      });
+      expect(layout.widthDots).toBe(456);
+      expect(layout.heightDots).toBe(408);
+      const qr = layout.qr;
+      if (!qr) {
+        throw new Error("expected a QR on a standard label");
+      }
+      expect(qr.x + qr.magnification * qr.modules).toBeLessThanOrEqual(
+        layout.widthDots,
+      );
+      expect(layout.ingredients.maxLines).toBeGreaterThanOrEqual(4);
+    });
+
+    it("gives ingredients at least 2 lines on 57x32 and 4 on 60x40 (worst case: allergens)", () => {
+      const compact = computeZplLayout(spec57x32, {
+        qrModules: 0,
+        hasHandledExtra: false,
+        hasAllergens: true,
+      });
+      const standard = computeZplLayout(spec60x40, {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: true,
+      });
+      expect(compact.ingredients.maxLines).toBeGreaterThanOrEqual(2);
+      expect(standard.ingredients.maxLines).toBeGreaterThanOrEqual(4);
     });
 
     it("moves allergens up to fill the gap when there's no HANDLED extra line", () => {

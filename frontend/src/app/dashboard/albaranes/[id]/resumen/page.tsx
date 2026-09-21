@@ -115,6 +115,11 @@ export default function AlbaranResumenPage() {
       refetch();
     } catch (err) {
       console.error('Error updating status:', err);
+      // Refresca el estado real: el fallo puede llegar con el cambio ya
+      // aplicado en BD y la caché (5 min) dejaría el CTA obsoleto visible.
+      invalidateList();
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      refetch();
       addNotification({
         type: 'error',
         title: 'No se pudo actualizar',

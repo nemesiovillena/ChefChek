@@ -144,7 +144,11 @@ export function EtiquetadoConfigSection() {
         </select>
         <span className="mt-1 block text-xs text-gray-500">
           Al crear o reimprimir una etiqueta se usa este formato; ahí solo
-          eliges el número de copias.
+          eliges el número de copias. Cambia esta opción al cambiar el rollo
+          de la impresora. Las etiquetas de menos de 36 mm de alto (p. ej.
+          57 × 32) se imprimen en modo compacto: sin código QR y con más
+          espacio para los ingredientes; las de 36 mm o más (p. ej. 60 × 40)
+          incluyen el QR de trazabilidad.
         </span>
       </label>
 

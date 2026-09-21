@@ -591,13 +591,21 @@ describe("FoodLabelService", () => {
     it("marks 'expiring_soon' (not 'expired') exactly at daysUntilExpiry === 0", async () => {
       mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(2);
       // Mismo instante que "ahora": floor((0)/DAY) = 0, el límite exacto
-      // entre 'expired' (< 0) y 'expiring_soon' (<= warningDays).
-      mockPrisma.foodLabel.findFirst.mockResolvedValue(
-        baseLabel({ useByDate: new Date(Date.now()) }),
-      );
-      const result: any = await service.getById(TENANT, "fl1");
-      expect(result.daysUntilExpiry).toBe(0);
-      expect(result.expiryStatus).toBe("expiring_soon");
+      // entre 'expired' (< 0) y 'expiring_soon' (<= warningDays). El reloj se
+      // congela: con el reloj real, si avanza 1 ms entre crear la fecha y que
+      // el servicio lea Date.now(), el resultado sería floor(-1ms/DAY) = -1.
+      const now = Date.now();
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(now);
+      try {
+        mockPrisma.foodLabel.findFirst.mockResolvedValue(
+          baseLabel({ useByDate: new Date(now) }),
+        );
+        const result: any = await service.getById(TENANT, "fl1");
+        expect(result.daysUntilExpiry).toBe(0);
+        expect(result.expiryStatus).toBe("expiring_soon");
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
 
     it("marks 'expiring_soon' when within the configured threshold", async () => {
