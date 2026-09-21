@@ -31,6 +31,7 @@ import { ProductsService } from "./products.service";
 import { ProductSupplierOffersService } from "./product-supplier-offers.service";
 import { PexelsImageSearchService } from "./pexels-image-search.service";
 import { ProductImageBackfillService } from "./product-image-backfill.service";
+import { LotService } from "../albaranes/services/lot.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -67,6 +68,7 @@ export class ProductsController {
     private readonly pexelsImageSearchService: PexelsImageSearchService,
     private readonly productImageBackfillService: ProductImageBackfillService,
     private readonly bunny: BunnyStorageService,
+    private readonly lotService: LotService,
   ) {}
 
   @Post()
@@ -332,6 +334,24 @@ export class ProductsController {
   async getUsage(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId;
     const data = await this.productsService.getUsage(id, tenantId);
+    return { success: true, data };
+  }
+
+  // Trazabilidad: lotes recibidos de este artículo (registros `Lot` +
+  // líneas de albarán con nº de lote sin registro formal, mismo merge que
+  // usa la tool de trazabilidad del asistente IA).
+  @Get(":id/lots")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSection("articulos")
+  @ApiOperation({ summary: "Historial de lotes recibidos de un artículo" })
+  @ApiParam({ name: "id", description: "ID del producto" })
+  async getLots(@Param("id") id: string, @Req() req: any) {
+    const tenantId = req.tenantId;
+    const data = await this.lotService.findLots({
+      tenantId,
+      productIds: [id],
+      limit: 100,
+    });
     return { success: true, data };
   }
 

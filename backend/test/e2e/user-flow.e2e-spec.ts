@@ -57,8 +57,12 @@ describe("E2E - User Flow (Full)", () => {
   }
 
   async function cleanup() {
-    await prisma.recipe.deleteMany({ where: { tenantId } });
-    await prisma.product.deleteMany({ where: { tenantId } });
+    // Con tenantId sin definir Prisma descarta el filtro y borraría los datos
+    // de TODOS los tenants: solo se limpia lo que este spec llegó a crear.
+    if (tenantId) {
+      await prisma.recipe.deleteMany({ where: { tenantId } });
+      await prisma.product.deleteMany({ where: { tenantId } });
+    }
     await prisma.session.deleteMany({ where: { user: { email: testEmail } } });
     await prisma.user.deleteMany({ where: { email: testEmail } });
     await prisma.tenant.deleteMany({ where: { slug: tenantSlug } });

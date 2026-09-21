@@ -50,6 +50,7 @@ describe("ProductsService", () => {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
     },
     purchaseFormat: { updateMany: jest.fn() },
@@ -863,6 +864,71 @@ describe("ProductsService", () => {
           }),
         }),
       );
+    });
+
+    it("guardar solo el formato (sin precio) lo propaga también a la oferta preferente", async () => {
+      // Regresión: el formato quedaba solo en Product y el siguiente albarán
+      // lo pisaba con el "" de la oferta preferente vía syncProductFromOffer.
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        wastePercentage: 0,
+        profitMargin: 0,
+        purchaseFormat: "",
+        stocks: [],
+      };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        purchaseFormat: "Caja 6",
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+      });
+
+      await service.update("prod-1", { purchaseFormat: "Caja 6" }, tenantId);
+
+      expect(
+        prismaService.productSupplierOffer.updateMany,
+      ).toHaveBeenCalledWith({
+        where: { productId: "prod-1", tenantId, isPreferred: true },
+        data: { purchaseFormat: "Caja 6" },
+      });
+      expect(prismaService.product.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ purchaseFormat: "Caja 6" }),
+        }),
+      );
+    });
+
+    it("no toca las ofertas si el DTO no trae formato", async () => {
+      const existingProduct = {
+        id: "prod-1",
+        tenantId,
+        purchasePrice: 10,
+        wastePercentage: 0,
+        profitMargin: 0,
+        stocks: [],
+      };
+
+      prismaService.product.findFirst.mockResolvedValue(existingProduct);
+      prismaService.product.update.mockResolvedValue({
+        ...existingProduct,
+        name: "X",
+        purchaseFormats: [],
+        nutritionalInfo: null,
+        category: null,
+        supplier: null,
+      });
+
+      await service.update("prod-1", { name: "X" }, tenantId);
+
+      expect(
+        prismaService.productSupplierOffer.updateMany,
+      ).not.toHaveBeenCalled();
     });
 
     it("delegates to ProductSupplierOffersService when supplier + purchasePrice are both provided, without writing price fields on Product directly", async () => {

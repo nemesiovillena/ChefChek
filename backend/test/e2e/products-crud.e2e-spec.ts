@@ -59,7 +59,11 @@ describe("E2E - Products CRUD", () => {
   });
 
   afterAll(async () => {
-    await prisma.product.deleteMany({ where: { tenantId } });
+    // Con tenantId sin definir Prisma descarta el filtro y borraría los
+    // productos de TODOS los tenants: solo se limpia lo que este spec creó.
+    if (tenantId) {
+      await prisma.product.deleteMany({ where: { tenantId } });
+    }
     await prisma.session.deleteMany({ where: { user: { email: testEmail } } });
     await prisma.user.deleteMany({ where: { email: testEmail } });
     await prisma.tenant.deleteMany({ where: { slug: tenantSlug } });

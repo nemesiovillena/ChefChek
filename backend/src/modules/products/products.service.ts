@@ -857,6 +857,20 @@ export class ProductsService {
       }
     }
 
+    // Guardar solo el formato (sin tocar el precio) no pasa por upsertOffer,
+    // así que el formato quedaba en Product pero NO en la oferta preferente.
+    // Como `syncProductFromOffer` copia el formato de la oferta sobre Product
+    // en cada compra/cambio de preferente, el formato de la oferta manda a la
+    // larga: hay que mantenerlas alineadas aquí o el valor recién guardado se
+    // perdía en el siguiente albarán. Si el bloque de precio de arriba ya lo
+    // enrutó, `data.purchaseFormat` fue borrado y esto no se ejecuta.
+    if (typeof data.purchaseFormat === "string") {
+      await this.prisma.productSupplierOffer.updateMany({
+        where: { productId: id, tenantId: requestTenantId, isPreferred: true },
+        data: { purchaseFormat: data.purchaseFormat },
+      });
+    }
+
     // Peso Bruto/Neto (prueba de rendimiento) manda sobre el % de merma manual
     // cuando ambos están presentes (nuevos o ya guardados) — deriva
     // yieldFactor/wastePercentage reales, igual que en create().
