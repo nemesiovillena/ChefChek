@@ -115,8 +115,9 @@ describe("E2E - Tenant Isolation", () => {
   }
 
   async function cleanupAll() {
+    // Solo ids ya creados: un `in` con undefined no debe ampliar el borrado.
     await prisma.product.deleteMany({
-      where: { tenantId: { in: [tenantAId, tenantBId] } },
+      where: { tenantId: { in: [tenantAId, tenantBId].filter(Boolean) } },
     });
     await prisma.session.deleteMany({
       where: {
