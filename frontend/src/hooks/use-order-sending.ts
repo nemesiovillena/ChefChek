@@ -13,6 +13,9 @@ export interface SendPreview {
   text: string;
   email: string | null;
   phone: string | null;
+  /** Enlace directo a la app (whatsapp://): no deja pestaña abierta. */
+  whatsappAppUrl: string | null;
+  /** Respaldo web (wa.me → WhatsApp Web), solo si no hay app. */
   whatsappUrl: string | null;
 }
 
