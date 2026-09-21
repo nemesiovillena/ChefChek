@@ -120,7 +120,14 @@ export class ProductSupplierOffersService {
             : existingOffer.previousPurchasePrice,
           purchasePrice: data.purchasePrice,
           netPrice,
-          purchaseFormat: data.purchaseFormat ?? existingOffer.purchaseFormat,
+          // Oferta preferente vacía: se rellena con el formato del artículo
+          // (ya fijado por el usuario) en vez de propagar "" en cada compra.
+          purchaseFormat:
+            data.purchaseFormat ??
+            (existingOffer.purchaseFormat ||
+              (promoteToPreferred || existingOffer.isPreferred
+                ? product.purchaseFormat
+                : "")),
           referenceUnit: data.referenceUnit ?? existingOffer.referenceUnit,
           unitsPerFormat,
           referenceUnitSize,
@@ -137,6 +144,7 @@ export class ProductSupplierOffersService {
       const offerCount = await client.productSupplierOffer.count({
         where: { productId },
       });
+      const willBePreferred = promoteToPreferred || offerCount === 0;
       offer = await client.productSupplierOffer.create({
         data: {
           tenantId,
@@ -145,7 +153,11 @@ export class ProductSupplierOffersService {
           purchasePrice: data.purchasePrice,
           previousPurchasePrice: 0,
           netPrice,
-          purchaseFormat: data.purchaseFormat ?? "",
+          // Solo la oferta que será preferente hereda el formato del artículo;
+          // una oferta de otro proveedor puede venderse en otro formato.
+          purchaseFormat:
+            data.purchaseFormat ??
+            (willBePreferred ? product.purchaseFormat : ""),
           // Unidad canónica del artículo por defecto, no "kg" a ciegas: evita
           // que una oferta creada sin especificar unidad (ej. aplicar un
           // catálogo) quede en una unidad distinta a la del propio artículo.
@@ -154,7 +166,7 @@ export class ProductSupplierOffersService {
           referenceUnitSize,
           unitSize,
           profitMargin: data.profitMargin ?? 0,
-          isPreferred: promoteToPreferred || offerCount === 0,
+          isPreferred: willBePreferred,
           // Primera compra de este proveedor a este artículo: si no viene un
           // pacto explícito, el precio de esta compra ES el precio pactado
           // (así el control de desviaciones queda activo desde el día 1 en
@@ -480,7 +492,13 @@ export class ProductSupplierOffersService {
         purchasePrice: offer.purchasePrice,
         previousPurchasePrice: offer.previousPurchasePrice,
         netPrice: offer.netPrice,
-        purchaseFormat: offer.purchaseFormat,
+        // Una oferta sin formato (ej. creada por albarán, que no lo lleva) no
+        // debe vaciar el formato que el artículo ya tenía: sin esta guarda, la
+        // primera compra confirmada borraba el "Formato de compra" y los
+        // pedidos caían a la unidad de referencia.
+        ...(offer.purchaseFormat
+          ? { purchaseFormat: offer.purchaseFormat }
+          : {}),
         // NO se sincroniza referenceUnit: es la unidad canónica del artículo
         // (rige costeo/recetas/comparativa) y nunca debe cambiar por marcar
         // preferente una oferta que llegó con una unidad distinta.

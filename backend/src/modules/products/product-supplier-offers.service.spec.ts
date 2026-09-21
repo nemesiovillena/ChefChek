@@ -501,6 +501,139 @@ describe("ProductSupplierOffersService", () => {
       });
     });
 
+    describe("formato de compra", () => {
+      const albaranId = "albaran-formato";
+      const productWithFormat = { ...baseProduct, purchaseFormat: "Caja 6" };
+      const offerWithoutFormat = {
+        id: "offer-a",
+        productId,
+        supplierId,
+        purchasePrice: 10,
+        previousPurchasePrice: 0,
+        netPrice: 10,
+        purchaseFormat: "",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
+        profitMargin: 0,
+        isPreferred: true,
+      };
+
+      it("regresión: compra por albarán (sin formato) NO vacía el formato del artículo", async () => {
+        // Caso real: el usuario fija "Caja 6" en el artículo, la oferta
+        // preferente quedó con "" y al confirmar un albarán el sync copiaba
+        // "" sobre Product.purchaseFormat.
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          productWithFormat,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          offerWithoutFormat,
+        );
+        (prisma.productSupplierOffer.update as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ ...offerWithoutFormat, ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue({
+          id: "h-1",
+        });
+
+        await service.upsertOffer(
+          productId,
+          supplierId,
+          tenantId,
+          { purchasePrice: 10, netPrice: 10 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        // La oferta preferente hereda el formato del artículo...
+        expect(prisma.productSupplierOffer.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ purchaseFormat: "Caja 6" }),
+          }),
+        );
+        // ...y Product nunca recibe "".
+        const syncData = (prisma.product.update as jest.Mock).mock.calls[0][0]
+          .data;
+        expect(syncData.purchaseFormat).toBe("Caja 6");
+      });
+
+      it("primera compra de un proveedor nuevo promovido hereda el formato del artículo", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          productWithFormat,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(1);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+        (prisma.productPriceHistory.findFirst as jest.Mock).mockResolvedValue({
+          id: "h-1",
+        });
+
+        await service.upsertOffer(
+          productId,
+          "supplier-nuevo",
+          tenantId,
+          { purchasePrice: 9, netPrice: 9 },
+          undefined,
+          albaranId,
+          true,
+        );
+
+        const created = (prisma.productSupplierOffer.create as jest.Mock).mock
+          .calls[0][0].data;
+        expect(created.purchaseFormat).toBe("Caja 6");
+      });
+
+      it("una oferta secundaria (no preferente) NO hereda el formato del artículo", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          productWithFormat,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          null,
+        );
+        (prisma.productSupplierOffer.count as jest.Mock).mockResolvedValue(1);
+        (prisma.productSupplierOffer.create as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ id: "offer-new", ...data }),
+        );
+
+        await service.upsertOffer(productId, "supplier-b", tenantId, {
+          purchasePrice: 9,
+        });
+
+        const created = (prisma.productSupplierOffer.create as jest.Mock).mock
+          .calls[0][0].data;
+        expect(created.purchaseFormat).toBe("");
+      });
+
+      it("un formato explícito en el DTO gana sobre el del artículo", async () => {
+        (prisma.product.findFirst as jest.Mock).mockResolvedValue(
+          productWithFormat,
+        );
+        (prisma.productSupplierOffer.findFirst as jest.Mock).mockResolvedValue(
+          offerWithoutFormat,
+        );
+        (prisma.productSupplierOffer.update as jest.Mock).mockImplementation(
+          ({ data }) => Promise.resolve({ ...offerWithoutFormat, ...data }),
+        );
+
+        await service.upsertOffer(productId, supplierId, tenantId, {
+          purchasePrice: 10,
+          purchaseFormat: "Saco 25kg",
+        });
+
+        expect(prisma.productSupplierOffer.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ purchaseFormat: "Saco 25kg" }),
+          }),
+        );
+      });
+    });
+
     describe("agreedPrice (precio pactado)", () => {
       const existingOffer = {
         id: "offer-a",
@@ -703,6 +836,38 @@ describe("ProductSupplierOffersService", () => {
         }),
       );
       expect(tx.productPriceHistory.create).toHaveBeenCalled();
+    });
+
+    it("marcar preferente una oferta sin formato NO vacía el formato del artículo", async () => {
+      const tx = makeTx();
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(tx));
+      tx.productSupplierOffer.findFirst.mockResolvedValue({
+        id: "offer-dialvi",
+        productId,
+        supplierId: "supplier-dialvi",
+        isPreferred: false,
+      });
+      tx.productSupplierOffer.update.mockResolvedValue({
+        id: "offer-dialvi",
+        productId,
+        supplierId: "supplier-dialvi",
+        purchasePrice: 6.53,
+        previousPurchasePrice: 0,
+        netPrice: 6.53,
+        purchaseFormat: "",
+        referenceUnit: "kg",
+        unitsPerFormat: 1,
+        referenceUnitSize: 1,
+        unitSize: 1,
+        profitMargin: 0,
+        isPreferred: true,
+      });
+      tx.product.findFirst.mockResolvedValue(baseProduct);
+
+      await service.setPreferred(productId, "offer-dialvi", tenantId);
+
+      const syncData = tx.product.update.mock.calls[0][0].data;
+      expect(syncData).not.toHaveProperty("purchaseFormat");
     });
 
     it("cambiar a una oferta con mismo €/kg pero distinto unitSize NO crea historial", async () => {
