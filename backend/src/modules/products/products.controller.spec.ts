@@ -16,6 +16,7 @@ import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
 import { BadRequestException } from "@nestjs/common";
 import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
+import { LotService } from "../albaranes/services/lot.service";
 import * as fs from "fs";
 
 jest.mock("fs", () => ({
@@ -60,6 +61,10 @@ describe("ProductsController", () => {
     backfillImages: jest.fn(),
   };
 
+  const mockLotService = {
+    findLots: jest.fn(),
+  };
+
   const mockReq = {
     tenantId: "tenant-test-123",
     user: { id: "user-1", role: "ADMIN" },
@@ -87,6 +92,7 @@ describe("ProductsController", () => {
           // imagesEnabled=false → el helper cae a disco local (fs mockeado).
           useValue: { imagesEnabled: false },
         },
+        { provide: LotService, useValue: mockLotService },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -408,6 +414,21 @@ describe("ProductsController", () => {
         mockReq.tenantId,
         "supplier-1",
       );
+    });
+  });
+
+  describe("getLots", () => {
+    it("delegates to LotService with the product id and tenantId", async () => {
+      mockLotService.findLots.mockResolvedValue([]);
+
+      const result = await controller.getLots("product-1", mockReq);
+
+      expect(mockLotService.findLots).toHaveBeenCalledWith({
+        tenantId: mockReq.tenantId,
+        productIds: ["product-1"],
+        limit: 100,
+      });
+      expect(result).toEqual({ success: true, data: [] });
     });
   });
 

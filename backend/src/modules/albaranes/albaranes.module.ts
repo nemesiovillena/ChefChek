@@ -23,7 +23,7 @@ import { OcrConfigModule } from "../ocr-config/ocr-config.module";
     OcrModule,
     OcrConfigModule,
     CoreModule,
-    forwardRef(() => ProductsModule),
+    ProductsModule,
     ComprasModule,
   ],
   controllers: [AlbaranesController],
