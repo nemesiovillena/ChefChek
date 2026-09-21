@@ -1,5 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { AlbaranStatusService } from "./albaran-status.service";
 import { AlbaranStockService } from "./albaran-stock.service";
 import { OrderReconciliationService } from "../../compras/services/order-reconciliation.service";
@@ -10,7 +14,7 @@ describe("AlbaranStatusService", () => {
   let service: AlbaranStatusService;
 
   const prisma = {
-    albaran: { findFirst: jest.fn(), update: jest.fn() },
+    albaran: { findFirst: jest.fn(), updateMany: jest.fn() },
   };
   const stockService = { processStockOnConfirmation: jest.fn() };
   const reconciliationService = { reconcileFromAlbaran: jest.fn() };
@@ -68,10 +72,14 @@ describe("AlbaranStatusService", () => {
 
     it("completes PENDIENTE -> REVISADO with no pending lines and skips stock", async () => {
       prisma.albaran.findFirst.mockResolvedValue(buildAlbaran());
-      prisma.albaran.update.mockResolvedValue({});
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
       await service.transitionStatus("alb-1", "t1", AlbaranStatus.REVISADO);
-      expect(prisma.albaran.update).toHaveBeenCalledWith({
-        where: { id: "alb-1" },
+      expect(prisma.albaran.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "alb-1",
+          tenantId: "t1",
+          status: AlbaranStatus.PENDIENTE,
+        },
         data: { status: AlbaranStatus.REVISADO },
       });
       expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
@@ -109,7 +117,7 @@ describe("AlbaranStatusService", () => {
           ],
         }),
       );
-      prisma.albaran.update.mockResolvedValue({});
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
       stockService.processStockOnConfirmation.mockResolvedValue(undefined);
       reconciliationService.reconcileFromAlbaran.mockResolvedValue(undefined);
 
@@ -124,6 +132,71 @@ describe("AlbaranStatusService", () => {
       expect(reconciliationService.reconcileFromAlbaran).toHaveBeenCalledWith(
         "alb-1",
         "t1",
+      );
+    });
+
+    it("is idempotent: CONFIRMADO -> CONFIRMADO is a no-op (no stock, no write)", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ status: AlbaranStatus.CONFIRMADO }),
+      );
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
+      ).resolves.toBeUndefined();
+      expect(prisma.albaran.updateMany).not.toHaveBeenCalled();
+      expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
+      expect(reconciliationService.reconcileFromAlbaran).not.toHaveBeenCalled();
+    });
+
+    it("throws Conflict and skips stock when another request already changed the status", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ status: AlbaranStatus.REVISADO }),
+      );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 0 });
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
+      ).rejects.toThrow(ConflictException);
+      expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
+    });
+
+    it("reverts to REVISADO when stock processing fails, so the confirm can be retried", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ status: AlbaranStatus.REVISADO }),
+      );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
+      stockService.processStockOnConfirmation.mockRejectedValue(
+        new Error("Transaction already closed"),
+      );
+
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
+      ).rejects.toThrow("Transaction already closed");
+
+      expect(prisma.albaran.updateMany).toHaveBeenLastCalledWith({
+        where: {
+          id: "alb-1",
+          tenantId: "t1",
+          status: AlbaranStatus.CONFIRMADO,
+        },
+        data: { status: AlbaranStatus.REVISADO },
+      });
+      expect(reconciliationService.reconcileFromAlbaran).not.toHaveBeenCalled();
+    });
+
+    it("reverts to REVISADO when conciliación fails after stock was posted", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ status: AlbaranStatus.REVISADO }),
+      );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
+      stockService.processStockOnConfirmation.mockResolvedValue(undefined);
+      reconciliationService.reconcileFromAlbaran.mockRejectedValue(
+        new Error("boom"),
+      );
+
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
+      ).rejects.toThrow("boom");
+      expect(prisma.albaran.updateMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({ data: { status: AlbaranStatus.REVISADO } }),
       );
     });
   });

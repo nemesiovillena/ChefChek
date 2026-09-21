@@ -2,6 +2,7 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   Inject,
   forwardRef,
@@ -46,6 +47,17 @@ export class AlbaranStatusService {
       throw new NotFoundException("Albarán no encontrado");
     }
 
+    // Idempotente: pedir el estado en el que el albarán ya está no es un error.
+    // Pasa con doble clic, con una red que cae DESPUÉS de aplicarse el cambio
+    // (el reintento del usuario llegaba a un 400 "CONFIRMADO → CONFIRMADO") o
+    // con una pestaña/dispositivo con datos viejos. No se reprocesa stock.
+    if (albaran.status === newStatus) {
+      this.logger.log(
+        `Albarán ${albaranId}: ya está en ${newStatus}, petición ignorada`,
+      );
+      return;
+    }
+
     // Check transition is valid
     const allowed = VALID_TRANSITIONS[albaran.status];
     if (!allowed.includes(newStatus)) {
@@ -58,22 +70,49 @@ export class AlbaranStatusService {
     // Validate preconditions per transition
     await this.validateTransition(albaran.status, newStatus, albaran.lines);
 
-    await this.prisma.albaran.update({
-      where: { id: albaranId },
+    // Compare-and-swap sobre el estado leído: si dos peticiones concurrentes
+    // pasan la validación, solo una gana el cambio y la otra no asienta stock
+    // por duplicado.
+    const claimed = await this.prisma.albaran.updateMany({
+      where: { id: albaranId, tenantId, status: albaran.status },
       data: { status: newStatus },
     });
+    if (claimed.count === 0) {
+      throw new ConflictException(
+        "El albarán cambió de estado mientras se procesaba. Recarga e inténtalo de nuevo.",
+      );
+    }
 
     this.logger.log(`Albarán ${albaranId}: ${albaran.status} → ${newStatus}`);
 
     // Process stock on CONFIRMADO transition
     if (newStatus === AlbaranStatus.CONFIRMADO) {
-      await this.stockService.processStockOnConfirmation(albaranId, tenantId);
-      // No-op si el albarán no tiene purchaseOrderId vinculado: el flujo de
-      // albarán sin pedido queda intacto.
-      await this.orderReconciliationService.reconcileFromAlbaran(
-        albaranId,
-        tenantId,
-      );
+      try {
+        await this.stockService.processStockOnConfirmation(albaranId, tenantId);
+        // No-op si el albarán no tiene purchaseOrderId vinculado: el flujo de
+        // albarán sin pedido queda intacto.
+        await this.orderReconciliationService.reconcileFromAlbaran(
+          albaranId,
+          tenantId,
+        );
+      } catch (err) {
+        // El estado ya está escrito pero el stock/conciliación falló: devolver
+        // el albarán a su estado previo para no dejarlo CONFIRMADO sin stock
+        // (sin CTA para reintentar). El asiento de stock es idempotente, así
+        // que reintentar tras un fallo parcial no duplica movimientos.
+        await this.prisma.albaran
+          .updateMany({
+            where: { id: albaranId, tenantId, status: newStatus },
+            data: { status: albaran.status },
+          })
+          .catch((rollbackErr) =>
+            this.logger.error(
+              `Albarán ${albaranId}: no se pudo revertir a ${albaran.status} tras fallo al confirmar`,
+              rollbackErr instanceof Error ? rollbackErr.stack : undefined,
+            ),
+          );
+        throw err;
+      }
     }
   }
 

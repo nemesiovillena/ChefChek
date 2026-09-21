@@ -120,6 +120,13 @@ export default function AlbaranLineasPage() {
       }
       refetch();
     } catch (err) {
+      // El fallo puede llegar con el cambio ya aplicado en BD (red caída tras
+      // escribir, otro dispositivo, revert del backend): sin refrescar, la
+      // caché de 5 min seguía mostrando "Confirmar Albarán" y el reintento
+      // chocaba con "CONFIRMADO → CONFIRMADO".
+      void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+      void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      refetch();
       addNotification({
         type: 'error',
         title: 'No se pudo actualizar',
