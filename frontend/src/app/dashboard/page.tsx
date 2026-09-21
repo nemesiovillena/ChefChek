@@ -577,14 +577,14 @@ export default function DashboardPage() {
         {canSeeProduction && crearOrdenButton('hidden md:flex')}
       </section>
 
-      {/* Orden móvil: Tareas pendientes, Notificaciones de Sala, Crear Tarea,
+      {/* Orden móvil: Tareas pendientes, Notificaciones de Sala,
           Pedidos Pendientes, Notificaciones y Alertas, Caducidades, Recetas,
-          Etiquetado, Compras. Telemetría de Cocina en Vivo no tiene datos
-          reales todavía y queda oculta en móvil. */}
+          Etiquetado, Compras. "Crear orden producción" es solo de escritorio
+          (cabecera). Telemetría de Cocina en Vivo no tiene datos reales
+          todavía y queda oculta en móvil. */}
       <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
         {canSeePrepTasks && renderPrepTasksBoard(false)}
         {salaNotificacionesEnabled && renderSalaTasksBoard(false)}
-        {canSeeProduction && crearOrdenButton('flex justify-center')}
         {canSeeCompras && pedidosPendientesCard}
         {canSeeAlerts && renderNotificacionesCard(false)}
         {canSeeEtiquetado && caducidadesAlertCard}

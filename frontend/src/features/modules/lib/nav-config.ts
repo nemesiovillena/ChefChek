@@ -106,9 +106,9 @@ export const NAV_GROUPS: NavSection[] = [
 export const MOBILE_NAV: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
   { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
-  { label: 'Subir', href: '/dashboard/albaranes/subir', moduleId: 'albaranes', icon: 'add_a_photo' },
-  { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
-  { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
+  { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
+  { label: 'Etiqueta', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: 'label' },
+  { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: 'schedule' },
 ];
 
 /**
