@@ -137,8 +137,16 @@ Dos generadores independientes, con las reglas de negocio de cada campo
   /api/v1/etiquetado/config`, PUT solo `ADMIN`, guardado en `Configuration`
   con key `ETIQUETADO_THERMAL_PROFILES`). Cada perfil: `{ id, name, widthMm,
   heightMm, dpi }` (mm 20–200, dpi 100–600; dpi por defecto 203 = Zebra
-  ZD220D). Un tenant nuevo trae 2 perfiles por defecto (60×40 y 57×32). Si el
-  alto < 36 mm la etiqueta omite la lista de ingredientes. Ajuste de texto vía
+  ZD220D). Todos los tenants tienen 2 perfiles por defecto: «Principal» 60×40 y
+  «Compacto» 57×32 (los nuevos los reciben en lectura; los que ya tenían
+  perfiles guardados, por migración aditiva). El formato por defecto se elige
+  en Ajustes → Etiquetas (una impresora, un rollo cargado: se cambia al
+  cambiar de rollo). Layout derivado de la geometría, no del id del perfil
+  (`util/food-label-zpl-layout.util.ts`): alto ≥ 36 mm = estándar (QR arriba a
+  la derecha, texto más estrecho a su lado; también 57×51 y cualquier perfil
+  propio ≥ 36 mm, con más líneas de ingredientes cuanto más alto); alto < 36 mm = compacto (**sin
+  QR**, texto a todo el ancho y tipografía apretada; los ingredientes ocupan
+  el hueco libre: nº de líneas = las que quepan sobre la línea «Resp.»). Ajuste de texto vía
   `^FB` nativo de ZPL (recorta sin "…" si no cabe, sin medir texto como
   pdfkit — decisión deliberada, ver plan). Negrita en LOTE/Consumir/Alérgenos/
   nombre vía "doble impresión" desplazada 1 dot (la fuente escalable 0 de
@@ -149,8 +157,8 @@ El `format` que llega a `/pdf` debe ser un preset A4 (`resolveSpec` rechaza
 cualquier otro valor); el que llega a `/zpl` es `thermal:<profileId>`
 (`resolveThermalProfile`, cae al primer perfil si el id no existe).
 
-El QR codifica `${APP_URL}/e/${qrToken}` (dinámico por etiqueta) en ambos
-generadores.
+El QR codifica `${APP_URL}/e/${qrToken}` (dinámico por etiqueta) en A4 y en
+térmica estándar; la térmica compacta (57×32) no lleva QR.
 
 ## Frontend
 
