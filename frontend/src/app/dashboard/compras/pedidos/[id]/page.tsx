@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   PackageCheck,
+  Save,
   Send,
   Trash2,
   Undo2,
@@ -34,6 +35,7 @@ import { SendOrderDialog } from '../../components/send-order-dialog';
 import { ScheduleOrderDialog } from '../../components/schedule-order-dialog';
 import { ReceptionSection } from '../../components/reception-section';
 import { openOrderPdf } from '@/hooks/use-order-sending';
+import { useUpdateProduct } from '@/hooks/use-products';
 
 const euro = new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -136,6 +138,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const addNotification = useNotification();
   const { user } = useAuth();
   const updateMut = useUpdatePurchaseOrder();
+  const updateProductMut = useUpdateProduct();
   const transitionMut = useTransitionPurchaseOrder();
   const deleteMut = useDeletePurchaseOrder();
   const revertMut = useRevertPurchaseOrderStatus();
@@ -161,6 +164,10 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       productId: line.productId,
       name: line.product?.name ?? line.productId,
       unit: line.unit ?? '',
+      // Formato/unidad vigentes del artículo: permiten ofrecer "guardar en
+      // artículo" solo cuando la unidad escrita en la línea aporta algo nuevo.
+      articleFormat: line.product?.purchaseFormat ?? '',
+      referenceUnit: line.product?.referenceUnit ?? '',
       quantity: line.quantity,
       expectedPrice: line.expectedPrice,
     })),
@@ -199,6 +206,28 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
     (sum, l) => sum + l.quantity * (l.expectedPrice ?? 0),
     0,
   );
+
+  // Persiste la unidad escrita en la línea como "Formato de compra" del
+  // artículo, para no tener que volver a la ficha en cada pedido. El pedido
+  // sigue guardándose aparte con su botón habitual.
+  const handleSaveFormatToProduct = async (productId: string, unit: string) => {
+    const purchaseFormat = unit.trim();
+    try {
+      await updateProductMut.mutateAsync({ id: productId, purchaseFormat });
+      setLines((prev) =>
+        prev.map((l) =>
+          l.productId === productId ? { ...l, articleFormat: purchaseFormat } : l,
+        ),
+      );
+      addNotification({
+        type: 'success',
+        title: 'Formato guardado',
+        message: `«${purchaseFormat}» es ahora el formato de compra del artículo`,
+      });
+    } catch (e) {
+      notifyError(e, 'No se pudo guardar el formato en el artículo');
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -439,7 +468,42 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                   )}
                 </td>
                 <td className="px-4 py-2 text-[var(--on-surface-variant)]">
-                  {line.unit || '—'}
+                  {isDraft ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        value={line.unit}
+                        placeholder="Ej: Caja 6 ud"
+                        aria-label={`Formato de compra de ${line.name}`}
+                        onChange={(e) => {
+                          const unit = e.target.value;
+                          setLines((prev) =>
+                            prev.map((l, i) => (i === index ? { ...l, unit } : l)),
+                          );
+                          setDirty(true);
+                        }}
+                        className="w-36 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-[var(--on-surface)]"
+                      />
+                      {line.unit.trim() !== '' &&
+                        line.unit.trim() !== line.articleFormat &&
+                        line.unit.trim() !== line.referenceUnit && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSaveFormatToProduct(line.productId, line.unit)
+                            }
+                            disabled={updateProductMut.isPending}
+                            title="Guardar como formato de compra del artículo"
+                            aria-label={`Guardar «${line.unit.trim()}» como formato de compra de ${line.name}`}
+                            className="rounded-lg p-1.5 text-[var(--primary)] hover:bg-[var(--surface-container)] disabled:opacity-50"
+                          >
+                            <Save className="h-4 w-4" />
+                          </button>
+                        )}
+                    </div>
+                  ) : (
+                    line.unit || '—'
+                  )}
                 </td>
                 <td className="px-4 py-2 text-right">
                   {isDraft ? (
@@ -517,6 +581,8 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                 productId: product.id,
                 name: product.name,
                 unit: product.purchaseFormat || product.referenceUnit || '',
+                articleFormat: product.purchaseFormat || '',
+                referenceUnit: product.referenceUnit || '',
                 quantity: 1,
                 expectedPrice: null,
               },
