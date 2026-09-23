@@ -161,8 +161,10 @@ export async function getDefaultZebraPrinter(): Promise<ZebraDevice> {
     CONNECT_TIMEOUT_MS,
     'Zebra Browser Print no responde. Comprueba que la aplicación está abierta en este PC.',
   );
-  if (!raw) {
-    throw new Error('No se encontró ninguna impresora Zebra por defecto. Conéctala por USB o elígela en Ajustes → Etiquetas.');
+  // Sin impresora predeterminada en Browser Print, el SDK devuelve un dispositivo
+  // sin nombre y el envío falla con "No value for name".
+  if (!raw?.name) {
+    throw new Error('No se encontró ninguna impresora Zebra por defecto. Conéctala por USB o elígela y guárdala en Ajustes → Etiquetas.');
   }
   return wrapDevice(raw);
 }

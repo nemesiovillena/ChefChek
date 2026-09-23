@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
+import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
   listZebraPrinters,
@@ -39,6 +39,9 @@ export function ZebraPrinterStatus() {
   const [devices, setDevices] = useState<ZebraDevice[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedUid, setSelectedUid] = useState(getPreferredZebraDeviceUid() ?? '');
+  // Impresora guardada en este navegador: la que usan las etiquetas reales.
+  const [savedUid, setSavedUid] = useState(getPreferredZebraDeviceUid() ?? '');
+  const isSaved = !!selectedUid && selectedUid === savedUid;
   const [testing, setTesting] = useState(false);
 
   const check = async () => {
@@ -58,9 +61,15 @@ export function ZebraPrinterStatus() {
     }
   };
 
-  const selectDevice = (uid: string) => {
-    setSelectedUid(uid);
-    setPreferredZebraDeviceUid(uid || null);
+  const savePrinter = () => {
+    setPreferredZebraDeviceUid(selectedUid || null);
+    setSavedUid(selectedUid);
+    const device = devices.find((d) => d.uid === selectedUid);
+    addNotification({
+      type: 'success',
+      title: 'Impresora guardada',
+      message: device ? `Las etiquetas se imprimirán en ${device.name}.` : '',
+    });
   };
 
   const printTest = async () => {
@@ -147,7 +156,7 @@ export function ZebraPrinterStatus() {
               className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
               style={{ colorScheme: 'light dark' }}
               value={selectedUid}
-              onChange={(e) => selectDevice(e.target.value)}
+              onChange={(e) => setSelectedUid(e.target.value)}
             >
               {devices.map((d) => (
                 <option key={d.uid} value={d.uid}>
@@ -169,6 +178,26 @@ export function ZebraPrinterStatus() {
             )}
             Imprimir prueba
           </button>
+          <button
+            type="button"
+            onClick={savePrinter}
+            disabled={!selectedUid || isSaved}
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" />
+            Guardar
+          </button>
+          {isSaved ? (
+            <span className="inline-flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+              Impresora guardada
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
+              <XCircle className="h-4 w-4" />
+              Sin guardar: pulsa Guardar para usarla en las etiquetas
+            </span>
+          )}
         </div>
       )}
     </div>
