@@ -71,18 +71,21 @@ interface ZplLayoutTuning {
   responsable: { fontMm: number; heightMm: number };
 }
 
+// Probado en una ZD220 real con rollo 60×40: con la tipografía anterior el
+// texto quedaba pequeño y sobraban varias líneas vacías sobre el responsable,
+// así que se agranda ~20-25% (a costa de una línea de ingredientes con alérgenos).
 const STANDARD_TUNING: ZplLayoutTuning = {
   qrTargetMm: 15,
-  qrGapMm: 1.5,
-  product: { fontMm: 2.4, lineMm: 3.0, maxLines: 2 },
-  lot: { fontMm: 3.0, lineMm: 3.6 },
-  prep: { fontMm: 2.0, lineMm: 2.5 },
-  consume: { fontMm: 2.2, lineMm: 2.7 },
-  conservation: { fontMm: 2.0, lineMm: 2.5 },
-  handledExtra: { fontMm: 1.7, lineMm: 2.2 },
-  allergens: { fontMm: 1.8, lineMm: 2.3, maxLines: 2 },
-  ingredients: { fontMm: 1.6, lineMm: 2.0 },
-  responsable: { fontMm: 1.8, heightMm: 2.6 },
+  qrGapMm: 1.0,
+  product: { fontMm: 2.9, lineMm: 3.3, maxLines: 2 },
+  lot: { fontMm: 3.4, lineMm: 3.9 },
+  prep: { fontMm: 2.5, lineMm: 2.9 },
+  consume: { fontMm: 2.7, lineMm: 3.1 },
+  conservation: { fontMm: 2.5, lineMm: 2.9 },
+  handledExtra: { fontMm: 2.4, lineMm: 2.8 },
+  allergens: { fontMm: 2.1, lineMm: 2.5, maxLines: 2 },
+  ingredients: { fontMm: 1.9, lineMm: 2.2 },
+  responsable: { fontMm: 2.3, heightMm: 2.7 },
 };
 
 const COMPACT_TUNING: ZplLayoutTuning = {
