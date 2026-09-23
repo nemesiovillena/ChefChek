@@ -439,17 +439,22 @@ export function setPreferredZebraDeviceUid(uid: string | null): void {
   }
 }
 
+/**
+ * Impresora a la que van las etiquetas: la guardada en Ajustes; si no hay
+ * ninguna guardada (o ya no está conectada) y Browser Print solo ve una, esa;
+ * si no, la predeterminada de la app Browser Print.
+ */
 async function resolveZebraDevice(): Promise<ZebraDevice> {
   const preferredUid = getPreferredZebraDeviceUid();
-  if (preferredUid) {
-    try {
-      const devices = await listZebraPrinters();
-      const match = devices.find((d) => d.uid === preferredUid);
-      if (match) return match;
-    } catch {
-      // Si no se puede listar, se intenta igualmente con la impresora por defecto.
-    }
+  let devices: ZebraDevice[] = [];
+  try {
+    devices = await listZebraPrinters();
+  } catch {
+    // Si no se puede listar, se intenta igualmente con la impresora por defecto.
   }
+  const match = preferredUid ? devices.find((d) => d.uid === preferredUid) : undefined;
+  if (match) return match;
+  if (devices.length === 1) return devices[0];
   return getDefaultZebraPrinter();
 }
 
