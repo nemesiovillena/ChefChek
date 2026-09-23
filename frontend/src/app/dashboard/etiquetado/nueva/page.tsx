@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Printer, Save } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useRecipeOptions } from '@/hooks/use-recipes';
 import { useProductSearch } from '@/hooks/use-product-search';
@@ -111,6 +111,8 @@ export default function NuevaEtiquetaPage() {
   const [manufacturerExpiry, setManufacturerExpiry] = useState('');
 
   const [copies, setCopies] = useState('1');
+  // Qué botón lanzó el guardado, para mostrar el spinner en el correcto.
+  const [pendingAction, setPendingAction] = useState<'save' | 'print' | null>(null);
 
   const recipeOptions = useRecipeOptions();
   const productSearch = useProductSearch(300);
@@ -138,7 +140,9 @@ export default function NuevaEtiquetaPage() {
     (labelType === 'ELABORATED' && Boolean(recipeCtx.data)) ||
     (labelType === 'HANDLED' && Boolean(productCtx.data));
 
-  const handleSave = async () => {
+  // «Guardar» solo registra la etiqueta; «Imprimir» la registra y la imprime
+  // (imprimir necesita el id de la etiqueta guardada).
+  const handleSave = async (print: boolean) => {
     const shelfLifeDays = num(effectiveConservation.shelfLifeDays);
     const storageCondition = effectiveConservation.storageCondition || undefined;
 
@@ -151,7 +155,7 @@ export default function NuevaEtiquetaPage() {
       return;
     }
 
-    if (!printFormat) {
+    if (print && !printFormat) {
       addNotification({
         type: 'error',
         title: 'Falta el formato de etiqueta',
@@ -232,6 +236,7 @@ export default function NuevaEtiquetaPage() {
         : undefined;
     }
 
+    setPendingAction(print ? 'print' : 'save');
     try {
       const created = await createLabel.mutateAsync(input);
       addNotification({
@@ -239,18 +244,20 @@ export default function NuevaEtiquetaPage() {
         title: 'Etiqueta creada',
         message: `Lote ${created.lotNumber}`,
       });
-      await printLabel(created.id, printFormat, Number(copies) || 1, {
-        onError: (m) =>
-          addNotification({ type: 'error', title: 'Impresión', message: m }),
-        onSuccess: printFormat.startsWith('thermal:')
-          ? () =>
-              addNotification({
-                type: 'success',
-                title: 'Enviada a la impresora',
-                message: '',
-              })
-          : undefined,
-      });
+      if (print && printFormat) {
+        await printLabel(created.id, printFormat, Number(copies) || 1, {
+          onError: (m) =>
+            addNotification({ type: 'error', title: 'Impresión', message: m }),
+          onSuccess: printFormat.startsWith('thermal:')
+            ? () =>
+                addNotification({
+                  type: 'success',
+                  title: 'Enviada a la impresora',
+                  message: '',
+                })
+            : undefined,
+        });
+      }
       router.push(`/dashboard/etiquetado/${created.id}`);
     } catch (e: unknown) {
       addNotification({
@@ -258,6 +265,8 @@ export default function NuevaEtiquetaPage() {
         title: 'Error',
         message: e instanceof Error ? e.message : 'No se pudo crear la etiqueta',
       });
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -670,11 +679,25 @@ export default function NuevaEtiquetaPage() {
                 onChange={(e) => setCopies(e.target.value)}
               />
             </label>
-            <Button onClick={handleSave} disabled={createLabel.isPending}>
-              {createLabel.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Guardar e imprimir
+            <Button onClick={() => handleSave(false)} disabled={pendingAction !== null}>
+              {pendingAction === 'save' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Guardar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleSave(true)}
+              disabled={pendingAction !== null}
+            >
+              {pendingAction === 'print' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              Imprimir
             </Button>
             <p className="w-full text-xs text-[var(--on-surface-variant)]">
               Formato: {printFormatLabel || '—'}. Se elige en Configuración →
