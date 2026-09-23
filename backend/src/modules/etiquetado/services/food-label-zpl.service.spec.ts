@@ -312,7 +312,7 @@ describe("FoodLabelZplService", () => {
       expect(layout.ingredients.maxLines).toBeGreaterThanOrEqual(4);
     });
 
-    it("gives ingredients at least 2 lines on 57x32 and 4 on 60x40 (worst case: allergens)", () => {
+    it("gives ingredients at least 2 lines on 57x32 and 3 on 60x40 (worst case: allergens)", () => {
       const compact = computeZplLayout(spec57x32, {
         qrModules: 0,
         hasHandledExtra: false,
@@ -324,7 +324,25 @@ describe("FoodLabelZplService", () => {
         hasAllergens: true,
       });
       expect(compact.ingredients.maxLines).toBeGreaterThanOrEqual(2);
-      expect(standard.ingredients.maxLines).toBeGreaterThanOrEqual(4);
+      expect(standard.ingredients.maxLines).toBeGreaterThanOrEqual(3);
+    });
+
+    it("60x40 prints the main lines at a readable size (>= 2.5 mm)", () => {
+      const layout = computeZplLayout(spec60x40, {
+        qrModules: 33,
+        hasHandledExtra: true,
+        hasAllergens: false,
+      });
+      const minDots = 20; // 2.5 mm @203dpi
+      for (const field of [
+        layout.product,
+        layout.lot,
+        layout.prep,
+        layout.consume,
+        layout.conservation,
+      ]) {
+        expect(field.fontHeightDots).toBeGreaterThanOrEqual(minDots);
+      }
     });
 
     it("moves allergens up to fill the gap when there's no HANDLED extra line", () => {
