@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Tag, Plus, Trash2 } from 'lucide-react';
+import { Tag, Plus, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import {
+  effectiveLabelFormat,
   labelFormatOptions,
   useEtiquetadoConfig,
   useUpdateEtiquetadoConfig,
@@ -47,8 +48,10 @@ export function EtiquetadoConfigSection() {
   const rows = drafts ?? (config?.thermalProfiles ?? []).map(toDraft);
 
   const formatOptions = labelFormatOptions(config);
-  const defaultFormat =
-    defaultFormatDraft ?? config?.defaultFormat ?? formatOptions[0]?.value ?? '';
+  const savedFormat = effectiveLabelFormat(config);
+  const defaultFormat = defaultFormatDraft ?? savedFormat;
+  const activeFormatLabel = formatOptions.find((f) => f.value === defaultFormat)?.label;
+  const formatUnsaved = defaultFormat !== savedFormat;
   const expiryWarningDays =
     expiryWarningDaysDraft ?? String(config?.expiryWarningDays ?? '');
   // Backend: PUT /etiquetado/config exige @Roles("ADMIN") en todo el
@@ -126,6 +129,28 @@ export function EtiquetadoConfigSection() {
         estándar y no necesitan configuración.
       </p>
 
+      {/* Qué formato se imprime de verdad, visible de un vistazo. */}
+      <div
+        className={`mb-4 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+          activeFormatLabel && !formatUnsaved
+            ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-900/50 dark:bg-green-950/30 dark:text-green-300'
+            : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300'
+        }`}
+      >
+        {activeFormatLabel && !formatUnsaved ? (
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+        ) : (
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+        )}
+        <span>
+          Formato en uso:{' '}
+          <span className="font-semibold">{activeFormatLabel ?? 'ninguno'}</span>
+        </span>
+        {formatUnsaved && (
+          <span className="font-medium">— cambio sin guardar, pulsa Guardar</span>
+        )}
+      </div>
+
       <label className="block text-sm mb-4">
         <span className="block text-gray-600 dark:text-gray-400">
           Formato de impresión por defecto
@@ -175,8 +200,17 @@ export function EtiquetadoConfigSection() {
       )}
 
       <div className="space-y-2">
-        {rows.map((r, i) => (
-          <div key={r.id} className="flex flex-wrap items-end gap-3">
+        {rows.map((r, i) => {
+          const isActive = defaultFormat === `thermal:${r.id}`;
+          return (
+          <div
+            key={r.id}
+            className={`flex flex-wrap items-end gap-3 rounded-md border p-3 ${
+              isActive
+                ? 'border-green-400 bg-green-50/60 dark:border-green-800 dark:bg-green-950/20'
+                : 'border-gray-200 dark:border-zinc-800'
+            }`}
+          >
             <label className="text-sm">
               <span className="block text-gray-600 dark:text-gray-400">Nombre</span>
               <input
@@ -223,8 +257,23 @@ export function EtiquetadoConfigSection() {
             >
               <Trash2 className="h-4 w-4" />
             </button>
+            {isActive ? (
+              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-green-600 px-3 py-1 text-xs font-semibold text-white">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                En uso
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDefaultFormatDraft(`thermal:${r.id}`)}
+                className="mb-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+              >
+                Usar este
+              </button>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 flex items-center gap-3">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save } from 'lucide-react';
+import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save, Ruler } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
   listZebraPrinters,
@@ -28,6 +28,15 @@ function testZpl(widthDots: number, heightDots: number): string {
 }
 
 /**
+ * Calibración para rollos de etiquetas con hueco (troqueladas): `^MNY` pone el
+ * sensor en detección de hueco, `^JUS` lo guarda en la impresora (sobrevive a
+ * apagarla) y `~JC` mide el rollo avanzando unas etiquetas. Sin esto la Zebra
+ * no encuentra el final de cada etiqueta: imprime descuadrado y saca
+ * etiquetas en blanco de más.
+ */
+const CALIBRATE_GAP_MEDIA_ZPL = ['^XA', '^MNY', '^JUS', '^XZ', '~JC'].join('\n');
+
+/**
  * Estado de Zebra Browser Print (detección de dispositivos USB, selección de
  * impresora preferida, etiqueta de prueba). Vive aparte de
  * `EtiquetadoConfigSection` porque es lógica de navegador/hardware local, no
@@ -43,6 +52,7 @@ export function ZebraPrinterStatus() {
   const [savedUid, setSavedUid] = useState(getPreferredZebraDeviceUid() ?? '');
   const isSaved = !!selectedUid && selectedUid === savedUid;
   const [testing, setTesting] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
 
   const check = async () => {
     setState('checking');
@@ -86,6 +96,28 @@ export function ZebraPrinterStatus() {
       });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const calibrate = async () => {
+    setCalibrating(true);
+    try {
+      const device = devices.find((d) => d.uid === selectedUid);
+      await sendZpl(CALIBRATE_GAP_MEDIA_ZPL, device);
+      addNotification({
+        type: 'success',
+        title: 'Calibrando la impresora',
+        message:
+          'Sacará unas etiquetas mientras mide el rollo y se parará sola. Después, al pulsar FEED debe salir una sola etiqueta.',
+      });
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo calibrar',
+        message: e instanceof Error ? e.message : 'Error desconocido',
+      });
+    } finally {
+      setCalibrating(false);
     }
   };
 
@@ -187,6 +219,19 @@ export function ZebraPrinterStatus() {
             <Save className="h-4 w-4" />
             Guardar
           </button>
+          <button
+            type="button"
+            onClick={calibrate}
+            disabled={calibrating || !selectedUid}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {calibrating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Ruler className="h-4 w-4" />
+            )}
+            Calibrar impresora
+          </button>
           {isSaved ? (
             <span className="inline-flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
               <CheckCircle2 className="h-4 w-4" />
@@ -199,6 +244,13 @@ export function ZebraPrinterStatus() {
             </span>
           )}
         </div>
+      )}
+      {devices.length > 0 && (
+        <p className="text-xs text-gray-500">
+          Calibra al instalar la impresora y cada vez que cambies a un rollo de
+          otra medida (para rollos con hueco entre etiquetas). Si al pulsar
+          FEED sale más de una etiqueta, vuelve a calibrar.
+        </p>
       )}
     </div>
   );
