@@ -125,7 +125,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | [Fundamentos y andamiaje](./phase-01-fundamentos-y-andamiaje.md) | Completed |
-| 2 | [Motor de registros backend](./phase-02-motor-de-registros-backend.md) | Pending |
+| 2 | [Motor de registros backend](./phase-02-motor-de-registros-backend.md) | Completed |
 | 3 | [Registros diarios y editor de Plan UI](./phase-03-registros-diarios-y-editor-de-plan-ui.md) | Pending |
 | 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Pending |
 | 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Pending |
@@ -260,3 +260,20 @@ Completada. `MODULE_REGISTRY`/`SECTION_REGISTRY` con `sicted`; módulo neutro `C
 **Revisión**: subagentes bloqueados por un fallo de infraestructura (tmux) durante toda la sesión — revisión hecha inline por el agente principal, con el visto bueno del usuario, siguiendo el mismo checklist que se le pediría a `code-reviewer`.
 
 **Pendiente de commit**: cambios en staged, a la espera de confirmación del usuario.
+
+### Fase 2 — 2026-09-24, rama `feat/sicted-fase-2-motor-registros` (sobre `feat/sicted-fase-1-fundamentos`)
+
+Completada. Modelos `ChecklistTemplate`/`ChecklistTemplateItem`/`ChecklistRun`/`ChecklistEntry` (migración `checklist_engine`, con los triggers de inalterabilidad de fase 1 adjuntos a `checklist_entries`/`checklist_runs`); `checklist-period.util.ts` (periodos Europe/Madrid, semana ISO, 20 tests); servicios de plantillas y hojas en `ChecklistsModule` (versionado, siembra idempotente compartida por `externalCode`, generación idempotente por periodo, marcas por modo EXECUTION/INSPECTION/MEASUREMENT, corrección con histórico, supervisión); `ChecklistRunSchedulerService` (cron diario, alertas por hoja vencida); `SictedChecklistController` con la superficie completa de la tabla API; 3 plantillas iniciales reales (Comprobación de Temperaturas RE 4-2, Limpieza de cocina, Revisión semanal de limpieza RE 2-1).
+
+**Hallazgos de implementación** (no estaban en el plan, corregidos sobre la marcha):
+- Bug de autorización propio, encontrado por el test HTTP: 5 rutas (`GET runs/today`, `GET runs`, `GET runs/:id`, `POST runs/:id/entries`, `GET performers`) no tenían `@Roles`, así que cualquier rol autenticado —incluido VIEWER— podía marcar y ver hojas, violando la tabla de la API ("USER+") y el criterio de aceptación explícito ("VIEWER no marca"). Corregido con `@Roles("USER")` en las 5 (la jerarquía de `RolesGuard` ya deja pasar a ADMIN/OWNER/SUPERADMIN por encima).
+- `seedStarter`: el camino de "ya sembrada"/"añadir módulo" devolvía la plantilla sin `items` (inconsistente con `create`/`update`, que sí los incluyen). Corregido añadiendo el mismo `include`.
+- `Alert` no tiene columna de módulo (hallazgo de fase 1 que se hereda aquí): una hoja vencida genera **una** alerta, no una por módulo consumidor activo, documentado en el propio scheduler.
+
+**Tests**: 133 suites/2011 tests unitarios (sin regresiones) + 11 suites e2e (66 tests) contra `chefchek_test`, incluida la nueva `sicted-checklist-controller.e2e-spec.ts` (HTTP real, guards de auth/tenant/rol/módulo/sección) que fue la que encontró el bug de autorización de arriba. `tsc --noEmit` limpio.
+
+**Revisión**: subagentes seguían bloqueados (mismo fallo de tmux de fase 1, no reintentado) — revisión hecha inline por el agente principal, mismo criterio aprobado en fase 1.
+
+**Pendiente**: red-team completo del plan (las 4 lentes adversariales) sigue diferido por el usuario, no solo para esta fase. Rama fase 2 apilada sobre fase 1 sin fusionar — el orden de fusión a `develop` debe respetar esa dependencia.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

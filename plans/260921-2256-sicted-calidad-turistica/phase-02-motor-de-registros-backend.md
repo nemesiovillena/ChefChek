@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Motor de registros backend"
-status: pending
+status: completed
 priority: P1
 effort: "L"
 dependencies: [1]
@@ -119,11 +119,11 @@ DTOs: `ValidationPipe` no coacciona número→string (usar `@Type`/`@IsNumber`).
 
 ## Success Criteria
 
-- [ ] Todo lo de la tabla API funciona y está cubierto por tests.
-- [ ] Marcas imposibles de alterar vía API y vía SQL de aplicación.
-- [ ] Doble ejecución del cron no duplica hojas ni alertas.
-- [ ] Backup+restore de tenant con datos de `checklist_*` no da 42703.
-- [ ] Una plantilla marcada como compartida es una sola fila en `ChecklistTemplate`, no dos.
+- [x] Todo lo de la tabla API funciona y está cubierto por tests — `test/e2e/sicted-checklist-controller.e2e-spec.ts` (HTTP real, guards incl.) + `test/e2e/checklist-engine.e2e-spec.ts` (servicios).
+- [x] Marcas imposibles de alterar vía API y vía SQL de aplicación — `test/e2e/checklist-entries-immutability.e2e-spec.ts` (tablas reales `checklist_entries`/`checklist_runs`).
+- [x] Doble ejecución del cron no duplica hojas ni alertas — `checklist-engine.e2e-spec.ts` (`ensureRunsForToday` x2) + `closeElapsedRuns` solo devuelve runs que acaban de cerrar en el tick (no reinserta alerta en ticks siguientes).
+- [x] Backup+restore de tenant con datos de `checklist_*` no da 42703 — `buildScopeClause` resuelve el scope por `information_schema.columns` (no por lista estática `CHILD_SCOPE_RULES`); las 4 tablas `checklist_*` tienen `tenantId` propio → rama directa, sin gap. Mecanismo de escape ya probado en fase 1 (`backup-restore-evidence-escape.e2e-spec.ts`) contra una tabla con el mismo prefijo/forma.
+- [x] Una plantilla marcada como compartida es una sola fila en `ChecklistTemplate`, no dos — `checklist-engine.e2e-spec.ts` ("seedStarter con externalCode añade el módulo en vez de duplicar la fila").
 
 ## Risk Assessment
 
