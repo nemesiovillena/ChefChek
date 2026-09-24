@@ -134,6 +134,7 @@ export class BackupService {
     userId: string | null,
     sourceBackupId?: string | null,
     notes?: string,
+    includeEvidenceTables = false,
   ): Promise<{ id: string; preBackupId: string; status: string }> {
     this.validatePayload(payload, scope, tenantId);
 
@@ -202,7 +203,14 @@ export class BackupService {
       progress: 0,
       step: "En cola",
     });
-    void this.runRestore(job.id, payload, scope, tenantId, userId).catch((e) =>
+    void this.runRestore(
+      job.id,
+      payload,
+      scope,
+      tenantId,
+      userId,
+      includeEvidenceTables,
+    ).catch((e) =>
       this.logger.error(`runRestore unhandled: ${e?.message ?? e}`),
     );
     return { id: job.id, preBackupId: preBackup.id, status: "PENDING" };
@@ -214,6 +222,7 @@ export class BackupService {
     scope: BackupScope,
     tenantId: string | null,
     userId: string | null,
+    includeEvidenceTables = false,
   ): Promise<void> {
     try {
       this.progress.set(jobId, {
@@ -231,6 +240,7 @@ export class BackupService {
         payload,
         scope,
         tenantId,
+        includeEvidenceTables,
       );
 
       await this.prisma.backup.update({
@@ -263,6 +273,7 @@ export class BackupService {
     tenantSlug: string | null,
     userId: string | null,
     notes?: string,
+    includeEvidenceTables = false,
   ): Promise<{ id: string; preBackupId: string; status: string }> {
     const backup = await this.getOne(backupId, scope, tenantId);
     if (
@@ -283,6 +294,7 @@ export class BackupService {
       userId,
       backupId,
       notes,
+      includeEvidenceTables,
     );
   }
 

@@ -10,6 +10,7 @@ import { buildScopeClause } from "./backup-scope.util";
 import { quoteSqlIdent } from "./backup-sql-identifier.util";
 import { deserializeRow } from "./backup.serializer";
 import { BackupPayload, BackupScope } from "./dto/backup.dto";
+import { isEvidenceTable } from "./backup.constants";
 
 /** Límite de parámetros por sentencia (PostgreSQL admite 65535; usamos margen). */
 const MAX_PARAMS_PER_STMT = 1000;
@@ -32,21 +33,47 @@ export class BackupRestoreService {
    *
    * Sólo se tocan las tablas presentes en `payload.data`: una tabla nueva (que
    * el snapshot no capturó) se deja intacta para no perder datos desconocidos.
+   *
+   * Las tablas de evidencia inalterable (`checklist_*`/`sicted_*`, ver
+   * {@link isEvidenceTable}) se excluyen SIEMPRE por defecto, aunque estén
+   * presentes en el payload: restaurar un backup antiguo no debe pisar
+   * evidencia generada después de esa copia. Pasar `includeEvidenceTables:
+   * true` es la confirmación explícita para incluirlas de todas formas.
    */
   async run(
     restoreJobId: string,
     payload: BackupPayload,
     scope: BackupScope,
     tenantId: string | null,
+    includeEvidenceTables = false,
   ): Promise<{ insertedRows: number }> {
     const order = await this.introspection.getInsertOrder();
     const tablesInBackup = Object.keys(payload.data);
-    const tablesToTouch = order.filter((t) => tablesInBackup.includes(t));
+    let tablesToTouch = order.filter((t) => tablesInBackup.includes(t));
+    if (!includeEvidenceTables) {
+      const skipped = tablesToTouch.filter(isEvidenceTable);
+      if (skipped.length > 0) {
+        this.logger.warn(
+          `Restore: omitiendo ${skipped.length} tabla(s) de evidencia por defecto: ${skipped.join(", ")}`,
+        );
+      }
+      tablesToTouch = tablesToTouch.filter((t) => !isEvidenceTable(t));
+    }
     const totalSteps = tablesToTouch.length * 2; // delete + insert
     let step = 0;
     let insertedRows = 0;
 
     await this.prisma.$transaction(async (tx) => {
+      // Si se van a tocar tablas de evidencia, levantar el escape del
+      // trigger `forbid_mutation`/`forbid_mutation_after_seal` para esta
+      // transacción (SET LOCAL: se resetea solo al terminar, sin fuga a
+      // otras conexiones/transacciones del pool).
+      if (includeEvidenceTables && tablesToTouch.some(isEvidenceTable)) {
+        await tx.$executeRawUnsafe(
+          `SET LOCAL chefchek.allow_evidence_purge = 'on'`,
+        );
+      }
+
       // 1) DELETE en orden topológico inverso (hijos antes que padres).
       for (const table of [...tablesToTouch].reverse()) {
         const scopeRes = await buildScopeClause(

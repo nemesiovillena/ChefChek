@@ -29,6 +29,22 @@ export const EXCLUDED_TABLES = new Set<string>([
 export const GLOBAL_ONLY_TABLES = new Set<string>(["tenants", "allergens"]);
 
 /**
+ * Prefijos de tablas de evidencia inalterable (SICTED, motor de checklist
+ * compartido con un futuro APPCC): append-only, protegidas por un trigger
+ * forbid_mutation en Postgres (ver migracion immutability_guard). Un restore
+ * normal NUNCA las toca por defecto - restaurar un backup antiguo no debe
+ * pisar evidencia generada despues de esa copia. Incluirlas exige que el
+ * caller pase includeEvidenceTables: true explicitamente (ver
+ * BackupRestoreService.run).
+ */
+export const EVIDENCE_TABLE_PREFIXES = ["checklist_", "sicted_"];
+
+/** True si `table` pertenece al motor de evidencia inalterable. */
+export function isEvidenceTable(table: string): boolean {
+  return EVIDENCE_TABLE_PREFIXES.some((prefix) => table.startsWith(prefix));
+}
+
+/**
  * Reglas de scope para tablas hijas (sin `tenantId`): cada entrada es una CADENA
  * de saltos (child → ... → tabla con `tenantId`). El builder anida subqueries
  * `IN (SELECT id FROM "<parent>" WHERE "<nextCol>" IN (...))` hasta la tabla
