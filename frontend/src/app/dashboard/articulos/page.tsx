@@ -119,13 +119,24 @@ export default function ArticulosPage() {
   // productos ya cargados, se trae suelto vía useProduct.
   const deepLinkProductId = searchParams.get('productId');
   const deepLinkTab = searchParams.get('tab');
+  // Guarda local: cerrar el modal debe ocultarlo YA, sin esperar a que
+  // router.replace() propague el ?productId= limpio a searchParams (en
+  // producción esa propagación compite con el refetch en background que
+  // dispara la invalidación de ['products', id] tras guardar, y puede
+  // demorarse lo bastante para que el modal reabra solo o no haya forma de
+  // cerrarlo). Se compara por id para que un deep-link nuevo (otra
+  // notificación) sí vuelva a abrir el modal con normalidad.
+  const [dismissedDeepLinkId, setDismissedDeepLinkId] = useState<string | null>(null);
   const deepLinkProductFromPage = deepLinkProductId
     ? products.find((p) => p.id === deepLinkProductId) ?? null
     : null;
   const { data: deepLinkProductFetched } = useProduct(deepLinkProductId ?? '', {
     enabled: !!deepLinkProductId && !deepLinkProductFromPage,
   });
-  const deepLinkProduct = deepLinkProductFromPage ?? deepLinkProductFetched ?? null;
+  const deepLinkProduct =
+    deepLinkProductId && deepLinkProductId !== dismissedDeepLinkId
+      ? deepLinkProductFromPage ?? deepLinkProductFetched ?? null
+      : null;
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -450,9 +461,11 @@ export default function ArticulosPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedProduct(null);
-    // Limpiar el deep-link (?productId=&tab=) para que cerrar el modal no lo
-    // reabra al instante (deepLinkProduct se deriva de la URL en cada render).
+    // Limpiar el deep-link (?productId=&tab=): el descarte local (arriba)
+    // ya oculta el modal de inmediato, esto solo deja la URL limpia para que
+    // refrescar la página o volver atrás no la reabra.
     if (deepLinkProductId) {
+      setDismissedDeepLinkId(deepLinkProductId);
       router.replace('/dashboard/articulos');
     }
     refetch();
