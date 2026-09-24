@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save, Ruler } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
   listZebraPrinters,
@@ -12,8 +13,6 @@ import {
   getPreferredZebraDeviceUid,
   setPreferredZebraDeviceUid,
 } from '@/hooks/use-food-labels';
-
-type ProbeState = 'idle' | 'checking' | 'found' | 'empty' | 'error';
 
 function testZpl(widthDots: number, heightDots: number): string {
   return [
@@ -28,15 +27,6 @@ function testZpl(widthDots: number, heightDots: number): string {
 }
 
 /**
- * Calibración para rollos de etiquetas con hueco (troqueladas): `^MNY` pone el
- * sensor en detección de hueco, `^JUS` lo guarda en la impresora (sobrevive a
- * apagarla) y `~JC` mide el rollo avanzando unas etiquetas. Sin esto la Zebra
- * no encuentra el final de cada etiqueta: imprime descuadrado y saca
- * etiquetas en blanco de más.
- */
-const CALIBRATE_GAP_MEDIA_ZPL = ['^XA', '^MNY', '^JUS', '^XZ', '~JC'].join('\n');
-
-/**
  * Estado de Zebra Browser Print (detección de dispositivos USB, selección de
  * impresora preferida, etiqueta de prueba). Vive aparte de
  * `EtiquetadoConfigSection` porque es lógica de navegador/hardware local, no
@@ -44,31 +34,50 @@ const CALIBRATE_GAP_MEDIA_ZPL = ['^XA', '^MNY', '^JUS', '^XZ', '~JC'].join('\n')
  */
 export function ZebraPrinterStatus() {
   const addNotification = useNotification();
-  const [state, setState] = useState<ProbeState>('idle');
-  const [devices, setDevices] = useState<ZebraDevice[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [selectedUid, setSelectedUid] = useState(getPreferredZebraDeviceUid() ?? '');
   // Impresora guardada en este navegador: la que usan las etiquetas reales.
   const [savedUid, setSavedUid] = useState(getPreferredZebraDeviceUid() ?? '');
-  const isSaved = !!selectedUid && selectedUid === savedUid;
+  const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [calibrating, setCalibrating] = useState(false);
 
-  const check = async () => {
-    setState('checking');
-    setErrorMsg('');
-    try {
+  // Se comprueba sola al abrir Ajustes (y con "Comprobar"): así, tras apagar
+  // el PC o la impresora, no parece que la configuración se haya perdido.
+  // Si aún no hay ninguna guardada y solo hay una Zebra, se guarda esa.
+  const probe = useQuery({
+    queryKey: ['zebra-printers'],
+    queryFn: async () => {
       const found = await listZebraPrinters();
-      setDevices(found);
-      setState(found.length ? 'found' : 'empty');
-      if (found.length && !found.some((d) => d.uid === selectedUid)) {
-        setSelectedUid(found[0].uid);
+      if (!getPreferredZebraDeviceUid() && found.length === 1) {
+        setPreferredZebraDeviceUid(found[0].uid);
+        setSavedUid(found[0].uid);
       }
-    } catch (e: unknown) {
-      setDevices([]);
-      setState('error');
-      setErrorMsg(e instanceof Error ? e.message : 'No se pudo comprobar la impresora.');
-    }
+      return found;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const devices: ZebraDevice[] = probe.data ?? [];
+  const errorMsg =
+    probe.error instanceof Error ? probe.error.message : 'No se pudo comprobar la impresora.';
+  const savedConnected = devices.some((d) => d.uid === savedUid);
+  const selectedUid =
+    selectedDraft && devices.some((d) => d.uid === selectedDraft)
+      ? selectedDraft
+      : savedConnected
+        ? savedUid
+        : (devices[0]?.uid ?? '');
+  const isSaved = !!selectedUid && selectedUid === savedUid;
+  const state = probe.isFetching
+    ? 'checking'
+    : probe.isError
+      ? 'error'
+      : probe.data
+        ? devices.length
+          ? 'found'
+          : 'empty'
+        : 'idle';
+
+  const check = () => {
+    void probe.refetch();
   };
 
   const savePrinter = () => {
@@ -96,28 +105,6 @@ export function ZebraPrinterStatus() {
       });
     } finally {
       setTesting(false);
-    }
-  };
-
-  const calibrate = async () => {
-    setCalibrating(true);
-    try {
-      const device = devices.find((d) => d.uid === selectedUid);
-      await sendZpl(CALIBRATE_GAP_MEDIA_ZPL, device);
-      addNotification({
-        type: 'success',
-        title: 'Calibrando la impresora',
-        message:
-          'Sacará unas etiquetas mientras mide el rollo y se parará sola. Después, al pulsar FEED debe salir una sola etiqueta.',
-      });
-    } catch (e: unknown) {
-      addNotification({
-        type: 'error',
-        title: 'No se pudo calibrar',
-        message: e instanceof Error ? e.message : 'Error desconocido',
-      });
-    } finally {
-      setCalibrating(false);
     }
   };
 
@@ -167,7 +154,8 @@ export function ZebraPrinterStatus() {
         {state === 'empty' && (
           <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
             <XCircle className="h-4 w-4" />
-            Browser Print responde, pero no ve ninguna impresora USB.
+            No se ve ninguna impresora: comprueba que la Zebra está encendida,
+            con la luz verde y conectada por USB, y pulsa Comprobar.
           </span>
         )}
         {state === 'error' && (
@@ -188,7 +176,7 @@ export function ZebraPrinterStatus() {
               className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
               style={{ colorScheme: 'light dark' }}
               value={selectedUid}
-              onChange={(e) => setSelectedUid(e.target.value)}
+              onChange={(e) => setSelectedDraft(e.target.value)}
             >
               {devices.map((d) => (
                 <option key={d.uid} value={d.uid}>
@@ -219,19 +207,6 @@ export function ZebraPrinterStatus() {
             <Save className="h-4 w-4" />
             Guardar
           </button>
-          <button
-            type="button"
-            onClick={calibrate}
-            disabled={calibrating || !selectedUid}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            {calibrating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Ruler className="h-4 w-4" />
-            )}
-            Calibrar impresora
-          </button>
           {isSaved ? (
             <span className="inline-flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
               <CheckCircle2 className="h-4 w-4" />
@@ -245,13 +220,22 @@ export function ZebraPrinterStatus() {
           )}
         </div>
       )}
-      {devices.length > 0 && (
-        <p className="text-xs text-gray-500">
-          Calibra al instalar la impresora y cada vez que cambies a un rollo de
-          otra medida (para rollos con hueco entre etiquetas). Si al pulsar
-          FEED sale más de una etiqueta, vuelve a calibrar.
+      {/* Calibrar enviando ~JC desde aquí dejó la impresora en error en una
+          ZD220d real; el botón FEED de la propia impresora sí funcionó. */}
+      <div className="rounded-md border border-gray-200 p-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-gray-400">
+        <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
+          Si salen etiquetas en blanco de más o se descuadran: calibra la impresora
         </p>
-      )}
+        <ol className="list-decimal space-y-0.5 pl-4">
+          <li>Con la luz verde fija, mantén pulsado el botón FEED y suéltalo tras el 2º parpadeo.</li>
+          <li>Sacará unas etiquetas y se parará. Al pulsar FEED debe salir una sola.</li>
+          <li>
+            Si se queda en rojo: mantén FEED y suelta tras el 4º parpadeo (restaura la
+            configuración de fábrica) y vuelve a calibrar.
+          </li>
+        </ol>
+        <p className="mt-1">Hazlo al instalarla y cada vez que cambies a un rollo de otra medida.</p>
+      </div>
     </div>
   );
 }

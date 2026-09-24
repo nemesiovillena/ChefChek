@@ -64,6 +64,14 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * El SDK hace XHR a https://localhost:9101 (la app Browser Print del PC). Si la
+ * app no está abierta, la petición falla con status 0 y respuesta vacía: el
+ * callback de error llega con "" y sin esto el usuario solo vería un genérico.
+ */
+const BROWSER_PRINT_UNREACHABLE =
+  'No se puede conectar con Zebra Browser Print en este PC. Ábrelo desde el menú Inicio (su icono debe aparecer junto al reloj) y vuelve a comprobar.';
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(message)), ms);
@@ -155,7 +163,7 @@ export async function getDefaultZebraPrinter(): Promise<ZebraDevice> {
       bp.getDefaultDevice(
         'printer',
         (device) => resolve(device),
-        (err) => reject(new Error(errorMessage(err, 'No se pudo conectar con Zebra Browser Print.'))),
+        (err) => reject(new Error(errorMessage(err, BROWSER_PRINT_UNREACHABLE))),
       );
     }),
     CONNECT_TIMEOUT_MS,
@@ -180,7 +188,7 @@ export async function listZebraPrinters(): Promise<ZebraDevice[]> {
     new Promise<RawBrowserPrintDevice[]>((resolve, reject) => {
       bp.getLocalDevices(
         (devices) => resolve(devices ?? []),
-        (err) => reject(new Error(errorMessage(err, 'No se pudo listar las impresoras.'))),
+        (err) => reject(new Error(errorMessage(err, BROWSER_PRINT_UNREACHABLE))),
         'printer',
       );
     }),
