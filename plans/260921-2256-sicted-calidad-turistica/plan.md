@@ -128,7 +128,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 2 | [Motor de registros backend](./phase-02-motor-de-registros-backend.md) | Completed |
 | 3 | [Registros diarios y editor de Plan UI](./phase-03-registros-diarios-y-editor-de-plan-ui.md) | Completed |
 | 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Completed |
-| 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Pending |
+| 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Completed |
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Pending |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Pending |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Pending |
@@ -308,5 +308,22 @@ Completada. Modelos `ChecklistAsset`/`ChecklistMaintenancePlan`/`ChecklistMainte
 **Revisión**: subagentes no disponibles, revisión inline — igual que fase 3, la verificación en navegador encontró los bugs reales (2 esta vez), no la lectura de código.
 
 **Pendiente**: red-team del plan completo sigue diferido por el usuario. Documentos reales adicionales prometidos por el usuario siguen sin llegar.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 5 — 2026-09-25, rama `feat/sicted-fase-5` (sobre `develop`, con fases 1-4 ya fusionadas)
+
+Completada. Cobertura ("¿qué falta?", reutiliza `isGenerationDay` de fase 2 para que "esperado" nunca se desincronice del cron real), 3 PDFs deterministas (Plan por área, cuadrante mensual con huella SHA-256, calendario+libro de averías anual) sobre PDFKit siguiendo el patrón de `food-label-pdf.service.ts`, CSV de marcas, y la pantalla `/dashboard/sicted/auditoria` con descargas iOS-safe (patrón `window.open` síncrono ya verificado en iPhone real para fichas técnicas/fase 4).
+
+**Hallazgos de implementación** (no estaban en el plan, encontrados y corregidos por verificación real — dos vía test automatizado, uno vía inspección visual del PDF descargado):
+- Los símbolos ✓/✗ no renderizaban en el PDF: la fuente Helvetica estándar (WinAnsi) no tiene esos glifos, salían como carácter roto. Cazado al inspeccionar visualmente el PDF descargado (el test automatizado con `pdfText()` tenía una aserción equivocada que no lo habría detectado). Corregido a "OK"/"NO".
+- El límite `to` de un rango de cobertura se trataba como inclusivo por el desfase horario Madrid/UTC (`to` a medianoche UTC ya es el día siguiente en Madrid) — colaba un día de más como "esperado". Cazado por un test de cobertura que fallaba de forma no obvia; corregido comparando por instante en vez de por día natural derivado de `to`.
+- El panel de cobertura marcaba como "hueco" los días futuros del mes en curso (pedir cobertura de todo septiembre a mitad de mes marcaba el 21-30 como "sin generar", aunque todavía no les tocaba). Cazado en navegador real con datos sembrados a propósito; corregido topando el rango efectivo en `now`.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios, esta fase es toda e2e) + 16 suites/103 tests e2e backend (motor de auditoría: cobertura, huella determinista, CSV — 7 tests nuevos; controlador HTTP: roles + smoke de los 5 endpoints — 5 tests nuevos) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (`/dashboard/sicted/auditoria`). Verificación manual en Chrome contra un tenant de prueba desechable con datos reales sembrados (15 ítems × 18 días, con huecos deliberados): descarga de los 4 tipos de PDF/CSV confirmada (blob autenticado + apertura en pestaña nueva), panel de cobertura con huecos exactos, y el PDF del cuadrante mensual descargado con `curl` y leído página a página — 1 sola página, totalmente legible. Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10).
+
+**Revisión**: subagentes no disponibles, revisión inline. Dos de los tres hallazgos vinieron de escribir tests de verdad contra Postgres real (no de la revisión de código); el tercero (glifos rotos) solo se vio al mirar el PDF de verdad, no al leer el código que lo genera — ningún test automatizado lo habría cazado sin decodificar y comparar el texto exacto, que es justo lo que hice después de verlo roto.
+
+**Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 6-10 pendientes; fase 6 es la siguiente según el plan.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
