@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -125,6 +126,7 @@ export class BackupController {
       req.tenantSlug,
       req.user?.id ?? null,
       dto.notes,
+      dto.includeEvidenceTables ?? false,
     );
     return { success: true, data };
   }
@@ -138,6 +140,7 @@ export class BackupController {
   async restoreUpload(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
+    @Query("includeEvidenceTables") includeEvidenceTables?: string,
   ) {
     if (!file?.buffer) {
       return { success: false, error: "No se recibió ningún archivo." };
@@ -151,6 +154,7 @@ export class BackupController {
       req.user?.id ?? null,
       undefined,
       `Restaurado desde archivo: ${file.originalname}`,
+      includeEvidenceTables === "true",
     );
     return { success: true, data };
   }

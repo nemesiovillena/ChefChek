@@ -62,6 +62,8 @@ import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
 import { RoleAccessModule } from "./modules/role-access/role-access.module";
 import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
 import { ConservationDefaultsModule } from "./modules/conservation-defaults/conservation-defaults.module";
+import { ChecklistsModule } from "./modules/checklists/checklists.module";
+import { SictedModule } from "./modules/sicted/sicted.module";
 
 @Module({
   imports: [
@@ -107,6 +109,8 @@ import { ConservationDefaultsModule } from "./modules/conservation-defaults/cons
     SuperadminModule,
     BackupModule,
     EtiquetadoModule,
+    ChecklistsModule,
+    SictedModule,
   ],
   controllers: [
     TenantsController,

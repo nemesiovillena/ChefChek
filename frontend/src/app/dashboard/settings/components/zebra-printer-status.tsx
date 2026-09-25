@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save } from 'lucide-react';
+import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save, Zap } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
   listZebraPrinters,
   sendZpl,
   type ZebraDevice,
 } from '@/lib/zebra-browser-print';
+import { preparePrinterForDailyUse } from '@/lib/zebra-printer-setup';
 import {
   getPreferredZebraDeviceUid,
   setPreferredZebraDeviceUid,
@@ -38,6 +39,7 @@ export function ZebraPrinterStatus() {
   const [savedUid, setSavedUid] = useState(getPreferredZebraDeviceUid() ?? '');
   const [selectedDraft, setSelectedDraft] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [preparing, setPreparing] = useState(false);
 
   // Se comprueba sola al abrir Ajustes (y con "Comprobar"): así, tras apagar
   // el PC o la impresora, no parece que la configuración se haya perdido.
@@ -105,6 +107,45 @@ export function ZebraPrinterStatus() {
       });
     } finally {
       setTesting(false);
+    }
+  };
+
+  /**
+   * Un solo uso (idempotente): activa el auto-calibrado al encender + guarda
+   * la config de media troquelada. Con esto, apagar la impresora (o el PC) y
+   * encender deja la impresora lista — sin el ritual manual de FEED cada día.
+   */
+  const preparePrinter = async () => {
+    setPreparing(true);
+    try {
+      const device = devices.find((d) => d.uid === selectedUid);
+      if (!device) {
+        throw new Error('No hay ninguna impresora seleccionada.');
+      }
+      const result = await preparePrinterForDailyUse(device);
+      if (result === 'auto-calibrate-on') {
+        addNotification({
+          type: 'success',
+          title: 'Impresora preparada',
+          message:
+            'Calibrará sola al encender. Apágala y enciéndela una vez: sacará unas etiquetas midiendo el rollo y quedará lista. Ya no hace falta calibrar a mano cada mañana.',
+        });
+      } else {
+        addNotification({
+          type: 'warning',
+          title: 'Configuración guardada, sin auto-calibrado',
+          message:
+            'Esta impresora no admite calibrar al encender. Si las etiquetas descuadran, usa el botón FEED como se indica abajo.',
+        });
+      }
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo preparar la impresora',
+        message: e instanceof Error ? e.message : 'Error desconocido',
+      });
+    } finally {
+      setPreparing(false);
     }
   };
 
@@ -188,7 +229,7 @@ export function ZebraPrinterStatus() {
           <button
             type="button"
             onClick={printTest}
-            disabled={testing}
+            disabled={testing || preparing}
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {testing ? (
@@ -197,6 +238,20 @@ export function ZebraPrinterStatus() {
               <Printer className="h-4 w-4" />
             )}
             Imprimir prueba
+          </button>
+          <button
+            type="button"
+            onClick={preparePrinter}
+            disabled={preparing || testing}
+            title="Una vez: la impresora calibrará sola cada vez que se encienda"
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            {preparing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            Preparar impresora
           </button>
           <button
             type="button"
@@ -220,11 +275,22 @@ export function ZebraPrinterStatus() {
           )}
         </div>
       )}
-      {/* Calibrar enviando ~JC desde aquí dejó la impresora en error en una
-          ZD220d real; el botón FEED de la propia impresora sí funcionó. */}
+      {/* La calibración REMOTA (~JC) dejó la impresora en error en una ZD220d
+          real (commit cdf522f) — nunca se envía desde la app. "Preparar
+          impresora" activa en cambio el auto-calibrado del propio firmware al
+          encender (SGD media.power_up_action), que es el camino seguro. */}
       <div className="rounded-md border border-gray-200 p-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-gray-400">
         <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
-          Si salen etiquetas en blanco de más o se descuadran: calibra la impresora
+          ¿Descuadran las etiquetas o salen en blanco de más?
+        </p>
+        <p className="mb-2">
+          Pulsa <span className="font-medium">«Preparar impresora»</span> una vez: desde
+          entonces calibrará sola cada vez que se encienda y no hará falta el ritual
+          manual de abajo cada mañana. Al cambiar a un rollo de otra medida tampoco hace
+          falta nada: el auto-calibrado del arranque re-mide el rollo.
+        </p>
+        <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
+          Calibración manual (fallback, si no preparaste la impresora)
         </p>
         <ol className="list-decimal space-y-0.5 pl-4">
           <li>Con la luz verde fija, mantén pulsado el botón FEED y suéltalo tras el 2º parpadeo.</li>
@@ -234,7 +300,6 @@ export function ZebraPrinterStatus() {
             configuración de fábrica) y vuelve a calibrar.
           </li>
         </ol>
-        <p className="mt-1">Hazlo al instalarla y cada vez que cambies a un rollo de otra medida.</p>
       </div>
     </div>
   );

@@ -146,6 +146,12 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     defaultAllowed: true,
   },
 
+  // ── Calidad ─────────────────────────────────────────────────────────────
+  // Módulo separado de APPCC (activación independiente); el motor de
+  // checklist que ambos comparten vive en el módulo interno `checklists`,
+  // que no tiene sección propia (ver backend/src/modules/checklists).
+  { key: "sicted", label: "SICTED", moduleId: "sicted", defaultAllowed: true },
+
   // ── Contenido ───────────────────────────────────────────────────────────
   { key: "menus", label: "Menús", moduleId: "menus", defaultAllowed: true },
   {

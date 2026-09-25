@@ -16,11 +16,13 @@ package-lock.json
 # Runtime data (user uploads, DB backups)
 backend/uploads/
 backend/backups/
+backend/private-uploads/
 
 # Mismos directorios de runtime, generados en la raíz cuando un script se
 # ejecuta desde el cwd equivocado en vez de backend/.
 /uploads/
 /public/
+/private-uploads/
 
 # Dev artifacts
 repomix-output.xml
