@@ -26,6 +26,8 @@ import { SictedSatisfactionService } from "./services/sicted-satisfaction.servic
 import { SictedLostItemService } from "./services/sicted-lost-item.service";
 import { SictedPracticeCatalogService } from "./services/sicted-practice-catalog.service";
 import { SictedAssessmentService } from "./services/sicted-assessment.service";
+import { SictedImprovementActionService } from "./services/sicted-improvement-action.service";
+import { SictedObjectiveService } from "./services/sicted-objective.service";
 
 /**
  * Módulo SICTED (Sostenibilidad, Inteligencia y Calidad Turística en el
@@ -66,6 +68,8 @@ import { SictedAssessmentService } from "./services/sicted-assessment.service";
     SictedLostItemService,
     SictedPracticeCatalogService,
     SictedAssessmentService,
+    SictedImprovementActionService,
+    SictedObjectiveService,
   ],
   exports: [],
 })

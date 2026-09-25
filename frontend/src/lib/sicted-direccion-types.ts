@@ -49,3 +49,72 @@ export interface UpsertScoreInput {
   notApplicable?: boolean;
   evidenceNote?: string;
 }
+
+/**
+ * Plan de mejora y objetivos anuales (SICTED fase 9, sub-PR 2).
+ */
+
+export type ImprovementActionOrigin = 'ASSESSMENT' | 'EVALUATOR' | 'COMPLAINT' | 'INCIDENT' | 'OTHER';
+export type ImprovementActionStatus = 'OPEN' | 'DONE' | 'CANCELLED';
+
+export interface SictedImprovementAction {
+  id: string;
+  code: number;
+  origin: ImprovementActionOrigin;
+  sourceRef: string | null;
+  title: string;
+  detectedAt: string;
+  action: string | null;
+  responsibleName: string | null;
+  dueDate: string | null;
+  status: ImprovementActionStatus;
+  closedAt: string | null;
+  evidenceNote: string | null;
+}
+
+export interface CreateImprovementActionInput {
+  origin: ImprovementActionOrigin;
+  sourceRef?: string;
+  title: string;
+  action?: string;
+  responsibleName?: string;
+  dueDate?: string;
+}
+
+export interface UpdateImprovementActionInput {
+  title?: string;
+  action?: string;
+  responsibleName?: string;
+  dueDate?: string;
+  status?: ImprovementActionStatus;
+  closedAt?: string;
+  evidenceNote?: string;
+}
+
+export type ObjectiveStatus = 'IN_PROGRESS' | 'ACHIEVED' | 'MISSED' | 'CANCELLED';
+
+export interface SictedObjective {
+  id: string;
+  year: number;
+  title: string;
+  indicator: string | null;
+  target: string | null;
+  currentValue: string | null;
+  status: ObjectiveStatus;
+}
+
+export interface CreateObjectiveInput {
+  year: number;
+  title: string;
+  indicator?: string;
+  target?: string;
+  currentValue?: string;
+}
+
+export interface UpdateObjectiveInput {
+  title?: string;
+  indicator?: string;
+  target?: string;
+  currentValue?: string;
+  status?: ObjectiveStatus;
+}

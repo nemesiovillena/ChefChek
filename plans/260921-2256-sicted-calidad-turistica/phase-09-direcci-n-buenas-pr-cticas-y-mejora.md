@@ -117,9 +117,10 @@ Cobertura por práctica: si `autoEvidenceSource` está informado, la práctica s
 - [x] Catálogo de **144** prácticas reales cargado y puntuable con la escala real (1-5 + No aplica); obligatorias sin puntuar o <3 listadas. — sub-PR 1, ver `plan.md`.
 - [ ] 6 prácticas con evidencia automática nunca piden acción manual al usuario. — pendiente, sub-PR posterior (motor de cobertura automática).
 - [x] Autoevaluación cerrada e inmutable (trigger condicional). — sub-PR 1. Exportable al pack de auditoría: pendiente (sub-PR posterior).
-- [ ] Plan de mejora con acciones trazables a su origen. — pendiente, sub-PR 2.
+- [x] Plan de mejora con acciones trazables a su origen. — sub-PR 2: `origin`+`sourceRef`, generación directa desde obligatorias pendientes de una autoevaluación.
 - [ ] Informe anual de calidad se genera en un clic con datos reales del año. — pendiente, sub-PR 4.
 - [ ] Documentos legales próximos a caducar generan aviso. — pendiente, sub-PR 3.
+- [x] Objetivos anuales con indicador/meta/progreso. — sub-PR 2 (ya estaba en Requirements, añadido aquí por completitud).
 
 ## Risk Assessment
 
