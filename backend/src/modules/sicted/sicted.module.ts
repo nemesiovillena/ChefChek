@@ -3,6 +3,7 @@ import { SictedController } from "./sicted.controller";
 import { SictedChecklistController } from "./sicted-checklist.controller";
 import { SictedMaintenanceController } from "./sicted-maintenance.controller";
 import { SictedAuditController } from "./sicted-audit.controller";
+import { SictedSuppliersController } from "./sicted-suppliers.controller";
 import { ChecklistsModule } from "../checklists/checklists.module";
 import { AuthModule } from "../auth/auth.module";
 import { SictedPlanPdfService } from "./services/sicted-plan-pdf.service";
@@ -10,6 +11,10 @@ import { SictedRegistrosPdfService } from "./services/sicted-registros-pdf.servi
 import { SictedMantenimientoPdfService } from "./services/sicted-mantenimiento-pdf.service";
 import { SictedAuditCsvService } from "./services/sicted-audit-csv.service";
 import { SictedCoverageService } from "./services/sicted-coverage.service";
+import { SictedSupplierComplianceService } from "./services/sicted-supplier-compliance.service";
+import { SictedSupplierIncidentService } from "./services/sicted-supplier-incident.service";
+import { SictedInventorySnapshotService } from "./services/sicted-inventory-snapshot.service";
+import { SictedProcurementEvidenceService } from "./services/sicted-procurement-evidence.service";
 
 /**
  * Módulo SICTED (Sostenibilidad, Inteligencia y Calidad Turística en el
@@ -27,6 +32,7 @@ import { SictedCoverageService } from "./services/sicted-coverage.service";
     SictedChecklistController,
     SictedMaintenanceController,
     SictedAuditController,
+    SictedSuppliersController,
   ],
   providers: [
     SictedPlanPdfService,
@@ -34,6 +40,10 @@ import { SictedCoverageService } from "./services/sicted-coverage.service";
     SictedMantenimientoPdfService,
     SictedAuditCsvService,
     SictedCoverageService,
+    SictedSupplierComplianceService,
+    SictedSupplierIncidentService,
+    SictedInventorySnapshotService,
+    SictedProcurementEvidenceService,
   ],
   exports: [],
 })
