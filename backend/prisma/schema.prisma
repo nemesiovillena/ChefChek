@@ -1401,6 +1401,140 @@ model SictedInventorySnapshot {
   @@map("sicted_inventory_snapshots")
 }
 
+// SICTED fase 7 — Personas: puestos, formación, protocolos con acuse.
+// SictedJobProfile/SictedJobAssignment son datos organizativos (se editan,
+// no evidencia append-only); SictedTrainingAttendance y SictedProtocolAck sí
+// lo son (asistencia y acuse quedan como prueba permanente).
+
+model SictedJobProfile {
+  id               String    @id @default(cuid())
+  tenantId         String
+  title            String
+  mission          String?
+  responsibilities String[] // lista de responsabilidades, texto libre
+  tasks            String[] // lista de tareas, texto libre
+  requirements     String?
+  reportsTo        String? // texto libre (nombre de puesto), sin auto-relación
+  version          Int       @default(1) // se incrementa al editar; no dispara reacuse (no hay acuse en fichas de puesto)
+  archivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  assignments SictedJobAssignment[]
+
+  @@index([tenantId])
+  @@map("sicted_job_profiles")
+}
+
+model SictedJobAssignment {
+  id        String    @id @default(cuid())
+  tenantId  String
+  profileId String
+  userId    String
+  userName  String // snapshot
+  since     DateTime  @default(now())
+  until     DateTime? // reasignar = cerrar la vigente (until=now) + crear una nueva, nunca se borra
+
+  profile SictedJobProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([profileId])
+  @@index([userId])
+  @@map("sicted_job_assignments")
+}
+
+model SictedTrainingPlan {
+  id        String   @id @default(cuid())
+  tenantId  String
+  year      Int
+  status    String   @default("DRAFT") // DRAFT | ACTIVE | CLOSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actions SictedTrainingAction[]
+
+  @@unique([tenantId, year])
+  @@index([tenantId])
+  @@map("sicted_training_plans")
+}
+
+model SictedTrainingAction {
+  id          String    @id @default(cuid())
+  tenantId    String
+  planId      String
+  topic       String // ATENCION_CLIENTE | IDIOMAS | SOSTENIBILIDAD | ALERGENOS | HIGIENE | OTRO
+  title       String
+  plannedDate DateTime
+  hours       Float?
+  trainer     String?
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  plan        SictedTrainingPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  attendances SictedTrainingAttendance[]
+
+  @@index([tenantId])
+  @@index([planId])
+  @@map("sicted_training_actions")
+}
+
+model SictedTrainingAttendance {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actionId    String
+  userId      String
+  userName    String // snapshot
+  attended    Boolean
+  certificate Json? // {storageKey, name, mime, size} — mismo shape que ChecklistMaintenanceAttachment
+  recordedAt  DateTime @default(now()) // SOLO INSERT
+
+  action SictedTrainingAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([actionId, userId]) // una asistencia por persona y acción
+  @@index([tenantId])
+  @@index([userId])
+  @@map("sicted_training_attendances")
+}
+
+model SictedProtocol {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  area               String
+  title              String
+  version            Int       @default(1) // se incrementa manualmente para forzar una nueva ronda de acuse
+  body               String?   @db.Text // texto propio; alternativa a knowledgeArticleId
+  knowledgeArticleId String? // referencia de solo lectura a la Wiki (KnowledgeArticle), sin relación Prisma
+  validFrom          DateTime  @default(now())
+  reviewDueAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  acks SictedProtocolAck[]
+
+  @@index([tenantId])
+  @@map("sicted_protocols")
+}
+
+model SictedProtocolAck {
+  id              String   @id @default(cuid())
+  tenantId        String
+  protocolId      String
+  protocolVersion Int // fija la versión acusada; una edición del protocolo (nueva version) deja este acuse obsoleto
+  userId          String
+  userName        String // snapshot
+  ackedAt         DateTime @default(now()) // SOLO INSERT
+
+  protocol SictedProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+
+  @@unique([protocolId, protocolVersion, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("sicted_protocol_acks")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())
