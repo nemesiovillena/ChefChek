@@ -154,4 +154,64 @@ export const CHECKLIST_STARTER_TEMPLATES: CreateChecklistTemplateDto[] = [
       { label: "Basurero", isRequired: true },
     ],
   },
+  // Fase 8 (Cliente y sostenibilidad): a diferencia de las plantillas de
+  // arriba, estas tres NO están digitalizadas de un documento real de
+  // Warynessy — el usuario no ha compartido uno para sostenibilidad — son
+  // ejemplos genéricos del propio manual SICTED (Med-Amb), editables/
+  // sustituibles por el tenant como cualquier otra plantilla del editor de
+  // Plan. `kind: "SUSTAINABILITY"` ya existía en `CHECKLIST_KINDS` desde
+  // fase 2; no hace falta tocar el motor, solo sembrar contenido.
+  {
+    name: "Residuos y reciclaje",
+    kind: "SUSTAINABILITY",
+    mode: "EXECUTION",
+    area: "Cocina",
+    frequency: "DAILY",
+    requiresSupervisor: false,
+    items: [
+      {
+        label: "Separación de vidrio, papel/cartón y envases",
+        isRequired: true,
+      },
+      {
+        label: "Aceite usado a contenedor específico (no al desagüe)",
+        isRequired: true,
+      },
+      { label: "Residuos orgánicos al contenedor marrón", isRequired: true },
+    ],
+  },
+  {
+    name: "Ahorro de agua y energía",
+    kind: "SUSTAINABILITY",
+    mode: "EXECUTION",
+    area: "Cocina",
+    frequency: "DAILY",
+    requiresSupervisor: false,
+    items: [
+      { label: "Luces y equipos apagados en zonas sin uso", isRequired: true },
+      { label: "Grifos cerrados correctamente, sin goteo", isRequired: true },
+      {
+        label: "Cámaras y neveras cerradas el tiempo mínimo imprescindible",
+        isRequired: true,
+      },
+    ],
+  },
+  {
+    name: "Producto local y de temporada",
+    kind: "SUSTAINABILITY",
+    mode: "INSPECTION",
+    area: "Cocina",
+    frequency: "MONTHLY",
+    requiresSupervisor: true,
+    items: [
+      {
+        label: "Revisión de proveedores de proximidad usados este mes",
+        isRequired: true,
+      },
+      {
+        label: "Productos de temporada incorporados a la carta",
+        isRequired: false,
+      },
+    ],
+  },
 ];

@@ -1472,7 +1472,7 @@ model SictedTrainingAction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  plan        SictedTrainingPlan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan        SictedTrainingPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
   attendances SictedTrainingAttendance[]
 
   @@index([tenantId])
@@ -1533,6 +1533,66 @@ model SictedProtocolAck {
   @@index([tenantId])
   @@index([userId])
   @@map("sicted_protocol_acks")
+}
+
+// SICTED fase 8 — Cliente y sostenibilidad. Datos de cliente mínimos y
+// opcionales (RGPD): `customerContact` es texto libre opcional, nunca
+// obligatorio. Sostenibilidad no tiene tablas propias — plantillas del motor
+// `checklists` con `kind: "SUSTAINABILITY"` (ver
+// checklist-starter-templates.constant.ts).
+
+model SictedFeedback {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  kind                String // QUEJA | SUGERENCIA | FELICITACION
+  channel             String // SALA | WEB | EMAIL | TELEFONO | OTRO
+  receivedAt          DateTime  @default(now())
+  receivedByName      String
+  summary             String    @db.Text
+  customerContact     String? // opcional, RGPD — nunca obligatorio
+  status              String    @default("OPEN") // OPEN | RESPONDED | CLOSED
+  response            String?   @db.Text
+  respondedAt         DateTime? // solo null→valor
+  respondedByName     String?
+  closedAt            DateTime? // solo null→valor
+  improvementActionId String? // referencia libre; fase 9 la formaliza
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("sicted_feedback")
+}
+
+model SictedSatisfactionSample {
+  id             String   @id @default(cuid())
+  tenantId       String
+  sampledAt      DateTime @default(now())
+  score          Int // 1..5
+  channel        String
+  comment        String?  @db.Text
+  recordedByName String
+  createdAt      DateTime @default(now()) // SOLO INSERT
+
+  @@index([tenantId])
+  @@index([tenantId, sampledAt])
+  @@map("sicted_satisfaction_samples")
+}
+
+model SictedLostItem {
+  id            String    @id @default(cuid())
+  tenantId      String
+  foundAt       DateTime  @default(now())
+  itemName      String
+  description   String?
+  foundLocation String?
+  foundByName   String
+  returnedAt    DateTime? // solo null→valor
+  returnedTo    String?
+  createdAt     DateTime  @default(now()) // SOLO INSERT (salvo returnedAt/returnedTo)
+
+  @@index([tenantId])
+  @@map("sicted_lost_items")
 }
 
 // Production - Staff Member

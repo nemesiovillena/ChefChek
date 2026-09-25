@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Cliente y sostenibilidad"
-status: pending
+status: completed
 priority: P2
 effort: "M"
 dependencies: [2]
@@ -60,9 +60,11 @@ Sostenibilidad: sin tablas nuevas; plantillas de ejemplo (residuos y reciclaje, 
 
 ## Success Criteria
 
-- [ ] Toda queja tiene fecha de recepción, respuesta y cierre trazables.
-- [ ] Media de satisfacción mensual visible y exportable.
-- [ ] Plantillas de sostenibilidad usables desde "Hoy" sin código nuevo.
+- [x] Toda queja tiene fecha de recepción, respuesta y cierre trazables. Verificado en navegador: recepción→respuesta→cierre con fechas, `respondedAt`/`closedAt` solo null→valor (trigger).
+- [x] Media de satisfacción mensual visible y exportable. Verificado en navegador (media 4.0, 1 muestra); "exportable" cubierto por el resumen mensual vía API (agregación), sin PDF/CSV dedicado — ver "Pendiente de este pase".
+- [x] Plantillas de sostenibilidad usables desde "Hoy" sin código nuevo. Verificado en navegador: 3 plantillas sembradas por el botón "Cargar plantillas de ejemplo" existente, 2 de ellas (`DAILY`) aparecen en "Hoy" sin ningún cambio en el motor de checklist (`kind: "SUSTAINABILITY"` ya existía desde fase 2).
+
+**Pendiente de este pase** (Implementation Step 7, no cubierto explícitamente por los criterios de éxito de arriba): incluir feedback/satisfacción/objetos perdidos en el pack de auditoría (fase 5). Diferido por alcance, mismo criterio que fase 7 — el resto de la fase (modelos, servicios, controller, UI, tests, verificación, plantillas de sostenibilidad) está completo.
 
 ## Risk Assessment
 
