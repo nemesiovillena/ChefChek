@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from "class-validator";
+import { IsBoolean, IsOptional, IsString, MaxLength } from "class-validator";
 
 export type BackupScope = "TENANT" | "GLOBAL";
 export type BackupActorScope = "TENANT" | "GLOBAL";
@@ -16,6 +16,16 @@ export class RestoreExistingDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /**
+   * Confirmación explícita para restaurar TAMBIÉN las tablas de evidencia
+   * inalterable (`checklist_*`/`sicted_*`). Por defecto (false/ausente) el
+   * restore nunca las toca, aunque estén en el payload — ver
+   * `EVIDENCE_TABLE_PREFIXES` en `backup.constants.ts`.
+   */
+  @IsOptional()
+  @IsBoolean()
+  includeEvidenceTables?: boolean;
 }
 
 /** Estructura del archivo .json de copia. */

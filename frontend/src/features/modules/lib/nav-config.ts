@@ -84,6 +84,12 @@ export const NAV_GROUPS: NavSection[] = [
     ],
   },
   {
+    title: 'Calidad',
+    items: [
+      { label: 'SICTED', href: '/dashboard/sicted', moduleId: 'sicted', icon: 'verified' },
+    ],
+  },
+  {
     title: 'Contenido',
     items: [
       { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
@@ -138,6 +144,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/sala-notificaciones', moduleId: 'sala-notificaciones' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
+  { prefix: '/dashboard/sicted', moduleId: 'sicted' },
 ];
 
 /** Returns the moduleId governing a pathname, or undefined if transversal. */
