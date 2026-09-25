@@ -1181,6 +1181,142 @@ model ChecklistEntry {
   @@map("checklist_entries")
 }
 
+// Mantenimiento preventivo/correctivo del motor de checklist compartido
+// (fase 4 SICTED). Mismo módulo neutro que Template/Run/Entry: usedByModules
+// decide quién ve cada fila, sin duplicar datos entre sicted/appcc.
+model ChecklistAsset {
+  id       String @id @default(cuid())
+  tenantId String
+
+  name          String
+  externalCode  String? // p.ej. "BP5.10.1" — dedup de siembra compartida, igual que ChecklistTemplate
+  category      String // FRIO|COCINA|CLIMATIZACION|EXTINTORES|PLAGAS|ELECTRICO|OTRO
+  usedByModules String[]
+  location      String?
+  provider      String?
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plans     ChecklistMaintenancePlan[]
+  records   ChecklistMaintenanceRecord[]
+  incidents ChecklistIncident[]
+
+  @@index([tenantId])
+  @@index([tenantId, usedByModules])
+  @@map("checklist_assets")
+}
+
+model ChecklistMaintenancePlan {
+  id       String @id @default(cuid())
+  tenantId String
+  assetId  String
+
+  title             String
+  periodicityMonths Int
+  nextDueAt         DateTime
+  lastDoneAt        DateTime?
+  externalProvider  Boolean   @default(false)
+  responsible       String?
+  isActive          Boolean   @default(true)
+
+  // Dedup de avisos (patrón `staleAlertSentAt` de compras): puestos por el
+  // cron al avisar, reseteados a null cuando `nextDueAt` cambia (registrar
+  // revisión = nueva fecha = hay que poder volver a avisar).
+  dueSoonAlertedAt DateTime?
+  overdueAlertedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  asset   ChecklistAsset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  records ChecklistMaintenanceRecord[]
+
+  @@index([tenantId])
+  @@index([tenantId, nextDueAt])
+  @@map("checklist_maintenance_plans")
+}
+
+// Evidencia de revisión realizada — SOLO INSERT (forbid_mutation). El plan
+// (arriba) no es evidencia y sí se actualiza (lastDoneAt/nextDueAt).
+model ChecklistMaintenanceRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  planId   String
+  assetId  String
+
+  performedAt     DateTime
+  performedByName String
+  providerName    String?
+  cost            Float?
+  notes           String?
+  attachments     Json     @default("[]") // [{storageKey,name,mime,size}]
+
+  recordedByUserId String
+  recordedAt       DateTime @default(now())
+
+  plan  ChecklistMaintenancePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  asset ChecklistAsset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, planId])
+  @@map("checklist_maintenance_records")
+}
+
+// Parte de avería simple (Ins-Bas.16) y parte de acciones correctivas (PAC)
+// — dos formularios reales distintos del mismo tenant, distinguidos por
+// `kind`. Fila que avanza por hitos: los campos de fecha/hora de progreso
+// solo aceptan null→valor (trigger forbid_milestone_rewrite), nunca se
+// borra (forbid_mutation en DELETE).
+model ChecklistIncident {
+  id       String  @id @default(cuid())
+  tenantId String
+  assetId  String?
+
+  usedByModules String[]
+  kind          String // BREAKDOWN|CORRECTIVE_ACTION
+  partNumber    Int? // correlativo por tenant, "Parte Nº" — solo CORRECTIVE_ACTION
+  status        String   @default("OPEN") // OPEN|NOTIFIED|RESOLVED
+
+  detectedAt     DateTime @default(now())
+  detectedByName String
+
+  // BREAKDOWN (Ins-Bas.16 real):
+  reportedTo           String?
+  faultType            String?
+  technicianNotifiedAt DateTime?
+  serviceStartedAt     DateTime?
+  serviceEndedAt       DateTime?
+
+  // Compartido: cierre de la incidencia (ambos kind).
+  resolvedAt DateTime?
+
+  // CORRECTIVE_ACTION (PAC real):
+  processOrEquipment   String?
+  deviationDescription String?
+  deviationCause       String?
+  correctiveMeasure    String?
+  responsibleName      String?
+  deadline             DateTime?
+  resolution           String?
+
+  // "Solo cuando sean alimentos" (opcionales, solo CORRECTIVE_ACTION):
+  affectedLot         String?
+  affectedProductName String?
+  affectedQuantity    Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  asset ChecklistAsset? @relation(fields: [assetId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, kind])
+  @@map("checklist_incidents")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())
