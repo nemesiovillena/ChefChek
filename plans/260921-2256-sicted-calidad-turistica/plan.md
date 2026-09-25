@@ -62,7 +62,20 @@ Regla de oro del evaluador SICTED: **"lo que no está registrado, no se ha hecho
 
 Nota de nomenclatura: SEGITTUR ya denomina SICTED "Sostenibilidad, Inteligencia y Calidad Turística en el Ecosistema del Destino" (no "Sistema Integral…"). Solo afecta a textos de UI/docs.
 
-## Hallazgos del manual oficial (leído 2026-09-22)
+## ⚠️ CORRECCIÓN CRÍTICA DE FUENTE (2026-09-25, durante fase 9)
+
+**Toda la sección "Hallazgos del manual oficial" de abajo describe el manual EQUIVOCADO.** El usuario corrigió explícitamente durante la implementación de fase 9: *"lo que estás implantando es el manual de APPCC, no de SICTED"*. El PDF `BBPP_Restaurantes_y_empresas_turisticas_de_Catering.pdf` que se creyó "el manual SICTED vigente" era en realidad un documento de APPCC (confundido con el manual real de APPCC de Warynessy, `RPHT RESTAURANTE WARYNESSY 4.pdf`, en `artefactos/APPCC/`).
+
+El manual real (confirmado por el usuario, carpeta `artefactos/SICTED/Manuales/`) es **`23_Restaurantes_y_empresas_de_catering_v4.pdf`** (58 págs., "Restaurantes y empresas turísticas de catering: Manual de buenas prácticas"). Estructura real, extraída y verificada en fase 9:
+
+- **BP1 Personas** (21 prácticas), **BP2 Clientes** (11), **BP3 Ventas** (10), **BP4 Servicios externos** (11), **BP5 Instalaciones y equipamiento** (20), **BP6 Oficio** (71 aplicables a Restaurantes, excluidos 16 ítems exclusivos de Catering) = **144 prácticas totales**, no 109.
+- **Escala real: 1 a 5**, con "No aplica" como casilla independiente (no un 6º valor de puntuación). Esto **corrige** la fila "Escala real: 1, 3, 4, 5, o 6=NA" de abajo — esa escala tampoco existe en el manual real.
+- `isMandatory` sale de si el código de la práctica aparece en el resumen "Buenas prácticas obligatorias de la sección BPx" de cada sección (verificado sección por sección): 121 obligatorias / 23 recomendables de las 144.
+- Los códigos de módulo `LEG`/`DIR`/`PER`/`CLI`/`PROV`/`V&M`/`Ins-Bas`/etc. de la sección de abajo **no existen** en este manual — son del documento equivocado.
+- No se reabre ninguna fase anterior por este hallazgo (decisión del usuario): las fases 1-8 no dependían del catálogo de prácticas (usan documentos reales de Warynessy distintos, ya verificados uno a uno — ver "Artefactos reales de Warynessy" más abajo). Único gap retroactivo real: `BP4.4` "Periódicamente se evalúa a los proveedores principales" (recomendable, con plantilla sugerida "Evaluación anual de los proveedores") sí la pide el manual real y fase 6 (basada en el manual equivocado) documentó "no lo pide" — **deuda técnica documentada, no corregida** (decisión del usuario: "Docúméntalo, sin tocar fase 6 ahora").
+- Metodología de extracción, script y verificación de datos: ver "Registro de implementación — Fase 9" al final de este documento.
+
+## Hallazgos del manual oficial (leído 2026-09-22) — ⚠️ SUPERSEDIDO, ver corrección arriba
 
 El usuario adjuntó `BBPP_Restaurantes_y_empresas_turisticas_de_Catering.pdf` (101 págs., Secretaría de Estado de Turismo, 2024 — el manual vigente para el oficio "Restaurantes y empresas turísticas de Catering"; **no** el de la Junta de Andalucía que había encontrado antes por web, que estaba en imágenes y no se pudo leer). El usuario dudaba al principio de que fuera "el manual actual" — **confirmado 2026-09-23** que sí lo es.
 
@@ -132,7 +145,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
-| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Pending |
+| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 1/4) |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
@@ -148,7 +161,7 @@ Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
 | Homologación de proveedores, control de recepción, caducidades/FIFO | Perfil de cumplimiento + incidencias de recepción + inventario snapshot + evidencia de solo lectura | 6 |
 | Formación anual, fichas de puesto, estándares de imagen | Plan formativo, puestos, protocolos con acuse | 7 |
 | Quejas, sugerencias, satisfacción | Registro con respuesta y cierre | 8 |
-| Legalidad, objetivos, autoevaluación, plan de mejora, participación | Catálogo de 109 prácticas (escala 1/3/4/5/NA), acciones de mejora | 9 |
+| Legalidad, objetivos, autoevaluación, plan de mejora, participación | Catálogo de 144 prácticas reales (escala 1-5 + No aplica; ver corrección de fuente arriba), acciones de mejora | 9 |
 | Recepción/reservas/espera, cobro, cartas en idiomas | **Fuera de software**: protocolos (fase 7); cartas multi-idioma ya existen (evidencia) | — |
 
 ## Criterios de aceptación globales
@@ -375,5 +388,23 @@ Completada (salvo un ítem diferido, ver abajo). Bloque Cliente y sostenibilidad
 **Revisión**: subagentes no disponibles, revisión inline. Primera fase del plan sin ningún hallazgo de implementación que corregir — probablemente porque reutiliza patrones ya maduros (hitos null→valor de fases 4/6/7, append-only de todo el módulo, motor de checklist sin tocar) en vez de introducir mecanismos nuevos.
 
 **Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 9-10 pendientes; fase 9 es la siguiente según el plan.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 9, sub-PR 1/4 — 2026-09-25, rama `feat/sicted-fase-9` (sobre `develop`, con fases 1-8 ya fusionadas)
+
+**Alcance dividido en sub-PRs** (decisión del usuario, dado el tamaño de fase 9): 1) Catálogo + Autoevaluación (este sub-PR), 2) Plan de mejora + objetivos, 3) Eventos + legal, 4) Informe anual agregando las 4 anteriores.
+
+**Hallazgo previo a cualquier código**: la fuente del catálogo de prácticas estaba mal identificada desde el diseño del plan — ver "⚠️ CORRECCIÓN CRÍTICA DE FUENTE" al principio de este documento. Resuelto releyendo el manual real (`23_Restaurantes_y_empresas_de_catering_v4.pdf`) con `pdftotext -layout` (el `Read` nativo produce glifos ilegibles en este PDF concreto — problema del propio archivo, no de la herramienta) y extrayendo las 144 prácticas reales con un pipeline Python ad-hoc (regex de código+título con heurística de continuación de línea para títulos envueltos, cruce contra el resumen de obligatorias de cada sección BP, filtro de los 16 ítems exclusivos de Catering en BP6). Verificación de calidad antes de escribir ningún seed: 0 duplicados, 0 títulos truncados, 0 caracteres de codificación rota, 3 correcciones manuales de tag en ítems con cierre `(R)/(C)/(R+C)` en línea envuelta (6.5, 6.31, 6.55).
+
+Implementado: catálogo editable (`SictedPractice`, `@@unique([tenantId, code])`, sembrado idempotente vía botón explícito "Cargar catálogo", igual patrón que fase 2) y motor de autoevaluación (`SictedAssessment` ciclo DRAFT→CLOSED, `SictedAssessmentScore` con escala 1-5 real + `notApplicable` como campo separado). Trigger nuevo `forbid_score_update_if_assessment_closed()`: a diferencia de `forbid_mutation`/`forbid_milestone_rewrite` (ambos evalúan solo columnas de la propia fila), este necesitaba consultar el estado de la tabla padre (`sicted_assessments.status`) porque la inmutabilidad de una puntuación depende del cierre del ciclo, no de sus propias columnas — ninguna función genérica existente cubría ese caso. Mientras el ciclo está en DRAFT, `upsertScore` sí usa `upsert` normal (no `createMany`+`skipDuplicates`): aquí es correcto porque la puntuación es editable a propósito durante el borrador, no es evidencia append-only como el resto del módulo.
+
+**Bug real encontrado en verificación de navegador** (no en tests automatizados ni en tsc/lint): el listado de prácticas ordenaba por `code` como string (`orderBy: [{bpSection:"asc"},{code:"asc"}]`), así que "1.10" aparecía antes que "1.2". Corregido con un comparador numérico (`sortByPracticeCode`, `util/sicted-practice-code.util.ts`) aplicado tras la consulta en memoria, reutilizado en `SictedPracticeCatalogService.list()` y `SictedAssessmentService.getScores()`.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 20 suites/135 tests e2e backend (8 nuevos: siembra idempotente de las 144 prácticas reales — recuento contra `SICTED_PRACTICE_CATALOG_SEED.length` —, reimportar respeta ediciones del tenant, escala 1-5 + notApplicable, inmutabilidad de puntuación tras cerrar vía trigger, rechazo a nivel de aplicación sobre ciclo cerrado, doble cierre rechazado, `pendingMandatory` correcto, aislamiento de tenant) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (ruta nueva `/dashboard/sicted/direccion`, 2 pestañas, con aviso explícito "Herramienta de apoyo — no sustituye la evaluación oficial"). Verificación manual en Chrome contra un tenant de prueba desechable (`fase9-browser-test`): carga de catálogo (144 prácticas confirmadas, BP1 con 21 ítems y el desglose obligatorio/recomendable exacto del pipeline de extracción — 16/5), orden numérico correcto tras el arreglo, ciclo de autoevaluación completo (crear → puntuar 1.1=5 y 1.2=2 → banner de obligatorias pendientes bajó de 121 a 120 correctamente — solo 1.1 salió por tener ≥3 — → cerrar ciclo → estado bloqueado con candado y puntuaciones de solo lectura). Limpieza del tenant de prueba usó el escape `chefchek.allow_evidence_purge` porque el trigger bloqueó correctamente el intento de borrado directo sobre puntuaciones de un ciclo ya cerrado (confirma que el trigger funciona también contra un `deleteMany` de limpieza, no solo contra `update`). Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10).
+
+**Revisión**: subagentes no disponibles, revisión inline. El hallazgo más importante de esta fase (con diferencia, de todo el plan hasta ahora) no es un bug de código sino de premisa: el catálogo llevaba desde el diseño del plan basado en el manual equivocado, algo que ninguna revisión de código puede atrapar porque el código en sí era internamente consistente con esa premisa — solo se detectó al pedir al usuario que confirmara la fuente antes de sembrar 109/144 registros de "cumplimiento normativo" con datos potencialmente inventados.
+
+**Pendiente**: red-team del plan completo sigue diferido. Sub-PRs 2-4 de fase 9 pendientes (Plan de mejora+objetivos es el siguiente). Fase 10 pendiente.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

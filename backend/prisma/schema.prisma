@@ -1595,6 +1595,69 @@ model SictedLostItem {
   @@map("sicted_lost_items")
 }
 
+// SICTED fase 9 (sub-PR 1) — Dirección: catálogo de buenas prácticas y
+// autoevaluación. Catálogo real de 144 prácticas del manual "Restaurantes y
+// empresas turísticas de catering" (BP1-BP6, ver
+// constants/sicted-practice-catalog-seed.ts) — corrige la escala asumida
+// originalmente en el plan ("1,3,4,5,6=NA"): la escala real es 1-5 con una
+// casilla "No aplica" SEPARADA por práctica, no un 6º valor de puntuación.
+
+model SictedPractice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  code          String // "1.1".."6.71" del manual real (BPx.n)
+  bpSection     Int // 1-6 (BP1 Personas .. BP6 Oficio)
+  bpSectionName String // "Personas", "Clientes", "Ventas", "Servicios externos", "Instalaciones y equipamiento", "Oficio (Restaurantes)"
+  title         String
+  isMandatory   Boolean   @default(true) // del listado real "Buenas prácticas obligatorias de la sección BPx"
+  manualVersion String    @default("Restaurantes v4")
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  scores SictedAssessmentScore[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("sicted_practices")
+}
+
+model SictedAssessment {
+  id         String    @id @default(cuid())
+  tenantId   String
+  label      String // "Ciclo 2026"
+  assessedAt DateTime  @default(now())
+  status     String    @default("DRAFT") // DRAFT | CLOSED
+  closedAt   DateTime? // solo null→valor
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  scores SictedAssessmentScore[]
+
+  @@index([tenantId])
+  @@map("sicted_assessments")
+}
+
+model SictedAssessmentScore {
+  id            String   @id @default(cuid())
+  tenantId      String
+  assessmentId  String
+  practiceId    String
+  score         Int? // 1-5; null si notApplicable=true (0 y 2 no se usan, sin decimales — lo garantiza la aplicación)
+  notApplicable Boolean  @default(false) // casilla "No aplica" del manual — NO es un valor de score
+  evidenceNote  String? // enlace/comentario a la evidencia (plantilla, registro, documento)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assessment SictedAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  practice   SictedPractice   @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, practiceId])
+  @@index([tenantId])
+  @@index([assessmentId])
+  @@map("sicted_assessment_scores")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())

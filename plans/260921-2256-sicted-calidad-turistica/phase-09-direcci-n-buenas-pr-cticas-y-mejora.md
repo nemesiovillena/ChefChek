@@ -1,13 +1,17 @@
 ---
 phase: 9
 title: "Dirección: buenas prácticas y mejora"
-status: pending
+status: in-progress
 priority: P3
 effort: "L"
 dependencies: [2, 4, 6, 7, 8]
 ---
 
 # Phase 9: Dirección: buenas prácticas y mejora
+
+## ⚠️ Corrección de fuente (2026-09-25) — ver detalle en `plan.md`
+
+Todo este documento (secciones "Catálogo real", "Related Code Files", "Implementation Steps 1-2") describe el manual EQUIVOCADO (`BBPP_Restaurantes_y_empresas_turisticas_de_Catering.pdf`, en realidad un documento de APPCC). El manual real es `23_Restaurantes_y_empresas_de_catering_v4.pdf`: **144 prácticas** (BP1-BP6), escala **1-5 + "No aplica"** (no "1,3,4,5,6=NA"), sin los códigos `LEG`/`DIR`/`PER`/etc. de abajo. Ver `plan.md` → "⚠️ CORRECCIÓN CRÍTICA DE FUENTE" para la corrección completa y "Registro de implementación — Fase 9, sub-PR 1/4" para lo ya implementado con los datos correctos. Este documento se deja tal cual para trazabilidad del error, no se reescribe.
 
 ## Overview
 
@@ -110,11 +114,12 @@ Cobertura por práctica: si `autoEvidenceSource` está informado, la práctica s
 
 ## Success Criteria
 
-- [ ] Catálogo de 109 prácticas cargado y puntuable con la escala real; obligatorias sin evidencia y <3 listadas.
-- [ ] 6 prácticas con evidencia automática nunca piden acción manual al usuario.
-- [ ] Autoevaluación cerrada y exportable; plan de mejora con acciones trazables a su origen.
-- [ ] Informe anual de calidad se genera en un clic con datos reales del año.
-- [ ] Documentos legales próximos a caducar generan aviso.
+- [x] Catálogo de **144** prácticas reales cargado y puntuable con la escala real (1-5 + No aplica); obligatorias sin puntuar o <3 listadas. — sub-PR 1, ver `plan.md`.
+- [ ] 6 prácticas con evidencia automática nunca piden acción manual al usuario. — pendiente, sub-PR posterior (motor de cobertura automática).
+- [x] Autoevaluación cerrada e inmutable (trigger condicional). — sub-PR 1. Exportable al pack de auditoría: pendiente (sub-PR posterior).
+- [ ] Plan de mejora con acciones trazables a su origen. — pendiente, sub-PR 2.
+- [ ] Informe anual de calidad se genera en un clic con datos reales del año. — pendiente, sub-PR 4.
+- [ ] Documentos legales próximos a caducar generan aviso. — pendiente, sub-PR 3.
 
 ## Risk Assessment
 
