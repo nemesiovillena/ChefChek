@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { SictedController } from "./sicted.controller";
 import { SictedChecklistController } from "./sicted-checklist.controller";
+import { SictedMaintenanceController } from "./sicted-maintenance.controller";
 import { ChecklistsModule } from "../checklists/checklists.module";
 import { AuthModule } from "../auth/auth.module";
 
@@ -15,7 +16,11 @@ import { AuthModule } from "../auth/auth.module";
  */
 @Module({
   imports: [ChecklistsModule, AuthModule],
-  controllers: [SictedController, SictedChecklistController],
+  controllers: [
+    SictedController,
+    SictedChecklistController,
+    SictedMaintenanceController,
+  ],
   providers: [],
   exports: [],
 })

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ClipboardList, Loader2, NotebookPen, ShieldAlert, Verified } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ClipboardList, Loader2, NotebookPen, ShieldAlert, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
 
@@ -83,6 +83,14 @@ export default function SictedHubPage() {
         >
           <NotebookPen className="h-5 w-5 shrink-0 text-[var(--primary)]" />
           <span className="font-medium">Registros (matriz mensual)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/mantenimiento')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <Wrench className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Mantenimiento</span>
         </button>
         {canManage && (
           <button

@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Mantenimiento preventivo y correctivo"
-status: pending
+status: completed
 priority: P1
 effort: "M"
 dependencies: [1]
@@ -76,10 +76,10 @@ Adjuntos: `FileInterceptor` como en `products.controller.ts`, con la convención
 
 ## Success Criteria
 
-- [ ] Alta de equipo → plan → revisión con PDF adjunto → `nextDueAt` recalculado → alerta a 30 días.
-- [ ] Parte de avería simple (`Ins-Bas.16`) y parte de acciones correctivas (PAC) son formularios distintos, ambos no editables a posteriori.
-- [ ] Ningún adjunto accesible sin sesión del tenant correcto.
-- [ ] Un equipo/plan compartido es una sola fila, no una por módulo.
+- [x] Alta de equipo → plan → revisión con PDF adjunto → `nextDueAt` recalculado → alerta a 30 días — probado de extremo a extremo en navegador real (equipo→plan→revisión con adjunto, "Última"/"Próxima" recalculadas) + `checklist-maintenance-reminder.e2e-spec.ts` (4 tests: vencida/próxima/lejana/módulo desactivado, idempotente).
+- [x] Parte de avería simple (`Ins-Bas.16`) y parte de acciones correctivas (PAC) son formularios distintos, ambos no editables a posteriori — probados los dos formularios completos en navegador (avería con línea de tiempo de hitos; PAC con correlativo "Parte Nº 1" y resolución); trigger `forbid_mutation`/`forbid_milestone_rewrite` verificado en Postgres real (6/6 casos) y en `checklist-maintenance-engine.e2e-spec.ts`.
+- [x] Ningún adjunto accesible sin sesión del tenant correcto — adjuntos fuera de `uploads/` (nunca estático); `sicted-maintenance-controller.e2e-spec.ts` prueba descarga con sesión propia (200) y sin sesión (401).
+- [x] Un equipo/plan compartido es una sola fila, no una por módulo — `seedStarterAsset` dedup por `externalCode` (mismo patrón que `ChecklistTemplateService`), cubierto en `checklist-maintenance-engine.e2e-spec.ts`.
 
 ## Risk Assessment
 

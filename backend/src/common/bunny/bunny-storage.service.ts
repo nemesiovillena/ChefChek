@@ -103,6 +103,24 @@ export class BunnyStorageService implements OnModuleInit {
     await this.put(zone, key, body, "application/json");
   }
 
+  /**
+   * Sube un fichero privado (adjuntos de mantenimiento SICTED: certificados,
+   * facturas) a la MISMA zona reservada que los backups — el nombre del
+   * método es histórico ("backups"), pero la zona es simplemente "storage
+   * privado sin Pull Zone"; cualquier contenido que no deba ser público vive
+   * aquí, con `contentType` explícito en vez del `application/json` fijo de
+   * `uploadBackup`. `downloadBackup`/`openBackupStream`/`deleteBackup` ya son
+   * genéricos por `key` y se reutilizan tal cual para leer/borrar adjuntos.
+   */
+  async uploadPrivateFile(
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    const zone = this.requireZone(this.backupZone, "backups");
+    await this.put(zone, key, body, contentType || "application/octet-stream");
+  }
+
   async downloadBackup(key: string): Promise<Buffer> {
     const zone = this.requireZone(this.backupZone, "backups");
     return this.get(zone, key);

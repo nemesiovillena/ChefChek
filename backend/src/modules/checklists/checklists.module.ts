@@ -2,6 +2,10 @@ import { Module } from "@nestjs/common";
 import { ChecklistTemplateService } from "./services/checklist-template.service";
 import { ChecklistRunService } from "./services/checklist-run.service";
 import { ChecklistRunSchedulerService } from "./services/checklist-run-scheduler.service";
+import { ChecklistAssetService } from "./services/checklist-asset.service";
+import { ChecklistMaintenanceService } from "./services/checklist-maintenance.service";
+import { ChecklistIncidentService } from "./services/checklist-incident.service";
+import { ChecklistMaintenanceReminderService } from "./services/checklist-maintenance-reminder.service";
 
 /**
  * Motor de checklist compartido entre `sicted` y (en un futuro plan) `appcc`.
@@ -27,7 +31,17 @@ import { ChecklistRunSchedulerService } from "./services/checklist-run-scheduler
     ChecklistTemplateService,
     ChecklistRunService,
     ChecklistRunSchedulerService,
+    ChecklistAssetService,
+    ChecklistMaintenanceService,
+    ChecklistIncidentService,
+    ChecklistMaintenanceReminderService,
   ],
-  exports: [ChecklistTemplateService, ChecklistRunService],
+  exports: [
+    ChecklistTemplateService,
+    ChecklistRunService,
+    ChecklistAssetService,
+    ChecklistMaintenanceService,
+    ChecklistIncidentService,
+  ],
 })
 export class ChecklistsModule {}

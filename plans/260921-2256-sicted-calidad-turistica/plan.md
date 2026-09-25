@@ -127,7 +127,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 1 | [Fundamentos y andamiaje](./phase-01-fundamentos-y-andamiaje.md) | Completed |
 | 2 | [Motor de registros backend](./phase-02-motor-de-registros-backend.md) | Completed |
 | 3 | [Registros diarios y editor de Plan UI](./phase-03-registros-diarios-y-editor-de-plan-ui.md) | Completed |
-| 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Pending |
+| 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Completed |
 | 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Pending |
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Pending |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Pending |
@@ -292,5 +292,21 @@ Completada. Hub (`/dashboard/sicted`, tarjetas de progreso por área + pendiente
 **Revisión**: subagentes seguían bloqueados (mismo fallo de tmux) — revisión hecha inline; en este caso la revisión más valiosa fue la propia verificación en navegador, que encontró 2 bugs reales que ni tsc ni los tests automatizados existentes podían atrapar (ambos son de UI/agregación, no de la API en sí).
 
 **Pendiente**: red-team completo del plan sigue diferido por el usuario. Documentos reales adicionales del "Plan de limpieza y desinfección" prometidos por el usuario siguen sin llegar — las 3 plantillas iniciales son representativas, no exhaustivas.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 4 — 2026-09-25, rama `feat/sicted-fase-4-activos-mantenimiento` (sobre `develop`, con fases 1-3 ya fusionadas)
+
+Completada. Modelos `ChecklistAsset`/`ChecklistMaintenancePlan`/`ChecklistMaintenanceRecord` (append-only)/`ChecklistIncident` (hitos null→valor, trigger nuevo `forbid_milestone_rewrite`); servicios de equipos/planes/registros/incidencias; adjuntos privados (zona Bunny sin Pull Zone o disco fuera de `uploads/`, nunca estático); `SictedMaintenanceController`; cron de avisos a 30 días/vencido; UI con 3 pestañas (Calendario, Equipos, Averías) — los dos formularios reales (Ins-Bas.16 y PAC) con correlativo "Parte Nº" y línea de tiempo de hitos.
+
+**Hallazgos de implementación** (no estaban en el plan, encontrados y corregidos por verificación real en navegador):
+- El `status` (OPEN/NOTIFIED/RESOLVED) de una incidencia nunca avanzaba al marcar hitos o resolver — la insignia se quedaba en "Abierta" para siempre aunque `resolvedAt` estuviera puesto. Corregido enviando `status` junto al hito correspondiente.
+- El cron de avisos de mantenimiento no comprobaba si el módulo seguía activo (a diferencia del scheduler de hojas de fase 2, que sí lo hace) — un tenant que desactivara `sicted` seguiría recibiendo campanas de sus equipos. Corregido con el mismo criterio que fase 2; cubierto con un test dedicado (antes sin cobertura alguna).
+
+**Tests**: 134 suites/2020 tests unitarios backend + 14 suites/90 tests e2e backend (incluidos el motor de mantenimiento, el controlador HTTP con adjuntos, y el recordatorio con las 4 combinaciones vencida/próxima/lejana/módulo-desactivado) sin regresiones. Frontend: `tsc --noEmit`, `eslint` y `next build` limpios (2 rutas nuevas: `/mantenimiento` y sus 3 pestañas en una sola ruta). Verificación manual en Chrome contra un tenant de prueba desechable (creado y borrado en la BD de dev, nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después: 9/10): siembra de extintores (equipo+plan), registro de revisión con recálculo de fecha, avería completa con los 4 hitos, PAC completa con correlativo y resolución, modo claro/oscuro.
+
+**Revisión**: subagentes no disponibles, revisión inline — igual que fase 3, la verificación en navegador encontró los bugs reales (2 esta vez), no la lectura de código.
+
+**Pendiente**: red-team del plan completo sigue diferido por el usuario. Documentos reales adicionales prometidos por el usuario siguen sin llegar.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
