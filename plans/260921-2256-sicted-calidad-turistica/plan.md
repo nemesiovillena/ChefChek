@@ -145,7 +145,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
-| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 1/4) |
+| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 2/4) |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
@@ -406,5 +406,21 @@ Implementado: catálogo editable (`SictedPractice`, `@@unique([tenantId, code])`
 **Revisión**: subagentes no disponibles, revisión inline. El hallazgo más importante de esta fase (con diferencia, de todo el plan hasta ahora) no es un bug de código sino de premisa: el catálogo llevaba desde el diseño del plan basado en el manual equivocado, algo que ninguna revisión de código puede atrapar porque el código en sí era internamente consistente con esa premisa — solo se detectó al pedir al usuario que confirmara la fuente antes de sembrar 109/144 registros de "cumplimiento normativo" con datos potencialmente inventados.
 
 **Pendiente**: red-team del plan completo sigue diferido. Sub-PRs 2-4 de fase 9 pendientes (Plan de mejora+objetivos es el siguiente). Fase 10 pendiente.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 9, sub-PR 2/4 — 2026-09-26, rama `feat/sicted-fase-9-mejora-objetivos` (sobre `develop`, con sub-PR 1 ya fusionado)
+
+Plan de mejora + objetivos anuales. `SictedImprovementAction` confirmado 2026-09-24 contra el documento real de Warynessy "Dir.6.For_Registro aspectos críticos.doc" (Código incidencia, Aspecto crítico, Fecha de detección, Solución propuesta, Fecha implantación, Estado, Responsable, Comentarios) — esa verificación es independiente de la corrección de fuente del catálogo (sub-PR 1) y sigue siendo válida sin cambios. Entidad **editable** (como las fichas de puesto de fase 7), no append-only puro: solo `closedAt` ("fecha de implantación") es hito protegido por `forbid_milestone_rewrite` (reutilizada de fases 4/6/7/8/9), correlativo por tenant vía `MAX+1` (mismo patrón que `checklist-incident.service.ts`). `SictedObjective` (año/título/indicador/meta/valor actual/estado) sin trigger — objetivo vivo, se actualiza durante todo el año.
+
+Cierra el círculo autoevaluación→plan de mejora que pide el manual (Implementation Step 6): `POST assessments/:id/generate-actions` crea una acción por cada obligatoria pendiente (sin puntuar o <3) de un ciclo, con `origin=ASSESSMENT`/`sourceRef=assessmentId`; reintentar sobre la misma autoevaluación no duplica (dedupe por título ya generado). Botón "Generar acciones de mejora" añadido directamente en el banner de obligatorias pendientes de la pestaña Autoevaluación (sub-PR 1), no solo como endpoint suelto.
+
+**Sin bugs propios esta vez** — segunda fase del plan (tras fase 8) sin ningún hallazgo de implementación que corregir, ni en tests ni en verificación de navegador. Precedentes reutilizados sin sorpresas: hito null→valor (fases 4/6/7/8/9), correlativo `MAX+1` (fase 4), entidad editable sin trigger para "plan vivo" (fase 7, fichas de puesto/plan de formación).
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 21 suites/141 tests e2e backend (6 nuevos: código correlativo por tenant, edición de una acción no append-only, `closedAt` solo null→valor con traducción de error legible, generación desde autoevaluación sin duplicar en reintento, objetivos con filtro por año y actualización de progreso/estado, aislamiento de tenant en ambos modelos) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (2 pestañas nuevas en `/dashboard/sicted/direccion`: Plan de mejora con filtro por estado y fila expandible, Objetivos con selector de año). Verificación manual en Chrome contra un tenant de prueba desechable (`fase9-subpr2-browser-test`): catálogo cargado (144, orden correcto heredado de sub-PR 1), ciclo de autoevaluación creado con "121 obligatorias sin puntuar o por debajo de 3" en el banner, botón "Generar acciones de mejora" generó exactamente **121** acciones (coincide con el banner), edición de una acción (solución propuesta + responsable) guardada, "Marcar implantada" bloqueó los campos y mostró "Fecha de implantación: 26/9/2026" en la pestaña "Hechas", objetivo anual creado con indicador/meta, progreso actualizado. Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10).
+
+**Revisión**: subagentes no disponibles, revisión inline. Fase de implementación directa sobre patrones ya maduros del plan — el único diseño nuevo (el puente autoevaluación→plan de mejora vía `generateFromAssessment`) se verificó de extremo a extremo en navegador con el número exacto de acciones generadas coincidiendo con el banner de pendientes, no solo con un test unitario.
+
+**Pendiente**: red-team del plan completo sigue diferido. Sub-PRs 3-4 de fase 9 pendientes (Eventos+legal es el siguiente). Fase 10 pendiente.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

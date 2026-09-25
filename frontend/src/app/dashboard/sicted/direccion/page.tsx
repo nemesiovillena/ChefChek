@@ -2,18 +2,22 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ClipboardCheck, ClipboardList } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, ClipboardList, Target, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { SictedDireccionCatalogTab } from '../components/sicted-direccion-catalog-tab';
 import { SictedDireccionAssessmentTab } from '../components/sicted-direccion-assessment-tab';
+import { SictedDireccionImprovementTab } from '../components/sicted-direccion-improvement-tab';
+import { SictedDireccionObjectivesTab } from '../components/sicted-direccion-objectives-tab';
 
 export const dynamic = 'force-dynamic';
 
-type TabId = 'catalogo' | 'autoevaluacion';
+type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos';
 
 const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
   { id: 'catalogo', label: 'Catálogo', icon: ClipboardCheck },
   { id: 'autoevaluacion', label: 'Autoevaluación', icon: ClipboardList },
+  { id: 'mejora', label: 'Plan de mejora', icon: Target },
+  { id: 'objetivos', label: 'Objetivos', icon: TrendingUp },
 ];
 
 /**
@@ -69,6 +73,8 @@ export default function SictedDireccionPage() {
 
       {activeTab === 'catalogo' && <SictedDireccionCatalogTab />}
       {activeTab === 'autoevaluacion' && <SictedDireccionAssessmentTab />}
+      {activeTab === 'mejora' && <SictedDireccionImprovementTab />}
+      {activeTab === 'objetivos' && <SictedDireccionObjectivesTab />}
     </div>
   );
 }

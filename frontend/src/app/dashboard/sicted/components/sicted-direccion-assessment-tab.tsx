@@ -7,6 +7,7 @@ import { useNotification } from '@/components/notification-system';
 import {
   useCloseSictedAssessment,
   useCreateSictedAssessment,
+  useGenerateImprovementActionsFromAssessment,
   useSictedAssessmentScores,
   useSictedAssessments,
   useSictedPendingMandatory,
@@ -99,12 +100,28 @@ function ScoreRow({ row, assessmentId, locked }: { row: AssessmentScoreRow; asse
 
 function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBack: () => void }) {
   const notify = useNotification();
+  const { user } = useAuth();
+  const canManage = MANAGE_ROLES.includes(user?.role ?? '');
   const { data: assessments } = useSictedAssessments();
   const { data: rows, isLoading } = useSictedAssessmentScores(assessmentId);
   const { data: pending } = useSictedPendingMandatory(assessmentId);
   const closeAssessment = useCloseSictedAssessment();
+  const generateActions = useGenerateImprovementActionsFromAssessment();
   const assessment = assessments?.find((a) => a.id === assessmentId);
   const locked = assessment?.status === 'CLOSED';
+
+  async function handleGenerateActions() {
+    try {
+      const created = await generateActions.mutateAsync(assessmentId);
+      notify({
+        type: 'success',
+        title: created.length > 0 ? `${created.length} acciones generadas` : 'Sin acciones nuevas',
+        message: created.length > 0 ? 'Revísalas en la pestaña "Plan de mejora".' : 'Ya existían para esta autoevaluación.',
+      });
+    } catch (err) {
+      notify({ type: 'error', title: 'Error', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
+    }
+  }
 
   const bySection = useMemo(() => {
     const groups = new Map<number, { name: string; items: AssessmentScoreRow[] }>();
@@ -157,9 +174,20 @@ function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBa
       </div>
 
       {pending && pending.length > 0 && (
-        <p className="mb-4 flex items-center gap-2 rounded-xl bg-[var(--error-container)] px-3 py-2 text-sm text-[var(--on-error-container)]">
-          <AlertTriangle className="h-4 w-4" /> {pending.length} obligatorias sin puntuar o por debajo de 3
-        </p>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-[var(--error-container)] px-3 py-2 text-sm text-[var(--on-error-container)]">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{pending.length} obligatorias sin puntuar o por debajo de 3</span>
+          {canManage && (
+            <button
+              type="button"
+              disabled={generateActions.isPending}
+              onClick={handleGenerateActions}
+              className="min-h-[32px] shrink-0 rounded-lg bg-[var(--on-error-container)] px-3 text-xs font-semibold text-[var(--error-container)] disabled:opacity-40"
+            >
+              Generar acciones de mejora
+            </button>
+          )}
+        </div>
       )}
 
       <div className="space-y-3">

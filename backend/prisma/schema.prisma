@@ -1658,6 +1658,61 @@ model SictedAssessmentScore {
   @@map("sicted_assessment_scores")
 }
 
+// SICTED fase 9 (sub-PR 2) — Dirección: plan de mejora + objetivos anuales.
+// SictedImprovementAction confirmado 2026-09-24 contra el documento real de
+// Warynessy "Dir.6.For_Registro aspectos críticos.doc" (Código incidencia,
+// Aspecto crítico/Incidencia, Fecha de detección, Solución propuesta, Fecha
+// implantación, Estado, Responsable, Comentarios) — coincide campo a campo;
+// esa verificación es independiente de la corrección de fuente del catálogo
+// (sub-PR 1) y sigue siendo válida. Entidad editable (como las fichas de
+// puesto de fase 7), no append-only puro: solo `closedAt` ("fecha
+// implantación") es hito protegido, el resto se corrige mientras se trabaja
+// la acción.
+
+model SictedImprovementAction {
+  id       String @id @default(cuid())
+  tenantId String
+  code     Int // correlativo por tenant ("Código incidencia"), MAX+1 (ver checklist-incident.service.ts)
+
+  origin    String // ASSESSMENT | EVALUATOR | COMPLAINT | INCIDENT | OTHER
+  sourceRef String? // referencia libre al origen (id de autoevaluación, de queja...)
+
+  title           String // aspecto crítico / incidencia detectada
+  detectedAt      DateTime  @default(now())
+  action          String? // solución propuesta — puede rellenarse después de detectar
+  responsibleName String?
+  dueDate         DateTime?
+  status          String    @default("OPEN") // OPEN | DONE | CANCELLED
+  closedAt        DateTime? // fecha de implantación real, solo null→valor
+  evidenceNote    String? // comentarios
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("sicted_improvement_actions")
+}
+
+model SictedObjective {
+  id       String @id @default(cuid())
+  tenantId String
+  year     Int
+  title    String
+
+  indicator    String?
+  target       String?
+  currentValue String?
+  status       String @default("IN_PROGRESS") // IN_PROGRESS | ACHIEVED | MISSED | CANCELLED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, year])
+  @@map("sicted_objectives")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())
