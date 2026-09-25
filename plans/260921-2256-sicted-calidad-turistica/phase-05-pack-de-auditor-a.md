@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Pack de auditoría"
-status: pending
+status: completed
 priority: P1
 effort: "M"
 dependencies: [2, 3, 4]
@@ -50,9 +50,9 @@ Convertir el dato en lo que el evaluador pide ver: **Plan** (manual PDF), **Regi
 
 ## Success Criteria
 
-- [ ] Un mes completo de una plantilla diaria de 15 ítems cabe en 1–2 páginas A4 apaisado y es legible impreso.
-- [ ] El panel lista exactamente los días/hojas sin registro o incompletas del periodo.
-- [ ] Descarga funciona en desktop y en iOS Safari.
+- [x] Un mes completo de una plantilla diaria de 15 ítems cabe en 1–2 páginas A4 apaisado y es legible impreso — verificado descargando el PDF real (18 hojas/mes, 15 ítems) y leyéndolo página a página: cabe en 1 sola página, con margen de sobra.
+- [x] El panel lista exactamente los días/hojas sin registro o incompletas del periodo — probado con datos reales sembrados a propósito con huecos (2 días sin generar, 1 incompleta): el panel los listó exactamente, ni uno más ni uno menos, tras corregir el límite `to` inclusivo y el conteo de días futuros como huecos (ver hallazgos).
+- [x] Descarga funciona en desktop y en iOS Safari — patrón `window.open` síncrono + placeholder + blob (mismo que fichas técnicas/fase 4), verificado en Chrome desktop; iOS no se pudo probar en dispositivo real esta sesión, se confía en el patrón ya verificado en iPhone real para el mismo mecanismo.
 
 ## Risk Assessment
 
