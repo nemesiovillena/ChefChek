@@ -1030,6 +1030,157 @@ model Alert {
   @@map("alerts")
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Motor de checklist compartido (SICTED + un futuro APPCC reconstruido).
+// Vive fuera de ambos módulos de dominio a propósito: cada uno lo consume
+// con su propio guard/rutas, filtrando por `usedByModules`, sin duplicar
+// datos ni depender directamente el uno del otro. Ver
+// backend/src/modules/checklists/checklists.module.ts.
+//
+// Evidencia append-only: `ChecklistEntry` lleva el trigger `forbid_mutation`
+// (nunca editable/borrable); `ChecklistRun` lleva `forbid_mutation_after_seal`
+// (editable mientras `supervisedAt` sea NULL). Ver migración
+// 20260924203049_immutability_guard.
+// ─────────────────────────────────────────────────────────────────────────
+
+model ChecklistTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+  name     String
+
+  // Código del documento origen (p.ej. "RE 2-1"), trazabilidad con el papel.
+  externalCode String?
+
+  // Subconjunto de "sicted" | "appcc" — qué módulo(s) ven/editan esta plantilla.
+  usedByModules String[]
+
+  kind String // CLEANING, OPENING, CLOSING, COMFORT, SUSTAINABILITY, RECEPTION, MAINTENANCE, OTHER
+  mode String // EXECUTION, INSPECTION, MEASUREMENT
+  area String // Sala, Cocina, Baños, Almacén y cámaras, Otro
+
+  // Cadencia de la HOJA (ChecklistRun); los ítems pueden pisarla con su propia itemFrequency.
+  frequency String // DAILY, WEEKLY, MONTHLY, QUARTERLY, ANNUAL
+
+  weekday             Int? // 0=domingo..6=sábado, solo WEEKLY
+  dayOfMonth          Int? // 1-31, solo MONTHLY
+  responsiblePosition String?
+
+  // true=INSPECTION por defecto; false=EXECUTION/MEASUREMENT (configurable).
+  requiresSupervisor Boolean @default(false)
+
+  // Código de buena práctica SICTED (p.ej. "Res-Hig.3"); null si es solo-appcc.
+  practiceRef String?
+
+  version    Int       @default(1)
+  archivedAt DateTime?
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  items ChecklistTemplateItem[]
+  runs  ChecklistRun[]
+
+  @@index([tenantId])
+  @@index([tenantId, archivedAt])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id         String @id @default(cuid())
+  tenantId   String
+  templateId String
+  position   Int
+  label      String
+
+  // null = hereda template.frequency. DAILY|WEEKLY|MONTHLY|QUARTERLY|ANNUAL|AFTER_EACH_USE|AS_NEEDED.
+  itemFrequency String?
+
+  procedure String?  @db.Text
+  products  String[]
+  dosage    String?
+  epi       String?
+
+  isRequired Boolean @default(true)
+
+  // Solo mode=MEASUREMENT, p.ej. cámara -22 a -18ºC.
+  expectedRangeMin Float?
+  expectedRangeMax Float?
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  entries  ChecklistEntry[]
+
+  @@index([tenantId])
+  @@index([templateId])
+  @@map("checklist_template_items")
+}
+
+model ChecklistRun {
+  id         String @id @default(cuid())
+  tenantId   String
+  templateId String
+
+  // '2026-09-21' (DAILY) | '2026-W38' (WEEKLY) | '2026-09' (MONTHLY/QUARTERLY/ANNUAL).
+  periodKey   String
+  periodStart DateTime
+
+  status String @default("OPEN") // OPEN, COMPLETED, INCOMPLETE
+
+  // Nombre+versión+ítems de la plantilla al crearse la hoja (congela el Plan usado).
+  snapshot Json
+
+  closedAt           DateTime?
+  supervisedAt       DateTime?
+  supervisedByUserId String?
+  supervisorName     String?
+  supervisorNote     String?
+  createdAt          DateTime  @default(now())
+
+  template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  entries  ChecklistEntry[]
+
+  @@unique([templateId, periodKey])
+  @@index([tenantId])
+  @@index([tenantId, periodStart])
+  @@map("checklist_runs")
+}
+
+model ChecklistEntry {
+  id       String @id @default(cuid())
+  tenantId String
+  runId    String
+  itemId   String
+
+  // TASK (mode EXECUTION):
+  outcome String? // DONE|NOT_DONE (TASK) o OK|BAD (CONDITION)
+  reason  String? // obligatorio si outcome=NOT_DONE
+
+  // CONDITION (mode INSPECTION):
+  observation String? // obligatoria si outcome=BAD
+
+  // MEASUREMENT:
+  value            Float?
+  withinRange      Boolean? // calculado contra expectedRangeMin/Max, nunca del cliente
+  correctiveAction String?
+
+  note            String?
+  correctsEntryId String?
+
+  performedByUserId String? // validado contra el tenant al insertar
+  performedByName   String // snapshot: sobrevive a que se borre/renombre el usuario
+  sessionUserId     String // cuenta de login real (puede ser la cuenta compartida)
+
+  recordedAt DateTime @default(now())
+
+  run           ChecklistRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  item          ChecklistTemplateItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  correctsEntry ChecklistEntry?       @relation("ChecklistEntryCorrection", fields: [correctsEntryId], references: [id])
+  correctedBy   ChecklistEntry[]      @relation("ChecklistEntryCorrection")
+
+  @@index([tenantId])
+  @@index([runId, itemId])
+  @@map("checklist_entries")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())
