@@ -157,6 +157,21 @@ El `format` que llega a `/pdf` debe ser un preset A4 (`resolveSpec` rechaza
 cualquier otro valor); el que llega a `/zpl` es `thermal:<profileId>`
 (`resolveThermalProfile`, cae al primer perfil si el id no existe).
 
+### Preparar impresora (uso diario sin calibrar a mano)
+
+De fábrica la Zebra NO recalibra al arrancar: tras apagar el PC/impresora el
+perfil de sensor queda desfasado y las etiquetas salen descuadradas desde la
+primera (en lotes con `^PQ` el error se acumula y el texto de una etiqueta
+invade la siguiente). Ajustes → Etiquetas → «Preparar impresora» (una sola
+vez, idempotente) hace dos cosas por USB vía Browser Print
+(`zebra-printer-setup.ts`): sondea el SGD `media.power_up_action` y, si el
+firmware lo admite, lo fija a `calibrate` — cada encendido re-mide el rollo
+solo — y además envía `^XA^MNY^JUS^XZ` (media troquelada por hueco + config
+guardada de forma persistente). Si el firmware no soporta SGD, queda solo el
+guardado de config y la calibración manual con FEED (instrucciones en la
+misma pantalla). La calibración remota `~JC` se probó y dejó una ZD220d en
+error: no se envía nunca desde la app.
+
 El QR codifica `${APP_URL}/e/${qrToken}` (dinámico por etiqueta) en A4 y en
 térmica estándar; la térmica compacta (57×32) no lleva QR.
 

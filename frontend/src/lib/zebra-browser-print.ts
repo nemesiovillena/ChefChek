@@ -18,6 +18,12 @@
 const BROWSER_PRINT_SDK_SRC =
   'https://cdn.jsdelivr.net/npm/zebra-browser-print@1.0.1/index.min.js';
 const CONNECT_TIMEOUT_MS = 4000;
+/**
+ * Tope de espera para lectura de comandos (`sendThenRead`): sin esto, si la
+ * impresora no contesta (p. ej. firmware que ignora un SGD), la promesa queda
+ * colgada para siempre y la UI se queda eternamente "cargando".
+ */
+const DEVICE_READ_TIMEOUT_MS = 4000;
 
 interface RawBrowserPrintDevice {
   name: string;
@@ -135,13 +141,17 @@ function wrapDevice(raw: RawBrowserPrintDevice): ZebraDevice {
       });
     },
     sendThenRead(command: string) {
-      return new Promise<string>((resolve, reject) => {
-        raw.sendThenRead(
-          command,
-          (data) => resolve(data),
-          (err) => reject(new Error(errorMessage(err, 'La impresora no respondió.'))),
-        );
-      });
+      return withTimeout(
+        new Promise<string>((resolve, reject) => {
+          raw.sendThenRead(
+            command,
+            (data) => resolve(data),
+            (err) => reject(new Error(errorMessage(err, 'La impresora no respondió.'))),
+          );
+        }),
+        DEVICE_READ_TIMEOUT_MS,
+        'La impresora tardó demasiado en responder a un comando.',
+      );
     },
   };
 }
