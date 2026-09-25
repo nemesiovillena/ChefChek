@@ -121,7 +121,7 @@ export class ChecklistRunService {
       area?: string;
     },
   ) {
-    return this.prisma.checklistRun.findMany({
+    const runs = await this.prisma.checklistRun.findMany({
       where: {
         tenantId,
         template: {
@@ -145,6 +145,35 @@ export class ChecklistRunService {
       orderBy: { periodStart: "desc" },
       take: 200,
     });
+
+    const markedByRun = await this.countMarkedItemsByRun(runs.map((r) => r.id));
+    return runs.map((run) => ({
+      ...run,
+      entriesCount: markedByRun.get(run.id) ?? 0,
+    }));
+  }
+
+  /**
+   * Ítems DISTINTOS con al menos una marca, por hoja — no el nº de filas de
+   * `checklist_entries` (una corrección añade una fila sin añadir un ítem
+   * nuevo; contar filas infla el progreso "X/Y" por encima del total tras
+   * cualquier corrección).
+   */
+  private async countMarkedItemsByRun(
+    runIds: string[],
+  ): Promise<Map<string, number>> {
+    if (runIds.length === 0) {
+      return new Map();
+    }
+    const pairs = await this.prisma.checklistEntry.groupBy({
+      by: ["runId", "itemId"],
+      where: { runId: { in: runIds } },
+    });
+    const counts = new Map<string, number>();
+    for (const { runId } of pairs) {
+      counts.set(runId, (counts.get(runId) ?? 0) + 1);
+    }
+    return counts;
   }
 
   async getRun(

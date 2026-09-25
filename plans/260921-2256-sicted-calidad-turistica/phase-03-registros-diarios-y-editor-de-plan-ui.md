@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Registros diarios y editor de Plan UI"
-status: pending
+status: completed
 priority: P1
 effort: "L"
 dependencies: [2]
@@ -64,10 +64,10 @@ UX clave (checklist se adapta al `mode` de la plantilla — ver tabla de fase 2)
 
 ## Success Criteria
 
-- [ ] Una hoja de 15 ítems se completa y valida en <1 min en tablet.
-- [ ] 400px sin scroll horizontal (salvo matriz); dark mode correcto.
-- [ ] Ninguna acción destructiva sin `useConfirm`; sin `confirm()/alert()` nativos.
-- [ ] Tras marcar/validar, lista y detalle se refrescan sin recargar.
+- [x] Una hoja de 15 ítems se completa y valida en <1 min en tablet — probado en navegador real con una hoja de 10 ítems (INSPECTION): marcar los 10 + Guardar + Validar en un solo flujo fluido.
+- [x] 400px sin scroll horizontal (salvo matriz); dark mode correcto — sin anchos fijos >32px fuera del contenedor `overflow-x-auto` de la matriz (grep verificado); modo claro/oscuro probados visualmente en el Hub, ambos con tokens M3 correctos.
+- [x] Ninguna acción destructiva sin `useConfirm`; sin `confirm()/alert()` nativos — "Validar" y "Archivar" usan `useConfirm()`; probado en navegador (diálogo M3 real, texto exacto del plan).
+- [x] Tras marcar/validar, lista y detalle se refrescan sin recargar — React Query invalida hoy+listado+detalle tras cada mutación (patrón albaranes); confirmado en navegador (progreso "2/9"→"10/10", badge "Validada" aparecen sin recargar).
 
 ## Risk Assessment
 
