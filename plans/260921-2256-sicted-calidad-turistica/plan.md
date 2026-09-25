@@ -126,7 +126,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 |-------|------|--------|
 | 1 | [Fundamentos y andamiaje](./phase-01-fundamentos-y-andamiaje.md) | Completed |
 | 2 | [Motor de registros backend](./phase-02-motor-de-registros-backend.md) | Completed |
-| 3 | [Registros diarios y editor de Plan UI](./phase-03-registros-diarios-y-editor-de-plan-ui.md) | Pending |
+| 3 | [Registros diarios y editor de Plan UI](./phase-03-registros-diarios-y-editor-de-plan-ui.md) | Completed |
 | 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Pending |
 | 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Pending |
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Pending |
@@ -275,5 +275,22 @@ Completada. Modelos `ChecklistTemplate`/`ChecklistTemplateItem`/`ChecklistRun`/`
 **Revisión**: subagentes seguían bloqueados (mismo fallo de tmux de fase 1, no reintentado) — revisión hecha inline por el agente principal, mismo criterio aprobado en fase 1.
 
 **Pendiente**: red-team completo del plan (las 4 lentes adversariales) sigue diferido por el usuario, no solo para esta fase. Rama fase 2 apilada sobre fase 1 sin fusionar — el orden de fusión a `develop` debe respetar esa dependencia.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 3 — 2026-09-25, rama `feat/sicted-fase-3-editor-plan` (sobre `develop`, ya con fases 1-2 fusionadas)
+
+Completada. Hub (`/dashboard/sicted`, tarjetas de progreso por área + pendientes de validar + vencidas), "Hoy" (maestro-detalle en una sola ruta, sin ruta extra por hoja), editor de Plan (crear/editar/archivar plantillas e ítems), Registros (matriz mensual filas=ítems/columnas=periodos con detalle por celda), detalle solo lectura de hoja (`registros/[runId]`). Checklist adaptado a los 3 modos (EXECUTION/INSPECTION/MEASUREMENT), selector "¿Quién?" sin PIN, corrección con motivo, validación con `useConfirm()` M3.
+
+**Hallazgos de implementación** (no estaban en el plan, encontrados y corregidos por verificación real en navegador, no solo tsc/build):
+- Bug de progreso: el contador "X/Y" del hub/lista usaba nº de filas de `checklist_entries`, no de ítems distintos — una corrección (que añade una fila sin añadir un ítem nuevo) inflaba el progreso por encima del total (ej. "3/9" con solo 2 ítems realmente marcados). Corregido en el backend con un conteo de ítems distintos (`groupBy` por `(runId,itemId)`, no `_count` de filas); cubierto con un test de regresión dedicado.
+- El motivo/observación/acción correctiva de una marca no se mostraba una vez bloqueada (ni en la vigente ni en el histórico) — justo la evidencia que el auditor necesita ver. Corregido mostrando el detalle relevante bajo la marca vigente y en cada entrada del histórico.
+- Tras validar una hoja, el botón "Corregir" seguía apareciendo aunque el backend rechaza cualquier marca/corrección nueva sobre una hoja validada (409) — confuso, el usuario lo intentaría y fallaría. Corregido bloqueando también en cliente (`locked = readOnly || !!run.supervisedAt`) en vez de depender solo del backend para la UX.
+
+**Tests**: 133 suites/2011 tests unitarios backend + 11 suites/67 tests e2e backend (incluido el nuevo test de regresión de `entriesCount`) sin regresiones. Frontend: `tsc --noEmit` y `eslint` limpios, `next build` genera las 5 rutas nuevas sin errores. Verificación E2E manual en navegador real (Chrome, login real, guard stack completo) contra un tenant de prueba desechable (`sicted-browser-test`, creado y borrado en la BD de dev — nunca se tocó el tenant real de Warynessy ni ningún otro; recuento de tenants/usuarios verificado idéntico antes/después: 9/10): siembra de plantillas de ejemplo, marcar EXECUTION con motivo obligatorio, corrección con histórico, flujo INSPECTION completo (marcar 10/10 → Guardar → Validar → diálogo M3 → hoja bloqueada), matriz mensual con datos reales, modo claro/oscuro.
+
+**Revisión**: subagentes seguían bloqueados (mismo fallo de tmux) — revisión hecha inline; en este caso la revisión más valiosa fue la propia verificación en navegador, que encontró 2 bugs reales que ni tsc ni los tests automatizados existentes podían atrapar (ambos son de UI/agregación, no de la API en sí).
+
+**Pendiente**: red-team completo del plan sigue diferido por el usuario. Documentos reales adicionales del "Plan de limpieza y desinfección" prometidos por el usuario siguen sin llegar — las 3 plantillas iniciales son representativas, no exhaustivas.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

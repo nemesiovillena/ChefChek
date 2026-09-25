@@ -345,6 +345,52 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         "DONE",
       ); // vigente = última
     });
+
+    it("listRuns: una corrección no infla el progreso (entriesCount = ítems distintos, no filas)", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({
+          name: "Progreso tras corrección",
+          items: [{ label: "Único", isRequired: true }],
+        }),
+      );
+      const now = new Date("2026-09-30T10:00:00Z");
+      await runs.ensureRunsForToday(tenantId, "sicted", now);
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: template.id },
+      });
+
+      const first = await runs.addEntries(
+        tenantId,
+        "sicted",
+        run.id,
+        "session-u1",
+        [
+          {
+            itemId: template.items[0].id,
+            outcome: "NOT_DONE",
+            reason: "Sin tiempo",
+            performedByName: "Ana",
+          } as any,
+        ],
+      );
+      await runs.addEntries(tenantId, "sicted", run.id, "session-u2", [
+        {
+          itemId: template.items[0].id,
+          outcome: "DONE",
+          performedByName: "Bea",
+          correctsEntryId: first.currentByItem[template.items[0].id].id,
+        } as any,
+      ]);
+
+      const list = await runs.listRuns(tenantId, "sicted", {
+        templateId: template.id,
+      });
+      const listed = list.find((r) => r.id === run.id);
+      expect(listed?.entriesCount).toBe(1); // 1 ítem marcado, aunque hay 2 filas en checklist_entries
+    });
   });
 
   describe("aislamiento por tenant", () => {
