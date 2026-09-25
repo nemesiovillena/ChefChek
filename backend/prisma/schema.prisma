@@ -1317,6 +1317,90 @@ model ChecklistIncident {
   @@map("checklist_incidents")
 }
 
+// Proveedores y aprovisionamiento SICTED (fase 6). A diferencia del motor de
+// checklist (fases 2/4), esto vive solo en `sicted` — no hay concepto de
+// compartir con `appcc` aquí, así que no lleva `usedByModules`. Sin
+// relaciones Prisma hacia `Supplier`/`Albaran` a propósito (desacople entre
+// módulos): el servicio valida `supplierId`/`albaranId` contra el tenant a
+// mano, igual que `recordedByUserId` en el motor de mantenimiento.
+
+// Perfil de cumplimiento por proveedor (PROV.1) — NO es append-only, es un
+// perfil que se actualiza (upsert), a diferencia del resto de este módulo.
+model SictedSupplierComplianceProfile {
+  id       String @id @default(cuid())
+  tenantId String
+
+  supplierId String
+
+  suppliedCategories    String[] // p.ej. "Perecederos", "Congelados", "Limpieza"...
+  serviceUnits          String[]
+  hasSafetyDataSheets   String    @default("UNKNOWN") // YES|NO|UNKNOWN
+  hasIndustrialRegistry String    @default("UNKNOWN")
+  hasTechnicalSheets    String    @default("UNKNOWN")
+  qualityCertification  String?
+  internalRulesGivenAt  DateTime?
+  firstContactAt        DateTime?
+
+  updatedByName String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, supplierId])
+  @@index([tenantId])
+  @@map("sicted_supplier_compliance_profiles")
+}
+
+// Incidencia de recepción (PROV.3, formulario real) — SOLO INSERT
+// (forbid_mutation en DELETE); `resolution`/`resolvedAt` solo null→valor
+// (forbid_milestone_rewrite, mismo patrón que ChecklistIncident).
+model SictedSupplierIncident {
+  id       String @id @default(cuid())
+  tenantId String
+
+  supplierId   String
+  supplierName String // snapshot: sobrevive a que el proveedor se archive/renombre
+  albaranId    String? // referencia opcional, solo lectura
+
+  occurredAt         DateTime @default(now())
+  transportOk        Boolean?
+  productTemperature Float?
+  rejectionCause     String?
+  description        String
+  reportedByName     String
+
+  resolution String?
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, supplierId])
+  @@map("sicted_supplier_incidents")
+}
+
+// Sello de inventario semestral (PROV.7) — foto+firma de `Stock` en un
+// instante, SOLO INSERT. No reintroduce líneas a mano: `snapshotData` es una
+// copia de productId/quantity/minimumStock/maximumStock en ese momento.
+model SictedInventorySnapshot {
+  id       String @id @default(cuid())
+  tenantId String
+
+  performedAt     DateTime @default(now())
+  performedByName String
+  scope           String? // área/almacén, opcional
+
+  itemCount         Int
+  belowMinimumCount Int
+  aboveMaximumCount Int
+  snapshotData      Json
+  notes             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("sicted_inventory_snapshots")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())

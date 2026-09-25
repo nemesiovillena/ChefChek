@@ -212,7 +212,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     name: "SICTED",
     description:
       "Sistema de calidad turística: planes de higiene y mantenimiento, registros digitales inalterables y pack de auditoría",
-    dependencies: [],
+    dependencies: ["proveedores"],
     alwaysActive: false,
     defaultEnabled: false,
   },
