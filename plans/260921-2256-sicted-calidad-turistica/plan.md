@@ -131,7 +131,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Completed |
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
-| 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Pending |
+| 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
 | 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Pending |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
 
@@ -359,5 +359,21 @@ Completada (salvo un ítem diferido, ver abajo). Bloque Personas: fichas de pues
 **Revisión**: subagentes no disponibles, revisión inline. Un bug (upsert vs. createMany+skipDuplicates) se atrapó razonando sobre el propio diseño del trigger antes de tocar el navegador; el otro (`plannedDate` sin `@IsDate()`) solo se vio al intentar crear una acción de verdad — ni `tsc` ni `eslint` lo señalan porque el campo es sintácticamente válido, el problema es puramente de metadata en tiempo de ejecución de `class-validator`.
 
 **Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 8-10 pendientes; fase 8 es la siguiente según el plan.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 8 — 2026-09-25, rama `feat/sicted-fase-8` (sobre `develop`, con fases 1-7 ya fusionadas)
+
+Completada (salvo un ítem diferido, ver abajo). Bloque Cliente y sostenibilidad: quejas/sugerencias/felicitaciones (`SictedFeedback`, hitos `respondedAt`/`closedAt` solo null→valor, umbral de respuesta configurable por tenant — 72h por defecto — con endpoint de "sin responder"), satisfacción (`SictedSatisfactionSample`, append-only, resumen mensual con media y tendencia contra el mes anterior), objetos perdidos (`SictedLostItem`, "devuelto" derivado de `returnedAt IS NOT NULL`, sin enum `status`, campos confirmados 2026-09-24 contra el formulario real de Warynessy). Sostenibilidad **sin tablas nuevas**: `kind: "SUSTAINABILITY"` ya existía en el motor de checklist compartido desde fase 2 — solo se sembraron 3 plantillas de ejemplo (residuos, ahorro de agua/energía, producto local), explícitamente marcadas como genéricas del manual (no digitalizadas de un documento real de Warynessy, a diferencia de las plantillas de fases anteriores). `/dashboard/sicted/clientes` con 3 pestañas.
+
+**Sin bugs propios esta vez** — a diferencia de las 7 fases anteriores (todas con al menos un hallazgo real), la fase 8 salió limpia en la primera pasada, incluida la verificación en navegador. Único ajuste durante la implementación: el fixture de un test e2e (`monthlySummary` retrasando `sampledAt` de una muestra) intentaba un `UPDATE` normal sobre `sicted_satisfaction_samples`, tabla append-only — el propio trigger `forbid_mutation` lo bloqueó de inmediato (comportamiento correcto, no un bug), corregido usando el mismo escape controlado (`SET LOCAL chefchek.allow_evidence_purge='on'`) que ya usa el resto de la suite para fixtures.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 19 suites/127 tests e2e backend (9 nuevos: hitos de feedback no reescribibles, responder dos veces rechazado, `overdue()` detecta quejas que superan el SLA, una queja respondida no aparece en `overdue()`, muestra de satisfacción no reescribible, resumen mensual con media/tendencia correctos, hitos de objeto perdido no reescribibles, marcar devuelto dos veces rechazado, aislamiento de tenant en los 3 modelos) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (ruta nueva `/dashboard/sicted/clientes`, 3 pestañas). Verificación manual en Chrome contra un tenant de prueba desechable: ciclo completo de queja (recepción→respuesta→cierre con fechas trazables), muestra de satisfacción registrada (media 4.0 visible al instante), objeto perdido registrado y marcado devuelto, y confirmación explícita del criterio "plantillas de sostenibilidad usables desde Hoy sin código nuevo" — las 3 plantillas sembradas por el botón existente "Cargar plantillas de ejemplo", 2 de ellas (`DAILY`) apareciendo en "Hoy" sin ningún cambio en el motor. Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10). `git diff --stat` contra `appcc` sin salida.
+
+**Alcance diferido**: Implementation Step 7 (incluir libro de quejas con tiempos de respuesta, resumen de satisfacción y registro de objetos perdidos en el pack de auditoría de fase 5) no se implementó — ninguno de los 3 criterios de éxito de la fase lo exige explícitamente. Documentado en el phase file, mismo criterio que el paso diferido de fase 7.
+
+**Revisión**: subagentes no disponibles, revisión inline. Primera fase del plan sin ningún hallazgo de implementación que corregir — probablemente porque reutiliza patrones ya maduros (hitos null→valor de fases 4/6/7, append-only de todo el módulo, motor de checklist sin tocar) en vez de introducir mecanismos nuevos.
+
+**Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 9-10 pendientes; fase 9 es la siguiente según el plan.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

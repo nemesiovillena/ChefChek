@@ -5,6 +5,7 @@ import { SictedMaintenanceController } from "./sicted-maintenance.controller";
 import { SictedAuditController } from "./sicted-audit.controller";
 import { SictedSuppliersController } from "./sicted-suppliers.controller";
 import { SictedPersonasController } from "./sicted-personas.controller";
+import { SictedClientesController } from "./sicted-clientes.controller";
 import { ChecklistsModule } from "../checklists/checklists.module";
 import { AuthModule } from "../auth/auth.module";
 import { SictedPlanPdfService } from "./services/sicted-plan-pdf.service";
@@ -19,6 +20,9 @@ import { SictedProcurementEvidenceService } from "./services/sicted-procurement-
 import { SictedJobProfileService } from "./services/sicted-job-profile.service";
 import { SictedTrainingService } from "./services/sicted-training.service";
 import { SictedProtocolService } from "./services/sicted-protocol.service";
+import { SictedFeedbackService } from "./services/sicted-feedback.service";
+import { SictedSatisfactionService } from "./services/sicted-satisfaction.service";
+import { SictedLostItemService } from "./services/sicted-lost-item.service";
 
 /**
  * Módulo SICTED (Sostenibilidad, Inteligencia y Calidad Turística en el
@@ -38,6 +42,7 @@ import { SictedProtocolService } from "./services/sicted-protocol.service";
     SictedAuditController,
     SictedSuppliersController,
     SictedPersonasController,
+    SictedClientesController,
   ],
   providers: [
     SictedPlanPdfService,
@@ -52,6 +57,9 @@ import { SictedProtocolService } from "./services/sicted-protocol.service";
     SictedJobProfileService,
     SictedTrainingService,
     SictedProtocolService,
+    SictedFeedbackService,
+    SictedSatisfactionService,
+    SictedLostItemService,
   ],
   exports: [],
 })

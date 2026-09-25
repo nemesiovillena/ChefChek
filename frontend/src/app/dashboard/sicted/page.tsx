@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ClipboardCheck, ClipboardList, Loader2, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
 
@@ -115,6 +115,14 @@ export default function SictedHubPage() {
         >
           <Users className="h-5 w-5 shrink-0 text-[var(--primary)]" />
           <span className="font-medium">Personas</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/clientes')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <MessageSquareWarning className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Cliente</span>
         </button>
         {canManage && (
           <button
