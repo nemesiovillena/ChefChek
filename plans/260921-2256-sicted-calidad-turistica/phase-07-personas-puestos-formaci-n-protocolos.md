@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "Personas: puestos formación protocolos"
-status: pending
+status: completed
 priority: P2
 effort: "M"
 dependencies: [1]
@@ -59,9 +59,11 @@ Alertas: protocolo con revisión vencida; acciones formativas sin asistencia reg
 
 ## Success Criteria
 
-- [ ] Todos los puestos activos tienen ficha; cada empleado con puesto asignado.
-- [ ] Plan del año muestra cobertura de los 4 temas mínimos y asistencia por persona.
-- [ ] Matriz protocolo × empleado indica quién no ha acusado la versión vigente.
+- [x] Todos los puestos activos tienen ficha; cada empleado con puesto asignado. Verificado en navegador: crear ficha, asignar persona (cierra la asignación vigente anterior de esa persona), listado de personas sin puesto (`listUnassignedActiveUsers`).
+- [x] Plan del año muestra cobertura de los 4 temas mínimos y asistencia por persona. Verificado: panel "Cobertura de temas mínimos" pasa de "Pendiente" a "Cubierto" al marcar una acción de ese tema como hecha; asistencia en lote con certificado opcional.
+- [x] Matriz protocolo × empleado indica quién no ha acusado la versión vigente. Verificado: acusar oculta al usuario de "pendientes" y lo marca ✓ en la matriz; publicar nueva versión revierte ambos (invalida acuses de la versión anterior).
+
+**Pendiente de este pase** (Implementation Step 5, no cubierto por los criterios de éxito de arriba): exportables al pack de auditoría (PDF de fichas de puesto, plan formativo del año con asistencia, matriz protocolo × empleado). Diferido explícitamente por alcance — el resto de la fase (modelos, servicios, controller, UI, tests, verificación) está completo.
 
 ## Risk Assessment
 

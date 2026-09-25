@@ -130,7 +130,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 4 | [Mantenimiento preventivo y correctivo](./phase-04-mantenimiento-preventivo-y-correctivo.md) | Completed |
 | 5 | [Pack de auditoría](./phase-05-pack-de-auditor-a.md) | Completed |
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
-| 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Pending |
+| 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Pending |
 | 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Pending |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
@@ -341,5 +341,23 @@ Completada. Rediseño confirmado en el propio plan (sin "evaluación 1-5" invent
 **Revisión**: subagentes no disponibles, revisión inline. Los dos bugs de esta fase son un ejemplo claro de por qué la verificación en navegador es obligatoria y no opcional en este proyecto: el primero (parámetro `limit:0` ignorado) era invisible en `tsc`/build/lint; el segundo (hook no reactivo) incluso pasó una comprobación superficial en DOM (el `<select>` mostraba el valor correcto) y solo se detectó al verificar el efecto de extremo a extremo (petición HTTP correcta pero UI vacía) — una revisión de código sin ejecutar la app difícilmente lo habría atrapado, porque el patrón (`useState` que ignora props tras el montaje) es sutil y el propio hook nunca advierte de esa limitación.
 
 **Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 7-10 pendientes; fase 7 es la siguiente según el plan.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 7 — 2026-09-25, rama `feat/sicted-fase-7` (sobre `develop`, con fases 1-6 ya fusionadas)
+
+Completada (salvo un ítem diferido, ver abajo). Bloque Personas: fichas de puesto (`SictedJobProfile`/`SictedJobAssignment`, editables, no append-only — asignar cierra automáticamente la asignación vigente anterior de esa persona, nunca se borra historial), plan anual de formación (`SictedTrainingPlan`/`SictedTrainingAction`/`SictedTrainingAttendance`, asistencia append-only con certificado opcional compartido por todo el lote, cobertura de los 4 temas mínimos del manual), protocolos con acuse versionado (`SictedProtocol`/`SictedProtocolAck`, `version` propia que solo sube al publicar contenido nuevo — editar metadatos no invalida acuses —, acuse append-only con índice único `(protocolId, protocolVersion, userId)`). `/dashboard/sicted/personas` con 3 pestañas; "Mis protocolos pendientes" integrado en la pestaña Protocolos en vez de una ruta aparte (mismo resultado para el usuario, menos superficie).
+
+**Hallazgos de implementación** (no estaban en el plan, encontrados y corregidos por verificación real en navegador):
+- Bug propio en `recordAttendanceBatch`: usar `upsert` para "reenviar el mismo lote no falla" habría generado `INSERT ... ON CONFLICT DO UPDATE` a nivel SQL, y el trigger `forbid_mutation` bloquea esa rama UPDATE — el reintento del lote habría fallado con un error de Postgres. Corregido antes de probar en navegador (detectado en revisión de la propia lógica, no en runtime): `createMany` + `skipDuplicates` en su lugar, que solo hace `INSERT ... ON CONFLICT DO NOTHING`, sin tocar el trigger.
+- Bug propio real, encontrado en navegador: `CreateTrainingActionDto.plannedDate` solo llevaba `@Type(() => Date)` (class-transformer) sin ningún decorador de `class-validator` — `ValidationPipe({whitelist:true, forbidNonWhitelisted:true})` (config global del proyecto) determina qué propiedades "existen" a partir de la metadata de `class-validator`, no de `class-transformer`; sin `@IsDate()`, la propiedad no se registraba y cada intento de crear una acción formativa fallaba con `property plannedDate should not exist`. Corregido añadiendo `@IsDate()`; verificado que el resto de campos `Date` de la fase (en `sicted-protocol.dto.ts`, `sicted-supplier-compliance.dto.ts` de fase 6) sí llevaban el decorador completo.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 18 suites/118 tests e2e backend (8 nuevos: asignar cierra la asignación anterior, asistencia no reescribible, reenviar el mismo lote es no-op seguro, cobertura de temas distingue cubierto/pendiente, nueva versión de protocolo deja pendiente de nuevo a quien ya había acusado, acuse duplicado rechazado, editar metadatos no invalida acuses, matriz no expone datos de otro tenant) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (ruta nueva `/dashboard/sicted/personas`, 3 pestañas). Verificación manual en Chrome contra un tenant de prueba desechable (OWNER + un USER de plantilla): ficha de puesto creada y persona asignada, plan de formación 2026 creado, acción sobre alérgenos creada y marcada hecha (cobertura pasó de "Pendiente" a "Cubierto"), asistencia registrada en lote, protocolo creado y acusado (matriz reflejó el acuse), nueva versión publicada e invalidó el acuse correctamente (protocolo volvió a "Mis pendientes", matriz volvió a "—"). Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10). `git diff --stat` contra `appcc` sin salida.
+
+**Alcance diferido**: Implementation Step 5 (exportables al pack de auditoría — PDF de fichas de puesto, plan formativo con asistencia, matriz protocolo×empleado) no se implementó en este pase; ninguno de los 3 criterios de éxito de la fase lo requiere. Documentado explícitamente en `phase-07-*.md` en vez de darlo por hecho.
+
+**Revisión**: subagentes no disponibles, revisión inline. Un bug (upsert vs. createMany+skipDuplicates) se atrapó razonando sobre el propio diseño del trigger antes de tocar el navegador; el otro (`plannedDate` sin `@IsDate()`) solo se vio al intentar crear una acción de verdad — ni `tsc` ni `eslint` lo señalan porque el campo es sintácticamente válido, el problema es puramente de metadata en tiempo de ejecución de `class-validator`.
+
+**Pendiente**: red-team del plan completo sigue diferido por el usuario. Fases 8-10 pendientes; fase 8 es la siguiente según el plan.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
