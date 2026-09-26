@@ -2,8 +2,39 @@ import { Module } from "@nestjs/common";
 import { SictedController } from "./sicted.controller";
 import { SictedChecklistController } from "./sicted-checklist.controller";
 import { SictedMaintenanceController } from "./sicted-maintenance.controller";
+import { SictedAuditController } from "./sicted-audit.controller";
+import { SictedSuppliersController } from "./sicted-suppliers.controller";
+import { SictedPersonasController } from "./sicted-personas.controller";
+import { SictedClientesController } from "./sicted-clientes.controller";
+import { SictedDireccionController } from "./sicted-direccion.controller";
+import { SictedDireccionLegalController } from "./sicted-direccion-legal.controller";
+import { SictedDireccionReportController } from "./sicted-direccion-report.controller";
 import { ChecklistsModule } from "../checklists/checklists.module";
 import { AuthModule } from "../auth/auth.module";
+import { SictedPlanPdfService } from "./services/sicted-plan-pdf.service";
+import { SictedRegistrosPdfService } from "./services/sicted-registros-pdf.service";
+import { SictedMantenimientoPdfService } from "./services/sicted-mantenimiento-pdf.service";
+import { SictedAuditCsvService } from "./services/sicted-audit-csv.service";
+import { SictedCoverageService } from "./services/sicted-coverage.service";
+import { SictedSupplierComplianceService } from "./services/sicted-supplier-compliance.service";
+import { SictedSupplierIncidentService } from "./services/sicted-supplier-incident.service";
+import { SictedInventorySnapshotService } from "./services/sicted-inventory-snapshot.service";
+import { SictedProcurementEvidenceService } from "./services/sicted-procurement-evidence.service";
+import { SictedJobProfileService } from "./services/sicted-job-profile.service";
+import { SictedTrainingService } from "./services/sicted-training.service";
+import { SictedProtocolService } from "./services/sicted-protocol.service";
+import { SictedFeedbackService } from "./services/sicted-feedback.service";
+import { SictedSatisfactionService } from "./services/sicted-satisfaction.service";
+import { SictedLostItemService } from "./services/sicted-lost-item.service";
+import { SictedPracticeCatalogService } from "./services/sicted-practice-catalog.service";
+import { SictedAssessmentService } from "./services/sicted-assessment.service";
+import { SictedImprovementActionService } from "./services/sicted-improvement-action.service";
+import { SictedObjectiveService } from "./services/sicted-objective.service";
+import { SictedEventService } from "./services/sicted-event.service";
+import { SictedComplianceDocService } from "./services/sicted-compliance-doc.service";
+import { SictedComplianceReminderService } from "./services/sicted-compliance-reminder.service";
+import { SictedAnnualReportService } from "./services/sicted-annual-report.service";
+import { SictedAnnualReportPdfService } from "./services/sicted-annual-report-pdf.service";
 
 /**
  * Módulo SICTED (Sostenibilidad, Inteligencia y Calidad Turística en el
@@ -20,8 +51,40 @@ import { AuthModule } from "../auth/auth.module";
     SictedController,
     SictedChecklistController,
     SictedMaintenanceController,
+    SictedAuditController,
+    SictedSuppliersController,
+    SictedPersonasController,
+    SictedClientesController,
+    SictedDireccionController,
+    SictedDireccionLegalController,
+    SictedDireccionReportController,
   ],
-  providers: [],
+  providers: [
+    SictedPlanPdfService,
+    SictedRegistrosPdfService,
+    SictedMantenimientoPdfService,
+    SictedAuditCsvService,
+    SictedCoverageService,
+    SictedSupplierComplianceService,
+    SictedSupplierIncidentService,
+    SictedInventorySnapshotService,
+    SictedProcurementEvidenceService,
+    SictedJobProfileService,
+    SictedTrainingService,
+    SictedProtocolService,
+    SictedFeedbackService,
+    SictedSatisfactionService,
+    SictedLostItemService,
+    SictedPracticeCatalogService,
+    SictedAssessmentService,
+    SictedImprovementActionService,
+    SictedObjectiveService,
+    SictedEventService,
+    SictedComplianceDocService,
+    SictedComplianceReminderService,
+    SictedAnnualReportService,
+    SictedAnnualReportPdfService,
+  ],
   exports: [],
 })
 export class SictedModule {}

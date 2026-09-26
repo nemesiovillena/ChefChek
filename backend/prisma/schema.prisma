@@ -1317,6 +1317,447 @@ model ChecklistIncident {
   @@map("checklist_incidents")
 }
 
+// Proveedores y aprovisionamiento SICTED (fase 6). A diferencia del motor de
+// checklist (fases 2/4), esto vive solo en `sicted` — no hay concepto de
+// compartir con `appcc` aquí, así que no lleva `usedByModules`. Sin
+// relaciones Prisma hacia `Supplier`/`Albaran` a propósito (desacople entre
+// módulos): el servicio valida `supplierId`/`albaranId` contra el tenant a
+// mano, igual que `recordedByUserId` en el motor de mantenimiento.
+
+// Perfil de cumplimiento por proveedor (PROV.1) — NO es append-only, es un
+// perfil que se actualiza (upsert), a diferencia del resto de este módulo.
+model SictedSupplierComplianceProfile {
+  id       String @id @default(cuid())
+  tenantId String
+
+  supplierId String
+
+  suppliedCategories    String[] // p.ej. "Perecederos", "Congelados", "Limpieza"...
+  serviceUnits          String[]
+  hasSafetyDataSheets   String    @default("UNKNOWN") // YES|NO|UNKNOWN
+  hasIndustrialRegistry String    @default("UNKNOWN")
+  hasTechnicalSheets    String    @default("UNKNOWN")
+  qualityCertification  String?
+  internalRulesGivenAt  DateTime?
+  firstContactAt        DateTime?
+
+  updatedByName String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, supplierId])
+  @@index([tenantId])
+  @@map("sicted_supplier_compliance_profiles")
+}
+
+// Incidencia de recepción (PROV.3, formulario real) — SOLO INSERT
+// (forbid_mutation en DELETE); `resolution`/`resolvedAt` solo null→valor
+// (forbid_milestone_rewrite, mismo patrón que ChecklistIncident).
+model SictedSupplierIncident {
+  id       String @id @default(cuid())
+  tenantId String
+
+  supplierId   String
+  supplierName String // snapshot: sobrevive a que el proveedor se archive/renombre
+  albaranId    String? // referencia opcional, solo lectura
+
+  occurredAt         DateTime @default(now())
+  transportOk        Boolean?
+  productTemperature Float?
+  rejectionCause     String?
+  description        String
+  reportedByName     String
+
+  resolution String?
+  resolvedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, supplierId])
+  @@map("sicted_supplier_incidents")
+}
+
+// Sello de inventario semestral (PROV.7) — foto+firma de `Stock` en un
+// instante, SOLO INSERT. No reintroduce líneas a mano: `snapshotData` es una
+// copia de productId/quantity/minimumStock/maximumStock en ese momento.
+model SictedInventorySnapshot {
+  id       String @id @default(cuid())
+  tenantId String
+
+  performedAt     DateTime @default(now())
+  performedByName String
+  scope           String? // área/almacén, opcional
+
+  itemCount         Int
+  belowMinimumCount Int
+  aboveMaximumCount Int
+  snapshotData      Json
+  notes             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("sicted_inventory_snapshots")
+}
+
+// SICTED fase 7 — Personas: puestos, formación, protocolos con acuse.
+// SictedJobProfile/SictedJobAssignment son datos organizativos (se editan,
+// no evidencia append-only); SictedTrainingAttendance y SictedProtocolAck sí
+// lo son (asistencia y acuse quedan como prueba permanente).
+
+model SictedJobProfile {
+  id               String    @id @default(cuid())
+  tenantId         String
+  title            String
+  mission          String?
+  responsibilities String[] // lista de responsabilidades, texto libre
+  tasks            String[] // lista de tareas, texto libre
+  requirements     String?
+  reportsTo        String? // texto libre (nombre de puesto), sin auto-relación
+  version          Int       @default(1) // se incrementa al editar; no dispara reacuse (no hay acuse en fichas de puesto)
+  archivedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  assignments SictedJobAssignment[]
+
+  @@index([tenantId])
+  @@map("sicted_job_profiles")
+}
+
+model SictedJobAssignment {
+  id        String    @id @default(cuid())
+  tenantId  String
+  profileId String
+  userId    String
+  userName  String // snapshot
+  since     DateTime  @default(now())
+  until     DateTime? // reasignar = cerrar la vigente (until=now) + crear una nueva, nunca se borra
+
+  profile SictedJobProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([profileId])
+  @@index([userId])
+  @@map("sicted_job_assignments")
+}
+
+model SictedTrainingPlan {
+  id        String   @id @default(cuid())
+  tenantId  String
+  year      Int
+  status    String   @default("DRAFT") // DRAFT | ACTIVE | CLOSED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  actions SictedTrainingAction[]
+
+  @@unique([tenantId, year])
+  @@index([tenantId])
+  @@map("sicted_training_plans")
+}
+
+model SictedTrainingAction {
+  id          String    @id @default(cuid())
+  tenantId    String
+  planId      String
+  topic       String // ATENCION_CLIENTE | IDIOMAS | SOSTENIBILIDAD | ALERGENOS | HIGIENE | OTRO
+  title       String
+  plannedDate DateTime
+  hours       Float?
+  trainer     String?
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  plan        SictedTrainingPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
+  attendances SictedTrainingAttendance[]
+
+  @@index([tenantId])
+  @@index([planId])
+  @@map("sicted_training_actions")
+}
+
+model SictedTrainingAttendance {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actionId    String
+  userId      String
+  userName    String // snapshot
+  attended    Boolean
+  certificate Json? // {storageKey, name, mime, size} — mismo shape que ChecklistMaintenanceAttachment
+  recordedAt  DateTime @default(now()) // SOLO INSERT
+
+  action SictedTrainingAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([actionId, userId]) // una asistencia por persona y acción
+  @@index([tenantId])
+  @@index([userId])
+  @@map("sicted_training_attendances")
+}
+
+model SictedProtocol {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  area               String
+  title              String
+  version            Int       @default(1) // se incrementa manualmente para forzar una nueva ronda de acuse
+  body               String?   @db.Text // texto propio; alternativa a knowledgeArticleId
+  knowledgeArticleId String? // referencia de solo lectura a la Wiki (KnowledgeArticle), sin relación Prisma
+  validFrom          DateTime  @default(now())
+  reviewDueAt        DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  acks SictedProtocolAck[]
+
+  @@index([tenantId])
+  @@map("sicted_protocols")
+}
+
+model SictedProtocolAck {
+  id              String   @id @default(cuid())
+  tenantId        String
+  protocolId      String
+  protocolVersion Int // fija la versión acusada; una edición del protocolo (nueva version) deja este acuse obsoleto
+  userId          String
+  userName        String // snapshot
+  ackedAt         DateTime @default(now()) // SOLO INSERT
+
+  protocol SictedProtocol @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+
+  @@unique([protocolId, protocolVersion, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("sicted_protocol_acks")
+}
+
+// SICTED fase 8 — Cliente y sostenibilidad. Datos de cliente mínimos y
+// opcionales (RGPD): `customerContact` es texto libre opcional, nunca
+// obligatorio. Sostenibilidad no tiene tablas propias — plantillas del motor
+// `checklists` con `kind: "SUSTAINABILITY"` (ver
+// checklist-starter-templates.constant.ts).
+
+model SictedFeedback {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  kind                String // QUEJA | SUGERENCIA | FELICITACION
+  channel             String // SALA | WEB | EMAIL | TELEFONO | OTRO
+  receivedAt          DateTime  @default(now())
+  receivedByName      String
+  summary             String    @db.Text
+  customerContact     String? // opcional, RGPD — nunca obligatorio
+  status              String    @default("OPEN") // OPEN | RESPONDED | CLOSED
+  response            String?   @db.Text
+  respondedAt         DateTime? // solo null→valor
+  respondedByName     String?
+  closedAt            DateTime? // solo null→valor
+  improvementActionId String? // referencia libre; fase 9 la formaliza
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("sicted_feedback")
+}
+
+model SictedSatisfactionSample {
+  id             String   @id @default(cuid())
+  tenantId       String
+  sampledAt      DateTime @default(now())
+  score          Int // 1..5
+  channel        String
+  comment        String?  @db.Text
+  recordedByName String
+  createdAt      DateTime @default(now()) // SOLO INSERT
+
+  @@index([tenantId])
+  @@index([tenantId, sampledAt])
+  @@map("sicted_satisfaction_samples")
+}
+
+model SictedLostItem {
+  id            String    @id @default(cuid())
+  tenantId      String
+  foundAt       DateTime  @default(now())
+  itemName      String
+  description   String?
+  foundLocation String?
+  foundByName   String
+  returnedAt    DateTime? // solo null→valor
+  returnedTo    String?
+  createdAt     DateTime  @default(now()) // SOLO INSERT (salvo returnedAt/returnedTo)
+
+  @@index([tenantId])
+  @@map("sicted_lost_items")
+}
+
+// SICTED fase 9 (sub-PR 1) — Dirección: catálogo de buenas prácticas y
+// autoevaluación. Catálogo real de 144 prácticas del manual "Restaurantes y
+// empresas turísticas de catering" (BP1-BP6, ver
+// constants/sicted-practice-catalog-seed.ts) — corrige la escala asumida
+// originalmente en el plan ("1,3,4,5,6=NA"): la escala real es 1-5 con una
+// casilla "No aplica" SEPARADA por práctica, no un 6º valor de puntuación.
+
+model SictedPractice {
+  id            String    @id @default(cuid())
+  tenantId      String
+  code          String // "1.1".."6.71" del manual real (BPx.n)
+  bpSection     Int // 1-6 (BP1 Personas .. BP6 Oficio)
+  bpSectionName String // "Personas", "Clientes", "Ventas", "Servicios externos", "Instalaciones y equipamiento", "Oficio (Restaurantes)"
+  title         String
+  isMandatory   Boolean   @default(true) // del listado real "Buenas prácticas obligatorias de la sección BPx"
+  manualVersion String    @default("Restaurantes v4")
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  scores SictedAssessmentScore[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("sicted_practices")
+}
+
+model SictedAssessment {
+  id         String    @id @default(cuid())
+  tenantId   String
+  label      String // "Ciclo 2026"
+  assessedAt DateTime  @default(now())
+  status     String    @default("DRAFT") // DRAFT | CLOSED
+  closedAt   DateTime? // solo null→valor
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  scores SictedAssessmentScore[]
+
+  @@index([tenantId])
+  @@map("sicted_assessments")
+}
+
+model SictedAssessmentScore {
+  id            String   @id @default(cuid())
+  tenantId      String
+  assessmentId  String
+  practiceId    String
+  score         Int? // 1-5; null si notApplicable=true (0 y 2 no se usan, sin decimales — lo garantiza la aplicación)
+  notApplicable Boolean  @default(false) // casilla "No aplica" del manual — NO es un valor de score
+  evidenceNote  String? // enlace/comentario a la evidencia (plantilla, registro, documento)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assessment SictedAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  practice   SictedPractice   @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, practiceId])
+  @@index([tenantId])
+  @@index([assessmentId])
+  @@map("sicted_assessment_scores")
+}
+
+// SICTED fase 9 (sub-PR 2) — Dirección: plan de mejora + objetivos anuales.
+// SictedImprovementAction confirmado 2026-09-24 contra el documento real de
+// Warynessy "Dir.6.For_Registro aspectos críticos.doc" (Código incidencia,
+// Aspecto crítico/Incidencia, Fecha de detección, Solución propuesta, Fecha
+// implantación, Estado, Responsable, Comentarios) — coincide campo a campo;
+// esa verificación es independiente de la corrección de fuente del catálogo
+// (sub-PR 1) y sigue siendo válida. Entidad editable (como las fichas de
+// puesto de fase 7), no append-only puro: solo `closedAt` ("fecha
+// implantación") es hito protegido, el resto se corrige mientras se trabaja
+// la acción.
+
+model SictedImprovementAction {
+  id       String @id @default(cuid())
+  tenantId String
+  code     Int // correlativo por tenant ("Código incidencia"), MAX+1 (ver checklist-incident.service.ts)
+
+  origin    String // ASSESSMENT | EVALUATOR | COMPLAINT | INCIDENT | OTHER
+  sourceRef String? // referencia libre al origen (id de autoevaluación, de queja...)
+
+  title           String // aspecto crítico / incidencia detectada
+  detectedAt      DateTime  @default(now())
+  action          String? // solución propuesta — puede rellenarse después de detectar
+  responsibleName String?
+  dueDate         DateTime?
+  status          String    @default("OPEN") // OPEN | DONE | CANCELLED
+  closedAt        DateTime? // fecha de implantación real, solo null→valor
+  evidenceNote    String? // comentarios
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("sicted_improvement_actions")
+}
+
+model SictedObjective {
+  id       String @id @default(cuid())
+  tenantId String
+  year     Int
+  title    String
+
+  indicator    String?
+  target       String?
+  currentValue String?
+  status       String @default("IN_PROGRESS") // IN_PROGRESS | ACHIEVED | MISSED | CANCELLED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, year])
+  @@map("sicted_objectives")
+}
+
+// SICTED fase 9 (sub-PR 3) — Dirección: eventos (grupos de mejora, formación
+// del destino, evaluación externa) y documentos legales con caducidad.
+
+model SictedEvent {
+  id       String @id @default(cuid())
+  tenantId String
+
+  kind      String // GRUPO_MEJORA | FORMACION_DESTINO | EVALUACION_EXTERNA | OTRO
+  title     String
+  eventDate DateTime
+  attended  Boolean @default(true)
+  notes     String?
+
+  attachment Json? // StoredAttachment (acta/certificado), opcional
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("sicted_events")
+}
+
+model SictedComplianceDoc {
+  id       String @id @default(cuid())
+  tenantId String
+
+  label      String // etiqueta libre con sugerencias (NO enum rígido): "Extintores", "OCA Industria", "Convenio colectivo", "Protección de datos"...
+  title      String
+  holderName String?
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+
+  attachment Json? // StoredAttachment del documento escaneado, opcional
+
+  dueSoonAlertedAt DateTime? // se resetea a null cuando se actualiza expiresAt (renovación)
+  expiredAlertedAt DateTime?
+  archivedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, expiresAt])
+  @@map("sicted_compliance_docs")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())
