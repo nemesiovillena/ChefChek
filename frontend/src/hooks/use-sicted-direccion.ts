@@ -4,12 +4,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import type {
   AssessmentScoreRow,
+  CreateComplianceDocInput,
+  CreateEventInput,
   CreateImprovementActionInput,
   CreateObjectiveInput,
   SictedAssessment,
+  SictedComplianceDoc,
+  SictedEvent,
   SictedImprovementAction,
   SictedObjective,
   SictedPractice,
+  UpdateComplianceDocInput,
   UpdateImprovementActionInput,
   UpdateObjectiveInput,
   UpdatePracticeInput,
@@ -23,6 +28,8 @@ const SCORES_KEY = 'sicted-assessment-scores';
 const PENDING_KEY = 'sicted-assessment-pending-mandatory';
 const IMPROVEMENT_ACTIONS_KEY = 'sicted-improvement-actions';
 const OBJECTIVES_KEY = 'sicted-objectives';
+const EVENTS_KEY = 'sicted-events';
+const COMPLIANCE_DOCS_KEY = 'sicted-compliance-docs';
 
 // --- Catálogo --------------------------------------------------------------
 
@@ -160,5 +167,75 @@ export function useUpdateObjective() {
   return useMutation<SictedObjective, Error, { id: string; data: UpdateObjectiveInput }>({
     mutationFn: async ({ id, data }) => (await apiClient.patch(`${BASE_URL}/objectives/${id}`, data)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [OBJECTIVES_KEY] }),
+  });
+}
+
+// --- Eventos -------------------------------------------------------------------
+
+export function useSictedEvents(kind?: string) {
+  return useQuery<SictedEvent[], Error>({
+    queryKey: [EVENTS_KEY, kind ?? 'all'],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/events`, { params: kind ? { kind } : undefined })).data,
+  });
+}
+
+export function useCreateEvent() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedEvent, Error, CreateEventInput>({
+    mutationFn: async ({ attachment, ...data }) => {
+      const form = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined) form.append(key, String(value));
+      });
+      if (attachment) form.append('attachment', attachment);
+      return (await apiClient.post(`${BASE_URL}/events`, form)).data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [EVENTS_KEY] }),
+  });
+}
+
+// --- Documentos legales ----------------------------------------------------------
+
+export function useSictedComplianceDocs(includeArchived = false) {
+  return useQuery<SictedComplianceDoc[], Error>({
+    queryKey: [COMPLIANCE_DOCS_KEY, includeArchived],
+    queryFn: async () =>
+      (await apiClient.get(`${BASE_URL}/compliance-docs`, { params: { includeArchived } })).data,
+  });
+}
+
+function toComplianceDocForm(data: CreateComplianceDocInput | UpdateComplianceDocInput) {
+  const form = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value === undefined) return;
+    if (key === 'attachment') form.append('attachment', value as File);
+    else form.append(key, String(value));
+  });
+  return form;
+}
+
+export function useCreateComplianceDoc() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedComplianceDoc, Error, CreateComplianceDocInput>({
+    mutationFn: async (data) =>
+      (await apiClient.post(`${BASE_URL}/compliance-docs`, toComplianceDocForm(data))).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [COMPLIANCE_DOCS_KEY] }),
+  });
+}
+
+export function useUpdateComplianceDoc() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedComplianceDoc, Error, { id: string; data: UpdateComplianceDocInput }>({
+    mutationFn: async ({ id, data }) =>
+      (await apiClient.patch(`${BASE_URL}/compliance-docs/${id}`, toComplianceDocForm(data))).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [COMPLIANCE_DOCS_KEY] }),
+  });
+}
+
+export function useArchiveComplianceDoc() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedComplianceDoc, Error, string>({
+    mutationFn: async (id) => (await apiClient.post(`${BASE_URL}/compliance-docs/${id}/archive`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [COMPLIANCE_DOCS_KEY] }),
   });
 }

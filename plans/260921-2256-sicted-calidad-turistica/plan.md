@@ -145,7 +145,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
-| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 2/4) |
+| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 3/4) |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
@@ -422,5 +422,21 @@ Cierra el círculo autoevaluación→plan de mejora que pide el manual (Implemen
 **Revisión**: subagentes no disponibles, revisión inline. Fase de implementación directa sobre patrones ya maduros del plan — el único diseño nuevo (el puente autoevaluación→plan de mejora vía `generateFromAssessment`) se verificó de extremo a extremo en navegador con el número exacto de acciones generadas coincidiendo con el banner de pendientes, no solo con un test unitario.
 
 **Pendiente**: red-team del plan completo sigue diferido. Sub-PRs 3-4 de fase 9 pendientes (Eventos+legal es el siguiente). Fase 10 pendiente.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 9, sub-PR 3/4 — 2026-09-26, rama `feat/sicted-fase-9-eventos-legal` (sobre `develop`, con sub-PRs 1-2 ya fusionados)
+
+Eventos (grupos de mejora, formación del destino, evaluación externa) + documentos legales con caducidad. `SictedEvent`: evidencia append-only pura (`forbid_mutation`, sin ningún hito que corregir después, a diferencia del resto del módulo). `SictedComplianceDoc`: documento vivo editable (como `SictedPractice`/`SictedObjective`), `label` es etiqueta libre con sugerencias en la UI —no un enum rígido, confirmado en el plan—; renovar (nuevo `expiresAt`) resetea los avisos ya enviados. Ambos con adjunto privado opcional (`storePrivateAttachment`, mismo patrón de zona Bunny/disco local que fase 4/7). Cron diario (`SictedComplianceReminderService`, 08:00) avisa a 30 días y al vencer, idempotente vía `dueSoonAlertedAt`/`expiredAlertedAt` — mismo patrón exacto que `ChecklistMaintenanceReminderService` de fase 4. Controlador nuevo (`SictedDireccionLegalController`) en vez de seguir creciendo `sicted-direccion.controller.ts` (ya en ~225 líneas) — dos controladores comparten el prefijo `api/v1/sicted/direccion` sin colisión, confirmado arrancando el servidor real.
+
+**Bug real encontrado en verificación de navegador**: el checkbox "Asistió" del formulario de eventos usa `multipart/form-data` (necesario para poder adjuntar archivo en el mismo POST) — ahí todo llega como string, incluido `"true"`/`"false"` para un booleano. `@IsBoolean()` sin transformación previa rechazaba el string con `attended must be a boolean value`, bloqueando la creación de CUALQUIER evento. Corregido con `@Transform(({value}) => typeof value === "string" ? value === "true" : value)` antes de `@IsBoolean()`. Ni `tsc` ni los tests e2e (que llaman al servicio directamente, no vía HTTP con FormData) lo habrían atrapado — solo se vio al crear un evento de verdad desde el formulario del navegador.
+
+**Segundo hallazgo, en el propio test e2e de sub-PR 2** (no en código de producción): `closedAt — hito solo null→valor` fallaba de forma intermitente porque comparaba dos `new Date()` consecutivas sin operación intermedia — en un entorno rápido pueden caer en el mismo milisegundo, y `forbid_milestone_rewrite` correctamente NO bloquea una "reescritura" a un valor idéntico (`IS DISTINCT FROM`, comportamiento deseado del trigger genérico). Corregido el test forzando `+1000ms` en la segunda fecha, no el trigger.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 23 suites/150 tests e2e backend (9 nuevos: 5 de eventos/documentos — evento append-only con `forbid_mutation`, documento editable con renovación que resetea avisos, archivar oculta del listado activo, aislamiento de tenant —, 4 del cron de avisos — vencido genera ERROR idempotente, a 15 días genera WARNING, a 60 días no avisa, módulo desactivado no avisa) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (2 pestañas nuevas: Eventos con formulario de adjunto, Legal con etiqueta libre vía `<datalist>`, badge de caducado/próximo, renovar/archivar). Verificación manual en Chrome contra un tenant de prueba desechable (`fase9-subpr3-browser-test`): evento registrado (tras el fix del bug de `attended`), documento legal creado, renovado (nueva fecha, badge "Caducado" correcto para una fecha ya pasada), archivado (desaparece del listado activo). Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10).
+
+**Revisión**: subagentes no disponibles, revisión inline. Dos hallazgos reales esta vez, ambos solo visibles fuera de una revisión de código estática: el bug de `FormData`+boolean solo se manifiesta al enviar una petición HTTP real con multipart (los tests e2e llaman al servicio Nest directamente, sin pasar por el pipe de validación HTTP — brecha de cobertura conocida y aceptada del proyecto, la verificación en navegador existe precisamente para cerrarla); el test flaky de fechas solo se ve al ejecutar la suite varias veces seguidas en una máquina rápida, no en una sola pasada.
+
+**Pendiente**: red-team del plan completo sigue diferido. Sub-PR 4 de fase 9 pendiente (Informe anual agregado, el último). Fase 10 pendiente.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
