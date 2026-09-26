@@ -8,6 +8,7 @@ import type {
   CreateEventInput,
   CreateImprovementActionInput,
   CreateObjectiveInput,
+  SictedAnnualReport,
   SictedAssessment,
   SictedComplianceDoc,
   SictedEvent,
@@ -238,4 +239,35 @@ export function useArchiveComplianceDoc() {
     mutationFn: async (id) => (await apiClient.post(`${BASE_URL}/compliance-docs/${id}/archive`)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [COMPLIANCE_DOCS_KEY] }),
   });
+}
+
+// --- Informe anual -----------------------------------------------------------
+
+export function useSictedAnnualReport(year: number) {
+  return useQuery<SictedAnnualReport, Error>({
+    queryKey: ['sicted-annual-report', year],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/annual-report`, { params: { year } })).data,
+  });
+}
+
+/**
+ * Abre el PDF del informe anual en pestaña nueva (blob autenticado).
+ * `window.open` síncrono dentro del gesto — mismo patrón verificado en
+ * iPhone que `openSictedAuditDownload` (fase 5): iOS Safari bloquea en
+ * silencio cualquier apertura posterior a un `await`.
+ */
+export async function openSictedAnnualReportPdf(year: number, onBlocked: () => void) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    onBlocked();
+    return;
+  }
+  win.document.write(
+    '<!doctype html><html><head><title>Generando…</title></head>' +
+      '<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Generando…</body></html>',
+  );
+  const response = await apiClient.get(`${BASE_URL}/annual-report.pdf`, { params: { year }, responseType: 'blob' });
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  win.location.href = url;
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

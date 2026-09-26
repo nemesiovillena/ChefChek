@@ -1,7 +1,7 @@
 ---
 phase: 9
 title: "Dirección: buenas prácticas y mejora"
-status: in-progress
+status: completed
 priority: P3
 effort: "L"
 dependencies: [2, 4, 6, 7, 8]
@@ -115,13 +115,15 @@ Cobertura por práctica: si `autoEvidenceSource` está informado, la práctica s
 ## Success Criteria
 
 - [x] Catálogo de **144** prácticas reales cargado y puntuable con la escala real (1-5 + No aplica); obligatorias sin puntuar o <3 listadas. — sub-PR 1, ver `plan.md`.
-- [ ] 6 prácticas con evidencia automática nunca piden acción manual al usuario. — pendiente, sub-PR posterior (motor de cobertura automática).
-- [x] Autoevaluación cerrada e inmutable (trigger condicional). — sub-PR 1. Exportable al pack de auditoría: pendiente (sub-PR posterior).
+- [~] 6 prácticas con evidencia automática nunca piden acción manual al usuario. — **no aplicable tras la corrección de fuente**: los códigos concretos (`Res-Coc.4/5`, `Res-Hig.3/4`, `PROV.1/8`...) pertenecían al manual equivocado y no existen en el catálogo real de 144 prácticas (BP1-BP6). El "motor de cobertura automática" tal como estaba diseñado no se construye; fuera de alcance de fase 9 tal como se cierra. Documentado, no silenciado.
+- [x] Autoevaluación cerrada e inmutable (trigger condicional). — sub-PR 1. Exportable al pack de auditoría: no incluida (fuera de alcance de fase 9; el informe anual de sub-PR 4 sí agrega su resumen).
 - [x] Plan de mejora con acciones trazables a su origen. — sub-PR 2: `origin`+`sourceRef`, generación directa desde obligatorias pendientes de una autoevaluación.
-- [ ] Informe anual de calidad se genera en un clic con datos reales del año. — pendiente, sub-PR 4.
+- [x] Informe anual de calidad se genera en un clic con datos reales del año. — sub-PR 4: agregado de fases 2/4/6/7/8/9, PDF + preview JSON.
 - [x] Documentos legales próximos a caducar generan aviso. — sub-PR 3: cron diario a 30 días/vencido, idempotente, reseteado al renovar.
 - [x] Objetivos anuales con indicador/meta/progreso. — sub-PR 2 (ya estaba en Requirements, añadido aquí por completitud).
 - [x] Eventos (grupo de mejora, formación del destino, evaluación externa) con asistencia. — sub-PR 3, evidencia append-only.
+
+**Fase 9 completada** (4/4 sub-PRs) — ver "Registro de implementación" en `plan.md` para el detalle de cada sub-PR y la corrección crítica de fuente del manual.
 
 ## Risk Assessment
 
