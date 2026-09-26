@@ -8,6 +8,7 @@ import { SictedPersonasController } from "./sicted-personas.controller";
 import { SictedClientesController } from "./sicted-clientes.controller";
 import { SictedDireccionController } from "./sicted-direccion.controller";
 import { SictedDireccionLegalController } from "./sicted-direccion-legal.controller";
+import { SictedDireccionReportController } from "./sicted-direccion-report.controller";
 import { ChecklistsModule } from "../checklists/checklists.module";
 import { AuthModule } from "../auth/auth.module";
 import { SictedPlanPdfService } from "./services/sicted-plan-pdf.service";
@@ -32,6 +33,8 @@ import { SictedObjectiveService } from "./services/sicted-objective.service";
 import { SictedEventService } from "./services/sicted-event.service";
 import { SictedComplianceDocService } from "./services/sicted-compliance-doc.service";
 import { SictedComplianceReminderService } from "./services/sicted-compliance-reminder.service";
+import { SictedAnnualReportService } from "./services/sicted-annual-report.service";
+import { SictedAnnualReportPdfService } from "./services/sicted-annual-report-pdf.service";
 
 /**
  * Módulo SICTED (Sostenibilidad, Inteligencia y Calidad Turística en el
@@ -54,6 +57,7 @@ import { SictedComplianceReminderService } from "./services/sicted-compliance-re
     SictedClientesController,
     SictedDireccionController,
     SictedDireccionLegalController,
+    SictedDireccionReportController,
   ],
   providers: [
     SictedPlanPdfService,
@@ -78,6 +82,8 @@ import { SictedComplianceReminderService } from "./services/sicted-compliance-re
     SictedEventService,
     SictedComplianceDocService,
     SictedComplianceReminderService,
+    SictedAnnualReportService,
+    SictedAnnualReportPdfService,
   ],
   exports: [],
 })

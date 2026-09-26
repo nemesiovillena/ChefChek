@@ -172,3 +172,24 @@ export interface UpdateComplianceDocInput {
   expiresAt?: string;
   attachment?: File;
 }
+
+/**
+ * Informe anual de calidad (SICTED fase 9, sub-PR 4) — agregado de solo
+ * lectura de fases 2/4/6/7/8/9.
+ */
+export interface SictedAnnualReport {
+  year: number;
+  objectives: { id: string; title: string; status: string; indicator: string | null; target: string | null; currentValue: string | null }[];
+  improvementActions: {
+    openCount: number;
+    closedThisYearCount: number;
+    closedThisYear: { code: number; title: string; closedAt: string }[];
+  };
+  events: { kind: string; count: number }[];
+  legalDocs: { label: string; title: string; expiresAt: string | null }[];
+  supplierIncidents: { count: number; resolvedCount: number };
+  training: { plansCount: number; actionsTotal: number; actionsDone: number };
+  feedback: { total: number; open: number; overdue: number };
+  satisfaction: { samplesCount: number; averageScore: number | null };
+  assessment: { label: string; closedAt: string; pendingMandatoryCount: number } | null;
+}

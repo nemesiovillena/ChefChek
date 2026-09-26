@@ -145,7 +145,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 6 | [Proveedores y aprovisionamiento](./phase-06-proveedores-y-aprovisionamiento.md) | Completed |
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
-| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | In progress (sub-PR 3/4) |
+| 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Completed |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
@@ -438,5 +438,21 @@ Eventos (grupos de mejora, formación del destino, evaluación externa) + docume
 **Revisión**: subagentes no disponibles, revisión inline. Dos hallazgos reales esta vez, ambos solo visibles fuera de una revisión de código estática: el bug de `FormData`+boolean solo se manifiesta al enviar una petición HTTP real con multipart (los tests e2e llaman al servicio Nest directamente, sin pasar por el pipe de validación HTTP — brecha de cobertura conocida y aceptada del proyecto, la verificación en navegador existe precisamente para cerrarla); el test flaky de fechas solo se ve al ejecutar la suite varias veces seguidas en una máquina rápida, no en una sola pasada.
 
 **Pendiente**: red-team del plan completo sigue diferido. Sub-PR 4 de fase 9 pendiente (Informe anual agregado, el último). Fase 10 pendiente.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 9, sub-PR 4/4 — 2026-09-26, rama `feat/sicted-fase-9-informe-anual` (sobre `develop`, con sub-PRs 1-3 ya fusionados) — **cierra fase 9**
+
+Informe anual de calidad (DIR.10): export agregado de solo lectura, sin tabla nueva en BD. `SictedAnnualReportService.aggregate(tenantId, year)` reúne en un `Promise.all` datos de seis fases distintas — objetivos y plan de mejora (sub-PR 2), eventos y documentos legales vigentes (sub-PR 3), autoevaluación cerrada más reciente del año con su recuento de obligatorias pendientes (sub-PR 1), incidencias de proveedores (fase 6), formación (fase 7), quejas/satisfacción (fase 8) — mismo patrón `Promise.all` de sub-agregados que `SictedProcurementEvidenceService` de fase 6. Reutiliza `SictedFeedbackService.overdue()` en vez de duplicar el cálculo del umbral de SLA configurable por tenant (DRY). PDF con PDFKit (`SictedAnnualReportPdfService`, mismo patrón que fase 2/4/5) + descarga iOS-safe con `window.open` síncrono (mismo patrón que fase 5). Tercer controlador (`SictedDireccionReportController`) bajo el mismo prefijo `api/v1/sicted/direccion`, por el mismo criterio de modularización por archivo de sub-PR 3.
+
+**Sin bugs propios esta vez** — tercera fase del plan (tras fase 8 y sub-PR 2) sin ningún hallazgo de implementación que corregir. El único ajuste durante la implementación fue en el propio test: cerrar una autoevaluación con `close()` en vez de forzar `closedAt` a mano (que dejaba `status` en `DRAFT` y el agregado no la encontraba) — error de test, no de producción, detectado y corregido antes de dar la fase por buena.
+
+**Tests**: 134 suites/2020 tests unitarios backend (sin cambios) + 24 suites/152 tests e2e backend (2 nuevos: agregación correcta con datos de las 6 fases sembrados directamente vía Prisma, filtrado estricto por año sin mezclar datos de otros años; año sin datos devuelve informe vacío, no error) sin regresiones. Frontend: `tsc --noEmit`, `eslint`, `next build` limpios (7ª pestaña "Informe anual" en `/dashboard/sicted/direccion`, con preview de tarjetas por bloque + botón de descarga PDF). Verificación manual en Chrome contra un tenant de prueba desechable (`fase9-subpr4-browser-test`) con datos sembrados en 7 tablas distintas (objetivo, evento, documento legal, incidencia de proveedor, plan+acción de formación, queja, muestra de satisfacción): la pestaña mostró cada número exactamente igual al sembrado (1 objetivo, GRUPO_MEJORA:1, 1 incidencia/0 resueltas, 1/1 acciones de formación, 1 queja/1 abierta, satisfacción 1 muestra media 4.0/5, 1 documento legal vigente), y el botón de descarga generó el PDF (blob autenticado cargado sin error, mismo mecanismo ya probado en fase 5). Nunca se tocó Warynessy; recuento de tenants/usuarios verificado idéntico antes/después (9/10).
+
+**Alcance no llevado a fase 9** (documentado, no silenciado): el criterio "6 prácticas con evidencia automática" de los criterios de éxito originales pertenecía al diseño basado en el manual equivocado (códigos `Res-Coc.4/5`, `Res-Hig.3/4`, `PROV.1/8`, que no existen en el catálogo real de 144 prácticas BP1-BP6) — el "motor de cobertura automática" tal como estaba concebido no se construye. Exportar la autoevaluación/plan de mejora al pack de auditoría de fase 5 tampoco se hizo — el informe anual de este sub-PR cubre esa necesidad de forma distinta (agregado propio en vez de añadir a los PDFs de fase 5).
+
+**Revisión**: subagentes no disponibles, revisión inline. Cuarta fase consecutiva de fase 9 verificada en navegador con datos reales sembrados en múltiples tablas a la vez — la coincidencia exacta cifra a cifra entre lo sembrado y lo mostrado en la pestaña es la prueba de que el agregado lee las fuentes correctas con los filtros de fecha/tenant correctos, algo que un test e2e aislado por fase ya cubre pero que aquí se confirma de extremo a extremo cruzando fases reales.
+
+**Pendiente**: red-team del plan completo sigue diferido por el usuario, para el plan entero (no solo fase 9). **Fase 9 completa (4/4 sub-PRs)** — fase 10 (Docs y cierre) es la siguiente y última fase del plan.
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.

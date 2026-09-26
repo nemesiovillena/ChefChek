@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, ClipboardCheck, ClipboardList, FileText, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calendar, ClipboardCheck, ClipboardList, FileBarChart, FileText, Target, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { SictedDireccionCatalogTab } from '../components/sicted-direccion-catalog-tab';
 import { SictedDireccionAssessmentTab } from '../components/sicted-direccion-assessment-tab';
@@ -10,10 +10,11 @@ import { SictedDireccionImprovementTab } from '../components/sicted-direccion-im
 import { SictedDireccionObjectivesTab } from '../components/sicted-direccion-objectives-tab';
 import { SictedDireccionEventsTab } from '../components/sicted-direccion-events-tab';
 import { SictedDireccionLegalTab } from '../components/sicted-direccion-legal-tab';
+import { SictedDireccionReportTab } from '../components/sicted-direccion-report-tab';
 
 export const dynamic = 'force-dynamic';
 
-type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos' | 'eventos' | 'legal';
+type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos' | 'eventos' | 'legal' | 'informe';
 
 const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
   { id: 'catalogo', label: 'Catálogo', icon: ClipboardCheck },
@@ -22,6 +23,7 @@ const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
   { id: 'objetivos', label: 'Objetivos', icon: TrendingUp },
   { id: 'eventos', label: 'Eventos', icon: Calendar },
   { id: 'legal', label: 'Legal', icon: FileText },
+  { id: 'informe', label: 'Informe anual', icon: FileBarChart },
 ];
 
 /**
@@ -81,6 +83,7 @@ export default function SictedDireccionPage() {
       {activeTab === 'objetivos' && <SictedDireccionObjectivesTab />}
       {activeTab === 'eventos' && <SictedDireccionEventsTab />}
       {activeTab === 'legal' && <SictedDireccionLegalTab />}
+      {activeTab === 'informe' && <SictedDireccionReportTab />}
     </div>
   );
 }
