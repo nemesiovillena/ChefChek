@@ -1713,6 +1713,51 @@ model SictedObjective {
   @@map("sicted_objectives")
 }
 
+// SICTED fase 9 (sub-PR 3) — Dirección: eventos (grupos de mejora, formación
+// del destino, evaluación externa) y documentos legales con caducidad.
+
+model SictedEvent {
+  id       String @id @default(cuid())
+  tenantId String
+
+  kind      String // GRUPO_MEJORA | FORMACION_DESTINO | EVALUACION_EXTERNA | OTRO
+  title     String
+  eventDate DateTime
+  attended  Boolean @default(true)
+  notes     String?
+
+  attachment Json? // StoredAttachment (acta/certificado), opcional
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("sicted_events")
+}
+
+model SictedComplianceDoc {
+  id       String @id @default(cuid())
+  tenantId String
+
+  label      String // etiqueta libre con sugerencias (NO enum rígido): "Extintores", "OCA Industria", "Convenio colectivo", "Protección de datos"...
+  title      String
+  holderName String?
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+
+  attachment Json? // StoredAttachment del documento escaneado, opcional
+
+  dueSoonAlertedAt DateTime? // se resetea a null cuando se actualiza expiresAt (renovación)
+  expiredAlertedAt DateTime?
+  archivedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, expiresAt])
+  @@map("sicted_compliance_docs")
+}
+
 // Production - Staff Member
 model StaffMember {
   id             String   @id @default(cuid())

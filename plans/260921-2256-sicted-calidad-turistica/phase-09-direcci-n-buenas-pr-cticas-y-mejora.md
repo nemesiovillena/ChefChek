@@ -119,8 +119,9 @@ Cobertura por práctica: si `autoEvidenceSource` está informado, la práctica s
 - [x] Autoevaluación cerrada e inmutable (trigger condicional). — sub-PR 1. Exportable al pack de auditoría: pendiente (sub-PR posterior).
 - [x] Plan de mejora con acciones trazables a su origen. — sub-PR 2: `origin`+`sourceRef`, generación directa desde obligatorias pendientes de una autoevaluación.
 - [ ] Informe anual de calidad se genera en un clic con datos reales del año. — pendiente, sub-PR 4.
-- [ ] Documentos legales próximos a caducar generan aviso. — pendiente, sub-PR 3.
+- [x] Documentos legales próximos a caducar generan aviso. — sub-PR 3: cron diario a 30 días/vencido, idempotente, reseteado al renovar.
 - [x] Objetivos anuales con indicador/meta/progreso. — sub-PR 2 (ya estaba en Requirements, añadido aquí por completitud).
+- [x] Eventos (grupo de mejora, formación del destino, evaluación externa) con asistencia. — sub-PR 3, evidencia append-only.
 
 ## Risk Assessment
 

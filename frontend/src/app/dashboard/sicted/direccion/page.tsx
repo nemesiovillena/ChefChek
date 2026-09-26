@@ -2,22 +2,26 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ClipboardCheck, ClipboardList, Target, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Calendar, ClipboardCheck, ClipboardList, FileText, Target, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { SictedDireccionCatalogTab } from '../components/sicted-direccion-catalog-tab';
 import { SictedDireccionAssessmentTab } from '../components/sicted-direccion-assessment-tab';
 import { SictedDireccionImprovementTab } from '../components/sicted-direccion-improvement-tab';
 import { SictedDireccionObjectivesTab } from '../components/sicted-direccion-objectives-tab';
+import { SictedDireccionEventsTab } from '../components/sicted-direccion-events-tab';
+import { SictedDireccionLegalTab } from '../components/sicted-direccion-legal-tab';
 
 export const dynamic = 'force-dynamic';
 
-type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos';
+type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos' | 'eventos' | 'legal';
 
 const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
   { id: 'catalogo', label: 'Catálogo', icon: ClipboardCheck },
   { id: 'autoevaluacion', label: 'Autoevaluación', icon: ClipboardList },
   { id: 'mejora', label: 'Plan de mejora', icon: Target },
   { id: 'objetivos', label: 'Objetivos', icon: TrendingUp },
+  { id: 'eventos', label: 'Eventos', icon: Calendar },
+  { id: 'legal', label: 'Legal', icon: FileText },
 ];
 
 /**
@@ -75,6 +79,8 @@ export default function SictedDireccionPage() {
       {activeTab === 'autoevaluacion' && <SictedDireccionAssessmentTab />}
       {activeTab === 'mejora' && <SictedDireccionImprovementTab />}
       {activeTab === 'objetivos' && <SictedDireccionObjectivesTab />}
+      {activeTab === 'eventos' && <SictedDireccionEventsTab />}
+      {activeTab === 'legal' && <SictedDireccionLegalTab />}
     </div>
   );
 }

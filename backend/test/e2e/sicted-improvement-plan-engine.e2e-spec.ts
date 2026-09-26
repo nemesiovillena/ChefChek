@@ -125,8 +125,14 @@ describe("E2E - Plan de mejora y objetivos SICTED (fase 9, sub-PR 2)", () => {
       });
       expect(closed.closedAt).toEqual(closedAt);
 
+      // Fecha deliberadamente distinta (+1s): el trigger solo bloquea una
+      // reescritura que REALMENTE cambia el valor (`IS DISTINCT FROM`) — dos
+      // `new Date()` consecutivas sin operación intermedia pueden caer en el
+      // mismo milisegundo en un entorno rápido y no dispararían el rechazo.
       await expect(
-        actions.update(tenantId, action.id, { closedAt: new Date() }),
+        actions.update(tenantId, action.id, {
+          closedAt: new Date(closedAt.getTime() + 1000),
+        }),
       ).rejects.toThrow(/no puede reescribirse/);
     });
   });

@@ -118,3 +118,57 @@ export interface UpdateObjectiveInput {
   currentValue?: string;
   status?: ObjectiveStatus;
 }
+
+/**
+ * Eventos y documentos legales (SICTED fase 9, sub-PR 3).
+ */
+
+export type EventKind = 'GRUPO_MEJORA' | 'FORMACION_DESTINO' | 'EVALUACION_EXTERNA' | 'OTRO';
+
+export interface SictedEvent {
+  id: string;
+  kind: EventKind;
+  title: string;
+  eventDate: string;
+  attended: boolean;
+  notes: string | null;
+  attachment: { name: string } | null;
+}
+
+export interface CreateEventInput {
+  kind: EventKind;
+  title: string;
+  eventDate: string;
+  attended?: boolean;
+  notes?: string;
+  attachment?: File;
+}
+
+export interface SictedComplianceDoc {
+  id: string;
+  label: string;
+  title: string;
+  holderName: string | null;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  attachment: { name: string } | null;
+  archivedAt: string | null;
+}
+
+export interface CreateComplianceDocInput {
+  label: string;
+  title: string;
+  holderName?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  attachment?: File;
+}
+
+export interface UpdateComplianceDocInput {
+  label?: string;
+  title?: string;
+  holderName?: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  attachment?: File;
+}
