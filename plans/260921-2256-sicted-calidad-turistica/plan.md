@@ -146,7 +146,7 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 7 | [Personas: puestos formación protocolos](./phase-07-personas-puestos-formaci-n-protocolos.md) | Completed |
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
 | 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Completed |
-| 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | Pending |
+| 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | In progress (docs+memoria hechos; deploy a prod y activación en piloto pendientes de decisión del usuario) |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
 
@@ -454,5 +454,17 @@ Informe anual de calidad (DIR.10): export agregado de solo lectura, sin tabla nu
 **Revisión**: subagentes no disponibles, revisión inline. Cuarta fase consecutiva de fase 9 verificada en navegador con datos reales sembrados en múltiples tablas a la vez — la coincidencia exacta cifra a cifra entre lo sembrado y lo mostrado en la pestaña es la prueba de que el agregado lee las fuentes correctas con los filtros de fecha/tenant correctos, algo que un test e2e aislado por fase ya cubre pero que aquí se confirma de extremo a extremo cruzando fases reales.
 
 **Pendiente**: red-team del plan completo sigue diferido por el usuario, para el plan entero (no solo fase 9). **Fase 9 completa (4/4 sub-PRs)** — fase 10 (Docs y cierre) es la siguiente y última fase del plan.
+
+**Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
+
+### Fase 10 (parte 1: docs + memoria) — 2026-09-26, rama `feat/sicted-fase-10-docs-cierre` (sobre `develop`, con fase 9 completa ya fusionada)
+
+Documentación redactada desde el código final (no desde este plan, tal como pide la fase): `docs/sicted-system-architecture.md` (nuevo) cubre estructura de módulos backend/frontend, modelo de datos completo por bloque, catálogo de 144 prácticas, los 3 triggers de inalterabilidad + el escape, los 3 cron jobs, roles/guards, exportables PDF/CSV, adjuntos privados, exclusión de backup/restore, y los límites conocidos documentados explícitamente (motor de cobertura automática no construido, autoevaluación no exportada al pack de fase 5, sin integración con la plataforma oficial). `docs/codebase-summary.md` actualizado con la entrada del módulo (llevaba sin mencionar `sicted` pese a 9 fases ya fusionadas).
+
+Memoria del proyecto (paso 6 del plan): 2 entradas nuevas (`sicted-manual-source-correction-appcc-confusion`, `sicted-inalterabilidad-triggers-postgres`) y **1 entrada obsoleta eliminada** (`sicted-manual-oficial-catalogo-y-escala` — contenía la escala y estructura de módulos del manual equivocado, habría inducido a error a una sesión futura que la recuperase sin releer este plan).
+
+Retro (paso 7) documentada en `phase-10-docs-y-cierre.md`: qué prácticas del catálogo real quedan fuera del software (protocolos puramente narrativos, ventas/marketing, integración con la plataforma oficial) y por qué.
+
+**Pendiente de decisión del usuario, no completable de forma autónoma en esta sesión**: el release `develop→main` (regla del proyecto: nunca push directo a `main`) y la activación del módulo en el tenant piloto real de Warynessy — acción sensible sobre producción que requiere confirmación explícita, más "completar productos/dosis reales con la cocina" (requiere participación humana del personal) y el propio periodo de "una semana de registros reales validados" (no completable en una sesión). Backup+restore dedicado con datos SICTED tampoco se ha ejecutado como prueba aparte (el escape de inmutabilidad sí se ejercita indirectamente en todos los tests e2e de limpieza de fixtures).
 
 **Pendiente de commit**: cambios sin confirmar, a la espera del usuario.
