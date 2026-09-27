@@ -216,9 +216,12 @@ function ListEditor({
   const deleteMut = useDeletePurchaseList();
   const generateMut = useGenerateOrderFromList();
 
-  // Ningún artículo se marca al cargar, tanto para catálogo pendiente como
-  // para una lista ya guardada: el usuario elige a mano qué incluye en cada
-  // pedido, en lugar de heredar la marca de la vez anterior.
+  // Ningún artículo se marca al cargar y toda cantidad arranca en 1, tanto
+  // para catálogo pendiente como para una lista ya guardada: el usuario
+  // elige a mano qué incluye en cada pedido y cuántas unidades, en lugar de
+  // heredar la marca y las cantidades de la vez anterior. (defaultQuantity
+  // se sigue persistiendo al guardar como fallback de los pedidos que
+  // genera el cron de programación, pero no vuelve a esta vista.)
   const [rows, setRows] = useState<EditorRow[]>(
     sortRowsByName(
       pendingCatalog && list.items.length === 0
@@ -233,7 +236,7 @@ function ListEditor({
             productId: item.productId,
             name: item.product?.name ?? item.productId,
             unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
-            quantity: item.defaultQuantity,
+            quantity: 1,
             checked: false,
           })),
     ),
@@ -422,7 +425,7 @@ function ListEditor({
                 setRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))
               }
               aria-label="Seleccionar todos los artículos"
-              className="h-4 w-4 accent-[var(--primary)]"
+              className="h-5 w-5 accent-[var(--primary)]"
             />
             Seleccionar todos
           </label>
@@ -450,7 +453,7 @@ function ListEditor({
                   )
                 }
                 aria-label={`Incluir ${row.name}`}
-                className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                className="h-5 w-5 shrink-0 accent-[var(--primary)]"
               />
               <span className="min-w-0 flex-1 text-sm text-[var(--on-surface)] sm:truncate">
                 {row.name}

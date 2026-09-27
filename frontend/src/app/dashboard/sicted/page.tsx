@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ClipboardList, Loader2, NotebookPen, ShieldAlert, Verified, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Award, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
 
@@ -91,6 +91,46 @@ export default function SictedHubPage() {
         >
           <Wrench className="h-5 w-5 shrink-0 text-[var(--primary)]" />
           <span className="font-medium">Mantenimiento</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/auditoria')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <ClipboardCheck className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Auditoría</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/proveedores')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <Truck className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Proveedores y aprovisionamiento</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/personas')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <Users className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Personas</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/clientes')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <MessageSquareWarning className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Cliente</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard/sicted/direccion')}
+          className="flex min-h-[56px] items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3 text-left hover:bg-[var(--surface-container)]"
+        >
+          <Award className="h-5 w-5 shrink-0 text-[var(--primary)]" />
+          <span className="font-medium">Dirección</span>
         </button>
         {canManage && (
           <button

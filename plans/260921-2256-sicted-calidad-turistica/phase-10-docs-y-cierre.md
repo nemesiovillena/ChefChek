@@ -1,7 +1,7 @@
 ---
 phase: 10
 title: "Docs y cierre"
-status: pending
+status: in-progress
 priority: P2
 effort: "S"
 dependencies: [5]
@@ -36,12 +36,23 @@ Documentar lo construido, dejar reproducible el despliegue y activar el módulo 
 
 ## Success Criteria
 
-- [ ] Docs coherentes con el código y sin enlaces rotos.
-- [ ] Migración aplicada en prod sin errores; módulo off para el resto de tenants.
-- [ ] Piloto con al menos una semana de registros reales validados.
-- [ ] Backup+restore de prueba en `chefchek_test` OK con datos SICTED.
+- [x] Docs coherentes con el código y sin enlaces rotos. — `docs/sicted-system-architecture.md` (nuevo, redactado desde el código final, no desde este plan) + entrada en `docs/codebase-summary.md`.
+- [ ] Migración aplicada en prod sin errores; módulo off para el resto de tenants. — **pendiente de decisión del usuario**: requiere un release PR `develop→main`, no se hace sin confirmación explícita (regla del proyecto: nunca push directo a `main`, deploy = PR release).
+- [ ] Piloto con al menos una semana de registros reales validados. — **no completable en esta sesión** (requiere una semana de uso real por el personal de Warynessy tras la activación).
+- [ ] Backup+restore de prueba en `chefchek_test` OK con datos SICTED. — cubierto de forma indirecta: el escape `chefchek.allow_evidence_purge` se ejercita en todos los tests e2e de limpieza de fixtures (fases 1-9); no se ha corrido un backup/restore JSON completo dedicado con datos SICTED reales como prueba aparte.
+
+Guardado en memoria del proyecto (paso 6 del plan): `sicted-manual-source-correction-appcc-confusion` y `sicted-inalterabilidad-triggers-postgres` (decisión SICTED≠APPCC, patrón de triggers con escape, corrección crítica de fuente del manual).
 
 ## Risk Assessment
 
 - *Piloto con plantillas de ejemplo tomadas como reales*: checklist de puesta en marcha con firma del responsable.
 - *Rollback*: desactivar módulo (los datos permanecen); la migración es aditiva, no se revierte en prod una vez hay evidencia (regla de cero pérdida de datos).
+
+## Retro (paso 7): qué queda sin cobertura software
+
+De las 144 prácticas del catálogo real (BP1-BP6), el software cubre directamente (registro, evidencia o motor de checklist) los bloques de limpieza/mantenimiento (BP5/BP6), proveedores/recepción/FIFO (BP4), personas/formación/protocolos (BP1), cliente/quejas/satisfacción (BP2), y el propio ciclo de autoevaluación/plan de mejora/objetivos/eventos/documentos legales (Dirección). Quedan explícitamente **fuera del software**, como el plan siempre dejó claro:
+
+- Prácticas puramente documentales/procedimentales sin dato que registrar (protocolos de bienvenida, gestión de reservas/lista de espera, servicio de mesa, cobro) — Chefchek no es TPV ni sistema de reservas; se cubren con protocolo narrativo en la Wiki + acuse de lectura (fase 7), no con un formulario de datos.
+- Ventas y marketing (BP3): mayormente criterios de precios/cartas en varios idiomas/promoción — fuera del dominio de datos de Chefchek.
+- Integración con la plataforma oficial SICTED: la autoevaluación de este módulo es apoyo interno; no hay API pública verificada para conectar con la evaluación real.
+- El "motor de cobertura automática" (marcar una práctica como "con evidencia" sin acción manual, cruzando el catálogo real con los módulos operativos) no se construyó — ver "Límites conocidos" en `docs/sicted-system-architecture.md`.

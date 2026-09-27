@@ -22,6 +22,7 @@ describe("FoodLabelService", () => {
       findMany: jest.fn(),
       count: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   };
@@ -413,6 +414,88 @@ describe("FoodLabelService", () => {
     });
   });
 
+  describe("retire / unretire", () => {
+    it("retires only active labels of the tenant and records who and how", async () => {
+      mockPrisma.foodLabel.updateMany.mockResolvedValue({ count: 2 });
+      const result = await service.retire(
+        TENANT,
+        USER,
+        ["fl1", "fl2", "fl3"],
+        "DISCARDED",
+      );
+      expect(result).toEqual({ retired: 2 });
+      const call = mockPrisma.foodLabel.updateMany.mock.calls[0][0];
+      expect(call.where).toEqual({
+        tenantId: TENANT,
+        id: { in: ["fl1", "fl2", "fl3"] },
+        voidedAt: null,
+        retiredAt: null,
+      });
+      expect(call.data).toMatchObject({
+        retiredDisposition: "DISCARDED",
+        retiredByUserId: "u1",
+        retiredByName: "Ana López",
+      });
+      expect(call.data.retiredAt).toBeInstanceOf(Date);
+    });
+
+    it("undoes a same-day retirement and keeps it in editLog", async () => {
+      const retiredAt = new Date();
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        id: "fl1",
+        retiredAt,
+        retiredDisposition: "CONSUMED",
+        retiredByName: "Ana López",
+        editLog: [{ at: "x", by: "y", changes: {} }],
+      });
+      mockPrisma.foodLabel.update.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        useByDate: new Date(),
+        frozenUseByDate: null,
+        voidedAt: null,
+        ...data,
+      }));
+      await service.unretire(TENANT, USER, "fl1");
+      const { data } = mockPrisma.foodLabel.update.mock.calls[0][0];
+      expect(data.retiredAt).toBeNull();
+      expect(data.retiredDisposition).toBeNull();
+      expect(data.editLog).toHaveLength(2);
+      expect(data.editLog[1].changes.retired).toEqual({
+        from: {
+          at: retiredAt.toISOString(),
+          disposition: "CONSUMED",
+          by: "Ana López",
+        },
+        to: null,
+      });
+    });
+
+    it("rejects undoing a retirement from another day", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        id: "fl1",
+        retiredAt: new Date(Date.now() - 3 * 86_400_000),
+        retiredDisposition: "CONSUMED",
+        retiredByName: "Ana López",
+        editLog: null,
+      });
+      await expect(
+        service.unretire(TENANT, USER, "fl1"),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(mockPrisma.foodLabel.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects undoing a label that is not retired", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue({
+        id: "fl1",
+        retiredAt: null,
+        editLog: null,
+      });
+      await expect(
+        service.unretire(TENANT, USER, "fl1"),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
   describe("update", () => {
     const editableLabel = () => ({
       id: "fl1",
@@ -567,6 +650,31 @@ describe("FoodLabelService", () => {
     });
   });
 
+  describe("list — retirement filter", () => {
+    const whereFor = async (query: Record<string, unknown>) => {
+      jest.clearAllMocks();
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, query);
+      return mockPrisma.foodLabel.findMany.mock.calls[0][0].where;
+    };
+
+    it("keeps retired labels in the full register by default", async () => {
+      expect((await whereFor({})).retiredAt).toBeUndefined();
+    });
+
+    it("filters active / retired", async () => {
+      expect((await whereFor({ retirement: "active" })).retiredAt).toBeNull();
+      expect((await whereFor({ retirement: "retired" })).retiredAt).toEqual({
+        not: null,
+      });
+    });
+
+    it("never alerts on retired labels", async () => {
+      expect((await whereFor({ expiringWithinDays: 3 })).retiredAt).toBeNull();
+    });
+  });
+
   describe("expiry fields (daysUntilExpiry / expiryStatus)", () => {
     const DAY = 86_400_000;
     const baseLabel = (overrides: Record<string, unknown> = {}) => ({
@@ -575,6 +683,7 @@ describe("FoodLabelService", () => {
       useByDate: new Date(Date.now() + 10 * DAY),
       frozenUseByDate: null,
       voidedAt: null,
+      retiredAt: null,
       ...overrides,
     });
 
@@ -648,6 +757,17 @@ describe("FoodLabelService", () => {
       );
       const result: any = await service.getById(TENANT, "fl1");
       expect(result.daysUntilExpiry).toBeNull();
+      expect(result.expiryStatus).toBeNull();
+    });
+
+    it("returns null expiry fields for an expired label that was retired", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(
+        baseLabel({
+          retiredAt: new Date(),
+          useByDate: new Date(Date.now() - 10 * DAY),
+        }),
+      );
+      const result: any = await service.getById(TENANT, "fl1");
       expect(result.expiryStatus).toBeNull();
     });
 

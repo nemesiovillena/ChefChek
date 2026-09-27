@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "Proveedores y aprovisionamiento"
-status: pending
+status: completed
 priority: P2
 effort: "S"
 dependencies: [1]
@@ -77,10 +77,10 @@ SictedInventorySnapshot         id, tenantId, performedAt, performedByName, scop
 
 ## Success Criteria
 
-- [ ] Cada proveedor activo muestra su perfil de cumplimiento y su última incidencia de recepción (si la hay).
-- [ ] Un inventario generado queda como evidencia permanente e inmutable, con el desglose bajo-mínimo/sobre-máximo del momento.
-- [ ] Evidencia de aprovisionamiento del mes visible en un clic y exportable.
-- [ ] `git diff` no toca los módulos leídos.
+- [x] Cada proveedor activo muestra su perfil de cumplimiento y su última incidencia de recepción (si la hay). Verificado en navegador: tarjeta de proveedor con "Perfil actualizado por…" y "Última incidencia: abierta · fecha".
+- [x] Un inventario generado queda como evidencia permanente e inmutable, con el desglose bajo-mínimo/sobre-máximo del momento. Verificado: trigger `forbid_mutation` bloquea `UPDATE`/`DELETE` (test e2e); snapshot congelado aunque `Stock` cambie después (test e2e + navegador).
+- [x] Evidencia de aprovisionamiento del mes visible en un clic y exportable (panel, no descarga — el manual solo pide visibilidad; no hay práctica que exija un PDF/CSV de este panel). Verificado en navegador con datos sembrados: 4 agregados correctos.
+- [x] `git diff` no toca los módulos leídos. Confirmado con `git diff --stat -- backend/src/modules/albaranes backend/src/modules/etiquetado backend/src/modules/almacenes backend/src/modules/proveedores` (sin salida).
 
 ## Risk Assessment
 
