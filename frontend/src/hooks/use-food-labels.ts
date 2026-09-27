@@ -10,6 +10,13 @@ import {
 export type LabelType = 'ELABORATED' | 'HANDLED';
 export type StorageCondition = 'REFRIGERATED' | 'FROZEN' | 'AMBIENT';
 export type ExpiryStatus = 'ok' | 'expiring_soon' | 'expired';
+/** Destino de una etiqueta retirada: se gastó o se tiró. */
+export type RetiredDisposition = 'CONSUMED' | 'DISCARDED';
+
+export const RETIRED_DISPOSITION_LABEL: Record<RetiredDisposition, string> = {
+  CONSUMED: 'Consumida',
+  DISCARDED: 'Desechada',
+};
 
 export interface FoodLabelIngredientLot {
   id: string;
@@ -50,13 +57,16 @@ export interface FoodLabel {
   qrToken: string;
   voidedAt: string | null;
   voidReason: string | null;
+  retiredAt: string | null;
+  retiredDisposition: RetiredDisposition | null;
+  retiredByName: string | null;
   editedAt: string | null;
   editedByName: string | null;
   editCount: number;
   createdAt: string;
-  /** Negativo si ya caducó. `null` en etiquetas anuladas. */
+  /** Negativo si ya caducó. `null` en etiquetas anuladas o retiradas. */
   daysUntilExpiry: number | null;
-  /** `null` en etiquetas anuladas. */
+  /** `null` en etiquetas anuladas o retiradas. */
   expiryStatus: ExpiryStatus | null;
   ingredientLots: FoodLabelIngredientLot[];
   recipe: { id: string; name: string } | null;
@@ -86,6 +96,8 @@ export interface FoodLabelListQuery {
   from?: string;
   to?: string;
   includeVoided?: boolean;
+  /** `active` = sin retirar; `retired` = gastadas/desechadas; sin valor = todas. */
+  retirement?: 'active' | 'retired';
   page?: number;
   pageSize?: number;
   /** Filtra a `daysUntilExpiry <= N` (incluye ya caducadas). */
@@ -298,6 +310,49 @@ export function useVoidFoodLabel() {
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+  });
+}
+
+/**
+ * Retirar (consumida/desechada) cierra la alerta de caducidad: refresca el
+ * listado y la tarjeta de Caducidades del dashboard.
+ */
+export function useRetireFoodLabels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      ids,
+      disposition,
+    }: {
+      ids: string[];
+      disposition: RetiredDisposition;
+    }) => {
+      const res = await apiClient.post<{ retired: number }>(
+        '/v1/etiquetado/labels/retire',
+        { ids, disposition },
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
+}
+
+export function useUnretireFoodLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<FoodLabel>(
+        `/v1/etiquetado/labels/${id}/unretire`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
   });
 }
 

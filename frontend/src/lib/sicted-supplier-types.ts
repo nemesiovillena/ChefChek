@@ -103,6 +103,8 @@ export interface ProcurementEvidenceReport {
   to: string;
   receptions: { confirmedCount: number; withLotCount: number };
   expiringSoon: { warningDays: number; count: number };
+  /** Etiquetas retiradas en el periodo (producto consumido o desechado). */
+  labelsRetired: { consumedCount: number; discardedCount: number };
   labelsIssued: { count: number };
   stockAlerts: {
     belowMinimumCount: number;

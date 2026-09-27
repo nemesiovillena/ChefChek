@@ -16,6 +16,13 @@ con trazabilidad, para platos elaborados y artículos comprados manipulados.
 Cada etiqueta se persiste (`FoodLabel`) como registro consultable. Anular =
 `voidedAt` (soft), nunca borrado físico. Re-imprimible (`reprintCount`).
 
+Retirar = el producto ya se gastó (`CONSUMED`) o se tiró (`DISCARDED`):
+`retiredAt` + `retiredDisposition` + `retiredByName`. Cierra las alertas de
+caducidad (listado, dashboard, SICTED) sin borrar nada; la etiqueta sigue en el
+registro APPCC/SICTED. Se puede reimprimir, no corregir. Deshacer solo el mismo día
+(queda anotado en `editLog`). Anular ≠ retirar: anular es para etiquetas
+erróneas.
+
 ## Gating
 
 - Módulo: `etiquetado` en `MODULE_REGISTRY`, `defaultEnabled: false` (opt-in por
@@ -48,6 +55,7 @@ sobreviven al borrado/renombrado de la receta o el artículo de origen.
 | `createdByName` | nombre completo (solo se expone en el detalle autenticado) |
 | `qrToken` | UUID v4 (`@default(uuid())`) → credencial de la ficha pública |
 | `voidedAt` / `voidReason` | anulación soft |
+| `retiredAt` / `retiredDisposition` / `retiredByUserId` / `retiredByName` | retirada (`CONSUMED` \| `DISCARDED`), quién y cuándo |
 
 ### `FoodLabelIngredientLot` (`food_label_ingredient_lots`)
 
@@ -96,17 +104,19 @@ Autenticado (`AuthGuard, TenantGuard, ModuleGuard, SectionAccessGuard` +
 | Método | Ruta | Sección |
 |---|---|---|
 | `POST` | `/labels` | `etiquetado.emit` |
-| `GET` | `/labels` | `etiquetado` — paginado, filtros `labelType`, `lotNumber`, `expiringWithinDays`, rango `preparedAt`, `includeVoided`, `sortBy: 'preparedAt'\|'useByDate'` |
+| `GET` | `/labels` | `etiquetado` — paginado, filtros `labelType`, `lotNumber`, `expiringWithinDays` (excluye siempre retiradas), `retirement: 'active'\|'retired'` (sin valor = todas), rango `preparedAt`, `includeVoided`, `sortBy: 'preparedAt'\|'useByDate'` |
 | `GET` | `/labels/:id` | `etiquetado` |
 | `GET` | `/labels/:id/pdf?format=&copies=&reprint=1` | `etiquetado.emit` |
 | `POST` | `/labels/:id/void` | `etiquetado.emit` + rol ≥ USER |
+| `POST` | `/labels/retire` `{ ids[], disposition }` | `etiquetado.emit` + rol ≥ USER — solo activas; devuelve `{ retired }` |
+| `POST` | `/labels/:id/unretire` | `etiquetado.emit` + rol ≥ USER — solo el mismo día |
 | `GET` | `/prep-context?recipeId=` \| `?productId=` | `etiquetado.emit` |
 | `GET` | `/config` | `etiquetado` |
 | `PUT` | `/config` | rol `ADMIN` |
 
 Campos derivados en cada `FoodLabel` (GET `/labels`, GET `/labels/:id`, POST/PUT `/labels`):
 - `daysUntilExpiry: number` — días restantes hasta caducidad (negativo si ya caducó)
-- `expiryStatus: 'ok' | 'expiring_soon' | 'expired'` — estado basado en `expiryWarningDays` del tenant
+- `expiryStatus: 'ok' | 'expiring_soon' | 'expired'` — estado basado en `expiryWarningDays` del tenant (`null` si anulada o retirada)
 
 Config (`/config`): ahora incluye `expiryWarningDays` (1–30 días, default 5), umbral configurable por admin para alertas de caducidad.
 
@@ -184,6 +194,9 @@ térmica estándar; la térmica compacta (57×32) no lleva QR.
   responsable, reimprimir, anular).
 - `/dashboard/appcc/caducidades` — panel de gestión de caducidades (listado de
   etiquetas ELABORATED + HANDLED con alerta visual por proximidad a vencimiento).
+  Filtro Estado (Activas por defecto / Retiradas / Todas) y selección múltiple
+  para marcar como consumidas o desechadas. SICTED (PROV.6/PROV.8) muestra las
+  retiradas del mes.
 - `/e/[qrToken]` — **ficha pública** (Server Component, fuera de `/dashboard`,
   sin login). Es lo que abre el QR.
 - Botón "Etiquetar" en la fila de Recetas y en el pie del modal de Artículo,

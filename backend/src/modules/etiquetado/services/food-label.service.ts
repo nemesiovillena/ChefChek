@@ -14,7 +14,10 @@ import {
   isSameMadridDay,
   resolveConservation,
 } from "../util/shelf-life.util";
-import { StorageCondition } from "../constants/storage-condition.constant";
+import {
+  RetiredDisposition,
+  StorageCondition,
+} from "../constants/storage-condition.constant";
 import { deriveLotPrefix } from "../util/lot-prefix.util";
 import { CreateFoodLabelDto } from "../dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "../dto/update-food-label.dto";
@@ -65,10 +68,12 @@ export class FoodLabelService {
       useByDate: Date;
       frozenUseByDate: Date | null;
       voidedAt: Date | null;
+      retiredAt: Date | null;
     },
     warningDays: number,
   ): { daysUntilExpiry: number | null; expiryStatus: ExpiryStatus | null } {
-    if (label.voidedAt) {
+    // Anulada o retirada (ya gastada/tirada): la caducidad deja de importar.
+    if (label.voidedAt || label.retiredAt) {
       return { daysUntilExpiry: null, expiryStatus: null };
     }
     const effectiveExpiry = label.frozenUseByDate ?? label.useByDate;
@@ -89,6 +94,7 @@ export class FoodLabelService {
       useByDate: Date;
       frozenUseByDate: Date | null;
       voidedAt: Date | null;
+      retiredAt: Date | null;
     },
   >(label: T, warningDays: number) {
     return { ...label, ...this.computeExpiryFields(label, warningDays) };
@@ -338,6 +344,12 @@ export class FoodLabelService {
           }
         : {}),
       ...(query.includeVoided ? {} : { voidedAt: null }),
+      ...(query.retirement === "active" ||
+      query.expiringWithinDays !== undefined
+        ? { retiredAt: null }
+        : query.retirement === "retired"
+          ? { retiredAt: { not: null } }
+          : {}),
       ...(query.expiringWithinDays !== undefined
         ? {
             OR: [
@@ -437,6 +449,95 @@ export class FoodLabelService {
       data: { voidedAt: new Date(), voidReason: reason?.trim() || null },
       include: FOOD_LABEL_INCLUDE,
     });
+  }
+
+  /**
+   * Marca etiquetas como retiradas (producto consumido o desechado). No borra
+   * nada: los campos `retired*` son el propio registro APPCC/SICTED de qué se
+   * hizo con el producto, quién y cuándo. Solo afecta a etiquetas activas (ni
+   * anuladas ni ya retiradas) del tenant; el resto se ignora sin error para
+   * que la selección múltiple no falle por una fila obsoleta.
+   */
+  async retire(
+    tenantId: string,
+    user: SessionUser,
+    ids: string[],
+    disposition: RetiredDisposition,
+  ) {
+    const { count } = await this.prisma.foodLabel.updateMany({
+      where: {
+        tenantId,
+        id: { in: ids },
+        voidedAt: null,
+        retiredAt: null,
+      },
+      data: {
+        retiredAt: new Date(),
+        retiredDisposition: disposition,
+        retiredByUserId: user.id,
+        retiredByName: user.name?.trim() || "—",
+      },
+    });
+    return { retired: count };
+  }
+
+  /**
+   * Deshace una retirada hecha por error, solo el mismo día. La retirada
+   * deshecha queda anotada en `editLog` para que el registro no se pierda.
+   */
+  async unretire(tenantId: string, user: SessionUser, id: string) {
+    const label = await this.prisma.foodLabel.findFirst({
+      where: { id, tenantId },
+      select: {
+        id: true,
+        retiredAt: true,
+        retiredDisposition: true,
+        retiredByName: true,
+        editLog: true,
+      },
+    });
+    if (!label) {
+      throw new NotFoundException("Etiqueta no encontrada");
+    }
+    if (!label.retiredAt) {
+      throw new ConflictException("La etiqueta no está retirada");
+    }
+    if (!isSameMadridDay(label.retiredAt, new Date())) {
+      throw new ConflictException(
+        "Solo se puede deshacer una retirada el mismo día en que se hizo.",
+      );
+    }
+    const priorLog = Array.isArray(label.editLog)
+      ? (label.editLog as unknown[])
+      : [];
+    const entry = {
+      at: new Date().toISOString(),
+      by: user.name?.trim() || "—",
+      changes: {
+        retired: {
+          from: {
+            at: label.retiredAt.toISOString(),
+            disposition: label.retiredDisposition,
+            by: label.retiredByName,
+          },
+          to: null,
+        },
+      },
+    };
+    const updated = await this.prisma.foodLabel.update({
+      where: { id },
+      data: {
+        retiredAt: null,
+        retiredDisposition: null,
+        retiredByUserId: null,
+        retiredByName: null,
+        editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+      },
+      include: FOOD_LABEL_INCLUDE,
+    });
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    return this.withExpiry(updated, warningDays);
   }
 
   /**
@@ -708,11 +809,17 @@ export class FoodLabelService {
 
   private assertEditable(label: {
     voidedAt: Date | null;
+    retiredAt: Date | null;
     createdAt: Date;
   }): void {
     if (label.voidedAt) {
       throw new ConflictException(
         "La etiqueta está anulada: crea una nueva en su lugar.",
+      );
+    }
+    if (label.retiredAt) {
+      throw new ConflictException(
+        "La etiqueta está retirada: deshaz la retirada antes de corregirla.",
       );
     }
     if (!isSameMadridDay(label.createdAt, new Date())) {
