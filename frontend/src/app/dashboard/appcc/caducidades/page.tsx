@@ -37,11 +37,27 @@ const STATUS_LABEL: Record<string, string> = {
 
 type RetirementFilter = 'active' | 'retired' | '';
 
+/** Versión corta para móvil, donde el chip va bajo la fecha de caducidad. */
+const STATUS_LABEL_SHORT: Record<string, string> = {
+  ...STATUS_LABEL,
+  expiring_soon: 'Próxima',
+};
+
 /** Chip de estado: retirada (con fecha) o estado de caducidad. */
 const statusText = (r: FoodLabel) =>
   r.retiredAt && r.retiredDisposition
     ? `${RETIRED_DISPOSITION_LABEL[r.retiredDisposition]} ${fmtDate(r.retiredAt)}`
     : STATUS_LABEL[r.expiryStatus ?? 'ok'];
+
+const statusTextShort = (r: FoodLabel) =>
+  r.retiredAt && r.retiredDisposition
+    ? RETIRED_DISPOSITION_LABEL[r.retiredDisposition]
+    : STATUS_LABEL_SHORT[r.expiryStatus ?? 'ok'];
+
+const chipClass = (isAlert: boolean) =>
+  isAlert
+    ? 'rounded-full bg-error/10 px-2 py-0.5 text-xs font-semibold text-error'
+    : 'rounded-full bg-[var(--surface-container-high)] px-2 py-0.5 text-xs text-[var(--on-surface-variant)]';
 
 /**
  * Panel de gestión de APPCC: lista TODAS las elaboraciones (ELABORATED) y
@@ -117,25 +133,31 @@ export default function CaducidadesPage() {
 
   return (
     <div
-      className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pt-8 ${selected.size > 0 ? 'pb-72 md:pb-32' : 'pb-24'}`}
+      className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pt-4 md:pt-8 ${selected.size > 0 ? 'pb-72 md:pb-32' : 'pb-24'}`}
     >
-      <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-4">
+      {/* En móvil sobra: el menú inferior ya lleva al dashboard. */}
+      <Button
+        variant="ghost"
+        onClick={() => router.push('/dashboard')}
+        className="mb-4 hidden md:inline-flex"
+      >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Volver al dashboard
       </Button>
 
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">
           APPCC
         </span>
         <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">
-          Caducidades y trazabilidad
+          Caducidades<span className="hidden md:inline"> y trazabilidad</span>
         </h2>
       </div>
 
-      {/* Filtros */}
-      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
-        <label className="text-sm">
+      {/* Filtros. En móvil: sin Tipo; lote a lo ancho y Estado + "Solo
+          próximas" en una fila, para que la lista entre en pantalla. */}
+      <div className="mb-3 grid grid-cols-2 items-end gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3 md:mb-4 md:flex md:flex-wrap md:gap-3">
+        <label className="hidden text-sm md:block">
           <span className="block text-[var(--on-surface-variant)]">Tipo</span>
           <select
             value={labelType}
@@ -151,7 +173,7 @@ export default function CaducidadesPage() {
             <option value="HANDLED">Artículos manipulados</option>
           </select>
         </label>
-        <label className="text-sm">
+        <label className="col-span-2 text-sm">
           <span className="block text-[var(--on-surface-variant)]">Buscar lote</span>
           <input
             value={lotNumber}
@@ -160,10 +182,10 @@ export default function CaducidadesPage() {
               resetPaging();
             }}
             placeholder="ej. JARR-310826"
-            className="mt-1 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
+            className="mt-1 w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
           />
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="order-last flex min-h-[44px] items-center gap-2 text-sm md:order-none md:min-h-0">
           <input
             type="checkbox"
             checked={onlyExpiring}
@@ -172,7 +194,9 @@ export default function CaducidadesPage() {
               resetPaging();
             }}
           />
-          Solo próximas a caducar
+          <span>
+            Solo próximas<span className="hidden md:inline"> a caducar</span>
+          </span>
         </label>
         <label className="text-sm">
           <span className="block text-[var(--on-surface-variant)]">Estado</span>
@@ -182,7 +206,7 @@ export default function CaducidadesPage() {
               setRetirement(e.target.value as RetirementFilter);
               resetPaging();
             }}
-            className="mt-1 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
+            className="mt-1 w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base md:w-auto"
             style={{ colorScheme: 'light dark' }}
           >
             <option value="active">Activas</option>
@@ -191,7 +215,7 @@ export default function CaducidadesPage() {
           </select>
         </label>
       </div>
-      <p className="mb-4 text-xs text-[var(--on-surface-variant)]">
+      <p className="mb-4 hidden text-xs text-[var(--on-surface-variant)] md:block">
         ¿Ya se gastó o se tiró? Selecciona las etiquetas y márcalas como consumidas o
         desechadas: dejan de avisar y quedan en el registro APPCC.
       </p>
@@ -216,7 +240,7 @@ export default function CaducidadesPage() {
           <table className="w-full text-sm">
             <thead className="bg-[var(--surface-container-high)] text-left text-[var(--on-surface-variant)]">
               <tr>
-                <th className="w-10 px-3 py-2">
+                <th className="w-10 px-2 py-2 md:px-3">
                   <input
                     type="checkbox"
                     aria-label="Seleccionar todas las de esta página"
@@ -226,12 +250,12 @@ export default function CaducidadesPage() {
                     className="h-5 w-5"
                   />
                 </th>
-                <th className="px-3 py-2">Nombre</th>
-                <th className="px-3 py-2">Lote</th>
-                <th className="px-3 py-2">Tipo</th>
-                <th className="px-3 py-2">Creación</th>
-                <th className="px-3 py-2">Caducidad</th>
-                <th className="px-3 py-2">Estado</th>
+                <th className="px-2 py-2 md:px-3">Nombre</th>
+                <th className="hidden px-3 py-2 md:table-cell">Lote</th>
+                <th className="hidden px-3 py-2 md:table-cell">Tipo</th>
+                <th className="hidden px-3 py-2 md:table-cell">Creación</th>
+                <th className="px-2 py-2 text-right md:px-3 md:text-left">Caducidad</th>
+                <th className="hidden px-3 py-2 md:table-cell">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -245,7 +269,7 @@ export default function CaducidadesPage() {
                     onClick={() => router.push(`/dashboard/etiquetado/${r.id}`)}
                     className={`cursor-pointer border-t border-[var(--outline-variant)] hover:bg-[var(--surface-container)] ${isRetired ? 'text-[var(--on-surface-variant)]' : ''}`}
                   >
-                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-2 py-2 md:px-3" onClick={(e) => e.stopPropagation()}>
                       {!isRetired && (
                         <input
                           type="checkbox"
@@ -256,25 +280,31 @@ export default function CaducidadesPage() {
                         />
                       )}
                     </td>
-                    <td className="px-3 py-2">{r.itemName}</td>
-                    <td className="px-3 py-2 font-mono font-semibold">{r.lotNumber}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 md:px-3">
+                      {r.itemName}
+                      {/* Móvil: el lote va bajo el nombre (su columna se oculta). */}
+                      <span className="block font-mono text-xs text-[var(--on-surface-variant)] md:hidden">
+                        {r.lotNumber}
+                      </span>
+                    </td>
+                    <td className="hidden px-3 py-2 font-mono font-semibold md:table-cell">
+                      {r.lotNumber}
+                    </td>
+                    <td className="hidden px-3 py-2 md:table-cell">
                       {r.labelType === 'ELABORATED' ? 'Elaboración' : 'Artículo'}
                     </td>
-                    <td className="px-3 py-2">{fmtDate(r.preparedAt)}</td>
-                    <td className={`px-3 py-2 ${isAlert ? 'text-error font-semibold' : ''}`}>
-                      {fmtDate(effectiveExpiry)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={
-                          isAlert
-                            ? 'rounded-full bg-error/10 px-2 py-0.5 text-xs font-semibold text-error'
-                            : 'rounded-full bg-[var(--surface-container-high)] px-2 py-0.5 text-xs text-[var(--on-surface-variant)]'
-                        }
-                      >
-                        {statusText(r)}
+                    <td className="hidden px-3 py-2 md:table-cell">{fmtDate(r.preparedAt)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right md:px-3 md:text-left">
+                      <span className={isAlert ? 'text-error font-semibold' : ''}>
+                        {fmtDate(effectiveExpiry)}
                       </span>
+                      {/* Móvil: el estado va bajo la fecha (su columna se oculta). */}
+                      <span className="mt-1 block md:hidden">
+                        <span className={chipClass(isAlert)}>{statusTextShort(r)}</span>
+                      </span>
+                    </td>
+                    <td className="hidden px-3 py-2 md:table-cell">
+                      <span className={chipClass(isAlert)}>{statusText(r)}</span>
                     </td>
                   </tr>
                 );
