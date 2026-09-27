@@ -10,6 +10,8 @@ export interface ProcurementEvidenceReport {
   to: Date;
   receptions: { confirmedCount: number; withLotCount: number };
   expiringSoon: { warningDays: number; count: number };
+  /** Etiquetas retiradas en el periodo: registro de rotación/desecho de producto. */
+  labelsRetired: { consumedCount: number; discardedCount: number };
   labelsIssued: { count: number };
   stockAlerts: {
     belowMinimumCount: number;
@@ -45,14 +47,23 @@ export class SictedProcurementEvidenceService {
     from: Date,
     to: Date,
   ): Promise<ProcurementEvidenceReport> {
-    const [receptions, expiringSoon, labelsIssued, stockAlerts] =
+    const [receptions, expiringSoon, labelsRetired, labelsIssued, stockAlerts] =
       await Promise.all([
         this.receptionsEvidence(tenantId, from, to),
         this.expiringSoonEvidence(tenantId),
+        this.labelsRetiredEvidence(tenantId, from, to),
         this.labelsIssuedEvidence(tenantId, from, to),
         this.stockAlertsEvidence(tenantId),
       ]);
-    return { from, to, receptions, expiringSoon, labelsIssued, stockAlerts };
+    return {
+      from,
+      to,
+      receptions,
+      expiringSoon,
+      labelsRetired,
+      labelsIssued,
+      stockAlerts,
+    };
   }
 
   /** PROV.4: compras formalizadas — recepciones confirmadas en el periodo, "n de m con lote" (nunca un % que oculte huecos). */
@@ -84,6 +95,7 @@ export class SictedProcurementEvidenceService {
       where: {
         tenantId,
         voidedAt: null,
+        retiredAt: null,
         OR: [
           { frozenUseByDate: { not: null, lte: threshold } },
           { frozenUseByDate: null, useByDate: { lte: threshold } },
@@ -101,6 +113,22 @@ export class SictedProcurementEvidenceService {
     return Number.isFinite(parsed) && parsed >= 1 && parsed <= 30
       ? parsed
       : DEFAULT_EXPIRY_WARNING_DAYS;
+  }
+
+  /** PROV.6/PROV.8: control de caducidad — qué se hizo con el producto etiquetado (consumido a tiempo vs desechado). */
+  private async labelsRetiredEvidence(tenantId: string, from: Date, to: Date) {
+    const groups = await this.prisma.foodLabel.groupBy({
+      by: ["retiredDisposition"],
+      where: { tenantId, retiredAt: { gte: from, lt: to } },
+      _count: { _all: true },
+    });
+    const countOf = (disposition: string) =>
+      groups.find((g) => g.retiredDisposition === disposition)?._count._all ??
+      0;
+    return {
+      consumedCount: countOf("CONSUMED"),
+      discardedCount: countOf("DISCARDED"),
+    };
   }
 
   /** PROV.6: etiquetado interno — etiquetas emitidas en el periodo (incluye anuladas: emitir también es evidencia). */

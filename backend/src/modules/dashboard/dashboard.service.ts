@@ -297,6 +297,7 @@ export class DashboardService {
     const expiringLabelsWhere: Prisma.FoodLabelWhereInput = {
       tenantId,
       voidedAt: null,
+      retiredAt: null,
       OR: [
         { frozenUseByDate: { not: null, lte: expiryThreshold } },
         { frozenUseByDate: null, useByDate: { lte: expiryThreshold } },
@@ -309,6 +310,7 @@ export class DashboardService {
           where: {
             tenantId,
             voidedAt: null,
+            retiredAt: null,
             frozenUseByDate: null,
             useByDate: { lte: expiryThreshold },
           },
@@ -319,6 +321,7 @@ export class DashboardService {
           where: {
             tenantId,
             voidedAt: null,
+            retiredAt: null,
             frozenUseByDate: { not: null, lte: expiryThreshold },
           },
           orderBy: { frozenUseByDate: "asc" },

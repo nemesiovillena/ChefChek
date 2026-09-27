@@ -2786,6 +2786,12 @@ model FoodLabel {
   qrToken                String    @unique @default(uuid()) // UUID v4 (aleatorio, no adivinable); credencial de la ficha pública sin login
   voidedAt               DateTime?
   voidReason             String?
+  // Retirada: el producto etiquetado ya se gastó o se tiró. Cierra las
+  // alertas de caducidad sin borrar nada (queda como registro APPCC/SICTED).
+  retiredAt              DateTime?
+  retiredDisposition     String? // CONSUMED | DISCARDED
+  retiredByUserId        String?
+  retiredByName          String?
   // Corrección de errores el mismo día, antes de reimprimir. editLog es un
   // array de { at, by, changes: { campo: { from, to } } }.
   editedAt               DateTime?
@@ -2806,6 +2812,7 @@ model FoodLabel {
   @@unique([tenantId, lotNumber])
   @@index([tenantId])
   @@index([tenantId, preparedAt])
+  @@index([tenantId, retiredAt])
   @@index([recipeId])
   @@index([productId])
   @@map("food_labels")

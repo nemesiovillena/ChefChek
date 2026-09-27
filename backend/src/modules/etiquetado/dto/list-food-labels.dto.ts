@@ -44,6 +44,14 @@ export class ListFoodLabelsDto {
   @IsBoolean()
   includeVoided?: boolean;
 
+  /**
+   * `active` = sin retirar (las que cuentan para alertas); `retired` = ya
+   * gastadas/desechadas; sin valor = todas (el registro completo).
+   */
+  @IsOptional()
+  @IsIn(["active", "retired"])
+  retirement?: "active" | "retired";
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -56,7 +64,10 @@ export class ListFoodLabelsDto {
   @Min(1)
   pageSize?: number;
 
-  /** Filtra a etiquetas con `daysUntilExpiry <= N` (incluye ya caducadas). */
+  /**
+   * Filtra a etiquetas con `daysUntilExpiry <= N` (incluye ya caducadas). Es
+   * el filtro de alertas: excluye siempre las retiradas.
+   */
   @IsOptional()
   @Type(() => Number)
   @IsInt()

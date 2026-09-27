@@ -3,13 +3,26 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Printer, Ban, Pencil } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  Printer,
+  Ban,
+  Pencil,
+  CheckCircle2,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
   useFoodLabel,
   useVoidFoodLabel,
   useUpdateFoodLabel,
+  useRetireFoodLabels,
+  useUnretireFoodLabel,
+  RETIRED_DISPOSITION_LABEL,
+  type RetiredDisposition,
   useEtiquetadoConfig,
   effectiveLabelFormat,
   labelFormatOptions,
@@ -57,6 +70,8 @@ export default function EtiquetaDetailPage() {
   const { data: label, isLoading } = useFoodLabel(id);
   const voidLabel = useVoidFoodLabel();
   const updateLabel = useUpdateFoodLabel();
+  const retireLabel = useRetireFoodLabels();
+  const unretireLabel = useUnretireFoodLabel();
   const etiquetadoConfig = useEtiquetadoConfig();
   // El formato de impresión se elige en Configuración → Etiquetas.
   const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
@@ -101,8 +116,11 @@ export default function EtiquetaDetailPage() {
     }
   };
 
-  // Corrección solo el mismo día y si no está anulada (el backend lo exige).
-  const canEdit = !label.voidedAt && isTodayMadrid(label.createdAt);
+  // Retirada = el producto ya se gastó o se tiró: se puede reimprimir, no corregir.
+  const isActive = !label.voidedAt && !label.retiredAt;
+  // Corrección solo el mismo día y si está activa (el backend lo exige).
+  const canEdit = isActive && isTodayMadrid(label.createdAt);
+  const canUnretire = label.retiredAt !== null && isTodayMadrid(label.retiredAt);
 
   const onSaveEdit = async (input: UpdateFoodLabelInput) => {
     if (Object.keys(input).length === 0) {
@@ -153,6 +171,40 @@ export default function EtiquetaDetailPage() {
     }
   };
 
+  const onRetire = async (disposition: RetiredDisposition) => {
+    const ok = await confirm({
+      title: `Marcar como ${RETIRED_DISPOSITION_LABEL[disposition].toLowerCase()}`,
+      description:
+        'Dejará de avisar de caducidad y quedará en el registro con tu nombre y la fecha. Se puede deshacer hoy.',
+      confirmText: 'Confirmar',
+      variant: disposition === 'DISCARDED' ? 'warning' : 'info',
+    });
+    if (!ok) return;
+    try {
+      await retireLabel.mutateAsync({ ids: [label.id], disposition });
+      addNotification({ type: 'success', title: 'Etiqueta retirada', message: '' });
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo retirar',
+        message: e instanceof Error ? e.message : 'Error al guardar',
+      });
+    }
+  };
+
+  const onUnretire = async () => {
+    try {
+      await unretireLabel.mutateAsync(label.id);
+      addNotification({ type: 'success', title: 'Retirada deshecha', message: '' });
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo deshacer',
+        message: e instanceof Error ? e.message : 'Error al guardar',
+      });
+    }
+  };
+
   const row = (k: string, v: React.ReactNode) => (
     <div className="flex justify-between gap-4 border-b border-[var(--outline-variant)] py-2 text-sm">
       <span className="text-[var(--on-surface-variant)]">{k}</span>
@@ -178,6 +230,11 @@ export default function EtiquetaDetailPage() {
         {label.voidedAt && (
           <span className="rounded-full bg-[var(--error-container)] px-2 py-0.5 text-xs font-semibold text-[var(--on-error-container)]">
             Anulada
+          </span>
+        )}
+        {label.retiredAt && label.retiredDisposition && (
+          <span className="rounded-full bg-[var(--surface-container-high)] px-2 py-0.5 text-xs font-semibold text-[var(--on-surface-variant)]">
+            {RETIRED_DISPOSITION_LABEL[label.retiredDisposition]}
           </span>
         )}
       </div>
@@ -244,6 +301,12 @@ export default function EtiquetaDetailPage() {
             `${fmt(label.editedAt, true)} · ${label.editedByName}`,
           )}
         {label.notes && row('Notas', label.notes)}
+        {label.retiredAt &&
+          label.retiredDisposition &&
+          row(
+            RETIRED_DISPOSITION_LABEL[label.retiredDisposition],
+            `${fmt(label.retiredAt, true)} · ${label.retiredByName ?? '—'}`,
+          )}
       </div>
 
       {editing && (
@@ -298,6 +361,32 @@ export default function EtiquetaDetailPage() {
             <Pencil className="mr-2 h-4 w-4" />
             Corregir
           </Button>
+        )}
+        {canUnretire && (
+          <Button variant="outline" onClick={onUnretire} disabled={unretireLabel.isPending}>
+            <Undo2 className="mr-2 h-4 w-4" />
+            Deshacer retirada
+          </Button>
+        )}
+        {isActive && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => onRetire('CONSUMED')}
+              disabled={retireLabel.isPending}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Consumida
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onRetire('DISCARDED')}
+              disabled={retireLabel.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Desechada
+            </Button>
+          </>
         )}
         {!label.voidedAt && (
           <Button variant="destructive" onClick={onVoid} disabled={voidLabel.isPending}>

@@ -64,6 +64,10 @@ export function SictedSuppliersEvidenceTab() {
                 ver detalle
               </button>
             </p>
+            <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
+              Retiradas este mes: {evidence.labelsRetired.consumedCount} consumidas ·{' '}
+              {evidence.labelsRetired.discardedCount} desechadas
+            </p>
           </section>
 
           <section className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-4">

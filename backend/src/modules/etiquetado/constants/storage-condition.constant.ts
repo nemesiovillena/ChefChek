@@ -13,3 +13,8 @@ export type { StorageCondition };
 export const LABEL_TYPES = ["ELABORATED", "HANDLED"] as const;
 
 export type LabelType = (typeof LABEL_TYPES)[number];
+
+/** Destino de una etiqueta retirada: se gastó (consumida) o se tiró (desechada). */
+export const RETIRED_DISPOSITIONS = ["CONSUMED", "DISCARDED"] as const;
+
+export type RetiredDisposition = (typeof RETIRED_DISPOSITIONS)[number];

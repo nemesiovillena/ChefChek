@@ -29,6 +29,8 @@ interface PublicLabel {
   allergens: number[];
   responsibleInitials: string;
   voidedAt: string | null;
+  retiredAt: string | null;
+  retiredDisposition: 'CONSUMED' | 'DISCARDED' | null;
   supplier: string | null;
   sourceLotNumber: string | null;
   purchaseDate: string | null;
@@ -109,6 +111,12 @@ export default async function PublicLabelPage({
       {label.voidedAt && (
         <div className="mt-2 inline-block rounded bg-[#b8232c] px-2 py-0.5 text-xs font-bold text-white">
           ANULADA
+        </div>
+      )}
+      {label.retiredAt && (
+        <div className="mt-2 inline-block rounded bg-black/10 px-2 py-0.5 text-xs font-bold">
+          {label.retiredDisposition === 'DISCARDED' ? 'DESECHADA' : 'CONSUMIDA'} ·{' '}
+          {fmt(label.retiredAt)}
         </div>
       )}
 
