@@ -374,11 +374,26 @@
       border-color: var(--border) !important;
     }
 
-    /* Adaptar formularios nativos */
-    input, select, textarea {
+    /* Adaptar formularios nativos. Checkbox/radio quedan fuera: su marca se
+       pinta con la propiedad `color`, que aquí se fuerza a blanco, y en dark
+       el accent (--primary) también es blanco → check invisible sobre caja
+       blanca (ej. checklist de Compras → Listas en móvil). */
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
       background-color: var(--tonal-1) !important;
       color: var(--primary) !important;
       border-color: var(--border) !important;
+    }
+
+    /* Sin color-scheme el navegador pinta la caja vacía con el aspecto claro
+       nativo (borde gris claro deslavado sobre fondo oscuro). El color se
+       fija a --primary-foreground porque algunos motores pintan el ✓ con
+       currentColor: sin esto sería casi blanco sobre caja accent blanca. */
+    input[type='checkbox'],
+    input[type='radio'] {
+      color-scheme: dark;
+      color: var(--primary-foreground);
     }
 
   }

@@ -422,7 +422,7 @@ function ListEditor({
                 setRows((prev) => prev.map((r) => ({ ...r, checked: e.target.checked })))
               }
               aria-label="Seleccionar todos los artículos"
-              className="h-4 w-4 accent-[var(--primary)]"
+              className="h-5 w-5 accent-[var(--primary)]"
             />
             Seleccionar todos
           </label>
@@ -450,7 +450,7 @@ function ListEditor({
                   )
                 }
                 aria-label={`Incluir ${row.name}`}
-                className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                className="h-5 w-5 shrink-0 accent-[var(--primary)]"
               />
               <span className="min-w-0 flex-1 text-sm text-[var(--on-surface)] sm:truncate">
                 {row.name}
