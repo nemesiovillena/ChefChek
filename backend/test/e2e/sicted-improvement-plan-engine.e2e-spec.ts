@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { SictedPracticeCatalogService } from "../../src/modules/sicted/services/sicted-practice-catalog.service";
 import { SictedAssessmentService } from "../../src/modules/sicted/services/sicted-assessment.service";
+import { SictedSettingsService } from "../../src/modules/sicted/services/sicted-settings.service";
 import { SictedImprovementActionService } from "../../src/modules/sicted/services/sicted-improvement-action.service";
 import { SictedObjectiveService } from "../../src/modules/sicted/services/sicted-objective.service";
 
@@ -24,6 +25,7 @@ describe("E2E - Plan de mejora y objetivos SICTED (fase 9, sub-PR 2)", () => {
     moduleRef = await Test.createTestingModule({
       providers: [
         PrismaService,
+        SictedSettingsService,
         SictedPracticeCatalogService,
         SictedAssessmentService,
         SictedImprovementActionService,
@@ -150,7 +152,7 @@ describe("E2E - Plan de mejora y objetivos SICTED (fase 9, sub-PR 2)", () => {
         tenantId,
         assessment.id,
         mandatoryPractices[0].id,
-        { score: 1 },
+        { result: "NO_CUMPLE" },
       );
 
       const generated = await actions.generateFromAssessment(

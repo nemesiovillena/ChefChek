@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useTabQueryParam } from '@/hooks/use-tab-query-param';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CalendarClock, ClipboardList, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -11,6 +12,7 @@ import { SictedMaintenanceIncidentsTab } from '../components/sicted-maintenance-
 export const dynamic = 'force-dynamic';
 
 type TabId = 'calendario' | 'equipos' | 'averias';
+const TAB_IDS: readonly TabId[] = ['calendario', 'equipos', 'averias'];
 
 const TABS: { id: TabId; label: string; icon: typeof CalendarClock }[] = [
   { id: 'calendario', label: 'Calendario', icon: CalendarClock },
@@ -19,10 +21,19 @@ const TABS: { id: TabId; label: string; icon: typeof CalendarClock }[] = [
 ];
 
 /** Mantenimiento: calendario de revisiones, inventario de equipos, partes de avería/PAC. */
+/** La pestaña activa vive en `?tab=` (enlazable desde el catálogo): useSearchParams exige Suspense. */
 export default function SictedMantenimientoPage() {
+  return (
+    <Suspense>
+      <SictedMantenimientoPageContent />
+    </Suspense>
+  );
+}
+
+function SictedMantenimientoPageContent() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('calendario');
+  const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'calendario');
 
   if (authLoading) return null;
 

@@ -62,6 +62,17 @@ Regla de oro del evaluador SICTED: **"lo que no está registrado, no se ha hecho
 
 Nota de nomenclatura: SEGITTUR ya denomina SICTED "Sostenibilidad, Inteligencia y Calidad Turística en el Ecosistema del Destino" (no "Sistema Integral…"). Solo afecta a textos de UI/docs.
 
+## 🔄 METODOLOGÍA SICTED 2026 (2026-09-28) — supersede la fuente del catálogo
+
+El usuario aportó el manual de metodología `Manual SICTED_20260824.pdf` (SEGITTUR rev. 1.1) y acceso a su sesión de sicted.es. Hallazgos:
+
+- `23_..._v4.pdf` (fuente del catálogo de fase 9) es de **marzo 2015**; `BBPP_Restaurantes...Catering.pdf` era un MBP SICTED real de 2024 (SETUR, generado por la plataforma), no APPCC. Ambos quedan superados por el modelo 2026.
+- Modelo 2026: capítulo (intersectorial/oficio/complementario) × eje (económico/social/ambiental) × módulo; BP obligatoria o **de mejora**; distintivo **"Compromiso de Turismo Responsable"**; ciclo Adhesión → Distinción → Seguimiento 1 → Seguimiento 2 → Renovación con compromisos por fase.
+- Sin MBP en PDF por oficio: fuente = Biblioteca sicted.es (Excel "Índice global de BBPP" + 6 PDF por eje + Guía de configuración), guardados en `artefactos/SICTED/Manuales/2026/`. Restaurantes: 258 BP de oficio (74 O / 184 M, 20 esenciales) + 78 complementarias.
+- Warynessy en la web: fase **Distinción**, MBP sin configurar (lo hace el asesor en las ATI), solo "Legalidad vigente" cumplida.
+
+Decisiones del usuario (2026-09-28): cargar las 258 + complementarias activables desde **Configuración → SICTED** (el superadmin solo activa el módulo); autoevaluación **Cumple / No cumple / No aplica**; catálogo v4 solo existe en local → se archiva, sin migración de prod. Detalle en fases 11 y 12.
+
 ## ⚠️ CORRECCIÓN CRÍTICA DE FUENTE (2026-09-25, durante fase 9)
 
 **Toda la sección "Hallazgos del manual oficial" de abajo describe el manual EQUIVOCADO.** El usuario corrigió explícitamente durante la implementación de fase 9: *"lo que estás implantando es el manual de APPCC, no de SICTED"*. El PDF `BBPP_Restaurantes_y_empresas_turisticas_de_Catering.pdf` que se creyó "el manual SICTED vigente" era en realidad un documento de APPCC (confundido con el manual real de APPCC de Warynessy, `RPHT RESTAURANTE WARYNESSY 4.pdf`, en `artefactos/APPCC/`).
@@ -147,6 +158,8 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
 | 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Completed |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | In progress (docs+memoria hechos; deploy a prod y activación en piloto pendientes de decisión del usuario) |
+| 11 | [Catálogo SICTED 2026](./phase-11-catalogo-sicted-2026.md) | Completed (rama feat/sicted-catalogo-2026, pendiente de PR) |
+| 12 | [Panel de compromisos por fase](./phase-12-panel-compromisos-por-fase.md) | Pending |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
 

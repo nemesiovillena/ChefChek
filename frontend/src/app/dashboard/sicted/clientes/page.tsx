@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useTabQueryParam } from '@/hooks/use-tab-query-param';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, MessageSquareWarning, PackageSearch, Star } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -11,6 +12,7 @@ import { SictedClienteLostItemsTab } from '../components/sicted-cliente-lost-ite
 export const dynamic = 'force-dynamic';
 
 type TabId = 'quejas' | 'satisfaccion' | 'objetos';
+const TAB_IDS: readonly TabId[] = ['quejas', 'satisfaccion', 'objetos'];
 
 const TABS: { id: TabId; label: string; icon: typeof MessageSquareWarning }[] = [
   { id: 'quejas', label: 'Quejas y sugerencias', icon: MessageSquareWarning },
@@ -19,10 +21,19 @@ const TABS: { id: TabId; label: string; icon: typeof MessageSquareWarning }[] = 
 ];
 
 /** Cliente y sostenibilidad: quejas/sugerencias/felicitaciones, satisfacción, objetos perdidos. */
+/** La pestaña activa vive en `?tab=` (enlazable desde el catálogo): useSearchParams exige Suspense. */
 export default function SictedClientesPage() {
+  return (
+    <Suspense>
+      <SictedClientesPageContent />
+    </Suspense>
+  );
+}
+
+function SictedClientesPageContent() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('quejas');
+  const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'quejas');
 
   if (authLoading) return null;
 

@@ -17,6 +17,8 @@ import { SmtpConfigSection } from './components/smtp-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
 import { ConservationDefaultsSection } from './components/conservation-defaults-section';
+import { SictedConfigSection } from './components/sicted-config-section';
+import { SettingsSectionIndex } from './components/settings-section-index';
 
 export const dynamic = 'force-dynamic';
 
@@ -219,10 +221,11 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Configuración</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Configuración</h1>
+        <SettingsSectionIndex />
 
         {/* Datos del negocio */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="negocio" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Datos del negocio</h2>
             {!editing && (
@@ -316,7 +319,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Idioma */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="idioma" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <h2 className="text-xl font-semibold mb-4">Idioma</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -336,7 +339,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Moneda */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="moneda" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <h2 className="text-xl font-semibold mb-4">Moneda</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -356,7 +359,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Costeo de Recetas */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="costeo" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Percent className="h-5 w-5 text-indigo-600" />
             <h2 className="text-xl font-semibold">Costeo de Recetas</h2>
@@ -371,12 +374,20 @@ export default function SettingsPage() {
           />
         </div>
 
-        <EtiquetadoConfigSection />
+        <div id="etiquetas" className="scroll-mt-40">
+          <EtiquetadoConfigSection />
+        </div>
 
-        <ConservationDefaultsSection />
+        <div id="conservacion" className="scroll-mt-40">
+          <ConservationDefaultsSection />
+        </div>
+
+        <div id="sicted" className="scroll-mt-40">
+          <SictedConfigSection />
+        </div>
 
         {/* Motor de extracción (OCR de albaranes) */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="ocr" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
             <Sparkles className="h-5 w-5 text-indigo-600" />
             <h2 className="text-xl font-semibold">Motor de extracción</h2>
@@ -422,17 +433,17 @@ export default function SettingsPage() {
         </div>
 
         {/* SMTP para envío de pedidos (módulo Compras) */}
-        <div className="mb-6 mt-6">
+        <div id="correo" className="scroll-mt-40 mb-6 mt-6">
           <SmtpConfigSection />
         </div>
 
         {/* Asistente IA "Chefchek" */}
-        <div className="mb-6">
+        <div id="asistente" className="scroll-mt-40 mb-6">
           <AiAssistantConfigSection />
         </div>
 
         {/* Texto fijo del pedido al proveedor */}
-        <div className="bg-white shadow rounded-lg mb-6 p-6">
+        <div id="mensaje-proveedor" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
             <MessageSquare className="h-5 w-5 text-indigo-600" />
             <h2 className="text-xl font-semibold">Mensaje al proveedor</h2>
@@ -447,7 +458,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Claves API */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div id="claves-api" className="scroll-mt-40 bg-white shadow rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
             <Key className="h-5 w-5 text-indigo-600" />
             <h2 className="text-xl font-semibold">Claves API</h2>
@@ -553,12 +564,12 @@ export default function SettingsPage() {
         </div>
 
         {/* Module Configuration */}
-        <div className="mt-6">
+        <div id="modulos" className="scroll-mt-40 mt-6">
           <ModuleListWidget />
         </div>
 
         {/* Permisos por rol (OWNER/ADMIN): qué apartados ven USER y VIEWER */}
-        <div className="mt-6">
+        <div id="permisos" className="scroll-mt-40 mt-6">
           <RoleAccessPanel />
         </div>
       </div>

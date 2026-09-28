@@ -2,19 +2,28 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { SictedPracticeCatalogService } from "../../src/modules/sicted/services/sicted-practice-catalog.service";
 import { SictedAssessmentService } from "../../src/modules/sicted/services/sicted-assessment.service";
-import { SICTED_PRACTICE_CATALOG_SEED } from "../../src/modules/sicted/constants/sicted-practice-catalog-seed";
+import { SictedSettingsService } from "../../src/modules/sicted/services/sicted-settings.service";
+import {
+  SICTED_CATALOG_2026_VERSION,
+  SICTED_PRACTICE_CATALOG_2026_SEED,
+} from "../../src/modules/sicted/constants/sicted-practice-catalog-2026-seed";
+
+const OFICIO_COUNT = SICTED_PRACTICE_CATALOG_2026_SEED.filter(
+  (p) => p.chapter !== "COMPLEMENTARIO",
+).length;
 
 /**
- * Fase 9 SICTED (sub-PR 1) — Dirección: catálogo de buenas prácticas y
- * autoevaluación. Contra Postgres real: el trigger de inalterabilidad
+ * Dirección SICTED — catálogo de buenas prácticas 2026 (con módulos
+ * complementarios activables) y autoevaluación Cumple / No cumple. Contra Postgres real: el trigger de inalterabilidad
  * condicional (`forbid_score_update_if_assessment_closed`) solo se dispara
  * en la base de datos.
  */
-describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => {
+describe("E2E - Dirección SICTED (catálogo 2026 y autoevaluación)", () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
   let catalog: SictedPracticeCatalogService;
   let assessments: SictedAssessmentService;
+  let settings: SictedSettingsService;
   let tenantId: string;
   let otherTenantId: string;
 
@@ -22,6 +31,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     moduleRef = await Test.createTestingModule({
       providers: [
         PrismaService,
+        SictedSettingsService,
         SictedPracticeCatalogService,
         SictedAssessmentService,
       ],
@@ -29,6 +39,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     prisma = moduleRef.get(PrismaService);
     catalog = moduleRef.get(SictedPracticeCatalogService);
     assessments = moduleRef.get(SictedAssessmentService);
+    settings = moduleRef.get(SictedSettingsService);
 
     const tenant = await prisma.tenant.create({
       data: {
@@ -63,6 +74,9 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     await prisma.sictedPractice.deleteMany({
       where: { tenantId: { in: [tenantId, otherTenantId] } },
     });
+    await prisma.sictedSettings.deleteMany({
+      where: { tenantId: { in: [tenantId, otherTenantId] } },
+    });
     await prisma.tenant.deleteMany({
       where: { id: { in: [tenantId, otherTenantId] } },
     });
@@ -70,22 +84,46 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     await moduleRef.close();
   });
 
-  describe("Catálogo — siembra idempotente", () => {
-    it("siembra las 144 prácticas reales del manual; reimportar no duplica", async () => {
+  describe("Catálogo 2026 — siembra idempotente", () => {
+    it("archiva (no borra) el catálogo anterior al cargar el 2026", async () => {
+      const legacy = await prisma.sictedPractice.create({
+        data: {
+          tenantId,
+          code: "1.1",
+          bpSection: 1,
+          bpSectionName: "Personas",
+          title: "Práctica legado v4",
+          manualVersion: "Restaurantes v4",
+        },
+      });
+
+      await catalog.seedCatalog(tenantId);
+
+      const reloaded = await prisma.sictedPractice.findUnique({
+        where: { id: legacy.id },
+      });
+      expect(reloaded).not.toBeNull();
+      expect(reloaded!.archivedAt).not.toBeNull();
+    });
+
+    it("carga las 336 prácticas de restaurantes; reimportar no duplica", async () => {
       const first = await catalog.seedCatalog(tenantId);
-      expect(first).toHaveLength(SICTED_PRACTICE_CATALOG_SEED.length);
-      expect(first.length).toBe(144);
+      expect(first).toHaveLength(SICTED_PRACTICE_CATALOG_2026_SEED.length);
+      expect(first.length).toBe(336);
+      expect(
+        first.every((p) => p.manualVersion === SICTED_CATALOG_2026_VERSION),
+      ).toBe(true);
+      expect(first.map((p) => p.code)).toEqual(
+        [...first.map((p) => p.code)].sort(),
+      );
 
       const second = await catalog.seedCatalog(tenantId);
-      expect(second).toHaveLength(144);
-
-      const count = await prisma.sictedPractice.count({ where: { tenantId } });
-      expect(count).toBe(144);
+      expect(second).toHaveLength(336);
     });
 
     it("reimportar respeta ediciones del tenant (no pisa un título ya editado)", async () => {
       const practices = await catalog.list(tenantId);
-      const target = practices.find((p) => p.code === "1.1");
+      const target = practices.find((p) => p.code === "0532");
       await catalog.update(tenantId, target!.id, {
         title: "Título editado por el tenant",
       });
@@ -97,21 +135,44 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     });
   });
 
-  describe("Escala — rechaza valores fuera de {1,2,3,4,5}", () => {
-    it("acepta 1-5 y notApplicable como alternativa, no como valor de score", async () => {
+  describe("Módulos complementarios", () => {
+    it("sin activar, solo aplican las de oficio; activar Eventos añade sus 3 módulos", async () => {
+      const base = await catalog.listApplicable(tenantId);
+      expect(base).toHaveLength(OFICIO_COUNT);
+
+      const groups = await settings.setComplementaryGroups(tenantId, [
+        "EVENTOS",
+      ]);
+      expect(groups.find((g) => g.key === "EVENTOS")!.enabled).toBe(true);
+
+      const withEvents = await catalog.listApplicable(tenantId);
+      const eventCodes = new Set(["072", "155", "175"]);
+      const expectedExtra = SICTED_PRACTICE_CATALOG_2026_SEED.filter(
+        (p) => p.chapter === "COMPLEMENTARIO" && eventCodes.has(p.moduleCode),
+      ).length;
+      expect(expectedExtra).toBeGreaterThan(0);
+      expect(withEvents).toHaveLength(OFICIO_COUNT + expectedExtra);
+
+      await settings.setComplementaryGroups(tenantId, []);
+      expect(await catalog.listApplicable(tenantId)).toHaveLength(OFICIO_COUNT);
+    });
+  });
+
+  describe("Valoración — Cumple / No cumple / No aplica", () => {
+    it("guarda el resultado y trata No aplica como casilla aparte", async () => {
       const assessment = await assessments.create(tenantId, {
-        label: "Ciclo test escala",
+        label: "Ciclo test valoración",
       });
       const practice = (await catalog.list(tenantId))[0];
 
-      const withScore = await assessments.upsertScore(
+      const ok = await assessments.upsertScore(
         tenantId,
         assessment.id,
         practice.id,
-        { score: 4 },
+        { result: "CUMPLE" },
       );
-      expect(withScore.score).toBe(4);
-      expect(withScore.notApplicable).toBe(false);
+      expect(ok.result).toBe("CUMPLE");
+      expect(ok.notApplicable).toBe(false);
 
       const na = await assessments.upsertScore(
         tenantId,
@@ -119,8 +180,18 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
         practice.id,
         { notApplicable: true },
       );
-      expect(na.score).toBeNull();
+      expect(na.result).toBeNull();
       expect(na.notApplicable).toBe(true);
+    });
+
+    it("rechaza guardar sin resultado ni No aplica", async () => {
+      const assessment = await assessments.create(tenantId, {
+        label: "Ciclo sin resultado",
+      });
+      const practice = (await catalog.list(tenantId))[0];
+      await expect(
+        assessments.upsertScore(tenantId, assessment.id, practice.id, {}),
+      ).rejects.toThrow(/cumple/);
     });
   });
 
@@ -134,7 +205,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
         tenantId,
         assessment.id,
         practice.id,
-        { score: 5 },
+        { result: "CUMPLE" },
       );
 
       await assessments.close(tenantId, assessment.id);
@@ -142,7 +213,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
       await expect(
         prisma.sictedAssessmentScore.update({
           where: { id: score.id },
-          data: { score: 1 },
+          data: { result: "NO_CUMPLE" },
         }),
       ).rejects.toThrow(/cerrada/);
     });
@@ -156,7 +227,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
 
       await expect(
         assessments.upsertScore(tenantId, assessment.id, practice.id, {
-          score: 3,
+          result: "CUMPLE",
         }),
       ).rejects.toThrow(/cerrada/);
     });
@@ -172,21 +243,21 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
     });
   });
 
-  describe("Obligatorias sin evidencia y <3", () => {
-    it("una obligatoria sin puntuar y otra con puntuación 1 aparecen en pendingMandatory; una con 4 no", async () => {
+  describe("Obligatorias sin cumplir", () => {
+    it("una obligatoria sin valorar y otra con No cumple aparecen en pendingMandatory; una con Cumple no", async () => {
       const assessment = await assessments.create(tenantId, {
         label: "Ciclo cobertura",
       });
-      const mandatoryPractices = (await catalog.list(tenantId)).filter(
-        (p) => p.isMandatory,
-      );
+      const mandatoryPractices = (
+        await catalog.listApplicable(tenantId)
+      ).filter((p) => p.isMandatory);
       const [low, high] = mandatoryPractices;
 
       await assessments.upsertScore(tenantId, assessment.id, low.id, {
-        score: 1,
+        result: "NO_CUMPLE",
       });
       await assessments.upsertScore(tenantId, assessment.id, high.id, {
-        score: 4,
+        result: "CUMPLE",
       });
 
       const pending = await assessments.pendingMandatory(
@@ -196,7 +267,7 @@ describe("E2E - Dirección SICTED (fase 9, catálogo y autoevaluación)", () => 
       const pendingIds = pending.map((p) => p.practice.id);
       expect(pendingIds).toContain(low.id);
       expect(pendingIds).not.toContain(high.id);
-      // Al menos una obligatoria sin puntuar en absoluto también debe aparecer.
+      // Al menos una obligatoria sin valorar en absoluto también debe aparecer.
       const unscored = mandatoryPractices.find(
         (p) => p.id !== low.id && p.id !== high.id,
       );

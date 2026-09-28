@@ -87,6 +87,7 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Calidad',
     items: [
       { label: 'SICTED', href: '/dashboard/sicted', moduleId: 'sicted', icon: 'verified' },
+      { label: 'Cómo usar SICTED', href: '/dashboard/sicted/ayuda', moduleId: 'sicted', icon: 'help' },
     ],
   },
   {

@@ -13,70 +13,63 @@ import {
   useSictedPendingMandatory,
   useUpsertSictedScore,
 } from '@/hooks/use-sicted-direccion';
-import type { AssessmentScoreRow } from '@/lib/sicted-direccion-types';
+import type { AssessmentScoreRow, SictedAssessmentResult, SictedAxis } from '@/lib/sicted-direccion-types';
+import { AXIS_LABELS, groupPracticesByAxisAndModule } from '@/lib/sicted-practice-presentation';
+import { SictedPracticeBadges, SictedPracticeDetails } from './sicted-practice-details';
 
 const inputCls =
   'min-h-[48px] w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 text-base';
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+
+const RESULT_LABELS: Record<SictedAssessmentResult, string> = { CUMPLE: 'Cumple', NO_CUMPLE: 'No cumple' };
 
 function ScoreRow({ row, assessmentId, locked }: { row: AssessmentScoreRow; assessmentId: string; locked: boolean }) {
   const notify = useNotification();
   const upsert = useUpsertSictedScore();
   const [note, setNote] = useState(row.score?.evidenceNote ?? '');
 
-  async function setScore(score: number) {
+  async function save(data: { result?: SictedAssessmentResult; notApplicable?: boolean }) {
     try {
-      await upsert.mutateAsync({ assessmentId, practiceId: row.practice.id, data: { score, evidenceNote: note || undefined } });
-    } catch (err) {
-      notify({ type: 'error', title: 'Error', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
-    }
-  }
-
-  async function setNotApplicable() {
-    try {
-      await upsert.mutateAsync({ assessmentId, practiceId: row.practice.id, data: { notApplicable: true, evidenceNote: note || undefined } });
+      await upsert.mutateAsync({ assessmentId, practiceId: row.practice.id, data: { ...data, evidenceNote: note || undefined } });
     } catch (err) {
       notify({ type: 'error', title: 'Error', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
     }
   }
 
   const current = row.score;
+  const choiceCls = (active: boolean) =>
+    `min-h-[36px] rounded-lg px-3 text-xs font-semibold ${
+      active ? 'bg-[var(--primary)] text-primary-foreground' : 'border border-[var(--outline-variant)]'
+    }`;
 
   return (
     <div className="rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3 text-sm">
       <div className="flex items-start gap-2">
         <span className="w-12 shrink-0 text-[var(--on-surface-variant)]">{row.practice.code}</span>
         <span className="flex-1">{row.practice.title}</span>
-        {row.practice.isMandatory && (
-          <span className="shrink-0 rounded-full bg-[var(--error-container)] px-2 py-0.5 text-xs font-semibold text-[var(--on-error-container)]">
-            Obligatoria
-          </span>
-        )}
+        <SictedPracticeBadges practice={row.practice} />
+      </div>
+      <div className="pl-14">
+        <SictedPracticeDetails practice={row.practice} />
       </div>
       {!locked && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
-          {[1, 2, 3, 4, 5].map((n) => (
+          {(['CUMPLE', 'NO_CUMPLE'] as const).map((r) => (
             <button
-              key={n}
+              key={r}
               type="button"
               disabled={upsert.isPending}
-              onClick={() => setScore(n)}
-              className={`min-h-[32px] min-w-[32px] rounded-lg text-xs font-semibold ${
-                current?.score === n && !current.notApplicable
-                  ? 'bg-[var(--primary)] text-primary-foreground'
-                  : 'border border-[var(--outline-variant)]'
-              }`}
+              onClick={() => save({ result: r })}
+              className={choiceCls(current?.result === r && !current.notApplicable)}
             >
-              {n}
+              {RESULT_LABELS[r]}
             </button>
           ))}
           <button
             type="button"
             disabled={upsert.isPending}
-            onClick={setNotApplicable}
-            className={`min-h-[32px] rounded-lg px-2 text-xs font-medium ${
-              current?.notApplicable ? 'bg-[var(--primary)] text-primary-foreground' : 'border border-[var(--outline-variant)]'
-            }`}
+            onClick={() => save({ notApplicable: true })}
+            className={choiceCls(!!current?.notApplicable)}
           >
             No aplica
           </button>
@@ -84,19 +77,25 @@ function ScoreRow({ row, assessmentId, locked }: { row: AssessmentScoreRow; asse
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Evidencia (opcional)"
-            className="min-h-[32px] flex-1 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-2 text-xs"
+            className="min-h-[36px] flex-1 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-2 text-base"
           />
         </div>
       )}
       {locked && current && (
         <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
-          {current.notApplicable ? 'No aplica' : `Puntuación: ${current.score}`}
+          {current.notApplicable
+            ? 'No aplica'
+            : current.result
+              ? RESULT_LABELS[current.result]
+              : `Puntuación (escala anterior): ${current.score}`}
           {current.evidenceNote ? ` · ${current.evidenceNote}` : ''}
         </p>
       )}
     </div>
   );
 }
+
+type RowFilter = 'ALL' | 'MANDATORY' | 'PENDING';
 
 function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBack: () => void }) {
   const notify = useNotification();
@@ -123,14 +122,21 @@ function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBa
     }
   }
 
-  const bySection = useMemo(() => {
-    const groups = new Map<number, { name: string; items: AssessmentScoreRow[] }>();
-    for (const r of rows ?? []) {
-      if (!groups.has(r.practice.bpSection)) groups.set(r.practice.bpSection, { name: r.practice.bpSectionName, items: [] });
-      groups.get(r.practice.bpSection)!.items.push(r);
-    }
-    return [...groups.entries()].sort((a, b) => a[0] - b[0]);
-  }, [rows]);
+  const [axisFilter, setAxisFilter] = useState<SictedAxis | 'ALL'>('ALL');
+  const [rowFilter, setRowFilter] = useState<RowFilter>('ALL');
+  const pendingIds = useMemo(() => new Set((pending ?? []).map((p) => p.practice.id)), [pending]);
+  const valued = (rows ?? []).filter((r) => r.score).length;
+
+  const byAxis = useMemo(() => {
+    const visible = (rows ?? []).filter(
+      (r) =>
+        (axisFilter === 'ALL' || r.practice.axis === axisFilter) &&
+        (rowFilter === 'ALL' ||
+          (rowFilter === 'MANDATORY' && r.practice.isMandatory) ||
+          (rowFilter === 'PENDING' && pendingIds.has(r.practice.id))),
+    );
+    return groupPracticesByAxisAndModule(visible, (r) => r.practice);
+  }, [rows, axisFilter, rowFilter, pendingIds]);
 
   async function handleClose() {
     try {
@@ -176,7 +182,7 @@ function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBa
       {pending && pending.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-[var(--error-container)] px-3 py-2 text-sm text-[var(--on-error-container)]">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="flex-1">{pending.length} obligatorias sin puntuar o por debajo de 3</span>
+          <span className="flex-1">{pending.length} obligatorias sin cumplir o sin valorar</span>
           {canManage && (
             <button
               type="button"
@@ -190,25 +196,64 @@ function AssessmentDetail({ assessmentId, onBack }: { assessmentId: string; onBa
         </div>
       )}
 
-      <div className="space-y-3">
-        {bySection.map(([section, group]) => (
-          <div key={section}>
-            <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">
-              BP{section} {group.name}
-            </h4>
-            <div className="space-y-2">
-              {group.items.map((r) => (
-                <ScoreRow key={r.practice.id} row={r} assessmentId={assessmentId} locked={locked} />
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-[var(--on-surface-variant)]">
+          {valued}/{rows?.length ?? 0} valoradas
+        </span>
+        <select
+          value={axisFilter}
+          onChange={(e) => setAxisFilter(e.target.value as SictedAxis | 'ALL')}
+          className="min-h-[40px] rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 text-base"
+        >
+          <option value="ALL">Todos los ejes</option>
+          {(Object.keys(AXIS_LABELS) as SictedAxis[]).map((a) => (
+            <option key={a} value={a}>
+              {AXIS_LABELS[a]}
+            </option>
+          ))}
+        </select>
+        <select
+          value={rowFilter}
+          onChange={(e) => setRowFilter(e.target.value as RowFilter)}
+          className="min-h-[40px] rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 text-base"
+        >
+          <option value="ALL">Todas</option>
+          <option value="MANDATORY">Solo obligatorias</option>
+          <option value="PENDING">Obligatorias pendientes</option>
+        </select>
+      </div>
+
+      <div className="space-y-5">
+        {byAxis.map((axis) => (
+          <section key={axis.axis}>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">{axis.label}</h3>
+            <div className="space-y-3">
+              {axis.modules.map((mod) => (
+                <div key={mod.moduleCode}>
+                  <h4 className="mb-2 text-sm font-medium">
+                    {mod.moduleName}
+                    {mod.complementary && <span className="text-[var(--on-surface-variant)]"> · complementario</span>}
+                  </h4>
+                  <div className="space-y-2">
+                    {mod.items.map((r) => (
+                      <ScoreRow key={r.practice.id} row={r} assessmentId={assessmentId} locked={locked} />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-          </div>
+          </section>
         ))}
       </div>
     </div>
   );
 }
 
-/** Autoevaluación con la escala real 1-5 + No aplica. Ciclo borrador→cerrado. */
+/**
+ * Autoevaluación SICTED 2026: Cumple / No cumple / No aplica sobre las
+ * prácticas que aplican al negocio (oficio + complementarias activadas en
+ * Configuración → SICTED). Ciclo borrador→cerrado.
+ */
 export function SictedDireccionAssessmentTab() {
   const notify = useNotification();
   const { user } = useAuth();

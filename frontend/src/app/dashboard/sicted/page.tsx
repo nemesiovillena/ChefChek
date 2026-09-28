@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Award, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowLeft, Award, BookOpen, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
 
@@ -63,9 +64,16 @@ export default function SictedHubPage() {
           SICTED
         </h1>
         <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
-          Registros digitales inalterables: limpieza, apertura/cierre, confort y mantenimiento.
+          Evidencias para el distintivo Compromiso de Turismo Responsable: registros inalterables, autoevaluación y plan de mejora.
         </p>
       </header>
+      {/* Fuera de <header>: globals.css oculta header:not(.fixed) en móvil. */}
+      <Link
+        href="/dashboard/sicted/ayuda"
+        className="mb-6 inline-flex min-h-[40px] items-center gap-2 text-sm font-medium text-[var(--primary)] underline"
+      >
+        <BookOpen className="h-4 w-4" /> Cómo usar SICTED
+      </Link>
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
