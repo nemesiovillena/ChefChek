@@ -158,8 +158,8 @@ El usuario compartió también `.../artefactos/APPCC/` para que la organizara. C
 | 8 | [Cliente y sostenibilidad](./phase-08-cliente-y-sostenibilidad.md) | Completed |
 | 9 | [Dirección: buenas prácticas y mejora](./phase-09-direcci-n-buenas-pr-cticas-y-mejora.md) | Completed |
 | 10 | [Docs y cierre](./phase-10-docs-y-cierre.md) | In progress (docs+memoria hechos; deploy a prod y activación en piloto pendientes de decisión del usuario) |
-| 11 | [Catálogo SICTED 2026](./phase-11-catalogo-sicted-2026.md) | Completed (rama feat/sicted-catalogo-2026, pendiente de PR) |
-| 12 | [Panel de compromisos por fase](./phase-12-panel-compromisos-por-fase.md) | Pending |
+| 11 | [Catálogo SICTED 2026](./phase-11-catalogo-sicted-2026.md) | Completed (PR #189, release #190) |
+| 12 | [Panel de compromisos por fase](./phase-12-panel-compromisos-por-fase.md) | Completed (rama feat/sicted-panel-compromisos) |
 
 Cada fase = un PR a `develop` (deploy = PR release develop→main). MVP = 1–5.
 

@@ -1,7 +1,7 @@
 ---
 phase: 12
 title: "Panel de compromisos por fase del ciclo SICTED"
-status: pending
+status: completed
 priority: P2
 effort: "S"
 dependencies: [11]
@@ -42,9 +42,9 @@ La metodología 2026 exige, además de la evaluación, compromisos por fase del 
 
 ## Success Criteria
 
-- [ ] Con Warynessy en Distinción, el panel muestra Legalidad en verde y el resto pendiente, coincidiendo con el visor de la web.
-- [ ] Formación suma solo horas de los 12 meses previos al comité.
-- [ ] Tests jest del cálculo por fase (tabla de arriba).
+- [x] En Distinción el panel muestra Legalidad (web SICTED) y el resto pendiente, como el visor de la web (probado en local).
+- [x] Formación suma solo horas de los 12 meses previos al comité (e2e).
+- [x] Tests jest del cálculo por fase (tabla de arriba).
 
 ## Risks
 

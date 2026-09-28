@@ -8,7 +8,16 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
-const ORIGINS = ["ASSESSMENT", "EVALUATOR", "COMPLAINT", "INCIDENT", "OTHER"];
+// EVALUATOR = acción del Plan de Acciones Correctoras (PAC) tras la evaluación externa.
+const ORIGINS = [
+  "ASSESSMENT",
+  "EVALUATOR",
+  "COMPLAINT",
+  "INCIDENT",
+  "ASESORIA",
+  "FORMACION",
+  "OTHER",
+];
 const STATUSES = ["OPEN", "DONE", "CANCELLED"];
 
 export class CreateImprovementActionDto {

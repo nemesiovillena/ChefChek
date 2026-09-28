@@ -78,7 +78,14 @@ export interface UpsertScoreInput {
  * Plan de mejora y objetivos anuales (SICTED fase 9, sub-PR 2).
  */
 
-export type ImprovementActionOrigin = 'ASSESSMENT' | 'EVALUATOR' | 'COMPLAINT' | 'INCIDENT' | 'OTHER';
+export type ImprovementActionOrigin =
+  | 'ASSESSMENT'
+  | 'EVALUATOR'
+  | 'COMPLAINT'
+  | 'INCIDENT'
+  | 'ASESORIA'
+  | 'FORMACION'
+  | 'OTHER';
 export type ImprovementActionStatus = 'OPEN' | 'DONE' | 'CANCELLED';
 
 export interface SictedImprovementAction {
@@ -94,6 +101,7 @@ export interface SictedImprovementAction {
   status: ImprovementActionStatus;
   closedAt: string | null;
   evidenceNote: string | null;
+  attachment: { name: string; mime: string } | null;
 }
 
 export interface CreateImprovementActionInput {
@@ -147,7 +155,7 @@ export interface UpdateObjectiveInput {
  * Eventos y documentos legales (SICTED fase 9, sub-PR 3).
  */
 
-export type EventKind = 'GRUPO_MEJORA' | 'FORMACION_DESTINO' | 'EVALUACION_EXTERNA' | 'OTRO';
+export type EventKind = 'GRUPO_MEJORA' | 'ATI' | 'ATC' | 'FORMACION_DESTINO' | 'EVALUACION_EXTERNA' | 'OTRO';
 
 export interface SictedEvent {
   id: string;
@@ -216,4 +224,49 @@ export interface SictedAnnualReport {
   feedback: { total: number; open: number; overdue: number };
   satisfaction: { samplesCount: number; averageScore: number | null };
   assessment: { label: string; closedAt: string; pendingMandatoryCount: number } | null;
+}
+
+/** Ciclo de distinción SICTED y panel de compromisos por fase (manual SICTED 2026 §7-8). */
+export type SictedCyclePhase = 'ADHESION' | 'DISTINCION' | 'SEGUIMIENTO_1' | 'SEGUIMIENTO_2' | 'RENOVACION';
+
+export const CYCLE_PHASE_LABELS: Record<SictedCyclePhase, string> = {
+  ADHESION: 'Adhesión',
+  DISTINCION: 'Distinción',
+  SEGUIMIENTO_1: 'Seguimiento 1',
+  SEGUIMIENTO_2: 'Seguimiento 2',
+  RENOVACION: 'Renovación',
+};
+
+export type CommitmentStatus = 'DONE' | 'IN_PROGRESS' | 'PENDING' | 'MANUAL' | 'NOT_APPLICABLE';
+export type CommitmentKey =
+  | 'LEGALIDAD'
+  | 'MANUAL_MARCA'
+  | 'FORMACION'
+  | 'ATI'
+  | 'ATC'
+  | 'AUTOEVALUACION'
+  | 'PLAN_MEJORA'
+  | 'GRUPO_MEJORA'
+  | 'EVALUACION_EXTERNA';
+
+export interface SictedCommitmentItem {
+  key: CommitmentKey;
+  label: string;
+  requirement: 'REQUIRED' | 'RECOMMENDED' | 'NOT_APPLICABLE';
+  status: CommitmentStatus;
+  detail: string;
+}
+
+export interface SictedCommitments {
+  phase: SictedCyclePhase | null;
+  phaseStartedAt: string | null;
+  nextCommitteeDate: string | null;
+  daysToCommittee: number | null;
+  items: SictedCommitmentItem[];
+}
+
+export interface UpdateCycleInput {
+  cyclePhase?: SictedCyclePhase | null;
+  phaseStartedAt?: string | null;
+  nextCommitteeDate?: string | null;
 }

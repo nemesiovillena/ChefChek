@@ -106,6 +106,15 @@ Metodología **SICTED 2026** (manual de metodología SEGITTUR rev. 1.1, ago-2026
 
 > Nota histórica: el catálogo de fase 9 (144 prácticas BP1-BP6, escala 1-5) venía de `23_Restaurantes_y_empresas_de_catering_v4.pdf`, de **2015**. Queda sustituido por el modelo 2026.
 
+## Compromisos por fase del ciclo
+
+Espejo del «visor de cumplimiento» de la web SICTED (sin integración: se calcula con lo registrado en Chefchek). Fase y comité en `SictedSettings` (`cyclePhase`, `phaseStartedAt`, `nextCommitteeDate`), editables en Configuración → SICTED.
+
+- Reglas y mínimos en `constants/sicted-cycle-commitments.ts` (fuente: manual «Programa SICTED» rev. 1.1 §7-8); evaluación pura en `util/sicted-commitments-evaluator.ts` (spec por fase); lectura de BD en `SictedCommitmentsService` (`GET /sicted/direccion/commitments`).
+- Ventanas: la fase va de `phaseStartedAt` (o 12 meses antes del comité) al comité (o hoy); formación = horas de acciones hechas en los 12 meses previos al comité; evaluación externa = evento en los 6 meses previos.
+- Estados: DONE / IN_PROGRESS / PENDING / MANUAL (solo verificable en la web oficial: protocolo, manual de marca, curso básico del Campus) / NOT_APPLICABLE.
+- `SictedEvent.kind` admite `ATI` y `ATC`; `SictedImprovementAction.attachment` guarda la evidencia de cada acción (`POST/GET improvement-actions/:id/evidence`, adjunto privado).
+
 ## Inalterabilidad
 
 Las evidencias son append-only por diseño de producto, reforzado en Postgres con triggers (no solo en la capa de aplicación — un DBA siempre puede saltárselo; el objetivo es que ni la app ni un descuido lo hagan, y que quede rastro). Tres funciones genéricas, reutilizadas en todas las fases:
