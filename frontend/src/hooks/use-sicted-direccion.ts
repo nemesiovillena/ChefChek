@@ -14,8 +14,10 @@ import type {
   SictedEvent,
   SictedImprovementAction,
   SictedObjective,
+  SictedCommitments,
   SictedComplementaryGroup,
   SictedPractice,
+  UpdateCycleInput,
   UpdateComplianceDocInput,
   UpdateImprovementActionInput,
   UpdateObjectiveInput,
@@ -26,6 +28,7 @@ import type {
 const BASE_URL = '/v1/sicted/direccion';
 const PRACTICES_KEY = 'sicted-practices';
 const COMPLEMENTARY_KEY = 'sicted-complementary-modules';
+const COMMITMENTS_KEY = 'sicted-commitments';
 const ASSESSMENTS_KEY = 'sicted-assessments';
 const SCORES_KEY = 'sicted-assessment-scores';
 const PENDING_KEY = 'sicted-assessment-pending-mandatory';
@@ -293,6 +296,63 @@ export async function openSictedAnnualReportPdf(year: number, onBlocked: () => v
   );
   const response = await apiClient.get(`${BASE_URL}/annual-report.pdf`, { params: { year }, responseType: 'blob' });
   const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+  win.location.href = url;
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// --- Compromisos por fase del ciclo -----------------------------------------
+
+export function useSictedCommitments(enabled = true) {
+  return useQuery<SictedCommitments, Error>({
+    queryKey: [COMMITMENTS_KEY],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/commitments`)).data,
+    enabled,
+  });
+}
+
+export function useUpdateSictedCycle() {
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, UpdateCycleInput>({
+    mutationFn: async (data) => (await apiClient.patch(`${BASE_URL}/cycle`, data)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [COMMITMENTS_KEY] }),
+  });
+}
+
+/** Sube (o sustituye) la evidencia adjunta de una acción del plan de mejora. */
+export function useUploadImprovementEvidence() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedImprovementAction, Error, { id: string; file: File }>({
+    mutationFn: async ({ id, file }) => {
+      const form = new FormData();
+      form.append('attachment', file);
+      return (await apiClient.post(`${BASE_URL}/improvement-actions/${id}/evidence`, form)).data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [IMPROVEMENT_ACTIONS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [COMMITMENTS_KEY] });
+    },
+  });
+}
+
+/** Abre la evidencia en pestaña nueva; `window.open` síncrono dentro del gesto (iOS Safari). */
+export async function openImprovementEvidence(
+  actionId: string,
+  attachment: { name: string; mime: string },
+  onBlocked: () => void,
+) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    onBlocked();
+    return;
+  }
+  win.document.write(
+    '<!doctype html><html><head><title>Abriendo evidencia…</title></head>' +
+      '<body style="font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#666">Abriendo evidencia…</body></html>',
+  );
+  const response = await apiClient.get(`${BASE_URL}/improvement-actions/${actionId}/evidence`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(new Blob([response.data], { type: attachment.mime }));
   win.location.href = url;
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

@@ -13,6 +13,8 @@ const inputCls =
 
 const KIND_LABELS: Record<EventKind, string> = {
   GRUPO_MEJORA: 'Grupo de mejora',
+  ATI: 'Asesoría individual (ATI)',
+  ATC: 'Asesoría colectiva (ATC)',
   FORMACION_DESTINO: 'Formación del destino',
   EVALUACION_EXTERNA: 'Evaluación externa',
   OTRO: 'Otro',

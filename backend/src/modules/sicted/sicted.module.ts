@@ -29,6 +29,9 @@ import { SictedLostItemService } from "./services/sicted-lost-item.service";
 import { SictedPracticeCatalogService } from "./services/sicted-practice-catalog.service";
 import { SictedAssessmentService } from "./services/sicted-assessment.service";
 import { SictedSettingsService } from "./services/sicted-settings.service";
+import { SictedCommitmentsService } from "./services/sicted-commitments.service";
+import { SictedImprovementEvidenceService } from "./services/sicted-improvement-evidence.service";
+import { SictedCompromisosController } from "./sicted-compromisos.controller";
 import { SictedImprovementActionService } from "./services/sicted-improvement-action.service";
 import { SictedObjectiveService } from "./services/sicted-objective.service";
 import { SictedEventService } from "./services/sicted-event.service";
@@ -59,6 +62,7 @@ import { SictedAnnualReportPdfService } from "./services/sicted-annual-report-pd
     SictedDireccionController,
     SictedDireccionLegalController,
     SictedDireccionReportController,
+    SictedCompromisosController,
   ],
   providers: [
     SictedPlanPdfService,
@@ -77,6 +81,8 @@ import { SictedAnnualReportPdfService } from "./services/sicted-annual-report-pd
     SictedSatisfactionService,
     SictedLostItemService,
     SictedSettingsService,
+    SictedCommitmentsService,
+    SictedImprovementEvidenceService,
     SictedPracticeCatalogService,
     SictedAssessmentService,
     SictedImprovementActionService,
