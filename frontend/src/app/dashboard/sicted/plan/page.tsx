@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, ClipboardCheck, Loader2, Plus } from 'lucide-react';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Archive, ClipboardCheck, Loader2, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -18,8 +18,24 @@ export const dynamic = 'force-dynamic';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
-/** Editor de Plan: listado de plantillas + crear/editar/archivar. Solo ADMIN/OWNER (guard también en backend). */
+/** Minúsculas y sin tildes, para buscar "limpieza aseos" en "Limpieza de Aseos". */
+function fold(text: string) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/**
+ * Editor de Plan: listado de plantillas + crear/editar/archivar. Solo ADMIN/OWNER (guard también en backend).
+ * `?buscar=` prefiltra el listado (enlaces desde el catálogo SICTED, p. ej. 0413 → "aseos"); useSearchParams exige Suspense.
+ */
 export default function SictedPlanPage() {
+  return (
+    <Suspense>
+      <SictedPlanContent />
+    </Suspense>
+  );
+}
+
+function SictedPlanContent() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const confirm = useConfirm();
@@ -29,6 +45,13 @@ export default function SictedPlanPage() {
   const seedStarter = useSeedSictedStarterTemplates();
 
   const [editing, setEditing] = useState<ChecklistTemplate | 'new' | null>(null);
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('buscar') ?? '');
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const visibleTemplates = (templates ?? []).filter((t) => {
+    const haystack = fold(`${t.name} ${t.area}`);
+    return words.every((w) => haystack.includes(w));
+  });
 
   const canManage = MANAGE_ROLES.includes(user?.role ?? '');
 
@@ -128,13 +151,37 @@ export default function SictedPlanPage() {
         </div>
       </div>
 
+      {templates && templates.length > 0 && (
+        <label className="mb-4 flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3">
+          <Search className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar plantilla por nombre o zona"
+            className="min-h-[44px] flex-1 bg-transparent text-base outline-none"
+          />
+        </label>
+      )}
+
       {!templates || templates.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
           Sin plantillas todavía.
         </div>
+      ) : visibleTemplates.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
+          <p className="mb-3">Ninguna plantilla coincide con «{query}».</p>
+          <button
+            type="button"
+            onClick={() => setEditing('new')}
+            className="mx-auto flex min-h-[44px] items-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-medium text-primary-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Crear una plantilla nueva
+          </button>
+        </div>
       ) : (
         <div className="space-y-2">
-          {templates.map((t) => (
+          {visibleTemplates.map((t) => (
             <div
               key={t.id}
               className="flex items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3"

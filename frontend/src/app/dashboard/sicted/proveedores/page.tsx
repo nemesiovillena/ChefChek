@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useTabQueryParam } from '@/hooks/use-tab-query-param';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ClipboardList, Package, ShieldCheck, Warehouse } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -12,6 +13,7 @@ import { SictedSuppliersEvidenceTab } from '../components/sicted-suppliers-evide
 export const dynamic = 'force-dynamic';
 
 type TabId = 'cumplimiento' | 'incidencias' | 'inventario' | 'evidencia';
+const TAB_IDS: readonly TabId[] = ['cumplimiento', 'incidencias', 'inventario', 'evidencia'];
 
 const TABS: { id: TabId; label: string; icon: typeof ShieldCheck }[] = [
   { id: 'cumplimiento', label: 'Perfil de cumplimiento', icon: ShieldCheck },
@@ -21,10 +23,19 @@ const TABS: { id: TabId; label: string; icon: typeof ShieldCheck }[] = [
 ];
 
 /** Proveedores y aprovisionamiento (PROV): perfil de cumplimiento, incidencias de recepción, sello de inventario, panel de evidencia. */
+/** La pestaña activa vive en `?tab=` (enlazable desde el catálogo): useSearchParams exige Suspense. */
 export default function SictedProveedoresPage() {
+  return (
+    <Suspense>
+      <SictedProveedoresPageContent />
+    </Suspense>
+  );
+}
+
+function SictedProveedoresPageContent() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('cumplimiento');
+  const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'cumplimiento');
 
   if (authLoading) return null;
 

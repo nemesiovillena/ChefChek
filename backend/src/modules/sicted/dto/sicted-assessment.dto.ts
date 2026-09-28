@@ -1,11 +1,9 @@
 import {
   IsBoolean,
-  IsInt,
+  IsIn,
   IsOptional,
   IsString,
-  Max,
   MaxLength,
-  Min,
   MinLength,
   ValidateIf,
 } from "class-validator";
@@ -17,17 +15,18 @@ export class CreateAssessmentDto {
   label: string;
 }
 
+export const SICTED_ASSESSMENT_RESULTS = ["CUMPLE", "NO_CUMPLE"] as const;
+export type SictedAssessmentResult = (typeof SICTED_ASSESSMENT_RESULTS)[number];
+
 /**
- * Puntuar una práctica — escala real del manual: 1 a 5, sin decimales.
- * `notApplicable` es una casilla SEPARADA (no un valor de puntuación como
- * "6=NA"); si está marcada, `score` no aplica y se ignora.
+ * Valorar una práctica — SICTED 2026: Cumple / No cumple, con "No aplica"
+ * como casilla separada (si está marcada, `result` se ignora). La metodología
+ * 2026 no fija escala numérica; la 1-5 solo queda en autoevaluaciones legado.
  */
 export class UpsertScoreDto {
   @ValidateIf((o) => !o.notApplicable)
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  score?: number;
+  @IsIn(SICTED_ASSESSMENT_RESULTS)
+  result?: SictedAssessmentResult;
 
   @IsOptional()
   @IsBoolean()

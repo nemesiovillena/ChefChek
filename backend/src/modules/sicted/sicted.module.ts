@@ -28,6 +28,7 @@ import { SictedSatisfactionService } from "./services/sicted-satisfaction.servic
 import { SictedLostItemService } from "./services/sicted-lost-item.service";
 import { SictedPracticeCatalogService } from "./services/sicted-practice-catalog.service";
 import { SictedAssessmentService } from "./services/sicted-assessment.service";
+import { SictedSettingsService } from "./services/sicted-settings.service";
 import { SictedImprovementActionService } from "./services/sicted-improvement-action.service";
 import { SictedObjectiveService } from "./services/sicted-objective.service";
 import { SictedEventService } from "./services/sicted-event.service";
@@ -75,6 +76,7 @@ import { SictedAnnualReportPdfService } from "./services/sicted-annual-report-pd
     SictedFeedbackService,
     SictedSatisfactionService,
     SictedLostItemService,
+    SictedSettingsService,
     SictedPracticeCatalogService,
     SictedAssessmentService,
     SictedImprovementActionService,

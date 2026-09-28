@@ -22,7 +22,11 @@ import { SictedPracticeCatalogService } from "./services/sicted-practice-catalog
 import { SictedAssessmentService } from "./services/sicted-assessment.service";
 import { SictedImprovementActionService } from "./services/sicted-improvement-action.service";
 import { SictedObjectiveService } from "./services/sicted-objective.service";
-import { UpdateSictedPracticeDto } from "./dto/sicted-practice-catalog.dto";
+import { SictedSettingsService } from "./services/sicted-settings.service";
+import {
+  UpdateSictedComplementaryGroupsDto,
+  UpdateSictedPracticeDto,
+} from "./dto/sicted-practice-catalog.dto";
 import {
   CreateAssessmentDto,
   UpsertScoreDto,
@@ -37,9 +41,9 @@ import {
 } from "./dto/sicted-objective.dto";
 
 /**
- * Fachada SICTED de Dirección: catálogo de buenas prácticas (BP1-BP6) y
- * autoevaluación con la escala real 1-5 + No aplica (fase 9, sub-PR 1);
- * plan de mejora y objetivos anuales (fase 9, sub-PR 2).
+ * Fachada SICTED de Dirección: catálogo de buenas prácticas SICTED 2026 y sus
+ * módulos complementarios, autoevaluación Cumple / No cumple / No aplica,
+ * plan de mejora y objetivos anuales.
  */
 @Controller("api/v1/sicted/direccion")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
@@ -48,6 +52,7 @@ import {
 export class SictedDireccionController {
   constructor(
     private readonly catalog: SictedPracticeCatalogService,
+    private readonly settings: SictedSettingsService,
     private readonly assessments: SictedAssessmentService,
     private readonly improvementActions: SictedImprovementActionService,
     private readonly objectives: SictedObjectiveService,
@@ -64,6 +69,34 @@ export class SictedDireccionController {
     const data = await this.catalog.list(
       req.tenantId,
       includeArchived === "true",
+    );
+    return { success: true, data };
+  }
+
+  /** Prácticas que aplican al negocio (oficio + complementarias activadas). */
+  @Get("practices/applicable")
+  @Roles("USER")
+  async listApplicablePractices(@Req() req: any) {
+    const data = await this.catalog.listApplicable(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Get("complementary-modules")
+  @Roles("USER")
+  async listComplementaryGroups(@Req() req: any) {
+    const data = await this.settings.complementaryGroups(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Patch("complementary-modules")
+  @Roles("ADMIN", "OWNER")
+  async updateComplementaryGroups(
+    @Req() req: any,
+    @Body() dto: UpdateSictedComplementaryGroupsDto,
+  ) {
+    const data = await this.settings.setComplementaryGroups(
+      req.tenantId,
+      dto.groupKeys,
     );
     return { success: true, data };
   }

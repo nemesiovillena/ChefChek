@@ -45,7 +45,7 @@ export class SictedAnnualReportPdfService {
       }
       this.line(
         doc,
-        `${report.assessment.label} — cerrada el ${report.assessment.closedAt.slice(0, 10)} · ${report.assessment.pendingMandatoryCount} obligatorias pendientes o <3`,
+        `${report.assessment.label} — cerrada el ${report.assessment.closedAt.slice(0, 10)} · ${report.assessment.pendingMandatoryCount} obligatorias sin cumplir`,
       );
     });
 
