@@ -8,12 +8,12 @@ import {
   CreateAssessmentDto,
   UpsertScoreDto,
 } from "../dto/sicted-assessment.dto";
-import { sortByPracticeCode } from "../util/sicted-practice-code.util";
+import { SictedPracticeCatalogService } from "./sicted-practice-catalog.service";
 
 /**
- * Autoevaluación (Dirección) — ciclo borrador→cerrado sobre el catálogo de
- * prácticas. Escala real 1-5 + "No aplica" (casilla separada, no un valor de
- * puntuación). Cerrada = inmutable (trigger
+ * Autoevaluación (Dirección) — ciclo borrador→cerrado sobre las prácticas que
+ * aplican al negocio (oficio + complementarias activadas). SICTED 2026:
+ * Cumple / No cumple + "No aplica" (casilla separada). Cerrada = inmutable (trigger
  * `forbid_score_update_if_assessment_closed`); mientras está en borrador se
  * puede corregir libremente (no es append-only, a diferencia del resto del
  * módulo — el manual no pide "corrección con motivo" aquí, es una
@@ -21,7 +21,10 @@ import { sortByPracticeCode } from "../util/sicted-practice-code.util";
  */
 @Injectable()
 export class SictedAssessmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly catalog: SictedPracticeCatalogService,
+  ) {}
 
   async list(tenantId: string) {
     return this.prisma.sictedAssessment.findMany({
@@ -46,19 +49,15 @@ export class SictedAssessmentService {
     });
   }
 
-  /** Prácticas activas del catálogo + la puntuación de esta autoevaluación (si existe). */
+  /** Prácticas que aplican al negocio + la valoración de esta autoevaluación (si existe). */
   async getScores(tenantId: string, assessmentId: string) {
     await this.getOneVisible(tenantId, assessmentId);
-    const [practicesRaw, scores] = await Promise.all([
-      this.prisma.sictedPractice.findMany({
-        where: { tenantId, archivedAt: null },
-        orderBy: { bpSection: "asc" },
-      }),
+    const [practices, scores] = await Promise.all([
+      this.catalog.listApplicable(tenantId),
       this.prisma.sictedAssessmentScore.findMany({
         where: { tenantId, assessmentId },
       }),
     ]);
-    const practices = sortByPracticeCode(practicesRaw);
     const scoreByPracticeId = new Map(scores.map((s) => [s.practiceId, s]));
     return practices.map((p) => ({
       practice: p,
@@ -82,8 +81,10 @@ export class SictedAssessmentService {
     if (!practice) {
       throw new NotFoundException("Práctica no encontrada");
     }
-    if (!dto.notApplicable && (dto.score === undefined || dto.score === null)) {
-      throw new BadRequestException("Falta la puntuación (o marca No aplica)");
+    if (!dto.notApplicable && !dto.result) {
+      throw new BadRequestException(
+        "Indica si cumple o no (o marca No aplica)",
+      );
     }
 
     return this.prisma.sictedAssessmentScore.upsert({
@@ -92,12 +93,12 @@ export class SictedAssessmentService {
         tenantId,
         assessmentId,
         practiceId,
-        score: dto.notApplicable ? null : dto.score,
+        result: dto.notApplicable ? null : dto.result,
         notApplicable: !!dto.notApplicable,
         evidenceNote: dto.evidenceNote,
       },
       update: {
-        score: dto.notApplicable ? null : dto.score,
+        result: dto.notApplicable ? null : dto.result,
         notApplicable: !!dto.notApplicable,
         evidenceNote: dto.evidenceNote,
       },
@@ -116,8 +117,8 @@ export class SictedAssessmentService {
   }
 
   /**
-   * Obligatorias sin puntuar o con puntuación < 3 (el manual exige mínimo 3
-   * en cada obligatoria para optar al distintivo). No cruza con evidencia
+   * Obligatorias que aplican y no constan como "Cumple" (sin valorar o "No
+   * cumple"): son las que bloquean el distintivo. No cruza con evidencia
    * automática de otros módulos — eso es el motor de cobertura (sub-PR
    * posterior); aquí "cobertura" = la autoevaluación en sí misma.
    */
@@ -129,11 +130,11 @@ export class SictedAssessmentService {
       }
       if (!r.score) {
         return true;
-      } // sin puntuar (ni No aplica)
+      } // sin valorar (ni No aplica)
       if (r.score.notApplicable) {
         return false;
       }
-      return (r.score.score ?? 0) < 3;
+      return r.score.result !== "CUMPLE";
     });
   }
 }

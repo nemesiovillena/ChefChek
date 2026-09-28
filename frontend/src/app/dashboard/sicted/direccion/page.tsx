@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useTabQueryParam } from '@/hooks/use-tab-query-param';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Calendar, ClipboardCheck, ClipboardList, FileBarChart, FileText, Target, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -15,6 +16,7 @@ import { SictedDireccionReportTab } from '../components/sicted-direccion-report-
 export const dynamic = 'force-dynamic';
 
 type TabId = 'catalogo' | 'autoevaluacion' | 'mejora' | 'objetivos' | 'eventos' | 'legal' | 'informe';
+const TAB_IDS: readonly TabId[] = ['catalogo', 'autoevaluacion', 'mejora', 'objetivos', 'eventos', 'legal', 'informe'];
 
 const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
   { id: 'catalogo', label: 'Catálogo', icon: ClipboardCheck },
@@ -31,10 +33,19 @@ const TABS: { id: TabId; label: string; icon: typeof ClipboardCheck }[] = [
  * escala real 1-5 + No aplica. Herramienta de apoyo interno — no sustituye
  * la evaluación oficial de un evaluador externo SICTED.
  */
+/** La pestaña activa vive en `?tab=` (enlazable desde el catálogo): useSearchParams exige Suspense. */
 export default function SictedDireccionPage() {
+  return (
+    <Suspense>
+      <SictedDireccionPageContent />
+    </Suspense>
+  );
+}
+
+function SictedDireccionPageContent() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('catalogo');
+  const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'catalogo');
 
   if (authLoading) return null;
 

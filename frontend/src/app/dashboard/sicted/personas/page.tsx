@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense } from 'react';
+import { useTabQueryParam } from '@/hooks/use-tab-query-param';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Briefcase, FileText, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -11,6 +12,7 @@ import { SictedPersonasProtocolsTab } from '../components/sicted-personas-protoc
 export const dynamic = 'force-dynamic';
 
 type TabId = 'puestos' | 'formacion' | 'protocolos';
+const TAB_IDS: readonly TabId[] = ['puestos', 'formacion', 'protocolos'];
 
 const TABS: { id: TabId; label: string; icon: typeof Briefcase }[] = [
   { id: 'puestos', label: 'Puestos', icon: Briefcase },
@@ -19,10 +21,19 @@ const TABS: { id: TabId; label: string; icon: typeof Briefcase }[] = [
 ];
 
 /** Personas: fichas de puesto, plan de formación, protocolos con acuse versionado. */
+/** La pestaña activa vive en `?tab=` (enlazable desde el catálogo): useSearchParams exige Suspense. */
 export default function SictedPersonasPage() {
+  return (
+    <Suspense>
+      <SictedPersonasPageContent />
+    </Suspense>
+  );
+}
+
+function SictedPersonasPageContent() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>('puestos');
+  const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'puestos');
 
   if (authLoading) return null;
 

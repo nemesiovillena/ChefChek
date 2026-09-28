@@ -1,18 +1,39 @@
 /**
- * Tipos de Dirección (SICTED fase 9, sub-PR 1): catálogo de buenas prácticas
- * (BP1-BP6, manual real "Restaurantes y empresas turísticas de catering") y
- * autoevaluación. Escala real: 1-5, sin decimales, + "No aplica" como
- * casilla separada (NO un 6º valor de puntuación).
+ * Tipos de Dirección: catálogo de buenas prácticas SICTED 2026 ("Restaurantes
+ * y empresas de catering": capítulo × eje × módulo, obligatoria / de mejora)
+ * y autoevaluación Cumple / No cumple + "No aplica" como casilla separada.
  */
+
+export type SictedChapter = 'INTERSECTORIAL' | 'OFICIO' | 'COMPLEMENTARIO';
+export type SictedAxis = 'ECONOMICO' | 'SOCIAL' | 'AMBIENTAL';
 
 export interface SictedPractice {
   id: string;
   code: string;
-  bpSection: number;
-  bpSectionName: string;
+  chapter: SictedChapter | null;
+  axis: SictedAxis | null;
+  moduleCode: string | null;
+  moduleName: string | null;
   title: string;
+  description: string | null;
   isMandatory: boolean;
+  isEssential: boolean;
+  requiresDocs: boolean;
+  requiredDocs: string | null;
+  templates: string | null;
+  relatedCodes: string[];
+  notApplicableWhen: string[];
+  ods: string | null;
+  manualVersion: string;
   archivedAt: string | null;
+}
+
+export interface SictedComplementaryGroup {
+  key: string;
+  label: string;
+  condition: string;
+  moduleCodes: string[];
+  enabled: boolean;
 }
 
 export interface UpdatePracticeInput {
@@ -34,7 +55,8 @@ export interface SictedAssessmentScore {
   id: string;
   assessmentId: string;
   practiceId: string;
-  score: number | null;
+  score: number | null; // legado (escala 1-5 del catálogo anterior)
+  result: SictedAssessmentResult | null;
   notApplicable: boolean;
   evidenceNote: string | null;
 }
@@ -44,8 +66,10 @@ export interface AssessmentScoreRow {
   score: SictedAssessmentScore | null;
 }
 
+export type SictedAssessmentResult = 'CUMPLE' | 'NO_CUMPLE';
+
 export interface UpsertScoreInput {
-  score?: number;
+  result?: SictedAssessmentResult;
   notApplicable?: boolean;
   evidenceNote?: string;
 }

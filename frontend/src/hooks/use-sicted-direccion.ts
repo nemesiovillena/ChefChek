@@ -14,6 +14,7 @@ import type {
   SictedEvent,
   SictedImprovementAction,
   SictedObjective,
+  SictedComplementaryGroup,
   SictedPractice,
   UpdateComplianceDocInput,
   UpdateImprovementActionInput,
@@ -24,6 +25,7 @@ import type {
 
 const BASE_URL = '/v1/sicted/direccion';
 const PRACTICES_KEY = 'sicted-practices';
+const COMPLEMENTARY_KEY = 'sicted-complementary-modules';
 const ASSESSMENTS_KEY = 'sicted-assessments';
 const SCORES_KEY = 'sicted-assessment-scores';
 const PENDING_KEY = 'sicted-assessment-pending-mandatory';
@@ -46,6 +48,29 @@ export function useSeedSictedCatalog() {
   return useMutation<SictedPractice[], Error, void>({
     mutationFn: async () => (await apiClient.post(`${BASE_URL}/practices/seed`)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [PRACTICES_KEY] }),
+  });
+}
+
+/** Módulos complementarios del MBP (Configuración → SICTED). */
+export function useSictedComplementaryGroups(enabled = true) {
+  return useQuery<SictedComplementaryGroup[], Error>({
+    queryKey: [COMPLEMENTARY_KEY],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/complementary-modules`)).data,
+    enabled,
+  });
+}
+
+export function useUpdateSictedComplementaryGroups() {
+  const queryClient = useQueryClient();
+  return useMutation<SictedComplementaryGroup[], Error, string[]>({
+    mutationFn: async (groupKeys) =>
+      (await apiClient.patch(`${BASE_URL}/complementary-modules`, { groupKeys })).data,
+    onSuccess: () => {
+      // Cambia qué prácticas aplican: refresca autoevaluaciones y pendientes.
+      queryClient.invalidateQueries({ queryKey: [COMPLEMENTARY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SCORES_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PENDING_KEY] });
+    },
   });
 }
 

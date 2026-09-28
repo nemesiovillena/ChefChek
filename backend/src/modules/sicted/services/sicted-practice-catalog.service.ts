@@ -1,26 +1,49 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
-import { SICTED_PRACTICE_CATALOG_SEED } from "../constants/sicted-practice-catalog-seed";
+import {
+  SICTED_CATALOG_2026_VERSION,
+  SICTED_PRACTICE_CATALOG_2026_SEED,
+} from "../constants/sicted-practice-catalog-2026-seed";
 import { UpdateSictedPracticeDto } from "../dto/sicted-practice-catalog.dto";
 import { sortByPracticeCode } from "../util/sicted-practice-code.util";
+import { SictedSettingsService } from "./sicted-settings.service";
 
 /**
- * Catálogo de buenas prácticas (BP1-BP6, manual real "Restaurantes y
- * empresas turísticas de catering") — editable/ampliable por el tenant, no
- * es evidencia (a diferencia del resto de fase 9). Sembrado idempotente vía
- * botón explícito "Cargar catálogo" (confirmado, no automático al activar
- * el módulo), mismo patrón que las plantillas de ejemplo de fase 2.
+ * Catálogo de buenas prácticas SICTED 2026 ("Restaurantes y empresas de
+ * catering": capítulo × eje × módulo, obligatoria / de mejora) —
+ * editable/ampliable por el tenant, no es evidencia. Sembrado idempotente vía
+ * botón explícito "Cargar catálogo" (nunca automático al activar el módulo).
  */
 @Injectable()
 export class SictedPracticeCatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SictedSettingsService,
+  ) {}
 
   async list(tenantId: string, includeArchived = false) {
     const practices = await this.prisma.sictedPractice.findMany({
       where: { tenantId, ...(includeArchived ? {} : { archivedAt: null }) },
-      orderBy: { bpSection: "asc" },
     });
     return sortByPracticeCode(practices);
+  }
+
+  /**
+   * Prácticas que aplican al negocio: todas las de oficio/intersectoriales
+   * activas + las complementarias cuyos módulos están activados en
+   * Configuración → SICTED.
+   */
+  async listApplicable(tenantId: string) {
+    const [practices, enabledModules] = await Promise.all([
+      this.list(tenantId),
+      this.settings.enabledComplementaryModules(tenantId),
+    ]);
+    const enabled = new Set(enabledModules);
+    return practices.filter(
+      (p) =>
+        p.chapter !== "COMPLEMENTARIO" ||
+        (p.moduleCode !== null && enabled.has(p.moduleCode)),
+    );
   }
 
   async getOneVisible(tenantId: string, id: string) {
@@ -33,12 +56,31 @@ export class SictedPracticeCatalogService {
     return practice;
   }
 
-  /** Idempotente: `skipDuplicates` por `(tenantId, code)` — reimportar no duplica ni pisa ediciones del tenant. */
+  /**
+   * Carga el catálogo 2026. Idempotente (`skipDuplicates` por `(tenantId,
+   * code)`: reimportar no duplica ni pisa ediciones del tenant). Las
+   * prácticas de catálogos anteriores se archivan, nunca se borran: sus
+   * autoevaluaciones conservan el historial.
+   */
   async seedCatalog(tenantId: string) {
-    await this.prisma.sictedPractice.createMany({
-      data: SICTED_PRACTICE_CATALOG_SEED.map((p) => ({ tenantId, ...p })),
-      skipDuplicates: true,
-    });
+    await this.prisma.$transaction([
+      this.prisma.sictedPractice.updateMany({
+        where: {
+          tenantId,
+          archivedAt: null,
+          manualVersion: { not: SICTED_CATALOG_2026_VERSION },
+        },
+        data: { archivedAt: new Date() },
+      }),
+      this.prisma.sictedPractice.createMany({
+        data: SICTED_PRACTICE_CATALOG_2026_SEED.map((p) => ({
+          tenantId,
+          ...p,
+          manualVersion: SICTED_CATALOG_2026_VERSION,
+        })),
+        skipDuplicates: true,
+      }),
+    ]);
     return this.list(tenantId);
   }
 

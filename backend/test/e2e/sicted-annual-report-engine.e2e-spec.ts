@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { SictedFeedbackService } from "../../src/modules/sicted/services/sicted-feedback.service";
 import { SictedAssessmentService } from "../../src/modules/sicted/services/sicted-assessment.service";
+import { SictedSettingsService } from "../../src/modules/sicted/services/sicted-settings.service";
 import { SictedPracticeCatalogService } from "../../src/modules/sicted/services/sicted-practice-catalog.service";
 import { SictedAnnualReportService } from "../../src/modules/sicted/services/sicted-annual-report.service";
 
@@ -23,6 +24,7 @@ describe("E2E - Informe anual SICTED (fase 9, sub-PR 4)", () => {
     moduleRef = await Test.createTestingModule({
       providers: [
         PrismaService,
+        SictedSettingsService,
         SictedPracticeCatalogService,
         SictedAssessmentService,
         SictedFeedbackService,

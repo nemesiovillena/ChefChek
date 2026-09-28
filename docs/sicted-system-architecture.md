@@ -27,7 +27,8 @@ backend/src/modules/sicted/
 ├── sicted-direccion-report.controller.ts  # informe anual agregado (fase 9)
 ├── dto/                                   # un DTO por sub-dominio
 ├── services/                              # un servicio por sub-dominio
-└── constants/sicted-practice-catalog-seed.ts  # 144 prácticas del manual real
+├── constants/sicted-practice-catalog-2026-seed.ts  # 336 BP SICTED 2026 (autogenerado)
+└── constants/sicted-complementary-modules.ts      # grupos de módulos complementarios
 
 backend/src/modules/checklists/            # motor compartido sicted+appcc
 ├── checklists.module.ts
@@ -93,9 +94,17 @@ Todas las tablas SICTED llevan `tenantId` propio (no reglas hijas de backup) y q
 
 ## Catálogo de buenas prácticas
 
-Sembrado idempotente (`createMany` + `skipDuplicates`, botón explícito "Cargar catálogo", nunca automático al activar el módulo) desde `constants/sicted-practice-catalog-seed.ts`: **144 prácticas** extraídas del manual real *"Restaurantes y empresas turísticas de catering: Manual de buenas prácticas"* (`23_Restaurantes_y_empresas_de_catering_v4.pdf`), agrupadas en BP1 Personas (21) · BP2 Clientes (11) · BP3 Ventas (10) · BP4 Servicios externos (11) · BP5 Instalaciones y equipamiento (20) · BP6 Oficio (71, ya filtrados de los ítems exclusivos de Catering). 121 obligatorias / 23 recomendables, derivado del listado "Buenas prácticas obligatorias de la sección BPx" de cada sección del manual. Escala real de puntuación: **1 a 5, sin decimales**, con "No aplica" como casilla independiente (no un 6º valor).
+Metodología **SICTED 2026** (manual de metodología SEGITTUR rev. 1.1, ago-2026): distintivo *Compromiso de Turismo Responsable*; cada Manual de Buenas Prácticas se organiza en capítulo (intersectorial / oficio / complementario) × eje (sostenibilidad económica / social / ambiental) × módulo, y cada práctica es **obligatoria** o **de mejora**.
 
-> Nota histórica: el diseño original del plan se basó en un manual equivocado (confundido con un documento de APPCC), con una escala y una estructura de códigos que no existen en el manual real. Corregido antes de sembrar ningún dato — ver el journal de fase 9 sub-PR 1 para el detalle completo.
+- **Fuente**: Biblioteca de sicted.es, guardada en `artefactos/SICTED/Manuales/2026/` — «Índice global de BBPP_20260618.xlsx» (qué prácticas aplican al oficio «Restaurantes y empresas de catering») + 6 PDF «BP oficios/intersectoriales Eje SOST.*» (descripción, documentación requerida, plantillas, relacionadas, ODS).
+- **Seed autogenerado** por `scripts/sicted/extract_bbpp_2026.py` (openpyxl + pdfplumber; asigna celdas por posición relativa bajo cabeceras verticales y verifica contra el Excel): 258 de oficio (74 obligatorias) + 78 complementarias (38 obligatorias); 24 «esenciales» (entran en la evaluación parcial de seguimiento). Para regenerar tras una nueva versión del Índice: ejecutar el script y revisar `sinDescripcion`/`noEncontradasEnPdf` (deben salir vacíos).
+- **Carga**: botón explícito «Cargar catálogo SICTED 2026» (idempotente, `skipDuplicates` por `(tenantId, code)`); las prácticas de catálogos anteriores se **archivan** (`archivedAt`), nunca se borran, y sus autoevaluaciones conservan el historial.
+- **Módulos complementarios**: `SictedSettings.enabledComplementaryModules` (moduleCodes), editable en Configuración → SICTED por grupos de condición de la «Guía para la configuración de los MBP» (`constants/sicted-complementary-modules.ts`; un test garantiza que cada módulo complementario del seed está en exactamente un grupo). Solo las complementarias activadas entran en la autoevaluación (`SictedPracticeCatalogService.listApplicable`).
+- **Autoevaluación**: `SictedAssessmentScore.result` = `CUMPLE` | `NO_CUMPLE`, con «No aplica» como casilla aparte. La metodología 2026 no fija escala numérica; `score` 1-5 queda solo en autoevaluaciones del catálogo anterior. Pendientes = obligatorias aplicables sin «Cumple».
+- **Enlaces a evidencia** (solo navegación, no marcan cumplimiento): `PRACTICE_EVIDENCE_LINKS` en `frontend/src/lib/sicted-practice-presentation.ts` (~70 prácticas). Las pantallas SICTED con pestañas guardan la pestaña en `?tab=` (`hooks/use-tab-query-param.ts`, página envuelta en `Suspense`) y el Plan acepta `?buscar=` para abrir filtrado (p. ej. 0413 → plantillas «aseos»).
+- **Guía de uso** para el usuario: `/dashboard/sicted/ayuda` (enlazada desde la portada SICTED).
+
+> Nota histórica: el catálogo de fase 9 (144 prácticas BP1-BP6, escala 1-5) venía de `23_Restaurantes_y_empresas_de_catering_v4.pdf`, de **2015**. Queda sustituido por el modelo 2026.
 
 ## Inalterabilidad
 
@@ -143,6 +152,6 @@ Certificados de formación, actas de eventos, documentos legales escaneados: `st
 
 ## Límites conocidos (documentados, no implementados)
 
-- **Motor de cobertura automática** ("N prácticas con evidencia automática nunca piden acción manual"): pertenecía al diseño basado en el manual equivocado (códigos de práctica que no existen en el catálogo real de 144). No se construye.
+- **Motor de cobertura automática** (marcar prácticas como cumplidas a partir de registros): no se construye; en su lugar hay enlaces de solo navegación desde la práctica a la evidencia en Chefchek.
 - **Autoevaluación/plan de mejora en el pack de auditoría de fase 5**: el informe anual de fase 9 cubre esa necesidad de otra forma (agregado propio), no se añadió a los PDFs existentes de fase 5.
 - **Sin integración con la plataforma oficial SICTED**: la autoevaluación de este módulo es una herramienta de apoyo interno; la evaluación real la hace un evaluador externo humano en `calidadendestino.org` o equivalente. Todas las pantallas de autoevaluación lo rotulan explícitamente.
