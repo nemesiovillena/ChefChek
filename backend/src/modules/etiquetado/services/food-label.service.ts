@@ -33,6 +33,8 @@ export type ExpiryStatus = "ok" | "expiring_soon" | "expired";
 interface SessionUser {
   id: string;
   name?: string | null;
+  /** Cuenta del ordenador de cocina: el responsable se elige; si es personal, firma ella. */
+  isSharedAccount?: boolean;
 }
 
 const FOOD_LABEL_INCLUDE = {
@@ -182,10 +184,15 @@ export class FoodLabelService {
         ? await this.buildIngredientLotRows(tenantId, dto)
         : [];
 
-    const responsibleName = await this.resolveResponsibleName(tenantId, user, {
-      responsibleUserId: dto.responsibleUserId,
-      responsibleName: dto.responsibleName,
-    });
+    // Una cuenta personal (móvil) firma sus etiquetas con su nombre; solo la
+    // compartida del ordenador de cocina elige responsable.
+    const responsibleName =
+      user.isSharedAccount === false
+        ? user.name?.trim() || "—"
+        : await this.resolveResponsibleName(tenantId, user, {
+            responsibleUserId: dto.responsibleUserId,
+            responsibleName: dto.responsibleName,
+          });
 
     const commonData: Omit<Prisma.FoodLabelUncheckedCreateInput, "lotNumber"> =
       {
@@ -699,9 +706,15 @@ export class FoodLabelService {
    * corregir una etiqueta. Sin depender del módulo Sala (Usuarios): esta
    * lista es propia de Etiquetado.
    */
+  /** Personas que pueden figurar como responsable: excluye las cuentas compartidas. */
   async listResponsibleCandidates(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId, isActive: true, deletedAt: null },
+      where: {
+        tenantId,
+        isActive: true,
+        deletedAt: null,
+        isSharedAccount: false,
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });

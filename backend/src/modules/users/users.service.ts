@@ -27,6 +27,7 @@ export class UsersService {
       phone,
       whatsapp,
       payrollEmail,
+      isSharedAccount = false,
     } = createUserDto;
 
     if ((role as string) === "SUPERADMIN") {
@@ -84,6 +85,7 @@ export class UsersService {
         phone,
         whatsapp,
         payrollEmail,
+        isSharedAccount,
       },
       select: {
         id: true,
@@ -97,6 +99,7 @@ export class UsersService {
         phone: true,
         whatsapp: true,
         payrollEmail: true,
+        isSharedAccount: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -130,6 +133,7 @@ export class UsersService {
           phone: true,
           whatsapp: true,
           payrollEmail: true,
+          isSharedAccount: true,
           createdAt: true,
         },
       }),
@@ -168,6 +172,7 @@ export class UsersService {
         phone: true,
         whatsapp: true,
         payrollEmail: true,
+        isSharedAccount: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -223,6 +228,7 @@ export class UsersService {
         phone: true,
         whatsapp: true,
         payrollEmail: true,
+        isSharedAccount: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -276,6 +282,7 @@ export class UsersService {
       tenantId: user.tenantId,
       isActive: user.isActive,
       avatarUrl: user.avatarUrl,
+      isSharedAccount: user.isSharedAccount,
     };
   }
 
@@ -302,6 +309,7 @@ export class UsersService {
       tenantId: user.tenantId,
       isActive: user.isActive,
       avatarUrl: user.avatarUrl,
+      isSharedAccount: user.isSharedAccount,
     };
   }
 
@@ -323,6 +331,7 @@ export class UsersService {
       tenantId: user.tenantId,
       isActive: user.isActive,
       avatarUrl: user.avatarUrl,
+      isSharedAccount: user.isSharedAccount,
     };
   }
 

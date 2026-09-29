@@ -208,17 +208,18 @@ export class ChecklistRunService {
         );
       }
       this.validateEntryAgainstMode(snapshot.mode, entry, item);
-      if (entry.performedByUserId) {
-        const user = await this.prisma.user.findFirst({
-          where: { id: entry.performedByUserId, tenantId },
-        });
-        if (!user) {
-          throw new BadRequestException(
-            `performedByUserId ${entry.performedByUserId} no pertenece a este tenant`,
-          );
-        }
-      }
     }
+    // Todas las marcas de un envío las firma la misma persona (el "Quién" de la hoja).
+    if (new Set(entries.map((e) => e.performedByUserId)).size > 1) {
+      throw new BadRequestException(
+        "Todas las marcas de un envío deben ser de la misma persona",
+      );
+    }
+    const performer = await this.resolvePerformer(
+      tenantId,
+      sessionUserId,
+      entries[0]?.performedByUserId,
+    );
 
     await this.prisma.checklistEntry.createMany({
       data: entries.map((entry) => ({
@@ -236,14 +237,55 @@ export class ChecklistRunService {
         correctiveAction: entry.correctiveAction,
         note: entry.note,
         correctsEntryId: entry.correctsEntryId,
-        performedByUserId: entry.performedByUserId,
-        performedByName: entry.performedByName,
+        performedByUserId: performer.id,
+        performedByName: performer.name,
         sessionUserId,
       })),
     });
 
     await this.maybeCompleteRun(runId, tenantId);
     return this.getRun(tenantId, module, runId);
+  }
+
+  /**
+   * Quién firma el registro. Una cuenta personal (móvil) firma siempre con su
+   * propio nombre, aunque el cliente mande otro. Una cuenta compartida (el
+   * ordenador de cocina) no es una persona: obliga a elegir un usuario del
+   * tenant que no sea a su vez una cuenta compartida. El nombre se toma
+   * siempre de la base de datos, nunca del cliente.
+   */
+  private async resolvePerformer(
+    tenantId: string,
+    sessionUserId: string,
+    requestedUserId: string | undefined,
+  ): Promise<{ id: string; name: string }> {
+    const sessionUser = await this.prisma.user.findFirst({
+      where: { id: sessionUserId },
+      select: { id: true, name: true, isSharedAccount: true },
+    });
+    if (sessionUser && !sessionUser.isSharedAccount) {
+      return { id: sessionUser.id, name: sessionUser.name };
+    }
+    if (!requestedUserId) {
+      throw new BadRequestException(
+        "Desde una cuenta compartida hay que elegir quién lo hace",
+      );
+    }
+    const performer = await this.prisma.user.findFirst({
+      where: {
+        id: requestedUserId,
+        tenantId,
+        isActive: true,
+        isSharedAccount: false,
+      },
+      select: { id: true, name: true },
+    });
+    if (!performer) {
+      throw new BadRequestException(
+        "La persona elegida no es un usuario activo de este restaurante",
+      );
+    }
+    return performer;
   }
 
   private validateEntryAgainstMode(
@@ -358,12 +400,17 @@ export class ChecklistRunService {
         "No se puede supervisar una hoja con ítems obligatorios sin resolver",
       );
     }
+    const supervisor = await this.resolvePerformer(
+      tenantId,
+      supervisedByUserId,
+      dto.supervisorUserId,
+    );
     return this.prisma.checklistRun.update({
       where: { id: runId },
       data: {
         supervisedAt: new Date(),
         supervisedByUserId,
-        supervisorName: dto.supervisorName,
+        supervisorName: supervisor.name,
         supervisorNote: dto.supervisorNote,
       },
     });
@@ -397,9 +444,10 @@ export class ChecklistRunService {
   }
 
   /** Personas activas del tenant, para el selector "¿quién lo hizo?". */
+  /** Personas que pueden firmar registros: excluye las cuentas compartidas. */
   async listPerformers(tenantId: string) {
     return this.prisma.user.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId, isActive: true, isSharedAccount: false },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
