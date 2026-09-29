@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -162,3 +163,13 @@ export class CreateChecklistTemplateDto {
 
 /** PATCH: reemplazo completo de campos + ítems (versión sube automáticamente). */
 export class UpdateChecklistTemplateDto extends CreateChecklistTemplateDto {}
+
+/** Importación de plantillas exportadas desde otro tenant (archivo del Plan). */
+export class ImportChecklistTemplatesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => CreateChecklistTemplateDto)
+  templates: CreateChecklistTemplateDto[];
+}

@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Archive, ClipboardCheck, Loader2, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Archive, ClipboardCheck, Download, FileUp, Loader2, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -11,7 +11,9 @@ import {
   useSeedSictedStarterTemplates,
   useSictedTemplates,
 } from '@/hooks/use-sicted';
-import { CHECKLIST_MODE_LABELS, type ChecklistTemplate } from '@/lib/sicted-types';
+import { downloadPlanFile, parsePlanFile } from '@/lib/sicted-plan-file';
+import { CHECKLIST_MODE_LABELS, type ChecklistTemplate, type ChecklistTemplateInput } from '@/lib/sicted-types';
+import { SictedPlanImportDialog } from '../components/sicted-plan-import-dialog';
 import { SictedTemplateEditor } from '../components/sicted-template-editor';
 
 export const dynamic = 'force-dynamic';
@@ -45,6 +47,8 @@ function SictedPlanContent() {
   const seedStarter = useSeedSictedStarterTemplates();
 
   const [editing, setEditing] = useState<ChecklistTemplate | 'new' | null>(null);
+  const [importing, setImporting] = useState<ChecklistTemplateInput[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('buscar') ?? '');
   const words = fold(query).split(/\s+/).filter(Boolean);
@@ -117,8 +121,31 @@ function SictedPlanContent() {
     }
   }
 
+  /** Exporta lo que se ve en el listado: con el buscador se exporta solo lo filtrado. */
+  function handleExport() {
+    downloadPlanFile(visibleTemplates);
+    notify({ type: 'success', title: 'Plan exportado', message: `${visibleTemplates.length} plantilla(s).` });
+  }
+
+  async function handleFileChosen(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite volver a elegir el mismo archivo
+    if (!file) return;
+    try {
+      setImporting(parsePlanFile(await file.text()));
+    } catch (err) {
+      notify({ type: 'error', title: 'Archivo no válido', message: err instanceof Error ? err.message : '' });
+    }
+  }
+
   return (
     <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
+      <SictedPlanImportDialog
+        templates={importing}
+        existingNames={(templates ?? []).map((t) => t.name)}
+        onClose={() => setImporting(null)}
+      />
+      <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleFileChosen} className="hidden" />
       <button
         type="button"
         onClick={() => router.push('/dashboard/sicted')}
@@ -130,7 +157,24 @@ function SictedPlanContent() {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-headline-lg text-headline-lg text-primary">El Plan</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={visibleTemplates.length === 0}
+            onClick={handleExport}
+            className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 text-sm font-medium disabled:opacity-40"
+          >
+            <Download className="h-4 w-4" />
+            Exportar
+          </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 text-sm font-medium"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar
+          </button>
           <button
             type="button"
             disabled={seedStarter.isPending}
