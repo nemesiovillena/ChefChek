@@ -73,8 +73,10 @@ const SECTIONS: GuideSection[] = [
     title: '3. Día a día (personal)',
     steps: [
       <>
-        Abre <strong>Hojas de hoy</strong> y marca cada tarea al hacerla. Elige siempre <strong>quién la ha hecho</strong>, aunque uses
-        la cuenta compartida de cocina: esa persona es la que figura en la evidencia.
+        Abre <strong>Hojas de hoy</strong>: las tareas vienen marcadas como <strong>Hecho</strong> (o <strong>Bien</strong>) y las
+        temperaturas con su valor habitual. Cambia solo lo que no se hizo o marque distinto, elige siempre{' '}
+        <strong>quién lo ha hecho</strong> (aunque uses la cuenta compartida de cocina: esa persona figura en la evidencia) y pulsa
+        Guardar.
       </>,
       <>
         Si algo no se hace, déjalo anotado con una observación. Los registros no se pueden borrar ni modificar: para corregir se

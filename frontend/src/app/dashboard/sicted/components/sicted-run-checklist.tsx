@@ -58,10 +58,17 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
     return live?.defaultValue ?? null;
   }
 
-  /** Borrador efectivo: el que escribió el usuario o, en mediciones sin marcar, el valor habitual. */
+  /**
+   * Borrador efectivo: el que tocó el usuario o, en ítems aún sin marcar, el
+   * resultado esperado por defecto — Hecho (¿Se hizo?), Bien (inspección) o
+   * el valor habitual (medición). Así solo hay que tocar lo que no fue bien.
+   */
   function draftFor(itemId: string): ChecklistItemDraft | undefined {
     if (drafts[itemId]) return drafts[itemId];
-    if (locked || run!.snapshot.mode !== 'MEASUREMENT' || run!.currentByItem[itemId]) return undefined;
+    if (locked || run!.currentByItem[itemId]) return undefined;
+    const mode = run!.snapshot.mode;
+    if (mode === 'EXECUTION') return { outcome: 'DONE', prefilled: true };
+    if (mode === 'INSPECTION') return { outcome: 'OK', prefilled: true };
     const item = run!.snapshot.items.find((i) => i.id === itemId);
     const value = item ? defaultValueFor(item.id, item.label) : null;
     return value === null ? undefined : { value: String(value), prefilled: true };
@@ -144,6 +151,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
     if (!ok) return;
   }
 
+  const prefilledCount = run.snapshot.items.filter((item) => draftFor(item.id)?.prefilled).length;
   const pendingEntries = run.snapshot.items.some((item) => {
     const draft = draftFor(item.id);
     return !!draft && buildEntry(item.id, draft) !== null;
@@ -165,6 +173,14 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
         </div>
         {!locked && <SictedPerformerPicker value={performer} onChange={setPerformer} />}
       </div>
+
+      {prefilledCount > 0 && (
+        <p className="rounded-xl bg-[var(--surface-container)] px-3 py-2 text-sm text-[var(--on-surface-variant)]">
+          {run.snapshot.mode === 'MEASUREMENT'
+            ? 'Las mediciones vienen con su valor habitual: cambia solo las que marquen distinto y pulsa Guardar.'
+            : `Todo viene marcado como ${run.snapshot.mode === 'INSPECTION' ? '«Bien»' : '«Hecho»'}: cambia solo lo que no fue así y pulsa Guardar.`}
+        </p>
+      )}
 
       <div className="space-y-2">
         {run.snapshot.items.map((item) => (
