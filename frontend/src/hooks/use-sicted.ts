@@ -65,6 +65,20 @@ export function useSeedSictedStarterTemplates() {
   });
 }
 
+export interface SictedTemplatesImportResult {
+  created: { id: string; name: string }[];
+  skipped: string[];
+}
+
+/** Alta en bloque desde un archivo del Plan exportado en otro tenant. */
+export function useImportSictedTemplates() {
+  const invalidate = useInvalidateTemplates();
+  return useMutation<SictedTemplatesImportResult, Error, ChecklistTemplateInput[]>({
+    mutationFn: async (templates) => (await apiClient.post(`${BASE_URL}/templates/import`, { templates })).data,
+    onSuccess: invalidate,
+  });
+}
+
 // --- Hojas (el Registro) ---------------------------------------------------
 
 export function useSictedRunsToday() {

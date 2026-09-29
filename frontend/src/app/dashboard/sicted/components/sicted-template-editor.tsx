@@ -15,6 +15,7 @@ import {
   type ChecklistTemplateInput,
   type ChecklistTemplateItemInput,
 } from '@/lib/sicted-types';
+import { templateToInput } from '@/lib/sicted-plan-file';
 import { SictedTemplateItemEditor } from './sicted-template-item-editor';
 
 const inputCls =
@@ -30,32 +31,7 @@ function toInput(template: ChecklistTemplate | null): ChecklistTemplateInput {
   if (!template) {
     return { name: '', kind: 'CLEANING', mode: 'EXECUTION', area: '', frequency: 'DAILY', items: [] };
   }
-  return {
-    name: template.name,
-    externalCode: template.externalCode ?? undefined,
-    kind: template.kind,
-    mode: template.mode,
-    area: template.area,
-    frequency: template.frequency,
-    weekday: template.weekday ?? undefined,
-    dayOfMonth: template.dayOfMonth ?? undefined,
-    responsiblePosition: template.responsiblePosition ?? undefined,
-    requiresSupervisor: template.requiresSupervisor,
-    practiceRef: template.practiceRef ?? undefined,
-    items: template.items.map((i) => ({
-      id: i.id,
-      label: i.label,
-      itemFrequency: i.itemFrequency ?? undefined,
-      procedure: i.procedure ?? undefined,
-      products: i.products,
-      dosage: i.dosage ?? undefined,
-      epi: i.epi ?? undefined,
-      isRequired: i.isRequired,
-      expectedRangeMin: i.expectedRangeMin ?? undefined,
-      expectedRangeMax: i.expectedRangeMax ?? undefined,
-      defaultValue: i.defaultValue ?? undefined,
-    })),
-  };
+  return templateToInput(template, { keepItemIds: true });
 }
 
 /** Crear/editar una plantilla (el Plan): campos + lista de ítems. PUT sube `version` automáticamente en el backend. */

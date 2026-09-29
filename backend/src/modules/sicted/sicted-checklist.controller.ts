@@ -22,6 +22,7 @@ import { ChecklistTemplateService } from "../checklists/services/checklist-templ
 import { ChecklistRunService } from "../checklists/services/checklist-run.service";
 import {
   CreateChecklistTemplateDto,
+  ImportChecklistTemplatesDto,
   UpdateChecklistTemplateDto,
 } from "../checklists/dto/checklist-template.dto";
 import {
@@ -65,6 +66,22 @@ export class SictedChecklistController {
       this.module,
       req.user.id,
       dto,
+    );
+    return { success: true, data };
+  }
+
+  /** Alta en bloque desde un archivo del Plan exportado en otro tenant; omite nombres ya existentes. */
+  @Post("templates/import")
+  @Roles("ADMIN", "OWNER")
+  async importTemplates(
+    @Req() req: any,
+    @Body() dto: ImportChecklistTemplatesDto,
+  ) {
+    const data = await this.templates.importMany(
+      req.tenantId,
+      this.module,
+      req.user.id,
+      dto.templates,
     );
     return { success: true, data };
   }

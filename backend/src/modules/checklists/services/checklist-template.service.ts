@@ -55,40 +55,53 @@ export class ChecklistTemplateService {
     dto: CreateChecklistTemplateDto,
   ) {
     return this.prisma.checklistTemplate.create({
-      data: {
-        tenantId,
-        name: dto.name,
-        externalCode: dto.externalCode,
-        usedByModules: [module],
-        kind: dto.kind,
-        mode: dto.mode,
-        area: dto.area,
-        frequency: dto.frequency,
-        weekday: dto.weekday,
-        dayOfMonth: dto.dayOfMonth,
-        responsiblePosition: dto.responsiblePosition,
-        requiresSupervisor: dto.requiresSupervisor ?? dto.mode === "INSPECTION",
-        practiceRef: dto.practiceRef,
-        createdBy: userId,
-        items: {
-          create: dto.items.map((item, index) => ({
-            tenantId,
-            position: index,
-            label: item.label,
-            itemFrequency: item.itemFrequency,
-            procedure: item.procedure,
-            products: item.products ?? [],
-            dosage: item.dosage,
-            epi: item.epi,
-            isRequired: item.isRequired ?? true,
-            expectedRangeMin: item.expectedRangeMin,
-            expectedRangeMax: item.expectedRangeMax,
-            defaultValue: item.defaultValue,
-          })),
-        },
-      },
+      data: buildCreateData(tenantId, module, userId, dto),
       include: { items: ACTIVE_CHECKLIST_ITEMS },
     });
+  }
+
+  /**
+   * Alta en bloque de plantillas exportadas desde otro tenant. Omite las que
+   * ya existen en este Plan con el mismo nombre (sin distinguir mayúsculas ni
+   * tildes) y las repetidas dentro del propio archivo, para que reimportar el
+   * mismo archivo no duplique hojas. Todo o nada: una transacción.
+   */
+  async importMany(
+    tenantId: string,
+    module: ChecklistConsumerModule,
+    userId: string,
+    templates: CreateChecklistTemplateDto[],
+  ) {
+    const existing = await this.list(tenantId, module);
+    const seen = new Set(existing.map((t) => normalizeName(t.name)));
+    const toCreate: CreateChecklistTemplateDto[] = [];
+    const skipped: string[] = [];
+    for (const dto of templates) {
+      const key = normalizeName(dto.name);
+      if (seen.has(key)) {
+        skipped.push(dto.name);
+        continue;
+      }
+      seen.add(key);
+      toCreate.push(dto);
+    }
+
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        const rows: { id: string; name: string }[] = [];
+        for (const dto of toCreate) {
+          rows.push(
+            await tx.checklistTemplate.create({
+              data: buildCreateData(tenantId, module, userId, dto),
+              select: { id: true, name: true },
+            }),
+          );
+        }
+        return rows;
+      },
+      { timeout: 30_000 },
+    );
+    return { created, skipped };
   }
 
   /** PATCH: reemplazo completo de campos + ítems; sube `version`. */
@@ -243,4 +256,54 @@ export class ChecklistTemplateService {
     }
     return this.create(tenantId, module, userId, dto);
   }
+}
+
+/** Nombre comparable: sin tildes, minúsculas y espacios colapsados. */
+function normalizeName(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildCreateData(
+  tenantId: string,
+  module: ChecklistConsumerModule,
+  userId: string,
+  dto: CreateChecklistTemplateDto,
+) {
+  return {
+    tenantId,
+    name: dto.name,
+    externalCode: dto.externalCode,
+    usedByModules: [module],
+    kind: dto.kind,
+    mode: dto.mode,
+    area: dto.area,
+    frequency: dto.frequency,
+    weekday: dto.weekday,
+    dayOfMonth: dto.dayOfMonth,
+    responsiblePosition: dto.responsiblePosition,
+    requiresSupervisor: dto.requiresSupervisor ?? dto.mode === "INSPECTION",
+    practiceRef: dto.practiceRef,
+    createdBy: userId,
+    items: {
+      create: dto.items.map((item, index) => ({
+        tenantId,
+        position: index,
+        label: item.label,
+        itemFrequency: item.itemFrequency,
+        procedure: item.procedure,
+        products: item.products ?? [],
+        dosage: item.dosage,
+        epi: item.epi,
+        isRequired: item.isRequired ?? true,
+        expectedRangeMin: item.expectedRangeMin,
+        expectedRangeMax: item.expectedRangeMax,
+        defaultValue: item.defaultValue,
+      })),
+    },
+  };
 }
