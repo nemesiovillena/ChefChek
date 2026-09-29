@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Verified } from 'lucide-react';
+import { ExternalLink, Loader2, Verified } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useModules } from '@/features/modules/hooks/use-modules';
@@ -54,7 +54,18 @@ function CycleForm({
 
   return (
     <div className="mb-6">
-      <h3 className="mb-1 font-semibold">Fase del distintivo</h3>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">Fase del distintivo</h3>
+        <a
+          href="https://www.sicted.es"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-[var(--primary)] hover:underline"
+        >
+          Abrir web SICTED
+          <ExternalLink className="h-4 w-4" aria-hidden />
+        </a>
+      </div>
       <p className="mb-3 text-sm text-gray-500">
         Cópialas de tu Espacio de gestión en la web SICTED. Con ellas, la portada de SICTED muestra qué compromisos te faltan
         para el próximo comité.
