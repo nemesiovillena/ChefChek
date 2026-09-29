@@ -2,6 +2,16 @@
 
 import { useState, type FormEvent } from 'react';
 import { Loader2, Plus, Save } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  MouseSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useNotification } from '@/components/notification-system';
 import { useCreateSictedTemplate, useUpdateSictedTemplate } from '@/hooks/use-sicted';
 import {
@@ -40,6 +50,13 @@ export function SictedTemplateEditor({ template, onSaved, onCancel }: SictedTemp
   const create = useCreateSictedTemplate();
   const update = useUpdateSictedTemplate();
   const [form, setForm] = useState<ChecklistTemplateInput>(() => toInput(template));
+  // Keys estables solo de cliente, paralelas a `form.items`: los ítems nuevos no tienen id y el
+  // backend rechaza campos desconocidos (forbidNonWhitelisted), así que no viajan en el item.
+  const [itemKeys, setItemKeys] = useState<string[]>(() => form.items.map(() => crypto.randomUUID()));
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const set = <K extends keyof ChecklistTemplateInput>(key: K, value: ChecklistTemplateInput[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -47,6 +64,7 @@ export function SictedTemplateEditor({ template, onSaved, onCancel }: SictedTemp
   function addItem() {
     const item: ChecklistTemplateItemInput = { label: '', isRequired: true };
     setForm((prev) => ({ ...prev, items: [...prev.items, item] }));
+    setItemKeys((prev) => [...prev, crypto.randomUUID()]);
   }
 
   function updateItem(index: number, item: ChecklistTemplateItemInput) {
@@ -55,6 +73,17 @@ export function SictedTemplateEditor({ template, onSaved, onCancel }: SictedTemp
 
   function removeItem(index: number) {
     setForm((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== index) }));
+    setItemKeys((prev) => prev.filter((_, idx) => idx !== index));
+  }
+
+  /** Reordena ítems arrastrando; el backend guarda `position` = índice en el array. */
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    const from = itemKeys.indexOf(String(active.id));
+    const to = itemKeys.indexOf(String(over.id));
+    if (from === -1 || to === -1) return;
+    setItemKeys((prev) => arrayMove(prev, from, to));
+    setForm((prev) => ({ ...prev, items: arrayMove(prev.items, from, to) }));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -128,11 +157,22 @@ export function SictedTemplateEditor({ template, onSaved, onCancel }: SictedTemp
             <Plus className="h-4 w-4" /> Añadir ítem
           </button>
         </div>
-        <div className="space-y-2">
-          {form.items.map((item, idx) => (
-            <SictedTemplateItemEditor key={idx} item={item} mode={form.mode} onChange={(i) => updateItem(idx, i)} onRemove={() => removeItem(idx)} />
-          ))}
-        </div>
+        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {form.items.map((item, idx) => (
+                <SictedTemplateItemEditor
+                  key={itemKeys[idx]}
+                  sortableId={itemKeys[idx]}
+                  item={item}
+                  mode={form.mode}
+                  onChange={(i) => updateItem(idx, i)}
+                  onRemove={() => removeItem(idx)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
       <div className="flex gap-2 pt-2">

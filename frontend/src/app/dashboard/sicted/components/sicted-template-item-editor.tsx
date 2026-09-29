@@ -1,9 +1,12 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { GripVertical, Trash2 } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { ChecklistMode, ChecklistTemplateItemInput } from '@/lib/sicted-types';
 
 interface SictedTemplateItemEditorProps {
+  sortableId: string;
   item: ChecklistTemplateItemInput;
   mode: ChecklistMode;
   onChange: (item: ChecklistTemplateItemInput) => void;
@@ -14,10 +17,31 @@ const inputCls =
   'min-h-[48px] w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 text-base';
 
 /** Un ítem dentro del editor de plantilla: etiqueta, procedimiento, producto/dosis/EPI, rango y valor habitual (solo MEASUREMENT). */
-export function SictedTemplateItemEditor({ item, mode, onChange, onRemove }: SictedTemplateItemEditorProps) {
+export function SictedTemplateItemEditor({ sortableId, item, mode, onChange, onRemove }: SictedTemplateItemEditorProps) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: sortableId,
+  });
+
   return (
-    <div className="space-y-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`space-y-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3 ${
+        isDragging ? 'relative z-10 shadow-lg' : ''
+      }`}
+    >
       <div className="flex items-center gap-2">
+        {/* Asa de arrastre (solo escritorio): la tarjeta entera no arrastra para poder escribir en sus campos. */}
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          className="hidden h-10 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] active:cursor-grabbing md:flex"
+          aria-label="Mover ítem"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
         <input
           value={item.label}
           onChange={(e) => onChange({ ...item, label: e.target.value })}
