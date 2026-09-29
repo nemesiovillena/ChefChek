@@ -16,7 +16,7 @@ export interface ChecklistItemDraft {
   value?: string;
   correctiveAction?: string;
   note?: string;
-  /** El valor viene del «valor habitual» del Plan y aún no se ha tocado. */
+  /** Resultado por defecto (Hecho / Bien / valor habitual) aún sin tocar. */
   prefilled?: boolean;
 }
 
