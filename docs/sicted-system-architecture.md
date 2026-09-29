@@ -106,6 +106,12 @@ Metodología **SICTED 2026** (manual de metodología SEGITTUR rev. 1.1, ago-2026
 
 > Nota histórica: el catálogo de fase 9 (144 prácticas BP1-BP6, escala 1-5) venía de `23_Restaurantes_y_empresas_de_catering_v4.pdf`, de **2015**. Queda sustituido por el modelo 2026.
 
+## Editar el Plan con hojas ya generadas
+
+`ChecklistTemplateService.update` actualiza los ítems **en su sitio** (por `id`, que el editor envía): conserva la identidad de los que siguen, crea los nuevos y los quitados se borran solo si nunca se marcaron; si tienen marcas se **retiran** (`ChecklistTemplateItem.removedAt`) porque la FK de `checklist_entries` es `onDelete: Cascade` y el trigger de inalterabilidad bloquearía el borrado. Todo `include` que represente el Plan vigente usa `ACTIVE_CHECKLIST_ITEMS` (`removedAt: null`); el PDF de registros lee todos (histórico). Las hojas `OPEN`, sin marcas y sin validar renuevan su foto (`buildChecklistRunSnapshot`) al guardar el Plan; las ya trabajadas conservan la suya. Antes se borraban y recreaban todos los ítems: la hoja del día quedaba apuntando a ítems inexistentes (FK `checklist_entries_itemId_fkey` → 500 al marcar) y editar un Plan con marcas fallaba.
+
+Valor habitual (`ChecklistTemplateItem.defaultValue`, solo MEASUREMENT): prerrellena la medición en «Hojas de hoy»; se lee de la plantilla vigente, no de la foto.
+
 ## Compromisos por fase del ciclo
 
 Espejo del «visor de cumplimiento» de la web SICTED (sin integración: se calcula con lo registrado en Chefchek). Fase y comité en `SictedSettings` (`cyclePhase`, `phaseStartedAt`, `nextCommitteeDate`), editables en Configuración → SICTED.

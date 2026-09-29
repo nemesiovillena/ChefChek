@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
-import { useAddSictedEntries, useSictedRun, useSuperviseSictedRun } from '@/hooks/use-sicted';
+import { useAddSictedEntries, useSictedRun, useSictedTemplates, useSuperviseSictedRun } from '@/hooks/use-sicted';
 import type { ChecklistEntryInput } from '@/lib/sicted-types';
 import { SictedChecklistItemRow, type ChecklistItemDraft } from './sicted-checklist-item-row';
 import { SictedPerformerPicker, type SictedPerformer } from './sicted-performer-picker';
@@ -25,6 +25,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
   const { data: run, isLoading } = useSictedRun(runId);
   const addEntries = useAddSictedEntries();
   const supervise = useSuperviseSictedRun();
+  const { data: templates } = useSictedTemplates();
 
   const [performer, setPerformer] = useState<SictedPerformer | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ChecklistItemDraft>>({});
@@ -47,6 +48,24 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
   const locked = !!readOnly || !!run.supervisedAt;
   const canValidate =
     !locked && run.snapshot.requiresSupervisor && run.status === 'COMPLETED' && canSupervise;
+
+  // Valor habitual de cada ítem de medición, leído de la plantilla viva (no del
+  // snapshot): así un cambio en el Plan se aplica también a la hoja de hoy. Si
+  // el Plan se editó y los ítems cambiaron de id, se empareja por etiqueta.
+  const liveItems = templates?.find((t) => t.id === run.templateId)?.items ?? [];
+  function defaultValueFor(itemId: string, label: string): number | null {
+    const live = liveItems.find((i) => i.id === itemId) ?? liveItems.find((i) => i.label === label);
+    return live?.defaultValue ?? null;
+  }
+
+  /** Borrador efectivo: el que escribió el usuario o, en mediciones sin marcar, el valor habitual. */
+  function draftFor(itemId: string): ChecklistItemDraft | undefined {
+    if (drafts[itemId]) return drafts[itemId];
+    if (locked || run!.snapshot.mode !== 'MEASUREMENT' || run!.currentByItem[itemId]) return undefined;
+    const item = run!.snapshot.items.find((i) => i.id === itemId);
+    const value = item ? defaultValueFor(item.id, item.label) : null;
+    return value === null ? undefined : { value: String(value), prefilled: true };
+  }
 
   function buildEntry(itemId: string, draft: ChecklistItemDraft): ChecklistEntryInput | null {
     if (!performer) return null;
@@ -88,8 +107,11 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
       notify({ type: 'error', title: 'Falta el "quién"', message: 'Elige tu nombre antes de guardar.' });
       return;
     }
-    const entries = Object.entries(drafts)
-      .map(([itemId, draft]) => buildEntry(itemId, draft))
+    const entries = run!.snapshot.items
+      .map((item) => {
+        const draft = draftFor(item.id);
+        return draft ? buildEntry(item.id, draft) : null;
+      })
       .filter((e): e is ChecklistEntryInput => e !== null);
     if (entries.length === 0) {
       notify({ type: 'error', title: 'Nada que guardar', message: 'Marca al menos un ítem completo.' });
@@ -122,7 +144,10 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
     if (!ok) return;
   }
 
-  const pendingEntries = Object.keys(drafts).some((itemId) => buildEntry(itemId, drafts[itemId]) !== null);
+  const pendingEntries = run.snapshot.items.some((item) => {
+    const draft = draftFor(item.id);
+    return !!draft && buildEntry(item.id, draft) !== null;
+  });
 
   return (
     <div className="space-y-3">
@@ -149,7 +174,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
             mode={run.snapshot.mode}
             currentEntry={run.currentByItem[item.id]}
             history={run.entries.filter((e) => e.itemId === item.id && e.id !== run.currentByItem[item.id]?.id)}
-            draft={drafts[item.id]}
+            draft={draftFor(item.id)}
             isCorrecting={correctingItemId === item.id}
             readOnly={locked}
             onDraftChange={(draft) => setDrafts((prev) => ({ ...prev, [item.id]: draft }))}

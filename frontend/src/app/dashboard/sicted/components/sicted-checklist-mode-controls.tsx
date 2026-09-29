@@ -121,7 +121,7 @@ export function MeasurementControls({
           type="number"
           inputMode="decimal"
           value={draft.value ?? ''}
-          onChange={(e) => onChange({ ...draft, value: e.target.value })}
+          onChange={(e) => onChange({ ...draft, value: e.target.value, prefilled: false })}
           placeholder="Valor"
           className={`min-h-[48px] w-32 rounded-lg border bg-[var(--surface-container-lowest)] px-3 text-base ${
             outOfRange ? 'border-[var(--error)]' : 'border-[var(--outline-variant)]'
@@ -131,6 +131,9 @@ export function MeasurementControls({
           Rango: {item.expectedRangeMin ?? '—'} a {item.expectedRangeMax ?? '—'}
         </span>
       </div>
+      {draft.prefilled && (
+        <p className="text-xs text-[var(--on-surface-variant)]">Valor habitual: cámbialo solo si la lectura es distinta.</p>
+      )}
       {outOfRange && (
         <textarea
           value={draft.correctiveAction ?? ''}

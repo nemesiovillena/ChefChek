@@ -18,20 +18,11 @@ import {
   periodEndFromKey,
   periodStartFromKey,
 } from "../util/checklist-period.util";
-
-interface ChecklistRunSnapshot {
-  templateName: string;
-  version: number;
-  mode: string;
-  requiresSupervisor: boolean;
-  items: {
-    id: string;
-    label: string;
-    isRequired: boolean;
-    expectedRangeMin: number | null;
-    expectedRangeMax: number | null;
-  }[];
-}
+import {
+  buildChecklistRunSnapshot,
+  ChecklistRunSnapshot,
+} from "../util/checklist-run-snapshot.util";
+import { ACTIVE_CHECKLIST_ITEMS } from "../constants/checklist-active-items";
 
 /**
  * Hojas (el "Registro") del motor de checklist compartido: generación
@@ -42,34 +33,6 @@ interface ChecklistRunSnapshot {
 @Injectable()
 export class ChecklistRunService {
   constructor(private readonly prisma: PrismaService) {}
-
-  private buildSnapshot(template: {
-    name: string;
-    version: number;
-    mode: string;
-    requiresSupervisor: boolean;
-    items: {
-      id: string;
-      label: string;
-      isRequired: boolean;
-      expectedRangeMin: number | null;
-      expectedRangeMax: number | null;
-    }[];
-  }): ChecklistRunSnapshot {
-    return {
-      templateName: template.name,
-      version: template.version,
-      mode: template.mode,
-      requiresSupervisor: template.requiresSupervisor,
-      items: template.items.map((i) => ({
-        id: i.id,
-        label: i.label,
-        isRequired: i.isRequired,
-        expectedRangeMin: i.expectedRangeMin,
-        expectedRangeMax: i.expectedRangeMax,
-      })),
-    };
-  }
 
   /**
    * Crea (upsert idempotente) las hojas del periodo actual para las
@@ -83,7 +46,7 @@ export class ChecklistRunService {
   ): Promise<void> {
     const templates = await this.prisma.checklistTemplate.findMany({
       where: { tenantId, usedByModules: { has: module }, archivedAt: null },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: { items: ACTIVE_CHECKLIST_ITEMS },
     });
 
     for (const template of templates) {
@@ -103,7 +66,7 @@ export class ChecklistRunService {
           periodKey,
           periodStart,
           status: "OPEN",
-          snapshot: this.buildSnapshot(template) as any,
+          snapshot: buildChecklistRunSnapshot(template) as any,
         },
         update: {}, // ya existe: no-op, idempotente.
       });

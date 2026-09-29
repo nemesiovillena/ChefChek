@@ -43,6 +43,7 @@ function toInput(template: ChecklistTemplate | null): ChecklistTemplateInput {
     requiresSupervisor: template.requiresSupervisor,
     practiceRef: template.practiceRef ?? undefined,
     items: template.items.map((i) => ({
+      id: i.id,
       label: i.label,
       itemFrequency: i.itemFrequency ?? undefined,
       procedure: i.procedure ?? undefined,
@@ -52,6 +53,7 @@ function toInput(template: ChecklistTemplate | null): ChecklistTemplateInput {
       isRequired: i.isRequired,
       expectedRangeMin: i.expectedRangeMin ?? undefined,
       expectedRangeMax: i.expectedRangeMax ?? undefined,
+      defaultValue: i.defaultValue ?? undefined,
     })),
   };
 }
