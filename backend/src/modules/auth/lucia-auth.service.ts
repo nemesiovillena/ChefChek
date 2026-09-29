@@ -12,6 +12,7 @@ interface LuciaUserAttributes {
   tenantId: string;
   isActive: boolean;
   avatarUrl: string | null;
+  isSharedAccount: boolean;
 }
 
 @Injectable()
@@ -42,6 +43,7 @@ export class LuciaAuthService implements OnModuleInit {
           tenantId: attributes.tenantId,
           isActive: attributes.isActive,
           avatarUrl: attributes.avatarUrl,
+          isSharedAccount: attributes.isSharedAccount,
         };
       },
       sessionExpiresIn: new TimeSpan(24, "h"), // 24 horas

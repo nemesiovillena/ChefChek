@@ -109,6 +109,11 @@ model User {
   phone        String?
   whatsapp     String?
   payrollEmail String?
+  // Cuenta de dispositivo compartido (p. ej. el ordenador de cocina): no es
+  // una persona, así que en los registros hay que elegir quién lo hizo y no
+  // aparece en las listas de "Quién"/"Responsable". Las cuentas personales
+  // firman siempre con su propio nombre.
+  isSharedAccount Boolean  @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?

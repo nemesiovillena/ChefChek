@@ -211,6 +211,50 @@ describe("FoodLabelService", () => {
       expect(result.createdByName).toBe("Iñaki Etxeberria");
     });
 
+    it("a personal account signs its own labels even if another responsible is sent", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(
+        TENANT,
+        { ...USER, isSharedAccount: false },
+        {
+          labelType: "ELABORATED",
+          recipeId: "r1",
+          preparedAt: "2026-08-31T10:00:00.000Z",
+          responsibleUserId: "staff1",
+        },
+      );
+
+      expect(result.createdByName).toBe(USER.name);
+      expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("the shared kitchen account uses the chosen responsible", async () => {
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
+      mockPrisma.user.findFirst.mockResolvedValue({ name: "Iñaki Etxeberria" });
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(
+        TENANT,
+        { ...USER, isSharedAccount: true },
+        {
+          labelType: "ELABORATED",
+          recipeId: "r1",
+          preparedAt: "2026-08-31T10:00:00.000Z",
+          responsibleUserId: "staff1",
+        },
+      );
+
+      expect(result.createdByName).toBe("Iñaki Etxeberria");
+    });
+
     it("rejects a responsibleUserId that does not exist in the tenant", async () => {
       mockPrisma.recipe.findFirst.mockResolvedValue(recipe);
       mockPrisma.user.findFirst.mockResolvedValue(null);

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Printer, Save } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
+import { useAuth } from '@/contexts/auth.context';
 import { useRecipeOptions } from '@/hooks/use-recipes';
 import { useProductSearch } from '@/hooks/use-product-search';
 import {
@@ -95,7 +96,12 @@ export default function NuevaEtiquetaPage() {
   const [freeze, setFreeze] = useState(false);
   const [conservation, setConservation] = useState<ConservationValue>(EMPTY_CONSERVATION);
   const [conservationTouched, setConservationTouched] = useState(false);
-  const [responsible, setResponsible] = useState<ResponsibleValue>({});
+  const [pickedResponsible, setResponsible] = useState<ResponsibleValue>({});
+  // Cuenta personal (móvil): el responsable es quien ha iniciado sesión (el
+  // backend lo impone). Solo la cuenta compartida de cocina elige responsable.
+  const { user } = useAuth();
+  const sharedAccount = !!user?.isSharedAccount;
+  const responsible: ResponsibleValue = sharedAccount || !user ? pickedResponsible : { responsibleUserId: user.id };
 
   // ELABORATED
   const [ingredientLots, setIngredientLots] = useState<Record<string, string>>({});
@@ -441,7 +447,11 @@ export default function NuevaEtiquetaPage() {
             </div>
 
             <div className="mt-3">
-              <ResponsibleField value={responsible} onChange={setResponsible} />
+              <ResponsibleField
+                value={responsible}
+                onChange={setResponsible}
+                fixedName={sharedAccount ? undefined : user?.name}
+              />
               <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
                 Quién ha realizado la {labelType === 'ELABORATED' ? 'elaboración' : 'manipulación'};
                 queda impreso en la etiqueta.

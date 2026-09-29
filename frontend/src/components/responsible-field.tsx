@@ -24,12 +24,23 @@ export default function ResponsibleField({
   value,
   onChange,
   label = 'Responsable',
+  fixedName,
 }: {
   value: ResponsibleValue;
   onChange: (next: ResponsibleValue) => void;
   label?: string;
+  /** Cuenta personal: muestra este nombre sin permitir cambiarlo. */
+  fixedName?: string;
 }) {
   const options = useResponsibleOptions();
+  if (fixedName !== undefined) {
+    return (
+      <div>
+        <span className={labelClass}>{label}</span>
+        <p className={`${fieldClass} bg-[var(--surface-container)]`}>{fixedName}</p>
+      </div>
+    );
+  }
   const isOther = !value.responsibleUserId && value.responsibleName !== undefined;
   const selectValue = value.responsibleUserId ?? (isOther ? OTHER_VALUE : '');
 

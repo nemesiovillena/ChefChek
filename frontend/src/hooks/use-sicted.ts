@@ -157,7 +157,7 @@ export function useSuperviseSictedRun() {
   return useMutation<
     ChecklistRunDetail,
     Error,
-    { runId: string; supervisorName: string; supervisorNote?: string }
+    { runId: string; supervisorName: string; supervisorUserId?: string; supervisorNote?: string }
   >({
     mutationFn: async ({ runId, ...data }) =>
       (await apiClient.post(`${BASE_URL}/runs/${runId}/supervise`, data)).data,

@@ -43,6 +43,7 @@ describe("AuthService", () => {
     tenantId: "tenant-123",
     isActive: true,
     avatarUrl: null,
+    isSharedAccount: false,
   };
 
   const mockSession = {
@@ -225,6 +226,7 @@ describe("AuthService", () => {
             role: mockUser.role,
             tenantId: mockUser.tenantId,
             avatarUrl: mockUser.avatarUrl,
+            isSharedAccount: mockUser.isSharedAccount,
           },
           session: {
             id: mockSession.id,
@@ -260,6 +262,7 @@ describe("AuthService", () => {
       tenantId: null,
       isActive: true,
       avatarUrl: null,
+      isSharedAccount: false,
     };
 
     it("should login SUPERADMIN without tenantSlug and return tenantId null", async () => {

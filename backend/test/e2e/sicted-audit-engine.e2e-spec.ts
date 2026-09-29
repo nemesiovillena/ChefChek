@@ -40,6 +40,20 @@ function pdfText(buf: Buffer): string {
  * deterministas (misma huella con el mismo dato), CSV. Contra Postgres real:
  * la cobertura depende del mismo cálculo de periodos que el cron de fase 2.
  */
+
+/**
+ * Usuarios reales del tenant de prueba: el servidor firma cada marca con el
+ * nombre de la ficha del usuario (cuenta personal = ella misma; la compartida
+ * de cocina elige persona), así que las personas deben existir.
+ */
+const KITCHEN_ID = "e2e-aud-cocina";
+const SUPERVISOR_ID = "e2e-aud-encargado";
+const PEOPLE = {
+  Ana: "e2e-aud-ana",
+  Bea: "e2e-aud-bea",
+  Carla: "e2e-aud-carla",
+} as const;
+
 describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
@@ -79,6 +93,22 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       },
     });
     tenantId = tenant.id;
+    await prisma.user.createMany({
+      data: [
+        { id: KITCHEN_ID, name: "Cocina", isSharedAccount: true },
+        { id: SUPERVISOR_ID, name: "Encargado", isSharedAccount: false },
+        ...Object.entries(PEOPLE).map(([name, id]) => ({
+          id,
+          name,
+          isSharedAccount: false,
+        })),
+      ].map((u) => ({
+        ...u,
+        tenantId,
+        email: `${u.id}@e2e.test`,
+        passwordHash: "x",
+      })),
+    });
   });
 
   afterAll(async () => {
@@ -90,6 +120,8 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       await tx.checklistRun.deleteMany({ where: { tenantId } });
       await tx.checklistTemplateItem.deleteMany({ where: { tenantId } });
       await tx.checklistTemplate.deleteMany({ where: { tenantId } });
+      // Borrado real (el delete de Prisma es soft y dejaría los ids ocupados).
+      await tx.$executeRaw`DELETE FROM users WHERE "tenantId" = ${tenantId}`;
     });
     await prisma.tenant.delete({ where: { id: tenantId } });
     await prisma.$disconnect();
@@ -220,14 +252,15 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       const run = await prisma.checklistRun.findFirstOrThrow({
         where: { templateId: template.id },
       });
-      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
         {
           itemId: template.items[0].id,
           outcome: "OK",
           performedByName: "Ana",
+          performedByUserId: PEOPLE.Ana,
         } as any,
       ]);
-      await runs.supervise(tenantId, "sicted", run.id, "admin-u1", {
+      await runs.supervise(tenantId, "sicted", run.id, SUPERVISOR_ID, {
         supervisorName: "Encargado",
       });
 
@@ -282,11 +315,12 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       const run = await prisma.checklistRun.findFirstOrThrow({
         where: { templateId: template.id },
       });
-      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
         {
           itemId: template.items[0].id,
           outcome: "DONE",
           performedByName: "Bea",
+          performedByUserId: PEOPLE.Bea,
         } as any,
       ]);
 
@@ -316,12 +350,13 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       const run2 = await prisma.checklistRun.findFirstOrThrow({
         where: { templateId: template.id, periodKey: "2026-06-06" },
       });
-      await runs.addEntries(tenantId, "sicted", run2.id, "session-u1", [
+      await runs.addEntries(tenantId, "sicted", run2.id, KITCHEN_ID, [
         {
           itemId: template.items[0].id,
           outcome: "NOT_DONE",
           reason: "Sin tiempo",
           performedByName: "Bea",
+          performedByUserId: PEOPLE.Bea,
         } as any,
       ]);
       const pdf3 = await registrosPdf.generate(
@@ -364,11 +399,12 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       const run = await prisma.checklistRun.findFirstOrThrow({
         where: { templateId: template.id },
       });
-      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
         {
           itemId: template.items[0].id,
           outcome: "DONE",
           performedByName: "Carla",
+          performedByUserId: PEOPLE.Carla,
         } as any,
       ]);
 

@@ -50,9 +50,11 @@ export class ChecklistEntryInputDto {
   @IsString()
   performedByUserId?: string;
 
+  /** Ignorado: el servidor toma el nombre del usuario (ver resolvePerformer). */
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  performedByName: string;
+  performedByName?: string;
 
   /** Marca a la que corrige (histórico se conserva; esta pasa a ser la vigente). */
   @IsOptional()
@@ -69,9 +71,16 @@ export class CreateChecklistEntriesDto {
 }
 
 export class SuperviseChecklistRunDto {
+  /** Quién supervisa, si la sesión es una cuenta compartida; una personal firma con su nombre. */
+  @IsOptional()
+  @IsString()
+  supervisorUserId?: string;
+
+  /** Ignorado: el servidor toma el nombre del usuario (ver resolvePerformer). */
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  supervisorName: string;
+  supervisorName?: string;
 
   @IsOptional()
   @IsString()
