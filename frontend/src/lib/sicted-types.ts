@@ -63,6 +63,8 @@ export interface ChecklistTemplate {
 }
 
 export interface ChecklistTemplateItemInput {
+  /** Id del ítem ya guardado: al editar el Plan conserva su identidad (y sus marcas). */
+  id?: string;
   label: string;
   itemFrequency?: string;
   procedure?: string;
