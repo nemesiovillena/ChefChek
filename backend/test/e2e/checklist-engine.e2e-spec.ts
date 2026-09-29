@@ -393,6 +393,57 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
     });
   });
 
+  describe("valor habitual de las mediciones", () => {
+    it("se guarda al crear y al editar la plantilla (la edición recrea los ítems)", async () => {
+      const created = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({
+          name: "Temperaturas con valor habitual",
+          mode: "MEASUREMENT",
+          items: [
+            {
+              label: "Cámara carnes",
+              expectedRangeMin: 0,
+              expectedRangeMax: 4,
+              defaultValue: 3,
+            },
+            {
+              label: "Congelador",
+              expectedRangeMin: -22,
+              expectedRangeMax: -18,
+            },
+          ],
+        }),
+      );
+      expect(created.items.map((i) => i.defaultValue)).toEqual([3, null]);
+
+      const updated = await templates.update(tenantId, "sicted", created.id, {
+        name: created.name,
+        kind: "MAINTENANCE",
+        mode: "MEASUREMENT",
+        area: created.area,
+        frequency: "DAILY",
+        items: [
+          {
+            label: "Cámara carnes",
+            expectedRangeMin: 0,
+            expectedRangeMax: 4,
+            defaultValue: 2.5,
+          },
+          {
+            label: "Congelador",
+            expectedRangeMin: -22,
+            expectedRangeMax: -18,
+            defaultValue: -20,
+          },
+        ],
+      });
+      expect(updated.items.map((i) => i.defaultValue)).toEqual([2.5, -20]);
+    });
+  });
+
   describe("aislamiento por tenant", () => {
     it("un tenant B no ve la plantilla/hoja del tenant A", async () => {
       const tenantB = await prisma.tenant.create({

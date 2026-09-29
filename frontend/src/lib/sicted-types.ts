@@ -40,6 +40,7 @@ export interface ChecklistTemplateItem {
   isRequired: boolean;
   expectedRangeMin: number | null;
   expectedRangeMax: number | null;
+  defaultValue: number | null;
 }
 
 export interface ChecklistTemplate {
@@ -71,6 +72,7 @@ export interface ChecklistTemplateItemInput {
   isRequired?: boolean;
   expectedRangeMin?: number;
   expectedRangeMax?: number;
+  defaultValue?: number;
 }
 
 export interface ChecklistTemplateInput {

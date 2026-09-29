@@ -16,6 +16,8 @@ export interface ChecklistItemDraft {
   value?: string;
   correctiveAction?: string;
   note?: string;
+  /** El valor viene del «valor habitual» del Plan y aún no se ha tocado. */
+  prefilled?: boolean;
 }
 
 interface SictedChecklistItemRowProps {

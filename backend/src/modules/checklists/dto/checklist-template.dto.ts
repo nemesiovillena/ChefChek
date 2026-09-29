@@ -90,6 +90,11 @@ export class ChecklistTemplateItemDto {
   @IsOptional()
   @IsNumber()
   expectedRangeMax?: number;
+
+  /** Valor habitual (MEASUREMENT) con el que se prerrellena la medición. */
+  @IsOptional()
+  @IsNumber()
+  defaultValue?: number;
 }
 
 export class CreateChecklistTemplateDto {

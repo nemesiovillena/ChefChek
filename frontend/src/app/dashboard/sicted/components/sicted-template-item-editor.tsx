@@ -13,7 +13,7 @@ interface SictedTemplateItemEditorProps {
 const inputCls =
   'min-h-[48px] w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 text-base';
 
-/** Un ítem dentro del editor de plantilla: etiqueta, procedimiento, producto/dosis/EPI, rango (solo MEASUREMENT). */
+/** Un ítem dentro del editor de plantilla: etiqueta, procedimiento, producto/dosis/EPI, rango y valor habitual (solo MEASUREMENT). */
 export function SictedTemplateItemEditor({ item, mode, onChange, onRemove }: SictedTemplateItemEditorProps) {
   return (
     <div className="space-y-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3">
@@ -81,8 +81,25 @@ export function SictedTemplateItemEditor({ item, mode, onChange, onRemove }: Sic
             placeholder="Máx."
             className={`${inputCls} w-24`}
           />
+          <span className="ml-2 text-sm text-[var(--on-surface-variant)]">Valor habitual</span>
+          <input
+            type="number"
+            value={item.defaultValue ?? ''}
+            onChange={(e) => onChange({ ...item, defaultValue: e.target.value === '' ? undefined : Number(e.target.value) })}
+            placeholder="p. ej. 3"
+            title="Se rellena solo en «Hojas de hoy»; basta con cambiarlo si la lectura es distinta"
+            className={`${inputCls} w-24`}
+          />
         </div>
       )}
+      {mode === 'MEASUREMENT' &&
+        item.defaultValue !== undefined &&
+        ((item.expectedRangeMin !== undefined && item.defaultValue < item.expectedRangeMin) ||
+          (item.expectedRangeMax !== undefined && item.defaultValue > item.expectedRangeMax)) && (
+          <p className="text-xs text-[var(--error)]">
+            El valor habitual está fuera del rango: cada día pedirá una acción correctiva. Revisa el valor o el rango.
+          </p>
+        )}
 
       <label className="flex items-center gap-2 text-sm">
         <input

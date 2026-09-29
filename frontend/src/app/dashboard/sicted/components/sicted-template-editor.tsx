@@ -52,6 +52,7 @@ function toInput(template: ChecklistTemplate | null): ChecklistTemplateInput {
       isRequired: i.isRequired,
       expectedRangeMin: i.expectedRangeMin ?? undefined,
       expectedRangeMax: i.expectedRangeMax ?? undefined,
+      defaultValue: i.defaultValue ?? undefined,
     })),
   };
 }
