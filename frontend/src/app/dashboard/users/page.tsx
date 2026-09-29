@@ -173,7 +173,12 @@ export default function UsersPage() {
                               getInitials(targetUser.name) || <UserRound className="h-4 w-4" />
                             )}
                           </div>
-                          <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
+                            {targetUser.isSharedAccount && (
+                              <div className="text-xs text-[var(--on-surface-variant)]">Cuenta compartida</div>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-3 py-3 max-w-[220px]">

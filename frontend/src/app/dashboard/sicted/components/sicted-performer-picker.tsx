@@ -11,15 +11,29 @@ export interface SictedPerformer {
 interface SictedPerformerPickerProps {
   value: SictedPerformer | null;
   onChange: (performer: SictedPerformer | null) => void;
+  /** Cuenta personal: muestra su nombre sin permitir cambiarlo. */
+  fixed?: boolean;
 }
 
 /**
- * Selector "¿Quién lo hizo?" — sin PIN (decisión confirmada), solo elegir un
- * nombre de la lista de personas activas del tenant. El valor se mantiene en
- * el estado del padre (persiste mientras dure la sesión de la hoja abierta).
+ * Selector "¿Quién lo hizo?" — sin PIN (decisión confirmada). Con la cuenta
+ * compartida del ordenador de cocina se elige un nombre de la lista de
+ * personas del tenant (sin cuentas compartidas); con una cuenta personal
+ * (`fixed`) se muestra el nombre de quien ha iniciado sesión. El valor se
+ * mantiene en el estado del padre mientras la hoja esté abierta.
  */
-export function SictedPerformerPicker({ value, onChange }: SictedPerformerPickerProps) {
+export function SictedPerformerPicker({ value, onChange, fixed }: SictedPerformerPickerProps) {
   const { data: performers, isLoading } = useSictedPerformers();
+
+  if (fixed) {
+    return (
+      <div className="flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm">
+        <User className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
+        <span className="shrink-0 text-[var(--on-surface-variant)]">Quién:</span>
+        <span className="text-base font-medium">{value?.name}</span>
+      </div>
+    );
+  }
 
   return (
     <label className="flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm">

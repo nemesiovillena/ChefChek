@@ -12,6 +12,8 @@ export interface User {
   phone?: string;
   whatsapp?: string;
   payrollEmail?: string;
+  /** Cuenta del ordenador de cocina (no es una persona). */
+  isSharedAccount?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +31,7 @@ export interface CreateUserData {
   phone?: string;
   whatsapp?: string;
   payrollEmail?: string;
+  isSharedAccount?: boolean;
 }
 
 export interface UpdateUserData extends Partial<Omit<CreateUserData, 'tenantId'>> {

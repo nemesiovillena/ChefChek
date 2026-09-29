@@ -27,7 +27,15 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
   const supervise = useSuperviseSictedRun();
   const { data: templates } = useSictedTemplates();
 
-  const [performer, setPerformer] = useState<SictedPerformer | null>(null);
+  // Cuenta personal (móvil): firma ella misma. Cuenta compartida (ordenador
+  // de cocina): hay que elegir quién lo hace. El backend aplica la misma regla.
+  const [pickedPerformer, setPickedPerformer] = useState<SictedPerformer | null>(null);
+  const sharedAccount = !!user?.isSharedAccount;
+  const performer: SictedPerformer | null = sharedAccount
+    ? pickedPerformer
+    : user
+      ? { userId: user.id, name: user.name }
+      : null;
   const [drafts, setDrafts] = useState<Record<string, ChecklistItemDraft>>({});
   const [correctingItemId, setCorrectingItemId] = useState<string | null>(null);
 
@@ -144,7 +152,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
       description: 'Al validar no podrá modificarse. ¿Confirmas que revisaste todos los ítems?',
       confirmText: 'Validar',
       onConfirm: async () => {
-        await supervise.mutateAsync({ runId, supervisorName: performer.name });
+        await supervise.mutateAsync({ runId, supervisorName: performer.name, supervisorUserId: performer.userId });
         notify({ type: 'success', title: 'Hoja validada', message: run!.snapshot.templateName });
       },
     });
@@ -171,7 +179,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
             )}
           </p>
         </div>
-        {!locked && <SictedPerformerPicker value={performer} onChange={setPerformer} />}
+        {!locked && <SictedPerformerPicker value={performer} onChange={setPickedPerformer} fixed={!sharedAccount} />}
       </div>
 
       {prefilledCount > 0 && (

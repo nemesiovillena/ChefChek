@@ -27,6 +27,8 @@ export interface User {
   tenantId: string | null;
   isActive: boolean;
   avatarUrl?: string | null;
+  /** Cuenta del ordenador de cocina: al registrar hay que elegir quién lo hizo. */
+  isSharedAccount?: boolean;
   createdAt: string;
   updatedAt: string;
 }

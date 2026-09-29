@@ -44,6 +44,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   payrollEmail?: string;
+
+  /** Cuenta de dispositivo compartido (ordenador de cocina), no una persona. */
+  @IsOptional()
+  @IsBoolean()
+  isSharedAccount?: boolean;
 }
 
 export class UpdateUserDto {
@@ -90,4 +95,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   payrollEmail?: string;
+
+  /** Cuenta de dispositivo compartido (ordenador de cocina), no una persona. */
+  @IsOptional()
+  @IsBoolean()
+  isSharedAccount?: boolean;
 }

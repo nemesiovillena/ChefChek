@@ -49,6 +49,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
     password: '',
     role: targetUser?.role ?? 'USER',
     isActive: targetUser?.isActive ?? true,
+    isSharedAccount: targetUser?.isSharedAccount ?? false,
     street: targetUser?.street ?? '',
     city: targetUser?.city ?? '',
     phone: targetUser?.phone ?? '',
@@ -112,6 +113,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
       name: formData.name,
       ...(roleChanged ? { role: formData.role } : {}),
       isActive: formData.isActive,
+      isSharedAccount: formData.isSharedAccount,
       avatarUrl: avatarUrl || undefined,
       street: formData.street || undefined,
       city: formData.city || undefined,
@@ -206,6 +208,23 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
               className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
             <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Usuario activo</label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="isSharedAccount"
+              checked={formData.isSharedAccount}
+              onChange={(e) => setFormData({ ...formData, isSharedAccount: e.target.checked })}
+              className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <label htmlFor="isSharedAccount" className="text-sm text-gray-700 dark:text-gray-300">
+              Cuenta compartida (dispositivo de cocina)
+              <span className="block text-xs text-gray-500">
+                No es una persona: al registrar tareas o etiquetas hay que elegir quién lo hace, y no aparece en
+                esas listas.
+              </span>
+            </label>
           </div>
 
           {/* Foto */}

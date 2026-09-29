@@ -248,6 +248,7 @@ describe("UsersService", () => {
           phone: true,
           whatsapp: true,
           payrollEmail: true,
+          isSharedAccount: true,
           createdAt: true,
         },
       });
@@ -323,6 +324,7 @@ describe("UsersService", () => {
           phone: true,
           whatsapp: true,
           payrollEmail: true,
+          isSharedAccount: true,
           createdAt: true,
           updatedAt: true,
         },

@@ -16,6 +16,8 @@ export interface AuthResponse {
     role: string;
     tenantId: string | null;
     avatarUrl?: string | null;
+    /** Cuenta del ordenador de cocina: al registrar hay que elegir quién lo hizo. */
+    isSharedAccount?: boolean;
   };
   session: {
     id: string;

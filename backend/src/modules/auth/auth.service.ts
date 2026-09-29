@@ -81,6 +81,7 @@ export class AuthService {
           role: user.role,
           tenantId: user.tenantId,
           avatarUrl: user.avatarUrl,
+          isSharedAccount: user.isSharedAccount,
         },
         session: {
           id: session.id,
