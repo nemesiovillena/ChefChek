@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import PDFDocument from "pdfkit";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { ACTIVE_CHECKLIST_ITEMS } from "../../checklists/constants/checklist-active-items";
 
 const A4_PORTRAIT: [number, number] = [595.28, 841.89];
 const MARGIN = 40;
@@ -24,7 +25,7 @@ export class SictedPlanPdfService {
         archivedAt: null,
         ...(area ? { area } : {}),
       },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: { items: ACTIVE_CHECKLIST_ITEMS },
       orderBy: [{ area: "asc" }, { name: "asc" }],
     });
 

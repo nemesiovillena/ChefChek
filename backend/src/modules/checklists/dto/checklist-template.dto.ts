@@ -50,6 +50,11 @@ export type ChecklistConsumerModule =
   (typeof CHECKLIST_CONSUMER_MODULES)[number];
 
 export class ChecklistTemplateItemDto {
+  /** Id del ítem existente al editar el Plan (conserva su identidad y sus marcas); ausente = ítem nuevo. */
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(200)
@@ -90,6 +95,11 @@ export class ChecklistTemplateItemDto {
   @IsOptional()
   @IsNumber()
   expectedRangeMax?: number;
+
+  /** Valor habitual (MEASUREMENT) con el que se prerrellena la medición. */
+  @IsOptional()
+  @IsNumber()
+  defaultValue?: number;
 }
 
 export class CreateChecklistTemplateDto {

@@ -1105,6 +1105,14 @@ model ChecklistTemplateItem {
   // Solo mode=MEASUREMENT, p.ej. cámara -22 a -18ºC.
   expectedRangeMin Float?
   expectedRangeMax Float?
+  // Solo mode=MEASUREMENT: valor habitual con el que se rellena el campo en
+  // "Hojas de hoy"; quien registra solo lo cambia si la lectura es distinta.
+  defaultValue     Float?
+
+  // Ítem quitado del Plan que ya tiene marcas: no se borra (sus marcas son
+  // evidencia inalterable y el borrado en cascada las arrastraría); se retira
+  // y deja de salir en el Plan y en las hojas nuevas.
+  removedAt        DateTime?
 
   template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   entries  ChecklistEntry[]

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { ACTIVE_CHECKLIST_ITEMS } from "../constants/checklist-active-items";
+import { buildChecklistRunSnapshot } from "../util/checklist-run-snapshot.util";
 import {
   ChecklistConsumerModule,
   CreateChecklistTemplateDto,
@@ -25,7 +27,7 @@ export class ChecklistTemplateService {
         archivedAt: null,
         ...(area ? { area } : {}),
       },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: { items: ACTIVE_CHECKLIST_ITEMS },
       orderBy: [{ area: "asc" }, { name: "asc" }],
     });
   }
@@ -38,7 +40,7 @@ export class ChecklistTemplateService {
   ) {
     const template = await this.prisma.checklistTemplate.findFirst({
       where: { id, tenantId, usedByModules: { has: module } },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: { items: ACTIVE_CHECKLIST_ITEMS },
     });
     if (!template) {
       throw new NotFoundException("Plantilla no encontrada");
@@ -81,14 +83,27 @@ export class ChecklistTemplateService {
             isRequired: item.isRequired ?? true,
             expectedRangeMin: item.expectedRangeMin,
             expectedRangeMax: item.expectedRangeMax,
+            defaultValue: item.defaultValue,
           })),
         },
       },
-      include: { items: { orderBy: { position: "asc" } } },
+      include: { items: ACTIVE_CHECKLIST_ITEMS },
     });
   }
 
   /** PATCH: reemplazo completo de campos + ítems; sube `version`. */
+  /**
+   * Edita el Plan conservando la identidad de los ítems: los que siguen
+   * (por `id`) se actualizan en su sitio, los nuevos se crean y los quitados
+   * se borran solo si nunca se marcaron — si tienen marcas se retiran
+   * (`removedAt`), porque sus marcas son evidencia inalterable y el borrado
+   * en cascada las arrastraría. Antes se borraban y recreaban todos: las
+   * hojas ya generadas quedaban apuntando a ítems inexistentes y marcarlas
+   * fallaba (FK `checklist_entries_itemId_fkey`).
+   *
+   * Las hojas abiertas del Plan que aún no tienen ninguna marca renuevan su
+   * foto para usar el Plan nuevo; las ya trabajadas conservan la suya.
+   */
   async update(
     tenantId: string,
     module: ChecklistConsumerModule,
@@ -96,9 +111,64 @@ export class ChecklistTemplateService {
     dto: UpdateChecklistTemplateDto,
   ) {
     const existing = await this.getOneVisible(tenantId, module, id);
+    const existingIds = new Set(existing.items.map((i) => i.id));
+    const keptIds = new Set(
+      dto.items
+        .map((i) => i.id)
+        .filter(
+          (itemId): itemId is string => !!itemId && existingIds.has(itemId),
+        ),
+    );
+    const removedIds = existing.items
+      .filter((i) => !keptIds.has(i.id))
+      .map((i) => i.id);
+
     return this.prisma.$transaction(async (tx) => {
-      await tx.checklistTemplateItem.deleteMany({ where: { templateId: id } });
-      return tx.checklistTemplate.update({
+      if (removedIds.length > 0) {
+        const marked = await tx.checklistEntry.findMany({
+          where: { itemId: { in: removedIds } },
+          select: { itemId: true },
+          distinct: ["itemId"],
+        });
+        const markedIds = marked.map((m) => m.itemId);
+        await tx.checklistTemplateItem.updateMany({
+          where: { id: { in: markedIds } },
+          data: { removedAt: new Date() },
+        });
+        await tx.checklistTemplateItem.deleteMany({
+          where: {
+            id: { in: removedIds.filter((r) => !markedIds.includes(r)) },
+          },
+        });
+      }
+
+      for (const [index, item] of dto.items.entries()) {
+        const data = {
+          position: index,
+          label: item.label,
+          itemFrequency: item.itemFrequency ?? null,
+          procedure: item.procedure ?? null,
+          products: item.products ?? [],
+          dosage: item.dosage ?? null,
+          epi: item.epi ?? null,
+          isRequired: item.isRequired ?? true,
+          expectedRangeMin: item.expectedRangeMin ?? null,
+          expectedRangeMax: item.expectedRangeMax ?? null,
+          defaultValue: item.defaultValue ?? null,
+        };
+        if (item.id && keptIds.has(item.id)) {
+          await tx.checklistTemplateItem.update({
+            where: { id: item.id },
+            data,
+          });
+        } else {
+          await tx.checklistTemplateItem.create({
+            data: { ...data, tenantId, templateId: id },
+          });
+        }
+      }
+
+      const updated = await tx.checklistTemplate.update({
         where: { id },
         data: {
           name: dto.name,
@@ -114,24 +184,22 @@ export class ChecklistTemplateService {
             dto.requiresSupervisor ?? dto.mode === "INSPECTION",
           practiceRef: dto.practiceRef,
           version: existing.version + 1,
-          items: {
-            create: dto.items.map((item, index) => ({
-              tenantId,
-              position: index,
-              label: item.label,
-              itemFrequency: item.itemFrequency,
-              procedure: item.procedure,
-              products: item.products ?? [],
-              dosage: item.dosage,
-              epi: item.epi,
-              isRequired: item.isRequired ?? true,
-              expectedRangeMin: item.expectedRangeMin,
-              expectedRangeMax: item.expectedRangeMax,
-            })),
-          },
         },
-        include: { items: { orderBy: { position: "asc" } } },
+        include: { items: ACTIVE_CHECKLIST_ITEMS },
       });
+
+      const snapshot = buildChecklistRunSnapshot(updated) as any;
+      await tx.checklistRun.updateMany({
+        where: {
+          templateId: id,
+          status: "OPEN",
+          supervisedAt: null,
+          entries: { none: {} },
+        },
+        data: { snapshot },
+      });
+
+      return updated;
     });
   }
 
@@ -160,7 +228,7 @@ export class ChecklistTemplateService {
     if (dto.externalCode) {
       const existing = await this.prisma.checklistTemplate.findFirst({
         where: { tenantId, externalCode: dto.externalCode, archivedAt: null },
-        include: { items: { orderBy: { position: "asc" } } },
+        include: { items: ACTIVE_CHECKLIST_ITEMS },
       });
       if (existing) {
         if (existing.usedByModules.includes(module)) {
@@ -169,7 +237,7 @@ export class ChecklistTemplateService {
         return this.prisma.checklistTemplate.update({
           where: { id: existing.id },
           data: { usedByModules: { push: module } },
-          include: { items: { orderBy: { position: "asc" } } },
+          include: { items: ACTIVE_CHECKLIST_ITEMS },
         });
       }
     }

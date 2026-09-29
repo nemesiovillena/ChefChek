@@ -393,6 +393,183 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
     });
   });
 
+  describe("valor habitual de las mediciones", () => {
+    it("se guarda al crear y al editar la plantilla (la edición recrea los ítems)", async () => {
+      const created = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({
+          name: "Temperaturas con valor habitual",
+          mode: "MEASUREMENT",
+          items: [
+            {
+              label: "Cámara carnes",
+              expectedRangeMin: 0,
+              expectedRangeMax: 4,
+              defaultValue: 3,
+            },
+            {
+              label: "Congelador",
+              expectedRangeMin: -22,
+              expectedRangeMax: -18,
+            },
+          ],
+        }),
+      );
+      expect(created.items.map((i) => i.defaultValue)).toEqual([3, null]);
+
+      const updated = await templates.update(tenantId, "sicted", created.id, {
+        name: created.name,
+        kind: "MAINTENANCE",
+        mode: "MEASUREMENT",
+        area: created.area,
+        frequency: "DAILY",
+        items: [
+          {
+            label: "Cámara carnes",
+            expectedRangeMin: 0,
+            expectedRangeMax: 4,
+            defaultValue: 2.5,
+          },
+          {
+            label: "Congelador",
+            expectedRangeMin: -22,
+            expectedRangeMax: -18,
+            defaultValue: -20,
+          },
+        ],
+      });
+      expect(updated.items.map((i) => i.defaultValue)).toEqual([2.5, -20]);
+    });
+  });
+
+  describe("editar el Plan con hojas ya generadas", () => {
+    const now = new Date("2026-09-27T10:00:00Z");
+    const tempDto = (items: CreateChecklistTemplateDto["items"]) =>
+      executionDto({
+        name: "Temperaturas editables",
+        mode: "MEASUREMENT",
+        items,
+      });
+
+    it("la hoja de hoy (sin marcas) se puede marcar tras editar el Plan y usa el Plan nuevo", async () => {
+      const t = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        tempDto([
+          { label: "Cámara A", expectedRangeMin: 0, expectedRangeMax: 4 },
+          { label: "Cámara B", expectedRangeMin: 0, expectedRangeMax: 4 },
+        ]),
+      );
+      await runs.ensureRunsForToday(tenantId, "sicted", now);
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: t.id },
+      });
+
+      const edited = await templates.update(tenantId, "sicted", t.id, {
+        ...tempDto([
+          {
+            id: t.items[0].id,
+            label: "Cámara A",
+            expectedRangeMin: 0,
+            expectedRangeMax: 4,
+            defaultValue: 3,
+          },
+          {
+            id: t.items[1].id,
+            label: "Cámara B",
+            expectedRangeMin: 0,
+            expectedRangeMax: 5,
+          },
+          { label: "Cámara C", expectedRangeMin: 0, expectedRangeMax: 4 },
+        ]),
+      });
+      // Los ítems que siguen conservan su id; el nuevo se añade.
+      expect(edited.items.map((i) => i.id).slice(0, 2)).toEqual([
+        t.items[0].id,
+        t.items[1].id,
+      ]);
+      expect(edited.items).toHaveLength(3);
+
+      // La hoja abierta sin marcas renueva su foto (3 ítems, rango nuevo) y se puede marcar.
+      const refreshed = await prisma.checklistRun.findUniqueOrThrow({
+        where: { id: run.id },
+      });
+      const snapshot = refreshed.snapshot as any;
+      expect(snapshot.items).toHaveLength(3);
+      expect(snapshot.items[1].expectedRangeMax).toBe(5);
+      const result = await runs.addEntries(
+        tenantId,
+        "sicted",
+        run.id,
+        "session-u1",
+        [
+          { itemId: t.items[0].id, value: 3, performedByName: "Ana" } as any,
+          {
+            itemId: edited.items[2].id,
+            value: 2,
+            performedByName: "Ana",
+          } as any,
+        ],
+      );
+      expect(Object.keys(result.currentByItem)).toHaveLength(2);
+    });
+
+    it("quitar un ítem ya marcado lo retira sin borrar sus marcas; la hoja trabajada conserva su foto", async () => {
+      const t = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        tempDto([
+          { label: "Cámara X", expectedRangeMin: 0, expectedRangeMax: 4 },
+          { label: "Cámara Y", expectedRangeMin: 0, expectedRangeMax: 4 },
+        ]),
+      );
+      await runs.ensureRunsForToday(tenantId, "sicted", now);
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: t.id },
+      });
+      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+        { itemId: t.items[1].id, value: 2, performedByName: "Ana" } as any,
+      ]);
+
+      // Antes: borrar y recrear ítems arrastraba en cascada las marcas y el trigger
+      // de inalterabilidad hacía fallar el guardado del Plan.
+      const edited = await templates.update(tenantId, "sicted", t.id, {
+        ...tempDto([
+          {
+            id: t.items[0].id,
+            label: "Cámara X",
+            expectedRangeMin: 0,
+            expectedRangeMax: 4,
+          },
+        ]),
+      });
+      expect(edited.items.map((i) => i.label)).toEqual(["Cámara X"]);
+
+      const removed = await prisma.checklistTemplateItem.findUniqueOrThrow({
+        where: { id: t.items[1].id },
+      });
+      expect(removed.removedAt).not.toBeNull();
+      expect(
+        await prisma.checklistEntry.count({ where: { itemId: t.items[1].id } }),
+      ).toBe(1);
+
+      const kept = await prisma.checklistRun.findUniqueOrThrow({
+        where: { id: run.id },
+      });
+      expect((kept.snapshot as any).items).toHaveLength(2);
+
+      // Las plantillas listadas solo muestran ítems vigentes.
+      const listed = (await templates.list(tenantId, "sicted")).find(
+        (x) => x.id === t.id,
+      )!;
+      expect(listed.items.map((i) => i.label)).toEqual(["Cámara X"]);
+    });
+  });
+
   describe("aislamiento por tenant", () => {
     it("un tenant B no ve la plantilla/hoja del tenant A", async () => {
       const tenantB = await prisma.tenant.create({

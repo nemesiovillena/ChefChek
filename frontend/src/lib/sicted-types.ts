@@ -40,6 +40,7 @@ export interface ChecklistTemplateItem {
   isRequired: boolean;
   expectedRangeMin: number | null;
   expectedRangeMax: number | null;
+  defaultValue: number | null;
 }
 
 export interface ChecklistTemplate {
@@ -62,6 +63,8 @@ export interface ChecklistTemplate {
 }
 
 export interface ChecklistTemplateItemInput {
+  /** Id del ítem ya guardado: al editar el Plan conserva su identidad (y sus marcas). */
+  id?: string;
   label: string;
   itemFrequency?: string;
   procedure?: string;
@@ -71,6 +74,7 @@ export interface ChecklistTemplateItemInput {
   isRequired?: boolean;
   expectedRangeMin?: number;
   expectedRangeMax?: number;
+  defaultValue?: number;
 }
 
 export interface ChecklistTemplateInput {
