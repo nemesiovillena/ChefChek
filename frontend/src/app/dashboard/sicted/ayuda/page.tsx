@@ -107,8 +107,8 @@ const SECTIONS: GuideSection[] = [
         completa responsable, plazo y evidencia. El programa exige al menos 3 acciones a desarrollar en 3 años.
       </>,
       <>
-        <strong>Eventos</strong>: registra los grupos de mejora, la formación del destino, la evaluación externa y, como «Otro», las
-        asesorías.{' '}
+        <strong>Eventos</strong>: registra los grupos de mejora, las asesorías individuales (ATI) y colectivas (ATC), la formación del
+        destino y la evaluación externa.{' '}
         <strong>Legal</strong>: documentos con caducidad (extintores, OCA, declaración responsable…); Chefchek avisa antes de que caduquen.
       </>,
       <>
@@ -141,6 +141,20 @@ const SECTIONS: GuideSection[] = [
       <>
         En cada fase hay compromisos: al menos 4 horas de formación (fases de seguimiento y renovación), asesorías, asistencia a un grupo
         de mejora, autoevaluación (obligatoria en Distinción y Renovación) y evaluación externa como máximo 6 meses antes del comité.
+      </>,
+      <>
+        En{' '}
+        <Link href="/dashboard/settings#sicted" className={linkCls}>
+          Configuración → SICTED
+        </Link>{' '}
+        indica tu fase actual, cuándo empezó y la fecha del próximo comité (las ves en tu Espacio de gestión de la web SICTED). La
+        portada de SICTED mostrará entonces el panel <strong>Compromisos</strong>: qué tienes cumplido, qué está en curso y qué falta,
+        con un enlace a dónde registrarlo.
+      </>,
+      <>
+        Registra las asesorías (ATI y ATC), los grupos de mejora y la evaluación externa en <strong>Dirección → Eventos</strong>, y la
+        formación en <strong>Personas → Formación</strong> con sus horas. En el <strong>Plan de mejora</strong> adjunta la evidencia de
+        cada acción (foto o PDF con fecha).
       </>,
     ],
   },

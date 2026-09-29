@@ -11,6 +11,8 @@ import { Transform, Type } from "class-transformer";
 
 const EVENT_KINDS = [
   "GRUPO_MEJORA",
+  "ATI", // asesoría técnica individualizada (compromiso por fase)
+  "ATC", // asesoría técnica colectiva
   "FORMACION_DESTINO",
   "EVALUACION_EXTERNA",
   "OTRO",

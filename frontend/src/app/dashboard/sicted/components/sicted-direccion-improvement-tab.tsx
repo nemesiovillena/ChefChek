@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Plus, Target, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Paperclip, Plus, Target, Upload, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import {
+  openImprovementEvidence,
   useCreateImprovementAction,
   useSictedImprovementActions,
   useUpdateImprovementAction,
+  useUploadImprovementEvidence,
 } from '@/hooks/use-sicted-direccion';
 import type {
   ImprovementActionOrigin,
@@ -21,7 +23,9 @@ const inputCls =
 
 const ORIGIN_LABELS: Record<ImprovementActionOrigin, string> = {
   ASSESSMENT: 'Autoevaluación',
-  EVALUATOR: 'Evaluador externo',
+  EVALUATOR: 'Evaluador externo (PAC)',
+  ASESORIA: 'Asesoría',
+  FORMACION: 'Formación',
   COMPLAINT: 'Queja',
   INCIDENT: 'Incidencia',
   OTHER: 'Otro',
@@ -39,6 +43,7 @@ function ActionRow({ action }: { action: SictedImprovementAction }) {
   const { user } = useAuth();
   const canManage = MANAGE_ROLES.includes(user?.role ?? '');
   const update = useUpdateImprovementAction();
+  const uploadEvidence = useUploadImprovementEvidence();
   const [expanded, setExpanded] = useState(false);
   const [actionText, setActionText] = useState(action.action ?? '');
   const [responsibleName, setResponsibleName] = useState(action.responsibleName ?? '');
@@ -73,6 +78,16 @@ function ActionRow({ action }: { action: SictedImprovementAction }) {
   }
 
   const locked = action.status !== 'OPEN';
+
+  async function handleEvidence(file: File | undefined) {
+    if (!file) return;
+    try {
+      await uploadEvidence.mutateAsync({ id: action.id, file });
+      notify({ type: 'success', title: 'Evidencia adjuntada', message: file.name });
+    } catch (err) {
+      notify({ type: 'error', title: 'Error', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
+    }
+  }
 
   return (
     <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">
@@ -131,6 +146,40 @@ function ActionRow({ action }: { action: SictedImprovementAction }) {
                 className={`${inputCls} disabled:opacity-60`}
               />
             </div>
+          </div>
+          {/* El programa exige evidencias fechadas y específicas de cada acción; se puede adjuntar también tras implantarla. */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-[var(--on-surface-variant)]">Evidencia:</span>
+            {action.attachment ? (
+              <button
+                type="button"
+                onClick={() =>
+                  openImprovementEvidence(action.id, action.attachment!, () =>
+                    notify({ type: 'error', title: 'Ventana bloqueada', message: 'Permite las ventanas emergentes.' }),
+                  )
+                }
+                className="inline-flex items-center gap-1 font-medium text-[var(--primary)] underline"
+              >
+                <Paperclip className="h-3.5 w-3.5" /> {action.attachment.name}
+              </button>
+            ) : (
+              <span className="text-[var(--on-surface-variant)]">sin adjuntar</span>
+            )}
+            {canManage && action.status !== 'CANCELLED' && (
+              <label className="inline-flex min-h-[36px] cursor-pointer items-center gap-1 rounded-lg border border-[var(--outline-variant)] px-3 font-medium">
+                {uploadEvidence.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {action.attachment ? 'Sustituir' : 'Adjuntar'}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    handleEvidence(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            )}
           </div>
           {locked && action.closedAt && (
             <p className="text-xs text-[var(--on-surface-variant)]">

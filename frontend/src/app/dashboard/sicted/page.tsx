@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Award, BookOpen, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
+import { SictedCommitmentsPanel } from './components/sicted-commitments-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,6 +75,8 @@ export default function SictedHubPage() {
       >
         <BookOpen className="h-4 w-4" /> Cómo usar SICTED
       </Link>
+
+      {canManage && <SictedCommitmentsPanel />}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button

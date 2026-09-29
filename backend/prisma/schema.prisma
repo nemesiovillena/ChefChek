@@ -1683,6 +1683,11 @@ model SictedSettings {
   id                          String   @id @default(cuid())
   tenantId                    String   @unique
   enabledComplementaryModules String[] @default([]) // moduleCode ("072", "102"...)
+  // Ciclo de distinción (manual SICTED 2026 §7): fase actual y comité al que se
+  // presenta; alimentan el panel de compromisos. Nulos = aún sin configurar.
+  cyclePhase                  String? // ADHESION | DISTINCION | SEGUIMIENTO_1 | SEGUIMIENTO_2 | RENOVACION
+  phaseStartedAt              DateTime?
+  nextCommitteeDate           DateTime?
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
 
@@ -1716,6 +1721,7 @@ model SictedImprovementAction {
   status          String    @default("OPEN") // OPEN | DONE | CANCELLED
   closedAt        DateTime? // fecha de implantación real, solo null→valor
   evidenceNote    String? // comentarios
+  attachment      Json? // StoredAttachment de la evidencia (el programa exige evidencias fechadas y específicas)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
