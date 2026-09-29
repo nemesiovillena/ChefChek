@@ -12,6 +12,19 @@ import { CreateChecklistTemplateDto } from "../../src/modules/checklists/dto/che
  * servicios hacen upserts e inserts cuyo comportamiento exacto (unique
  * constraints, triggers) no vale la pena simular.
  */
+
+/**
+ * Usuarios reales del tenant de prueba: el servidor firma cada marca con el
+ * nombre de la ficha del usuario (cuenta personal = ella misma; la compartida
+ * de cocina elige persona), así que las personas deben existir.
+ */
+const KITCHEN_ID = "e2e-cle-cocina";
+const SUPERVISOR_ID = "e2e-cle-encargado";
+const PEOPLE = {
+  Ana: "e2e-cle-ana",
+  Bea: "e2e-cle-bea",
+} as const;
+
 describe("E2E - Motor de checklist compartido (fase 2)", () => {
   let moduleRef: TestingModule;
   let prisma: PrismaService;
@@ -35,6 +48,22 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       },
     });
     tenantId = tenant.id;
+    await prisma.user.createMany({
+      data: [
+        { id: KITCHEN_ID, name: "Cocina", isSharedAccount: true },
+        { id: SUPERVISOR_ID, name: "Encargado", isSharedAccount: false },
+        ...Object.entries(PEOPLE).map(([name, id]) => ({
+          id,
+          name,
+          isSharedAccount: false,
+        })),
+      ].map((u) => ({
+        ...u,
+        tenantId,
+        email: `${u.id}@e2e.test`,
+        passwordHash: "x",
+      })),
+    });
   });
 
   afterAll(async () => {
@@ -49,6 +78,8 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       await tx.checklistRun.deleteMany({ where: { tenantId } });
       await tx.checklistTemplateItem.deleteMany({ where: { tenantId } });
       await tx.checklistTemplate.deleteMany({ where: { tenantId } });
+      // Borrado real (el delete de Prisma es soft y dejaría los ids ocupados).
+      await tx.$executeRaw`DELETE FROM users WHERE "tenantId" = ${tenantId}`;
     });
     await prisma.tenant.delete({ where: { id: tenantId } });
     await prisma.$disconnect();
@@ -164,11 +195,12 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       });
 
       await expect(
-        runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+        runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
           {
             itemId: template.items[0].id,
             outcome: "NOT_DONE",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ]),
       ).rejects.toThrow(BadRequestException);
@@ -192,21 +224,23 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       });
 
       await expect(
-        runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+        runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
           {
             itemId: template.items[0].id,
             outcome: "BAD",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ]),
       ).rejects.toThrow(BadRequestException);
 
-      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
         {
           itemId: template.items[0].id,
           outcome: "BAD",
           observation: "Suelo sucio",
           performedByName: "Ana",
+          performedByUserId: PEOPLE.Ana,
         } as any,
       ]);
 
@@ -214,24 +248,25 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         tenantId,
         "sicted",
         run.id,
-        "admin-u1",
+        SUPERVISOR_ID,
         { supervisorName: "Encargado" },
       );
       expect(supervised.supervisedAt).not.toBeNull();
 
       await expect(
-        runs.supervise(tenantId, "sicted", run.id, "admin-u1", {
+        runs.supervise(tenantId, "sicted", run.id, SUPERVISOR_ID, {
           supervisorName: "Otra vez",
         }),
       ).rejects.toThrow(ConflictException);
 
       // Ya supervisada: no admite más marcas.
       await expect(
-        runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+        runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
           {
             itemId: template.items[0].id,
             outcome: "OK",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ]),
       ).rejects.toThrow(ConflictException);
@@ -262,11 +297,12 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       });
 
       await expect(
-        runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
+        runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
           {
             itemId: template.items[0].id,
             value: 9,
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ]),
       ).rejects.toThrow("acción correctiva");
@@ -275,13 +311,14 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         tenantId,
         "sicted",
         run.id,
-        "session-u1",
+        KITCHEN_ID,
         [
           {
             itemId: template.items[0].id,
             value: 9,
             correctiveAction: "Se avisó al técnico",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ],
       );
@@ -313,13 +350,14 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         tenantId,
         "sicted",
         run.id,
-        "session-u1",
+        KITCHEN_ID,
         [
           {
             itemId: template.items[0].id,
             outcome: "NOT_DONE",
             reason: "Sin tiempo",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ],
       );
@@ -335,6 +373,7 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
             itemId: template.items[0].id,
             outcome: "DONE",
             performedByName: "Bea",
+            performedByUserId: PEOPLE.Bea,
             correctsEntryId: firstEntryId,
           } as any,
         ],
@@ -366,13 +405,14 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         tenantId,
         "sicted",
         run.id,
-        "session-u1",
+        KITCHEN_ID,
         [
           {
             itemId: template.items[0].id,
             outcome: "NOT_DONE",
             reason: "Sin tiempo",
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ],
       );
@@ -381,6 +421,7 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
           itemId: template.items[0].id,
           outcome: "DONE",
           performedByName: "Bea",
+          performedByUserId: PEOPLE.Bea,
           correctsEntryId: first.currentByItem[template.items[0].id].id,
         } as any,
       ]);
@@ -504,13 +545,19 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         tenantId,
         "sicted",
         run.id,
-        "session-u1",
+        KITCHEN_ID,
         [
-          { itemId: t.items[0].id, value: 3, performedByName: "Ana" } as any,
+          {
+            itemId: t.items[0].id,
+            value: 3,
+            performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
+          } as any,
           {
             itemId: edited.items[2].id,
             value: 2,
             performedByName: "Ana",
+            performedByUserId: PEOPLE.Ana,
           } as any,
         ],
       );
@@ -531,8 +578,13 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       const run = await prisma.checklistRun.findFirstOrThrow({
         where: { templateId: t.id },
       });
-      await runs.addEntries(tenantId, "sicted", run.id, "session-u1", [
-        { itemId: t.items[1].id, value: 2, performedByName: "Ana" } as any,
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
+        {
+          itemId: t.items[1].id,
+          value: 2,
+          performedByName: "Ana",
+          performedByUserId: PEOPLE.Ana,
+        } as any,
       ]);
 
       // Antes: borrar y recrear ítems arrastraba en cascada las marcas y el trigger
