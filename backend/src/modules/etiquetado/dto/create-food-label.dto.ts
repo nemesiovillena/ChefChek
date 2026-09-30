@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from "class-validator";
@@ -47,10 +48,26 @@ export class CreateFoodLabelDto {
   @IsIn(LABEL_TYPES as unknown as string[])
   labelType!: (typeof LABEL_TYPES)[number];
 
-  /** Requerido si labelType === ELABORATED. */
+  /**
+   * ELABORATED: receta de la que sale el plato. Si no se manda, es un plato
+   * sin receta en el sistema y hacen falta `itemName` (y `allergens`).
+   */
   @IsOptional()
   @IsString()
   recipeId?: string;
+
+  /** ELABORATED sin receta: nombre del plato tal cual se imprime. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  itemName?: string;
+
+  /** ELABORATED sin receta: alérgenos declarados (ids del catálogo). */
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  allergens?: number[];
 
   /** Requerido si labelType === HANDLED. */
   @IsOptional()

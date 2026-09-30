@@ -269,6 +269,51 @@ describe("FoodLabelService", () => {
     });
   });
 
+  describe("create — ELABORATED sin receta", () => {
+    it("uses the typed name and declared allergens, form conservation, no recipe", async () => {
+      mockPrisma.foodLabel.create.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        ...data,
+      }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "ELABORATED",
+        itemName: "  Arroz de calamar y almejas ",
+        allergens: [13, 4, 13],
+        storageCondition: "REFRIGERATED",
+        shelfLifeDays: 2,
+        notes: "Sofrito del día",
+        preparedAt: "2026-09-30T10:00:00.000Z",
+      });
+
+      expect(mockPrisma.recipe.findFirst).not.toHaveBeenCalled();
+      expect(mockLotNumber.generateElaboratedLot).toHaveBeenCalledWith(
+        TENANT,
+        "Arroz de calamar y almejas",
+        expect.any(Date),
+        0,
+      );
+      expect(result.recipeId).toBeNull();
+      expect(result.itemName).toBe("Arroz de calamar y almejas");
+      expect(result.allergens).toEqual([4, 13]);
+      expect(result.notes).toBe("Sofrito del día");
+      expect(result.shelfLifeDaysApplied).toBe(2);
+      expect(new Date(result.useByDate).getDate()).toBe(2);
+    });
+
+    it("rejects when there is neither a recipe nor a name", async () => {
+      await expect(
+        service.create(TENANT, USER, {
+          labelType: "ELABORATED",
+          itemName: "   ",
+          storageCondition: "REFRIGERATED",
+          shelfLifeDays: 2,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.foodLabel.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe("create — HANDLED", () => {
     it("uses the source lot number and pre-loads manufacturer expiry from the lot", async () => {
       mockPrisma.product.findFirst.mockResolvedValue({

@@ -24,6 +24,7 @@ import ConservationFieldset, {
   EMPTY_CONSERVATION,
   type ConservationValue,
 } from '@/components/conservation-fieldset';
+import AllergenPicker from '@/components/shared/allergen-picker';
 import ResponsibleField, {
   type ResponsibleValue,
 } from '@/components/responsible-field';
@@ -86,6 +87,12 @@ export default function NuevaEtiquetaPage() {
   );
   const [recipeId, setRecipeId] = useState<string | null>(presetRecipeId);
   const [productId, setProductId] = useState<string | null>(presetProductId);
+  // Plato sin receta en el sistema: se guarda como ELABORATED sin recipeId,
+  // con el nombre y los alérgenos que escribe el cocinero.
+  const [freeDish, setFreeDish] = useState(false);
+  const [freeName, setFreeName] = useState('');
+  const [freeNameConfirmed, setFreeNameConfirmed] = useState(false);
+  const [freeAllergens, setFreeAllergens] = useState<number[]>([]);
 
   // Datos comunes del formulario
   const [preparedAt, setPreparedAt] = useState(nowLocalInput());
@@ -139,10 +146,12 @@ export default function NuevaEtiquetaPage() {
     return ctxConservation ? conservationFromConfig(ctxConservation) : EMPTY_CONSERVATION;
   }, [conservationTouched, conservation, ctxConservation]);
 
-  const selectedName =
-    recipeCtx.data?.name ?? productCtx.data?.name ?? '';
+  const selectedName = freeDish
+    ? freeName.trim()
+    : (recipeCtx.data?.name ?? productCtx.data?.name ?? '');
 
   const ready =
+    (freeDish && freeNameConfirmed && freeName.trim() !== '') ||
     (labelType === 'ELABORATED' && Boolean(recipeCtx.data)) ||
     (labelType === 'HANDLED' && Boolean(productCtx.data));
 
@@ -209,7 +218,10 @@ export default function NuevaEtiquetaPage() {
       responsibleName: responsible.responsibleName?.trim() || undefined,
     };
 
-    if (labelType === 'ELABORATED') {
+    if (freeDish) {
+      input.itemName = freeName.trim();
+      input.allergens = freeAllergens;
+    } else if (labelType === 'ELABORATED') {
       input.recipeId = recipeId ?? undefined;
       input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => {
         const raw = ingredientLots[ing.productId] ?? '';
@@ -296,11 +308,12 @@ export default function NuevaEtiquetaPage() {
         <div className="space-y-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
           <div>
             <span className={labelClass}>¿Qué vas a etiquetar?</span>
-            <div className="mt-2 flex gap-3">
+            <div className="mt-2 flex flex-wrap gap-3">
               <Button
-                variant={labelType === 'ELABORATED' ? 'default' : 'outline'}
+                variant={labelType === 'ELABORATED' && !freeDish ? 'default' : 'outline'}
                 onClick={() => {
                   setLabelType('ELABORATED');
+                  setFreeDish(false);
                   setProductId(null);
                 }}
               >
@@ -310,15 +323,55 @@ export default function NuevaEtiquetaPage() {
                 variant={labelType === 'HANDLED' ? 'default' : 'outline'}
                 onClick={() => {
                   setLabelType('HANDLED');
+                  setFreeDish(false);
                   setRecipeId(null);
                 }}
               >
                 Artículo manipulado
               </Button>
+              <Button
+                variant={freeDish ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabelType('ELABORATED');
+                  setFreeDish(true);
+                  setRecipeId(null);
+                  setProductId(null);
+                }}
+              >
+                Plato sin receta
+              </Button>
             </div>
           </div>
 
-          {labelType === 'ELABORATED' && (
+          {freeDish && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (freeName.trim()) setFreeNameConfirmed(true);
+              }}
+            >
+              <label className="block">
+                <span className={labelClass}>Nombre del plato</span>
+                <input
+                  className={fieldClass}
+                  placeholder="Ej. Arroz de calamar y almejas"
+                  maxLength={120}
+                  autoFocus
+                  value={freeName}
+                  onChange={(e) => setFreeName(e.target.value)}
+                />
+                <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                  Para platos que no están en Recetas. Es lo que se imprime en
+                  la etiqueta.
+                </span>
+              </label>
+              <Button type="submit" className="mt-3" disabled={!freeName.trim()}>
+                Continuar
+              </Button>
+            </form>
+          )}
+
+          {labelType === 'ELABORATED' && !freeDish && (
             <label className="block">
               <span className={labelClass}>Receta</span>
               <select
@@ -377,8 +430,19 @@ export default function NuevaEtiquetaPage() {
       {ready && (
         <div className="space-y-5">
           <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
-            <div className="mb-3 text-lg font-semibold text-[var(--on-surface)]">
-              {selectedName}
+            <div className="mb-3 flex items-center gap-3">
+              <span className="text-lg font-semibold text-[var(--on-surface)]">
+                {selectedName}
+              </span>
+              {freeDish && (
+                <button
+                  type="button"
+                  className="text-sm text-[var(--on-surface-variant)] underline"
+                  onClick={() => setFreeNameConfirmed(false)}
+                >
+                  Cambiar nombre
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-3">
@@ -663,6 +727,17 @@ export default function NuevaEtiquetaPage() {
                   onChange={(e) => setManufacturerExpiry(e.target.value)}
                 />
               </label>
+            </div>
+          )}
+
+          {freeDish && (
+            <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
+              <span className={labelClass}>Alérgenos</span>
+              <p className="mb-3 mt-1 text-xs text-[var(--on-surface-variant)]">
+                Marca los que lleva el plato; se imprimen en la etiqueta. Sin
+                receta no se pueden calcular solos.
+              </p>
+              <AllergenPicker value={freeAllergens} onChange={setFreeAllergens} />
             </div>
           )}
 
