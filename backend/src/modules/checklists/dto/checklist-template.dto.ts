@@ -164,6 +164,14 @@ export class CreateChecklistTemplateDto {
 /** PATCH: reemplazo completo de campos + ítems (versión sube automáticamente). */
 export class UpdateChecklistTemplateDto extends CreateChecklistTemplateDto {}
 
+/** Orden completo del listado del Plan (ids de las plantillas activas). */
+export class ReorderChecklistTemplatesDto {
+  @IsArray()
+  @ArrayMaxSize(500)
+  @IsString({ each: true })
+  ids: string[];
+}
+
 /** Importación de plantillas exportadas desde otro tenant (archivo del Plan). */
 export class ImportChecklistTemplatesDto {
   @IsArray()
