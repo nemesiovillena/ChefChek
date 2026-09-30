@@ -3,11 +3,12 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Printer, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, Printer, Save, X } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRecipeOptions } from '@/hooks/use-recipes';
 import { useProductSearch } from '@/hooks/use-product-search';
+import { foldAccents } from '@/lib/utils';
 import {
   useRecipePrepContext,
   useProductPrepContext,
@@ -33,6 +34,9 @@ export const dynamic = 'force-dynamic';
 
 const fieldClass =
   'mt-1 block w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base text-[var(--on-surface)]';
+// Variante sin margen superior para controles que van juntos en una fila.
+const compactFieldClass =
+  'block w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base text-[var(--on-surface)]';
 const labelClass = 'block text-sm font-medium text-[var(--on-surface)]';
 
 const nowLocalInput = () => {
@@ -128,6 +132,13 @@ export default function NuevaEtiquetaPage() {
   const [pendingAction, setPendingAction] = useState<'save' | 'print' | null>(null);
 
   const recipeOptions = useRecipeOptions();
+  // Filtro del desplegable de recetas (sin tildes ni mayúsculas). La receta ya
+  // elegida se mantiene aunque no case, para que el select no se quede vacío.
+  const [recipeQuery, setRecipeQuery] = useState('');
+  const recipeNeedle = foldAccents(recipeQuery.trim());
+  const filteredRecipes = (recipeOptions.data ?? []).filter(
+    (r) => !recipeNeedle || r.id === recipeId || foldAccents(r.name).includes(recipeNeedle),
+  );
   const productSearch = useProductSearch(300);
   const etiquetadoConfig = useEtiquetadoConfig();
   // El formato se elige una vez en Configuración → Etiquetas; aquí solo se
@@ -372,22 +383,50 @@ export default function NuevaEtiquetaPage() {
           )}
 
           {labelType === 'ELABORATED' && !freeDish && (
-            <label className="block">
+            <div>
               <span className={labelClass}>Receta</span>
-              <select
-                className={fieldClass}
-                style={{ colorScheme: 'light dark' }}
-                value={recipeId ?? ''}
-                onChange={(e) => setRecipeId(e.target.value || null)}
-              >
-                <option value="">Elige una receta…</option>
-                {(recipeOptions.data ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
+              <div className="mt-1 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <input
+                  type="search"
+                  className={compactFieldClass}
+                  placeholder="Buscar receta…"
+                  aria-label="Buscar receta"
+                  value={recipeQuery}
+                  onChange={(e) => setRecipeQuery(e.target.value)}
+                />
+                <select
+                  className={compactFieldClass}
+                  style={{ colorScheme: 'light dark' }}
+                  aria-label="Receta"
+                  value={recipeId ?? ''}
+                  onChange={(e) => setRecipeId(e.target.value || null)}
+                >
+                  <option value="">
+                    {recipeQuery.trim()
+                      ? `${filteredRecipes.length} receta${filteredRecipes.length === 1 ? '' : 's'} encontrada${filteredRecipes.length === 1 ? '' : 's'}…`
+                      : 'Elige una receta…'}
                   </option>
-                ))}
-              </select>
-            </label>
+                  {filteredRecipes.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-auto py-2"
+                  disabled={!recipeQuery && !recipeId}
+                  onClick={() => {
+                    setRecipeQuery('');
+                    setRecipeId(null);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                  Limpiar
+                </Button>
+              </div>
+            </div>
           )}
 
           {labelType === 'HANDLED' && (
