@@ -8,9 +8,12 @@ import { UsersService } from "../users/users.service";
 import { TenantsService } from "../tenants/tenants.service";
 import { SessionService } from "./session.service";
 import * as bcrypt from "bcrypt";
+import { LoginLockout } from "./login-lockout";
 
 @Injectable()
 export class AuthService {
+  private readonly lockout = new LoginLockout();
+
   constructor(
     private usersService: UsersService,
     private tenantsService: TenantsService,
@@ -63,7 +66,18 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const user = await this.validateUser(email, password, tenantSlug);
+    const lockKey = LoginLockout.key(tenantSlug, email);
+    this.lockout.assertNotLocked(lockKey);
+    let user: Awaited<ReturnType<AuthService["validateUser"]>>;
+    try {
+      user = await this.validateUser(email, password, tenantSlug);
+    } catch (e) {
+      if (e instanceof UnauthorizedException) {
+        this.lockout.registerFailure(lockKey);
+      }
+      throw e;
+    }
+    this.lockout.reset(lockKey);
 
     const { session, cookie } = await this.sessionService.createSession(
       user.id,
@@ -122,16 +136,20 @@ export class AuthService {
     ipAddress?: string,
     userAgent?: string,
   ) {
+    const lockKey = LoginLockout.key("superadmin", email);
+    this.lockout.assertNotLocked(lockKey);
+
     const user = await this.usersService.findSuperadminByEmail(email);
-
-    if (!user || !user.isActive || user.role !== "SUPERADMIN") {
+    if (
+      !user ||
+      !user.isActive ||
+      user.role !== "SUPERADMIN" ||
+      !(await bcrypt.compare(password, user.passwordHash))
+    ) {
+      this.lockout.registerFailure(lockKey);
       throw new UnauthorizedException("Invalid credentials");
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
+    this.lockout.reset(lockKey);
 
     const { session, cookie } = await this.sessionService.createSession(
       user.id,
