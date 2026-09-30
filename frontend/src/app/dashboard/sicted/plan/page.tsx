@@ -2,18 +2,30 @@
 
 import { Suspense, useRef, useState, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Archive, ClipboardCheck, Download, FileUp, Loader2, Plus, Search } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Download, FileUp, Loader2, Plus, Search } from 'lucide-react';
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  MouseSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import {
   useArchiveSictedTemplate,
+  useReorderSictedTemplates,
   useSeedSictedStarterTemplates,
   useSictedTemplates,
 } from '@/hooks/use-sicted';
 import { downloadPlanFile, parsePlanFile } from '@/lib/sicted-plan-file';
-import { CHECKLIST_MODE_LABELS, type ChecklistTemplate, type ChecklistTemplateInput } from '@/lib/sicted-types';
+import type { ChecklistTemplate, ChecklistTemplateInput } from '@/lib/sicted-types';
 import { SictedPlanImportDialog } from '../components/sicted-plan-import-dialog';
+import { SictedPlanTemplateRow } from '../components/sicted-plan-template-row';
 import { SictedTemplateEditor } from '../components/sicted-template-editor';
 
 export const dynamic = 'force-dynamic';
@@ -45,9 +57,15 @@ function SictedPlanContent() {
   const { data: templates, isLoading } = useSictedTemplates();
   const archive = useArchiveSictedTemplate();
   const seedStarter = useSeedSictedStarterTemplates();
+  const reorder = useReorderSictedTemplates();
+  const dndSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const [editing, setEditing] = useState<ChecklistTemplate | 'new' | null>(null);
   const [importing, setImporting] = useState<ChecklistTemplateInput[] | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('buscar') ?? '');
@@ -56,6 +74,12 @@ function SictedPlanContent() {
     const haystack = fold(`${t.name} ${t.area}`);
     return words.every((w) => haystack.includes(w));
   });
+
+  // Ignora ids de plantillas que ya no existen (p. ej. archivadas tras marcarlas).
+  const selectedTemplates = (templates ?? []).filter((t) => selectedIds.has(t.id));
+  // Con el buscador activo la lista está incompleta: el backend exige el orden de todas.
+  const canReorder = words.length === 0;
+  const allVisibleSelected = visibleTemplates.length > 0 && visibleTemplates.every((t) => selectedIds.has(t.id));
 
   const canManage = MANAGE_ROLES.includes(user?.role ?? '');
 
@@ -121,10 +145,42 @@ function SictedPlanContent() {
     }
   }
 
-  /** Exporta lo que se ve en el listado: con el buscador se exporta solo lo filtrado. */
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const t of visibleTemplates) {
+        if (allVisibleSelected) next.delete(t.id);
+        else next.add(t.id);
+      }
+      return next;
+    });
+  }
+
+  /** Guarda el orden nuevo del Plan al soltar; el backend asigna `sortOrder` = posición. */
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    if (!templates || !over || active.id === over.id) return;
+    const from = templates.findIndex((t) => t.id === active.id);
+    const to = templates.findIndex((t) => t.id === over.id);
+    if (from === -1 || to === -1) return;
+    reorder.mutate(arrayMove(templates, from, to), {
+      onError: (err) => notify({ type: 'error', title: 'No se pudo ordenar', message: err.message }),
+    });
+  }
+
+  /** Exporta las plantillas marcadas; sin marcar ninguna, lo que se ve en el listado (con el buscador, solo lo filtrado). */
   function handleExport() {
-    downloadPlanFile(visibleTemplates);
-    notify({ type: 'success', title: 'Plan exportado', message: `${visibleTemplates.length} plantilla(s).` });
+    const toExport = selectedTemplates.length > 0 ? selectedTemplates : visibleTemplates;
+    downloadPlanFile(toExport);
+    notify({ type: 'success', title: 'Plan exportado', message: `${toExport.length} plantilla(s).` });
   }
 
   async function handleFileChosen(e: ChangeEvent<HTMLInputElement>) {
@@ -165,7 +221,7 @@ function SictedPlanContent() {
             className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 text-sm font-medium disabled:opacity-40"
           >
             <Download className="h-4 w-4" />
-            Exportar
+            {selectedTemplates.length > 0 ? `Exportar ${selectedTemplates.length}` : 'Exportar todas'}
           </button>
           <button
             type="button"
@@ -225,28 +281,35 @@ function SictedPlanContent() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visibleTemplates.map((t) => (
-            <div
-              key={t.id}
-              className="flex items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 py-3"
-            >
-              <button type="button" onClick={() => setEditing(t)} className="flex-1 text-left">
-                <p className="font-medium">{t.name}</p>
-                <p className="text-sm text-[var(--on-surface-variant)]">
-                  {t.area} · {CHECKLIST_MODE_LABELS[t.mode]} · v{t.version}
-                  {t.usedByModules.length > 1 && ` · compartida (${t.usedByModules.join(', ')})`}
-                </p>
+          <div className="flex min-h-[44px] items-center justify-between gap-3 px-1 text-sm text-[var(--on-surface-variant)]">
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 pl-3">
+              <input type="checkbox" className="h-5 w-5" checked={allVisibleSelected} onChange={toggleAllVisible} />
+              {allVisibleSelected ? 'Quitar selección' : 'Seleccionar todas'}
+            </label>
+            {selectedTemplates.length > 0 && (
+              <button type="button" onClick={() => setSelectedIds(new Set())} className="min-h-[44px] px-2 underline">
+                {selectedTemplates.length} marcada(s) · limpiar
               </button>
-              <button
-                type="button"
-                onClick={() => handleArchive(t)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[var(--error)] hover:bg-[var(--error-container)]"
-                aria-label="Archivar"
-              >
-                <Archive className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+            )}
+          </div>
+          {!canReorder && (
+            <p className="px-1 text-sm text-[var(--on-surface-variant)]">Borra la búsqueda para ordenar arrastrando.</p>
+          )}
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={visibleTemplates.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+              {visibleTemplates.map((t) => (
+                <SictedPlanTemplateRow
+                  key={t.id}
+                  template={t}
+                  selected={selectedIds.has(t.id)}
+                  canReorder={canReorder}
+                  onToggleSelected={() => toggleSelected(t.id)}
+                  onEdit={() => setEditing(t)}
+                  onArchive={() => handleArchive(t)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         </div>
       )}
     </div>

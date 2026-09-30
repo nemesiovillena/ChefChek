@@ -28,7 +28,14 @@ describe("ChecklistTemplateService.importMany", () => {
       checklistTemplate: {
         findMany: jest.fn().mockResolvedValue([{ name: "Limpieza de Barra" }]),
       },
-      $transaction: jest.fn((fn: any) => fn({ checklistTemplate: { create } })),
+      $transaction: jest.fn((fn: any) =>
+        fn({
+          checklistTemplate: {
+            create,
+            aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 4 } }),
+          },
+        }),
+      ),
     };
     service = new ChecklistTemplateService(prisma as any);
   });
@@ -42,6 +49,17 @@ describe("ChecklistTemplateService.importMany", () => {
     expect(result.skipped).toEqual(["limpieza  de barra"]);
     expect(result.created).toEqual([
       { id: "id-Limpieza de almacén", name: "Limpieza de almacén" },
+    ]);
+  });
+
+  it("coloca las importadas al final del Plan, en el orden del archivo", async () => {
+    await service.importMany("t1", "sicted", "u1", [
+      template("Comedor"),
+      template("Terraza"),
+    ]);
+
+    expect(create.mock.calls.map(([arg]) => arg.data.sortOrder)).toEqual([
+      5, 6,
     ]);
   });
 
