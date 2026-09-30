@@ -26,6 +26,11 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+// Minúsculas y sin tildes, para búsquedas que no distinguen "cafe" de "Café".
+export function foldAccents(text: string): string {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 // Descarga un Blob como archivo en el navegador (ancla un <a> y hace click).
 // Centraliza el patrón que se repetía inline en digital-menu/articulos/recipes.
 export function downloadBlob(filename: string, blob: Blob): void {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Check, ChevronsUpDown, BookOpen } from 'lucide-react';
-import { cn, formatEuro } from '@/lib/utils';
+import { cn, foldAccents, formatEuro } from '@/lib/utils';
 import {
   Command,
   CommandEmpty,
@@ -32,6 +32,13 @@ interface SubRecipeComboboxProps {
   /** Recibe la opción elegida. */
   onSelect: (item: SubRecipeOption) => void;
   placeholder?: string;
+}
+
+// Filtro de cmdk: busca en el nombre (keywords) sin distinguir tildes ni
+// mayúsculas. El value del ítem es el id para que dos recetas con el mismo
+// nombre no se resalten/seleccionen a la vez.
+function filterByName(_value: string, search: string, keywords?: string[]) {
+  return foldAccents(keywords?.join(' ') ?? '').includes(foldAccents(search.trim())) ? 1 : 0;
 }
 
 /**
@@ -70,7 +77,7 @@ export default function SubRecipeCombobox({
         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
-        <Command>
+        <Command filter={filterByName}>
           <CommandInput placeholder="Escribe para buscar..." />
           <CommandList>
             <CommandEmpty>No se encontró receta</CommandEmpty>
@@ -78,7 +85,8 @@ export default function SubRecipeCombobox({
               {items.map((item) => (
                 <CommandItem
                   key={item.id}
-                  value={item.name}
+                  value={item.id}
+                  keywords={[item.name]}
                   onSelect={() => {
                     onSelect(item);
                     setOpen(false);
