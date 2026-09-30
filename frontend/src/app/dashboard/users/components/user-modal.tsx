@@ -94,8 +94,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
       addNotification({ type: 'error', title: 'Error', message: 'Email y nombre son obligatorios' });
       return;
     }
-    if (!targetUser && formData.password.length < 8) {
-      addNotification({ type: 'error', title: 'Error', message: 'La contraseña debe tener al menos 8 caracteres' });
+    // Al crear es obligatoria; al editar solo se valida si se escribe una nueva.
+    if ((!targetUser || formData.password) && formData.password.length < 4) {
+      addNotification({ type: 'error', title: 'Error', message: 'La contraseña debe tener al menos 4 caracteres' });
       return;
     }
     if (!targetUser && !currentTenantId) {
@@ -179,7 +180,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                minLength={8}
+                minLength={4}
                 placeholder={targetUser ? 'Dejar en blanco para no cambiar' : undefined}
                 className={inputClass}
               />

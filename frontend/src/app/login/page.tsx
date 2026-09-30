@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 const tenantLoginSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  password: z.string().min(4, 'La contraseña debe tener al menos 4 caracteres'),
   tenantSlug: z.string().min(1, 'El tenant es requerido'),
 });
 
