@@ -130,10 +130,11 @@ export function SictedConfigSection() {
   const notify = useNotification();
   const active = isEnabled('sicted');
   const { data: groups, isLoading } = useSictedComplementaryGroups(active);
-  const { data: commitments } = useSictedCommitments(active);
   const update = useUpdateSictedComplementaryGroups();
   const [draft, setDraft] = useState<Set<string> | null>(null);
   const canManage = MANAGE_ROLES.includes(user?.role ?? '');
+  // Fase y comité salen de /commitments, que solo sirve a ADMIN o superior.
+  const { data: commitments } = useSictedCommitments(active && canManage);
 
   if (!active) return null;
 
