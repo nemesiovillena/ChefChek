@@ -1,4 +1,13 @@
-import { IsString, IsEnum, IsBoolean, IsOptional } from "class-validator";
+import {
+  IsString,
+  IsEnum,
+  IsBoolean,
+  IsOptional,
+  MinLength,
+} from "class-validator";
+
+/** Mínimo de caracteres de la contraseña de un usuario del restaurante. */
+export const USER_PASSWORD_MIN_LENGTH = 4;
 
 export class CreateUserDto {
   @IsString()
@@ -8,6 +17,7 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
+  @MinLength(USER_PASSWORD_MIN_LENGTH)
   password: string;
 
   @IsString()
@@ -58,6 +68,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(USER_PASSWORD_MIN_LENGTH)
   password?: string;
 
   @IsOptional()
