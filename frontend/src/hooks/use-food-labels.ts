@@ -162,6 +162,9 @@ export interface ProductPrepContext {
 export interface CreateFoodLabelInput {
   labelType: LabelType;
   recipeId?: string;
+  /** ELABORATED sin receta: nombre del plato y alérgenos declarados. */
+  itemName?: string;
+  allergens?: number[];
   productId?: string;
   sourceLotId?: string;
   sourcePurchaseLineId?: string;

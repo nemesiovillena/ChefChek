@@ -117,9 +117,11 @@ export class FoodLabelService {
     const preparedAt = dto.preparedAt ? new Date(dto.preparedAt) : new Date();
 
     const base =
-      dto.labelType === "ELABORATED"
-        ? await this.loadRecipeContext(tenantId, dto.recipeId)
-        : await this.loadProductContext(tenantId, dto.productId);
+      dto.labelType === "HANDLED"
+        ? await this.loadProductContext(tenantId, dto.productId)
+        : dto.recipeId
+          ? await this.loadRecipeContext(tenantId, dto.recipeId)
+          : this.freeDishContext(dto);
 
     const freeze = Boolean(dto.freeze);
     const frozenAt = freeze
@@ -931,6 +933,34 @@ export class FoodLabelService {
         storageTempMax: recipe.storageTempMax,
         shelfLifeDays: recipe.shelfLifeDays,
         shelfLifeFrozenDays: recipe.shelfLifeFrozenDays,
+      },
+    };
+  }
+
+  /**
+   * Plato elaborado que no existe como receta (p.ej. un arroz del día): el
+   * nombre y los alérgenos los declara el cocinero y la conservación sale
+   * entera del formulario. Se guarda como ELABORATED con `recipeId` null.
+   */
+  private freeDishContext(dto: CreateFoodLabelDto) {
+    const name = dto.itemName?.trim();
+    if (!name) {
+      throw new BadRequestException(
+        "Indica la receta o escribe el nombre del plato",
+      );
+    }
+    return {
+      entityId: null as string | null,
+      productId: null as string | null,
+      name,
+      allergens: [...new Set(dto.allergens ?? [])].sort((a, b) => a - b),
+      supplierName: null as string | null,
+      conservation: {
+        storageCondition: null as StorageCondition | null,
+        storageTempMin: null as number | null,
+        storageTempMax: null as number | null,
+        shelfLifeDays: null as number | null,
+        shelfLifeFrozenDays: null as number | null,
       },
     };
   }
