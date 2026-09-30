@@ -69,15 +69,18 @@ function SictedPlanContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get('buscar') ?? '');
+  const [zone, setZone] = useState('');
+  const zones = [...new Set((templates ?? []).map((t) => t.area))].sort((a, b) => a.localeCompare(b, 'es'));
   const words = fold(query).split(/\s+/).filter(Boolean);
   const visibleTemplates = (templates ?? []).filter((t) => {
+    if (zone && t.area !== zone) return false;
     const haystack = fold(`${t.name} ${t.area}`);
     return words.every((w) => haystack.includes(w));
   });
 
   // Ignora ids de plantillas que ya no existen (p. ej. archivadas tras marcarlas).
   const selectedTemplates = (templates ?? []).filter((t) => selectedIds.has(t.id));
-  // Con el buscador activo la lista está incompleta: el backend exige el orden de todas.
+  // Con el buscador activo no se arrastra (lista salteada). Con zona sí: se mueve dentro del orden completo del Plan.
   const canReorder = words.length === 0;
   const allVisibleSelected = visibleTemplates.length > 0 && visibleTemplates.every((t) => selectedIds.has(t.id));
 
@@ -263,13 +266,33 @@ function SictedPlanContent() {
         </label>
       )}
 
+      {zones.length > 1 && (
+        <select
+          value={zone}
+          onChange={(e) => setZone(e.target.value)}
+          aria-label="Filtrar por zona"
+          className="mb-4 min-h-[48px] w-full rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 text-base"
+          style={{ colorScheme: 'light dark' }}
+        >
+          <option value="">Todas las zonas ({templates?.length ?? 0})</option>
+          {zones.map((z) => (
+            <option key={z} value={z}>
+              {z} ({(templates ?? []).filter((t) => t.area === z).length})
+            </option>
+          ))}
+        </select>
+      )}
+
       {!templates || templates.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
           Sin plantillas todavía.
         </div>
       ) : visibleTemplates.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
-          <p className="mb-3">Ninguna plantilla coincide con «{query}».</p>
+          <p className="mb-3">
+            Ninguna plantilla coincide con {query ? `«${query}»` : 'el filtro'}
+            {zone && ` en ${zone}`}.
+          </p>
           <button
             type="button"
             onClick={() => setEditing('new')}
