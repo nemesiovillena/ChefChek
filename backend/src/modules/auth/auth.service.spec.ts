@@ -199,6 +199,23 @@ describe("AuthService", () => {
   });
 
   describe("login", () => {
+    it("locks the account after 5 wrong passwords, even for the right one", async () => {
+      tenantsService.findBySlug.mockResolvedValue(mockTenant);
+      usersService.findByEmail.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      for (let i = 0; i < 5; i++) {
+        await expect(
+          service.login("test@example.com", "nope", "test-tenant"),
+        ).rejects.toBeInstanceOf(UnauthorizedException);
+      }
+
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      await expect(
+        service.login("test@example.com", "password123", "test-tenant"),
+      ).rejects.toMatchObject({ status: 429 });
+      expect(sessionService.createSession).not.toHaveBeenCalled();
+    });
+
     it("should return login response with session and cookie", async () => {
       tenantsService.findBySlug.mockResolvedValue(mockTenant);
       usersService.findByEmail.mockResolvedValue(mockUser);
