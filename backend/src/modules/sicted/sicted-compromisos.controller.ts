@@ -51,7 +51,7 @@ export class SictedCompromisosController {
   ) {}
 
   @Get("commitments")
-  @Roles("USER")
+  @Roles("ADMIN", "OWNER")
   async getCommitments(@Req() req: any) {
     const data = await this.commitments.get(req.tenantId);
     return { success: true, data };
