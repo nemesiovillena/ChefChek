@@ -65,6 +65,24 @@ export function useSeedSictedStarterTemplates() {
   });
 }
 
+/**
+ * Guarda el orden del listado del Plan (ids en el orden nuevo). Actualiza la caché al momento
+ * para que la fila no "salte" de vuelta mientras responde el servidor; si falla, recarga.
+ */
+export function useReorderSictedTemplates() {
+  const queryClient = useQueryClient();
+  const key = [TEMPLATES_KEY, null];
+  return useMutation<unknown, Error, ChecklistTemplate[]>({
+    mutationFn: async (ordered) =>
+      apiClient.post(`${BASE_URL}/templates/reorder`, { ids: ordered.map((t) => t.id) }),
+    onMutate: async (ordered) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData(key, ordered);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: [TEMPLATES_KEY] }),
+  });
+}
+
 export interface SictedTemplatesImportResult {
   created: { id: string; name: string }[];
   skipped: string[];

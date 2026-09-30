@@ -1082,6 +1082,9 @@ model ChecklistTemplate {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  // Orden manual del listado del Plan (arrastrar); las nuevas van al final.
+  sortOrder Int @default(0)
+
   items ChecklistTemplateItem[]
   runs  ChecklistRun[]
 

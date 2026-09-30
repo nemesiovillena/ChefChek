@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { ACTIVE_CHECKLIST_ITEMS } from "../constants/checklist-active-items";
 import { buildChecklistRunSnapshot } from "../util/checklist-run-snapshot.util";
@@ -28,7 +33,7 @@ export class ChecklistTemplateService {
         ...(area ? { area } : {}),
       },
       include: { items: ACTIVE_CHECKLIST_ITEMS },
-      orderBy: [{ area: "asc" }, { name: "asc" }],
+      orderBy: [{ sortOrder: "asc" }, { area: "asc" }, { name: "asc" }],
     });
   }
 
@@ -54,10 +59,46 @@ export class ChecklistTemplateService {
     userId: string,
     dto: CreateChecklistTemplateDto,
   ) {
+    const sortOrder = await nextSortOrder(this.prisma, tenantId);
     return this.prisma.checklistTemplate.create({
-      data: buildCreateData(tenantId, module, userId, dto),
+      data: buildCreateData(tenantId, module, userId, dto, sortOrder),
       include: { items: ACTIVE_CHECKLIST_ITEMS },
     });
+  }
+
+  /**
+   * Guarda el orden del listado del Plan: `sortOrder` = índice en `ids`.
+   * Exige la lista completa de plantillas activas del módulo, para que no
+   * queden huecos ni empates con plantillas que el cliente no vio.
+   */
+  async reorder(
+    tenantId: string,
+    module: ChecklistConsumerModule,
+    ids: string[],
+  ) {
+    const active = await this.prisma.checklistTemplate.findMany({
+      where: { tenantId, usedByModules: { has: module }, archivedAt: null },
+      select: { id: true },
+    });
+    const activeIds = new Set(active.map((t) => t.id));
+    if (
+      new Set(ids).size !== ids.length ||
+      ids.length !== activeIds.size ||
+      !ids.every((id) => activeIds.has(id))
+    ) {
+      throw new BadRequestException(
+        "El Plan ha cambiado mientras ordenabas. Recarga e inténtalo de nuevo.",
+      );
+    }
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.checklistTemplate.update({
+          where: { id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
+    return { success: true };
   }
 
   /**
@@ -89,10 +130,11 @@ export class ChecklistTemplateService {
     const created = await this.prisma.$transaction(
       async (tx) => {
         const rows: { id: string; name: string }[] = [];
+        let sortOrder = await nextSortOrder(tx, tenantId);
         for (const dto of toCreate) {
           rows.push(
             await tx.checklistTemplate.create({
-              data: buildCreateData(tenantId, module, userId, dto),
+              data: buildCreateData(tenantId, module, userId, dto, sortOrder++),
               select: { id: true, name: true },
             }),
           );
@@ -268,14 +310,28 @@ function normalizeName(name: string) {
     .trim();
 }
 
+/** Siguiente posición libre al final del Plan del tenant. */
+async function nextSortOrder(
+  client: Prisma.TransactionClient,
+  tenantId: string,
+) {
+  const { _max } = await client.checklistTemplate.aggregate({
+    where: { tenantId },
+    _max: { sortOrder: true },
+  });
+  return (_max.sortOrder ?? -1) + 1;
+}
+
 function buildCreateData(
   tenantId: string,
   module: ChecklistConsumerModule,
   userId: string,
   dto: CreateChecklistTemplateDto,
+  sortOrder: number,
 ) {
   return {
     tenantId,
+    sortOrder,
     name: dto.name,
     externalCode: dto.externalCode,
     usedByModules: [module],

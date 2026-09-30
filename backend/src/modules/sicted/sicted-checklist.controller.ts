@@ -23,6 +23,7 @@ import { ChecklistRunService } from "../checklists/services/checklist-run.servic
 import {
   CreateChecklistTemplateDto,
   ImportChecklistTemplatesDto,
+  ReorderChecklistTemplatesDto,
   UpdateChecklistTemplateDto,
 } from "../checklists/dto/checklist-template.dto";
 import {
@@ -84,6 +85,16 @@ export class SictedChecklistController {
       dto.templates,
     );
     return { success: true, data };
+  }
+
+  /** Orden manual del listado del Plan (arrastrar plantillas). */
+  @Post("templates/reorder")
+  @Roles("ADMIN", "OWNER")
+  async reorderTemplates(
+    @Req() req: any,
+    @Body() dto: ReorderChecklistTemplatesDto,
+  ) {
+    return this.templates.reorder(req.tenantId, this.module, dto.ids);
   }
 
   @Put("templates/:id")
