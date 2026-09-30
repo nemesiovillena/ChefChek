@@ -54,8 +54,9 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
   // (ConflictException) — bloquear también en cliente para no ofrecer
   // controles que el servidor va a rechazar.
   const locked = !!readOnly || !!run.supervisedAt;
+  // Validar no depende de `readOnly`: el encargado puede validar desde Registros hojas de días anteriores.
   const canValidate =
-    !locked && run.snapshot.requiresSupervisor && run.status === 'COMPLETED' && canSupervise;
+    !run.supervisedAt && run.snapshot.requiresSupervisor && run.status === 'COMPLETED' && canSupervise;
 
   // Valor habitual de cada ítem de medición, leído de la plantilla viva (no del
   // snapshot): así un cambio en el Plan se aplica también a la hoja de hoy. Si
@@ -179,7 +180,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
             )}
           </p>
         </div>
-        {!locked && <SictedPerformerPicker value={performer} onChange={setPickedPerformer} fixed={!sharedAccount} />}
+        {(!locked || canValidate) && <SictedPerformerPicker value={performer} onChange={setPickedPerformer} fixed={!sharedAccount} />}
       </div>
 
       {prefilledCount > 0 && (
@@ -217,17 +218,19 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
         ))}
       </div>
 
-      {!locked && (
+      {(!locked || canValidate) && (
         <div className="flex flex-wrap gap-2 pt-2">
-          <button
-            type="button"
-            disabled={!pendingEntries || addEntries.isPending}
-            onClick={handleSave}
-            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 font-medium text-primary-foreground disabled:opacity-40"
-          >
-            {addEntries.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Guardar
-          </button>
+          {!locked && (
+            <button
+              type="button"
+              disabled={!pendingEntries || addEntries.isPending}
+              onClick={handleSave}
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 font-medium text-primary-foreground disabled:opacity-40"
+            >
+              {addEntries.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Guardar
+            </button>
+          )}
           {canValidate && (
             <button
               type="button"
