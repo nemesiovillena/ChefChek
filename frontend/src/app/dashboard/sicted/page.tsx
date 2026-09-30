@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, Award, BookOpen, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Award, BookOpen, ChevronRight, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
 import { SictedCommitmentsPanel } from './components/sicted-commitments-panel';
@@ -182,8 +182,17 @@ export default function SictedHubPage() {
           </h3>
           <ul className="space-y-1 text-sm">
             {pendingValidation.map((r) => (
-              <li key={r.id} className="rounded-lg bg-[var(--surface-container)] px-3 py-2">
-                {r.template.name} — {r.template.area}
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/dashboard/sicted/registros/${r.id}`)}
+                  className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg bg-[var(--surface-container)] px-3 py-2 text-left hover:bg-[var(--surface-container-high)]"
+                >
+                  <span>
+                    {r.template.name} — {r.template.area}
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
+                </button>
               </li>
             ))}
           </ul>

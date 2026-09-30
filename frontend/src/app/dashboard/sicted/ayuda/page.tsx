@@ -83,8 +83,9 @@ const SECTIONS: GuideSection[] = [
         añade una nueva anotación con el motivo.
       </>,
       <>
-        El encargado <strong>valida</strong> las hojas que lo requieran. En la portada de SICTED verás las pendientes de validar y las
-        incompletas de los últimos 7 días.
+        El encargado <strong>valida</strong> las hojas que lo requieran (se activa en cada plantilla del Plan). En la portada de
+        SICTED verás las pendientes de validar —pulsa una para abrirla y validarla, aunque sea de otro día— y las incompletas de los
+        últimos 7 días.
       </>,
       <>
         Averías: <strong>Mantenimiento → Averías</strong>. Quejas, sugerencias, satisfacción y objetos perdidos:{' '}
