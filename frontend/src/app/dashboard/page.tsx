@@ -28,6 +28,7 @@ import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
+import { SictedDashboardCard } from './sicted-dashboard-card';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
@@ -67,6 +68,7 @@ export default function DashboardPage() {
   const canSeeCompras = canSee('compras');
   const canSeeCosts = canSee('recipes.cost');
   const canSeeEtiquetado = isEnabled('etiquetado') && canSee('etiquetado');
+  const canSeeSicted = isEnabled('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
@@ -578,7 +580,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala,
-          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, Recetas,
+          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, SICTED, Recetas,
           Etiquetado, Compras. "Crear orden producción" es solo de escritorio
           (cabecera). Telemetría de Cocina en Vivo no tiene datos reales
           todavía y queda oculta en móvil. */}
@@ -588,6 +590,7 @@ export default function DashboardPage() {
         {canSeeCompras && pedidosPendientesCard}
         {canSeeAlerts && renderNotificacionesCard(false)}
         {canSeeEtiquetado && caducidadesAlertCard}
+        {canSeeSicted && <SictedDashboardCard />}
         {canSeeRecipes && recetasCard}
         {canSeeEtiquetado && etiquetadoCard}
         {canSeeCompras && comprasCard}
@@ -627,8 +630,13 @@ export default function DashboardPage() {
       {/* Atmospheric Secondary Layer (escritorio). Las 3 columnas usan ternarios
           (no `&&`) para que ninguna quede vacía cuando falta un permiso —
           un tenant con recetas activo pero etiquetado desactivado (o
-          viceversa) no debe ver un hueco en el grid. */}
-      <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter md:shrink-0">
+          viceversa) no debe ver un hueco en el grid.
+          Con SICTED, su card ocupa el sitio de Etiquetado y Recetas (2 de 3
+          columnas; ambos siguen en el menú) y la franja crece en alto a costa
+          del bento: Tareas de Prep. ajusta sus filas solo (useRowsThatFit). */}
+      <section
+        className={`hidden md:grid mt-gutter md:grid-cols-3 gap-gutter md:shrink-0 ${canSeeSicted ? 'md:h-60' : ''}`}
+      >
         {canSeeEtiquetado ? (
           caducidadesAlertCard
         ) : (
@@ -638,7 +646,11 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {canSeeEtiquetado ? (
+        {canSeeSicted ? (
+          <div className="md:col-span-2">
+            <SictedDashboardCard />
+          </div>
+        ) : canSeeEtiquetado ? (
           etiquetadoCard
         ) : (
           <div
@@ -650,7 +662,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {canSeeRecipes ? (
+        {canSeeSicted ? null : canSeeRecipes ? (
           recetasCard
         ) : (
           <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
