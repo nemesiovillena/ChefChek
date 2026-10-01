@@ -21,7 +21,7 @@ export default function SictedRunDetailPage() {
         <ArrowLeft className="h-4 w-4" />
         Volver
       </button>
-      <SictedRunChecklist runId={params.runId} readOnly />
+      <SictedRunChecklist runId={params.runId} readOnly onSupervised={() => router.back()} />
     </div>
   );
 }

@@ -15,10 +15,14 @@ const SUPERVISOR_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 interface SictedRunChecklistProps {
   runId: string;
   readOnly?: boolean;
+  /** Pide confirmación antes de validar: útil donde «Validar» convive con «Guardar» y cabe un toque accidental. */
+  confirmValidate?: boolean;
+  /** Tras validar o justificar la hoja (queda sellada): el contenedor decide a dónde volver. */
+  onSupervised?: () => void;
 }
 
 /** Checklist de una hoja: marcar por ítem (adaptado al modo), corregir, validar. Orquesta las filas de ítems. */
-export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps) {
+export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervised }: SictedRunChecklistProps) {
   const { user } = useAuth();
   const confirm = useConfirm();
   const notify = useNotification();
@@ -153,16 +157,22 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
       notify({ type: 'error', title: 'Falta el "quién"', message: 'Elige tu nombre para validar.' });
       return;
     }
-    const ok = await confirm({
-      title: 'Validar hoja',
-      description: 'Al validar no podrá modificarse. ¿Confirmas que revisaste todos los ítems?',
-      confirmText: 'Validar',
-      onConfirm: async () => {
-        await supervise.mutateAsync({ runId, supervisorName: performer.name, supervisorUserId: performer.userId });
-        notify({ type: 'success', title: 'Hoja validada', message: run!.snapshot.templateName });
-      },
-    });
-    if (!ok) return;
+    if (confirmValidate) {
+      const ok = await confirm({
+        title: 'Validar hoja',
+        description: 'Al validar no podrá modificarse. ¿Confirmas que revisaste todos los ítems?',
+        confirmText: 'Validar',
+        variant: 'info',
+      });
+      if (!ok) return;
+    }
+    try {
+      await supervise.mutateAsync({ runId, supervisorName: performer.name, supervisorUserId: performer.userId });
+      notify({ type: 'success', title: 'Hoja validada', message: run!.snapshot.templateName });
+      onSupervised?.();
+    } catch (err) {
+      notify({ type: 'error', title: 'Error al validar', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
+    }
   }
 
   async function handleJustify() {
@@ -184,6 +194,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
       });
       setJustification(null);
       notify({ type: 'success', title: 'Hoja justificada', message: run!.snapshot.templateName });
+      onSupervised?.();
     } catch (err) {
       notify({ type: 'error', title: 'Error al justificar', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
     }
@@ -313,7 +324,7 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
               onClick={handleValidate}
               className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-[var(--primary)] px-4 font-medium text-[var(--primary)] disabled:opacity-40"
             >
-              <ShieldCheck className="h-4 w-4" />
+              {supervise.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
               Validar
             </button>
           )}
