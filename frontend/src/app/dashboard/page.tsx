@@ -41,12 +41,14 @@ export const dynamic = 'force-dynamic';
 
 // Regla de las cards con lista: sin scroll. En escritorio cada card ocupa el
 // alto que le da el bento y muestra solo las filas que caben enteras
-// (useRowsThatFit; si no cabe ni una entera en Sala/Alertas, ninguna y solo
-// el botón); en móvil, las primeras N. Lo que no cabe se
-// ofrece con "MOSTRAR TODAS" (página completa, o diálogo si no la hay).
-// N = filas en móvil y antes de medir en escritorio.
+// (useRowsThatFit; si no cabe ni una entera en Alertas, ninguna y solo el
+// botón); en móvil, las primeras N. Lo que no cabe se ofrece con "MOSTRAR
+// TODAS" (página completa, o diálogo si no la hay). N = filas en móvil y
+// antes de medir en escritorio.
+// Excepción, Notificaciones de Sala (decisión del usuario): lista completa con
+// scroll en la card para verlas todas desde el dashboard, y "MOSTRAR TODAS"
+// siempre visible como acceso al tablero.
 const PRODUCTION_TASKS_LIMIT = 4;
-const SALA_TASKS_LIMIT = 4;
 const NOTIFICATIONS_LIMIT = 4;
 
 export default function DashboardPage() {
@@ -83,7 +85,6 @@ export default function DashboardPage() {
   // Escritorio: nº de tareas de prep. que caben enteras en el alto de la card
   // (la impone la columna izquierda). En móvil / card oculta mide 0 → PRODUCTION_TASKS_LIMIT.
   const { ref: prepListRef, rows: prepRowsThatFit } = useRowsThatFit(PRODUCTION_TASKS_LIMIT, 1);
-  const { ref: salaListRef, rows: salaRowsThatFit } = useRowsThatFit(SALA_TASKS_LIMIT, 0);
   const { ref: notifListRef, rows: notifRowsThatFit } = useRowsThatFit(NOTIFICATIONS_LIMIT, 0);
   const [allNotificationsOpen, setAllNotificationsOpen] = useState(false);
 
@@ -241,7 +242,7 @@ export default function DashboardPage() {
     return (
     <div
       className={`tonal-layer-2 rounded-xl border border-border overflow-hidden flex flex-col${
-        fillContainer ? ' flex-1 min-h-[150px]' : ''
+        fillContainer ? ' flex-[2_1_0%] min-h-[150px]' : ''
       }`}
     >
       <div className={`p-stack-lg pb-0 flex justify-between items-center mb-stack-md${fillContainer ? ' shrink-0' : ''}`}>
@@ -397,16 +398,14 @@ export default function DashboardPage() {
     .sort(compareSalaTasksByEventDate);
 
   // fillContainer: escritorio, panel flex-1 dentro de la columna izquierda
-  // (mismo hueco disponible que Alertas) con las filas que caben. Móvil:
-  // card a contenido con las primeras SALA_TASKS_LIMIT.
-  const renderSalaTasksBoard = (fillContainer: boolean) => {
-    const visibleCount = fillContainer ? Math.min(salaRowsThatFit, activeSalaTasks.length) : SALA_TASKS_LIMIT;
-    const visibleSalaTasks = activeSalaTasks.slice(0, visibleCount);
-    const hasMoreSalaTasks = activeSalaTasks.length > visibleSalaTasks.length;
-    return (
+  // (mismo hueco disponible que Alertas). Todas las notificaciones, con scroll
+  // interno; móvil igual con tope max-h-80.
+  const renderSalaTasksBoard = (fillContainer: boolean) => (
     <div
+      // flex-grow 3 frente al 2 de Alertas: Sala se lee entera aquí (con
+      // scroll), así que se lleva más alto de la columna.
       className={`tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border${
-        fillContainer ? ' flex-1 min-h-[150px]' : ''
+        fillContainer ? ' flex-[3_1_0%] min-h-[200px]' : ''
       }`}
     >
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
@@ -415,12 +414,11 @@ export default function DashboardPage() {
           {activeSalaTasks.length}
         </span>
       </div>
-      {/* Escritorio: flex-basis 0px como Alertas y Tareas (sin alto intrínseco). */}
+      {/* Escritorio: flex-basis 0px como Alertas y Tareas (sin alto
+          intrínseco: la lista larga no infla el bento, hace scroll). */}
       <div
-        ref={fillContainer ? salaListRef : undefined}
-        key={fillContainer ? (salaTasksLoading ? 'loading' : activeSalaTasks.length === 0 ? 'empty' : 'rows') : undefined}
-        className={`divide-y divide-surface-variant${
-          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' flex-1 max-h-80'
+        className={`divide-y divide-surface-variant overflow-y-auto${
+          fillContainer ? ' flex-[1_1_0px] min-h-0' : ' flex-1 max-h-80'
         }`}
       >
         {salaTasksLoading ? (
@@ -428,7 +426,7 @@ export default function DashboardPage() {
             Cargando notificaciones...
           </div>
         ) : activeSalaTasks.length > 0 ? (
-          visibleSalaTasks.map((task) => (
+          activeSalaTasks.map((task) => (
             <SalaTaskRow key={task.id} task={task} onClick={() => setEditingSalaTask(task)} />
           ))
         ) : (
@@ -437,19 +435,16 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-      {hasMoreSalaTasks && (
-        <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant">
-          <button
-            onClick={() => router.push('/dashboard/sala-notificaciones')}
-            className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
-          >
-            MOSTRAR TODAS ({activeSalaTasks.length})
-          </button>
-        </div>
-      )}
+      <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant shrink-0">
+        <button
+          onClick={() => router.push('/dashboard/sala-notificaciones')}
+          className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+        >
+          MOSTRAR TODAS
+        </button>
+      </div>
     </div>
-    );
-  };
+  );
 
   const recetasCard = (
     <div
