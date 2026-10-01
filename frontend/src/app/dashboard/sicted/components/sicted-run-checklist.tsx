@@ -19,10 +19,12 @@ interface SictedRunChecklistProps {
   confirmValidate?: boolean;
   /** Tras validar o justificar la hoja (queda sellada): el contenedor decide a dónde volver. */
   onSupervised?: () => void;
+  /** Tras guardar marcas con éxito: p. ej. «Hojas de hoy» vuelve a la lista para seguir con otra hoja. */
+  onSaved?: () => void;
 }
 
 /** Checklist de una hoja: marcar por ítem (adaptado al modo), corregir, validar. Orquesta las filas de ítems. */
-export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervised }: SictedRunChecklistProps) {
+export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervised, onSaved }: SictedRunChecklistProps) {
   const { user } = useAuth();
   const confirm = useConfirm();
   const notify = useNotification();
@@ -147,6 +149,7 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
       setDrafts({});
       setCorrectingItemId(null);
       notify({ type: 'success', title: 'Guardado', message: `${entries.length} marca(s) registradas.` });
+      onSaved?.();
     } catch (err) {
       notify({ type: 'error', title: 'Error al guardar', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
     }

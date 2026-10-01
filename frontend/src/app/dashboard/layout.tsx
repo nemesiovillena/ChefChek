@@ -22,6 +22,9 @@ import {
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
+/** Roles that see nav items flagged `managerOnly`. */
+const NAV_MANAGER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+
 function getInitials(name?: string): string {
   if (!name) return '';
   const parts = name.trim().split(/\s+/);
@@ -128,10 +131,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       NAV_GROUPS.map((group) => ({
         ...group,
         items: group.items.filter(
-          (item) => isEnabled(item.moduleId) && canSee(sectionKeyForItem(item)),
+          (item) =>
+            isEnabled(item.moduleId) &&
+            canSee(sectionKeyForItem(item)) &&
+            (!item.managerOnly || NAV_MANAGER_ROLES.includes(user?.role ?? '')),
         ),
       })).filter((group) => group.items.length > 0),
-    [isEnabled, canSee],
+    [isEnabled, canSee, user?.role],
   );
 
   if (isLoading) {
