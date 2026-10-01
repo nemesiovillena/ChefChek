@@ -272,6 +272,48 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
       ).rejects.toThrow(ConflictException);
     });
 
+    it("hoja vencida sin completar: solo se justifica con motivo, y queda INCOMPLETE y sellada", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({
+          name: "Vencida justificable",
+          items: [{ label: "Único ítem", isRequired: true }],
+        }),
+      );
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-09-24T10:00:00Z"),
+      );
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: template.id },
+      });
+      const closed = await runs.closeElapsedRuns(
+        tenantId,
+        new Date("2026-09-26T10:00:00Z"),
+      );
+      expect(closed.map((r) => r.id)).toContain(run.id);
+
+      await expect(
+        runs.supervise(tenantId, "sicted", run.id, SUPERVISOR_ID, {
+          supervisorNote: "   ",
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      const justified = await runs.supervise(
+        tenantId,
+        "sicted",
+        run.id,
+        SUPERVISOR_ID,
+        { supervisorNote: "Local cerrado por festivo" },
+      );
+      expect(justified.status).toBe("INCOMPLETE");
+      expect(justified.supervisedAt).not.toBeNull();
+      expect(justified.supervisorNote).toBe("Local cerrado por festivo");
+    });
+
     it("MEASUREMENT: valor fuera de rango calcula withinRange=false y exige acción correctiva", async () => {
       const template = await templates.create(
         tenantId,
