@@ -28,6 +28,7 @@ import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
+import { SictedDashboardCard } from './sicted-dashboard-card';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
@@ -67,6 +68,7 @@ export default function DashboardPage() {
   const canSeeCompras = canSee('compras');
   const canSeeCosts = canSee('recipes.cost');
   const canSeeEtiquetado = isEnabled('etiquetado') && canSee('etiquetado');
+  const canSeeSicted = isEnabled('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
@@ -578,7 +580,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Orden móvil: Tareas pendientes, Notificaciones de Sala,
-          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, Recetas,
+          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, SICTED, Recetas,
           Etiquetado, Compras. "Crear orden producción" es solo de escritorio
           (cabecera). Telemetría de Cocina en Vivo no tiene datos reales
           todavía y queda oculta en móvil. */}
@@ -588,6 +590,7 @@ export default function DashboardPage() {
         {canSeeCompras && pedidosPendientesCard}
         {canSeeAlerts && renderNotificacionesCard(false)}
         {canSeeEtiquetado && caducidadesAlertCard}
+        {canSeeSicted && <SictedDashboardCard />}
         {canSeeRecipes && recetasCard}
         {canSeeEtiquetado && etiquetadoCard}
         {canSeeCompras && comprasCard}
@@ -619,16 +622,29 @@ export default function DashboardPage() {
             un valor absurdo (visto en pantalla: ~1880px con el board
             vacío). min-h-0 neutraliza esa contribución sin afectar al
             stretch real una vez la fila del grid ya está resuelta. */}
-        <div className="md:col-span-8 md:min-h-0">
-          {canSeePrepTasks && renderPrepTasksBoard(true)}
+        <div className="md:col-span-8 md:min-h-0 md:flex md:flex-col md:gap-gutter">
+          <div className="md:flex-1 md:min-h-0">{canSeePrepTasks && renderPrepTasksBoard(true)}</div>
+          {/* Con SICTED, Caducidades + SICTED van bajo Tareas de Prep. (que
+              encoge) en vez de en la franja inferior: la columna izquierda ya
+              fija el alto de la fila, así crecen sin alargar la página. */}
+          {canSeeSicted && (
+            <div className="grid grid-cols-3 gap-gutter md:h-60 md:shrink-0">
+              {canSeeEtiquetado && caducidadesAlertCard}
+              <div className={canSeeEtiquetado ? 'col-span-2' : 'col-span-3'}>
+                <SictedDashboardCard />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Atmospheric Secondary Layer (escritorio). Las 3 columnas usan ternarios
           (no `&&`) para que ninguna quede vacía cuando falta un permiso —
           un tenant con recetas activo pero etiquetado desactivado (o
-          viceversa) no debe ver un hueco en el grid. */}
-      <section className="hidden md:grid mt-gutter md:grid-cols-3 gap-gutter md:shrink-0">
+          viceversa) no debe ver un hueco en el grid.
+          Con SICTED no se pinta: Caducidades sube junto a la card SICTED
+          (arriba) y Etiquetado y Recetas siguen en el menú. */}
+      <section className={`hidden mt-gutter md:grid-cols-3 gap-gutter md:shrink-0 ${canSeeSicted ? '' : 'md:grid'}`}>
         {canSeeEtiquetado ? (
           caducidadesAlertCard
         ) : (

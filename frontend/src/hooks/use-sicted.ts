@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import type {
@@ -99,10 +100,11 @@ export function useImportSictedTemplates() {
 
 // --- Hojas (el Registro) ---------------------------------------------------
 
-export function useSictedRunsToday() {
+export function useSictedRunsToday(enabled = true) {
   return useQuery<ChecklistRunSummary[], Error>({
     queryKey: [RUNS_TODAY_KEY],
     queryFn: async () => (await apiClient.get(`${BASE_URL}/runs/today`)).data,
+    enabled,
   });
 }
 
@@ -114,14 +116,48 @@ export interface SictedRunsFilters {
   area?: string;
 }
 
-export function useSictedRuns(filters: SictedRunsFilters) {
+export function useSictedRuns(filters: SictedRunsFilters, enabled = true) {
   return useQuery<ChecklistRunSummary[], Error>({
     queryKey: [RUNS_KEY, filters],
     queryFn: async () => {
       const clean = Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== '' && v != null));
       return (await apiClient.get(`${BASE_URL}/runs`, { params: clean })).data;
     },
+    enabled,
   });
+}
+
+function daysAgoIso(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
+/** Ventanas de los avisos: una hoja sin validar se sigue avisando un mes; las vencidas, una semana. */
+const PENDING_VALIDATION_DAYS = 30;
+const OVERDUE_DAYS = 7;
+
+/**
+ * Estado de SICTED para el dashboard y la portada: hojas de hoy (y cuántas faltan),
+ * hojas terminadas sin validar de los últimos 30 días (no solo de hoy) y hojas vencidas sin completar.
+ */
+export function useSictedStatus(enabled = true) {
+  const { validationFrom, overdueFrom } = useMemo(
+    () => ({ validationFrom: daysAgoIso(PENDING_VALIDATION_DAYS), overdueFrom: daysAgoIso(OVERDUE_DAYS) }),
+    [],
+  );
+  const today = useSictedRunsToday(enabled);
+  const completed = useSictedRuns({ status: 'COMPLETED', from: validationFrom }, enabled);
+  const overdue = useSictedRuns({ status: 'INCOMPLETE', from: overdueFrom }, enabled);
+
+  const runsToday = today.data ?? [];
+  return {
+    runsToday,
+    pendingToday: runsToday.filter((r) => r.status === 'OPEN'),
+    pendingValidation: (completed.data ?? []).filter((r) => r.snapshot.requiresSupervisor && !r.supervisedAt),
+    overdue: overdue.data ?? [],
+    isLoading: today.isLoading || completed.isLoading || overdue.isLoading,
+  };
 }
 
 export function useSictedRun(id: string | null) {

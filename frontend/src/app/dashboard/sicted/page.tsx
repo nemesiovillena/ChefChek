@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Award, BookOpen, ChevronRight, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
-import { useSictedRuns, useSictedRunsToday } from '@/hooks/use-sicted';
+import { useSictedStatus } from '@/hooks/use-sicted';
 import { SictedCommitmentsPanel } from './components/sicted-commitments-panel';
 
 export const dynamic = 'force-dynamic';
@@ -18,16 +17,9 @@ export default function SictedHubPage() {
   const { user, isLoading: authLoading } = useAuth();
   const canManage = MANAGE_ROLES.includes(user?.role ?? '');
 
-  const { data: runsToday, isLoading: loadingToday } = useSictedRunsToday();
+  const { runsToday, pendingValidation, overdue, isLoading: loadingStatus } = useSictedStatus();
 
-  const sevenDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString();
-  }, []);
-  const { data: overdue, isLoading: loadingOverdue } = useSictedRuns({ status: 'INCOMPLETE', from: sevenDaysAgo });
-
-  if (authLoading || loadingToday || loadingOverdue) {
+  if (authLoading || loadingStatus) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-[var(--primary)]" />
@@ -35,17 +27,13 @@ export default function SictedHubPage() {
     );
   }
 
-  const byArea = (runsToday ?? []).reduce<Record<string, { done: number; total: number }>>((acc, run) => {
+  const byArea = runsToday.reduce<Record<string, { done: number; total: number }>>((acc, run) => {
     const area = run.template.area;
     const bucket = (acc[area] ??= { done: 0, total: 0 });
     bucket.total += run.snapshot.items.length;
     bucket.done += run.entriesCount;
     return acc;
   }, {});
-
-  const pendingValidation = (runsToday ?? []).filter(
-    (r) => r.snapshot.requiresSupervisor && r.status === 'COMPLETED' && !r.supervisedAt,
-  );
 
   return (
     <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
@@ -190,6 +178,9 @@ export default function SictedHubPage() {
                 >
                   <span>
                     {r.template.name} — {r.template.area}
+                    {!runsToday.some((t) => t.id === r.id) && (
+                      <span className="text-[var(--on-surface-variant)]"> · {r.periodKey}</span>
+                    )}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
                 </button>
@@ -199,13 +190,13 @@ export default function SictedHubPage() {
         </section>
       )}
 
-      {(overdue?.length ?? 0) > 0 && (
+      {overdue.length > 0 && (
         <section>
           <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-[var(--error)]">
-            <AlertTriangle className="h-4 w-4" /> Hojas vencidas sin completar ({overdue!.length})
+            <AlertTriangle className="h-4 w-4" /> Hojas vencidas sin completar ({overdue.length})
           </h3>
           <ul className="space-y-1 text-sm">
-            {overdue!.map((r) => (
+            {overdue.map((r) => (
               <li key={r.id} className="rounded-lg bg-[var(--error-container)] px-3 py-2 text-[var(--on-error-container)]">
                 {r.template.name} — {r.periodKey}
               </li>
