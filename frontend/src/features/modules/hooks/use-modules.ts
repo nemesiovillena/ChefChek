@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { fetchModuleStates, toggleModule, isModuleConflictError, isPermissionError } from '../api/modules-api';
 import { Module } from '../types/module.types';
-import { useAuth } from '@/contexts/auth.context';
 
 interface UseModulesResult {
   modules: Module[] | null;
@@ -20,55 +19,85 @@ interface UseModulesResult {
   isEnabled: (moduleId?: string) => boolean;
 }
 
+/**
+ * Estado de módulos del tenant compartido por todos los consumidores (mismo
+ * patrón que useSectionAccess). Antes cada `useModules()` tenía su propio
+ * useState y solo el layout lo cargaba: en el resto (dashboard, ajustes…)
+ * `modules` quedaba en null para siempre e `isEnabled` devolvía true para
+ * todo, pintando cards de módulos desactivados (y sus consultas daban 403).
+ */
+interface ModulesState {
+  modules: Module[] | null;
+  loading: boolean;
+  error: string | null;
+}
+
+let state: ModulesState = { modules: null, loading: true, error: null };
+let inflight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function setState(patch: Partial<ModulesState>) {
+  state = { ...state, ...patch };
+  for (const l of listeners) l();
+}
+
+function load(): Promise<void> {
+  if (!inflight) {
+    setState({ loading: true, error: null });
+    inflight = fetchModuleStates()
+      .then((modules) => setState({ modules, loading: false }))
+      .catch((err: unknown) =>
+        setState({ loading: false, error: err instanceof Error ? err.message : 'Failed to load modules' }),
+      );
+  }
+  return inflight;
+}
+
+function subscribe(cb: () => void): () => void {
+  listeners.add(cb);
+  void load();
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+/** Recarga (p. ej. al autenticarse otro usuario); mantiene el estado anterior visible hasta que llega el nuevo. */
+async function refetchModules(): Promise<void> {
+  inflight = null;
+  await load();
+}
+
+const getSnapshot = () => state;
+
 export function useModules(): UseModulesResult {
-  const { user } = useAuth();
-  const [modules, setModules] = useState<Module[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { modules, loading, error } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   // Los módulos son gestionados exclusivamente por SUPERADMIN desde su panel
   const canManageModules = false;
 
-  const fetchModules = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchModuleStates();
-      setModules(data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load modules');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const toggleEnabled = useCallback(async (moduleId: string, enabled: boolean) => {
     // Optimistic update
-    const previousModules = modules;
-    setModules((prev) =>
-      prev?.map((m) => (m.id === moduleId ? { ...m, enabled } : m)) || null
-    );
+    const previousModules = state.modules;
+    setState({ modules: previousModules?.map((m) => (m.id === moduleId ? { ...m, enabled } : m)) ?? null });
 
     try {
       const updated = await toggleModule(moduleId, enabled);
       // Confirm the update from server
-      setModules((prev) =>
-        prev?.map((m) => (m.id === moduleId ? updated : m)) || null
-      );
+      setState({ modules: state.modules?.map((m) => (m.id === moduleId ? updated : m)) ?? null });
     } catch (err: unknown) {
       // Rollback on error
-      setModules(previousModules);
+      setState({ modules: previousModules });
 
       if (isPermissionError(err)) {
-        setError('Solo el OWNER puede gestionar módulos');
+        setState({ error: 'Solo el OWNER puede gestionar módulos' });
       } else if (isModuleConflictError(err)) {
-        setError(err.message);
+        setState({ error: err.message });
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to update module');
+        setState({ error: err instanceof Error ? err.message : 'Failed to update module' });
       }
       throw err;
     }
-  }, [modules]);
+  }, []);
 
   const isEnabled = useCallback(
     (moduleId?: string) => {
@@ -85,7 +114,7 @@ export function useModules(): UseModulesResult {
     loading,
     error,
     toggleEnabled,
-    refetch: fetchModules,
+    refetch: refetchModules,
     canManageModules,
     isEnabled,
   };
