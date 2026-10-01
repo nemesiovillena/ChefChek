@@ -57,17 +57,21 @@ export default function DashboardPage() {
   const completeTask = useCompleteProductionTask();
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
-  const { isEnabled } = useModules();
+  const { isEnabled, modules } = useModules();
   const { canSee } = useSectionAccess();
-  const salaNotificacionesEnabled = isEnabled('sala-notificaciones') && canSee('sala-notificaciones');
+  // Cards de módulo: solo cuando ya se sabe que el módulo está activo (isEnabled
+  // devuelve true mientras carga, pensado para el menú) — si no, la card se
+  // pinta un instante y su consulta da 403 en tenants sin ese módulo.
+  const moduleOn = (moduleId: string) => modules !== null && isEnabled(moduleId);
+  const salaNotificacionesEnabled = moduleOn('sala-notificaciones') && canSee('sala-notificaciones');
   // Producción oculta pero "ver tareas" activo → board de solo lectura.
   const canSeeProduction = canSee('production');
   const canSeePrepTasks = canSeeProduction || canSee('production.tasks');
   const canSeeRecipes = canSee('recipes');
   const canSeeCompras = canSee('compras');
   const canSeeCosts = canSee('recipes.cost');
-  const canSeeEtiquetado = isEnabled('etiquetado') && canSee('etiquetado');
-  const canSeeSicted = isEnabled('sicted') && canSee('sicted');
+  const canSeeEtiquetado = moduleOn('etiquetado') && canSee('etiquetado');
+  const canSeeSicted = moduleOn('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
@@ -568,9 +572,12 @@ export default function DashboardPage() {
         exacto; si no cabe, sus hijos simplemente desbordan esta caja (sin
         overflow:hidden en ningún nivel) y es el documento quien hace scroll
         normal — nunca se recorta contenido a mitad de fila.
-        Chrome fijo restado: header pt-16(64) + layout md:pb-8(32) del
-        layout.tsx + md:pt-stack-md(16) + md:pb-8(32) propios = 9rem. */}
-    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-8 pt-8 md:pt-stack-md md:flex md:flex-col md:h-[calc(100dvh-9rem)]">
+        Chrome fijo restado: solo lo de fuera de esta caja — header pt-16(64)
+        + md:pb-8(32) del layout.tsx = 6rem. Su propio md:pt-stack-md ya va
+        dentro del alto (border-box); restarlo otra vez dejaba un hueco bajo
+        las cards. Sin pb propio en escritorio: el margen inferior es el del
+        layout. */}
+    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md md:flex md:flex-col md:h-[calc(100dvh-6rem)]">
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>
