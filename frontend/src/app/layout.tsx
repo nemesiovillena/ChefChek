@@ -28,9 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning: antes de hidratar, el script de abajo añade
+    // `ms-fonts-ready` y el tema `dark` a <html>; el className del cliente
+    // difiere a propósito del del servidor. Solo silencia atributos de <html>.
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         <link
