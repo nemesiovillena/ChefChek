@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -38,6 +38,8 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
       : null;
   const [drafts, setDrafts] = useState<Record<string, ChecklistItemDraft>>({});
   const [correctingItemId, setCorrectingItemId] = useState<string | null>(null);
+  // Motivo con el que el encargado justifica una hoja vencida; `null` = formulario cerrado.
+  const [justification, setJustification] = useState<string | null>(null);
 
   if (isLoading || !run) {
     return (
@@ -57,6 +59,9 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
   // Validar no depende de `readOnly`: el encargado puede validar desde Registros hojas de días anteriores.
   const canValidate =
     !run.supervisedAt && run.snapshot.requiresSupervisor && run.status === 'COMPLETED' && canSupervise;
+  // Una hoja vencida sin completar no se valida: el encargado la justifica con un motivo y queda sellada.
+  const overdue = run.status === 'INCOMPLETE';
+  const canJustify = !run.supervisedAt && overdue && canSupervise;
 
   // Valor habitual de cada ítem de medición, leído de la plantilla viva (no del
   // snapshot): así un cambio en el Plan se aplica también a la hoja de hoy. Si
@@ -160,6 +165,30 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
     if (!ok) return;
   }
 
+  async function handleJustify() {
+    const note = justification?.trim();
+    if (!performer) {
+      notify({ type: 'error', title: 'Falta el "quién"', message: 'Elige tu nombre para justificar.' });
+      return;
+    }
+    if (!note) {
+      notify({ type: 'error', title: 'Falta el motivo', message: 'Explica por qué no se completó la hoja.' });
+      return;
+    }
+    try {
+      await supervise.mutateAsync({
+        runId,
+        supervisorName: performer.name,
+        supervisorUserId: performer.userId,
+        supervisorNote: note,
+      });
+      setJustification(null);
+      notify({ type: 'success', title: 'Hoja justificada', message: run!.snapshot.templateName });
+    } catch (err) {
+      notify({ type: 'error', title: 'Error al justificar', message: err instanceof Error ? err.message : 'Inténtalo de nuevo.' });
+    }
+  }
+
   const prefilledCount = run.snapshot.items.filter((item) => draftFor(item.id)?.prefilled).length;
   const pendingEntries = run.snapshot.items.some((item) => {
     const draft = draftFor(item.id);
@@ -175,13 +204,22 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
             {doneCount}/{totalCount} marcados
             {run.supervisedAt && (
               <span className="ml-2 inline-flex items-center gap-1 text-[var(--primary)]">
-                <ShieldCheck className="h-3.5 w-3.5" /> Validada por {run.supervisorName}
+                <ShieldCheck className="h-3.5 w-3.5" /> {overdue ? 'Justificada' : 'Validada'} por {run.supervisorName}
               </span>
             )}
           </p>
         </div>
-        {(!locked || canValidate) && <SictedPerformerPicker value={performer} onChange={setPickedPerformer} fixed={!sharedAccount} />}
+        {(!locked || canValidate || canJustify) && <SictedPerformerPicker value={performer} onChange={setPickedPerformer} fixed={!sharedAccount} />}
       </div>
+
+      {overdue && (
+        <div className="rounded-xl bg-[var(--error-container)] px-3 py-2 text-sm text-[var(--on-error-container)]">
+          <p className="flex items-center gap-1 font-medium">
+            <AlertTriangle className="h-4 w-4 shrink-0" /> Hoja vencida sin completar
+          </p>
+          {run.supervisedAt && run.supervisorNote && <p className="mt-1">Motivo: {run.supervisorNote}</p>}
+        </div>
+      )}
 
       {prefilledCount > 0 && (
         <p className="rounded-xl bg-[var(--surface-container)] px-3 py-2 text-sm text-[var(--on-surface-variant)]">
@@ -218,7 +256,44 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
         ))}
       </div>
 
-      {(!locked || canValidate) && (
+      {canJustify && justification !== null && (
+        <div className="space-y-2 rounded-xl border border-[var(--outline-variant)] p-3">
+          <label htmlFor="sicted-justification" className="text-sm font-medium">
+            Motivo por el que no se completó
+          </label>
+          <textarea
+            id="sicted-justification"
+            value={justification}
+            onChange={(e) => setJustification(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            autoFocus
+            className="w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
+          />
+          <p className="text-sm text-[var(--on-surface-variant)]">Al justificar, la hoja queda cerrada y no podrá modificarse.</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={!justification.trim() || supervise.isPending}
+              onClick={handleJustify}
+              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 font-medium text-primary-foreground disabled:opacity-40"
+            >
+              {supervise.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Guardar justificación
+            </button>
+            <button
+              type="button"
+              disabled={supervise.isPending}
+              onClick={() => setJustification(null)}
+              className="flex min-h-[48px] items-center justify-center rounded-xl border border-[var(--outline-variant)] px-4 font-medium"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(!locked || canValidate || (canJustify && justification === null)) && (
         <div className="flex flex-wrap gap-2 pt-2">
           {!locked && (
             <button
@@ -240,6 +315,16 @@ export function SictedRunChecklist({ runId, readOnly }: SictedRunChecklistProps)
             >
               <ShieldCheck className="h-4 w-4" />
               Validar
+            </button>
+          )}
+          {canJustify && justification === null && (
+            <button
+              type="button"
+              onClick={() => setJustification('')}
+              className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-[var(--primary)] px-4 font-medium text-[var(--primary)]"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Justificar
             </button>
           )}
         </div>

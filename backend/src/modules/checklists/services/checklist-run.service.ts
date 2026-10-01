@@ -400,6 +400,12 @@ export class ChecklistRunService {
         "No se puede supervisar una hoja con ítems obligatorios sin resolver",
       );
     }
+    // Una hoja vencida sin completar solo se cierra dejando constancia del porqué.
+    if (run.status === "INCOMPLETE" && !dto.supervisorNote?.trim()) {
+      throw new BadRequestException(
+        "Para justificar una hoja incompleta hay que indicar el motivo",
+      );
+    }
     const supervisor = await this.resolvePerformer(
       tenantId,
       supervisedByUserId,
