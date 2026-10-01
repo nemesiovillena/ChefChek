@@ -75,12 +75,16 @@ export function SictedDashboardCard() {
               de {runsToday.length} por hacer
             </p>
           </div>
-          <ul className="flex-1 space-y-1">
+          <ul className="min-w-0 flex-1 space-y-1">
             {pendingToday.slice(0, PENDING_LIST_LIMIT).map((run) => (
-              <li key={run.id} className="flex items-center gap-stack-sm font-label-md text-label-md text-primary">
-                <span className="material-symbols-outlined text-[16px] text-on-surface-variant">radio_button_unchecked</span>
-                <span className="truncate">{run.template.name}</span>
-                <span className="shrink-0 text-on-surface-variant">· {run.template.area}</span>
+              <li key={run.id} className="flex min-w-0 items-center gap-stack-sm font-label-md text-label-md text-primary">
+                <span className="material-symbols-outlined shrink-0 text-[16px] text-on-surface-variant">
+                  radio_button_unchecked
+                </span>
+                <span className="truncate">
+                  {run.template.name}
+                  <span className="text-on-surface-variant"> · {run.template.area}</span>
+                </span>
               </li>
             ))}
             {hidden > 0 && <li className="font-label-sm text-label-sm text-on-surface-variant">+{hidden} más</li>}

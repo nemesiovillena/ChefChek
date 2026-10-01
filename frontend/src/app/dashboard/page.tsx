@@ -622,8 +622,19 @@ export default function DashboardPage() {
             un valor absurdo (visto en pantalla: ~1880px con el board
             vacío). min-h-0 neutraliza esa contribución sin afectar al
             stretch real una vez la fila del grid ya está resuelta. */}
-        <div className="md:col-span-8 md:min-h-0">
-          {canSeePrepTasks && renderPrepTasksBoard(true)}
+        <div className="md:col-span-8 md:min-h-0 md:flex md:flex-col md:gap-gutter">
+          <div className="md:flex-1 md:min-h-0">{canSeePrepTasks && renderPrepTasksBoard(true)}</div>
+          {/* Con SICTED, Caducidades + SICTED van bajo Tareas de Prep. (que
+              encoge) en vez de en la franja inferior: la columna izquierda ya
+              fija el alto de la fila, así crecen sin alargar la página. */}
+          {canSeeSicted && (
+            <div className="grid grid-cols-3 gap-gutter md:h-60 md:shrink-0">
+              {canSeeEtiquetado && caducidadesAlertCard}
+              <div className={canSeeEtiquetado ? 'col-span-2' : 'col-span-3'}>
+                <SictedDashboardCard />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -631,12 +642,9 @@ export default function DashboardPage() {
           (no `&&`) para que ninguna quede vacía cuando falta un permiso —
           un tenant con recetas activo pero etiquetado desactivado (o
           viceversa) no debe ver un hueco en el grid.
-          Con SICTED, su card ocupa el sitio de Etiquetado y Recetas (2 de 3
-          columnas; ambos siguen en el menú) y la franja crece en alto a costa
-          del bento: Tareas de Prep. ajusta sus filas solo (useRowsThatFit). */}
-      <section
-        className={`hidden md:grid mt-gutter md:grid-cols-3 gap-gutter md:shrink-0 ${canSeeSicted ? 'md:h-60' : ''}`}
-      >
+          Con SICTED no se pinta: Caducidades sube junto a la card SICTED
+          (arriba) y Etiquetado y Recetas siguen en el menú. */}
+      <section className={`hidden mt-gutter md:grid-cols-3 gap-gutter md:shrink-0 ${canSeeSicted ? '' : 'md:grid'}`}>
         {canSeeEtiquetado ? (
           caducidadesAlertCard
         ) : (
@@ -646,11 +654,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {canSeeSicted ? (
-          <div className="md:col-span-2">
-            <SictedDashboardCard />
-          </div>
-        ) : canSeeEtiquetado ? (
+        {canSeeEtiquetado ? (
           etiquetadoCard
         ) : (
           <div
@@ -662,7 +666,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {canSeeSicted ? null : canSeeRecipes ? (
+        {canSeeRecipes ? (
           recetasCard
         ) : (
           <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
