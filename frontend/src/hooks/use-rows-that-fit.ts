@@ -19,26 +19,32 @@ const FALLBACK_ROW_HEIGHT = 96;
  * El `key` que cambia al terminar la carga fuerza el re-attach del ref cuando
  * las filas reales sustituyen al placeholder, disparando una nueva medición.
  *
- * SSR y primer paint (antes de medir): devuelve `min`.
+ * SSR y primer paint (antes de medir): devuelve `initial`. Tras medir nunca
+ * baja de `floor` (por defecto `initial`); con `floor` = 1 la lista se ajusta
+ * a lo que cabe de verdad y el resto se ofrece con un botón "Mostrar todas".
  */
-export function useRowsThatFit(min: number) {
+export function useRowsThatFit(initial: number, floor: number = initial) {
   const containerRef = useRef<HTMLElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
   const listenersRef = useRef(new Set<() => void>());
-  const rowsRef = useRef(min);
+  const rowsRef = useRef(initial);
 
   const measure = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const firstRow = el.firstElementChild as HTMLElement | null;
+    const secondRow = firstRow?.nextElementSibling as HTMLElement | null;
     const rowHeight = firstRow?.getBoundingClientRect().height || FALLBACK_ROW_HEIGHT;
+    // Paso entre filas (alto + separación de space-y/gap); con una sola fila, su alto.
+    const stride = secondRow && firstRow ? secondRow.offsetTop - firstRow.offsetTop : rowHeight;
+    const gap = Math.max(0, stride - rowHeight);
     const next =
-      rowHeight > 0 ? Math.max(min, Math.floor(el.clientHeight / rowHeight)) : min;
+      stride > 0 ? Math.max(floor, Math.floor((el.clientHeight + gap) / stride)) : floor;
     if (next !== rowsRef.current) {
       rowsRef.current = next;
       listenersRef.current.forEach((listener) => listener());
     }
-  }, [min]);
+  }, [floor]);
 
   const subscribe = useCallback((onStoreChange: () => void) => {
     const listeners = listenersRef.current;
@@ -47,7 +53,7 @@ export function useRowsThatFit(min: number) {
   }, []);
 
   const getSnapshot = useCallback(() => rowsRef.current, []);
-  const getServerSnapshot = useCallback(() => min, [min]);
+  const getServerSnapshot = useCallback(() => initial, [initial]);
 
   const ref = useCallback(
     (el: HTMLElement | null) => {
