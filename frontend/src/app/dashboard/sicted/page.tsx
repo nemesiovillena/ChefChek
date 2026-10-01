@@ -197,8 +197,17 @@ export default function SictedHubPage() {
           </h3>
           <ul className="space-y-1 text-sm">
             {overdue.map((r) => (
-              <li key={r.id} className="rounded-lg bg-[var(--error-container)] px-3 py-2 text-[var(--on-error-container)]">
-                {r.template.name} — {r.periodKey}
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/dashboard/sicted/registros/${r.id}`)}
+                  className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg bg-[var(--error-container)] px-3 py-2 text-left text-[var(--on-error-container)]"
+                >
+                  <span>
+                    {r.template.name} — {r.periodKey}
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                </button>
               </li>
             ))}
           </ul>

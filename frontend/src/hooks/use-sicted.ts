@@ -155,7 +155,8 @@ export function useSictedStatus(enabled = true) {
     runsToday,
     pendingToday: runsToday.filter((r) => r.status === 'OPEN'),
     pendingValidation: (completed.data ?? []).filter((r) => r.snapshot.requiresSupervisor && !r.supervisedAt),
-    overdue: overdue.data ?? [],
+    // Justificada por el encargado = ya gestionada: deja de avisarse.
+    overdue: (overdue.data ?? []).filter((r) => !r.supervisedAt),
     isLoading: today.isLoading || completed.isLoading || overdue.isLoading,
   };
 }
