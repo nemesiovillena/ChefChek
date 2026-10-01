@@ -39,7 +39,7 @@ export default function SictedHoyPage() {
           <ArrowLeft className="h-4 w-4" />
           Volver a las hojas de hoy
         </button>
-        <SictedRunChecklist runId={selectedRunId} />
+        <SictedRunChecklist runId={selectedRunId} confirmValidate onSupervised={() => setSelectedRunId(null)} />
       </div>
     );
   }
