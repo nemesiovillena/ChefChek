@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Circle, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRunsToday } from '@/hooks/use-sicted';
-import { CHECKLIST_MODE_LABELS, type ChecklistRunSummary } from '@/lib/sicted-types';
+import { CHECKLIST_MODE_LABELS, formatPeriodKey, type ChecklistRunSummary } from '@/lib/sicted-types';
 import { SictedRunChecklist } from '../components/sicted-run-checklist';
 
 export const dynamic = 'force-dynamic';
@@ -62,6 +62,9 @@ export default function SictedHoyPage() {
         Volver a SICTED
       </button>
       <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Hojas de hoy</h2>
+      <p className="mb-1 text-sm font-medium first-letter:uppercase text-[var(--on-surface)]">
+        {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      </p>
 
       {!runs || runs.length === 0 ? (
         <div className="mt-5 rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
@@ -138,7 +141,7 @@ function RunCard({ run, onOpen }: { run: ChecklistRunSummary; onOpen: () => void
         </p>
         <p className="text-sm text-[var(--on-surface-variant)]">
           {complete && `${run.template.area} · `}
-          {CHECKLIST_MODE_LABELS[run.template.mode]} · {run.entriesCount}/{run.snapshot.items.length}
+          {formatPeriodKey(run.periodKey)} · {CHECKLIST_MODE_LABELS[run.template.mode]} · {run.entriesCount}/{run.snapshot.items.length}
           {run.supervisedAt && (
             <span className="ml-2 inline-flex items-center gap-1 text-[var(--primary)]">
               <ShieldCheck className="h-3 w-3" /> Validada

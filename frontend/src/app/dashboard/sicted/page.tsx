@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, Award, BookOpen, ChevronRight, ClipboardCheck, ClipboardList, Loader2, MessageSquareWarning, NotebookPen, ShieldAlert, Truck, Users, Verified, Wrench } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedStatus } from '@/hooks/use-sicted';
+import { formatPeriodKey } from '@/lib/sicted-types';
 import { SictedCommitmentsPanel } from './components/sicted-commitments-panel';
 
 export const dynamic = 'force-dynamic';
@@ -178,9 +179,7 @@ export default function SictedHubPage() {
                 >
                   <span>
                     {r.template.name} — {r.template.area}
-                    {!runsToday.some((t) => t.id === r.id) && (
-                      <span className="text-[var(--on-surface-variant)]"> · {r.periodKey}</span>
-                    )}
+                    <span className="text-[var(--on-surface-variant)]"> · {formatPeriodKey(r.periodKey)}</span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
                 </button>
@@ -204,7 +203,7 @@ export default function SictedHubPage() {
                   className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg bg-[var(--error-container)] px-3 py-2 text-left text-[var(--on-error-container)]"
                 >
                   <span>
-                    {r.template.name} — {r.periodKey}
+                    {r.template.name} — {formatPeriodKey(r.periodKey)}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0" />
                 </button>
