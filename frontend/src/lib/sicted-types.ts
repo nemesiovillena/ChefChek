@@ -133,6 +133,16 @@ export interface ChecklistRunTemplateRef {
   mode: ChecklistMode;
 }
 
+/**
+ * Periodo de una hoja para mostrar: la clave diaria `2026-10-01` pasa a `01/10/2026`;
+ * semana/mes/trimestre/año (`2026-W40`, `2026-10`…) se dejan como vienen.
+ * Se trocea el texto en vez de usar `new Date(key)`, que lo leería en UTC y podría bailar un día.
+ */
+export function formatPeriodKey(periodKey: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(periodKey);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : periodKey;
+}
+
 /** Forma común a `GET runs/today` y `GET runs` (sin entries). */
 export interface ChecklistRunSummary {
   id: string;
