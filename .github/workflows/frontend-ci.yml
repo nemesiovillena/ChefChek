@@ -23,8 +23,25 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # Caché de paquetes de bun: evita descargar `next` (paquete grande) en
+      # cada ejecución; su descarga fallaba a veces con
+      # "Fail extracting tarball for next".
+      - name: Cache bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      # Reintenta si aun así falla la descarga/extracción (fallo de red, no de código).
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: |
+          for attempt in 1 2 3; do
+            bun install --frozen-lockfile && exit 0
+            echo "bun install falló (intento $attempt de 3), reintentando..."
+            sleep 10
+          done
+          exit 1
         env:
           HUSKY: '0'
 
@@ -48,8 +65,25 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # Caché de paquetes de bun: evita descargar `next` (paquete grande) en
+      # cada ejecución; su descarga fallaba a veces con
+      # "Fail extracting tarball for next".
+      - name: Cache bun packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      # Reintenta si aun así falla la descarga/extracción (fallo de red, no de código).
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: |
+          for attempt in 1 2 3; do
+            bun install --frozen-lockfile && exit 0
+            echo "bun install falló (intento $attempt de 3), reintentando..."
+            sleep 10
+          done
+          exit 1
         env:
           HUSKY: '0'
 
