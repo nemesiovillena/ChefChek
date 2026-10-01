@@ -29,6 +29,7 @@ import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
 import { SictedDashboardCard } from './sicted-dashboard-card';
+import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
@@ -38,17 +39,15 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-// Mínimo de tareas de prep. visibles en la card del dashboard. En escritorio la
-// card estira su altura para igualar la columna izquierda, así que se muestran
-// tantas tareas como quepan enteras en ese alto (useRowsThatFit); este valor es
-// solo el suelo. El resto se consulta en /dashboard/production/tasks vía el
-// botón "VER LISTA DE PREPARACIÓN COMPLETA", que solo aparece si de verdad
-// quedan tareas fuera de lo mostrado.
+// Regla de las cards con lista: sin scroll. En escritorio cada card ocupa el
+// alto que le da el bento y muestra solo las filas que caben enteras
+// (useRowsThatFit; si no cabe ni una entera en Sala/Alertas, ninguna y solo
+// el botón); en móvil, las primeras N. Lo que no cabe se
+// ofrece con "MOSTRAR TODAS" (página completa, o diálogo si no la hay).
+// N = filas en móvil y antes de medir en escritorio.
 const PRODUCTION_TASKS_LIMIT = 4;
-
-// Tope de notificaciones de sala visibles en su card resumen; el resto se
-// consulta en /dashboard/sala-notificaciones (tablero Kanban completo).
 const SALA_TASKS_LIMIT = 4;
+const NOTIFICATIONS_LIMIT = 4;
 
 export default function DashboardPage() {
   const { isLoading, isAuthenticated } = useAuth();
@@ -79,7 +78,10 @@ export default function DashboardPage() {
   );
   // Escritorio: nº de tareas de prep. que caben enteras en el alto de la card
   // (la impone la columna izquierda). En móvil / card oculta mide 0 → PRODUCTION_TASKS_LIMIT.
-  const { ref: prepListRef, rows: prepRowsThatFit } = useRowsThatFit(PRODUCTION_TASKS_LIMIT);
+  const { ref: prepListRef, rows: prepRowsThatFit } = useRowsThatFit(PRODUCTION_TASKS_LIMIT, 1);
+  const { ref: salaListRef, rows: salaRowsThatFit } = useRowsThatFit(SALA_TASKS_LIMIT, 0);
+  const { ref: notifListRef, rows: notifRowsThatFit } = useRowsThatFit(NOTIFICATIONS_LIMIT, 0);
+  const [allNotificationsOpen, setAllNotificationsOpen] = useState(false);
 
   // WebSocket hooks
   const { notifications, markAsRead, markAllAsRead } = useWebSocketNotifications();
@@ -216,17 +218,29 @@ export default function DashboardPage() {
     </div>
   );
 
+  const filteredNotifications = showAllNotifications ? notifications : notifications.filter((notif) => !notif.read);
+  const openNotification = (notif: (typeof notifications)[number]) => {
+    markAsRead(notif.id);
+    const route = resolveNotificationRoute(notif.entityType, notif.entityId);
+    if (route) router.push(route);
+  };
+
   // fillContainer: escritorio, la card vive en un panel flex-1 dentro de la
-  // columna izquierda (mismo hueco que Sala) → sin tope fijo, con scroll
-  // interno solo si de verdad hay más avisos de los que caben. Móvil: card a
-  // contenido, con el tope fijo max-h-80 de siempre.
-  const renderNotificacionesCard = (fillContainer: boolean) => (
+  // columna izquierda (mismo hueco que Sala) y muestra los avisos que caben;
+  // móvil: card a contenido con los primeros NOTIFICATIONS_LIMIT.
+  const renderNotificacionesCard = (fillContainer: boolean) => {
+    const visibleCount = fillContainer
+      ? Math.min(notifRowsThatFit, filteredNotifications.length)
+      : NOTIFICATIONS_LIMIT;
+    const visibleNotifications = filteredNotifications.slice(0, visibleCount);
+    const hasMore = filteredNotifications.length > visibleNotifications.length;
+    return (
     <div
-      className={`tonal-layer-2 p-stack-lg rounded-xl border border-border${
-        fillContainer ? ' flex-1 min-h-[150px] flex flex-col' : ''
+      className={`tonal-layer-2 rounded-xl border border-border overflow-hidden flex flex-col${
+        fillContainer ? ' flex-1 min-h-[150px]' : ''
       }`}
     >
-      <div className={`flex justify-between items-center mb-stack-md${fillContainer ? ' shrink-0' : ''}`}>
+      <div className={`p-stack-lg pb-0 flex justify-between items-center mb-stack-md${fillContainer ? ' shrink-0' : ''}`}>
         <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Notificaciones y Alertas</p>
         <div className="flex items-center gap-stack-md shrink-0">
           <button
@@ -239,62 +253,47 @@ export default function DashboardPage() {
             onClick={() => setShowAllNotifications((prev) => !prev)}
             className="text-secondary text-[11px] hover:underline cursor-pointer"
           >
-            {showAllNotifications ? 'Ver no leídas' : 'Ver Todas'}
+            {showAllNotifications ? 'Solo no leídas' : 'Incluir leídas'}
           </button>
         </div>
       </div>
-      {/* max-h-80 SIEMPRE (no solo en móvil): con datos reales, el contenido
-          de la lista se cuela en el cálculo de "tamaño mínimo automático"
-          del flex/grid ancestro pese a min-h-0, e infla el bento entero
-          (bug real, visto en pantalla: la card creció a ~1880px con 20
-          notificaciones). Un max-height explícito no depende de ese cálculo
-          y lo corta de raíz; flex-1 sigue aprovechando el hueco disponible
-          hasta ese tope. */}
+      {/* Escritorio: flex-basis 0px (no flex-1) para que la lista no aporte
+          alto intrínseco y no infle el bento (bug real: la card llegó a
+          ~1880px con 20 avisos); el alto real lo da la columna. Móvil: max-h-80
+          defensivo. overflow-y-auto solo como red si ni una fila cabe. */}
       <div
-        className={`space-y-stack-sm overflow-y-auto pr-1 max-h-80${fillContainer ? ' flex-1 min-h-0' : ''}`}
+        ref={fillContainer ? notifListRef : undefined}
+        key={fillContainer ? (filteredNotifications.length === 0 ? 'empty' : 'rows') : undefined}
+        className={`space-y-stack-sm px-stack-lg pb-stack-lg${
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' max-h-80'
+        }`}
       >
-        {(() => {
-          const visibleNotifications = showAllNotifications
-            ? notifications
-            : notifications.filter((notif) => !notif.read);
-          return visibleNotifications.length === 0 ? (
-            <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
-              <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
-              <p className="text-xs text-on-surface-variant">
-                {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
-              </p>
-            </div>
-          ) : (
-            visibleNotifications.slice(0, 20).map((notif) => {
-              const style =
-                notif.type === 'ERROR'
-                  ? { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' }
-                  : notif.type === 'WARNING'
-                    ? { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' }
-                    : { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' };
-              const route = resolveNotificationRoute(notif.entityType, notif.entityId);
-              return (
-                <div
-                  key={notif.id}
-                  onClick={() => {
-                    markAsRead(notif.id);
-                    if (route) router.push(route);
-                  }}
-                  className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap} ${!notif.read ? '' : 'opacity-60'}`}
-                >
-                  <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
-                  <div>
-                    <p className="text-xs text-primary font-medium">{notif.title}</p>
-                    <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>
-                  </div>
-                </div>
-              );
-            })
-          );
-        })()}
+        {filteredNotifications.length === 0 ? (
+          <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
+            <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+            <p className="text-xs text-on-surface-variant">
+              {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
+            </p>
+          </div>
+        ) : (
+          visibleNotifications.map((notif) => (
+            <DashboardNotificationRow key={notif.id} notification={notif} onOpen={() => openNotification(notif)} />
+          ))
+        )}
       </div>
+      {hasMore && (
+        <div className="p-stack-md bg-surface-container-high text-center border-t border-surface-variant shrink-0">
+          <button
+            onClick={() => setAllNotificationsOpen(true)}
+            className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          >
+            MOSTRAR TODAS ({filteredNotifications.length})
+          </button>
+        </div>
+      )}
     </div>
-  );
+    );
+  };
 
   const allPrepTasks = kpis?.upcomingProductionTasks ?? [];
 
@@ -379,7 +378,7 @@ export default function DashboardPage() {
             onClick={() => router.push('/dashboard/production/tasks')}
             className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
           >
-            VER LISTA DE PREPARACIÓN COMPLETA
+            MOSTRAR TODAS ({allPrepTasks.length})
           </button>
         </div>
       )}
@@ -392,15 +391,15 @@ export default function DashboardPage() {
   const activeSalaTasks = (salaTasks ?? [])
     .filter((t) => t.status !== 'COMPLETADO')
     .sort(compareSalaTasksByEventDate);
-  const visibleSalaTasks = activeSalaTasks.slice(0, SALA_TASKS_LIMIT);
-  const hasMoreSalaTasks = activeSalaTasks.length > SALA_TASKS_LIMIT;
 
   // fillContainer: escritorio, panel flex-1 dentro de la columna izquierda
-  // (mismo hueco disponible que Alertas, repartido por el grid-rows
-  // minmax(0,1fr) del bento) — sin tope fijo, con scroll interno solo si de
-  // verdad hay más notificaciones de las que caben. Móvil: card a
-  // contenido, ya acotada por SALA_TASKS_LIMIT.
-  const renderSalaTasksBoard = (fillContainer: boolean) => (
+  // (mismo hueco disponible que Alertas) con las filas que caben. Móvil:
+  // card a contenido con las primeras SALA_TASKS_LIMIT.
+  const renderSalaTasksBoard = (fillContainer: boolean) => {
+    const visibleCount = fillContainer ? Math.min(salaRowsThatFit, activeSalaTasks.length) : SALA_TASKS_LIMIT;
+    const visibleSalaTasks = activeSalaTasks.slice(0, visibleCount);
+    const hasMoreSalaTasks = activeSalaTasks.length > visibleSalaTasks.length;
+    return (
     <div
       className={`tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border${
         fillContainer ? ' flex-1 min-h-[150px]' : ''
@@ -412,18 +411,19 @@ export default function DashboardPage() {
           {activeSalaTasks.length}
         </span>
       </div>
-      {/* max-h-80 igual que en Alertas: aunque SALA_TASKS_LIMIT ya acota a 4
-          filas, mantiene el mismo tope defensivo por consistencia. */}
+      {/* Escritorio: flex-basis 0px como Alertas y Tareas (sin alto intrínseco). */}
       <div
-        className={`divide-y divide-surface-variant max-h-80${
-          fillContainer ? ' flex-1 min-h-0 overflow-y-auto' : ' flex-1'
+        ref={fillContainer ? salaListRef : undefined}
+        key={fillContainer ? (salaTasksLoading ? 'loading' : activeSalaTasks.length === 0 ? 'empty' : 'rows') : undefined}
+        className={`divide-y divide-surface-variant${
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' flex-1 max-h-80'
         }`}
       >
         {salaTasksLoading ? (
           <div className="p-stack-lg text-center text-on-surface-variant font-label-md text-label-md">
             Cargando notificaciones...
           </div>
-        ) : visibleSalaTasks.length > 0 ? (
+        ) : activeSalaTasks.length > 0 ? (
           visibleSalaTasks.map((task) => (
             <SalaTaskRow key={task.id} task={task} onClick={() => setEditingSalaTask(task)} />
           ))
@@ -439,12 +439,13 @@ export default function DashboardPage() {
             onClick={() => router.push('/dashboard/sala-notificaciones')}
             className="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
           >
-            MOSTRAR TODAS
+            MOSTRAR TODAS ({activeSalaTasks.length})
           </button>
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   const recetasCard = (
     <div
@@ -685,6 +686,12 @@ export default function DashboardPage() {
         }}
       />
     )}
+    <AllNotificationsDialog
+      open={allNotificationsOpen}
+      onOpenChange={setAllNotificationsOpen}
+      notifications={filteredNotifications}
+      onOpenNotification={openNotification}
+    />
     <SalaTaskModal
       open={Boolean(editingSalaTask)}
       onOpenChange={(open) => {
