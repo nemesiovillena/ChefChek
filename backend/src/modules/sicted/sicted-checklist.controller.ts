@@ -142,9 +142,7 @@ export class SictedChecklistController {
   @Roles("USER")
   async runsToday(@Req() req: any) {
     await this.runs.ensureRunsForToday(req.tenantId, this.module);
-    const data = await this.runs.listRuns(req.tenantId, this.module, {
-      from: new Date(new Date().setUTCHours(0, 0, 0, 0)),
-    });
+    const data = await this.runs.listCurrentRuns(req.tenantId, this.module);
     return { success: true, data };
   }
 

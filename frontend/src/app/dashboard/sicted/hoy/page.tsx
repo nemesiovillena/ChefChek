@@ -5,14 +5,30 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Circle, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useSictedRunsToday } from '@/hooks/use-sicted';
-import { CHECKLIST_MODE_LABELS, formatPeriodKey, type ChecklistRunSummary } from '@/lib/sicted-types';
+import {
+  CHECKLIST_FREQUENCIES,
+  CHECKLIST_MODE_LABELS,
+  formatPeriodKey,
+  type ChecklistFrequency,
+  type ChecklistRunSummary,
+} from '@/lib/sicted-types';
 import { SictedRunChecklist } from '../components/sicted-run-checklist';
 
 export const dynamic = 'force-dynamic';
 
+/** Título de cada bloque de pendientes según el periodo de la hoja. */
+const PERIOD_SECTION_TITLES: Record<ChecklistFrequency, string> = {
+  DAILY: 'Hojas de hoy',
+  WEEKLY: 'Hojas de la semana',
+  MONTHLY: 'Hojas del mes',
+  QUARTERLY: 'Hojas del trimestre',
+  ANNUAL: 'Hojas del año',
+};
+
 /**
- * "Hoy": hojas del día → checklist en la misma página (maestro-detalle, sin ruta extra).
- * Pendientes arriba por área; las terminadas bajan a "Hechas hoy" (siguen abribles para validar o consultar).
+ * "Hoy": hojas por hacer → checklist en la misma página (maestro-detalle, sin ruta extra).
+ * Pendientes arriba por periodo (día, semana, mes…) y área: la semanal sale desde el lunes y sigue
+ * hasta que se haga. Las terminadas bajan a "Hechas hoy" (siguen abribles para validar o consultar).
  */
 export default function SictedHoyPage() {
   const router = useRouter();
@@ -54,10 +70,15 @@ export default function SictedHoyPage() {
 
   const pending = (runs ?? []).filter((run) => run.status === 'OPEN');
   const done = (runs ?? []).filter((run) => run.status !== 'OPEN');
-  const pendingByArea = pending.reduce<Record<string, ChecklistRunSummary[]>>((acc, run) => {
-    (acc[run.template.area] ??= []).push(run);
-    return acc;
-  }, {});
+  const pendingSections = CHECKLIST_FREQUENCIES.map((frequency) => ({
+    frequency,
+    byArea: pending
+      .filter((run) => run.template.frequency === frequency)
+      .reduce<Record<string, ChecklistRunSummary[]>>((acc, run) => {
+        (acc[run.template.area] ??= []).push(run);
+        return acc;
+      }, {}),
+  })).filter((section) => Object.keys(section.byArea).length > 0);
 
   return (
     <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 pt-8">
@@ -69,14 +90,14 @@ export default function SictedHoyPage() {
         <ArrowLeft className="h-4 w-4" />
         Volver a SICTED
       </button>
-      <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Hojas de hoy</h2>
+      <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Hojas</h2>
       <p className="mb-1 text-sm font-medium first-letter:uppercase text-[var(--on-surface)]">
         {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
 
       {!runs || runs.length === 0 ? (
         <div className="mt-5 rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
-          No hay hojas generadas para hoy.
+          No hay hojas pendientes.
         </div>
       ) : (
         <>
@@ -91,16 +112,21 @@ export default function SictedHoyPage() {
             </div>
           )}
 
-          {Object.entries(pendingByArea).map(([area, areaRuns]) => (
-            <section key={area} className="mb-6">
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">
-                {area}
-              </h3>
-              <div className="space-y-2">
-                {areaRuns.map((run) => (
-                  <RunCard key={run.id} run={run} onOpen={() => setSelectedRunId(run.id)} />
-                ))}
-              </div>
+          {pendingSections.map(({ frequency, byArea }) => (
+            <section key={frequency} className="mb-8">
+              <h3 className="mb-3 text-lg font-semibold text-[var(--on-surface)]">{PERIOD_SECTION_TITLES[frequency]}</h3>
+              {Object.entries(byArea).map(([area, areaRuns]) => (
+                <div key={area} className="mb-5">
+                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">
+                    {area}
+                  </h4>
+                  <div className="space-y-2">
+                    {areaRuns.map((run) => (
+                      <RunCard key={run.id} run={run} onOpen={() => setSelectedRunId(run.id)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </section>
           ))}
 

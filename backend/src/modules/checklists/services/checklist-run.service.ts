@@ -12,9 +12,9 @@ import {
   SuperviseChecklistRunDto,
 } from "../dto/checklist-entry.dto";
 import {
+  CHECKLIST_FREQUENCIES,
   ChecklistFrequency,
   computePeriodKey,
-  isGenerationDay,
   periodEndFromKey,
   periodStartFromKey,
 } from "../util/checklist-period.util";
@@ -35,9 +35,11 @@ export class ChecklistRunService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Crea (upsert idempotente) las hojas del periodo actual para las
-   * plantillas del tenant visibles a `module` cuya frecuencia toca generar
-   * hoy. Llamado por el cron diario y de forma "lazy" desde `GET runs/today`.
+   * Crea (upsert idempotente) la hoja del periodo en curso de cada plantilla
+   * del tenant visible a `module`. Cualquier día del periodo vale: la semanal
+   * cuenta desde el lunes, la mensual desde el día 1… aunque el local abra
+   * otro día o la plantilla se cree a mitad de periodo. Llamado por el cron
+   * diario y de forma "lazy" desde `GET runs/today`.
    */
   async ensureRunsForToday(
     tenantId: string,
@@ -51,11 +53,6 @@ export class ChecklistRunService {
 
     for (const template of templates) {
       const frequency = template.frequency as ChecklistFrequency;
-      if (
-        !isGenerationDay(now, frequency, template.weekday, template.dayOfMonth)
-      ) {
-        continue;
-      }
       const periodKey = computePeriodKey(now, frequency);
       const periodStart = periodStartFromKey(periodKey, frequency);
       await this.prisma.checklistRun.upsert({
@@ -73,6 +70,30 @@ export class ChecklistRunService {
     }
   }
 
+  /**
+   * Hojas para trabajar hoy: las de los periodos en curso (día, semana, mes,
+   * trimestre, año). Las diarias salen siempre; las de periodos más largos
+   * solo mientras sigan pendientes o si se completaron hoy — hecha la
+   * semanal, no vuelve a aparecer el resto de la semana.
+   */
+  async listCurrentRuns(
+    tenantId: string,
+    module: ChecklistConsumerModule,
+    now: Date = new Date(),
+  ) {
+    const todayKey = computePeriodKey(now, "DAILY");
+    const runs = await this.listRuns(tenantId, module, {
+      periodKeys: CHECKLIST_FREQUENCIES.map((f) => computePeriodKey(now, f)),
+    });
+    return runs.filter(
+      (run) =>
+        run.template.frequency === "DAILY" ||
+        run.status === "OPEN" ||
+        (run.closedAt !== null &&
+          computePeriodKey(run.closedAt, "DAILY") === todayKey),
+    );
+  }
+
   async listRuns(
     tenantId: string,
     module: ChecklistConsumerModule,
@@ -82,6 +103,7 @@ export class ChecklistRunService {
       templateId?: string;
       status?: string;
       area?: string;
+      periodKeys?: string[];
     },
   ) {
     const runs = await this.prisma.checklistRun.findMany({
@@ -93,6 +115,9 @@ export class ChecklistRunService {
         },
         ...(filters.templateId ? { templateId: filters.templateId } : {}),
         ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.periodKeys
+          ? { periodKey: { in: filters.periodKeys } }
+          : {}),
         ...(filters.from || filters.to
           ? {
               periodStart: {
@@ -103,7 +128,15 @@ export class ChecklistRunService {
           : {}),
       },
       include: {
-        template: { select: { id: true, name: true, area: true, mode: true } },
+        template: {
+          select: {
+            id: true,
+            name: true,
+            area: true,
+            mode: true,
+            frequency: true,
+          },
+        },
       },
       orderBy: { periodStart: "desc" },
       take: 200,
@@ -151,7 +184,15 @@ export class ChecklistRunService {
         template: { usedByModules: { has: module } },
       },
       include: {
-        template: { select: { id: true, name: true, area: true, mode: true } },
+        template: {
+          select: {
+            id: true,
+            name: true,
+            area: true,
+            mode: true,
+            frequency: true,
+          },
+        },
         entries: { orderBy: { recordedAt: "asc" } },
       },
     });
