@@ -214,6 +214,12 @@ export class EtiquetadoController {
     return this.foodLabels.listResponsibleCandidates(req.tenantId);
   }
 
+  @Get("product-options")
+  @RequireSection("etiquetado.emit")
+  async productOptions(@Req() req: any, @Query("search") search?: string) {
+    return this.context.searchProducts(req.tenantId, search);
+  }
+
   @Get("prep-context")
   @RequireSection("etiquetado.emit")
   async prepContext(
