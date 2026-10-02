@@ -3,7 +3,6 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import {
   ChecklistFrequency,
   computePeriodKey,
-  isGenerationDay,
   madridCalendarDay,
 } from "../../checklists/util/checklist-period.util";
 
@@ -30,9 +29,9 @@ export interface CoverageReport {
 /**
  * "¿Qué días/tareas no están registrados?" — antes de que lo pregunte el
  * auditor. `expected` se define plantilla a plantilla recorriendo cada día
- * natural (Europe/Madrid) del rango y usando `isGenerationDay` (la misma
- * regla que decide cuándo el cron genera una hoja, fase 2) — así "esperado"
- * nunca se desincroniza de "cuándo se genera de verdad". Una plantilla
+ * natural (Europe/Madrid) del rango: cada periodo que toca el rango es una
+ * hoja esperada, la misma regla con que se generan (cualquier día del
+ * periodo) — así "esperado" nunca se desincroniza de "cuándo se genera". Una plantilla
  * archivada a mitad de rango, o creada a mitad de rango, solo cuenta desde/
  * hasta que existió (filtro por `createdAt`/`archivedAt`).
  */
@@ -62,8 +61,6 @@ export class SictedCoverageService {
         name: true,
         area: true,
         frequency: true,
-        weekday: true,
-        dayOfMonth: true,
         createdAt: true,
         archivedAt: true,
       },
@@ -135,8 +132,7 @@ export class SictedCoverageService {
   }
 
   /**
-   * Días naturales (Madrid) en [from,to) donde `isGenerationDay` dice que
-   * toca generar, convertidos a periodKeys únicos. `to` es EXCLUSIVO — se
+   * Días naturales (Madrid) en [from,to), convertidos a periodKeys únicos. `to` es EXCLUSIVO — se
    * compara el instante (mediodía UTC del día candidato) contra `to`
    * directamente, no el día natural de `to` (que por el desfase Madrid/UTC
    * podía incluir un día de más: `to`="2026-05-11T00:00:00Z" cae ya en el 11
@@ -146,8 +142,6 @@ export class SictedCoverageService {
   private expectedPeriodKeys(
     template: {
       frequency: string;
-      weekday: number | null;
-      dayOfMonth: number | null;
       createdAt: Date;
       archivedAt: Date | null;
     },
@@ -166,11 +160,7 @@ export class SictedCoverageService {
     let probe = new Date(Date.UTC(startDay.y, startDay.m - 1, startDay.d, 12));
 
     while (probe.getTime() < end.getTime()) {
-      if (
-        isGenerationDay(probe, frequency, template.weekday, template.dayOfMonth)
-      ) {
-        keys.add(computePeriodKey(probe, frequency));
-      }
+      keys.add(computePeriodKey(probe, frequency));
       // +24h en UTC desde mediodía nunca cruza una medianoche local (ni en
       // Madrid ni en ningún huso razonable) → el día natural Madrid avanza
       // exactamente uno, estable frente al cambio de hora.

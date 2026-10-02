@@ -1,6 +1,5 @@
 import {
   computePeriodKey,
-  isGenerationDay,
   isPeriodElapsed,
   madridCalendarDay,
   periodEndFromKey,
@@ -120,54 +119,6 @@ describe("checklist-period.util", () => {
           new Date("2026-09-21T10:00:00Z"),
         ),
       ).toBe(false);
-    });
-  });
-
-  describe("isGenerationDay", () => {
-    it("DAILY siempre genera", () => {
-      expect(isGenerationDay(new Date(), "DAILY")).toBe(true);
-    });
-
-    it("WEEKLY solo el weekday configurado (0=domingo)", () => {
-      // Lunes 21/09/2026, mediodía Madrid.
-      const monday = new Date("2026-09-21T10:00:00Z");
-      expect(isGenerationDay(monday, "WEEKLY", 1)).toBe(true);
-      expect(isGenerationDay(monday, "WEEKLY", 2)).toBe(false);
-    });
-
-    it("MONTHLY: dayOfMonth normal", () => {
-      const d15 = new Date("2026-09-15T10:00:00Z");
-      expect(isGenerationDay(d15, "MONTHLY", null, 15)).toBe(true);
-      expect(isGenerationDay(d15, "MONTHLY", null, 16)).toBe(false);
-    });
-
-    it("MONTHLY: dayOfMonth=31 en un mes de 30 días genera el último día", () => {
-      // Septiembre tiene 30 días.
-      const d30 = new Date("2026-09-30T10:00:00Z");
-      expect(isGenerationDay(d30, "MONTHLY", null, 31)).toBe(true);
-      const d29 = new Date("2026-09-29T10:00:00Z");
-      expect(isGenerationDay(d29, "MONTHLY", null, 31)).toBe(false);
-    });
-
-    it("QUARTERLY genera el día 1 de enero/abril/julio/octubre", () => {
-      expect(
-        isGenerationDay(new Date("2026-07-01T10:00:00Z"), "QUARTERLY"),
-      ).toBe(true);
-      expect(
-        isGenerationDay(new Date("2026-07-02T10:00:00Z"), "QUARTERLY"),
-      ).toBe(false);
-      expect(
-        isGenerationDay(new Date("2026-08-01T10:00:00Z"), "QUARTERLY"),
-      ).toBe(false);
-    });
-
-    it("ANNUAL solo el 1 de enero", () => {
-      expect(isGenerationDay(new Date("2026-01-01T10:00:00Z"), "ANNUAL")).toBe(
-        true,
-      );
-      expect(isGenerationDay(new Date("2026-01-02T10:00:00Z"), "ANNUAL")).toBe(
-        false,
-      );
     });
   });
 });

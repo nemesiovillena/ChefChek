@@ -131,6 +131,7 @@ export interface ChecklistRunTemplateRef {
   name: string;
   area: string;
   mode: ChecklistMode;
+  frequency: ChecklistFrequency;
 }
 
 /**
