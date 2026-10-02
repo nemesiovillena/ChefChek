@@ -10,7 +10,10 @@ import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard } from "../../guards/module.guard";
-import { SectionAccessGuard } from "../../guards/section-access.guard";
+import {
+  SectionAccessGuard,
+  SECTION_METADATA_KEY,
+} from "../../guards/section-access.guard";
 
 describe("EtiquetadoController", () => {
   let controller: EtiquetadoController;
@@ -21,7 +24,11 @@ describe("EtiquetadoController", () => {
     getById: jest.fn(),
     void: jest.fn(),
   };
-  const context = { forRecipe: jest.fn(), forProduct: jest.fn() };
+  const context = {
+    forRecipe: jest.fn(),
+    forProduct: jest.fn(),
+    searchProducts: jest.fn(),
+  };
 
   const req = { tenantId: "t1", user: { id: "u1", name: "Ana" } };
 
@@ -73,6 +80,26 @@ describe("EtiquetadoController", () => {
     expect(context.forRecipe).toHaveBeenCalledWith("t1", "r1");
     await controller.prepContext(req, undefined, "p1");
     expect(context.forProduct).toHaveBeenCalledWith("t1", "p1");
+  });
+
+  it("searches products for the handled-article picker within the tenant", async () => {
+    context.searchProducts.mockResolvedValue([{ id: "p1", name: "Tomate" }]);
+    await expect(controller.productOptions(req, "tom")).resolves.toEqual([
+      { id: "p1", name: "Tomate" },
+    ]);
+    expect(context.searchProducts).toHaveBeenCalledWith("t1", "tom");
+  });
+
+  // El buscador de la etiqueta no puede depender de la sección Artículos: un
+  // rol con Artículos oculto debe seguir pudiendo emitir etiquetas.
+  it("gates the product picker by label emission, not by the Artículos section", () => {
+    const handler = EtiquetadoController.prototype.productOptions;
+    expect(Reflect.getMetadata(SECTION_METADATA_KEY, handler)).toEqual([
+      "etiquetado.emit",
+    ]);
+    expect(
+      Reflect.getMetadata(SECTION_METADATA_KEY, EtiquetadoController),
+    ).toEqual(["etiquetado"]);
   });
 
   it("rejects prep-context with neither id", async () => {

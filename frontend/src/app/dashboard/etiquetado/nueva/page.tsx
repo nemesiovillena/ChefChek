@@ -1,17 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Printer, Save, X } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRecipeOptions } from '@/hooks/use-recipes';
-import { useProductSearch } from '@/hooks/use-product-search';
 import { foldAccents } from '@/lib/utils';
 import {
   useRecipePrepContext,
   useProductPrepContext,
+  useLabelProductOptions,
   useCreateFoodLabel,
   useEtiquetadoConfig,
   effectiveLabelFormat,
@@ -139,7 +139,10 @@ export default function NuevaEtiquetaPage() {
   const filteredRecipes = (recipeOptions.data ?? []).filter(
     (r) => !recipeNeedle || r.id === recipeId || foldAccents(r.name).includes(recipeNeedle),
   );
-  const productSearch = useProductSearch(300);
+  const [productQuery, setProductQuery] = useState('');
+  // Valor diferido: no lanza una petición por cada tecla mientras se escribe.
+  const productNeedle = useDeferredValue(productQuery).trim();
+  const productOptions = useLabelProductOptions(productNeedle);
   const etiquetadoConfig = useEtiquetadoConfig();
   // El formato se elige una vez en Configuración → Etiquetas; aquí solo se
   // imprime el número de copias.
@@ -435,14 +438,24 @@ export default function NuevaEtiquetaPage() {
               <input
                 className={fieldClass}
                 placeholder="Buscar artículo…"
-                value={productSearch.search}
-                onChange={(e) => productSearch.setSearch(e.target.value)}
+                value={productQuery}
+                onChange={(e) => setProductQuery(e.target.value)}
               />
-              {productSearch.loading && (
+              {productNeedle && productOptions.isLoading && (
                 <p className="mt-1 text-sm text-[var(--on-surface-variant)]">Buscando…</p>
               )}
+              {productNeedle && productOptions.isError && (
+                <p className="mt-1 text-sm text-[var(--error)]">
+                  No se han podido buscar artículos: {productOptions.error.message}
+                </p>
+              )}
+              {productNeedle && productOptions.data?.length === 0 && (
+                <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
+                  Ningún artículo coincide con «{productNeedle}».
+                </p>
+              )}
               <ul className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-[var(--outline-variant)]">
-                {productSearch.products.map((p) => (
+                {(productNeedle ? (productOptions.data ?? []) : []).map((p) => (
                   <li key={p.id}>
                     <button
                       type="button"
