@@ -1066,8 +1066,8 @@ model ChecklistTemplate {
   // Cadencia de la HOJA (ChecklistRun); los ítems pueden pisarla con su propia itemFrequency.
   frequency String // DAILY, WEEKLY, MONTHLY, QUARTERLY, ANNUAL
 
-  weekday             Int? // 0=domingo..6=sábado, solo WEEKLY
-  dayOfMonth          Int? // 1-31, solo MONTHLY
+  weekday             Int? // 0=domingo..6=sábado, solo WEEKLY. Informativo: la semanal se genera desde el lunes
+  dayOfMonth          Int? // 1-31, solo MONTHLY. Informativo: la mensual se genera desde el día 1
   responsiblePosition String?
 
   // true=INSPECTION por defecto; false=EXECUTION/MEASUREMENT (configurable).

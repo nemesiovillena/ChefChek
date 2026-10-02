@@ -180,6 +180,50 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
     });
   });
 
+  describe("hojas de hoy: periodos en curso", () => {
+    it("una semanal se genera y se lista a mitad de semana aunque su día configurado sea el lunes", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({
+          name: "Semanal desde el lunes",
+          frequency: "WEEKLY",
+          weekday: 1,
+        }),
+      );
+      const wednesday = new Date("2026-09-23T10:00:00Z");
+      await runs.ensureRunsForToday(tenantId, "sicted", wednesday);
+
+      const current = await runs.listCurrentRuns(tenantId, "sicted", wednesday);
+      const run = current.find((r) => r.templateId === template.id);
+      expect(run?.periodKey).toBe("2026-W39");
+      expect(run?.template.frequency).toBe("WEEKLY");
+    });
+
+    it("una semanal hecha sale el día que se completa y desaparece el resto de la semana", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Semanal ya hecha", frequency: "WEEKLY" }),
+      );
+      const wednesday = new Date("2026-09-23T10:00:00Z");
+      await runs.ensureRunsForToday(tenantId, "sicted", wednesday);
+      await prisma.checklistRun.updateMany({
+        where: { templateId: template.id },
+        data: { status: "COMPLETED", closedAt: wednesday },
+      });
+
+      const sameDay = await runs.listCurrentRuns(tenantId, "sicted", wednesday);
+      expect(sameDay.some((r) => r.templateId === template.id)).toBe(true);
+
+      const thursday = new Date("2026-09-24T10:00:00Z");
+      const nextDay = await runs.listCurrentRuns(tenantId, "sicted", thursday);
+      expect(nextDay.some((r) => r.templateId === template.id)).toBe(false);
+    });
+  });
+
   describe("marcas por modo", () => {
     it("EXECUTION: NOT_DONE sin motivo se rechaza", async () => {
       const template = await templates.create(
