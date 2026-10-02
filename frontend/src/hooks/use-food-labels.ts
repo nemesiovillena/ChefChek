@@ -263,6 +263,25 @@ export function useProductPrepContext(productId: string | null) {
   );
 }
 
+export interface LabelProductOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Buscador de artículos para "Artículo manipulado". Usa el endpoint de
+ * Etiquetado (no el listado de Artículos) para que funcione aunque el rol
+ * tenga oculta la sección Artículos.
+ */
+export function useLabelProductOptions(search: string) {
+  const term = search.trim();
+  return useApiQuery<LabelProductOption[]>(
+    ['etiquetado-product-options', term],
+    `/v1/etiquetado/product-options?search=${encodeURIComponent(term)}`,
+    { enabled: term.length > 0 },
+  );
+}
+
 /** Usuarios activos del tenant para elegir "quién lo prepara" (ver etiquetas). */
 export function useResponsibleOptions() {
   return useApiQuery<ResponsibleOption[]>(

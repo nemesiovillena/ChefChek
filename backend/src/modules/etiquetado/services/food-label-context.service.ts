@@ -99,6 +99,28 @@ export class FoodLabelContextService {
     };
   }
 
+  /**
+   * Artículos para el buscador de "Artículo manipulado". Vive aquí, y no en el
+   * listado de Artículos, para que quien puede emitir etiquetas encuentre el
+   * artículo aunque su rol tenga oculta la sección Artículos.
+   */
+  async searchProducts(tenantId: string, search?: string) {
+    const term = search?.trim();
+    if (!term) {
+      return [];
+    }
+    return this.prisma.product.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        name: { contains: term, mode: "insensitive" },
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+      take: 50,
+    });
+  }
+
   async forProduct(tenantId: string, productId: string) {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, tenantId, deletedAt: null },
