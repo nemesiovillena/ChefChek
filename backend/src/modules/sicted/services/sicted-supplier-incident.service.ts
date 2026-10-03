@@ -27,6 +27,34 @@ export class SictedSupplierIncidentService {
     });
   }
 
+  /**
+   * Proveedores activos para los desplegables SICTED. El listado general
+   * (`/products/suppliers`) exige la sección Proveedores, que suele estar
+   * oculta al rol USER (cuenta compartida) — el selector salía vacío.
+   */
+  async listSupplierOptions(tenantId: string) {
+    return this.prisma.supplier.findMany({
+      where: { tenantId, isActive: true, deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  /** Últimos albaranes de un proveedor, sin depender de la sección Albaranes. */
+  async listAlbaranOptions(tenantId: string, supplierId: string) {
+    return this.prisma.albaran.findMany({
+      where: { tenantId, supplierId, deletedAt: null },
+      select: {
+        id: true,
+        albaranNumber: true,
+        internalNumber: true,
+        date: true,
+      },
+      orderBy: { date: "desc" },
+      take: 10,
+    });
+  }
+
   async getOneVisible(tenantId: string, id: string) {
     const incident = await this.prisma.sictedSupplierIncident.findFirst({
       where: { id, tenantId },

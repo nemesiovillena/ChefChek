@@ -113,3 +113,17 @@ export interface ProcurementEvidenceReport {
     aboveMaximum: { productId: string; productName: string; quantity: number; maximumStock: number }[];
   };
 }
+
+/** Opción del selector de proveedor (endpoint propio de SICTED). */
+export interface SictedSupplierOption {
+  id: string;
+  name: string;
+}
+
+/** Opción del selector de albarán de una incidencia. */
+export interface SictedAlbaranOption {
+  id: string;
+  albaranNumber: string | null;
+  internalNumber: string;
+  date: string;
+}

@@ -8,6 +8,8 @@ import type {
   InventorySnapshot,
   InventorySnapshotSummary,
   ProcurementEvidenceReport,
+  SictedAlbaranOption,
+  SictedSupplierOption,
   SupplierComplianceProfile,
   SupplierIncident,
   UpsertSupplierComplianceInput,
@@ -18,6 +20,27 @@ const COMPLIANCE_KEY = 'sicted-supplier-compliance';
 const INCIDENTS_KEY = 'sicted-supplier-incidents';
 const INVENTORY_KEY = 'sicted-inventory-snapshots';
 const EVIDENCE_KEY = 'sicted-procurement-evidence';
+
+// --- Opciones de los selectores ----------------------------------------------
+// Endpoints propios de SICTED: el listado de Proveedores/Albaranes exige esas
+// secciones, ocultas a menudo al rol USER, y el selector salía vacío (403).
+
+export function useSictedSupplierOptions() {
+  return useQuery<SictedSupplierOption[], Error>({
+    // Prefijo 'suppliers': crear/editar un proveedor también refresca esto.
+    queryKey: ['suppliers', 'sicted-options'],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/options`)).data,
+  });
+}
+
+export function useSictedAlbaranOptions(supplierId: string) {
+  return useQuery<SictedAlbaranOption[], Error>({
+    queryKey: ['albaranes', 'sicted-options', supplierId],
+    queryFn: async () =>
+      (await apiClient.get(`${BASE_URL}/albaran-options`, { params: { supplierId } })).data,
+    enabled: !!supplierId,
+  });
+}
 
 // --- Perfil de cumplimiento (PROV.1) -----------------------------------------
 

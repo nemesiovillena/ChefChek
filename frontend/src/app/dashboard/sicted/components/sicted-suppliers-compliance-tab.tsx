@@ -3,8 +3,12 @@
 import { useState } from 'react';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
-import { useSuppliers } from '@/hooks/use-suppliers';
-import { useSictedSupplierCompliances, useSictedSupplierIncidents, useUpsertSictedSupplierCompliance } from '@/hooks/use-sicted-suppliers';
+import {
+  useSictedSupplierCompliances,
+  useSictedSupplierIncidents,
+  useSictedSupplierOptions,
+  useUpsertSictedSupplierCompliance,
+} from '@/hooks/use-sicted-suppliers';
 import {
   COMPLIANCE_TRISTATE,
   COMPLIANCE_TRISTATE_LABELS,
@@ -152,7 +156,7 @@ function SictedSupplierComplianceCard({ supplierId, supplierName }: { supplierId
 
 /** PROV.1 — perfil de cumplimiento por proveedor. Nombre/contacto/RSI son evidencia (`Supplier`); esto es lo que `Supplier` no tiene. */
 export function SictedSuppliersComplianceTab() {
-  const { data: suppliers, isLoading } = useSuppliers({ isActive: true });
+  const { data: suppliers, isLoading } = useSictedSupplierOptions();
 
   if (isLoading) {
     return (
