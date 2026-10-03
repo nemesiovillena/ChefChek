@@ -158,11 +158,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className={`${isDark ? 'dark' : ''} min-h-screen bg-background text-foreground`}>
       {/* Top Navigation Shell */}
-      <header className="fixed top-0 w-full z-50 bg-surface-container flex justify-between items-center px-margin-desktop h-stack-xl border-b border-border">
+      <header className="fixed top-0 w-full z-50 bg-surface-container flex justify-between items-center px-4 2xl:px-margin-desktop h-stack-xl border-b border-border">
         <div className="flex items-center gap-gutter">
           <h1 className="font-display text-display tracking-tight text-primary uppercase cursor-pointer" onClick={() => router.push('/dashboard')}>CHEFCHEK</h1>
         </div>
-        <div className="hidden md:flex items-center gap-stack-lg ml-gutter">
+        <div className="hidden md:flex items-center gap-3 2xl:gap-stack-lg ml-3 2xl:ml-gutter">
           {visibleGroups.map((group) => (
             <div key={group.title} className="relative shrink-0">
               <button
@@ -170,7 +170,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1 uppercase whitespace-nowrap"
               >
                 {group.title}
-                <span className="material-symbols-outlined text-[16px]">{openGroup === group.title ? 'expand_less' : 'expand_more'}</span>
+                <span className="material-symbols-outlined text-[16px] max-lg:hidden!">{openGroup === group.title ? 'expand_less' : 'expand_more'}</span>
               </button>
               {openGroup === group.title && (
                 <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden p-2">
@@ -191,15 +191,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
           <Link
             href={SETTINGS_LINK.href}
-            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 whitespace-nowrap shrink-0"
+            className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 whitespace-nowrap shrink-0 hidden lg:block"
           >
             {SETTINGS_LINK.label.toUpperCase()}
           </Link>
         </div>
-        <div className="flex items-center gap-stack-md">
-          <div className="text-right hidden sm:block">
-            <p className="font-label-sm text-label-sm text-on-surface-variant">{(user?.role || 'CHEF DE CUISINE').toUpperCase()}</p>
-            <p className="font-body-md text-body-md text-primary">{user?.name || 'Marcus V.'}</p>
+        <div className="flex items-center gap-stack-md shrink-0">
+          {/* Nombre/rol solo desde xl y truncado: por debajo el menú ocupa el ancho y empujaba fuera el botón de cerrar sesión */}
+          <div className="text-right hidden sm:block md:hidden xl:block max-w-44">
+            <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{(user?.role || 'CHEF DE CUISINE').toUpperCase()}</p>
+            <p className="font-body-md text-body-md text-primary truncate">{user?.name || 'Marcus V.'}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => router.push('/dashboard/settings')}>
             {user?.avatarUrl ? (
