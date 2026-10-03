@@ -47,6 +47,31 @@ export class SictedSuppliersController {
     private readonly evidence: SictedProcurementEvidenceService,
   ) {}
 
+  // ─────────────────────────────────────────────── Opciones de los selectores
+
+  @Get("options")
+  @Roles("USER")
+  async supplierOptions(@Req() req: any) {
+    const data = await this.incidents.listSupplierOptions(req.tenantId);
+    return { success: true, data };
+  }
+
+  @Get("albaran-options")
+  @Roles("USER")
+  async albaranOptions(
+    @Req() req: any,
+    @Query("supplierId") supplierId?: string,
+  ) {
+    if (!supplierId) {
+      throw new BadRequestException("supplierId es obligatorio");
+    }
+    const data = await this.incidents.listAlbaranOptions(
+      req.tenantId,
+      supplierId,
+    );
+    return { success: true, data };
+  }
+
   // ────────────────────────────────────────── Perfil de cumplimiento (PROV.1)
 
   @Get("compliance")
