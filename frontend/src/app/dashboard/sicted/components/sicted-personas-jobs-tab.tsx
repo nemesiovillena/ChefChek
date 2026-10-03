@@ -11,6 +11,7 @@ import {
   useSictedUnassignedUsers,
 } from '@/hooks/use-sicted-personas';
 import type { JobProfile, JobProfileInput } from '@/lib/sicted-personas-types';
+import { SictedJobProfileAreasRow } from './sicted-job-profile-areas-row';
 
 const inputCls =
   'min-h-[48px] w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 text-base';
@@ -190,6 +191,7 @@ export function SictedPersonasJobsTab() {
                   ))}
                 </ul>
               )}
+              <SictedJobProfileAreasRow profile={p} canManage={canManage} />
               <AssignPersonRow profile={p} canManage={canManage} />
             </div>
           ))}

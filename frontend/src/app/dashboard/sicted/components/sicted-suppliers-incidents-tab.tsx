@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Plus } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
-import { useSuppliers } from '@/hooks/use-suppliers';
-import { listAlbaranes } from '@/lib/api-albaran';
 import {
   useCreateSictedSupplierIncident,
   useResolveSictedSupplierIncident,
+  useSictedAlbaranOptions,
   useSictedSupplierIncidents,
+  useSictedSupplierOptions,
 } from '@/hooks/use-sicted-suppliers';
 import type { CreateSupplierIncidentInput } from '@/lib/sicted-supplier-types';
 
@@ -30,23 +29,14 @@ const fmtDateTime = (iso: string) =>
 /** Alta de incidencia — formulario real PROV.3: fecha, proveedor, nº de albarán, ¿transporte correcto?, temperatura, causa de rechazo, firma. */
 function SictedSupplierIncidentForm({ onSaved, onCancel }: { onSaved: () => void; onCancel: () => void }) {
   const notify = useNotification();
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers, isError: suppliersError } = useSictedSupplierOptions();
   const create = useCreateSictedSupplierIncident();
   const [form, setForm] = useState<CreateSupplierIncidentInput>({
     supplierId: '',
     description: '',
     reportedByName: '',
   });
-  // `useAlbaranes` guarda su filtro en un `useState` que solo lee el
-  // argumento en el montaje — no reacciona a que `form.supplierId` cambie en
-  // renders posteriores (el desplegable se quedaba siempre vacío tras elegir
-  // proveedor). `useQuery` directo sí es reactivo al `queryKey`.
-  const { data: recentAlbaranesPage } = useQuery({
-    queryKey: ['albaranes', 'sicted-incident-picker', form.supplierId],
-    queryFn: () => listAlbaranes({ supplierId: form.supplierId, limit: 10 }),
-    enabled: !!form.supplierId,
-  });
-  const recentAlbaranes = recentAlbaranesPage?.data ?? [];
+  const { data: recentAlbaranes = [] } = useSictedAlbaranOptions(form.supplierId);
 
   const set = <K extends keyof CreateSupplierIncidentInput>(key: K, value: CreateSupplierIncidentInput[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -81,7 +71,13 @@ function SictedSupplierIncidentForm({ onSaved, onCancel }: { onSaved: () => void
         className={inputCls}
         style={{ colorScheme: 'light dark' }}
       >
-        <option value="">Proveedor…</option>
+        <option value="">
+          {suppliersError
+            ? 'No se pudieron cargar los proveedores'
+            : suppliers && suppliers.length === 0
+              ? 'No hay proveedores activos'
+              : 'Proveedor…'}
+        </option>
         {(suppliers ?? []).map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}

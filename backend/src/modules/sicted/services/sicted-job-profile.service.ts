@@ -6,6 +6,16 @@ import {
   UpdateJobProfileDto,
 } from "../dto/sicted-job-profile.dto";
 
+const MANAGER_ROLES: string[] = ["ADMIN", "OWNER", "SUPERADMIN"];
+
+/** Quita vacíos y duplicados; `undefined` se respeta (en una edición = no tocar). */
+function cleanAreas(areas: string[] | undefined): string[] | undefined {
+  if (!areas) {
+    return undefined;
+  }
+  return [...new Set(areas.map((a) => a.trim()).filter(Boolean))];
+}
+
 /**
  * Fichas de puesto (Personas) — datos organizativos, se editan (no
  * append-only, a diferencia del resto de fase 7). `version` se incrementa en
@@ -55,6 +65,7 @@ export class SictedJobProfileService {
         tasks: dto.tasks ?? [],
         requirements: dto.requirements,
         reportsTo: dto.reportsTo,
+        areas: cleanAreas(dto.areas) ?? [],
       },
     });
   }
@@ -70,6 +81,7 @@ export class SictedJobProfileService {
         tasks: dto.tasks,
         requirements: dto.requirements,
         reportsTo: dto.reportsTo,
+        areas: cleanAreas(dto.areas),
         version: { increment: 1 },
       },
     });
@@ -111,6 +123,32 @@ export class SictedJobProfileService {
         },
       });
     });
+  }
+
+  /**
+   * Áreas del Plan que le tocan a este usuario según su puesto vigente, para
+   * que en "Hojas" vea primero solo las suyas. Vacío = sin filtro: encargados
+   * (ADMIN/OWNER/SUPERADMIN), cuentas compartidas (las usa cualquiera) y
+   * quien no tiene puesto o tiene un puesto sin áreas.
+   */
+  async areasForUser(tenantId: string, userId: string): Promise<string[]> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, tenantId },
+      select: { role: true, isSharedAccount: true },
+    });
+    if (!user || user.isSharedAccount || MANAGER_ROLES.includes(user.role)) {
+      return [];
+    }
+    const assignment = await this.prisma.sictedJobAssignment.findFirst({
+      where: {
+        tenantId,
+        userId,
+        until: null,
+        profile: { archivedAt: null },
+      },
+      select: { profile: { select: { areas: true } } },
+    });
+    return assignment?.profile.areas ?? [];
   }
 
   /** "Cada empleado con puesto asignado" (criterio de éxito) — usuarios activos del tenant sin asignación vigente. */
