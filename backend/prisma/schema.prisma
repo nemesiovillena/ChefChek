@@ -1431,6 +1431,7 @@ model SictedJobProfile {
   tasks            String[] // lista de tareas, texto libre
   requirements     String?
   reportsTo        String? // texto libre (nombre de puesto), sin auto-relación
+  areas            String[] @default([]) // áreas del Plan (ChecklistTemplate.area) cuyas hojas ve quien tiene este puesto; vacío = todas
   version          Int       @default(1) // se incrementa al editar; no dispara reacuse (no hay acuse en fichas de puesto)
   archivedAt       DateTime?
   createdAt        DateTime  @default(now())

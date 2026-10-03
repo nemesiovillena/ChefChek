@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, ChevronRight, Circle, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
-import { useSictedRunsToday } from '@/hooks/use-sicted';
+import { useSictedMyAreas, useSictedRunsToday } from '@/hooks/use-sicted';
 import {
   CHECKLIST_FREQUENCIES,
   CHECKLIST_MODE_LABELS,
@@ -29,14 +29,18 @@ const PERIOD_SECTION_TITLES: Record<ChecklistFrequency, string> = {
  * "Hoy": hojas por hacer → checklist en la misma página (maestro-detalle, sin ruta extra).
  * Pendientes arriba por periodo (día, semana, mes…) y área: la semanal sale desde el lunes y sigue
  * hasta que se haga. Las terminadas bajan a "Hechas hoy" (siguen abribles para validar o consultar).
+ * Si la ficha de puesto del usuario tiene áreas, por defecto solo se ven esas; "Ver todas" muestra el resto
+ * (p. ej. para cubrir a un compañero).
  */
 export default function SictedHoyPage() {
   const router = useRouter();
   const { isLoading: authLoading } = useAuth();
   const { data: runs, isLoading } = useSictedRunsToday();
+  const { data: myAreas, isLoading: areasLoading } = useSictedMyAreas();
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [showAllAreas, setShowAllAreas] = useState(false);
 
-  if (authLoading || isLoading) {
+  if (authLoading || isLoading || areasLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-[var(--primary)]" />
@@ -68,8 +72,13 @@ export default function SictedHoyPage() {
     );
   }
 
-  const pending = (runs ?? []).filter((run) => run.status === 'OPEN');
-  const done = (runs ?? []).filter((run) => run.status !== 'OPEN');
+  // El área de la hoja es texto libre en el Plan: se compara sin espacios ni mayúsculas.
+  const normalizeArea = (area: string) => area.trim().toLocaleLowerCase('es');
+  const ownAreas = new Set((myAreas ?? []).map(normalizeArea));
+  const filterByArea = ownAreas.size > 0 && !showAllAreas;
+  const visibleRuns = (runs ?? []).filter((run) => !filterByArea || ownAreas.has(normalizeArea(run.template.area)));
+  const pending = visibleRuns.filter((run) => run.status === 'OPEN');
+  const done = visibleRuns.filter((run) => run.status !== 'OPEN');
   const pendingSections = CHECKLIST_FREQUENCIES.map((frequency) => ({
     frequency,
     byArea: pending
@@ -95,14 +104,27 @@ export default function SictedHoyPage() {
         {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
 
-      {!runs || runs.length === 0 ? (
+      {ownAreas.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-[var(--on-surface-variant)]">
+          <span>{showAllAreas ? 'Todas las áreas' : `Tus áreas: ${(myAreas ?? []).join(', ')}`}</span>
+          <button
+            type="button"
+            onClick={() => setShowAllAreas((v) => !v)}
+            className="min-h-[36px] rounded-lg border border-[var(--outline-variant)] px-3 font-medium text-[var(--primary)]"
+          >
+            {showAllAreas ? 'Ver solo las mías' : 'Ver todas'}
+          </button>
+        </div>
+      )}
+
+      {visibleRuns.length === 0 ? (
         <div className="mt-5 rounded-xl border border-dashed border-[var(--outline-variant)] p-10 text-center text-[var(--on-surface-variant)]">
-          No hay hojas pendientes.
+          {filterByArea ? 'No hay hojas pendientes en tus áreas.' : 'No hay hojas pendientes.'}
         </div>
       ) : (
         <>
           <p className="mb-6 text-sm text-[var(--on-surface-variant)]">
-            {pending.length > 0 ? `Te quedan ${pending.length} de ${runs.length}` : `Hechas las ${runs.length}`}
+            {pending.length > 0 ? `Te quedan ${pending.length} de ${visibleRuns.length}` : `Hechas las ${visibleRuns.length}`}
           </p>
 
           {pending.length === 0 && (

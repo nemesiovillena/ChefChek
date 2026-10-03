@@ -20,6 +20,7 @@ import {
 import { Roles } from "../../decorators/roles.decorator";
 import { ChecklistTemplateService } from "../checklists/services/checklist-template.service";
 import { ChecklistRunService } from "../checklists/services/checklist-run.service";
+import { SictedJobProfileService } from "./services/sicted-job-profile.service";
 import {
   CreateChecklistTemplateDto,
   ImportChecklistTemplatesDto,
@@ -48,6 +49,7 @@ export class SictedChecklistController {
   constructor(
     private readonly templates: ChecklistTemplateService,
     private readonly runs: ChecklistRunService,
+    private readonly jobProfiles: SictedJobProfileService,
   ) {}
 
   @Get("templates")
@@ -136,6 +138,14 @@ export class SictedChecklistController {
       );
     }
     return { success: true, data: created };
+  }
+
+  /** Áreas de las hojas que le tocan al usuario por su puesto; vacío = ve todas. */
+  @Get("my-areas")
+  @Roles("USER")
+  async myAreas(@Req() req: any) {
+    const data = await this.jobProfiles.areasForUser(req.tenantId, req.user.id);
+    return { success: true, data };
   }
 
   @Get("runs/today")
