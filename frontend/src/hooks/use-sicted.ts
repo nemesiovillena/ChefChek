@@ -109,7 +109,7 @@ export function useSictedRunsToday(enabled = true) {
   });
 }
 
-/** Áreas que le tocan al usuario por su ficha de puesto; vacío = ve todas (encargados, cuentas compartidas, sin puesto). */
+/** Áreas que le tocan al usuario por su ficha de puesto; vacío = ve todas (encargados, sin puesto). */
 export function useSictedMyAreas() {
   return useQuery<string[], Error>({
     queryKey: [MY_AREAS_KEY],
