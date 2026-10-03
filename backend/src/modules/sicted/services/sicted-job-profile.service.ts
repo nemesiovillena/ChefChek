@@ -127,16 +127,17 @@ export class SictedJobProfileService {
 
   /**
    * Áreas del Plan que le tocan a este usuario según su puesto vigente, para
-   * que en "Hojas" vea primero solo las suyas. Vacío = sin filtro: encargados
-   * (ADMIN/OWNER/SUPERADMIN), cuentas compartidas (las usa cualquiera) y
-   * quien no tiene puesto o tiene un puesto sin áreas.
+   * que en "Hojas" vea primero solo las suyas. Una cuenta compartida (p. ej.
+   * el dispositivo de cocina) también filtra por su puesto. Vacío = sin
+   * filtro: encargados (ADMIN/OWNER/SUPERADMIN) y quien no tiene puesto o
+   * tiene un puesto sin áreas.
    */
   async areasForUser(tenantId: string, userId: string): Promise<string[]> {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
-      select: { role: true, isSharedAccount: true },
+      select: { role: true },
     });
-    if (!user || user.isSharedAccount || MANAGER_ROLES.includes(user.role)) {
+    if (!user || MANAGER_ROLES.includes(user.role)) {
       return [];
     }
     const assignment = await this.prisma.sictedJobAssignment.findFirst({
