@@ -227,7 +227,7 @@ describe("E2E - SictedChecklistController (fase 2)", () => {
     expect(res.body.data.some((t: any) => t.id === appccOnly.id)).toBe(false);
   });
 
-  it("my-areas: el usuario ve las áreas de su puesto; el encargado y quien no tiene puesto, ninguna (= todas)", async () => {
+  it("my-areas: el usuario (también una cuenta compartida) ve las áreas de su puesto; el encargado y quien no tiene puesto, ninguna (= todas)", async () => {
     const before = await api(userSession).get("/my-areas");
     expect(before.status).toBe(200);
     expect(before.body.data).toEqual([]);
@@ -261,6 +261,18 @@ describe("E2E - SictedChecklistController (fase 2)", () => {
 
     const mine = await api(userSession).get("/my-areas");
     expect(mine.body.data).toEqual(["Bar", "Comedor"]);
+
+    // La cuenta compartida (dispositivo de cocina) también filtra por su puesto.
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isSharedAccount: true },
+    });
+    const shared = await api(userSession).get("/my-areas");
+    expect(shared.body.data).toEqual(["Bar", "Comedor"]);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { isSharedAccount: false },
+    });
     const adminAreas = await api(adminSession).get("/my-areas");
     expect(adminAreas.body.data).toEqual([]);
   });
