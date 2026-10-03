@@ -21,6 +21,8 @@ export interface JobProfile {
   tasks: string[];
   requirements: string | null;
   reportsTo: string | null;
+  /** Áreas del Plan cuyas hojas ve quien tiene este puesto; vacío = todas. */
+  areas: string[];
   version: number;
   archivedAt: string | null;
   assignments: JobAssignment[];
@@ -33,6 +35,7 @@ export interface JobProfileInput {
   tasks?: string[];
   requirements?: string;
   reportsTo?: string;
+  areas?: string[];
 }
 
 export interface UnassignedUser {

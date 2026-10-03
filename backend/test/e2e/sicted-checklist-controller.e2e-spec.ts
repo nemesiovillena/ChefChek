@@ -91,6 +91,8 @@ describe("E2E - SictedChecklistController (fase 2)", () => {
       await tx.checklistTemplateItem.deleteMany({ where: { tenantId } });
       await tx.checklistTemplate.deleteMany({ where: { tenantId } });
     });
+    await prisma.sictedJobAssignment.deleteMany({ where: { tenantId } });
+    await prisma.sictedJobProfile.deleteMany({ where: { tenantId } });
     await prisma.configuration.deleteMany({ where: { tenantId } });
     await prisma.session.deleteMany({ where: { user: { tenantId } } });
     await prisma.user.deleteMany({ where: { tenantId } });
@@ -223,5 +225,43 @@ describe("E2E - SictedChecklistController (fase 2)", () => {
     });
     const res = await api(adminSession).get(`/templates`);
     expect(res.body.data.some((t: any) => t.id === appccOnly.id)).toBe(false);
+  });
+
+  it("my-areas: el usuario ve las áreas de su puesto; el encargado y quien no tiene puesto, ninguna (= todas)", async () => {
+    const before = await api(userSession).get("/my-areas");
+    expect(before.status).toBe(200);
+    expect(before.body.data).toEqual([]);
+
+    const personas = (path: string, body: object) =>
+      request(app.getHttpServer())
+        .post(`/api/v1/sicted/personas${path}`)
+        .set({
+          Authorization: `Bearer ${adminSession}`,
+          "X-Tenant-Slug": tenant.slug,
+        })
+        .send(body);
+    const profile = await personas("/job-profiles", {
+      title: "Camarero/a",
+      areas: ["Bar", " Comedor ", "Bar", ""],
+    });
+    expect(profile.status).toBe(201);
+    const user = await prisma.user.findFirstOrThrow({
+      where: { tenantId, email: "chk-user@test.com" },
+    });
+    const admin = await prisma.user.findFirstOrThrow({
+      where: { tenantId, email: "chk-admin@test.com" },
+    });
+    for (const userId of [user.id, admin.id]) {
+      const assigned = await personas(
+        `/job-profiles/${profile.body.data.id}/assign`,
+        { userId },
+      );
+      expect(assigned.status).toBe(201);
+    }
+
+    const mine = await api(userSession).get("/my-areas");
+    expect(mine.body.data).toEqual(["Bar", "Comedor"]);
+    const adminAreas = await api(adminSession).get("/my-areas");
+    expect(adminAreas.body.data).toEqual([]);
   });
 });

@@ -37,6 +37,13 @@ export class CreateJobProfileDto {
   @IsString()
   @MaxLength(200)
   reportsTo?: string;
+
+  /** Áreas del Plan cuyas hojas ve quien tiene este puesto; vacío = todas. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  areas?: string[];
 }
 
 export class UpdateJobProfileDto extends CreateJobProfileDto {}

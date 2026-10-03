@@ -18,6 +18,7 @@ const RUNS_TODAY_KEY = 'sicted-runs-today';
 const RUNS_KEY = 'sicted-runs';
 const RUN_KEY = 'sicted-run';
 const PERFORMERS_KEY = 'sicted-performers';
+const MY_AREAS_KEY = 'sicted-my-areas';
 
 // --- Plantillas (el Plan) -------------------------------------------------
 
@@ -105,6 +106,14 @@ export function useSictedRunsToday(enabled = true) {
     queryKey: [RUNS_TODAY_KEY],
     queryFn: async () => (await apiClient.get(`${BASE_URL}/runs/today`)).data,
     enabled,
+  });
+}
+
+/** Áreas que le tocan al usuario por su ficha de puesto; vacío = ve todas (encargados, cuentas compartidas, sin puesto). */
+export function useSictedMyAreas() {
+  return useQuery<string[], Error>({
+    queryKey: [MY_AREAS_KEY],
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/my-areas`)).data,
   });
 }
 
