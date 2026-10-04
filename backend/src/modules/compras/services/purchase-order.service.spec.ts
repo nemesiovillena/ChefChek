@@ -152,10 +152,15 @@ describe("PurchaseOrderService", () => {
   });
 
   describe("update", () => {
-    it("400 fuera de BORRADOR", async () => {
+    it.each([
+      PurchaseOrderStatus.ENVIADO,
+      PurchaseOrderStatus.RECIBIDO_PARCIAL,
+      PurchaseOrderStatus.RECIBIDO,
+      PurchaseOrderStatus.CANCELADO,
+    ])("400 al editar un pedido en %s", async (status) => {
       prismaMock.purchaseOrder.findFirst.mockResolvedValue({
         id: "o1",
-        status: PurchaseOrderStatus.ENVIADO,
+        status,
         supplierId: supplier.id,
       });
       await expect(
@@ -163,10 +168,13 @@ describe("PurchaseOrderService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("reemplaza líneas y recalcula el total en BORRADOR", async () => {
+    it.each([
+      PurchaseOrderStatus.BORRADOR,
+      PurchaseOrderStatus.PENDIENTE_ENVIO,
+    ])("reemplaza líneas y recalcula el total en %s", async (status) => {
       prismaMock.purchaseOrder.findFirst.mockResolvedValue({
         id: "o1",
-        status: PurchaseOrderStatus.BORRADOR,
+        status,
         supplierId: supplier.id,
       });
       prismaMock.product.findMany.mockResolvedValue([
