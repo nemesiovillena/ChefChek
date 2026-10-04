@@ -224,6 +224,81 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
     });
   });
 
+  describe("cierre de hojas vencidas", () => {
+    it("la diaria sin hacer se cierra en el cierre nocturno del día siguiente, no un día después", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria sin hacer" }),
+      );
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-08-10T10:00:00Z"),
+      );
+      // 00:10 del 11 en Madrid.
+      const closed = await runs.closeElapsedRuns(
+        tenantId,
+        new Date("2026-08-10T22:10:00Z"),
+      );
+      expect(closed.map((r) => r.templateId)).toContain(template.id);
+    });
+
+    it("una hoja se cierra aunque a su plantilla le hayan cambiado la frecuencia", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria que pasa a semanal" }),
+      );
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-08-12T10:00:00Z"),
+      );
+      await prisma.checklistTemplate.update({
+        where: { id: template.id },
+        data: { frequency: "WEEKLY" },
+      });
+      await runs.closeElapsedRuns(tenantId, new Date("2026-08-14T10:00:00Z"));
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: template.id, periodKey: "2026-08-12" },
+      });
+      expect(run.status).toBe("INCOMPLETE");
+    });
+
+    it("una semanal vencida se encuentra por su fecha de cierre (su periodo empezó hace más de 7 días)", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Semanal vencida", frequency: "WEEKLY" }),
+      );
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-08-19T10:00:00Z"),
+      );
+      const closeAt = new Date("2026-08-23T22:10:00Z"); // lunes 24, 00:10 Madrid
+      await runs.closeElapsedRuns(tenantId, closeAt);
+
+      // Consultada el martes: la ventana de avisos es "últimos 7 días".
+      const weekBefore = new Date(closeAt.getTime() - 6 * 86_400_000);
+      const byClose = await runs.listRuns(tenantId, "sicted", {
+        status: "INCOMPLETE",
+        closedFrom: weekBefore,
+      });
+      expect(byClose.some((r) => r.templateId === template.id)).toBe(true);
+      // El filtro anterior (por inicio de periodo) la dejaba fuera.
+      const byStart = await runs.listRuns(tenantId, "sicted", {
+        status: "INCOMPLETE",
+        from: weekBefore,
+      });
+      expect(byStart.some((r) => r.templateId === template.id)).toBe(false);
+    });
+  });
+
   describe("marcas por modo", () => {
     it("EXECUTION: NOT_DONE sin motivo se rechaza", async () => {
       const template = await templates.create(

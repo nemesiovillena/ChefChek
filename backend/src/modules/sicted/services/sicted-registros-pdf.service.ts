@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import PDFDocument from "pdfkit";
 import { PrismaService } from "../../../common/services/prisma.service";
 import {
+  frequencyOfPeriodKey,
+  madridCalendarDay,
   periodEndFromKey,
   periodStartFromKey,
-  ChecklistFrequency,
 } from "../../checklists/util/checklist-period.util";
 
 const A4_LANDSCAPE: [number, number] = [841.89, 595.28];
@@ -13,8 +14,9 @@ const MARGIN = 28;
 
 /**
  * Cuadrante mensual (el documento de mayor valor para un auditor): filas =
- * ítems, columnas = periodos del mes, celda = ✓/✗/vacío + iniciales, columna
- * de observaciones, fila de validación del supervisor. Determinista: el
+ * ítems, columnas = periodos del mes, celda = OK/NO/vacío, fila con la fecha
+ * en que se realizó cada hoja, columna de observaciones, fila de validación
+ * del supervisor. Determinista: el
  * mismo dato produce siempre el mismo PDF y la misma huella SHA-256 (hash de
  * los datos incluidos, no del PDF en sí — pdfkit no es byte-a-byte estable
  * entre ejecuciones por timestamps internos).
@@ -37,15 +39,21 @@ export class SictedRegistrosPdfService {
 
     const monthStart = periodStartFromKey(monthKey, "MONTHLY");
     const monthEnd = periodEndFromKey(monthKey, "MONTHLY");
-    const runs = await this.prisma.checklistRun.findMany({
-      where: {
-        tenantId,
-        templateId,
-        periodStart: { gte: monthStart, lt: monthEnd },
-      },
+    // Entra toda hoja cuyo periodo pisa el mes, no solo las que empiezan en
+    // él: la semanal del lunes 28 de septiembre cubre también el 1-4 de
+    // octubre, y la trimestral o anual empezaron meses antes.
+    const candidates = await this.prisma.checklistRun.findMany({
+      where: { tenantId, templateId, periodStart: { lt: monthEnd } },
       include: { entries: { orderBy: { recordedAt: "asc" } } },
-      orderBy: { periodKey: "asc" },
+      orderBy: { periodStart: "asc" },
     });
+    const runs = candidates.filter(
+      (run) =>
+        periodEndFromKey(
+          run.periodKey,
+          frequencyOfPeriodKey(run.periodKey),
+        ).getTime() > monthStart.getTime(),
+    );
 
     const items = await this.prisma.checklistTemplateItem.findMany({
       where: { templateId },
@@ -58,7 +66,7 @@ export class SictedRegistrosPdfService {
     doc.on("data", (c) => chunks.push(c));
 
     this.renderHeader(doc, template.name, template.area, monthKey);
-    this.renderGrid(doc, items, runs, template.frequency as ChecklistFrequency);
+    this.renderGrid(doc, items, runs);
     this.renderFooter(doc, runs.length, fingerprint);
 
     doc.end();
@@ -100,12 +108,24 @@ export class SictedRegistrosPdfService {
         recordedAt: Date;
       }>;
     }>,
-    frequency: ChecklistFrequency,
   ): void {
     const labelColW = 130;
     const obsColW = 90;
+    if (runs.length === 0) {
+      doc
+        .font("Helvetica")
+        .fontSize(9)
+        .text("No hay ninguna hoja de este registro en el periodo.");
+      doc.moveDown(0.5);
+      return;
+    }
+    // Las diarias llenan el mes (hasta 31 columnas estrechas); semanales,
+    // mensuales… son pocas y pueden ser anchas para que se lea la fecha.
+    const allDaily = runs.every(
+      (run) => frequencyOfPeriodKey(run.periodKey) === "DAILY",
+    );
     const dayColW = Math.min(
-      20,
+      allDaily ? 20 : 60,
       (A4_LANDSCAPE[0] - 2 * MARGIN - labelColW - obsColW) /
         Math.max(runs.length, 1),
     );
@@ -117,9 +137,9 @@ export class SictedRegistrosPdfService {
     doc.text("Elemento", startX, y, { width: labelColW });
     runs.forEach((run, i) => {
       const dayLabel =
-        frequency === "DAILY"
+        frequencyOfPeriodKey(run.periodKey) === "DAILY"
           ? run.periodKey.slice(-2)
-          : run.periodKey.slice(-3);
+          : run.periodKey;
       doc.text(dayLabel, startX + labelColW + i * dayColW, y, {
         width: dayColW,
         align: "center",
@@ -183,6 +203,23 @@ export class SictedRegistrosPdfService {
     doc
       .font("Helvetica-Bold")
       .fontSize(6.5)
+      .text("Fecha de realización", startX, y, { width: labelColW });
+    doc.font("Helvetica").fontSize(allDaily ? 5.5 : 6.5);
+    runs.forEach((run, i) => {
+      doc.text(
+        this.performedOn(run.entries),
+        startX + labelColW + i * dayColW,
+        y,
+        {
+          width: dayColW,
+          align: "center",
+        },
+      );
+    });
+    y += rowH;
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(6.5)
       .text("Validado por (supervisor)", startX, y, { width: labelColW });
     runs.forEach((run, i) => {
       const initials = run.supervisorName
@@ -195,12 +232,13 @@ export class SictedRegistrosPdfService {
         align: "center",
       });
     });
+    doc.x = startX;
     doc.y = y + rowH + 4;
     doc
       .font("Helvetica")
       .fontSize(6)
       .text(
-        "Leyenda: OK hecho/bien · NO no realizado/mal · — sin marcar · número = medición",
+        "Leyenda: OK hecho/bien · NO no realizado/mal · — sin marcar · número = medición · Fecha de realización = día de la última marca",
       );
   }
 
@@ -234,6 +272,18 @@ export class SictedRegistrosPdfService {
       }
     }
     return current;
+  }
+
+  /** Día (Madrid) de la última marca de la hoja, "dd/mm"; "—" si nadie marcó nada. */
+  private performedOn(entries: { recordedAt: Date }[]): string {
+    if (entries.length === 0) {
+      return "—";
+    }
+    const last = entries.reduce((a, b) =>
+      b.recordedAt >= a.recordedAt ? b : a,
+    );
+    const { d, m } = madridCalendarDay(last.recordedAt);
+    return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
   }
 
   private initials(name: string): string {

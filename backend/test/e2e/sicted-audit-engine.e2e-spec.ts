@@ -4,6 +4,7 @@ import { PrismaService } from "../../src/common/services/prisma.service";
 import { ChecklistTemplateService } from "../../src/modules/checklists/services/checklist-template.service";
 import { ChecklistRunService } from "../../src/modules/checklists/services/checklist-run.service";
 import { SictedCoverageService } from "../../src/modules/sicted/services/sicted-coverage.service";
+import { madridCalendarDay } from "../../src/modules/checklists/util/checklist-period.util";
 import { SictedRegistrosPdfService } from "../../src/modules/sicted/services/sicted-registros-pdf.service";
 import { SictedPlanPdfService } from "../../src/modules/sicted/services/sicted-plan-pdf.service";
 import { SictedAuditCsvService } from "../../src/modules/sicted/services/sicted-audit-csv.service";
@@ -366,6 +367,53 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
       );
       expect(fp(pdf3)).not.toBe(fp(pdf1));
       expect(pdfText(pdf3)).toContain("Sin tiempo");
+    });
+
+    it("registros.pdf: la semanal que empezó el mes anterior sale en el mes que pisa, con su fecha de realización", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        dailyDto({ name: "PDF semanal entre meses", frequency: "WEEKLY" }),
+      );
+      // Semana 2026-W40: lunes 28 de septiembre a domingo 4 de octubre.
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-10-03T10:00:00Z"),
+      );
+      const run = await prisma.checklistRun.findFirstOrThrow({
+        where: { templateId: template.id },
+      });
+      expect(run.periodKey).toBe("2026-W40");
+      await runs.addEntries(tenantId, "sicted", run.id, KITCHEN_ID, [
+        {
+          itemId: template.items[0].id,
+          outcome: "DONE",
+          performedByName: "Bea",
+          performedByUserId: PEOPLE.Bea,
+        } as any,
+      ]);
+      const entry = await prisma.checklistEntry.findFirstOrThrow({
+        where: { runId: run.id },
+      });
+      const { d, m } = madridCalendarDay(entry.recordedAt);
+      const doneOn = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+
+      for (const month of ["2026-09", "2026-10"]) {
+        const text = pdfText(
+          await registrosPdf.generate(tenantId, template.id, month),
+        );
+        expect(text).toContain("1 hoja(s) incluida(s)");
+        expect(text).toContain("2026-W40");
+        expect(text).toContain("OK");
+        expect(text).toContain(doneOn);
+      }
+      const november = pdfText(
+        await registrosPdf.generate(tenantId, template.id, "2026-11"),
+      );
+      expect(november).toContain("0 hoja(s) incluida(s)");
+      expect(november).toContain("No hay ninguna hoja");
     });
 
     it("plan.pdf contiene el nombre de la plantilla y del ítem", async () => {
