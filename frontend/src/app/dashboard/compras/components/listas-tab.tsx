@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
-import { useSuppliers } from '@/hooks/use-suppliers';
 import {
   fetchSupplierCatalogProducts,
+  useCompraSupplierOptions,
   useCreatePurchaseList,
   useDeletePurchaseList,
   useGenerateOrderFromList,
@@ -28,7 +28,7 @@ import { ProductSearchInput } from './product-search-input';
 
 export function ListasTab({ canManage }: { canManage: boolean }) {
   const { data: lists, isLoading, error } = usePurchaseLists();
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const createMut = useCreatePurchaseList();
   const addNotification = useNotification();
 

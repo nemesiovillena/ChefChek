@@ -16,6 +16,11 @@ interface UseProductSearchReturn {
 export interface ProductSearchFilters {
   /** Restringe la búsqueda a artículos cuyo proveedor principal sea este. */
   supplierId?: string;
+  /**
+   * 'compras': busca por el endpoint propio de Compras, accesible aunque el
+   * rol tenga oculta la sección Artículos (devuelve solo id/nombre/unidad/formato).
+   */
+  scope?: 'compras';
 }
 
 export function useProductSearch(
@@ -27,6 +32,7 @@ export function useProductSearch(
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const supplierId = filters?.supplierId;
+  const scope = filters?.scope;
 
   const searchProducts = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -39,6 +45,13 @@ export function useProductSearch(
     setError(null);
 
     try {
+      if (scope === 'compras') {
+        const response = await apiClient.get<Product[]>('/v1/compras/product-options', {
+          params: { search: query, ...(supplierId ? { supplierId } : {}) },
+        });
+        setProducts(response.data || []);
+        return;
+      }
       // El interceptor global de apiClient desenvuelve el envelope paginado
       // { success, data, meta } del backend en { data, total, page, ... }.
       const response = await apiClient.get<{ data: Product[] }>('/v1/products', {
@@ -57,7 +70,7 @@ export function useProductSearch(
     } finally {
       setLoading(false);
     }
-  }, [supplierId]);
+  }, [supplierId, scope]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
