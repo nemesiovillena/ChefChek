@@ -15,7 +15,8 @@ import {
   CHECKLIST_FREQUENCIES,
   ChecklistFrequency,
   computePeriodKey,
-  periodEndFromKey,
+  frequencyOfPeriodKey,
+  isPeriodElapsed,
   periodStartFromKey,
 } from "../util/checklist-period.util";
 import {
@@ -104,6 +105,8 @@ export class ChecklistRunService {
       status?: string;
       area?: string;
       periodKeys?: string[];
+      /** Hojas cerradas (hechas o vencidas) desde este instante. */
+      closedFrom?: Date;
     },
   ) {
     const runs = await this.prisma.checklistRun.findMany({
@@ -117,6 +120,9 @@ export class ChecklistRunService {
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.periodKeys
           ? { periodKey: { in: filters.periodKeys } }
+          : {}),
+        ...(filters.closedFrom
+          ? { closedAt: { gte: filters.closedFrom } }
           : {}),
         ...(filters.from || filters.to
           ? {
@@ -463,7 +469,12 @@ export class ChecklistRunService {
     });
   }
 
-  /** Cierra hojas OPEN de periodos ya terminados como INCOMPLETE. Devuelve las cerradas (para alertar). */
+  /**
+   * Cierra hojas OPEN de periodos ya terminados como INCOMPLETE. Devuelve las
+   * cerradas (para alertar). El periodo se lee de la propia hoja, no de la
+   * plantilla: si a la plantilla le cambiaron la frecuencia, sus hojas
+   * antiguas siguen cerrándose con la frecuencia con que se generaron.
+   */
   async closeElapsedRuns(tenantId: string, now: Date = new Date()) {
     const openRuns = await this.prisma.checklistRun.findMany({
       where: { tenantId, status: "OPEN", periodStart: { lt: now } },
@@ -475,11 +486,8 @@ export class ChecklistRunService {
     });
     const closed: typeof openRuns = [];
     for (const run of openRuns) {
-      const end = periodEndFromKey(
-        run.periodKey,
-        run.template.frequency as ChecklistFrequency,
-      );
-      if (end.getTime() <= now.getTime()) {
+      const frequency = frequencyOfPeriodKey(run.periodKey);
+      if (isPeriodElapsed(run.periodKey, frequency, now)) {
         await this.prisma.checklistRun.update({
           where: { id: run.id },
           data: { status: "INCOMPLETE", closedAt: now },

@@ -171,11 +171,48 @@ export function periodEndFromKey(
   }
 }
 
-/** True si el periodo `periodKey` ya terminó respecto a `now` (candidato a cerrar OPEN → INCOMPLETE). */
+/**
+ * Frecuencia con la que se generó una hoja, deducida del formato de su
+ * `periodKey`. Es la fuente fiable para una hoja ya creada: la frecuencia de
+ * su plantilla puede haberse editado después, y leer la clave con la
+ * frecuencia nueva da fechas inválidas.
+ */
+export function frequencyOfPeriodKey(periodKey: string): ChecklistFrequency {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodKey)) {
+    return "DAILY";
+  }
+  if (/^\d{4}-W\d{2}$/.test(periodKey)) {
+    return "WEEKLY";
+  }
+  if (/^\d{4}-\d{2}$/.test(periodKey)) {
+    return "MONTHLY";
+  }
+  if (/^\d{4}-Q[1-4]$/.test(periodKey)) {
+    return "QUARTERLY";
+  }
+  if (/^\d{4}$/.test(periodKey)) {
+    return "ANNUAL";
+  }
+  throw new Error(`Clave de periodo desconocida: ${periodKey}`);
+}
+
+/**
+ * True si el periodo `periodKey` ya terminó respecto a `now` (candidato a
+ * cerrar OPEN → INCOMPLETE): `now` cae en un periodo posterior en día natural
+ * de Madrid. No se compara con `periodEndFromKey` (mediodía UTC del día
+ * siguiente): el cierre nocturno de las 00:10 dejaría la hoja de ayer abierta
+ * un día más.
+ */
 export function isPeriodElapsed(
   periodKey: string,
   frequency: ChecklistFrequency,
   now: Date,
 ): boolean {
-  return periodEndFromKey(periodKey, frequency).getTime() <= now.getTime();
+  const currentStart = periodStartFromKey(
+    computePeriodKey(now, frequency),
+    frequency,
+  );
+  return (
+    periodStartFromKey(periodKey, frequency).getTime() < currentStart.getTime()
+  );
 }

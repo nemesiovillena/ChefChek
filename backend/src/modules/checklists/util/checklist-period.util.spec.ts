@@ -1,5 +1,6 @@
 import {
   computePeriodKey,
+  frequencyOfPeriodKey,
   isPeriodElapsed,
   madridCalendarDay,
   periodEndFromKey,
@@ -119,6 +120,40 @@ describe("checklist-period.util", () => {
           new Date("2026-09-21T10:00:00Z"),
         ),
       ).toBe(false);
+    });
+
+    it("la diaria de ayer ya ha terminado en el cierre nocturno de las 00:10 de Madrid", () => {
+      // 00:10 del 22 en Madrid (CEST) = 22:10 UTC del 21.
+      expect(
+        isPeriodElapsed(
+          "2026-09-21",
+          "DAILY",
+          new Date("2026-09-21T22:10:00Z"),
+        ),
+      ).toBe(true);
+    });
+
+    it("la semanal sigue viva el domingo y termina al empezar el lunes", () => {
+      expect(
+        isPeriodElapsed("2026-W40", "WEEKLY", new Date("2026-10-04T20:00:00Z")),
+      ).toBe(false);
+      expect(
+        isPeriodElapsed("2026-W40", "WEEKLY", new Date("2026-10-04T22:10:00Z")),
+      ).toBe(true);
+    });
+  });
+
+  describe("frequencyOfPeriodKey", () => {
+    it("deduce la frecuencia del formato de la clave", () => {
+      expect(frequencyOfPeriodKey("2026-09-21")).toBe("DAILY");
+      expect(frequencyOfPeriodKey("2026-W38")).toBe("WEEKLY");
+      expect(frequencyOfPeriodKey("2026-09")).toBe("MONTHLY");
+      expect(frequencyOfPeriodKey("2026-Q3")).toBe("QUARTERLY");
+      expect(frequencyOfPeriodKey("2026")).toBe("ANNUAL");
+    });
+
+    it("rechaza una clave que no es de ningún periodo", () => {
+      expect(() => frequencyOfPeriodKey("septiembre")).toThrow();
     });
   });
 });
