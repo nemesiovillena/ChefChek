@@ -61,7 +61,11 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
   // Una vez validada, el backend rechaza cualquier marca/corrección nueva
   // (ConflictException) — bloquear también en cliente para no ofrecer
   // controles que el servidor va a rechazar.
-  const locked = !!readOnly || !!run.supervisedAt;
+  const sealed = !!run.supervisedAt;
+  // Revisión del encargado: en una hoja de solo lectura aún sin validar puede corregir lo que ya
+  // está marcado (p. ej. un «Hecho» que no se hizo) antes de validarla. No marca ítems nuevos.
+  const reviewing = !!readOnly && !sealed && canSupervise;
+  const locked = sealed || (!!readOnly && !reviewing);
   // Validar no depende de `readOnly`: el encargado puede validar desde Registros hojas de días anteriores.
   const canValidate =
     !run.supervisedAt && run.snapshot.requiresSupervisor && run.status === 'COMPLETED' && canSupervise;
@@ -85,7 +89,7 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
    */
   function draftFor(itemId: string): ChecklistItemDraft | undefined {
     if (drafts[itemId]) return drafts[itemId];
-    if (locked || run!.currentByItem[itemId]) return undefined;
+    if (locked || reviewing || run!.currentByItem[itemId]) return undefined;
     const mode = run!.snapshot.mode;
     if (mode === 'EXECUTION') return { outcome: 'DONE', prefilled: true };
     if (mode === 'INSPECTION') return { outcome: 'OK', prefilled: true };
@@ -158,6 +162,11 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
   async function handleValidate() {
     if (!performer) {
       notify({ type: 'error', title: 'Falta el "quién"', message: 'Elige tu nombre para validar.' });
+      return;
+    }
+    // Validar sella la hoja: una corrección a medias se perdería sin poder rehacerla.
+    if (correctingItemId) {
+      notify({ type: 'error', title: 'Corrección sin guardar', message: 'Guarda o cancela la corrección antes de validar.' });
       return;
     }
     if (confirmValidate) {
@@ -235,6 +244,13 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
         </div>
       )}
 
+      {reviewing && doneCount > 0 && (
+        <p className="rounded-xl bg-[var(--surface-container)] px-3 py-2 text-sm text-[var(--on-surface-variant)]">
+          Si algo no está como se marcó, pulsa «Corregir» en ese ítem, indica el motivo y guarda antes de validar. La marca
+          original se conserva en el histórico.
+        </p>
+      )}
+
       {prefilledCount > 0 && (
         <p className="rounded-xl bg-[var(--surface-container)] px-3 py-2 text-sm text-[var(--on-surface-variant)]">
           {run.snapshot.mode === 'MEASUREMENT'
@@ -253,7 +269,7 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
             history={run.entries.filter((e) => e.itemId === item.id && e.id !== run.currentByItem[item.id]?.id)}
             draft={draftFor(item.id)}
             isCorrecting={correctingItemId === item.id}
-            readOnly={locked}
+            readOnly={locked || (reviewing && !run.currentByItem[item.id])}
             onDraftChange={(draft) => setDrafts((prev) => ({ ...prev, [item.id]: draft }))}
             onStartCorrect={() => {
               setCorrectingItemId(item.id);
