@@ -153,7 +153,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
     !!user?.role &&
     REVERT_ROLES.includes(user.role);
 
-  const isDraft = order.status === 'BORRADOR';
+  // Editable mientras no se ha enviado al proveedor (espejo de EDITABLE_STATUSES backend).
+  const isEditable =
+    order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO';
   const hasReception = ['ENVIADO', 'RECIBIDO_PARCIAL', 'RECIBIDO'].includes(
     order.status,
   );
@@ -437,7 +439,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
               <th className="px-4 py-3 font-medium">Unidad</th>
               <th className="px-4 py-3 text-right font-medium">Precio est.</th>
               <th className="px-4 py-3 text-right font-medium">Importe</th>
-              {isDraft && <th className="px-2 py-3" />}
+              {isEditable && <th className="px-2 py-3" />}
             </tr>
           </thead>
           <tbody>
@@ -448,7 +450,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
               >
                 <td className="px-4 py-2 text-[var(--on-surface)]">{line.name}</td>
                 <td className="px-4 py-2 text-right">
-                  {isDraft ? (
+                  {isEditable ? (
                     <input
                       type="number"
                       min={0.001}
@@ -468,7 +470,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                   )}
                 </td>
                 <td className="px-4 py-2 text-[var(--on-surface-variant)]">
-                  {isDraft ? (
+                  {isEditable ? (
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -506,7 +508,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                   )}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  {isDraft ? (
+                  {isEditable ? (
                     <input
                       type="number"
                       min={0}
@@ -534,7 +536,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                 <td className="px-4 py-2 text-right font-medium text-[var(--on-surface)]">
                   {euro.format(line.quantity * (line.expectedPrice ?? 0))}
                 </td>
-                {isDraft && (
+                {isEditable && (
                   <td className="px-2 py-2">
                     <button
                       onClick={() => {
@@ -559,13 +561,13 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
               <td className="px-4 py-3 text-right text-base font-semibold text-[var(--on-surface)]">
                 {euro.format(total)}
               </td>
-              {isDraft && <td />}
+              {isEditable && <td />}
             </tr>
           </tfoot>
         </table>
       </section>
 
-      {isDraft && (
+      {isEditable && (
         <ProductSearchInput
           // Sin supplierId a propósito: en un borrador se puede pedir puntualmente
           // un artículo que no está vinculado a este proveedor (mismo criterio que
@@ -592,7 +594,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         />
       )}
 
-      {isDraft ? (
+      {isEditable ? (
         <div>
           <label htmlFor="order-additional-items" className="block text-xs font-medium text-[var(--on-surface-variant)]">
             Artículos nuevos
@@ -626,7 +628,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         )
       )}
 
-      {isDraft ? (
+      {isEditable ? (
         <div>
           <label htmlFor="order-notes" className="block text-xs font-medium text-[var(--on-surface-variant)]">
             Notas para el proveedor
@@ -650,7 +652,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
       )}
 
       <footer className="flex flex-wrap items-center gap-3 border-t border-[var(--outline-variant)] pt-4">
-        {isDraft && canManageOrder && (
+        {isEditable && canManageOrder && (
           <button
             onClick={handleSave}
             disabled={!dirty || lines.length === 0 || updateMut.isPending}
@@ -678,9 +680,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
         {canSchedule && (
           <button
             onClick={() => setScheduleOpen(true)}
-            disabled={isDraft && dirty}
+            disabled={isEditable && dirty}
             title={
-              isDraft && dirty
+              isEditable && dirty
                 ? 'Guarda los cambios primero'
                 : 'Repetir este pedido de forma recurrente'
             }
@@ -693,8 +695,8 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
           <button
             key={to}
             onClick={() => handleTransition(to)}
-            disabled={transitionMut.isPending || (isDraft && dirty)}
-            title={isDraft && dirty ? 'Guarda los cambios primero' : undefined}
+            disabled={transitionMut.isPending || (isEditable && dirty)}
+            title={isEditable && dirty ? 'Guarda los cambios primero' : undefined}
             className={
               primary
                 ? 'flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50'

@@ -20,6 +20,12 @@ const ACTIVE_STATUSES: PurchaseOrderStatus[] = [
   PurchaseOrderStatus.ENVIADO,
   PurchaseOrderStatus.RECIBIDO_PARCIAL,
 ];
+// Editables mientras el proveedor no ha recibido nada: tras ENVIADO el pedido
+// es lo que se le comunicó y solo se corrige revirtiéndolo a BORRADOR.
+const EDITABLE_STATUSES: PurchaseOrderStatus[] = [
+  PurchaseOrderStatus.BORRADOR,
+  PurchaseOrderStatus.PENDIENTE_ENVIO,
+];
 const HISTORY_STATUSES: PurchaseOrderStatus[] = [
   PurchaseOrderStatus.RECIBIDO,
   PurchaseOrderStatus.CANCELADO,
@@ -196,7 +202,7 @@ export class PurchaseOrderService {
     return order;
   }
 
-  /** Solo los BORRADOR son editables (notas, local y líneas). */
+  /** Editable (notas, local y líneas) solo antes del envío: BORRADOR y PENDIENTE_ENVIO. */
   async update(tenantId: string, id: string, dto: UpdatePurchaseOrderDto) {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: { id, tenantId },
@@ -204,9 +210,9 @@ export class PurchaseOrderService {
     if (!order) {
       throw new NotFoundException("Pedido no encontrado");
     }
-    if (order.status !== PurchaseOrderStatus.BORRADOR) {
+    if (!EDITABLE_STATUSES.includes(order.status)) {
       throw new BadRequestException(
-        "Solo los pedidos en BORRADOR pueden editarse.",
+        "Solo los pedidos en Borrador o Pendiente de envío pueden editarse.",
       );
     }
     if (dto.locationId) {
