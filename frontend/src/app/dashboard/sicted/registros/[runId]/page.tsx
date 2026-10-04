@@ -6,7 +6,7 @@ import { SictedRunChecklist } from '../../components/sicted-run-checklist';
 
 export const dynamic = 'force-dynamic';
 
-/** Detalle de una hoja: histórico de marcas y correcciones sin edición; el encargado aún puede validarla si está pendiente. */
+/** Detalle de una hoja: histórico de marcas y correcciones; si está pendiente, el encargado aún puede corregir lo marcado y validarla. */
 export default function SictedRunDetailPage() {
   const router = useRouter();
   const params = useParams<{ runId: string }>();
