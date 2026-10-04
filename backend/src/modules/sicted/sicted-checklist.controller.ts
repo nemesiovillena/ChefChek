@@ -165,8 +165,10 @@ export class SictedChecklistController {
     @Query("templateId") templateId?: string,
     @Query("status") status?: string,
     @Query("area") area?: string,
+    @Query("closedFrom") closedFrom?: string,
   ) {
     const data = await this.runs.listRuns(req.tenantId, this.module, {
+      closedFrom: closedFrom ? new Date(closedFrom) : undefined,
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
       templateId,

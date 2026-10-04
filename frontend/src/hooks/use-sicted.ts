@@ -120,6 +120,8 @@ export function useSictedMyAreas() {
 export interface SictedRunsFilters {
   from?: string;
   to?: string;
+  /** Cerradas (hechas o vencidas) desde este instante. */
+  closedFrom?: string;
   templateId?: string;
   status?: string;
   area?: string;
@@ -142,7 +144,10 @@ function daysAgoIso(days: number) {
   return d.toISOString();
 }
 
-/** Ventanas de los avisos: una hoja sin validar se sigue avisando un mes; las vencidas, una semana. */
+/**
+ * Ventanas de los avisos: una hoja sin validar se sigue avisando un mes; las vencidas, una semana
+ * desde que se cerraron (no desde que empezó su periodo: una semanal vence a los 7 días de empezar).
+ */
 const PENDING_VALIDATION_DAYS = 30;
 const OVERDUE_DAYS = 7;
 
@@ -157,7 +162,7 @@ export function useSictedStatus(enabled = true) {
   );
   const today = useSictedRunsToday(enabled);
   const completed = useSictedRuns({ status: 'COMPLETED', from: validationFrom }, enabled);
-  const overdue = useSictedRuns({ status: 'INCOMPLETE', from: overdueFrom }, enabled);
+  const overdue = useSictedRuns({ status: 'INCOMPLETE', closedFrom: overdueFrom }, enabled);
 
   const runsToday = today.data ?? [];
   return {
