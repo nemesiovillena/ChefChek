@@ -473,8 +473,11 @@ export class ComprasController {
 
   @Patch("pedidos/:id")
   @Roles("ADMIN", "USER")
-  @ApiOperation({ summary: "Editar pedido (solo BORRADOR)" })
-  @ApiResponse({ status: 400, description: "Solo BORRADOR es editable" })
+  @ApiOperation({ summary: "Editar pedido (solo BORRADOR o PENDIENTE_ENVIO)" })
+  @ApiResponse({
+    status: 400,
+    description: "Solo BORRADOR y PENDIENTE_ENVIO son editables",
+  })
   async updateOrder(
     @Req() req: any,
     @Param("id") id: string,
