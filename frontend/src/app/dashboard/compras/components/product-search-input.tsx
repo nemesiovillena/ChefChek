@@ -34,6 +34,7 @@ export function ProductSearchInput({
 }) {
   const { products, loading, search, setSearch } = useProductSearch(300, {
     supplierId,
+    scope: 'compras',
   });
   const [open, setOpen] = useState(false);
   const addNotification = useNotification();

@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import { BarChart3, Download, Loader2 } from 'lucide-react';
 import { formatEuro } from '@/lib/utils';
-import { useSuppliers } from '@/hooks/use-suppliers';
+import { useCompraSupplierOptions } from '@/hooks/use-purchase-lists';
 import { useLocations } from '@/hooks/use-locations';
 import {
   useDeviationsOverTime,
@@ -48,7 +48,7 @@ function FiltersBar({
   filters: AnalyticsFilters;
   onChange: (f: AnalyticsFilters) => void;
 }) {
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const { data: locations } = useLocations();
 
   return (

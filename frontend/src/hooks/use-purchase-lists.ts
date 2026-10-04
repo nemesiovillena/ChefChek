@@ -48,17 +48,36 @@ const BASE_URL = '/v1/compras/listas';
 const QUERY_KEY = ['purchase-lists'];
 
 /**
- * Catálogo completo (sin paginar) de artículos de un proveedor — principal o
- * con oferta activa en ProductSupplierOffer. Mismo patrón que el export CSV
- * de Artículos (`?export=true`).
+ * Catálogo completo (sin paginar) de artículos activos de un proveedor —
+ * principal o con oferta activa en ProductSupplierOffer. Usa el endpoint
+ * propio de Compras (no el listado de Artículos) para que funcione aunque el
+ * rol tenga oculta la sección Artículos.
  */
 export async function fetchSupplierCatalogProducts(
   supplierId: string,
 ): Promise<SupplierCatalogProduct[]> {
-  const response = await apiClient.get<{ data: SupplierCatalogProduct[] }>('/v1/products', {
-    params: { supplier: supplierId, isActive: true, export: 'true' },
-  });
-  return response.data?.data ?? [];
+  const response = await apiClient.get<SupplierCatalogProduct[]>(
+    '/v1/compras/product-options',
+    { params: { supplierId } },
+  );
+  return response.data ?? [];
+}
+
+export interface CompraSupplierOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Proveedores activos para los desplegables de Compras, accesibles aunque el
+ * rol tenga oculta la sección Proveedores. Cuelga de la queryKey 'suppliers'
+ * para refrescarse cuando se crea o edita un proveedor.
+ */
+export function useCompraSupplierOptions() {
+  return useApiQuery<CompraSupplierOption[]>(
+    ['suppliers', 'compras-options'],
+    '/v1/compras/supplier-options',
+  );
 }
 
 export function usePurchaseLists() {

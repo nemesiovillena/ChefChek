@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
-import { useSuppliers } from '@/hooks/use-suppliers';
+import { useCompraSupplierOptions } from '@/hooks/use-purchase-lists';
 import {
   ACTIVE_ORDER_STATUSES,
   HISTORY_ORDER_STATUSES,
@@ -36,7 +36,7 @@ export function PedidosTab() {
   const [dateTo, setDateTo] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const { data, isLoading, error } = usePurchaseOrders({
     page,
     limit: 25,

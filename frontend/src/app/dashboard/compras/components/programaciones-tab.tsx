@@ -4,9 +4,8 @@ import { useMemo, useState } from 'react';
 import { CalendarClock, Loader2, Plus, Power, Trash2 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
-import { useSuppliers } from '@/hooks/use-suppliers';
 import { useLocations } from '@/hooks/use-locations';
-import { usePurchaseLists } from '@/hooks/use-purchase-lists';
+import { useCompraSupplierOptions, usePurchaseLists } from '@/hooks/use-purchase-lists';
 import {
   PURCHASE_SCHEDULE_DAYS,
   useCreatePurchaseSchedule,
@@ -46,7 +45,7 @@ function formatTime(iso: string): string {
 
 export function ProgramacionesTab({ canManage }: { canManage: boolean }) {
   const { data: schedules, isLoading, error } = usePurchaseSchedules();
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const { data: lists } = usePurchaseLists();
   const { data: locations } = useLocations();
   const createMut = useCreatePurchaseSchedule();
