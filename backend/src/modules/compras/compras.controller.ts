@@ -169,6 +169,36 @@ export class ComprasController {
     return { success: true, data };
   }
 
+  // ── Selectores de artículo/proveedor propios de Compras ──
+
+  @Get("product-options")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Artículos para los selectores de Compras (catálogo del proveedor o búsqueda)",
+  })
+  async productOptions(
+    @Req() req: any,
+    @Query("supplierId") supplierId?: string,
+    @Query("search") search?: string,
+  ) {
+    const data = await this.purchaseListService.productOptions(req.tenantId, {
+      supplierId,
+      search,
+    });
+    return { success: true, data };
+  }
+
+  @Get("supplier-options")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary: "Proveedores activos para los selectores de Compras",
+  })
+  async supplierOptions(@Req() req: any) {
+    const data = await this.purchaseListService.supplierOptions(req.tenantId);
+    return { success: true, data };
+  }
+
   // ── Listas de compra (checklist por proveedor) ──
 
   @Get("listas")

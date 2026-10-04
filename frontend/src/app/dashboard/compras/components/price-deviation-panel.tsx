@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
-import { useSuppliers } from '@/hooks/use-suppliers';
+import { useCompraSupplierOptions } from '@/hooks/use-purchase-lists';
 import {
   usePriceDeviations,
   usePriceTolerance,
@@ -39,7 +39,7 @@ const STATUS_OPTIONS: PriceDeviationStatus[] = ['PENDIENTE', 'RECLAMADA', 'RESUE
  */
 export function PriceDeviationPanel({ canManage }: { canManage: boolean }) {
   const addNotification = useNotification();
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const [supplierId, setSupplierId] = useState('');
   const [status, setStatus] = useState<PriceDeviationStatus | ''>('');
 

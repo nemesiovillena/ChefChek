@@ -49,6 +49,74 @@ export class PurchaseListService {
     });
   }
 
+  /**
+   * Artículos para los selectores de Compras (checklist de lista, pedidos,
+   * comparativas). Vive bajo la sección Compras, no bajo el listado de
+   * Artículos, para que quien gestiona compras encuentre los artículos aunque
+   * su rol tenga oculta la sección Artículos.
+   *
+   * Sin `search` devuelve el catálogo completo y activo del proveedor (exige
+   * `supplierId`); con `search` devuelve las primeras coincidencias.
+   */
+  async productOptions(
+    tenantId: string,
+    filters: { supplierId?: string; search?: string },
+  ) {
+    const supplierId = filters.supplierId?.trim();
+    const term = filters.search?.trim();
+    if (!supplierId && !term) {
+      return [];
+    }
+    const contains = { contains: term, mode: "insensitive" as const };
+    return this.prisma.product.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        AND: [
+          // Proveedor principal del artículo O cualquier oferta suya activa.
+          supplierId
+            ? {
+                OR: [
+                  { supplierId },
+                  { supplierOffers: { some: { supplierId, deletedAt: null } } },
+                ],
+              }
+            : {},
+          term
+            ? {
+                OR: [
+                  { name: contains },
+                  { description: contains },
+                  { barcode: contains },
+                  { brand: contains },
+                ],
+              }
+            : { isActive: true },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        referenceUnit: true,
+        purchaseFormat: true,
+      },
+      orderBy: { name: "asc" },
+      ...(term ? { take: 20 } : {}),
+    });
+  }
+
+  /**
+   * Proveedores activos para los desplegables de Compras, accesibles aunque
+   * el rol tenga oculta la sección Proveedores.
+   */
+  async supplierOptions(tenantId: string) {
+    return this.prisma.supplier.findMany({
+      where: { tenantId, deletedAt: null, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
   async findOne(tenantId: string, id: string) {
     const list = await this.prisma.purchaseList.findFirst({
       where: { id, tenantId },

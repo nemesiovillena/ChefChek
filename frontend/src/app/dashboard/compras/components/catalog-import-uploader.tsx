@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { FileUp, Loader2, Sparkles, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { useSuppliers } from '@/hooks/use-suppliers';
+import { useCompraSupplierOptions } from '@/hooks/use-purchase-lists';
 import { useCreateCatalogImport } from '@/hooks/use-catalog-imports';
 import { useNotification } from '@/components/notification-system';
 import { AI_PROVIDERS, getApiKeyForModel } from '@/lib/ai-api-keys';
@@ -20,7 +20,7 @@ const STORAGE_KEY_MODEL = 'catalog_ai_model';
 
 export function CatalogImportUploader({ onCreated }: { onCreated: (id: string) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: suppliers } = useSuppliers({ isActive: true });
+  const { data: suppliers } = useCompraSupplierOptions();
   const createMut = useCreateCatalogImport();
   const addNotification = useNotification();
 
