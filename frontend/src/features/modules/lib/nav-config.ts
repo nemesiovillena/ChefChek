@@ -93,6 +93,13 @@ export const NAV_GROUPS: NavSection[] = [
     ],
   },
   {
+    title: 'Personal',
+    items: [
+      { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true },
+    ],
+  },
+  {
     title: 'Contenido',
     items: [
       { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
@@ -148,6 +155,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
   { prefix: '/dashboard/sicted', moduleId: 'sicted' },
+  { prefix: '/dashboard/check-in', moduleId: 'check-in' },
 ];
 
 /** Returns the moduleId governing a pathname, or undefined if transversal. */
