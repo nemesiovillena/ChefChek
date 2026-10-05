@@ -66,6 +66,10 @@ export class SetProductMapDto {
 }
 
 export class SetDishMapDto {
+  /** P plato, I ingrediente/modificador, M menú (el código depende del tipo). */
+  @IsIn(["P", "I", "M"])
+  tipo!: "P" | "I" | "M";
+
   @Matches(CUINER_CODE)
   producto!: string;
 
@@ -159,6 +163,10 @@ export class CatalogArticleSupplierDto {
 }
 
 export class CatalogDishDto {
+  /** P plato, I ingrediente/modificador, M menú (el código depende del tipo). */
+  @IsIn(["P", "I", "M"])
+  tipo!: "P" | "I" | "M";
+
   @Matches(CUINER_CODE)
   producto!: string;
 

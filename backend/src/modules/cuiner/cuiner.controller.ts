@@ -114,12 +114,13 @@ export class CuinerController {
     return this.mappingService.setDishMap(req.tenantId, dto);
   }
 
-  @Delete("maps/dishes/:producto")
+  @Delete("maps/dishes/:tipo/:producto")
   deleteDishMap(
     @Req() req: AuthedRequest,
+    @Param("tipo") tipo: string,
     @Param("producto") producto: string,
   ) {
-    return this.mappingService.deleteDishMap(req.tenantId, producto);
+    return this.mappingService.deleteDishMap(req.tenantId, tipo, producto);
   }
 
   // ─── Envío de albaranes ────────────────────────────────────────────────

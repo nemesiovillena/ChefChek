@@ -90,8 +90,19 @@ export class CuinerMappingService {
       }),
       ...(dto.dishes ?? []).map((d) =>
         this.prisma.cuinerDish.upsert({
-          where: { tenantId_producto: { tenantId, producto: d.producto } },
-          create: { tenantId, producto: d.producto, nombre: d.nombre },
+          where: {
+            tenantId_tipo_producto: {
+              tenantId,
+              tipo: d.tipo,
+              producto: d.producto,
+            },
+          },
+          create: {
+            tenantId,
+            tipo: d.tipo,
+            producto: d.producto,
+            nombre: d.nombre,
+          },
           update: { nombre: d.nombre },
         }),
       ),
@@ -195,15 +206,29 @@ export class CuinerMappingService {
         throw new NotFoundException("Artículo no encontrado");
       }
     }
-    await this.assertCatalogCode("dish", tenantId, dto.producto);
+    const dish = await this.prisma.cuinerDish.findUnique({
+      where: {
+        tenantId_tipo_producto: {
+          tenantId,
+          tipo: dto.tipo,
+          producto: dto.producto,
+        },
+      },
+    });
+    if (!dish) {
+      throw new BadRequestException(
+        `El ${dto.tipo}-${dto.producto} no está en la carta de Cuiner sincronizada`,
+      );
+    }
 
+    const key = { tenantId, tipo: dto.tipo, producto: dto.producto };
     const data = {
       recipeId: dto.recipeId ?? null,
       productId: dto.productId ?? null,
     };
     return this.prisma.cuinerDishMap.upsert({
-      where: { tenantId_producto: { tenantId, producto: dto.producto } },
-      create: { tenantId, producto: dto.producto, ...data },
+      where: { tenantId_tipo_producto: key },
+      create: { ...key, ...data },
       update: data,
     });
   }
@@ -220,14 +245,14 @@ export class CuinerMappingService {
     });
   }
 
-  async deleteDishMap(tenantId: string, producto: string) {
+  async deleteDishMap(tenantId: string, tipo: string, producto: string) {
     await this.prisma.cuinerDishMap.deleteMany({
-      where: { tenantId, producto },
+      where: { tenantId, tipo, producto },
     });
   }
 
   private async assertCatalogCode(
-    kind: "supplier" | "article" | "dish",
+    kind: "supplier" | "article",
     tenantId: string,
     code: string,
   ): Promise<void> {
@@ -236,13 +261,9 @@ export class CuinerMappingService {
         ? await this.prisma.cuinerSupplier.findUnique({
             where: { tenantId_codigo: { tenantId, codigo: code } },
           })
-        : kind === "article"
-          ? await this.prisma.cuinerArticle.findUnique({
-              where: { tenantId_codigo: { tenantId, codigo: code } },
-            })
-          : await this.prisma.cuinerDish.findUnique({
-              where: { tenantId_producto: { tenantId, producto: code } },
-            });
+        : await this.prisma.cuinerArticle.findUnique({
+            where: { tenantId_codigo: { tenantId, codigo: code } },
+          });
     if (!found) {
       throw new BadRequestException(
         `El código ${code} no está en el catálogo de Cuiner sincronizado`,

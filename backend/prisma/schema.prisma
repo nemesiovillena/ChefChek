@@ -3443,11 +3443,12 @@ model CuinerArticleSupplier {
 model CuinerDish {
   id       String   @id @default(cuid())
   tenantId String
-  producto String // VentasLin.Producto / código del plato en la carta
+  tipo     String // P plato, I ingrediente/modificador, M menú: el mismo código significa cosas distintas según el tipo
+  producto String // VentasLin.Producto / CartasLin.Codigo
   nombre   String
   syncedAt DateTime @updatedAt
 
-  @@unique([tenantId, producto])
+  @@unique([tenantId, tipo, producto])
   @@map("cuiner_dishes")
 }
 
@@ -3480,13 +3481,14 @@ model CuinerProductMap {
 model CuinerDishMap {
   id        String   @id @default(cuid())
   tenantId  String
+  tipo      String
   producto  String
   recipeId  String? // Receta que se descompone al vender el plato
   productId String? // O artículo de venta directa (bebidas)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([tenantId, producto])
+  @@unique([tenantId, tipo, producto])
   @@map("cuiner_dish_maps")
 }
 

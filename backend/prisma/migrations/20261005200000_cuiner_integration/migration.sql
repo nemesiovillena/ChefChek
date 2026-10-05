@@ -76,6 +76,7 @@ CREATE TABLE "cuiner_article_suppliers" (
 CREATE TABLE "cuiner_dishes" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
     "producto" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "syncedAt" TIMESTAMP(3) NOT NULL,
@@ -111,6 +112,7 @@ CREATE TABLE "cuiner_product_maps" (
 CREATE TABLE "cuiner_dish_maps" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
+    "tipo" TEXT NOT NULL,
     "producto" TEXT NOT NULL,
     "recipeId" TEXT,
     "productId" TEXT,
@@ -175,7 +177,7 @@ CREATE INDEX "cuiner_article_suppliers_tenantId_proveedor_idx" ON "cuiner_articl
 CREATE UNIQUE INDEX "cuiner_article_suppliers_tenantId_articulo_proveedor_key" ON "cuiner_article_suppliers"("tenantId", "articulo", "proveedor");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "cuiner_dishes_tenantId_producto_key" ON "cuiner_dishes"("tenantId", "producto");
+CREATE UNIQUE INDEX "cuiner_dishes_tenantId_tipo_producto_key" ON "cuiner_dishes"("tenantId", "tipo", "producto");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cuiner_supplier_maps_tenantId_supplierId_key" ON "cuiner_supplier_maps"("tenantId", "supplierId");
@@ -190,7 +192,7 @@ CREATE INDEX "cuiner_product_maps_tenantId_articulo_idx" ON "cuiner_product_maps
 CREATE UNIQUE INDEX "cuiner_product_maps_tenantId_productId_key" ON "cuiner_product_maps"("tenantId", "productId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "cuiner_dish_maps_tenantId_producto_key" ON "cuiner_dish_maps"("tenantId", "producto");
+CREATE UNIQUE INDEX "cuiner_dish_maps_tenantId_tipo_producto_key" ON "cuiner_dish_maps"("tenantId", "tipo", "producto");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cuiner_albaran_exports_albaranId_key" ON "cuiner_albaran_exports"("albaranId");

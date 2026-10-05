@@ -43,7 +43,7 @@ created: 2026-10-05
 |---|---|---|---|
 | 1 ✅ | Entorno de pruebas: crear `CuinerPruebas` y el login SQL | Crea una base nueva (no toca `Cuiner`) | [phase-01](phase-01-entorno-pruebas-cuinerpruebas-login-sql.md) |
 | 2 ✅ | Backend ChefChek: módulo, modelos y API del conector | No | [phase-02](phase-02-backend-modulo-cuiner-modelos-api.md) |
-| 3 | Conector de solo lectura: catálogos y ventas | No (solo SELECT) | [phase-03](phase-03-conector-windows-lectura-catalogos-ventas.md) |
+| 3 ✅ | Conector de solo lectura: catálogos y ventas | No (solo SELECT) | [phase-03](phase-03-conector-windows-lectura-catalogos-ventas.md) |
 | 4 | Interfaz de mapeos: proveedores, artículos y platos | No | [phase-04](phase-04-ui-mapeos-proveedores-articulos-platos.md) |
 | 5 | Ventas de Cuiner → salidas de stock en ChefChek | No | [phase-05](phase-05-ventas-cuiner-descuento-stock-chefchek.md) |
 | 6 | Envío de albaranes: simulación → CuinerPruebas → producción | Sí (por pasos y con permiso) | [phase-06](phase-06-envio-albaranes-a-cuiner.md) |
@@ -66,4 +66,4 @@ created: 2026-10-05
 - **Ventas:** ¿qué tipos de línea descuentan? P (platos) sí; ¿I (ingredientes o modificadores) y M (menús)?
 - **Usuario en los albaranes:** ¿qué `ActUsuario` llevan los albaranes del conector? ¿Uno existente (Supervisor = 1) o crear un usuario «ChefChek» en Cuiner?
 - **Artículos sin relación:** si un artículo no tiene relación con el proveedor en `ArticulosProv`, ¿se crea esa relación o se bloquea el envío?
-- **Runtime del conector:** Node LTS + NSSM o servicio nativo; decidir en la fase 3.
+- ~~Runtime del conector~~ → resuelto: PowerShell 5.1 nativo + tareas programadas (sin instalar nada).
