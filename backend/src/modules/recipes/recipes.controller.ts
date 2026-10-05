@@ -77,7 +77,9 @@ export class RecipesController {
 
   @Get()
   @Roles("ADMIN", "USER", "VIEWER")
-  @ApiOperation({ summary: "Listar todas las recetas del tenant" })
+  @ApiOperation({
+    summary: "Listar las recetas del tenant — las desactivadas solo para ADMIN",
+  })
   @ApiResponse({ status: 200, description: "Lista de recetas" })
   async findAll(@Req() req: any, @Query() query: RecipesQueryDto) {
     const tenantId = req.tenantId;
@@ -85,6 +87,7 @@ export class RecipesController {
       tenantId,
       query,
       await this.canViewCost(req),
+      req.user?.role,
     );
     return {
       success: true,
@@ -114,8 +117,9 @@ export class RecipesController {
   }
 
   // Debe ir ANTES de @Get(":id") para que NestJS no lo captura como id.
-  // Advisory-only: devuelve recetas activas del tenant cuyo nombre coincide
-  // ignorando mayúsculas/espacios/acentos. No bloquea la creación.
+  // Advisory-only: devuelve recetas del tenant (activas E inactivas — crear un
+  // duplicado de una desactivada sigue siendo un duplicado) cuyo nombre
+  // coincide ignorando mayúsculas/espacios/acentos. No bloquea la creación.
   @Get("check-name")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({
