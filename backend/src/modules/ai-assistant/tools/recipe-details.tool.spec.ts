@@ -50,4 +50,38 @@ describe("get_recipe_details tool", () => {
     const result: any = await tool.handler("t1", { recipeName: "inexistente" });
     expect(result.error).toContain("inexistente");
   });
+
+  it("no ofrece recetas desactivadas — como si no existieran", async () => {
+    const { tool } = build([
+      { id: "rec-1", name: "Caramelo", isActive: false },
+    ]);
+    const result: any = await tool.handler("t1", { recipeName: "caramelo" });
+
+    expect(result.error).toContain("No encuentro");
+    expect(result).not.toHaveProperty("recipeId");
+    expect(result).not.toHaveProperty("action");
+  });
+
+  it("ignora las desactivadas al desambiguar y al resolver único", async () => {
+    // Una activa + una desactivada con nombres parecidos → única, sin pedir
+    // desambiguación por la que no se puede elegir.
+    const unique = build([
+      { id: "rec-1", name: "Caramelo salado", isActive: true },
+      { id: "rec-2", name: "Caramelo de nata", isActive: false },
+    ]);
+    const uniqueResult: any = await unique.tool.handler("t1", {
+      recipeName: "caramelo",
+    });
+    expect(uniqueResult.recipeId).toBe("rec-1");
+
+    // Todas desactivadas → not_found.
+    const none = build([
+      { id: "rec-1", name: "Caramelo salado", isActive: false },
+      { id: "rec-2", name: "Caramelo de nata", isActive: false },
+    ]);
+    const noneResult: any = await none.tool.handler("t1", {
+      recipeName: "caramelo",
+    });
+    expect(noneResult.error).toContain("No encuentro");
+  });
 });

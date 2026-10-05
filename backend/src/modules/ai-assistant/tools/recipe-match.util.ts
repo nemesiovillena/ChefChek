@@ -19,13 +19,20 @@ const MAX_AMBIGUOUS_MATCHES = 8;
  * recetas del asistente: cuando findNameMatches devuelve más de una, NO se
  * toma la primera en silencio — se devuelve la lista para que el modelo
  * pregunte al usuario cuál quería.
+ *
+ * Las recetas desactivadas (isActive=false) se excluyen ANTES de decidir
+ * not_found/ambiguous/unique: el asistente nunca las ofrece ni las abre.
+ * findNameMatches no filtra isActive porque el check de duplicados (que usa
+ * la misma query) sí debe verlas.
  */
 export async function resolveRecipeByName(
   recipesService: RecipesService,
   tenantId: string,
   recipeName: string,
 ): Promise<RecipeNameResolution> {
-  const matches = await recipesService.findNameMatches(tenantId, recipeName);
+  const matches = (
+    await recipesService.findNameMatches(tenantId, recipeName)
+  ).filter((m) => m.isActive !== false);
   if (matches.length === 0) {
     return {
       status: "not_found",
