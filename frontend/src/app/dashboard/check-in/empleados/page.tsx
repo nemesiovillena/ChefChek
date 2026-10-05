@@ -1,37 +1,43 @@
 'use client';
 
 import { useState } from 'react';
-import { KeyRound, Plus, UserRound } from 'lucide-react';
+import { KeyRound, Plus, UserRound, UsersRound } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
-import { useCheckInSettings, useEmployees, useWorkCenters } from '@/hooks/use-check-in';
+import { useCheckInSettings, useEmployees, useLinkableUsers, useWorkCenters } from '@/hooks/use-check-in';
 import type { Employee } from '@/lib/check-in-types';
 import { CheckInEmployeeForm } from '../components/check-in-employee-form';
+import { CheckInEmployeeImport } from '../components/check-in-employee-import';
 import { CheckInReadinessBanner } from '../components/check-in-readiness-banner';
-import { primaryBtnCls } from '../components/check-in-form-styles';
+import { canManageCheckIn, primaryBtnCls, secondaryBtnCls } from '../components/check-in-form-styles';
 
 export const dynamic = 'force-dynamic';
-
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
 /** Fichas laborales de Check-In. Solo para quien gestiona el módulo. */
 export default function CheckInEmployeesPage() {
   const { user, isLoading: authLoading } = useAuth();
-  const [includeInactive, setIncludeInactive] = useState(false);
-  // 'new' = alta; un id = edición; null = formulario cerrado.
-  const [editing, setEditing] = useState<string | 'new' | null>(null);
-  const canManage = MANAGE_ROLES.includes(user?.role ?? '');
-  const { data: employees, isLoading } = useEmployees(includeInactive);
-  const { data: centers } = useWorkCenters();
-  const { data: settingsData } = useCheckInSettings();
-
   if (authLoading) return null;
-  if (!canManage) {
+  // El contenido (y sus peticiones) solo se monta para quien puede gestionar.
+  if (!canManageCheckIn(user)) {
     return (
       <div className="px-margin-mobile md:px-margin-desktop mx-auto max-w-container-max-width pb-24 pt-8">
-        <p className="text-[var(--on-surface-variant)]">Esta sección es solo para administradores.</p>
+        <p className="text-[var(--on-surface-variant)]">
+          Esta sección es solo para administradores, desde su cuenta personal.
+        </p>
       </div>
     );
   }
+  return <EmployeesContent />;
+}
+
+function EmployeesContent() {
+  const [includeInactive, setIncludeInactive] = useState(false);
+  // 'new' = alta; un id = edición; null = formulario cerrado.
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
+  const [importing, setImporting] = useState(false);
+  const { data: employees, isLoading } = useEmployees(includeInactive);
+  const { data: centers } = useWorkCenters();
+  const { data: settingsData } = useCheckInSettings();
+  const { data: linkableUsers } = useLinkableUsers();
 
   const editingEmployee: Employee | null =
     editing && editing !== 'new' ? (employees?.find((e) => e.id === editing) ?? null) : null;
@@ -41,12 +47,23 @@ export default function CheckInEmployeesPage() {
     <div className="px-margin-mobile md:px-margin-desktop mx-auto max-w-container-max-width pb-28 pt-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-headline-lg text-headline-lg text-primary">Empleados</h2>
-        <button type="button" onClick={() => setEditing('new')} className={primaryBtnCls}>
-          <Plus className="h-4 w-4" /> Nuevo empleado
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {linkableUsers && linkableUsers.length > 0 && (
+            <button type="button" onClick={() => setImporting(true)} className={secondaryBtnCls}>
+              <UsersRound className="h-4 w-4" /> Importar del equipo ({linkableUsers.length})
+            </button>
+          )}
+          <button type="button" onClick={() => setEditing('new')} className={primaryBtnCls}>
+            <Plus className="h-4 w-4" /> Nuevo empleado
+          </button>
+        </div>
       </div>
 
       <CheckInReadinessBanner />
+
+      {importing && linkableUsers && (
+        <CheckInEmployeeImport users={linkableUsers} onDone={() => setImporting(false)} />
+      )}
 
       {editing && centers && settingsData && (
         <CheckInEmployeeForm
@@ -88,7 +105,7 @@ export default function CheckInEmployeesPage() {
             <UserRound className="h-5 w-5 shrink-0 text-[var(--on-surface-variant)]" />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">
-                {e.lastName}, {e.firstName}
+                {[e.lastName, e.firstName].filter(Boolean).join(', ')}
                 {!e.isActive && ' (baja)'}
               </span>
               <span className="block truncate text-sm text-[var(--on-surface-variant)]">

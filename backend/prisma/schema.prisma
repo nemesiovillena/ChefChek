@@ -3477,3 +3477,82 @@ model CheckInLegalText {
   @@index([tenantId])
   @@map("check_in_legal_texts")
 }
+
+enum PunchType {
+  IN
+  OUT
+  BREAK_START
+  BREAK_END
+}
+
+enum PunchSource {
+  PERSONAL // sesión propia del empleado
+  KIOSK // dispositivo compartido, identificado con PIN
+}
+
+enum PunchGeofenceStatus {
+  INSIDE
+  OUTSIDE
+  UNAVAILABLE // el dispositivo no dio ubicación
+  OFF // el centro no comprueba ubicación
+}
+
+enum PunchPinStatus {
+  VERIFIED
+  NOT_REQUIRED // sesión personal
+  PENDING_REVIEW // fichaje sin conexión cuyo PIN no pudo validarse
+}
+
+// Fichaje. Evidencia inalterable: trigger forbid_mutation en Postgres, sin
+// updatedAt ni deletedAt. Las correcciones son registros aparte, nunca un
+// UPDATE. Sin FK a employees/locations a propósito: una tabla de evidencia no
+// debe verse arrastrada por el restore o el borrado de tablas normales; se
+// guarda un snapshot del nombre.
+model TimePunch {
+  id               String              @id // UUID generado en el cliente: reenviar el mismo fichaje no lo duplica
+  tenantId         String
+  employeeId       String
+  employeeName     String // snapshot
+  type             PunchType
+  occurredAt       DateTime // instante que cuenta para la jornada
+  deviceTime       DateTime? // reloj del dispositivo al fichar
+  receivedAt       DateTime            @default(now())
+  source           PunchSource
+  recordedByUserId String // sesión desde la que se fichó (la cuenta compartida en kiosco)
+  locationId       String?
+  locationName     String? // snapshot
+  latitude         Float?
+  longitude        Float?
+  accuracyM        Float?
+  distanceM        Float? // distancia al centro en el momento del fichaje
+  geofenceStatus   PunchGeofenceStatus
+  pinStatus        PunchPinStatus
+  wasOffline       Boolean             @default(false)
+  deviceId         String?
+  userAgent        String?
+  // Cadena de integridad por tenant: hash = sha256(prevHash + campos).
+  seq              Int
+  prevHash         String?
+  hash             String
+
+  @@unique([tenantId, seq])
+  @@index([tenantId, employeeId, occurredAt])
+  @@index([tenantId, occurredAt])
+  @@map("time_punches")
+}
+
+// Acuse del empleado sobre un texto legal vigente. Evidencia inalterable.
+model CheckInLegalAck {
+  id           String               @id @default(cuid())
+  tenantId     String
+  legalTextId  String
+  kind         CheckInLegalTextKind
+  version      Int
+  employeeId   String
+  employeeName String // snapshot
+  ackAt        DateTime             @default(now())
+
+  @@unique([legalTextId, employeeId])
+  @@index([tenantId, employeeId])
+  @@map("check_in_legal_acks")
+}

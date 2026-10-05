@@ -9,6 +9,7 @@ import { CheckInWorkdayTab } from '../components/check-in-workday-tab';
 import { CheckInWorkCentersTab } from '../components/check-in-work-centers-tab';
 import { CheckInLegalTextsTab } from '../components/check-in-legal-texts-tab';
 import { CheckInReadinessBanner } from '../components/check-in-readiness-banner';
+import { canManageCheckIn } from '../components/check-in-form-styles';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,6 @@ const TABS: { id: TabId; label: string; icon: typeof Scale }[] = [
   { id: 'centros', label: 'Centros', icon: MapPin },
   { id: 'textos', label: 'Textos legales', icon: FileText },
 ];
-
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
 /** La pestaña activa vive en `?tab=` (enlazable): useSearchParams exige Suspense. */
 export default function CheckInConfigurationPage() {
@@ -38,10 +37,10 @@ function CheckInConfigurationContent() {
   const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'convenio');
 
   if (authLoading) return null;
-  if (!MANAGE_ROLES.includes(user?.role ?? '')) {
+  if (!canManageCheckIn(user)) {
     return (
       <div className="px-margin-mobile md:px-margin-desktop mx-auto max-w-container-max-width pb-24 pt-8">
-        <p className="text-[var(--on-surface-variant)]">Esta sección es solo para administradores.</p>
+        <p className="text-[var(--on-surface-variant)]">Esta sección es solo para administradores, desde su cuenta personal.</p>
       </div>
     );
   }
