@@ -113,6 +113,7 @@ describe("RecipesController", () => {
         "tenant-1",
         {},
         true,
+        "ADMIN",
       );
       expect(result).toEqual({
         success: true,
@@ -132,6 +133,21 @@ describe("RecipesController", () => {
         "tenant-1",
         query,
         true,
+        "ADMIN",
+      );
+    });
+
+    it("forwards the caller role so the service can hide deactivated recipes", async () => {
+      mockRecipesService.findAll.mockResolvedValue({ data: [], meta: {} });
+
+      const userReq = { ...mockReq, user: { id: "user-2", role: "USER" } };
+      await controller.findAll(userReq as any, {});
+
+      expect(mockRecipesService.findAll).toHaveBeenCalledWith(
+        "tenant-1",
+        {},
+        true,
+        "USER",
       );
     });
   });

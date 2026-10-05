@@ -254,6 +254,7 @@ export class RecipesService {
     tenantId: string,
     query?: RecipesQueryDto,
     includeCost = true,
+    role?: string,
   ): Promise<{
     data: RecipeResponse[];
     meta: { total: number; page: number; limit: number; totalPages: number };
@@ -269,6 +270,11 @@ export class RecipesService {
 
     const where: any = {
       tenantId,
+      // Recetas desactivadas (toggle isActive): solo el ADMIN las ve en el
+      // listado. Para USER/VIEWER no existen — su reactivación queda en manos
+      // del administrador. El ADMIN no se filtra porque si no, al desactivar
+      // una receta desaparecería de su lista y no podría reactivarla.
+      ...(role !== "ADMIN" && { isActive: true }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },

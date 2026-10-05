@@ -330,7 +330,8 @@ describe("RecipesService", () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
       mockPrismaService.recipe.count.mockResolvedValue(1);
 
-      const result = await service.findAll(tenantId);
+      // ADMIN: sin filtro isActive — debe ver también las desactivadas.
+      const result = await service.findAll(tenantId, undefined, true, "ADMIN");
 
       expect(result).toBeDefined();
       expect(Array.isArray(result.data)).toBe(true);
@@ -390,6 +391,25 @@ describe("RecipesService", () => {
               { name: { contains: "Test", mode: "insensitive" } },
             ]),
           }),
+        }),
+      );
+    });
+
+    it("hides deactivated recipes from USER and VIEWER — only ADMIN sees them", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
+      mockPrismaService.recipe.count.mockResolvedValue(1);
+
+      await service.findAll(tenantId, undefined, true, "USER");
+      expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId, isActive: true }),
+        }),
+      );
+
+      await service.findAll(tenantId, undefined, true, "VIEWER");
+      expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenantId, isActive: true }),
         }),
       );
     });
