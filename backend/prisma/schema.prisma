@@ -3574,3 +3574,89 @@ model CheckInKioskKey {
 
   @@map("check_in_kiosk_keys")
 }
+
+enum PunchAdjustmentKind {
+  ADD // añade un fichaje que faltaba
+  VOID // anula un fichaje
+  REPLACE // anula un fichaje y pone otro en su lugar
+  CONFIRM // da por bueno un fichaje marcado "a revisar"
+}
+
+enum PunchAdjustmentStatus {
+  APPROVED
+  REJECTED
+}
+
+// Corrección de fichajes. Evidencia inalterable: el fichaje original nunca se
+// toca; la corrección es una fila nueva con su motivo y su autor. Sin decisión
+// asociada está pendiente.
+model TimePunchAdjustment {
+  id                String              @id @default(cuid())
+  tenantId          String
+  employeeId        String
+  employeeName      String // snapshot
+  kind              PunchAdjustmentKind
+  targetPunchId     String? // VOID, REPLACE, CONFIRM
+  type              PunchType? // ADD, REPLACE
+  occurredAt        DateTime? // ADD, REPLACE
+  reason            String
+  requestedByUserId String
+  requestedByName   String // snapshot
+  createdAt         DateTime            @default(now())
+
+  @@index([tenantId, employeeId])
+  @@map("time_punch_adjustments")
+}
+
+// Decisión sobre una corrección (una por corrección). Evidencia inalterable.
+model TimePunchAdjustmentDecision {
+  id              String                @id @default(cuid())
+  tenantId        String
+  adjustmentId    String                @unique
+  status          PunchAdjustmentStatus
+  note            String?
+  decidedByUserId String
+  decidedByName   String // snapshot
+  decidedAt       DateTime              @default(now())
+
+  @@index([tenantId])
+  @@map("time_punch_adjustment_decisions")
+}
+
+// Hoja de horas mensual aprobada: foto fija de los totales del mes. Evidencia
+// inalterable; reabrir un mes es aprobar una versión nueva con su motivo.
+model Timesheet {
+  id               String   @id @default(cuid())
+  tenantId         String
+  employeeId       String
+  employeeName     String // snapshot
+  year             Int
+  month            Int // 1-12
+  version          Int
+  workedMinutes    Int
+  breakMinutes     Int
+  expectedMinutes  Int
+  overtimeMinutes  Int
+  daysWorked       Int
+  incidenceCount   Int
+  detail           Json // jornadas del mes tal como se aprobaron
+  reopenReason     String? // obligatorio a partir de la versión 2
+  approvedByUserId String
+  approvedByName   String // snapshot
+  approvedAt       DateTime @default(now())
+
+  @@unique([tenantId, employeeId, year, month, version])
+  @@map("timesheets")
+}
+
+// Conformidad del empleado con una hoja aprobada. Evidencia inalterable.
+model TimesheetAck {
+  id          String   @id @default(cuid())
+  tenantId    String
+  timesheetId String   @unique
+  employeeId  String
+  ackAt       DateTime @default(now())
+
+  @@index([tenantId, employeeId])
+  @@map("timesheet_acks")
+}

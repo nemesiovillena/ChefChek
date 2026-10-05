@@ -46,6 +46,10 @@ export const EVIDENCE_TABLE_PREFIXES = ["checklist_", "sicted_"];
 export const EVIDENCE_TABLES = new Set<string>([
   "time_punches", // fichajes: registro de jornada (art. 34.9 ET)
   "check_in_legal_acks", // acuses de textos legales de Check-In
+  "time_punch_adjustments", // correcciones de fichajes
+  "time_punch_adjustment_decisions",
+  "timesheets", // hojas de horas aprobadas
+  "timesheet_acks",
 ]);
 
 /** True si `table` pertenece al motor de evidencia inalterable. */
