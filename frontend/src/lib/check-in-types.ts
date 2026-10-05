@@ -151,6 +151,19 @@ export interface PunchView {
   locationName: string | null;
   geofenceStatus: PunchGeofenceStatus;
   distanceM: number | null;
+  needsReview?: boolean;
+  /** Guardado en el dispositivo, aún sin enviar al servidor. */
+  pending?: boolean;
+}
+
+/** Fichaje marcado para que gerencia lo revise. */
+export interface ReviewPunch extends PunchView {
+  employeeId: string;
+  employeeName: string;
+  /** Códigos separados por coma: PIN, SECUENCIA, FUERA_DE_ZONA, RELOJ. */
+  reviewReason: string | null;
+  wasOffline: boolean;
+  receivedAt: string;
 }
 
 export interface LegalTextForEmployee {
@@ -171,6 +184,8 @@ export interface OwnCheckInState {
   allowedTypes: PunchType[];
   recentPunches: PunchView[];
   pendingLegalTexts: LegalTextForEmployee[];
+  /** true si se está mostrando la última copia guardada porque no hay red. */
+  offline?: boolean;
 }
 
 export interface PunchInput {
@@ -196,10 +211,13 @@ export interface KioskEmployee {
 export interface KioskState {
   readiness: CheckInReadiness;
   pinLength: number;
+  /** Clave pública para cifrar el PIN de los fichajes sin conexión. */
+  pinPublicKey: string;
   centers: { id: string; name: string; isDefault: boolean }[];
   center: { id: string; name: string } | null;
   employees: KioskEmployee[];
   legalTexts: LegalTextForEmployee[];
+  offline?: boolean;
 }
 
 export interface PresenceEntry {

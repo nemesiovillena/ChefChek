@@ -2,9 +2,22 @@
 
 import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, Delete, FileText, Loader2, MapPin, X } from 'lucide-react';
+import { ArrowLeft, Check, CloudOff, Delete, FileText, Loader2, MapPin, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import ProtectedRoute from '@/components/protected-route';
-import { useKioskState, useRecordPunch } from '@/hooks/use-check-in';
+import { CheckInPersonalCard } from '@/app/dashboard/check-in/components/check-in-personal-card';
+import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
+import { useAuth } from '@/contexts/auth.context';
+import { CHECK_IN_KEYS, useKioskState, useRecordPunch } from '@/hooks/use-check-in';
+import { useOfflinePunchQueue } from '@/hooks/use-offline-punch-queue';
+import {
+  allowedAfter,
+  encryptPinForPunch,
+  enqueuePunch,
+  isNetworkError,
+  saveSnapshot,
+  statusAfterPunch,
+} from '@/lib/check-in-offline';
 import {
   PUNCH_ACTION_LABELS,
   PUNCH_LABELS,
@@ -77,6 +90,8 @@ interface DoneInfo {
   name: string;
   type: PunchType;
   time: string;
+  /** Guardado en el dispositivo, pendiente de enviar. */
+  offline?: boolean;
 }
 
 /** Elegir acción + PIN de una persona. Se monta con `key` por empleado. */
@@ -84,12 +99,17 @@ function PunchPad({
   employee,
   centerId,
   pinLength,
+  online,
+  onSaveOffline,
   onCancel,
   onDone,
 }: {
   employee: KioskEmployee;
   centerId: string;
   pinLength: number;
+  online: boolean;
+  /** Guarda el fichaje en el dispositivo; lanza si no se puede guardar. */
+  onSaveOffline: (punch: { id: string; type: PunchType; deviceTime: string; pin: string }) => Promise<void>;
   onCancel: () => void;
   onDone: (info: DoneInfo) => void;
 }) {
@@ -106,7 +126,18 @@ function PunchPad({
     setSending(true);
     setError(null);
     const id = newPunchId();
+    const deviceTime = new Date().toISOString();
+    // Sin red el PIN no se puede comprobar aquí: se guarda cifrado y lo
+    // valida el servidor al enviar. Si no cuadra, lo revisará un responsable.
+    const saveOffline = async () => {
+      await onSaveOffline({ id, type, deviceTime, pin: fullPin });
+      onDone({ name: employee.name, type, time: formatTime(deviceTime), offline: true });
+    };
     try {
+      if (!online) {
+        await saveOffline();
+        return;
+      }
       // El kiosco es fijo: no merece la pena esperar mucho por la ubicación.
       const position = await getDevicePosition(3000);
       const saved = await record.mutateAsync({
@@ -115,12 +146,21 @@ function PunchPad({
         employeeId: employee.id,
         pin: fullPin,
         locationId: centerId,
-        deviceTime: new Date().toISOString(),
+        deviceTime,
         ...(position ?? {}),
       });
       onDone({ name: employee.name, type, time: formatTime(saved.occurredAt) });
     } catch (err) {
-      setError(err instanceof Error && err.message ? err.message : 'No se pudo fichar.');
+      if (isNetworkError(err)) {
+        try {
+          await saveOffline();
+          return;
+        } catch {
+          setError('Sin conexión y no se pudo guardar en el dispositivo.');
+        }
+      } else {
+        setError(err instanceof Error && err.message ? err.message : 'No se pudo fichar.');
+      }
       setPin('');
       setSending(false);
     }
@@ -235,6 +275,9 @@ function LegalTexts({ state, onClose }: { state: KioskState; onClose: () => void
 }
 
 function Kiosk() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { online, pendingCount } = useOfflinePunchQueue(user?.id);
   const storedCenter = useSyncExternalStore(subscribeCenter, readStoredCenter, () => null);
   const clock = useSyncExternalStore(subscribeClock, () => clockValue, () => '');
   const { data: base, error: baseError } = useKioskState(null);
@@ -254,6 +297,37 @@ function Kiosk() {
   }
 
   const selected = state?.employees.find((e) => e.id === selectedId) ?? null;
+
+  /** Fichaje sin red: PIN cifrado a la cola y la lista avanza en local. */
+  async function saveOffline(
+    employee: KioskEmployee,
+    punch: { id: string; type: PunchType; deviceTime: string; pin: string },
+  ) {
+    if (!state || !centerId || !user) throw new Error('Kiosco sin datos');
+    const encryptedPin = await encryptPinForPunch(state.pinPublicKey, punch.id, punch.pin);
+    enqueuePunch(
+      user.id,
+      {
+        id: punch.id,
+        type: punch.type,
+        deviceTime: punch.deviceTime,
+        employeeId: employee.id,
+        locationId: centerId,
+        encryptedPin,
+      },
+      employee.name,
+    );
+    const status = statusAfterPunch(punch.type);
+    const next: KioskState = {
+      ...state,
+      offline: true,
+      employees: state.employees.map((e) =>
+        e.id === employee.id ? { ...e, status, allowedTypes: allowedAfter(status) } : e,
+      ),
+    };
+    saveSnapshot(`kiosk.${centerId}`, next);
+    queryClient.setQueryData([...CHECK_IN_KEYS.kiosk, centerId], next);
+  }
 
   let content: React.ReactNode;
   if (baseError) {
@@ -306,6 +380,11 @@ function Kiosk() {
         <span className="text-3xl font-semibold">{PUNCH_LABELS[done.type]} registrada</span>
         <span className="text-2xl">{done.name}</span>
         <span className="text-2xl text-[var(--on-surface-variant)]">{done.time}</span>
+        {done.offline && (
+          <span className="text-lg text-[var(--on-surface-variant)]">
+            Guardada sin conexión: se enviará al recuperar la red.
+          </span>
+        )}
       </button>
     );
   } else if (selected) {
@@ -315,6 +394,8 @@ function Kiosk() {
         employee={selected}
         centerId={centerId}
         pinLength={state.pinLength}
+        online={online}
+        onSaveOffline={(punch) => saveOffline(selected, punch)}
         onCancel={() => setSelectedId(null)}
         onDone={handleDone}
       />
@@ -353,7 +434,15 @@ function Kiosk() {
           <p className="text-lg font-semibold">Fichaje</p>
           <p className="text-sm text-[var(--on-surface-variant)]">{state?.center?.name ?? ''}</p>
         </div>
-        <p className="text-3xl font-semibold tabular-nums">{clock}</p>
+        <div className="text-center">
+          <p className="text-3xl font-semibold tabular-nums">{clock}</p>
+          {(!online || pendingCount > 0) && (
+            <p className="flex items-center justify-center gap-1 text-sm text-[var(--error)]">
+              <CloudOff className="h-4 w-4" />
+              {[!online && 'Sin conexión', pendingCount > 0 && `${pendingCount} por enviar`].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-sm">
           {state && state.legalTexts.length > 0 && (
             <button type="button" onClick={() => setShowLegal(true)} className="flex min-h-[44px] items-center gap-1 px-2 underline">
@@ -375,11 +464,46 @@ function Kiosk() {
   );
 }
 
-/** Modo kiosco: dispositivo compartido en el centro; cada persona ficha con su PIN. */
-export default function KioskPage() {
+/** Fichaje de una cuenta personal, sin el menú de la aplicación. */
+function PersonalScreen({ canOpenKiosk, onOpenKiosk }: { canOpenKiosk: boolean; onOpenKiosk: () => void }) {
+  return (
+    <div className="flex min-h-screen flex-col bg-[var(--surface)] text-[var(--on-surface)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--outline-variant)] px-4 py-3">
+        <p className="text-lg font-semibold">Fichaje</p>
+        <div className="flex items-center gap-2 text-sm">
+          {canOpenKiosk && (
+            <button type="button" onClick={onOpenKiosk} className="min-h-[44px] px-2 underline">
+              Modo kiosco
+            </button>
+          )}
+          <Link href="/dashboard" className="flex min-h-[44px] items-center px-2 underline">
+            Ir a ChefChek
+          </Link>
+        </div>
+      </div>
+      <div className="mx-auto w-full max-w-2xl flex-1 p-4 md:p-8">
+        <CheckInPersonalCard />
+      </div>
+    </div>
+  );
+}
+
+function FicharScreen() {
+  const { user } = useAuth();
+  const [kioskMode, setKioskMode] = useState(false);
+  // Una cuenta compartida siempre es kiosco; una personal ficha por sí misma.
+  if (user?.isSharedAccount || kioskMode) return <Kiosk />;
+  return <PersonalScreen canOpenKiosk={canManageCheckIn(user)} onOpenKiosk={() => setKioskMode(true)} />;
+}
+
+/**
+ * Pantalla de fichaje a pantalla completa y punto de entrada de la app
+ * instalada. Es la única ruta que funciona sin conexión (ver public/sw.js).
+ */
+export default function FicharPage() {
   return (
     <ProtectedRoute>
-      <Kiosk />
+      <FicharScreen />
     </ProtectedRoute>
   );
 }

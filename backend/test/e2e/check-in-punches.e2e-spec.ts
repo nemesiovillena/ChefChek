@@ -396,7 +396,7 @@ describe("E2E - Check-In fichaje", () => {
     };
     expect((await punch(kioskSession, base)).status).toBe(400); // sin PIN
     expect((await punch(kioskSession, { ...base, pin: "0000" })).status).toBe(
-      401,
+      403,
     );
     expect(
       await prisma.timePunch.count({ where: { employeeId: kioskEmployeeId } }),
@@ -442,7 +442,7 @@ describe("E2E - Check-In fichaje", () => {
     };
     for (let i = 0; i < 5; i++) {
       expect((await punch(kioskSession, { ...base, pin: "0000" })).status).toBe(
-        401,
+        403,
       );
     }
     expect((await punch(kioskSession, { ...base, pin: "4821" })).status).toBe(

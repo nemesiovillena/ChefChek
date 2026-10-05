@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { CheckInPersonalCard } from './components/check-in-personal-card';
 import { CheckInPresencePanel } from './components/check-in-presence-panel';
 import { CheckInReadinessBanner } from './components/check-in-readiness-banner';
+import { CheckInReviewPanel } from './components/check-in-review-panel';
 import { canManageCheckIn, secondaryBtnCls } from './components/check-in-form-styles';
 
 export const dynamic = 'force-dynamic';
@@ -25,10 +26,18 @@ export default function CheckInPage() {
 
       <CheckInPersonalCard />
 
+      <p className="text-sm text-[var(--on-surface-variant)]">
+        Para fichar también sin conexión, usa la{' '}
+        <Link href="/fichar" className="underline">
+          pantalla de fichaje
+        </Link>{' '}
+        e instálala en tu móvil.
+      </p>
+
       {(canManage || isShared) && (
         <div className="flex flex-wrap gap-2">
           <Link href="/fichar" className={secondaryBtnCls}>
-            <MonitorSmartphone className="h-4 w-4" /> Abrir modo kiosco
+            <MonitorSmartphone className="h-4 w-4" /> {isShared ? 'Abrir modo kiosco' : 'Pantalla de fichaje'}
           </Link>
           {canManage && (
             <>
@@ -42,6 +51,8 @@ export default function CheckInPage() {
           )}
         </div>
       )}
+
+      {canManage && <CheckInReviewPanel />}
 
       {canManage && (
         <section>

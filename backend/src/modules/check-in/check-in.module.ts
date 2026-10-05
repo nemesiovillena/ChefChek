@@ -11,6 +11,7 @@ import { LegalTextsService } from "./services/legal-texts.service";
 import { WorkCentersService } from "./services/work-centers.service";
 import { LegalAcksService } from "./services/legal-acks.service";
 import { PunchService } from "./services/punch.service";
+import { KioskKeyService } from "./services/kiosk-key.service";
 import { PunchesController } from "./punches.controller";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 
@@ -41,6 +42,7 @@ import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
     LocationsService,
     LegalAcksService,
     PunchService,
+    KioskKeyService,
     CheckInManagerGuard,
   ],
   exports: [
