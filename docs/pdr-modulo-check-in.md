@@ -42,6 +42,8 @@ ChefChek no tiene registro de jornada ni gestión de personal. Se necesita cumpl
 12. **Varios centros**: se gestiona desde Configuración (centros y asignación de empleados a centros).
 13. **Excel (XLSX)** incluido en los exports, además de PDF y CSV.
 14. **Textos legales**: los valida el administrador del tenant desde Configuración, y el módulo no se puede usar hasta que estén validados. El permiso queda preparado para concederlo a otros roles en el futuro.
+15. **Fichas desde el equipo**: las fichas de empleado se pueden crear en bloque a partir de las cuentas ya existentes, con su nombre y su puesto de SICTED, para no teclear dos veces lo mismo.
+16. **Cuentas compartidas sin acceso a gestión**: fichas, configuración y presencia solo se muestran al administrador (o a futuros roles con ese permiso) desde su cuenta personal; una cuenta compartida nunca los ve, tenga el rol que tenga.
 
 **Supuestos del autor (no confirmados; ver Preguntas Abiertas)**:
 - GPS solo en el instante del fichaje; sin seguimiento continuo.

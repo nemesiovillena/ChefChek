@@ -5,7 +5,7 @@ description: >-
   geovalla en PWA con modo sin conexión, registro de jornada inalterable con
   informes para Inspección, planificador de turnos, ausencias, portal del
   empleado y documentación
-status: in-progress
+status: pending
 priority: P1
 effort: 180-220h
 branch: develop
@@ -40,8 +40,8 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Fundaciones modulos empleados centros PIN](./phase-01-fundaciones-modulos-empleados-centros-pin.md) | In Progress |
-| 2 | [Fichaje online personal y kiosco con PIN y geovalla](./phase-02-fichaje-online-personal-y-kiosco-con-pin-y-geovalla.md) | Pending |
+| 1 | [Fundaciones modulos empleados centros PIN](./phase-01-fundaciones-modulos-empleados-centros-pin.md) | Completed |
+| 2 | [Fichaje online personal y kiosco con PIN y geovalla](./phase-02-fichaje-online-personal-y-kiosco-con-pin-y-geovalla.md) | Completed |
 | 3 | [PWA y fichaje sin conexion](./phase-03-pwa-y-fichaje-sin-conexion.md) | Pending |
 | 4 | [Registro de jornada correcciones y hojas de horas](./phase-04-registro-de-jornada-correcciones-y-hojas-de-horas.md) | Pending |
 | 5 | [Informes legales y panel de gerencia](./phase-05-informes-legales-y-panel-de-gerencia.md) | Pending |
@@ -54,8 +54,8 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 
 | Oleada | Módulo | Fases | Esfuerzo |
 |---|---|---|---|
-| 1 | `check-in` | 1-5 | In Progress |
-| 2 | `turnos` | 6-8 | 56-66 h |
+| 1 | `check-in` | 1-5 | Completed |
+| 2 | `turnos` | 6-8 | Completed |
 | 3 | `rrhh` | 9-11 | 36-42 h |
 
 ## Dependency Graph

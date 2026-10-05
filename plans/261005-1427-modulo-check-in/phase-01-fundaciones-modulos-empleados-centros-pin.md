@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: Fundaciones modulos empleados centros PIN
-status: in-progress
+status: completed
 priority: P1
 effort: 16-20h
 dependencies: []
