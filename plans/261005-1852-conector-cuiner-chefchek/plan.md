@@ -54,6 +54,9 @@ created: 2026-10-05
 - 4 → 5 y 6.
 - La 3 y la 4 se pueden hacer en paralelo una vez terminada la 2.
 
+**Puesta en marcha en producción:** [guía paso a paso](guia-puesta-en-marcha-cuiner-produccion.md).
+- Scripts del servidor: `PermisosConectorCuiner.ps1` (Lectura / Escritura / Retirar) y `ConfigurarConector.ps1`.
+
 ## Criterios de aceptación globales
 - Un albarán enviado aparece en Cuiner igual que uno creado a mano: mismas tablas y mismos cálculos de base, IVA, total y `CosteUM`, sin diferencias de céntimos.
 - Reenviar el mismo albarán no crea un duplicado.
