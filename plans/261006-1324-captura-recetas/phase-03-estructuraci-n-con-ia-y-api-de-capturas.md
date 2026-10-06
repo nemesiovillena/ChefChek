@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: Estructuración con IA y API de capturas
-status: in-progress
+status: completed
 priority: P1
 effort: 2d
 dependencies:

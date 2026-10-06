@@ -12,6 +12,8 @@ export interface AiAssistantConfig {
   provider: AiAssistantProvider | null;
   model: string | null;
   hasApiKey: boolean;
+  /** Proveedor, modelo y clave presentes: se puede llamar a la IA. */
+  isReady: boolean;
 }
 
 export interface AiAssistantConfigInput {

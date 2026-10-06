@@ -1,10 +1,11 @@
 ---
 phase: 4
-title: "Pasar captura a Recetas"
-status: pending
+title: Pasar captura a Recetas
+status: in-progress
 priority: P1
-effort: "1.5d"
-dependencies: [3]
+effort: 1.5d
+dependencies:
+  - 3
 ---
 
 # Phase 4: Pasar captura a Recetas
