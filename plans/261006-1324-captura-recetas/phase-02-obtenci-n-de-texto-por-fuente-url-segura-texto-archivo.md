@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: Obtención de texto por fuente (URL segura / texto / archivo)
-status: in-progress
+status: completed
 priority: P1
 effort: 2d
 dependencies:

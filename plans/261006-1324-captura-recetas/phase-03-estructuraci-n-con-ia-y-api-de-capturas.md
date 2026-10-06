@@ -1,10 +1,12 @@
 ---
 phase: 3
-title: "Estructuración con IA y API de capturas"
-status: pending
+title: Estructuración con IA y API de capturas
+status: in-progress
 priority: P1
-effort: "2d"
-dependencies: [1, 2]
+effort: 2d
+dependencies:
+  - 1
+  - 2
 ---
 
 # Phase 3: Estructuración con IA y API de capturas

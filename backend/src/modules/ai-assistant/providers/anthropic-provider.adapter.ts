@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import {
   ChatMessage,
+  ChatOptions,
   ProviderAdapter,
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
-import { postJsonWithRetry } from "./provider-http.util";
+import { postJsonWithRetry, toPostJsonOptions } from "./provider-http.util";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
@@ -23,6 +24,7 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
     model: string,
     messages: ChatMessage[],
     tools: ToolSchema[],
+    options?: ChatOptions,
   ): Promise<ProviderChatResult> {
     const systemMessages = messages.filter((m) => m.role === "system");
     const system =
@@ -31,7 +33,7 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
 
     const body = {
       model,
-      max_tokens: MAX_TOKENS,
+      max_tokens: options?.maxOutputTokens ?? MAX_TOKENS,
       system,
       messages: this.buildMessages(conversation),
       ...(tools.length
@@ -45,14 +47,19 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
         : {}),
     };
 
-    const data: any = await postJsonWithRetry("Anthropic", ANTHROPIC_URL, {
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "Content-Type": "application/json",
+    const data: any = await postJsonWithRetry(
+      "Anthropic",
+      ANTHROPIC_URL,
+      {
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      toPostJsonOptions(options),
+    );
     const blocks: any[] = data.content ?? [];
 
     const textBlocks = blocks
@@ -69,6 +76,7 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
             params: b.input ?? {},
           }))
         : undefined,
+      ...(data.stop_reason === "max_tokens" ? { truncated: true } : {}),
     };
   }
 
@@ -118,6 +126,24 @@ export class AnthropicProviderAdapter implements ProviderAdapter {
         });
       }
       return { role: "assistant", content };
+    }
+    if (m.role === "user" && m.attachments?.length) {
+      return {
+        role: "user",
+        content: [
+          // Anthropic recomienda el documento/imagen antes del texto.
+          ...m.attachments.map((a) => ({
+            type: a.mimeType === "application/pdf" ? "document" : "image",
+            source: {
+              type: "base64",
+              media_type: a.mimeType,
+              data: a.dataBase64,
+            },
+          })),
+          // Anthropic rechaza bloques de texto vacíos.
+          ...(m.content ? [{ type: "text", text: m.content }] : []),
+        ],
+      };
     }
     return { role: m.role, content: m.content };
   }
