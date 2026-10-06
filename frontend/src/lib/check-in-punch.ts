@@ -74,3 +74,34 @@ export function getDevicePosition(timeoutMs = 8000): Promise<DevicePosition | nu
     );
   });
 }
+
+/** 510 -> "8 h 30 min". */
+export function formatMinutes(total: number): string {
+  const hours = Math.floor(total / 60);
+  const minutes = total % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${String(minutes).padStart(2, '0')} min`;
+}
+
+/** Hora de un instante en la zona horaria del centro. */
+export const formatTimeIn = (iso: string, timezone: string) =>
+  new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
+
+/** "2026-10-05" -> "lun, 5 oct". Se trata como fecha de calendario, sin zona. */
+export const formatDay = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString('es-ES', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+
+export const MONTH_NAMES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+export const INCIDENCE_LABELS: Record<string, string> = {
+  SIN_SALIDA: 'Falta fichar la salida',
+  SECUENCIA: 'Fichajes que no encajan',
+};

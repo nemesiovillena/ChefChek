@@ -230,3 +230,107 @@ export interface PresenceEntry {
   since: string | null;
   lastPunch: PunchView | null;
 }
+
+// ──────────────────────────────────────────── Jornadas, correcciones y hojas
+
+export type WorkdayIncidence = 'SIN_SALIDA' | 'SECUENCIA';
+
+export interface WorkdayPunch {
+  id: string;
+  type: PunchType;
+  occurredAt: string;
+  /** Fichaje real o añadido por una corrección aprobada. */
+  origin: 'PUNCH' | 'ADJUSTMENT';
+  /** Anulado por una corrección: se muestra, pero no cuenta. */
+  voided: boolean;
+  needsReview: boolean;
+  wasOffline: boolean;
+  locationName: string | null;
+  geofenceStatus: PunchGeofenceStatus | null;
+}
+
+export interface Workday {
+  /** AAAA-MM-DD en la zona horaria del centro. */
+  date: string;
+  segments: { start: string; end: string; kind: 'WORK' | 'BREAK' }[];
+  workedMinutes: number;
+  breakMinutes: number;
+  incidences: WorkdayIncidence[];
+  /** Jornada en curso (entrada reciente sin salida). */
+  open: boolean;
+  punches: WorkdayPunch[];
+}
+
+export interface MonthTotals {
+  workedMinutes: number;
+  breakMinutes: number;
+  expectedMinutes: number;
+  overtimeMinutes: number;
+  daysWorked: number;
+  incidenceCount: number;
+}
+
+export interface ApprovedTimesheet extends MonthTotals {
+  id: string;
+  version: number;
+  reopenReason: string | null;
+  approvedByName: string;
+  approvedAt: string;
+}
+
+/** Mes de una persona: jornadas, totales al día, hoja aprobada y conformidad. */
+export interface MonthState {
+  year: number;
+  month: number;
+  employee: { id: string; name: string; weeklyHours: number };
+  timezone: string;
+  days: Workday[];
+  totals: MonthTotals;
+  pendingAdjustments: number;
+  approved: ApprovedTimesheet | null;
+  acknowledgedAt: string | null;
+  /** Los totales actuales ya no coinciden con la hoja aprobada. */
+  changedSinceApproval: boolean;
+}
+
+export interface TimesheetRow {
+  employeeId: string;
+  employeeName: string;
+  isActive: boolean;
+  totals: MonthTotals;
+  pendingAdjustments: number;
+  approved: ApprovedTimesheet | null;
+  acknowledgedAt: string | null;
+  changedSinceApproval: boolean;
+}
+
+export type AdjustmentKind = 'ADD' | 'VOID' | 'REPLACE' | 'CONFIRM';
+
+export interface Adjustment {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  kind: AdjustmentKind;
+  targetPunchId: string | null;
+  type: PunchType | null;
+  occurredAt: string | null;
+  reason: string;
+  requestedByName: string;
+  createdAt: string;
+  /** null = pendiente de decisión. */
+  decision: {
+    status: 'APPROVED' | 'REJECTED';
+    note: string | null;
+    decidedByName: string;
+    decidedAt: string;
+  } | null;
+}
+
+export interface AdjustmentInput {
+  kind: AdjustmentKind;
+  employeeId?: string;
+  targetPunchId?: string;
+  type?: PunchType;
+  occurredAt?: string;
+  reason: string;
+}
