@@ -17,6 +17,7 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
+import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
@@ -45,7 +46,13 @@ interface AuthedRequest {
  */
 @ApiTags("Cuiner")
 @Controller("api/v1/cuiner")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(
+  AuthGuard,
+  TenantGuard,
+  CuinerTenantRequiredGuard,
+  RolesGuard,
+  ModuleGuard,
+)
 @RequireModule("cuiner")
 @Roles(...ADMIN_ROLES)
 export class CuinerController {

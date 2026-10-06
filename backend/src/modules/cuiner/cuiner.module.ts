@@ -10,6 +10,7 @@ import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerStockService } from "./cuiner-stock.service";
 import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
+import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
 
 @Module({
   imports: [PrismaModule, AuthModule],
@@ -22,6 +23,7 @@ import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
     CuinerSalesService,
     CuinerStockService,
     CuinerConnectorGuard,
+    CuinerTenantRequiredGuard,
   ],
 })
 export class CuinerModule {}
