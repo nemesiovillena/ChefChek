@@ -14,6 +14,7 @@ import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
 import { SupplierMatchBadge } from '@/components/albaranes/supplier-match-badge';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
+import { CuinerSendCard } from '@/components/albaranes/cuiner-send-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart, ArrowUpRight } from 'lucide-react';
@@ -456,6 +457,8 @@ export default function AlbaranResumenPage() {
               </span>
             </CardContent>
           </Card>
+
+          <CuinerSendCard albaranId={id} confirmed={albaran.status === 'CONFIRMADO'} />
         </div>
       </div>
 
