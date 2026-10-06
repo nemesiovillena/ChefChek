@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { useAlbaranDuplicateCheck } from '@/hooks/use-albaran-duplicate-check';
-import { updateStatus, deleteAlbaran, updateAlbaran } from '@/lib/api-albaran';
+import { updateStatus, deleteAlbaran, updateAlbaran, updateAlbaranDate } from '@/lib/api-albaran';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -128,6 +128,31 @@ export default function AlbaranResumenPage() {
       });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  // Corrección de la fecha (en cualquier estado): el OCR a veces lee mal el
+  // año escrito a mano. null = no se está editando.
+  const [dateDraft, setDateDraft] = useState<string | null>(null);
+  const [savingDate, setSavingDate] = useState(false);
+
+  const handleSaveDate = async () => {
+    if (!dateDraft) return;
+    setSavingDate(true);
+    try {
+      await updateAlbaranDate(id, dateDraft);
+      setDateDraft(null);
+      // La tarjeta Cuiner muestra y avisa de la fecha: refrescarla también.
+      void queryClient.invalidateQueries({ queryKey: ['cuiner', 'albaran', id] });
+      handleDetailMutationSuccess();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo corregir la fecha',
+        message: err instanceof Error ? err.message : '',
+      });
+    } finally {
+      setSavingDate(false);
     }
   };
 
@@ -284,7 +309,35 @@ export default function AlbaranResumenPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Fecha</p>
-                    <p className="font-semibold">{formatDate(albaran.date)}</p>
+                    {dateDraft === null ? (
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{formatDate(albaran.date)}</p>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDateDraft(albaran.date.slice(0, 10))}
+                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          title="Corregir la fecha"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="date"
+                          value={dateDraft}
+                          onChange={(e) => setDateDraft(e.target.value)}
+                          className="rounded-md border border-gray-300 bg-transparent px-2 py-1 text-base [color-scheme:light] dark:border-zinc-700 dark:[color-scheme:dark]"
+                        />
+                        <Button size="sm" onClick={handleSaveDate} disabled={savingDate || !dateDraft}>
+                          {savingDate ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setDateDraft(null)} disabled={savingDate}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

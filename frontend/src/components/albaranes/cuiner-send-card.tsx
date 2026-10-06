@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle2, Loader2, Send, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Send, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
@@ -13,6 +13,30 @@ import { CUINER_EXPORT_STATUS_LABELS } from '@/lib/cuiner-types';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+
+/** Antigüedad (días) a partir de la cual se avisa de revisar la fecha. */
+const OLD_DATE_WARNING_DAYS = 30;
+
+/** Fecha del payload (AAAA-MM-DD) en formato español. */
+const fechaEs = (fecha: string) => fecha.split('-').reverse().join('/');
+
+/**
+ * Aviso (no bloqueante) si la fecha del albarán está lejos de hoy: el OCR a
+ * veces lee mal el año escrito a mano (2026 → 2020) y Cuiner la grabaría así.
+ */
+function dateWarning(fecha: string): string | null {
+  const [y, m, d] = fecha.split('-').map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today.getTime() - new Date(y, m - 1, d).getTime()) / 86_400_000);
+  if (days < -1) {
+    return `La fecha del albarán (${fechaEs(fecha)}) es futura: compruébala con el papel antes de enviarlo.`;
+  }
+  if (days > OLD_DATE_WARNING_DAYS) {
+    return `La fecha del albarán es ${fechaEs(fecha)}, hace ${days} días: compruébala con el papel antes de enviarlo (el OCR a veces lee mal el año escrito a mano).`;
+  }
+  return null;
+}
 
 /**
  * Tarjeta «Cuiner» del resumen del albarán: muestra qué falta enlazar y, si
@@ -35,14 +59,15 @@ export function CuinerSendCard({ albaranId, confirmed }: { albaranId: string; co
   const preview = data?.preview;
   const alreadySent = existing?.status === 'ENVIADO';
   const queued = existing?.status === 'PENDIENTE';
+  const fechaWarning = preview?.payload ? dateWarning(preview.payload.fecha) : null;
 
   async function handleSend() {
     if (!preview?.payload) return;
     const ok = await confirm({
       title: 'Enviar albarán a Cuiner',
-      description: `Se enviarán ${preview.payload.lineas.length} líneas por ${eur(preview.payload.total)} al proveedor ${preview.payload.codigo} de Cuiner.`,
+      description: `Se enviarán ${preview.payload.lineas.length} líneas por ${eur(preview.payload.total)} al proveedor ${preview.payload.codigo} de Cuiner, con fecha ${fechaEs(preview.payload.fecha)}.${fechaWarning ? ` ⚠️ ${fechaWarning}` : ''}`,
       confirmText: 'Enviar',
-      variant: 'info',
+      variant: fechaWarning ? 'warning' : 'info',
     });
     if (!ok) return;
     try {
@@ -91,8 +116,14 @@ export function CuinerSendCard({ albaranId, confirmed }: { albaranId: string; co
         {preview?.payload && !alreadySent && (
           <>
             <p className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" /> Listo: {preview.payload.lineas.length} líneas · {eur(preview.payload.total)}
+              <CheckCircle2 className="h-4 w-4" /> Listo: {preview.payload.lineas.length} líneas ·{' '}
+              {eur(preview.payload.total)} · {fechaEs(preview.payload.fecha)}
             </p>
+            {fechaWarning && (
+              <p className="flex items-start gap-1.5 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {fechaWarning}
+              </p>
+            )}
             <Button className="w-full" onClick={handleSend} disabled={send.isPending || queued}>
               {send.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               {queued ? 'En cola del conector' : existing ? 'Reenviar a Cuiner' : 'Enviar a Cuiner'}

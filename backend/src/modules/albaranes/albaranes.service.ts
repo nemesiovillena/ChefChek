@@ -14,6 +14,7 @@ import { OcrConfigService } from "../ocr-config/ocr-config.service";
 import { ProductSupplierOffersService } from "../products/product-supplier-offers.service";
 import { CreateAlbaranDto } from "./dto/create-albaran.dto";
 import {
+  UpdateAlbaranDateDto,
   UpdateAlbaranDto,
   UpdateAlbaranLineDto,
   CorrectAlbaranLinePriceDto,
@@ -234,6 +235,29 @@ export class AlbaranesService {
         purchaseOrderId: dto.purchaseOrderId,
         applyDiscountToCost: dto.applyDiscountToCost,
       },
+      include: { lines: true, supplier: true, purchaseOrder: true },
+    });
+  }
+
+  /**
+   * Corrige solo la fecha del albarán, en cualquier estado. El stock y el
+   * histórico de precios llevan su propia fecha de registro, y la
+   * trazabilidad, etiquetas y «último precio» leen esta fecha al consultar,
+   * así que corregirla no deja nada incoherente. Lo ya enviado a Cuiner no se
+   * toca: allí se corrige a mano.
+   */
+  async updateDate(id: string, dto: UpdateAlbaranDateDto, tenantId: string) {
+    await this.findOne(id, tenantId);
+    const date = new Date(`${dto.date}T00:00:00.000Z`);
+    if (
+      Number.isNaN(date.getTime()) ||
+      date.toISOString().slice(0, 10) !== dto.date
+    ) {
+      throw new BadRequestException("Fecha no válida");
+    }
+    return this.prisma.albaran.update({
+      where: { id },
+      data: { date },
       include: { lines: true, supplier: true, purchaseOrder: true },
     });
   }
