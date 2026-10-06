@@ -6,6 +6,7 @@ import { CuinerConnectorController } from "./cuiner-connector.controller";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
+import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
 
@@ -15,6 +16,7 @@ import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
   providers: [
     CuinerConfigService,
     CuinerMappingService,
+    CuinerOverviewService,
     CuinerExportService,
     CuinerSalesService,
     CuinerConnectorGuard,

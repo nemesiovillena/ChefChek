@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: 'local_shipping' },
       { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
       { label: 'Histórico de precios', href: '/dashboard/historico-precios', sectionKey: 'historico-precios', icon: 'trending_up' },
+      { label: 'Cuiner', href: '/dashboard/cuiner', moduleId: 'cuiner', icon: 'sync_alt', managerOnly: true },
     ],
   },
   {
@@ -148,6 +149,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
   { prefix: '/dashboard/sicted', moduleId: 'sicted' },
+  { prefix: '/dashboard/cuiner', moduleId: 'cuiner' },
 ];
 
 /** Returns the moduleId governing a pathname, or undefined if transversal. */

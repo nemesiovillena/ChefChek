@@ -134,6 +134,34 @@ describe("CuinerExportService.preview", () => {
     expect(payload?.lineas).toHaveLength(1);
   });
 
+  it("bloquea el envío si el total no cuadra con el del albarán (IVA mal leído)", async () => {
+    // Caso real: verdura al 4 % leída por el OCR como 10 %.
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        total: 164.84,
+        lines: [
+          albaranLine({ quantity: 1, unitPrice: 158.5, totalPrice: 158.5 }),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(payload).toBeNull();
+    expect(problems).toEqual([
+      "El total calculado (174,35 €) no cuadra con el total del albarán (164,84 €): revisa el IVA y los importes de las líneas",
+    ]);
+  });
+
+  it("admite diferencias de redondeo de hasta 5 céntimos", async () => {
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({ total: 8.37 }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(problems).toEqual([]);
+    expect(payload?.total).toBe(8.34);
+  });
+
   it("avisa si el conector no está configurado", async () => {
     const prisma = makePrisma({ albaran: albaran() });
     const { problems } = await serviceWith(prisma).preview("t1", "a1");

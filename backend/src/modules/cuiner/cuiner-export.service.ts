@@ -18,6 +18,9 @@ import {
 } from "./cuiner-albaran-payload";
 import { ExportResultDto } from "./dto/cuiner.dto";
 
+/** Diferencia máxima (€) admitida entre el total calculado y el del albarán. */
+const TOTAL_MISMATCH_TOLERANCE = 0.05;
+
 export interface CuinerExportPreview {
   /** Qué impide enviar el albarán (vacío = se puede enviar). */
   problems: string[];
@@ -153,6 +156,21 @@ export class CuinerExportService {
         };
       }),
     });
+    // Última barrera: si lo que se escribiría en Cuiner no cuadra con el
+    // total del papel, casi siempre es un IVA mal leído por el OCR en alguna
+    // línea. Mejor bloquear que meter un albarán con el IVA equivocado.
+    if (
+      albaran.total > 0 &&
+      Math.abs(payload.total - albaran.total) > TOTAL_MISMATCH_TOLERANCE
+    ) {
+      const fmt = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
+      return {
+        problems: [
+          `El total calculado (${fmt(payload.total)}) no cuadra con el total del albarán (${fmt(albaran.total)}): revisa el IVA y los importes de las líneas`,
+        ],
+        payload: null,
+      };
+    }
     return { problems, payload };
   }
 

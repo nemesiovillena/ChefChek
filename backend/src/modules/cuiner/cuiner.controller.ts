@@ -20,6 +20,7 @@ import { Roles } from "../../decorators/roles.decorator";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
+import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import {
   SetDishMapDto,
@@ -52,6 +53,7 @@ export class CuinerController {
     private readonly mappingService: CuinerMappingService,
     private readonly exportService: CuinerExportService,
     private readonly salesService: CuinerSalesService,
+    private readonly overviewService: CuinerOverviewService,
   ) {}
 
   // ─── Configuración ─────────────────────────────────────────────────────
@@ -121,6 +123,52 @@ export class CuinerController {
     @Param("producto") producto: string,
   ) {
     return this.mappingService.deleteDishMap(req.tenantId, tipo, producto);
+  }
+
+  // ─── Vistas para las pantallas de enlace ───────────────────────────────
+
+  @Get("overview/suppliers")
+  suppliersOverview(@Req() req: AuthedRequest) {
+    return this.overviewService.suppliers(req.tenantId);
+  }
+
+  @Get("overview/products")
+  productsOverview(
+    @Req() req: AuthedRequest,
+    @Query("search") search?: string,
+    @Query("onlyUnmapped") onlyUnmapped?: string,
+    @Query("page") page?: string,
+  ) {
+    return this.overviewService.products(req.tenantId, {
+      search,
+      onlyUnmapped: onlyUnmapped === "true",
+      page: Number(page) || 1,
+    });
+  }
+
+  @Get("overview/dishes")
+  dishesOverview(
+    @Req() req: AuthedRequest,
+    @Query("tipo") tipo?: string,
+    @Query("search") search?: string,
+    @Query("onlyUnmapped") onlyUnmapped?: string,
+    @Query("page") page?: string,
+  ) {
+    return this.overviewService.dishes(req.tenantId, {
+      tipo,
+      search,
+      onlyUnmapped: onlyUnmapped === "true",
+      page: Number(page) || 1,
+    });
+  }
+
+  @Get("catalog/search")
+  searchCatalog(
+    @Req() req: AuthedRequest,
+    @Query("kind") kind = "article",
+    @Query("q") q = "",
+  ) {
+    return this.overviewService.searchCatalog(req.tenantId, kind, q);
   }
 
   // ─── Envío de albaranes ────────────────────────────────────────────────
