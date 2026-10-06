@@ -28,6 +28,7 @@ import {
 import { Roles } from "../../decorators/roles.decorator";
 import { CreateRecipeCaptureDto } from "./dto/create-recipe-capture.dto";
 import { UpdateCaptureIngredientDto } from "./dto/update-capture-ingredient.dto";
+import { RecipeCapturePromotionService } from "./recipe-capture-promotion.service";
 import { RecipeCaptureService } from "./recipe-capture.service";
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -45,7 +46,10 @@ const CREATE_THROTTLE = { default: { limit: 10, ttl: 60000 } };
 @RequireSection("captura-recetas")
 @Roles("ADMIN", "OWNER", "USER")
 export class RecipeCaptureController {
-  constructor(private readonly captureService: RecipeCaptureService) {}
+  constructor(
+    private readonly captureService: RecipeCaptureService,
+    private readonly promotionService: RecipeCapturePromotionService,
+  ) {}
 
   @Get()
   async findAll(@Req() req: any) {
@@ -111,6 +115,19 @@ export class RecipeCaptureController {
       id,
       ingredientId,
       dto.matchedProductId,
+    );
+    return { success: true, data };
+  }
+
+  /** Crea la receta real a partir de la captura. Repetir la llamada no la duplica. */
+  @Post(":id/promote")
+  @HttpCode(HttpStatus.OK)
+  @RequireSection("recipes.edit")
+  async promote(@Req() req: any, @Param("id") id: string) {
+    const data = await this.promotionService.promote(
+      req.tenantId,
+      req.user?.role,
+      id,
     );
     return { success: true, data };
   }

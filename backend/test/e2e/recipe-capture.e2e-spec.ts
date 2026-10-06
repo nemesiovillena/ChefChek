@@ -52,20 +52,16 @@ describe("E2E - Captura de recetas", () => {
     await app.close();
   });
 
+  // Borrado físico por SQL directo, y solo de los dos tenants de este test:
+  // el `deleteMany` de Prisma marca `deletedAt` en tenants, recetas y
+  // artículos, y un tenant borrado lógicamente sigue ocupando su slug único,
+  // con lo que la siguiente ejecución fallaría al sembrar. El resto de tablas
+  // cae en cascada desde el tenant.
   async function cleanupBySlug() {
-    const leftover = await prisma.tenant.findMany({
-      where: { slug: { in: [tenantA.slug, tenantB.slug] } },
-      select: { id: true },
-    });
-    if (leftover.length === 0) return;
-    const ids = leftover.map((t) => t.id);
-    await prisma.recipeCapture.deleteMany({ where: { tenantId: { in: ids } } });
-    await prisma.configuration.deleteMany({ where: { tenantId: { in: ids } } });
-    await prisma.session.deleteMany({
-      where: { user: { tenantId: { in: ids } } },
-    });
-    await prisma.user.deleteMany({ where: { tenantId: { in: ids } } });
-    await prisma.tenant.deleteMany({ where: { id: { in: ids } } });
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "tenants" WHERE "slug" = ANY($1)`,
+      [tenantA.slug, tenantB.slug],
+    );
   }
 
   async function seed() {
@@ -229,6 +225,155 @@ describe("E2E - Captura de recetas", () => {
           })
         ).status,
       ).toBe("DESCARTADA");
+    });
+    describe("pasar a Recetas", () => {
+      let captureId: string;
+      const promoteUrl = () => `/api/v1/recipe-captures/${captureId}/promote`;
+
+      beforeAll(async () => {
+        const harina = await prisma.product.create({
+          data: {
+            tenantId: tenantAId,
+            name: "HARINA TRIGO",
+            referenceUnit: "kg",
+            purchasePrice: 1,
+            netPrice: 1,
+          } as any,
+        });
+        const capture = await prisma.recipeCapture.create({
+          data: {
+            tenantId: tenantAId,
+            source: "URL",
+            sourceUrl: "https://recetas.example.com/bizcocho",
+            status: "PENDIENTE",
+            name: "Bizcocho e2e",
+            elaboration: JSON.stringify({
+              steps: [{ description: "Hornear" }],
+            }),
+            portions: 8,
+            ingredients: {
+              create: [
+                {
+                  rawText: "250 g de harina",
+                  name: "harina",
+                  quantity: 250,
+                  unit: "g",
+                  matchedProductId: harina.id,
+                  sortOrder: 0,
+                },
+                {
+                  rawText: "100 ml de harina líquida",
+                  name: "harina",
+                  quantity: 100,
+                  unit: "ml",
+                  matchedProductId: harina.id,
+                  sortOrder: 1,
+                },
+                { rawText: "sal al gusto", name: "sal", sortOrder: 2 },
+              ],
+            },
+          },
+        });
+        captureId = capture.id;
+      });
+
+      it("otro tenant no puede pasarla", async () => {
+        await request(app.getHttpServer())
+          .post(promoteUrl())
+          .set(as(sessionB, tenantB.slug))
+          .expect(404);
+      });
+
+      it("un usuario con la sección Recetas oculta no puede pasarla", async () => {
+        const passwordHash = await bcrypt.hash("TestPass123!", 10);
+        await prisma.user.create({
+          data: {
+            email: "capture-a-user@test.com",
+            passwordHash,
+            name: "Capture A User",
+            tenantId: tenantAId,
+            role: "USER",
+            isActive: true,
+          },
+        });
+        await prisma.configuration.create({
+          data: {
+            tenantId: tenantAId,
+            key: "roleAccess.USER.recipes",
+            value: "false",
+            category: "ROLE_ACCESS",
+            updatedBy: "e2e",
+          },
+        });
+        const login = await request(app.getHttpServer())
+          .post("/api/v1/auth/login")
+          .set("x-tenant-slug", tenantA.slug)
+          .send({ email: "capture-a-user@test.com", password: "TestPass123!" });
+
+        await request(app.getHttpServer())
+          .post(promoteUrl())
+          .set(as(login.body.data.session.id, tenantA.slug))
+          .expect(403);
+        expect(
+          await prisma.recipe.count({ where: { tenantId: tenantAId } }),
+        ).toBe(0);
+      });
+
+      it("crea una sola receta, inactiva, con la línea compatible y el resto en notas", async () => {
+        const first = await request(app.getHttpServer())
+          .post(promoteUrl())
+          .set(as(sessionA, tenantA.slug))
+          .expect(200);
+        expect(first.body.data).toMatchObject({ lines: 1, toNotes: 2 });
+        const recipeId = first.body.data.recipeId;
+
+        // Repetir la llamada (doble clic) devuelve la misma receta.
+        const second = await request(app.getHttpServer())
+          .post(promoteUrl())
+          .set(as(sessionA, tenantA.slug))
+          .expect(200);
+        expect(second.body.data.recipeId).toBe(recipeId);
+
+        const recipes = await prisma.recipe.findMany({
+          where: { tenantId: tenantAId },
+          include: { ingredients: true },
+        });
+        expect(recipes).toHaveLength(1);
+        expect(recipes[0]).toMatchObject({
+          id: recipeId,
+          name: "Bizcocho e2e",
+          sourceUrl: "https://recetas.example.com/bizcocho",
+          isActive: false,
+          portions: 8,
+        });
+        expect(recipes[0].ingredients).toHaveLength(1);
+        expect(recipes[0].ingredients[0]).toMatchObject({
+          quantity: 250,
+          unit: "g",
+        });
+        expect(recipes[0].notes).toBe(
+          [
+            "Ingredientes pendientes de vincular (alérgenos incompletos):",
+            "- 100 ml de harina líquida (unidad no compatible con el artículo)",
+            "- sal al gusto",
+          ].join("\n"),
+        );
+
+        const capture = await prisma.recipeCapture.findUniqueOrThrow({
+          where: { id: captureId },
+        });
+        expect(capture).toMatchObject({ status: "PASADA", recipeId });
+
+        // La receta se abre y se guarda desde Recetas sin perder las notas.
+        const read = await request(app.getHttpServer())
+          .get(`/api/v1/recipes/${recipeId}`)
+          .set(as(sessionA, tenantA.slug))
+          .expect(200);
+        expect(read.body.data.notes).toContain("sal al gusto");
+        expect(read.body.data.sourceUrl).toBe(
+          "https://recetas.example.com/bizcocho",
+        );
+      });
     });
   });
 });

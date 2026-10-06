@@ -70,8 +70,8 @@ Esfuerzo estimado: ~9 días (0,5 + 2 + 2 + 1,5 + 1 + 2).
 | 1 | [Modelo de datos y registro del módulo](./phase-01-modelo-de-datos-y-registro-del-m-dulo.md) | Completed |
 | 2 | [Obtención de texto por fuente (URL segura / texto / archivo)](./phase-02-obtenci-n-de-texto-por-fuente-url-segura-texto-archivo.md) | Completed |
 | 3 | [Estructuración con IA y API de capturas](./phase-03-estructuraci-n-con-ia-y-api-de-capturas.md) | Completed |
-| 4 | [Pasar captura a Recetas](./phase-04-pasar-captura-a-recetas.md) | In Progress |
-| 5 | [Frontend listado y nueva captura](./phase-05-frontend-listado-y-nueva-captura.md) | Pending |
+| 4 | [Pasar captura a Recetas](./phase-04-pasar-captura-a-recetas.md) | Completed |
+| 5 | [Frontend listado y nueva captura](./phase-05-frontend-listado-y-nueva-captura.md) | In Progress |
 | 6 | [Frontend revisión y paso a Recetas](./phase-06-frontend-revisi-n-y-paso-a-recetas.md) | Pending |
 
 Orden: 1 → 2 → 3 → 4 (backend); 5 depende de 3; 6 depende de 4 y 5.
@@ -121,8 +121,8 @@ La clave de Gemini del tenant de desarrollo agotó su cuota durante la prueba re
 | 1 | `Recipe.notes` es una columna muerta: sin DTO, servicio, respuesta ni UI | Critical | Accept | Completed |
 | 2 | `LineMatchingService` no vincula nombres genéricos y se leía el campo equivocado | Critical | Accept | Completed |
 | 3 | Adaptadores: 1024 tokens (Anthropic), 30 s sin reintento, sin opciones por llamada | Critical | Accept | Completed |
-| 4 | El deep link `?recipe=` abre la vista de lectura, no la edición | High | Accept | In Progress |
-| 5 | Promote no atómico: duplicados al revertir y `PASADA` con `recipeId` nulo | High | Accept | Phase 1, Phase 4, Phase 6 |
+| 4 | El deep link `?recipe=` abre la vista de lectura, no la edición | High | Accept | Completed |
+| 5 | Promote no atómico: duplicados al revertir y `PASADA` con `recipeId` nulo | High | Accept | In Progress |
 | 6 | Unidades incompatibles cuestan con factor 1; `ud` vs `units`; DTO sin validar; `name` nulo | High | Accept | Phase 3, Phase 4 |
 | 7 | Receta activa con alérgenos solo de ingredientes vinculados | High | Accept (decisión de usuario: inactiva) | Phase 4, Phase 6 |
 | 8 | SUPERADMIN sin tenant: consultas sin filtro y clave de otro tenant | High | Accept | Phase 3 |

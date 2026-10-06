@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: Pasar captura a Recetas
-status: in-progress
+status: completed
 priority: P1
 effort: 1.5d
 dependencies:

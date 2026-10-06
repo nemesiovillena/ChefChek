@@ -1,10 +1,11 @@
 ---
 phase: 5
-title: "Frontend listado y nueva captura"
-status: pending
+title: Frontend listado y nueva captura
+status: in-progress
 priority: P2
-effort: "1d"
-dependencies: [3]
+effort: 1d
+dependencies:
+  - 3
 ---
 
 # Phase 5: Frontend listado y nueva captura

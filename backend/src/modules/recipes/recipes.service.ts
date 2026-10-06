@@ -138,12 +138,18 @@ export class RecipesService {
   async create(
     tenantId: string,
     createRecipeDto: CreateRecipeDto,
+    // `id` permite reservar el identificador antes de crear, para que quien
+    // llama pueda comprobar después si la receta llegó a existir.
+    opts: { id?: string } = {},
   ): Promise<RecipeResponse> {
     const {
       name,
       description,
       elaboration,
       imageUrl,
+      notes = null,
+      sourceUrl = null,
+      isActive = true,
       portions = 1,
       portionSize = 1,
       totalYieldWeight,
@@ -190,6 +196,7 @@ export class RecipesService {
     // Crear receta
     const recipe = await this.prisma.recipe.create({
       data: {
+        ...(opts.id ? { id: opts.id } : {}),
         tenantId,
         name,
         description,
@@ -198,6 +205,9 @@ export class RecipesService {
             ? JSON.stringify(parsedElaboration)
             : null,
         imageUrl,
+        notes,
+        sourceUrl,
+        isActive,
         portions: yield_.portions,
         portionSize: yield_.portionSize,
         totalYieldWeight: yield_.totalYieldWeight,
@@ -451,6 +461,10 @@ export class RecipesService {
       description = recipe.description,
       elaboration = recipe.elaboration,
       imageUrl = recipe.imageUrl,
+      // Sin valor en la petición se conservan: un guardado que no las envíe
+      // no debe borrar los ingredientes pendientes que guardan las notas.
+      notes = recipe.notes,
+      sourceUrl = recipe.sourceUrl,
       portions = recipe.portions,
       portionSize = recipe.portionSize,
       preparationTimeMinutes = recipe.preparationTimeMinutes,
@@ -534,6 +548,8 @@ export class RecipesService {
         description,
         elaboration,
         imageUrl,
+        notes,
+        sourceUrl,
         portions: yield_.portions,
         portionSize: yield_.portionSize,
         totalYieldWeight: yield_.totalYieldWeight,
@@ -654,6 +670,8 @@ export class RecipesService {
       name: newName || `${originalRecipe.name} (Copia)`,
       description: originalRecipe.description,
       elaboration: originalRecipe.elaboration,
+      notes: originalRecipe.notes,
+      sourceUrl: originalRecipe.sourceUrl,
       portions: originalRecipe.portions,
       portionSize: originalRecipe.portionSize,
       totalYieldWeight: originalRecipe.totalYieldWeight ?? undefined,
@@ -1053,6 +1071,8 @@ export class RecipesService {
       description: recipe.description,
       elaboration: recipe.elaboration,
       imageUrl: recipe.imageUrl ?? null,
+      notes: recipe.notes ?? null,
+      sourceUrl: recipe.sourceUrl ?? null,
       portions: recipe.portions,
       portionSize: recipe.portionSize,
       totalYieldWeight: recipe.totalYieldWeight ?? null,
