@@ -22,6 +22,7 @@ import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
+import { CuinerStockService } from "./cuiner-stock.service";
 import {
   SetDishMapDto,
   SetProductMapDto,
@@ -54,6 +55,7 @@ export class CuinerController {
     private readonly exportService: CuinerExportService,
     private readonly salesService: CuinerSalesService,
     private readonly overviewService: CuinerOverviewService,
+    private readonly stockService: CuinerStockService,
   ) {}
 
   // ─── Configuración ─────────────────────────────────────────────────────
@@ -169,6 +171,23 @@ export class CuinerController {
     @Query("q") q = "",
   ) {
     return this.overviewService.searchCatalog(req.tenantId, kind, q);
+  }
+
+  // ─── Ventas → stock de ChefChek ────────────────────────────────────────
+
+  @Get("sales/preview")
+  salesPreview(@Req() req: AuthedRequest) {
+    return this.stockService.preview(req.tenantId);
+  }
+
+  @Post("sales/apply")
+  applySales(@Req() req: AuthedRequest) {
+    return this.stockService.apply(req.tenantId);
+  }
+
+  @Post("sales/requeue-unmapped")
+  requeueUnmapped(@Req() req: AuthedRequest) {
+    return this.stockService.requeueUnmapped(req.tenantId);
   }
 
   // ─── Envío de albaranes ────────────────────────────────────────────────

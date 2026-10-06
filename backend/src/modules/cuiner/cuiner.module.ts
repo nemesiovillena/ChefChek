@@ -8,6 +8,7 @@ import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
+import { CuinerStockService } from "./cuiner-stock.service";
 import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
 
 @Module({
@@ -19,6 +20,7 @@ import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
     CuinerOverviewService,
     CuinerExportService,
     CuinerSalesService,
+    CuinerStockService,
     CuinerConnectorGuard,
   ],
 })

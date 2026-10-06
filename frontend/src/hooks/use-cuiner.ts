@@ -10,6 +10,7 @@ import type {
   CuinerExportPreview,
   CuinerPage,
   CuinerProductRow,
+  CuinerSalesPreview,
   CuinerStatus,
   CuinerSupplierRow,
   UpdateCuinerConfigInput,
@@ -24,6 +25,7 @@ const keys = {
   products: (q: object) => [ROOT_KEY, 'products', q] as const,
   dishes: (q: object) => [ROOT_KEY, 'dishes', q] as const,
   exports: [ROOT_KEY, 'exports'] as const,
+  salesPreview: [ROOT_KEY, 'sales-preview'] as const,
   albaran: (albaranId: string) => [ROOT_KEY, 'albaran', albaranId] as const,
 };
 
@@ -191,5 +193,32 @@ export function useSendAlbaranToCuiner(albaranId: string) {
       qc.invalidateQueries({ queryKey: keys.albaran(albaranId) });
       qc.invalidateQueries({ queryKey: keys.exports });
     },
+  });
+}
+
+// ─── Ventas → stock ─────────────────────────────────────────────────────────
+
+export function useCuinerSalesPreview() {
+  return useQuery<CuinerSalesPreview, Error>({
+    queryKey: keys.salesPreview,
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/sales/preview`)).data,
+  });
+}
+
+export function useApplyCuinerSales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ applied: number; unmapped: number; movements: number }> =>
+      (await apiClient.post(`${BASE_URL}/sales/apply`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: [ROOT_KEY] }),
+  });
+}
+
+export function useRequeueCuinerSales() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<{ requeued: number }> =>
+      (await apiClient.post(`${BASE_URL}/sales/requeue-unmapped`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: [ROOT_KEY] }),
   });
 }

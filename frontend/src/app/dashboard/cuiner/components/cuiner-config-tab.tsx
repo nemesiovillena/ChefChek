@@ -149,7 +149,7 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
         <label className="block text-sm">
           Almacén de ChefChek donde descuentan las ventas
           <select className={inputCls} value={draft.warehouseId ?? ''} onChange={(e) => setDraft({ ...draft, warehouseId: e.target.value })}>
-            <option value="">Sin elegir</option>
+            <option value="">Stock general (sin almacén), como los albaranes</option>
             {(warehouses.data ?? []).map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}

@@ -45,7 +45,7 @@ created: 2026-10-05
 | 2 ✅ | Backend ChefChek: módulo, modelos y API del conector | No | [phase-02](phase-02-backend-modulo-cuiner-modelos-api.md) |
 | 3 ✅ | Conector de solo lectura: catálogos y ventas | No (solo SELECT) | [phase-03](phase-03-conector-windows-lectura-catalogos-ventas.md) |
 | 4 ✅ | Interfaz de mapeos: proveedores, artículos y platos | No | [phase-04](phase-04-ui-mapeos-proveedores-articulos-platos.md) |
-| 5 | Ventas de Cuiner → salidas de stock en ChefChek | No | [phase-05](phase-05-ventas-cuiner-descuento-stock-chefchek.md) |
+| 5 ✅ | Ventas de Cuiner → salidas de stock en ChefChek | No | [phase-05](phase-05-ventas-cuiner-descuento-stock-chefchek.md) |
 | 6 | Envío de albaranes: simulación → CuinerPruebas → producción | Sí (por pasos y con permiso) | [phase-06](phase-06-envio-albaranes-a-cuiner.md) |
 
 **Dependencias:**

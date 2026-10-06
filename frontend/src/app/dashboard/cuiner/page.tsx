@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useCuinerStatus } from '@/hooks/use-cuiner';
 import { CuinerConfigTab } from './components/cuiner-config-tab';
 import { CuinerDishesTab } from './components/cuiner-dishes-tab';
+import { CuinerSalesTab } from './components/cuiner-sales-tab';
 import { CuinerProductsTab, CuinerSuppliersTab } from './components/cuiner-suppliers-products-tabs';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'proveedores', label: 'Proveedores' },
   { id: 'articulos', label: 'Artículos' },
   { id: 'platos', label: 'Platos' },
+  { id: 'ventas', label: 'Ventas' },
   { id: 'conector', label: 'Conector y envíos' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -78,6 +80,7 @@ export default function CuinerPage() {
             {activeTab === 'proveedores' && <CuinerSuppliersTab />}
             {activeTab === 'articulos' && <CuinerProductsTab />}
             {activeTab === 'platos' && <CuinerDishesTab />}
+            {activeTab === 'ventas' && <CuinerSalesTab />}
             {activeTab === 'conector' && <CuinerConfigTab key={status.config?.id ?? 'nuevo'} status={status} />}
           </div>
         </>

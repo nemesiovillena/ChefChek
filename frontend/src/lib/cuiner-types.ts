@@ -130,3 +130,14 @@ export const CUINER_DISH_TIPO_LABELS: Record<CuinerDishTipo, string> = {
   M: 'Menús',
   I: 'Ingredientes / extras',
 };
+
+export interface CuinerSalesPreview {
+  pendingLines: number;
+  linesToApply: number;
+  linesUnmapped: number;
+  consumption: { productId: string; name: string; unit: string; formats: number }[];
+  unmappedDishes: { tipo: CuinerDishTipo; producto: string; nombre: string; unidades: number }[];
+  warnings: string[];
+  dateFrom: string | null;
+  dateTo: string | null;
+}
