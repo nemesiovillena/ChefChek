@@ -92,6 +92,35 @@ describe("CuinerExportService.preview", () => {
     });
   });
 
+  it("usa el nombre del artículo de Cuiner como descripción de la línea", async () => {
+    const { payload } = await serviceWith(
+      makePrisma({
+        ...fullyMapped,
+        albaran: albaran({
+          lines: [albaranLine({ description: "CORSA CORU PIEL Fine" })],
+        }),
+        articles: [
+          {
+            codigo: "05080005",
+            medida: 3.6,
+            descripcion: "CACAHUETES CRU. PIEZ FERRA.",
+          },
+        ],
+      }),
+    ).preview("t1", "a1");
+    expect(payload?.lineas[0].descripcion).toBe("CACAHUETES CRU. PIEZ FERRA.");
+  });
+
+  it("conserva la descripción del albarán si el artículo de Cuiner no tiene nombre", async () => {
+    const { payload } = await serviceWith(
+      makePrisma({
+        ...fullyMapped,
+        articles: [{ codigo: "05080005", medida: 3.6, descripcion: "  " }],
+      }),
+    ).preview("t1", "a1");
+    expect(payload?.lineas[0].descripcion).toBe("MAYONESA INMACULADA 3,6KG");
+  });
+
   it("lista todo lo que impide el envío sin calcular payload", async () => {
     const prisma = makePrisma({
       config: { ...config, enabled: false },
