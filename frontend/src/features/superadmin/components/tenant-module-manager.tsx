@@ -29,6 +29,9 @@ export function TenantModuleManager({ tenant }: TenantModuleManagerProps) {
     }
   };
 
+  // Orden alfabético por nombre visible; locale 'es' para que «Alérgenos» no caiga al final
+  const sortedModules = [...modules].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
   if (loading) {
     return (
       <div className="p-6 text-on-surface-variant font-label-md text-label-md">
@@ -59,7 +62,7 @@ export function TenantModuleManager({ tenant }: TenantModuleManagerProps) {
       )}
 
       <ul className="divide-y divide-border">
-        {modules.map((mod) => (
+        {sortedModules.map((mod) => (
           <li key={mod.id} className="flex items-start justify-between px-stack-lg py-stack-md">
             <div className="flex-1 pr-4">
               <div className="flex items-center gap-2">
