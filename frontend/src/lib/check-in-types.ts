@@ -334,3 +334,49 @@ export interface AdjustmentInput {
   occurredAt?: string;
   reason: string;
 }
+
+// ───────────────────────────────────────────────── Informes e inspección
+
+export type ReportFormat = 'pdf' | 'xlsx' | 'csv';
+
+export interface IntegrityResult {
+  ok: boolean;
+  checked: number;
+  brokenAtSeq: number | null;
+  lastHash: string | null;
+  checkedAt: string;
+}
+
+export interface InspectionLink {
+  id: string;
+  label: string | null;
+  fromYear: number;
+  fromMonth: number;
+  toYear: number;
+  toMonth: number;
+  expiresAt: string;
+  createdByName: string;
+  createdAt: string;
+  revokedAt: string | null;
+  accessCount: number;
+  lastAccessAt: string | null;
+  active: boolean;
+  /** Solo viene en la respuesta de creación: no se puede recuperar después. */
+  token?: string;
+}
+
+export interface InspectionLinkInput {
+  label?: string;
+  fromYear: number;
+  fromMonth: number;
+  toYear: number;
+  toMonth: number;
+  validDays: number;
+}
+
+/** Lo que ve quien abre un enlace de inspección. */
+export interface InspectionSummary {
+  company: { name: string; taxId: string | null };
+  months: { year: number; month: number }[];
+  expiresAt: string;
+}

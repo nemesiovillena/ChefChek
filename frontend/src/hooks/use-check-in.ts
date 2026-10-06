@@ -5,6 +5,10 @@ import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
+  InspectionLink,
+  InspectionLinkInput,
+  IntegrityResult,
+  ReportFormat,
   Adjustment,
   AdjustmentInput,
   ApprovedTimesheet,
@@ -45,6 +49,7 @@ const KEYS = {
   month: ['check-in', 'month'],
   adjustments: ['check-in', 'adjustments'],
   timesheets: ['check-in', 'timesheets'],
+  inspectionLinks: ['check-in', 'inspection-links'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -386,5 +391,58 @@ export function useAckOwnTimesheet() {
   return useMutation<{ acknowledgedAt: string | null }, Error, { year: number; month: number }>({
     mutationFn: async (data) => (await apiClient.post(`${BASE}/me/timesheet/ack`, data)).data,
     onSuccess: invalidate,
+  });
+}
+
+// ───────────────────────────────────────────────── Informes e inspección
+
+/**
+ * Descarga el registro de jornada de un mes. Va por apiClient (lleva la
+ * sesión) y se guarda desde un blob; el nombre lo fija el servidor.
+ */
+export async function downloadWorkdayReport(params: {
+  year: number;
+  month: number;
+  format: ReportFormat;
+  employeeId?: string;
+}) {
+  const response = await apiClient.get<Blob>(`${BASE}/reports/workdays`, { params, responseType: 'blob' });
+  const disposition = String(response.headers['content-disposition'] ?? '');
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `registro-jornada.${params.format}`;
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Margen para que el navegador empiece la descarga antes de liberar el blob.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** Comprobación bajo demanda de la cadena de huellas de los fichajes. */
+export function useVerifyIntegrity() {
+  return useMutation<IntegrityResult, Error, void>({
+    mutationFn: async () => (await apiClient.get(`${BASE}/reports/integrity`)).data,
+  });
+}
+
+export function useInspectionLinks() {
+  return useApiQuery<InspectionLink[]>(KEYS.inspectionLinks, `${BASE}/inspection-links`);
+}
+
+export function useCreateInspectionLink() {
+  const qc = useQueryClient();
+  return useMutation<InspectionLink, Error, InspectionLinkInput>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/inspection-links`, data)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.inspectionLinks }),
+  });
+}
+
+export function useRevokeInspectionLink() {
+  const qc = useQueryClient();
+  return useMutation<InspectionLink, Error, string>({
+    mutationFn: async (id) => (await apiClient.post(`${BASE}/inspection-links/${id}/revoke`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.inspectionLinks }),
   });
 }

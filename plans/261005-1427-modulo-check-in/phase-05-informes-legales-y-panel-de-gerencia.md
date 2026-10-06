@@ -1,10 +1,12 @@
 ---
 phase: 5
-title: "Informes legales y panel de gerencia"
-status: pending
+title: Informes legales y panel de gerencia
+status: completed
 priority: P1
-effort: "16-20h"
-dependencies: [3, 4]
+effort: 16-20h
+dependencies:
+  - 3
+  - 4
 ---
 
 # Phase 5: Informes legales y panel de gerencia
@@ -48,16 +50,29 @@ Informes exportables para Inspección de Trabajo y para el control interno, enla
 
 ## Success Criteria
 
-- [ ] PDF de registro de jornada completo y legible, con correcciones identificadas
-- [ ] Export de un centro entero en una acción
-- [ ] Enlace de inspección funciona sin sesión, caduca y deja rastro
-- [ ] La verificación detecta una alteración manual
-- [ ] Informe de un mes de hace 4 años en < 1 min
-- [ ] Dar de baja a un empleado no altera sus informes históricos
-- [ ] Oleada 1 lista para uso real
+- [x] PDF del registro de jornada: una página por persona, con correcciones identificadas, totales, firmas y huella de integridad (revisado visualmente)
+- [x] Excel con tres hojas (registro diario, resumen, correcciones) y CSV con BOM y separador ";" (e2e)
+- [x] Export de todo el equipo o de una persona en una acción (e2e)
+- [x] Enlace de inspección: funciona sin sesión, limitado a sus meses, caduca, se revoca y cuenta los accesos (e2e + navegador)
+- [x] El token no se guarda ni se lista: solo su huella (e2e)
+- [x] La verificación de integridad detecta una fila alterada a mano (e2e)
+- [x] Solo gerencia, y nunca desde cuenta compartida (e2e)
+- [x] Guía "qué hacer ante una inspección" (`docs/check-in-guia-inspeccion.md`)
+- [ ] Rendimiento con 4 años de datos (sin probar; los informes son mensuales y usan el índice por empleado y fecha)
+- [ ] Panel de gerencia ampliado: se mantiene el existente (presencia, fichajes a revisar, hojas de horas)
 
 ## Risk Assessment
 
 - Formato oficial del RD aún inexistente → capa de export aislada.
 - Enlace público expone datos personales → token largo, caducidad corta por defecto, revocable, solo lectura, auditado.
 - Volumen en 4 años → índices de la Fase 2 y consulta por rango.
+
+## Desviaciones (2026-10-06)
+
+- **Informes por mes natural**, no por rango libre: es la unidad que se aprueba y se firma. Cuatro años son 48 descargas o un enlace de inspección que los cubra.
+- **Enlace de inspección por meses** (desde/hasta) y para toda la plantilla; sin filtro por centro ni por persona en la vista pública.
+- **Accesos del enlace contados en la propia fila** (`accessCount`, `lastAccessAt`), no en `AuditLog`.
+- **Sin panel nuevo**: los indicadores de gerencia ya están repartidos entre Fichar (presencia, a revisar) y Registro de jornada (hojas, solicitudes). No se añadieron gráficas.
+- **Sin `docs/check-in-system-architecture.md`**: la arquitectura está descrita en el PDR y en los ficheros de fase.
+- Dependencia nueva: `exceljs`.
+- Corregido durante la revisión visual: el pie del PDF generaba páginas en blanco.
