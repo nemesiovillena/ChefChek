@@ -640,6 +640,47 @@ describe("UsersService", () => {
       jest.spyOn(service, "findById");
     });
 
+    describe("rol USER_CUINER", () => {
+      const asRole = (role: string) =>
+        (service.findById as jest.Mock).mockResolvedValue({
+          id: "u",
+          role,
+          isActive: true,
+        });
+
+      it("pasa donde pasa un USER", async () => {
+        asRole("USER_CUINER");
+        expect(
+          await service.validateUserPermissions("u", [
+            "ADMIN",
+            "USER",
+            "VIEWER",
+          ]),
+        ).toBe(true);
+      });
+
+      it("no pasa donde se exige ADMIN", async () => {
+        asRole("USER_CUINER");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "OWNER"]),
+        ).toBe(false);
+      });
+
+      it("pasa donde se exige USER_CUINER explícitamente", async () => {
+        asRole("USER_CUINER");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "USER_CUINER"]),
+        ).toBe(true);
+      });
+
+      it("un USER corriente no pasa por tener el mismo nivel", async () => {
+        asRole("USER");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "USER_CUINER"]),
+        ).toBe(false);
+      });
+    });
+
     it("should return true for ADMIN with required role ADMIN", async () => {
       (service.findById as jest.Mock).mockResolvedValue(mockAdminUser);
 

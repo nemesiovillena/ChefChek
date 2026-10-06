@@ -5,7 +5,6 @@ import { RolesGuard } from "../../guards/roles.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { RoleAccessService } from "./role-access.service";
 import { UpdateRoleAccessDto } from "./dto/role-access.dto";
-import { isRoleAccessRole } from "./constants/section-registry";
 
 @Controller("api/v1/role-access")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
@@ -23,11 +22,13 @@ export class RoleAccessController {
   @Get("me")
   async getMine(@Req() req: any) {
     const role: string = req.user?.role;
-    if (!isRoleAccessRole(role)) {
-      // ADMIN and above see everything; return an empty map (all allowed).
-      return {};
-    }
-    return this.roleAccessService.getRoleSectionMap(req.tenantId, role);
+    // USER/VIEWER: su mapa; roles derivados (USER_CUINER): el heredado.
+    // ADMIN and above see everything; return an empty map (all allowed).
+    const map = await this.roleAccessService.getSectionMapForUserRole(
+      req.tenantId,
+      role,
+    );
+    return map ?? {};
   }
 
   /** Persist role-access changes. OWNER/ADMIN only. */
