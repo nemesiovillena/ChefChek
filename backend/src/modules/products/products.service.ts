@@ -1129,6 +1129,10 @@ export class ProductsService {
           where: { matchedProductId: sourceId },
           data: { matchedProductId: targetId },
         });
+        await tx.recipeCaptureIngredient.updateMany({
+          where: { matchedProductId: sourceId },
+          data: { matchedProductId: targetId },
+        });
         await tx.inventoryItem.updateMany({
           where: { productId: sourceId },
           data: { productId: targetId },

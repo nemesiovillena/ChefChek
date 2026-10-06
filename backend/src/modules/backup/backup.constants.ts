@@ -95,6 +95,7 @@ export const CHILD_SCOPE_RULES: Record<
   purchase_order_events: [{ parent: "purchase_orders", col: "orderId" }],
   purchase_list_items: [{ parent: "purchase_lists", col: "listId" }],
   catalog_import_lines: [{ parent: "catalog_imports", col: "catalogImportId" }],
+  recipe_capture_ingredients: [{ parent: "recipe_captures", col: "captureId" }],
 };
 
 /**

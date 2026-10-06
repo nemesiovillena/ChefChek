@@ -52,6 +52,12 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
       { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
+      {
+        label: 'Captura de recetas',
+        href: '/dashboard/captura-recetas',
+        moduleId: 'captura-recetas',
+        icon: 'travel_explore',
+      },
       { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
       { label: 'Equipo', href: '/dashboard/users', moduleId: 'sala', icon: 'groups' },
       {
@@ -141,6 +147,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/products', moduleId: 'articulos' },
   { prefix: '/dashboard/albaranes', moduleId: 'albaranes' },
   { prefix: '/dashboard/recipes', moduleId: 'recipes' },
+  { prefix: '/dashboard/captura-recetas', moduleId: 'captura-recetas' },
   { prefix: '/dashboard/menus', moduleId: 'menus' },
   { prefix: '/dashboard/compras', moduleId: 'compras' },
   { prefix: '/dashboard/proveedores', moduleId: 'proveedores' },

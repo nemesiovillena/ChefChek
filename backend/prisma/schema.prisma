@@ -91,6 +91,7 @@ model Tenant {
   salaTasks                  SalaTask[]
   assistantConversations     AssistantConversation[]
   foodLabels                 FoodLabel[]
+  recipeCaptures             RecipeCapture[]
 
   @@map("tenants")
 }
@@ -237,6 +238,7 @@ model Product {
   duplicateDismissals     ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
   duplicateDismissedBy    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
   foodLabels              FoodLabel[]
+  recipeCaptureIngredients RecipeCaptureIngredient[]
   foodLabelIngredientLots FoodLabelIngredientLot[]
 
   @@index([tenantId])
@@ -431,6 +433,7 @@ model Recipe {
   duplicateDismissals  RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalRecipe")
   duplicateDismissedBy RecipeDuplicateDismissal[] @relation("RecipeDuplicateDismissalDismissed")
   foodLabels           FoodLabel[]
+  recipeCaptures       RecipeCapture[]
 
   @@index([tenantId])
   @@index([name])
@@ -526,6 +529,81 @@ model RecipeCategory {
 
   @@unique([recipeId, categoryId])
   @@map("recipe_categories")
+}
+
+// Captura de recetas: receta externa (URL, texto pegado o foto/PDF) normalizada
+// por IA a nuestro formato. Vive aquí en revisión hasta que el usuario la pasa
+// a Recetas; los ingredientes son texto libre con artículo opcional porque
+// RecipeIngredient exige productId.
+enum RecipeCaptureStatus {
+  PROCESANDO
+  PENDIENTE
+  ERROR
+  PASANDO
+  PASADA
+  DESCARTADA
+}
+
+enum RecipeCaptureSource {
+  URL
+  TEXTO
+  ARCHIVO
+}
+
+model RecipeCapture {
+  id             String              @id @default(cuid())
+  tenantId       String
+  source         RecipeCaptureSource
+  sourceUrl      String? // solo source=URL
+  sourceFileName String? // solo source=ARCHIVO (etiqueta en el listado)
+  sourceText     String? // solo source=TEXTO: lo pegado, para no perderlo si falla
+  status         RecipeCaptureStatus @default(PROCESANDO)
+  errorMessage   String?
+  createdBy      String?
+
+  // Receta normalizada (null mientras PROCESANDO/ERROR)
+  name                   String?
+  description            String?
+  elaboration            String? // mismo JSON que Recipe.elaboration: {"steps":[...]}
+  portions               Float?
+  preparationTimeMinutes Int?
+  cookingTimeMinutes     Int?
+
+  // Paso a Recetas. reservedRecipeId se fija al reclamar (sin FK) para poder
+  // comprobar si la receta llegó a crearse cuando el paso falla a medias.
+  reservedRecipeId String?
+  claimedAt        DateTime? // cuándo entró en PASANDO
+  recipeId         String? // receta creada (PASADA); null si luego se eliminó
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recipe      Recipe?                   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  ingredients RecipeCaptureIngredient[]
+
+  @@index([tenantId, status])
+  @@map("recipe_captures")
+}
+
+model RecipeCaptureIngredient {
+  id               String  @id @default(cuid())
+  captureId        String
+  rawText          String // línea tal cual venía en la fuente
+  name             String // nombre normalizado del ingrediente
+  quantity         Float?
+  unit             String? // g | kg | ml | l | ud
+  note             String?
+  matchedProductId String?
+  matchConfidence  Float? // 0..1 de la sugerencia automática; null si lo eligió el usuario
+  sortOrder        Int     @default(0)
+
+  capture        RecipeCapture @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  matchedProduct Product?      @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
+
+  @@index([captureId])
+  @@index([matchedProductId])
+  @@map("recipe_capture_ingredients")
 }
 
 enum UserRole {
