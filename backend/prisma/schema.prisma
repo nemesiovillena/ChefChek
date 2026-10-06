@@ -533,6 +533,7 @@ enum UserRole {
   OWNER
   ADMIN
   USER
+  USER_CUINER // Igual que USER + Albaranes y la integración con Cuiner
   VIEWER
 }
 

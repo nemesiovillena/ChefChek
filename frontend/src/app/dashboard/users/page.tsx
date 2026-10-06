@@ -186,7 +186,7 @@ export default function UsersPage() {
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {targetUser.role}
+                          {targetUser.role.replace('_', ' ')}
                         </span>
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">

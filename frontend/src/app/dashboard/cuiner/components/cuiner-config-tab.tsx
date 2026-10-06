@@ -8,6 +8,7 @@ import apiClient from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
+import { useAuth } from '@/contexts/auth.context';
 import {
   useCuinerExports,
   useRegenerateCuinerToken,
@@ -20,6 +21,9 @@ import {
   type UpdateCuinerConfigInput,
 } from '@/lib/cuiner-types';
 import { inputCls } from './cuiner-link-cell';
+
+/** Solo estos roles cambian la configuración del conector (modo real, token…). */
+const CONFIG_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
 const CENTROS = [
   { value: '02', label: '02 · Warynessy' },
@@ -34,6 +38,8 @@ function formatDateTime(iso: string | null) {
 export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
   const notify = useNotification();
   const confirm = useConfirm();
+  const { user } = useAuth();
+  const canEdit = !!user && CONFIG_ROLES.includes(user.role);
   const update = useUpdateCuinerConfig();
   const regenerate = useRegenerateCuinerToken();
   const [token, setToken] = useState<string | null>(null);
@@ -110,6 +116,12 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
           </dd>
         </dl>
 
+        {!canEdit && (
+          <p className="rounded-lg bg-gray-100 p-3 text-sm text-gray-600 dark:bg-zinc-900 dark:text-zinc-400">
+            Solo un administrador puede cambiar la configuración del conector.
+          </p>
+        )}
+        <fieldset disabled={!canEdit} className="space-y-4 disabled:opacity-60">
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={!!draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />
           Conector activo (si lo desactivas, se detiene al instante)
@@ -157,6 +169,8 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
             ))}
           </select>
         </label>
+        </fieldset>
+        {canEdit && (
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={save} disabled={update.isPending} className="min-h-[44px]">
             {update.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Guardar
@@ -165,6 +179,7 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
             <KeyRound className="h-4 w-4" /> {config?.hasConnectorToken ? 'Regenerar token' : 'Generar token'}
           </Button>
         </div>
+        )}
         {token && (
           <div className="space-y-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950">
             <p>Copia este token en el servidor de Cuiner. No se volverá a mostrar.</p>
