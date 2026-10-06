@@ -11,14 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCuinerAlbaranExport, useSendAlbaranToCuiner } from '@/hooks/use-cuiner';
 import { CUINER_EXPORT_STATUS_LABELS } from '@/lib/cuiner-types';
 
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /**
  * Tarjeta «Cuiner» del resumen del albarán: muestra qué falta enlazar y, si
  * está todo, envía el albarán confirmado al conector con el botón (nunca de
  * forma automática). Oculta si el módulo no está activo o el usuario no es
- * administrador.
+ * administrador ni User Cuiner.
  */
 export function CuinerSendCard({ albaranId, confirmed }: { albaranId: string; confirmed: boolean }) {
   const { user } = useAuth();

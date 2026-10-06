@@ -9,7 +9,8 @@ import { CuinerDishesTab } from './components/cuiner-dishes-tab';
 import { CuinerSalesTab } from './components/cuiner-sales-tab';
 import { CuinerProductsTab, CuinerSuppliersTab } from './components/cuiner-suppliers-products-tabs';
 
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+/** Usan Cuiner; la configuración del conector solo la cambian ADMIN/OWNER/SUPERADMIN. */
+const CUINER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
 
 const TABS = [
   { id: 'proveedores', label: 'Proveedores' },
@@ -26,12 +27,12 @@ type TabId = (typeof TABS)[number]['id'];
  */
 export default function CuinerPage() {
   const { user } = useAuth();
-  const canManage = !!user && MANAGE_ROLES.includes(user.role);
+  const canManage = !!user && CUINER_ROLES.includes(user.role);
   const { data: status, isLoading, error } = useCuinerStatus(canManage);
   const [tab, setTab] = useState<TabId>('proveedores');
 
   if (!canManage) {
-    return <p className="p-6 text-sm text-gray-600">Solo los administradores pueden gestionar la integración con Cuiner.</p>;
+    return <p className="p-6 text-sm text-gray-600">Solo los administradores y el rol User Cuiner pueden usar la integración con Cuiner.</p>;
   }
 
   const hasCatalog = !!status && status.catalog.suppliers + status.catalog.articles > 0;

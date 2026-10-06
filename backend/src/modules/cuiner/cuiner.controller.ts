@@ -17,6 +17,7 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
+import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
@@ -31,6 +32,8 @@ import {
 } from "./dto/cuiner.dto";
 
 const ADMIN_ROLES = ["ADMIN", "OWNER", "SUPERADMIN"] as const;
+/** Usan Cuiner: enlaces, envío de albaranes y aplicar ventas. */
+const CUINER_ROLES = [...ADMIN_ROLES, "USER_CUINER"] as const;
 
 /** Lo que AuthGuard y TenantGuard dejan en la petición. */
 interface AuthedRequest {
@@ -41,13 +44,20 @@ interface AuthedRequest {
 /**
  * Gestión de la integración con Cuiner desde ChefChek: configuración del
  * conector, enlaces con los códigos de Cuiner y envío manual de albaranes.
- * Todo restringido a administradores: escribe en el programa de gestión.
+ * Lo usan administradores y el rol USER_CUINER; cambiar la configuración del
+ * conector (modo real, token, centro) queda solo para administradores.
  */
 @ApiTags("Cuiner")
 @Controller("api/v1/cuiner")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard)
+@UseGuards(
+  AuthGuard,
+  TenantGuard,
+  CuinerTenantRequiredGuard,
+  RolesGuard,
+  ModuleGuard,
+)
 @RequireModule("cuiner")
-@Roles(...ADMIN_ROLES)
+@Roles(...CUINER_ROLES)
 export class CuinerController {
   constructor(
     private readonly configService: CuinerConfigService,
@@ -71,11 +81,13 @@ export class CuinerController {
   }
 
   @Put("config")
+  @Roles(...ADMIN_ROLES)
   updateConfig(@Req() req: AuthedRequest, @Body() dto: UpdateCuinerConfigDto) {
     return this.configService.updateConfig(req.tenantId, dto);
   }
 
   @Post("config/connector-token")
+  @Roles(...ADMIN_ROLES)
   regenerateToken(@Req() req: AuthedRequest) {
     return this.configService.regenerateConnectorToken(req.tenantId);
   }
