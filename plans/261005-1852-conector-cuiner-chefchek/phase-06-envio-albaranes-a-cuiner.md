@@ -27,3 +27,28 @@
 
 ## Marcha atrás
 Un albarán mal enviado lo borra el usuario desde la pantalla de Cuiner. El conector nunca borra.
+
+## Pasos 1 y 2 completados el 06/10/2026 (contra la copia `CuinerPruebas`)
+**Conector:** tarea `albaranes` en `ChefChekConector.ps1`.
+- Una `SqlTransaction` por albarán, todo parametrizado.
+- Idempotencia por `DocsCab.Notas = 'CHEFCHEK:<id>'`.
+- En DRY_RUN ejecuta todo y hace ROLLBACK.
+- El descuento vacío se escribe como `NULL`, como hace Cuiner (4.925 líneas NULL frente a 163 con 0).
+
+**Instalador:** añade la tarea «ChefChek Conector - Albaranes» cada 5 min.
+
+**Resultados:**
+- **Simulación:** el albarán de Café Jurado (47,19 €) se escribió y se deshizo. Recuentos y último precio intactos; ChefChek lo marca como SIMULADO.
+- **Escritura real en la copia:** documento **21309**, idéntico en estructura al albarán real 21294 en `DocsCab`, `DocsLin`, `DocsLinAux` (lote A1) y `DocsSumas` (10 %: 42,90 / 4,29).
+- **Reenvío:** «ya existía como documento 21309», sin filas nuevas.
+
+**Fallo encontrado y corregido:** un albarán ATRASADO pisaba el último precio con una fecha anterior (14/07 sobre 22/09).
+- Ahora el `UPDATE` exige `UltFecha IS NULL OR UltFecha <= fecha del albarán`.
+- En la copia se restauraron los valores originales de la base real.
+
+**Permisos:** el sistema de permisos de Claude Code bloquea que el asistente escriba en el servidor de Cuiner. Las escrituras las lanza el usuario con scripts revisables (decisión coherente con «máximo cuidado»).
+
+**Pendiente** (paso 3, con el usuario delante de Cuiner):
+- `GRANT` de SELECT, INSERT y UPDATE en `Cuiner` para el usuario del conector;
+- desplegar ChefChek con el módulo;
+- un albarán real con el botón.

@@ -9,11 +9,14 @@
     check    Comprueba la conexión a SQL y a la API sin enviar nada.
     catalog  Sube proveedores, artículos, precios por proveedor y carta.
     sales    Sube las líneas de venta nuevas (cursor Id_VentasCab en ChefChek).
-    all      catalog + sales.
+    albaranes Escribe en Cuiner los albaranes que el usuario envió desde
+             ChefChek. En modo simulación (DRY_RUN) ejecuta todo y hace
+             ROLLBACK: valida permisos y datos sin dejar nada escrito.
+    all      catalog + sales + albaranes.
 
-  Este script SOLO LEE de Cuiner. El login SQL que usa no tiene permisos de
-  borrado ni de modificación salvo los previstos para el envío de albaranes,
-  que se añade en otra fase.
+  Solo escribe en Cuiner la tarea 'albaranes', y únicamente en DocsCab,
+  DocsLin, DocsLinAux, DocsSumas (inserción) y el último precio de
+  ArticulosProv. El login SQL no tiene permisos de borrado ni de otras tablas.
 
   Las ventas llegan a Cuiner por cintas (cierres Z) que se importan de golpe.
   Para no leer una cinta a medio importar, solo se procesan tickets cuya cinta
@@ -31,7 +34,7 @@
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('check', 'catalog', 'sales', 'all')]
+  [ValidateSet('check', 'catalog', 'sales', 'albaranes', 'all')]
   [string]$Task = 'all',
   [string]$ConfigPath = 'C:\ChefChekConector\config.json'
 )
@@ -304,6 +307,110 @@ ORDER BY c.Id_VentasCab, l.Linea
   }
 }
 
+# ─── Escritura de albaranes (única tarea que escribe en Cuiner) ─────────────
+
+function Invoke-TxScalar {
+  param($Conn, $Tx, [string]$Query, [hashtable]$Params = @{})
+  $cmd = $Conn.CreateCommand()
+  $cmd.Transaction = $Tx
+  $cmd.CommandText = $Query
+  $cmd.CommandTimeout = 60
+  foreach ($name in $Params.Keys) {
+    $value = $Params[$name]
+    if ($null -eq $value) { $value = [DBNull]::Value }
+    [void]$cmd.Parameters.AddWithValue("@$name", $value)
+  }
+  $result = $cmd.ExecuteScalar()
+  if ($result -is [DBNull]) { return $null }
+  return $result
+}
+
+# Escribe un albarán exactamente como lo guarda Cuiner al grabarlo a mano
+# (verificado con un albarán de prueba): cabecera, líneas, línea auxiliar por
+# línea, sumas por IVA y último precio del artículo para ese proveedor.
+# Devuelve @{ id = Id_DocsCab; existed = $true si ya estaba (idempotencia) }.
+function Write-CuinerAlbaran {
+  param($Conn, $Tx, $Doc)
+  $existing = Invoke-TxScalar $Conn $Tx 'SELECT TOP 1 Id_DocsCab FROM DocsCab WHERE Notas = @notas' @{ notas = $Doc.notas }
+  if ($null -ne $existing) { return @{ id = [int]$existing; existed = $true } }
+
+  $idCab = Invoke-TxScalar $Conn $Tx @'
+INSERT INTO DocsCab (Empresa, TipoCodigo, Codigo, Centro, Almacen, Fecha, TipoDoc, Serie, Numdoc, Contador,
+                     DescuentoP1, DescuentoP2, DescuentoP3, DescuentoI, Total, Moneda, ActUsuario, ActFecha, Notas)
+OUTPUT INSERTED.Id_DocsCab
+VALUES (@empresa, @tipoCodigo, @codigo, @centro, @almacen, @fecha, @tipoDoc, @serie, @numdoc, 0,
+        0, 0, 0, 0, @total, 'E', @actUsuario, GETDATE(), @notas)
+'@ @{ empresa = $Doc.empresa; tipoCodigo = $Doc.tipoCodigo; codigo = $Doc.codigo; centro = $Doc.centro;
+      almacen = $Doc.almacen; fecha = [datetime]::ParseExact($Doc.fecha, 'yyyy-MM-dd', $null); tipoDoc = $Doc.tipoDoc;
+      serie = $Doc.serie; numdoc = $Doc.numdoc; total = [decimal]$Doc.total; actUsuario = $Doc.actUsuario; notas = $Doc.notas }
+  $idCab = [int]$idCab
+
+  foreach ($l in $Doc.lineas) {
+    # Cuiner guarda el descuento vacío como NULL, no como 0.
+    $dto = $null; if ([double]$l.descuentoP -ne 0) { $dto = [decimal]$l.descuentoP }
+    $idLin = Invoke-TxScalar $Conn $Tx @'
+INSERT INTO DocsLin (Id_DocsCab, Articulo, Descripcion, Unidades, UnidadesPorCaja, Importe, DescuentoP, Base,
+                     CosteUM, ImporteUC, TipoIVA, IVA, Centro, Almacen, ActUsuario, ActFecha)
+OUTPUT INSERTED.Id_DocsLin
+VALUES (@idCab, @articulo, @descripcion, @unidades, @upc, @importe, @dto, @base,
+        @costeUM, @importeUC, @tipoIva, @iva, '', '', @actUsuario, GETDATE())
+'@ @{ idCab = $idCab; articulo = $l.articulo; descripcion = $l.descripcion; unidades = [double]$l.unidades;
+      upc = [double]$l.unidadesPorCaja; importe = [decimal]$l.importe; dto = $dto; base = [decimal]$l.base;
+      costeUM = [decimal]$l.costeUM; importeUC = [bool]$l.importeUC; tipoIva = $l.tipoIva; iva = [decimal]$l.iva;
+      actUsuario = $Doc.actUsuario }
+
+    [void](Invoke-TxScalar $Conn $Tx 'INSERT INTO DocsLinAux (Id_DocsLin, LOTE, CaducRodeo, NOTAS) VALUES (@id, @lote, NULL, @notas)' `
+      @{ id = [int]$idLin; lote = [string]$l.lote; notas = '' })
+
+    # Último precio de compra: solo si la relación artículo-proveedor ya existe
+    # y el albarán no es más antiguo que la última compra registrada (un
+    # albarán atrasado no debe pisar un precio más reciente).
+    [void](Invoke-TxScalar $Conn $Tx @'
+UPDATE ArticulosProv
+SET UltFecha = @fecha, UltImporte = @importe, UltDescuentoP = @dto, UltIVA = @iva, UltUnPorCaja = @upc,
+    UltImporteUC = @importeUC, UltCosteUM = @costeUM, ActUsuario = @actUsuario, ActFecha = GETDATE()
+WHERE Empresa = @empresa AND Articulo = @articulo AND Proveedor = @proveedor
+  AND (UltFecha IS NULL OR UltFecha <= @fecha)
+'@ @{ fecha = [datetime]::ParseExact($Doc.fecha, 'yyyy-MM-dd', $null); importe = [double]$l.importe; dto = $dto;
+      iva = [double]$l.iva; upc = [double]$l.unidadesPorCaja; importeUC = [bool]$l.importeUC; costeUM = [double]$l.costeUM;
+      actUsuario = $Doc.actUsuario; empresa = $Doc.empresa; articulo = $l.articulo; proveedor = $Doc.codigo })
+  }
+
+  foreach ($sum in $Doc.sumas) {
+    [void](Invoke-TxScalar $Conn $Tx 'INSERT INTO DocsSumas (Id_DocsCab, TipoIVA, Dtos, Base, Cuota) VALUES (@id, @tipo, 0, @base, @cuota)' `
+      @{ id = $idCab; tipo = [decimal]$sum.tipoIva; base = [decimal]$sum.base; cuota = [decimal]$sum.cuota })
+  }
+  return @{ id = $idCab; existed = $false }
+}
+
+function Invoke-AlbaranSync {
+  param($Cfg, $Conn, $Remote)
+  $pending = Invoke-ChefChekApi $Cfg 'GET' 'albaranes/pending'
+  $live = $pending.mode -eq 'LIVE'
+  foreach ($item in @($pending.items)) {
+    $doc = $item.payload
+    $tx = $Conn.BeginTransaction()
+    try {
+      $res = Write-CuinerAlbaran $Conn $tx $doc
+      if ($live) {
+        $tx.Commit()
+        $body = @{ ok = $true; simulated = $false; idDocsCab = $res.id }
+        $what = $(if ($res.existed) { 'ya existía' } else { 'escrito' })
+        Write-Log ("Albarán {0} ({1} €): {2} en Cuiner como documento {3}" -f $doc.numdoc, $doc.total, $what, $res.id)
+      } else {
+        $tx.Rollback()
+        $body = @{ ok = $true; simulated = $true }
+        Write-Log ("Albarán {0} ({1} €): simulación correcta, ROLLBACK (nada escrito)" -f $doc.numdoc, $doc.total)
+      }
+    } catch {
+      try { $tx.Rollback() } catch { }
+      $body = @{ ok = $false; simulated = (-not $live); error = $_.Exception.Message }
+      Write-Log ("Albarán {0}: ERROR {1}" -f $doc.numdoc, $_.Exception.Message) 'ERROR'
+    }
+    [void](Invoke-ChefChekApi $Cfg 'POST' ("albaranes/{0}/result" -f $item.id) $body)
+  }
+}
+
 # ─── Principal ──────────────────────────────────────────────────────────────
 
 $cfg = Read-Config $ConfigPath
@@ -322,6 +429,7 @@ try {
   } else {
     if ($Task -in 'catalog', 'all') { Invoke-CatalogSync $cfg $conn $remote }
     if ($Task -in 'sales', 'all') { Invoke-SalesSync $cfg $conn $remote }
+    if ($Task -in 'albaranes', 'all') { Invoke-AlbaranSync $cfg $conn $remote }
   }
   Write-Log "Fin tarea '$Task'"
 } catch {
