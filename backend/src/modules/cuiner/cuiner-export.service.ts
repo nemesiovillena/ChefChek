@@ -106,6 +106,11 @@ export class CuinerExportService {
       where: { tenantId, codigo: { in: productMaps.map((m) => m.articulo) } },
     });
     const medidaByArticulo = new Map(articles.map((a) => [a.codigo, a.medida]));
+    // Cuiner graba en la línea el nombre de su artículo, no el texto del papel:
+    // la descripción del OCR puede venir mal leída («CORSA CORU PIEL Fine»).
+    const descripcionByArticulo = new Map(
+      articles.map((a) => [a.codigo, a.descripcion?.trim()]),
+    );
 
     for (const line of lines) {
       if (!line.matchedProductId) {
@@ -146,7 +151,7 @@ export class CuinerExportService {
         ) as string;
         return {
           articulo,
-          description: line.description,
+          description: descripcionByArticulo.get(articulo) || line.description,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           netAmount: line.totalPrice,
