@@ -248,14 +248,14 @@ export default function AlbaranResumenPage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-2xl">Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <CardTitle className="text-xl sm:text-2xl break-words">Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
                   {albaran.internalNumber && (
                     <p className="text-sm text-gray-500 mt-1">Ref: {albaran.internalNumber}</p>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex shrink-0 flex-col items-end gap-2 whitespace-nowrap">
                   <AlbaranStatusBadge status={albaran.status} />
                   <OcrMethodBadge
                     extractionMethod={albaran.ocrRawData?.extraction_method}
@@ -272,7 +272,7 @@ export default function AlbaranResumenPage() {
                   {formatCurrency(duplicateMatch.total)}). Revisa que no sea el mismo antes de confirmar.
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
                     <Building2 className="h-5 w-5 text-indigo-600" />
