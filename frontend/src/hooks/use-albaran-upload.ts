@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ALBARAN_UPLOAD_URL } from '@/lib/upload-api';
+import { downscaleImageForUpload } from '@/lib/downscale-image-for-upload';
 import type { MatchStatus } from '@/lib/api-albaran';
 
 export interface DetectedProduct {
@@ -136,7 +137,8 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
 
     try {
       const formData = new FormData();
-      files.forEach((file) => formData.append('file', file));
+      const filesToSend = await Promise.all(files.map(downscaleImageForUpload));
+      filesToSend.forEach((file) => formData.append('file', file));
 
       // Añadir modelo IA y API key si están configurados
       const model = options.aiModel;
