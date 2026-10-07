@@ -160,7 +160,13 @@ export function CuinerProductsTab() {
                 />
               </li>
             ))}
-            {data.items.length === 0 && <li className="py-6 text-center text-sm text-gray-500">Sin resultados.</li>}
+            {data.items.length === 0 && (
+              <li className="py-6 text-center text-sm text-gray-500">
+                {onlyUnmapped && search
+                  ? 'Sin resultados entre los artículos sin enlazar. Desmarca «Solo sin enlazar» para buscar también en los ya enlazados.'
+                  : 'Sin resultados.'}
+              </li>
+            )}
           </ul>
           <Pager page={data.page} total={data.total} pageSize={data.pageSize} onPage={setPage} />
         </>
