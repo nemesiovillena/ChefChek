@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2, MessageSquare } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { RoleAccessPanel } from './components/role-access-panel';
+import { CheckInConfigSection } from './components/check-in-config-section';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
@@ -566,6 +567,11 @@ export default function SettingsPage() {
         {/* Module Configuration */}
         <div id="modulos" className="scroll-mt-40 mt-6">
           <ModuleListWidget />
+        </div>
+
+        {/* Check-in: qué ve y qué puede hacer el empleado al fichar */}
+        <div id="check-in" className="scroll-mt-40 mt-6">
+          <CheckInConfigSection />
         </div>
 
         {/* Permisos por rol (OWNER/ADMIN): qué apartados ven USER y VIEWER */}

@@ -37,8 +37,8 @@ function OwnTab({ period }: { period: YearMonth }) {
   const recent = (adjustments ?? []).slice(0, 8);
   return (
     <div className="space-y-4">
-      <CheckInMonthView state={state} mode="own" />
-      {recent.length > 0 && (
+      <CheckInMonthView state={state} mode="own" showAddMissingDay={own?.display?.showAddMissingDay !== false} />
+      {own?.display?.showOwnAdjustments !== false && recent.length > 0 && (
         <div className={cardCls}>
           <p className="mb-2 font-medium">Mis solicitudes de corrección</p>
           <ul className="divide-y divide-[var(--outline-variant)]">
@@ -114,6 +114,7 @@ function WorkdaysContent() {
   const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'mias');
   const [period, setPeriod] = useState<YearMonth>(currentYearMonth);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
+  const { data: own } = useOwnCheckIn(user?.id);
 
   if (authLoading) return null;
   const canManage = canManageCheckIn(user);
@@ -139,12 +140,14 @@ function WorkdaysContent() {
   ];
   // Un enlace a una pestaña de gerencia abierto por quien no gestiona cae en la suya.
   const tab = tabs.some((t) => t.id === activeTab) ? activeTab : 'mias';
+  // El local puede dejar al empleado solo con el mes en curso.
+  const ownMonthOnly = tab === 'mias' && own?.display?.showMonthPicker === false;
 
   return (
     <div className="px-margin-mobile md:px-margin-desktop mx-auto max-w-container-max-width pb-28 pt-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-headline-lg text-headline-lg text-primary">Registro de jornada</h2>
-        {tab !== 'solicitudes' && <CheckInMonthPicker value={period} onChange={setPeriod} />}
+        {tab !== 'solicitudes' && !ownMonthOnly && <CheckInMonthPicker value={period} onChange={setPeriod} />}
       </div>
 
       {tabs.length > 1 && (
@@ -174,7 +177,7 @@ function WorkdaysContent() {
         </div>
       )}
 
-      {tab === 'mias' && <OwnTab period={period} />}
+      {tab === 'mias' && <OwnTab period={ownMonthOnly ? currentYearMonth() : period} />}
       {tab === 'equipo' && <TeamTab period={period} employeeId={employeeId} onSelect={setEmployeeId} />}
       {tab === 'solicitudes' && <CheckInRequestsTab />}
       {tab === 'hojas' && (

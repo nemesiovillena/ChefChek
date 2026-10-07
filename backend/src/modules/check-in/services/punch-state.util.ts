@@ -28,8 +28,17 @@ const ALLOWED_NEXT: Record<EmployeeWorkStatus, PunchType[]> = {
   ON_BREAK: [PunchType.BREAK_END],
 };
 
-export function allowedNextTypes(status: EmployeeWorkStatus): PunchType[] {
-  return ALLOWED_NEXT[status];
+/**
+ * Botones que se ofrecen. Con las pausas desactivadas no se puede empezar
+ * una, pero quien ya esté en pausa siempre puede terminarla.
+ */
+export function allowedNextTypes(
+  status: EmployeeWorkStatus,
+  allowBreaks = true,
+): PunchType[] {
+  return allowBreaks
+    ? ALLOWED_NEXT[status]
+    : ALLOWED_NEXT[status].filter((type) => type !== PunchType.BREAK_START);
 }
 
 export function isAllowedTransition(

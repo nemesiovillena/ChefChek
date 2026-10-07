@@ -70,8 +70,20 @@ export interface CheckInSettings extends AgreementParams {
   breaksCountAsWork: boolean;
   autoCloseAfterHours: number;
   pinLength: number;
+  /** Sin pausas nadie puede empezar una, en ninguna pantalla. */
+  allowBreaks: boolean;
+  showRecentPunches: boolean;
+  showMonthPicker: boolean;
+  showOwnAdjustments: boolean;
+  showAddMissingDay: boolean;
   updatedAt: string;
 }
+
+/** Bloques que ve el empleado; quien gestiona el módulo recibe todo a true. */
+export type CheckInDisplay = Pick<
+  CheckInSettings,
+  'showRecentPunches' | 'showMonthPicker' | 'showOwnAdjustments' | 'showAddMissingDay'
+>;
 
 export interface AgreementPreset {
   key: string;
@@ -182,6 +194,9 @@ export interface OwnCheckInState {
   status: WorkStatus | null;
   since?: string | null;
   allowedTypes: PunchType[];
+  /** Opcionales: una copia guardada sin red anterior a estos ajustes no los trae. */
+  allowBreaks?: boolean;
+  display?: CheckInDisplay;
   recentPunches: PunchView[];
   pendingLegalTexts: LegalTextForEmployee[];
   /** true si se está mostrando la última copia guardada porque no hay red. */
@@ -211,6 +226,7 @@ export interface KioskEmployee {
 export interface KioskState {
   readiness: CheckInReadiness;
   pinLength: number;
+  allowBreaks?: boolean;
   /** Clave pública para cifrar el PIN de los fichajes sin conexión. */
   pinPublicKey: string;
   centers: { id: string; name: string; isDefault: boolean }[];

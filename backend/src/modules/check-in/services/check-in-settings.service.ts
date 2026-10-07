@@ -45,6 +45,11 @@ export class CheckInSettingsService {
         breaksCountAsWork: dto.breaksCountAsWork,
         autoCloseAfterHours: dto.autoCloseAfterHours,
         pinLength: dto.pinLength,
+        allowBreaks: dto.allowBreaks,
+        showRecentPunches: dto.showRecentPunches,
+        showMonthPicker: dto.showMonthPicker,
+        showOwnAdjustments: dto.showOwnAdjustments,
+        showAddMissingDay: dto.showAddMissingDay,
       },
     });
   }

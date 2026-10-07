@@ -3453,6 +3453,13 @@ model CheckInSettings {
   breaksCountAsWork         Boolean         @default(false)
   autoCloseAfterHours       Int             @default(14)
   pinLength                 Int             @default(4)
+  // Sin pausas nadie puede empezar una (regla del local, en todas las pantallas).
+  allowBreaks               Boolean         @default(true)
+  // Qué bloques ve el empleado; quien gestiona el módulo los ve siempre.
+  showRecentPunches         Boolean         @default(true)
+  showMonthPicker           Boolean         @default(true)
+  showOwnAdjustments        Boolean         @default(true)
+  showAddMissingDay         Boolean         @default(true)
   createdAt                 DateTime        @default(now())
   updatedAt                 DateTime        @updatedAt
 

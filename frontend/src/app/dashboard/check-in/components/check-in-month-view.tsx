@@ -151,7 +151,16 @@ function SheetStatus({ state, mode }: { state: MonthState; mode: 'own' | 'manage
 }
 
 /** Registro de jornada de un mes: totales, estado de la hoja y cada día con sus fichajes. */
-export function CheckInMonthView({ state, mode }: { state: MonthState; mode: 'own' | 'manager' }) {
+export function CheckInMonthView({
+  state,
+  mode,
+  showAddMissingDay = true,
+}: {
+  state: MonthState;
+  mode: 'own' | 'manager';
+  /** El local puede ocultar al empleado el alta de un día sin fichajes. */
+  showAddMissingDay?: boolean;
+}) {
   const [addingDay, setAddingDay] = useState('');
   const { totals } = state;
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -198,29 +207,31 @@ export function CheckInMonthView({ state, mode }: { state: MonthState; mode: 'ow
         )}
 
         {/* Un día sin ningún fichaje no aparece en la lista: se elige aquí. */}
-        <div className="mt-4 border-t border-[var(--outline-variant)] pt-4">
-          <label className="flex flex-wrap items-center gap-2 text-sm">
-            ¿Falta un día entero? Añadir fichaje el día
-            <input
-              type="date"
-              value={addingDay}
-              min={`${monthPrefix}01`}
-              max={`${monthPrefix}${pad(lastDay)}`}
-              onChange={(e) => setAddingDay(e.target.value)}
-              className="min-h-[44px] rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 text-base"
-            />
-          </label>
-          {addingDay && (
-            <CheckInAdjustmentForm
-              key={addingDay}
-              mode={mode}
-              employeeId={state.employee.id}
-              date={addingDay}
-              timezone={state.timezone}
-              onDone={() => setAddingDay('')}
-            />
-          )}
-        </div>
+        {showAddMissingDay && (
+          <div className="mt-4 border-t border-[var(--outline-variant)] pt-4">
+            <label className="flex flex-wrap items-center gap-2 text-sm">
+              ¿Falta un día entero? Añadir fichaje el día
+              <input
+                type="date"
+                value={addingDay}
+                min={`${monthPrefix}01`}
+                max={`${monthPrefix}${pad(lastDay)}`}
+                onChange={(e) => setAddingDay(e.target.value)}
+                className="min-h-[44px] rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 text-base"
+              />
+            </label>
+            {addingDay && (
+              <CheckInAdjustmentForm
+                key={addingDay}
+                mode={mode}
+                employeeId={state.employee.id}
+                date={addingDay}
+                timezone={state.timezone}
+                onDone={() => setAddingDay('')}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

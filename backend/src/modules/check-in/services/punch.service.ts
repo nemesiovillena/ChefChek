@@ -9,6 +9,7 @@ import {
   Employee,
   PunchPinStatus,
   PunchSource,
+  PunchType,
   TimePunch,
 } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
@@ -32,6 +33,8 @@ import {
 export interface PunchActor {
   id: string;
   isSharedAccount: boolean;
+  /** Gestiona Check-In: ve todos los bloques aunque estén ocultos al empleado. */
+  isManager?: boolean;
 }
 
 const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
@@ -147,6 +150,15 @@ export class PunchService {
 
     if (!employee.isActive) {
       throw new ForbiddenException("Este empleado está dado de baja.");
+    }
+
+    // Solo al fichar en el momento: un fichaje hecho sin conexión ya ocurrió
+    // y `sync` lo guarda igualmente.
+    if (dto.type === PunchType.BREAK_START) {
+      const { allowBreaks } = await this.settings.get(tenantId);
+      if (!allowBreaks) {
+        throw new BadRequestException("Las pausas no están activadas.");
+      }
     }
 
     let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
@@ -482,7 +494,17 @@ export class PunchService {
 
   /** Estado de la cuenta personal: situación, últimos fichajes y textos por leer. */
   async getOwnState(tenantId: string, actor: PunchActor) {
-    const readiness = await this.legalTexts.getReadiness(tenantId);
+    const [readiness, settings] = await Promise.all([
+      this.legalTexts.getReadiness(tenantId),
+      this.settings.get(tenantId),
+    ]);
+    const { allowBreaks } = settings;
+    const display = {
+      showRecentPunches: actor.isManager || settings.showRecentPunches,
+      showMonthPicker: actor.isManager || settings.showMonthPicker,
+      showOwnAdjustments: actor.isManager || settings.showOwnAdjustments,
+      showAddMissingDay: actor.isManager || settings.showAddMissingDay,
+    };
     const employee = actor.isSharedAccount
       ? null
       : await this.prisma.employee.findFirst({
@@ -495,6 +517,8 @@ export class PunchService {
         employee: null,
         status: null,
         allowedTypes: [],
+        allowBreaks,
+        display,
         recentPunches: [],
         pendingLegalTexts: [],
       };
@@ -522,7 +546,9 @@ export class PunchService {
       },
       status,
       since: last?.occurredAt ?? null,
-      allowedTypes: allowedNextTypes(status),
+      allowedTypes: allowedNextTypes(status, allowBreaks),
+      allowBreaks,
+      display,
       recentPunches: recentPunches.map(toPunchView),
       pendingLegalTexts: await this.legalAcks.listPending(
         tenantId,
@@ -564,6 +590,7 @@ export class PunchService {
     return {
       readiness,
       pinLength: settings.pinLength,
+      allowBreaks: settings.allowBreaks,
       // Para cifrar el PIN de los fichajes que se hagan sin conexión.
       pinPublicKey,
       centers,
@@ -574,7 +601,7 @@ export class PunchService {
         name: e.name,
         hasPin: e.hasPin,
         status: e.status,
-        allowedTypes: allowedNextTypes(e.status),
+        allowedTypes: allowedNextTypes(e.status, settings.allowBreaks),
       })),
       legalTexts,
     };

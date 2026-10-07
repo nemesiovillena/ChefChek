@@ -121,5 +121,8 @@ function actorOf(req: any): PunchActor {
   return {
     id: req.user.id,
     isSharedAccount: req.user.isSharedAccount === true,
+    isManager:
+      req.user.isSharedAccount !== true &&
+      MANAGER_ROLES.includes(req.user.role),
   };
 }
