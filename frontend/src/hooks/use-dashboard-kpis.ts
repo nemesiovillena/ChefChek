@@ -6,6 +6,8 @@ export interface UpcomingProductionTask {
   id: string;
   batchId: string;
   title: string;
+  /** null: tarea de título libre, sin receta vinculada. */
+  recipeId: string | null;
   orderType: string;
   status: string;
   lotDate: string;

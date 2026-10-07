@@ -117,13 +117,13 @@ export default function ComprasPage() {
       {activeTab === 'pedidos' ? (
         <PedidosTab />
       ) : activeTab === 'listas' ? (
-        <ListasTab canManage={canManage || user?.role === 'USER'} />
+        <ListasTab canManage={canManage || user?.role === 'USER' || user?.role === 'USER_CUINER'} />
       ) : activeTab === 'precios' ? (
         <PriceDeviationPanel canManage={canManage} />
       ) : activeTab === 'catalogos' ? (
         <CatalogosTab />
       ) : activeTab === 'programaciones' ? (
-        <ProgramacionesTab canManage={canManage || user?.role === 'USER'} />
+        <ProgramacionesTab canManage={canManage || user?.role === 'USER' || user?.role === 'USER_CUINER'} />
       ) : activeTab === 'analitica' ? (
         <AnaliticaTab />
       ) : activeTab === 'locales' ? (

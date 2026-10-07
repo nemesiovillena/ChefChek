@@ -9,6 +9,9 @@ import { PrismaService } from "../../common/services/prisma.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import * as bcrypt from "bcrypt";
 
+/** Roles que en @Roles solo cumple quien los tiene exactamente (no por nivel). */
+const EXACT_MATCH_ROLES = new Set(["USER_CUINER"]);
+
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -345,12 +348,14 @@ export class UsersService {
       return false;
     }
 
-    // Roles con mayor jerarquía: SUPERADMIN > OWNER > ADMIN > USER > VIEWER
+    // Roles con mayor jerarquía: SUPERADMIN > OWNER > ADMIN > USER > VIEWER.
+    // USER_CUINER tiene el nivel de USER: pasa donde pasa un USER.
     const roleHierarchy: { [key: string]: number } = {
       SUPERADMIN: 5,
       OWNER: 4,
       ADMIN: 3,
       USER: 2,
+      USER_CUINER: 2,
       VIEWER: 1,
     };
 
@@ -358,6 +363,12 @@ export class UsersService {
 
     // Verificar si el usuario tiene al menos uno de los roles requeridos
     return requiredRoles.some((role) => {
+      // Un rol "lateral" exigido explícitamente (p. ej. USER_CUINER en el
+      // módulo Cuiner) solo lo cumple quien lo tiene: un USER corriente, aun
+      // con el mismo nivel, no debe entrar.
+      if (EXACT_MATCH_ROLES.has(role)) {
+        return user.role === role;
+      }
       const requiredRoleLevel = roleHierarchy[role] || 0;
       return userRoleLevel >= requiredRoleLevel;
     });
