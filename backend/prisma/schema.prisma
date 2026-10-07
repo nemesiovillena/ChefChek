@@ -534,6 +534,7 @@ enum UserRole {
   OWNER
   ADMIN
   USER
+  USER_CUINER // Igual que USER + Albaranes y la integración con Cuiner
   VIEWER
 }
 
@@ -3659,4 +3660,187 @@ model TimesheetAck {
 
   @@index([tenantId, employeeId])
   @@map("timesheet_acks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integración con Cuiner (TPV y gestión del restaurante).
+// Un conector instalado en el servidor de Cuiner lee su SQL Server local y
+// habla con esta API: sube catálogos y ventas, y recoge los albaranes que el
+// usuario envía con «Enviar a Cuiner». Sin relaciones Prisma a propósito: son
+// tablas satélite que no deben bloquear borrados en el núcleo; el servicio
+// valida la existencia de los ids enlazados.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CuinerMode {
+  DRY_RUN // El conector valida y registra el SQL pero hace ROLLBACK
+  LIVE
+}
+
+enum CuinerExportStatus {
+  PENDIENTE // Encolado, esperando al conector
+  SIMULADO // Procesado en DRY_RUN: validado, nada escrito en Cuiner
+  ENVIADO // Escrito en Cuiner (cuinerIdDocsCab)
+  ERROR
+}
+
+enum CuinerSaleStatus {
+  PENDIENTE
+  APLICADA // Descontada del stock de ChefChek
+  SIN_MAPEO // El plato de Cuiner no está enlazado a ninguna receta/artículo
+  IGNORADA // Anulada, invitación o tipo de línea que no descuenta
+}
+
+model CuinerConfig {
+  id                 String     @id @default(cuid())
+  tenantId           String     @unique
+  enabled            Boolean    @default(false)
+  mode               CuinerMode @default(DRY_RUN)
+  empresa            String     @default("01")
+  centro             String // Centro de Cuiner (01 Rodeo Diner, 02 Warynessy)
+  almacen            String     @default("01")
+  actUsuario         String? // Usuarios.Usuario de Cuiner que firma los albaranes del conector
+  warehouseId        String? // Almacén de ChefChek donde descuentan las ventas
+  connectorTokenHash String? // sha256 del token del conector; el token en claro solo se muestra al generarlo
+  lastVentasCabId    Int        @default(0) // Cursor incremental de VentasCab.Id_VentasCab
+  lastSeenAt         DateTime? // Último contacto del conector
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([connectorTokenHash])
+  @@map("cuiner_configs")
+}
+
+model CuinerSupplier {
+  id       String   @id @default(cuid())
+  tenantId String
+  codigo   String // EmpresaProveedores.Proveedor (5 dígitos)
+  nombre   String
+  razon    String?
+  cif      String?
+  baja     Boolean  @default(false)
+  syncedAt DateTime @updatedAt
+
+  @@unique([tenantId, codigo])
+  @@map("cuiner_suppliers")
+}
+
+model CuinerArticle {
+  id           String   @id @default(cuid())
+  tenantId     String
+  codigo       String // EmpresaArticulos.Articulo (8 dígitos)
+  descripcion  String
+  manipulacion String? // Unidad de manipulación (Kg, L, Ud)
+  medida       Float? // Cantidad de la unidad de manipulación por formato (p. ej. 3.6 kg)
+  baja         Boolean  @default(false)
+  syncedAt     DateTime @updatedAt
+
+  @@unique([tenantId, codigo])
+  @@map("cuiner_articles")
+}
+
+model CuinerArticleSupplier {
+  id           String    @id @default(cuid())
+  tenantId     String
+  articulo     String
+  proveedor    String
+  refProveedor String?
+  ultFecha     DateTime?
+  ultImporte   Float?
+  ultIva       Float?
+  ultUnPorCaja Float?
+  ultImporteUC Boolean?
+  syncedAt     DateTime  @updatedAt
+
+  @@unique([tenantId, articulo, proveedor])
+  @@index([tenantId, proveedor])
+  @@map("cuiner_article_suppliers")
+}
+
+model CuinerDish {
+  id       String   @id @default(cuid())
+  tenantId String
+  tipo     String // P plato, I ingrediente/modificador, M menú: el mismo código significa cosas distintas según el tipo
+  producto String // VentasLin.Producto / CartasLin.Codigo
+  nombre   String
+  syncedAt DateTime @updatedAt
+
+  @@unique([tenantId, tipo, producto])
+  @@map("cuiner_dishes")
+}
+
+model CuinerSupplierMap {
+  id         String   @id @default(cuid())
+  tenantId   String
+  supplierId String
+  codigo     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, supplierId])
+  @@unique([tenantId, codigo])
+  @@map("cuiner_supplier_maps")
+}
+
+model CuinerProductMap {
+  id        String   @id @default(cuid())
+  tenantId  String
+  productId String
+  articulo  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, productId])
+  @@index([tenantId, articulo])
+  @@map("cuiner_product_maps")
+}
+
+model CuinerDishMap {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tipo      String
+  producto  String
+  recipeId  String? // Receta que se descompone al vender el plato
+  productId String? // O artículo de venta directa (bebidas)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, tipo, producto])
+  @@map("cuiner_dish_maps")
+}
+
+model CuinerAlbaranExport {
+  id              String             @id @default(cuid())
+  tenantId        String
+  albaranId       String             @unique
+  status          CuinerExportStatus @default(PENDIENTE)
+  payload         Json // Documento ya calculado (cabecera, líneas, sumas) tal como se escribirá en Cuiner
+  cuinerIdDocsCab Int?
+  error           String?
+  attempts        Int                @default(0)
+  requestedBy     String?
+  requestedAt     DateTime           @default(now())
+  processedAt     DateTime?
+  updatedAt       DateTime           @updatedAt
+
+  @@index([tenantId, status])
+  @@map("cuiner_albaran_exports")
+}
+
+model CuinerSaleLine {
+  id               String           @id @default(cuid())
+  tenantId         String
+  idVentasCab      Int
+  linea            Int
+  fecha            DateTime
+  tipo             String // P plato, I ingrediente/modificador, M menú
+  producto         String
+  unidades         Float
+  anulada          Boolean          @default(false)
+  status           CuinerSaleStatus @default(PENDIENTE)
+  stockMovementIds String[]         @default([])
+  createdAt        DateTime         @default(now())
+
+  @@unique([tenantId, idVentasCab, linea])
+  @@index([tenantId, status])
+  @@map("cuiner_sale_lines")
 }

@@ -335,6 +335,40 @@ export function useVoidFoodLabel() {
   });
 }
 
+export interface FreezeFoodLabelInput {
+  /** ISO. Cuándo se congeló de verdad; por defecto, ahora. */
+  frozenAt?: string;
+  /** Si falta, se usan los días de congelado de la receta/artículo. */
+  shelfLifeFrozenDays?: number;
+}
+
+/**
+ * Congelar una etiqueta ya emitida cambia su caducidad: refresca el listado
+ * y la tarjeta de Caducidades del dashboard.
+ */
+export function useFreezeFoodLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: FreezeFoodLabelInput;
+    }) => {
+      const res = await apiClient.post<FoodLabel>(
+        `/v1/etiquetado/labels/${id}/freeze`,
+        input,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
+    },
+  });
+}
+
 /**
  * Retirar (consumida/desechada) cierra la alerta de caducidad: refresca el
  * listado y la tarjeta de Caducidades del dashboard.

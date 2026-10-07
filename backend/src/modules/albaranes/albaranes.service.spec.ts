@@ -347,6 +347,34 @@ describe("AlbaranesService", () => {
     });
   });
 
+  describe("updateDate", () => {
+    it("corrige la fecha de un albarán confirmado", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO }),
+      );
+      prisma.albaran.update.mockResolvedValue({ id: "alb-1" });
+
+      await service.updateDate("alb-1", { date: "2026-09-28" }, "t1");
+
+      expect(prisma.albaran.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "alb-1" },
+          data: { date: new Date("2026-09-28T00:00:00.000Z") },
+        }),
+      );
+    });
+
+    it("rechaza una fecha imposible", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaran.update.mockClear();
+
+      await expect(
+        service.updateDate("alb-1", { date: "2026-02-31" }, "t1"),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.albaran.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("updateLine", () => {
     const existingLine = {
       id: "l1",

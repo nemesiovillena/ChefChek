@@ -5,6 +5,7 @@ import {
   SECTION_REGISTRY,
   SECTION_KEYS,
   SECTION_BYPASS_ROLES,
+  DERIVED_SECTION_ROLES,
   ROLE_ACCESS_ROLES,
   RoleAccessRole,
   isRoleAccessRole,
@@ -76,6 +77,45 @@ export class RoleAccessService {
     return map;
   }
 
+  /**
+   * Mapa de secciones del usuario según su rol: el propio de USER/VIEWER, el
+   * heredado (con las secciones siempre visibles) para roles derivados como
+   * USER_CUINER, o null si el rol no está sujeto a secciones.
+   */
+  async getSectionMapForUserRole(
+    tenantId: string,
+    role: string | undefined,
+  ): Promise<Record<string, boolean> | null> {
+    if (!role) {
+      return null;
+    }
+    if (isRoleAccessRole(role)) {
+      return this.getRoleSectionMap(tenantId, role);
+    }
+    const derived = DERIVED_SECTION_ROLES[role];
+    if (!derived) {
+      return null;
+    }
+    const map = await this.getRoleSectionMap(tenantId, derived.base);
+    for (const key of derived.alwaysAllowed) {
+      // Un módulo desactivado sigue mandando: su sección queda en false.
+      const section = SECTION_REGISTRY.find((s) => s.key === key);
+      const moduleOff =
+        section?.moduleId !== undefined &&
+        !(await this.isModuleEnabled(tenantId, section.moduleId));
+      map[key] = !moduleOff;
+    }
+    return map;
+  }
+
+  private async isModuleEnabled(
+    tenantId: string,
+    moduleId: string,
+  ): Promise<boolean> {
+    const modules = await this.modulesService.getModules(tenantId);
+    return modules.some((m) => m.id === moduleId && m.enabled);
+  }
+
   /** Whether `role` may access `sectionKey` in `tenantId`. */
   async isSectionAllowed(
     tenantId: string,
@@ -85,10 +125,10 @@ export class RoleAccessService {
     if (role && SECTION_BYPASS_ROLES.includes(role)) {
       return true;
     }
-    if (!role || !isRoleAccessRole(role)) {
+    const map = await this.getSectionMapForUserRole(tenantId, role);
+    if (!map) {
       return false;
     }
-    const map = await this.getRoleSectionMap(tenantId, role);
     // Unknown section keys are treated as allowed (not gated).
     return map[sectionKey] ?? true;
   }

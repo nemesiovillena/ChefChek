@@ -189,9 +189,10 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
               <label className={labelClass}>Rol</label>
               <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as User['role'] })} className={inputClass}>
                 <option value="USER">USER</option>
+                <option value="USER_CUINER">USER CUINER (User + Albaranes y Cuiner)</option>
                 <option value="ADMIN">ADMIN</option>
                 <option value="VIEWER">VIEWER</option>
-                {targetUser?.role && !["USER", "ADMIN", "VIEWER"].includes(targetUser.role) && (
+                {targetUser?.role && !["USER", "USER_CUINER", "ADMIN", "VIEWER"].includes(targetUser.role) && (
                   <option value={targetUser.role} disabled>
                     {targetUser.role} (rol actual, no editable)
                   </option>

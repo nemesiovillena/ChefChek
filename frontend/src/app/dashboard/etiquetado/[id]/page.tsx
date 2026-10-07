@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Trash2,
   Undo2,
+  Snowflake,
 } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
@@ -21,6 +22,7 @@ import {
   useUpdateFoodLabel,
   useRetireFoodLabels,
   useUnretireFoodLabel,
+  useFreezeFoodLabel,
   RETIRED_DISPOSITION_LABEL,
   type RetiredDisposition,
   useEtiquetadoConfig,
@@ -28,8 +30,10 @@ import {
   labelFormatOptions,
   printLabel,
   type UpdateFoodLabelInput,
+  type FreezeFoodLabelInput,
 } from '@/hooks/use-food-labels';
 import EditLabelForm from './edit-label-form';
+import FreezeLabelForm from './freeze-label-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +76,7 @@ export default function EtiquetaDetailPage() {
   const updateLabel = useUpdateFoodLabel();
   const retireLabel = useRetireFoodLabels();
   const unretireLabel = useUnretireFoodLabel();
+  const freezeLabel = useFreezeFoodLabel();
   const etiquetadoConfig = useEtiquetadoConfig();
   // El formato de impresión se elige en Configuración → Etiquetas.
   const printFormat = effectiveLabelFormat(etiquetadoConfig.data);
@@ -81,6 +86,7 @@ export default function EtiquetaDetailPage() {
 
   const [copies, setCopies] = useState('1');
   const [editing, setEditing] = useState(false);
+  const [freezing, setFreezing] = useState(false);
   const [printing, setPrinting] = useState(false);
   const isThermal = printFormat.startsWith('thermal:');
 
@@ -120,6 +126,8 @@ export default function EtiquetaDetailPage() {
   const isActive = !label.voidedAt && !label.retiredAt;
   // Corrección solo el mismo día y si está activa (el backend lo exige).
   const canEdit = isActive && isTodayMadrid(label.createdAt);
+  // Congelar a posteriori: cualquier día, mientras siga activa y sin congelar.
+  const canFreeze = isActive && !label.frozenAt;
   const canUnretire = label.retiredAt !== null && isTodayMadrid(label.retiredAt);
 
   const onSaveEdit = async (input: UpdateFoodLabelInput) => {
@@ -145,6 +153,28 @@ export default function EtiquetaDetailPage() {
       addNotification({
         type: 'error',
         title: 'No se pudo corregir',
+        message: e instanceof Error ? e.message : 'Error al guardar',
+      });
+    }
+  };
+
+  const onFreeze = async (input: FreezeFoodLabelInput) => {
+    try {
+      await freezeLabel.mutateAsync({ id: label.id, input });
+      setFreezing(false);
+      addNotification({
+        type: 'success',
+        title: 'Etiqueta congelada',
+        message: 'Imprime la nueva etiqueta y descarta la anterior.',
+      });
+      await printLabel(label.id, printFormat, Number(copies) || 1, {
+        onError: (m) =>
+          addNotification({ type: 'error', title: 'Impresión', message: m }),
+      });
+    } catch (e: unknown) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo congelar',
         message: e instanceof Error ? e.message : 'Error al guardar',
       });
     }
@@ -321,6 +351,16 @@ export default function EtiquetaDetailPage() {
         </div>
       )}
 
+      {freezing && canFreeze && (
+        <div className="mt-4">
+          <FreezeLabelForm
+            saving={freezeLabel.isPending}
+            onCancel={() => setFreezing(false)}
+            onSave={onFreeze}
+          />
+        </div>
+      )}
+
       {label.ingredientLots.length > 0 && (
         <div className="mt-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4">
           <div className="mb-2 text-sm font-semibold">Lotes de ingredientes</div>
@@ -356,10 +396,16 @@ export default function EtiquetaDetailPage() {
           )}
           {printing ? 'Enviando…' : 'Reimprimir'}
         </Button>
-        {canEdit && !editing && (
+        {canEdit && !editing && !freezing && (
           <Button variant="outline" onClick={() => setEditing(true)}>
             <Pencil className="mr-2 h-4 w-4" />
             Corregir
+          </Button>
+        )}
+        {canFreeze && !freezing && !editing && (
+          <Button variant="outline" onClick={() => setFreezing(true)}>
+            <Snowflake className="mr-2 h-4 w-4" />
+            Congelar
           </Button>
         )}
         {canUnretire && (
