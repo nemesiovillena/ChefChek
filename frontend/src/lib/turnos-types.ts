@@ -87,3 +87,79 @@ export const ABSENCE_STATUS_LABELS: Record<AbsenceStatus, string> = {
   REJECTED: 'Rechazada',
   CANCELLED: 'Cancelada',
 };
+
+// ─────────────────────────────────────────────────────────── Planificador
+
+export type ShiftStatus = 'DRAFT' | 'PUBLISHED';
+
+export interface Shift {
+  id: string;
+  locationId: string;
+  /** null = turno abierto, por cubrir. */
+  employeeId: string | null;
+  /** AAAA-MM-DD: día en que empieza. */
+  date: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  /** Minutos de trabajo: duración menos la pausa. */
+  workMinutes: number;
+  color: string | null;
+  note: string | null;
+  status: ShiftStatus;
+  /** Solo en "mis turnos". */
+  locationName?: string | null;
+}
+
+export interface ShiftInput {
+  locationId: string;
+  employeeId: string | null;
+  date: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes?: number;
+  color?: string;
+  note?: string;
+}
+
+export interface ShiftTemplate {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  color: string;
+  isActive: boolean;
+}
+
+export interface ShiftTemplateInput {
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes?: number;
+  color?: string;
+  isActive?: boolean;
+}
+
+/** Todo lo que pinta la rejilla de una semana en un centro. */
+export interface WeekSchedule {
+  weekStart: string;
+  days: string[];
+  location: { id: string; name: string };
+  employees: { id: string; name: string; section: string | null; weeklyHours: number }[];
+  shifts: Shift[];
+  absences: {
+    id: string;
+    employeeId: string;
+    startDate: string;
+    endDate: string;
+    status: AbsenceStatus;
+    typeName: string;
+    color: string;
+  }[];
+  holidays: Holiday[];
+  templates: ShiftTemplate[];
+  /** Turnos en borrador: aún no los ve su persona. */
+  draftCount: number;
+  lastPublication: { publishedAt: string; publishedByName: string } | null;
+}

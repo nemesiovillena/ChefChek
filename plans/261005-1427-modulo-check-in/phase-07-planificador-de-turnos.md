@@ -1,10 +1,11 @@
 ---
 phase: 7
-title: "Planificador de turnos"
-status: pending
+title: Planificador de turnos
+status: completed
 priority: P2
-effort: "28-34h"
-dependencies: [6]
+effort: 28-34h
+dependencies:
+  - 6
 ---
 
 # Phase 7: Planificador de turnos
@@ -50,15 +51,31 @@ Panel de planificación visual inspirado en Skello: rejilla semanal empleados ×
 
 ## Success Criteria
 
-- [ ] Planificar una semana de un centro completo con plantillas y arrastre
-- [ ] Copiar semana respeta ausencias aprobadas
-- [ ] Publicar notifica solo a quienes cambian
-- [ ] El empleado no ve borradores
-- [ ] Rejilla fluida con 40 empleados
-- [ ] Utilizable en tablet
+- [x] Rejilla semanal por persona y día, agrupada por sección, con fila de turnos abiertos (navegador)
+- [x] Crear un turno desde una celda, con plantilla o a mano; editar y borrar (e2e + navegador)
+- [x] Arrastrar un turno a otro día o persona, con ratón real en el navegador; opción de duplicar al arrastrar
+- [x] Turno partido y turno que cruza la medianoche (unit + e2e)
+- [x] No se pisan turnos de una misma persona ni se planifica sobre una ausencia aprobada (e2e)
+- [x] Copiar semana respeta ausencias y no duplica al repetir (e2e)
+- [x] Borradores invisibles para el empleado hasta publicar; constancia de cada publicación (e2e)
+- [x] Ausencias y festivos visibles en la rejilla; horas por persona (frente a las pactadas) y por día
+- [ ] Notificar a los afectados al publicar (no hay notificaciones)
+- [ ] Vistas de día y de mes (solo semana)
+- [ ] Fluidez con 40 empleados y uso en tablet (sin probar)
 
 ## Risk Assessment
 
 - Complejidad de interfaz subestimada → wireframe aprobado primero; entregar por capas (estática → arrastre → extras).
 - Regresión con `sortOrder`/dnd del dashboard → componentes propios, sin tocar los existentes.
 - Turnos que cruzan medianoche → mismo criterio que el calculador (día de inicio).
+
+## Desviaciones (2026-10-07)
+
+- **Sin boceto previo**: el usuario pidió construir directamente según el PDR.
+- **Publicación simple**: `Shift.status` (borrador/publicado) y una fila de `schedule_publications` por publicación. Publicar pasa a publicado todos los borradores de la semana. Los cambios sobre un turno ya publicado son visibles al momento; no hay "cambios pendientes" ni aviso a los afectados.
+- **Sin `templateId`, `section` ni `jobTitle` en `Shift`**: la plantilla solo rellena horas y color al crear; la sección es la de la ficha del empleado.
+- **Borrado físico** de turnos (no hay soft-delete): un turno planificado no es evidencia legal, lo es el fichaje.
+- **Duplicar al arrastrar** con una casilla, no con tecla modificadora, para que funcione en tablet.
+- **Solo vista de semana.** Día y mes quedan fuera.
+- **Empleados del centro**: la rejilla muestra a quien está asignado al centro elegido; solo se le puede planificar ahí.
+- **Mis turnos**: lista de las próximas cuatro semanas, en la misma página.

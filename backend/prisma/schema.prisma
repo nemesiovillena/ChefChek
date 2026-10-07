@@ -3443,6 +3443,7 @@ model Employee {
   locations       EmployeeLocation[]
   absences        Absence[]
   leaveBalances   LeaveBalance[]
+  shifts          Shift[]
 
   @@index([tenantId])
   @@map("employees")
@@ -4001,4 +4002,66 @@ model Holiday {
 
   @@index([tenantId, date])
   @@map("holidays")
+}
+
+enum ShiftStatus {
+  DRAFT // solo lo ve gerencia
+  PUBLISHED // lo ve la persona asignada
+}
+
+// Plantilla de turno reutilizable ("Mañana 9-17").
+model ShiftTemplate {
+  id           String   @id @default(cuid())
+  tenantId     String
+  name         String
+  startTime    String // HH:MM
+  endTime      String // HH:MM; menor que startTime = termina al día siguiente
+  breakMinutes Int      @default(0)
+  color        String   @default("#2563eb")
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("shift_templates")
+}
+
+// Turno planificado de un día. Sin empleado es un turno abierto (por cubrir).
+// Un turno partido son dos turnos el mismo día.
+model Shift {
+  id           String      @id @default(cuid())
+  tenantId     String
+  locationId   String
+  employeeId   String?
+  date         DateTime    @db.Date // día en que empieza
+  startTime    String // HH:MM
+  endTime      String // HH:MM; menor que startTime = termina al día siguiente
+  breakMinutes Int         @default(0)
+  color        String?
+  note         String?
+  status       ShiftStatus @default(DRAFT)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, locationId, date])
+  @@index([tenantId, employeeId, date])
+  @@map("shifts")
+}
+
+// Constancia de cada publicación de una semana: quién, cuándo y cuántos turnos.
+model SchedulePublication {
+  id                String   @id @default(cuid())
+  tenantId          String
+  locationId        String
+  weekStart         DateTime @db.Date // lunes
+  publishedShifts   Int // turnos que pasaron de borrador a publicado
+  publishedByUserId String
+  publishedByName   String // snapshot
+  publishedAt       DateTime @default(now())
+
+  @@index([tenantId, locationId, weekStart])
+  @@map("schedule_publications")
 }
