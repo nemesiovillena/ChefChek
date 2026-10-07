@@ -15,6 +15,7 @@ jest.mock("bcrypt", () => ({
 }));
 
 const mockPrismaService = {
+  $queryRaw: jest.fn().mockResolvedValue([]),
   user: {
     findMany: jest.fn(),
     findFirst: jest.fn(),
@@ -89,14 +90,7 @@ describe("UsersService", () => {
       expect(prisma.tenant.findUnique).toHaveBeenCalledWith({
         where: { id: "tenant-id" },
       });
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: {
-          email_tenantId: {
-            email: "user@test.com",
-            tenantId: "tenant-id",
-          },
-        },
-      });
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
       expect(bcrypt.hash).toHaveBeenCalledWith("password123", 10);
       expect(result.success).toBe(true);
       expect(result.data.email).toBe("user@test.com");
@@ -155,14 +149,22 @@ describe("UsersService", () => {
 
     it("should throw ConflictException if user already exists in tenant", async () => {
       prisma.tenant.findUnique.mockResolvedValue(mockTenant);
-      prisma.user.findUnique.mockResolvedValue({ id: "existing-user" });
+      prisma.$queryRaw.mockResolvedValueOnce([{ deletedAt: null }]);
 
       await expect(service.create(createUserDto, "tenant-id")).rejects.toThrow(
-        ConflictException,
+        new ConflictException("Ya existe un usuario con ese email."),
       );
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it("should throw ConflictException if the email belongs to a deleted user", async () => {
+      prisma.tenant.findUnique.mockResolvedValue(mockTenant);
+      prisma.$queryRaw.mockResolvedValueOnce([{ deletedAt: new Date() }]);
+
       await expect(service.create(createUserDto, "tenant-id")).rejects.toThrow(
-        "User already exists in this tenant",
+        /usuario eliminado/,
       );
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it("should use default role if not provided", async () => {
