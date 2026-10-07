@@ -11,12 +11,18 @@ import {
   ChecklistEntryInputDto,
   SuperviseChecklistRunDto,
 } from "../dto/checklist-entry.dto";
+import { ChecklistClosureCalendarService } from "./checklist-closure-calendar.service";
+import {
+  ClosureCalendar,
+  isClosedDay,
+} from "../util/checklist-closure-calendar.util";
 import {
   CHECKLIST_FREQUENCIES,
   ChecklistFrequency,
   computePeriodKey,
   frequencyOfPeriodKey,
   isPeriodElapsed,
+  periodEndFromKey,
   periodStartFromKey,
 } from "../util/checklist-period.util";
 import {
@@ -24,6 +30,9 @@ import {
   ChecklistRunSnapshot,
 } from "../util/checklist-run-snapshot.util";
 import { ACTIVE_CHECKLIST_ITEMS } from "../constants/checklist-active-items";
+
+/** Motivo con que se justifican en bloque las hojas vencidas de días de cierre. */
+export const CLOSED_DAY_JUSTIFICATION = "Local cerrado ese día";
 
 /**
  * Hojas (el "Registro") del motor de checklist compartido: generación
@@ -33,7 +42,10 @@ import { ACTIVE_CHECKLIST_ITEMS } from "../constants/checklist-active-items";
  */
 @Injectable()
 export class ChecklistRunService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly closureCalendar: ChecklistClosureCalendarService,
+  ) {}
 
   /**
    * Crea (upsert idempotente) la hoja del periodo en curso de cada plantilla
@@ -41,12 +53,20 @@ export class ChecklistRunService {
    * cuenta desde el lunes, la mensual desde el día 1… aunque el local abra
    * otro día o la plantilla se cree a mitad de periodo. Llamado por el cron
    * diario y de forma "lazy" desde `GET runs/today`.
+   *
+   * En un día de cierre del local no se genera nada: la diaria no toca, y la
+   * de un periodo más largo se creará el primer día que se abra (si el
+   * periodo entero es de cierre, nunca).
    */
   async ensureRunsForToday(
     tenantId: string,
     module: ChecklistConsumerModule,
     now: Date = new Date(),
   ): Promise<void> {
+    const calendar = await this.closureCalendar.load(tenantId);
+    if (isClosedDay(computePeriodKey(now, "DAILY"), calendar)) {
+      return;
+    }
     const templates = await this.prisma.checklistTemplate.findMany({
       where: { tenantId, usedByModules: { has: module }, archivedAt: null },
       include: { items: ACTIVE_CHECKLIST_ITEMS },
@@ -496,6 +516,79 @@ export class ChecklistRunService {
       }
     }
     return closed;
+  }
+
+  /**
+   * Hojas vencidas sin justificar cuyo periodo entero fue de cierre del local
+   * (la diaria de un día de descanso, la semanal de una semana de vacaciones):
+   * se generaron antes de declararse el cierre.
+   */
+  async listOverdueClosedDayRuns(
+    tenantId: string,
+    module: ChecklistConsumerModule,
+  ) {
+    const calendar = await this.closureCalendar.load(tenantId);
+    const runs = await this.prisma.checklistRun.findMany({
+      where: {
+        tenantId,
+        status: "INCOMPLETE",
+        supervisedAt: null,
+        template: { usedByModules: { has: module } },
+      },
+      select: { id: true, periodKey: true },
+    });
+    return runs.filter((run) =>
+      this.isPeriodFullyClosed(run.periodKey, calendar),
+    );
+  }
+
+  private isPeriodFullyClosed(
+    periodKey: string,
+    calendar: ClosureCalendar,
+  ): boolean {
+    const frequency = frequencyOfPeriodKey(periodKey);
+    const end = periodEndFromKey(periodKey, frequency).getTime();
+    for (
+      let day = periodStartFromKey(periodKey, frequency);
+      day.getTime() < end;
+      day = new Date(day.getTime() + 86_400_000)
+    ) {
+      if (!isClosedDay(computePeriodKey(day, "DAILY"), calendar)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Justifica de una vez las hojas vencidas de días de cierre. Siguen
+   * INCOMPLETE y quedan selladas, igual que al justificar una a una.
+   */
+  async justifyClosedDayRuns(
+    tenantId: string,
+    module: ChecklistConsumerModule,
+    supervisedByUserId: string,
+    supervisorUserId?: string,
+  ): Promise<{ justified: number }> {
+    const runs = await this.listOverdueClosedDayRuns(tenantId, module);
+    if (runs.length === 0) {
+      return { justified: 0 };
+    }
+    const supervisor = await this.resolvePerformer(
+      tenantId,
+      supervisedByUserId,
+      supervisorUserId,
+    );
+    const { count } = await this.prisma.checklistRun.updateMany({
+      where: { id: { in: runs.map((r) => r.id) }, supervisedAt: null },
+      data: {
+        supervisedAt: new Date(),
+        supervisedByUserId,
+        supervisorName: supervisor.name,
+        supervisorNote: CLOSED_DAY_JUSTIFICATION,
+      },
+    });
+    return { justified: count };
   }
 
   /** Personas activas del tenant, para el selector "¿quién lo hizo?". */

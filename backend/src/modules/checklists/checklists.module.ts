@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ChecklistTemplateService } from "./services/checklist-template.service";
 import { ChecklistRunService } from "./services/checklist-run.service";
+import { ChecklistClosureCalendarService } from "./services/checklist-closure-calendar.service";
 import { ChecklistRunSchedulerService } from "./services/checklist-run-scheduler.service";
 import { ChecklistAssetService } from "./services/checklist-asset.service";
 import { ChecklistMaintenanceService } from "./services/checklist-maintenance.service";
@@ -30,6 +31,7 @@ import { ChecklistMaintenanceReminderService } from "./services/checklist-mainte
   providers: [
     ChecklistTemplateService,
     ChecklistRunService,
+    ChecklistClosureCalendarService,
     ChecklistRunSchedulerService,
     ChecklistAssetService,
     ChecklistMaintenanceService,
@@ -39,6 +41,7 @@ import { ChecklistMaintenanceReminderService } from "./services/checklist-mainte
   exports: [
     ChecklistTemplateService,
     ChecklistRunService,
+    ChecklistClosureCalendarService,
     ChecklistAssetService,
     ChecklistMaintenanceService,
     ChecklistIncidentService,

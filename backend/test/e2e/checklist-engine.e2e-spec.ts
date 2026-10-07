@@ -2,7 +2,11 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { ChecklistTemplateService } from "../../src/modules/checklists/services/checklist-template.service";
-import { ChecklistRunService } from "../../src/modules/checklists/services/checklist-run.service";
+import { ChecklistClosureCalendarService } from "../../src/modules/checklists/services/checklist-closure-calendar.service";
+import {
+  CLOSED_DAY_JUSTIFICATION,
+  ChecklistRunService,
+} from "../../src/modules/checklists/services/checklist-run.service";
 import { CreateChecklistTemplateDto } from "../../src/modules/checklists/dto/checklist-template.dto";
 
 /**
@@ -30,15 +34,22 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
   let prisma: PrismaService;
   let templates: ChecklistTemplateService;
   let runs: ChecklistRunService;
+  let calendar: ChecklistClosureCalendarService;
   let tenantId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({
-      providers: [PrismaService, ChecklistTemplateService, ChecklistRunService],
+      providers: [
+        PrismaService,
+        ChecklistTemplateService,
+        ChecklistRunService,
+        ChecklistClosureCalendarService,
+      ],
     }).compile();
     prisma = moduleRef.get(PrismaService);
     templates = moduleRef.get(ChecklistTemplateService);
     runs = moduleRef.get(ChecklistRunService);
+    calendar = moduleRef.get(ChecklistClosureCalendarService);
 
     const tenant = await prisma.tenant.create({
       data: {
@@ -296,6 +307,113 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         from: weekBefore,
       });
       expect(byStart.some((r) => r.templateId === template.id)).toBe(false);
+    });
+  });
+
+  describe("días de cierre del local", () => {
+    // El tenant es compartido por todo el fichero: sin limpiar, el descanso
+    // semanal dejaría sin hoja a los demás tests que caigan en lunes o martes.
+    afterEach(async () => {
+      await prisma.tenantCalendarException.deleteMany({ where: { tenantId } });
+      await calendar.setClosedWeekdays(tenantId, []);
+    });
+
+    const MONDAY = new Date("2026-10-05T10:00:00Z");
+    const WEDNESDAY = new Date("2026-10-07T10:00:00Z");
+
+    it("en un día de descanso no se generan hojas; el primer día abierto sí", async () => {
+      const daily = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria con descanso" }),
+      );
+      const weekly = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Semanal con descanso", frequency: "WEEKLY" }),
+      );
+      await calendar.setClosedWeekdays(tenantId, [1, 2]);
+
+      await runs.ensureRunsForToday(tenantId, "sicted", MONDAY);
+      expect(
+        await prisma.checklistRun.count({
+          where: { templateId: { in: [daily.id, weekly.id] } },
+        }),
+      ).toBe(0);
+
+      await runs.ensureRunsForToday(tenantId, "sicted", WEDNESDAY);
+      const generated = await prisma.checklistRun.findMany({
+        where: { templateId: { in: [daily.id, weekly.id] } },
+        select: { periodKey: true },
+      });
+      expect(generated.map((r) => r.periodKey).sort()).toEqual([
+        "2026-10-07",
+        "2026-W41",
+      ]);
+    });
+
+    it("una apertura excepcional en día de descanso sí genera hojas", async () => {
+      const daily = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria en festivo abierto" }),
+      );
+      await calendar.setClosedWeekdays(tenantId, [1, 2]);
+      await calendar.addException(tenantId, SUPERVISOR_ID, {
+        kind: "OPEN",
+        fromDay: "2026-10-12",
+        toDay: "2026-10-12",
+        reason: "Festivo",
+      });
+
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-10-12T10:00:00Z"),
+      );
+      expect(
+        await prisma.checklistRun.count({
+          where: { templateId: daily.id, periodKey: "2026-10-12" },
+        }),
+      ).toBe(1);
+    });
+
+    it("justifica en bloque solo las vencidas de días de cierre", async () => {
+      const daily = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria vencida en descanso" }),
+      );
+      // Se generaron y vencieron antes de declarar el descanso semanal.
+      await runs.ensureRunsForToday(tenantId, "sicted", MONDAY);
+      await runs.ensureRunsForToday(tenantId, "sicted", WEDNESDAY);
+      await runs.closeElapsedRuns(tenantId, new Date("2026-10-09T10:00:00Z"));
+      await calendar.setClosedWeekdays(tenantId, [1, 2]);
+
+      const { justified } = await runs.justifyClosedDayRuns(
+        tenantId,
+        "sicted",
+        SUPERVISOR_ID,
+      );
+      expect(justified).toBeGreaterThanOrEqual(1);
+
+      const byDay = new Map(
+        (
+          await prisma.checklistRun.findMany({
+            where: { templateId: daily.id },
+          })
+        ).map((r) => [r.periodKey, r]),
+      );
+      const monday = byDay.get("2026-10-05");
+      expect(monday?.status).toBe("INCOMPLETE");
+      expect(monday?.supervisorName).toBe("Encargado");
+      expect(monday?.supervisorNote).toBe(CLOSED_DAY_JUSTIFICATION);
+      // El miércoles se abrió: su hoja vencida sigue pendiente de justificar.
+      expect(byDay.get("2026-10-07")?.supervisedAt).toBeNull();
     });
   });
 

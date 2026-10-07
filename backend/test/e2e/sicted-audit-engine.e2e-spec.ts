@@ -2,6 +2,7 @@ import { inflateSync } from "zlib";
 import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { ChecklistTemplateService } from "../../src/modules/checklists/services/checklist-template.service";
+import { ChecklistClosureCalendarService } from "../../src/modules/checklists/services/checklist-closure-calendar.service";
 import { ChecklistRunService } from "../../src/modules/checklists/services/checklist-run.service";
 import { SictedCoverageService } from "../../src/modules/sicted/services/sicted-coverage.service";
 import { madridCalendarDay } from "../../src/modules/checklists/util/checklist-period.util";
@@ -72,6 +73,7 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
         PrismaService,
         ChecklistTemplateService,
         ChecklistRunService,
+        ChecklistClosureCalendarService,
         SictedCoverageService,
         SictedRegistrosPdfService,
         SictedPlanPdfService,
@@ -300,6 +302,45 @@ describe("E2E - Pack de auditoría SICTED (fase 5)", () => {
         (g) => g.templateId === template.id,
       );
       expect(gapsForTemplate).toHaveLength(0); // ni el 10 (tiene hoja) ni el 11 (fuera de rango) deben aparecer
+    });
+
+    it("un día de cierre del local no se espera: no es hueco ni cuenta en esperadas", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        dailyDto({ name: "Con descanso semanal" }),
+      );
+      await backdate(template.id, "2026-01-01T00:00:00Z");
+      const range = [
+        new Date("2026-10-05T00:00:00Z"), // lunes
+        new Date("2026-10-08T00:00:00Z"), // jueves, exclusivo
+      ] as const;
+      const before = await coverage.coverage(tenantId, ...range);
+
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { closedWeekdays: [1, 2] },
+      });
+      try {
+        const after = await coverage.coverage(tenantId, ...range);
+        const days = (report: typeof after) =>
+          report.gaps
+            .filter((g) => g.templateId === template.id)
+            .map((g) => g.periodKey);
+        expect(days(before)).toEqual([
+          "2026-10-05",
+          "2026-10-06",
+          "2026-10-07",
+        ]);
+        expect(days(after)).toEqual(["2026-10-07"]);
+        expect(after.expected).toBeLessThan(before.expected);
+      } finally {
+        await prisma.tenant.update({
+          where: { id: tenantId },
+          data: { closedWeekdays: [] },
+        });
+      }
     });
   });
 
