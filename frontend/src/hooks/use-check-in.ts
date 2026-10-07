@@ -5,6 +5,11 @@ import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
+  Adjustment,
+  AdjustmentInput,
+  ApprovedTimesheet,
+  MonthState,
+  TimesheetRow,
   CheckInReadiness,
   CheckInSettings,
   CheckInSettingsResponse,
@@ -37,6 +42,9 @@ const KEYS = {
   kiosk: ['check-in', 'kiosk'],
   presence: ['check-in', 'presence'],
   review: ['check-in', 'review'],
+  month: ['check-in', 'month'],
+  adjustments: ['check-in', 'adjustments'],
+  timesheets: ['check-in', 'timesheets'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -290,4 +298,93 @@ export function usePresence(enabled: boolean) {
 /** Fichajes marcados para revisión (PIN sin verificar, secuencia, reloj…). */
 export function usePunchesForReview() {
   return useApiQuery<ReviewPunch[]>(KEYS.review, `${BASE}/punches/review`, { refetchInterval: 60_000 });
+}
+
+// ──────────────────────────────────────────── Jornadas, correcciones y hojas
+
+/** Mes propio: jornadas, totales, hoja aprobada y conformidad. */
+export function useOwnMonth(year: number, month: number, enabled = true) {
+  return useApiQuery<MonthState>(
+    [...KEYS.month, 'me', String(year), String(month)],
+    `${BASE}/me/timesheet?year=${year}&month=${month}`,
+    { enabled },
+  );
+}
+
+/** Mes de una persona (gerencia). */
+export function useEmployeeMonth(employeeId: string | null, year: number, month: number) {
+  return useApiQuery<MonthState>(
+    [...KEYS.month, employeeId ?? 'none', String(year), String(month)],
+    `${BASE}/timesheets/employee?employeeId=${employeeId}&year=${year}&month=${month}`,
+    { enabled: !!employeeId },
+  );
+}
+
+/** Una corrección o una aprobación cambian jornadas, hojas, pendientes y situación. */
+function useInvalidateWorkdays() {
+  const qc = useQueryClient();
+  return () => {
+    for (const key of [KEYS.month, KEYS.adjustments, KEYS.timesheets, KEYS.review, KEYS.me, KEYS.presence]) {
+      qc.invalidateQueries({ queryKey: key });
+    }
+  };
+}
+
+export function useOwnAdjustments() {
+  return useApiQuery<Adjustment[]>([...KEYS.adjustments, 'me'], `${BASE}/me/adjustments`);
+}
+
+export function usePendingAdjustments() {
+  return useApiQuery<Adjustment[]>([...KEYS.adjustments, 'pending'], `${BASE}/adjustments?pending=true`, {
+    refetchInterval: 60_000,
+  });
+}
+
+/** El empleado solicita una corrección de lo suyo: queda pendiente. */
+export function useRequestAdjustment() {
+  const invalidate = useInvalidateWorkdays();
+  return useMutation<Adjustment, Error, AdjustmentInput>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/me/adjustments`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Gerencia corrige directamente: queda aprobada, con su motivo. */
+export function useCreateAdjustment() {
+  const invalidate = useInvalidateWorkdays();
+  return useMutation<Adjustment, Error, AdjustmentInput>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/adjustments`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useDecideAdjustment() {
+  const invalidate = useInvalidateWorkdays();
+  return useMutation<Adjustment, Error, { id: string; approve: boolean; note?: string }>({
+    mutationFn: async ({ id, ...data }) => (await apiClient.post(`${BASE}/adjustments/${id}/decision`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useTimesheets(year: number, month: number) {
+  return useApiQuery<TimesheetRow[]>(
+    [...KEYS.timesheets, String(year), String(month)],
+    `${BASE}/timesheets?year=${year}&month=${month}`,
+  );
+}
+
+export function useApproveTimesheet() {
+  const invalidate = useInvalidateWorkdays();
+  return useMutation<ApprovedTimesheet, Error, { employeeId: string; year: number; month: number; reopenReason?: string }>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/timesheets/approve`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useAckOwnTimesheet() {
+  const invalidate = useInvalidateWorkdays();
+  return useMutation<{ acknowledgedAt: string | null }, Error, { year: number; month: number }>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/me/timesheet/ack`, data)).data,
+    onSuccess: invalidate,
+  });
 }

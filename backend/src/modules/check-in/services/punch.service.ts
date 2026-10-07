@@ -20,6 +20,7 @@ import { LegalTextsService } from "./legal-texts.service";
 import { CheckInSettingsService } from "./check-in-settings.service";
 import { GeoPoint, GeofenceResult, resolveGeofence } from "./geofence.util";
 import { computePunchHash } from "./punch-hash.util";
+import { STATUS_WINDOW_MS, loadEffectivePunches } from "./effective-punches";
 import {
   EmployeeWorkStatus,
   allowedNextTypes,
@@ -74,7 +75,7 @@ interface AppendInput {
   nextInBatch?: { type: CreatePunchDto["type"]; occurredAt: Date };
 }
 
-/** Ventana para buscar el último fichaje al pintar listados (no al validar). */
+/** Ventana de los "últimos fichajes" que se enseñan en pantalla. */
 const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 /**
@@ -350,15 +351,20 @@ export class PunchService {
 
       // El fichaje inmediatamente anterior en el tiempo (no el último en
       // llegar: uno hecho sin conexión puede llegar después de otro posterior).
-      const previous = await tx.timePunch.findFirst({
-        where: {
-          tenantId,
-          employeeId: employee.id,
-          occurredAt: { lte: input.occurredAt },
-        },
-        orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
-        select: { type: true },
-      });
+      // La situación sale de los fichajes que cuentan (con las correcciones
+      // aprobadas aplicadas), no solo de los originales.
+      const timeline =
+        (
+          await loadEffectivePunches(
+            tx,
+            tenantId,
+            [employee.id],
+            new Date(input.occurredAt.getTime() - STATUS_WINDOW_MS),
+          )
+        ).get(employee.id) ?? [];
+      const previous = [...timeline]
+        .reverse()
+        .find((entry) => entry.occurredAt <= input.occurredAt);
       const status = statusAfter(previous?.type);
       const review = [...input.review];
       if (!isAllowedTransition(status, input.type)) {
@@ -369,15 +375,9 @@ export class PunchService {
       } else if (!input.enforceSequence) {
         // Un fichaje que llega tarde también debe encajar con el siguiente
         // que ya estaba registrado (p. ej. no dejar dos salidas seguidas).
-        const stored = await tx.timePunch.findFirst({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            occurredAt: { gt: input.occurredAt },
-          },
-          orderBy: [{ occurredAt: "asc" }, { seq: "asc" }],
-          select: { type: true, occurredAt: true },
-        });
+        const stored = timeline.find(
+          (entry) => entry.occurredAt > input.occurredAt,
+        );
         const pending = input.nextInBatch;
         const next =
           pending && (!stored || pending.occurredAt < stored.occurredAt)
@@ -430,11 +430,32 @@ export class PunchService {
 
   /** Fichajes marcados para revisión (los más recientes primero). */
   async listForReview(tenantId: string) {
-    const punches = await this.prisma.timePunch.findMany({
+    const flagged = await this.prisma.timePunch.findMany({
       where: { tenantId, needsReview: true },
       orderBy: { occurredAt: "desc" },
-      take: 100,
+      take: 200,
     });
+    // Un fichaje deja de estar "a revisar" cuando una corrección aprobada lo
+    // da por bueno, lo anula o lo sustituye. La marca original no se toca.
+    const corrections = await this.prisma.timePunchAdjustment.findMany({
+      where: { tenantId, targetPunchId: { in: flagged.map((p) => p.id) } },
+      select: { id: true, targetPunchId: true },
+    });
+    const approved = await this.prisma.timePunchAdjustmentDecision.findMany({
+      where: {
+        tenantId,
+        status: "APPROVED",
+        adjustmentId: { in: corrections.map((c) => c.id) },
+      },
+      select: { adjustmentId: true },
+    });
+    const approvedIds = new Set(approved.map((d) => d.adjustmentId));
+    const resolved = new Set(
+      corrections
+        .filter((c) => approvedIds.has(c.id))
+        .map((c) => c.targetPunchId),
+    );
+    const punches = flagged.filter((p) => !resolved.has(p.id)).slice(0, 100);
     return punches.map((punch) => ({
       ...toPunchView(punch),
       employeeId: punch.employeeId,
@@ -474,12 +495,7 @@ export class PunchService {
       orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
       take: 12,
     });
-    const last =
-      recentPunches[0] ??
-      (await this.prisma.timePunch.findFirst({
-        where: { tenantId, employeeId: employee.id },
-        orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
-      }));
+    const last = await this.lastEffective(tenantId, employee.id);
     const status = statusAfter(last?.type);
 
     return {
@@ -567,7 +583,13 @@ export class PunchService {
       return [];
     }
 
-    // Último fichaje de cada empleado dentro de la ventana reciente.
+    const effective = await loadEffectivePunches(
+      this.prisma,
+      tenantId,
+      employees.map((e) => e.id),
+      new Date(Date.now() - STATUS_WINDOW_MS),
+    );
+    // Último fichaje real de cada empleado, para mostrar dónde y cómo fichó.
     const recent = await this.prisma.timePunch.findMany({
       where: {
         tenantId,
@@ -585,17 +607,29 @@ export class PunchService {
 
     return employees.map((employee) => {
       const last = lastByEmployee.get(employee.id);
+      const lastEffective = effective.get(employee.id)?.at(-1);
       return {
         id: employee.id,
         name: fullName(employee),
         jobTitle: employee.jobTitle,
         section: employee.section,
         hasPin: employee.pinHash !== null,
-        status: statusAfter(last?.type),
-        since: last?.occurredAt ?? null,
+        status: statusAfter(lastEffective?.type),
+        since: lastEffective?.occurredAt ?? null,
         lastPunch: last ? toPunchView(last) : null,
       };
     });
+  }
+
+  /** Último fichaje que cuenta de una persona (o nada si lleva días sin fichar). */
+  private async lastEffective(tenantId: string, employeeId: string) {
+    const timeline = await loadEffectivePunches(
+      this.prisma,
+      tenantId,
+      [employeeId],
+      new Date(Date.now() - STATUS_WINDOW_MS),
+    );
+    return timeline.get(employeeId)?.at(-1);
   }
 
   private async findOwnEmployee(tenantId: string, userId: string) {

@@ -14,6 +14,10 @@ import { PunchService } from "./services/punch.service";
 import { KioskKeyService } from "./services/kiosk-key.service";
 import { PunchesController } from "./punches.controller";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
+import { WorkdaysController } from "./workdays.controller";
+import { AdjustmentsService } from "./services/adjustments.service";
+import { WorkdaysService } from "./services/workdays.service";
+import { TimesheetsService } from "./services/timesheets.service";
 
 /**
  * Módulo Check-In (control horario): fichas de empleado, PIN de kiosco,
@@ -32,6 +36,7 @@ import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
     EmployeesController,
     CheckInConfigurationController,
     PunchesController,
+    WorkdaysController,
   ],
   providers: [
     EmployeesService,
@@ -43,6 +48,9 @@ import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
     LegalAcksService,
     PunchService,
     KioskKeyService,
+    AdjustmentsService,
+    WorkdaysService,
+    TimesheetsService,
     CheckInManagerGuard,
   ],
   exports: [
