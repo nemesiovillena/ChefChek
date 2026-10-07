@@ -26,6 +26,11 @@ export interface NavItem {
   icon?: string;
   /** Visible only to ADMIN/OWNER/SUPERADMIN (e.g. admin-oriented guides). */
   managerOnly?: boolean;
+  /**
+   * Hidden on shared accounts (a device anyone can use), whatever their role:
+   * screens with personal data that only an identified person may see.
+   */
+  personalAccountOnly?: boolean;
   /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner). */
   extraRoles?: string[];
 }
@@ -96,6 +101,16 @@ export const NAV_GROUPS: NavSection[] = [
     ],
   },
   {
+    title: 'Personal',
+    items: [
+      { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
+      { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
+      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
+      { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true, personalAccountOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
+    ],
+  },
+  {
     title: 'Contenido',
     items: [
       { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
@@ -151,6 +166,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
   { prefix: '/dashboard/sicted', moduleId: 'sicted' },
+  { prefix: '/dashboard/check-in', moduleId: 'check-in' },
   { prefix: '/dashboard/cuiner', moduleId: 'cuiner' },
 ];
 

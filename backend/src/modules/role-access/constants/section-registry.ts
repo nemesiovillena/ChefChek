@@ -151,6 +151,12 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
   // checklist que ambos comparten vive en el módulo interno `checklists`,
   // que no tiene sección propia (ver backend/src/modules/checklists).
   { key: "sicted", label: "SICTED", moduleId: "sicted", defaultAllowed: true },
+  {
+    key: "check-in",
+    label: "Check-In",
+    moduleId: "check-in",
+    defaultAllowed: true,
+  },
 
   // ── Contenido ───────────────────────────────────────────────────────────
   { key: "menus", label: "Menús", moduleId: "menus", defaultAllowed: true },

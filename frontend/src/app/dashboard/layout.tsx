@@ -136,10 +136,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             canSee(sectionKeyForItem(item)) &&
             (!item.managerOnly ||
               NAV_MANAGER_ROLES.includes(user?.role ?? '') ||
-              (item.extraRoles?.includes(user?.role ?? '') ?? false)),
+              (item.extraRoles?.includes(user?.role ?? '') ?? false)) &&
+            (!item.personalAccountOnly || user?.isSharedAccount !== true),
         ),
       })).filter((group) => group.items.length > 0),
-    [isEnabled, canSee, user?.role],
+    [isEnabled, canSee, user?.role, user?.isSharedAccount],
   );
 
   if (isLoading) {
