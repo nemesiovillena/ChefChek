@@ -102,13 +102,17 @@ Orden: 1 → 2 → 3 → 4 (backend); 5 depende de 3; 6 depende de 4 y 5.
 1. PDF con OpenAI depende del modelo elegido por el tenant; se verifica contra la documentación actual en la fase 2. Si el modelo no admite adjuntos, la captura termina en `ERROR` con mensaje legible.
 2. El límite de peticiones global va por IP y no se ha comprobado cómo llega la IP tras el proxy de producción. El plan no depende de él: usa un tope de capturas simultáneas por tenant.
 
-## Verificación pendiente (fase 3)
+## Verificación con IA real
 
-La clave de Gemini del tenant de desarrollo agotó su cuota durante la prueba real (2026-10-06). Texto pegado verificado de principio a fin; quedan por ver con IA real:
-- [ ] Captura por URL termina en `PENDIENTE`.
-- [ ] Captura por PDF e imagen (formato de adjuntos de cada proveedor).
-- [ ] Receta de ≥ 20 ingredientes y ≥ 12 pasos con Anthropic, Gemini y OpenAI.
-- [ ] ≥ 50 % de ingredientes comunes con sugerencia en el catálogo real (medir tras el cambio de la primera palabra).
+2026-10-06: texto pegado verificado de principio a fin (Gemini `gemini-flash-latest`).
+
+2026-10-07: `gemini-flash-latest` no respondía (503 y timeouts incluso a una petición mínima), así que la prueba se hizo con la misma clave y `gemini-flash-lite-latest`, sin cambiar la configuración del tenant:
+- [x] Captura por URL termina en `PENDIENTE` (web en inglés → receta en español, 15 ingredientes, 5 pasos, tiempos y raciones).
+- [x] Captura por PDF (adjunto `inlineData` de Gemini): 7 ingredientes, 4 pasos.
+- [x] Sugerencia de artículo en el catálogo real: 12 de 22 ingredientes (55 %), varias marcadas como "revisar".
+- [ ] Captura por imagen (JPG/PNG).
+- [ ] Adjuntos con Anthropic y OpenAI (solo comprobados con respuestas simuladas).
+- [ ] Receta de ≥ 20 ingredientes y ≥ 12 pasos con los tres proveedores.
 
 ## Red Team Review
 
