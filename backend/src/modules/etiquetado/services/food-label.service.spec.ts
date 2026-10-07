@@ -585,6 +585,147 @@ describe("FoodLabelService", () => {
     });
   });
 
+  describe("freeze", () => {
+    // Elaborada el 31/08 con 5 días de refrigerado: caduca el 05/09.
+    const chilledLabel = (over: Record<string, unknown> = {}) => ({
+      id: "fl1",
+      tenantId: TENANT,
+      labelType: "ELABORATED",
+      recipeId: "r1",
+      productId: null,
+      preparedAt: new Date("2026-08-31T10:00:00.000Z"),
+      useByDate: new Date("2026-09-05T12:00:00.000Z"),
+      frozenAt: null,
+      frozenUseByDate: null,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+      shelfLifeDaysApplied: 5,
+      editLog: null,
+      voidedAt: null,
+      retiredAt: null,
+      // Emitida días atrás: `update` la rechazaría.
+      createdAt: new Date("2026-08-31T10:00:00.000Z"),
+      ...over,
+    });
+
+    const recipe = (shelfLifeFrozenDays: number | null) => ({
+      id: "r1",
+      name: "Pollo al curry",
+      allergens: [],
+      shelfLifeDays: 5,
+      shelfLifeFrozenDays,
+      storageCondition: "REFRIGERATED",
+      storageTempMin: 0,
+      storageTempMax: 4,
+    });
+
+    beforeEach(() => {
+      mockPrisma.foodLabel.update.mockImplementation(({ data }: any) => ({
+        id: "fl1",
+        voidedAt: null,
+        retiredAt: null,
+        ...data,
+      }));
+    });
+
+    it("freezes a label from a previous day, keeping the lot and logging the change", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel());
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe(90));
+
+      const result: any = await service.freeze(TENANT, USER, "fl1", {
+        frozenAt: "2026-09-02T09:00:00.000Z",
+      });
+
+      // 2 sep + 90 días de congelado = 1 dic
+      expect(result.frozenUseByDate).toEqual(
+        new Date("2026-12-01T12:00:00.000Z"),
+      );
+      expect(result.useByDate).toEqual(result.frozenUseByDate);
+      expect(result.storageCondition).toBe("FROZEN");
+      expect(result.storageTempMax).toBeNull();
+      expect(result.lotNumber).toBeUndefined(); // el lote no se toca
+      const entry = result.editLog[0];
+      expect(entry.by).toBe("Ana López");
+      expect(entry.changes.useByDate.from).toBe("2026-09-05T12:00:00.000Z");
+      expect(entry.changes.storageCondition).toEqual({
+        from: "REFRIGERATED",
+        to: "FROZEN",
+      });
+    });
+
+    it("allows freezing on the expiry day itself", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel());
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe(90));
+
+      await expect(
+        service.freeze(TENANT, USER, "fl1", {
+          frozenAt: "2026-09-05T20:00:00.000Z",
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it("rejects when the product had already expired on the freezing date", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel());
+
+      await expect(
+        service.freeze(TENANT, USER, "fl1", {
+          frozenAt: "2026-09-06T09:00:00.000Z",
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.foodLabel.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a freezing date before the preparation or in the future", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel());
+
+      await expect(
+        service.freeze(TENANT, USER, "fl1", {
+          frozenAt: "2026-08-30T09:00:00.000Z",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.freeze(TENANT, USER, "fl1", {
+          frozenAt: new Date(Date.now() + 3_600_000).toISOString(),
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("needs the frozen shelf life from the recipe or the request", async () => {
+      mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel());
+      mockPrisma.recipe.findFirst.mockResolvedValue(recipe(null));
+
+      await expect(
+        service.freeze(TENANT, USER, "fl1", {
+          frozenAt: "2026-09-02T09:00:00.000Z",
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      const result: any = await service.freeze(TENANT, USER, "fl1", {
+        frozenAt: "2026-09-02T09:00:00.000Z",
+        shelfLifeFrozenDays: 30,
+      });
+      expect(result.frozenUseByDate).toEqual(
+        new Date("2026-10-02T12:00:00.000Z"),
+      );
+    });
+
+    it("rejects voided, retired or already frozen labels", async () => {
+      for (const over of [
+        { voidedAt: new Date() },
+        { retiredAt: new Date() },
+        { frozenAt: new Date("2026-09-01T09:00:00.000Z") },
+      ]) {
+        mockPrisma.foodLabel.findFirst.mockResolvedValue(chilledLabel(over));
+        await expect(
+          service.freeze(TENANT, USER, "fl1", {
+            frozenAt: "2026-09-02T09:00:00.000Z",
+          }),
+        ).rejects.toThrow(ConflictException);
+      }
+    });
+  });
+
   describe("update", () => {
     const editableLabel = () => ({
       id: "fl1",
