@@ -289,6 +289,30 @@
     color-scheme: dark;
   }
 
+  /* iOS Safari pinta los campos de fecha/hora como un control nativo con
+     ancho mínimo propio: ignoran el ancho de su contenedor y se salen de la
+     caja en pantallas estrechas (p. ej. los filtros Desde/Hasta de
+     Albaranes). Sin la apariencia nativa vuelven a obedecer width/min-width.
+     El min-height del valor evita que un campo vacío pierda altura, y el
+     text-align quita el centrado que iOS aplica por defecto. Acotado a iOS
+     con @supports: el resto de navegadores ya respeta el ancho. */
+  @supports (-webkit-touch-callout: none) {
+    input[type='date'],
+    input[type='datetime-local'],
+    input[type='time'],
+    input[type='month'] {
+      -webkit-appearance: none;
+      appearance: none;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    input::-webkit-date-and-time-value {
+      min-height: 1.5em;
+      text-align: left;
+    }
+  }
+
   /* iOS Safari auto-zoomea al enfocar un control con font-size < 16px, y ese
      zoom persiste tras la navegación client-side: tras el login (inputs a
      14px) el dashboard llegaba "desbordado" hasta que el usuario reducía con
