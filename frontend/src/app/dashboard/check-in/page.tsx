@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  FileText,
   MonitorSmartphone,
   Settings2,
   Users,
@@ -54,6 +55,12 @@ export default function CheckInPage() {
         )}
         {canManage && (
           <>
+            <Link
+              href="/dashboard/check-in/informes"
+              className={secondaryBtnCls}
+            >
+              <FileText className="h-4 w-4" /> Informes
+            </Link>
             <Link
               href="/dashboard/check-in/empleados"
               className={secondaryBtnCls}

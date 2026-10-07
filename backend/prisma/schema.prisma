@@ -3662,6 +3662,30 @@ model TimesheetAck {
   @@map("timesheet_acks")
 }
 
+// Enlace de solo lectura para que la Inspección de Trabajo consulte el
+// registro de jornada de unos meses concretos sin cuenta en la aplicación.
+// Solo se guarda la huella del token: el enlace se muestra una única vez.
+model CheckInInspectionLink {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tokenHash       String    @unique
+  label           String?
+  fromYear        Int
+  fromMonth       Int
+  toYear          Int
+  toMonth         Int
+  expiresAt       DateTime
+  createdByUserId String
+  createdByName   String // snapshot
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  accessCount     Int       @default(0)
+  lastAccessAt    DateTime?
+
+  @@index([tenantId])
+  @@map("check_in_inspection_links")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Integración con Cuiner (TPV y gestión del restaurante).
 // Un conector instalado en el servidor de Cuiner lee su SQL Server local y

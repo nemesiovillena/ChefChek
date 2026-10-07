@@ -18,6 +18,12 @@ import { WorkdaysController } from "./workdays.controller";
 import { AdjustmentsService } from "./services/adjustments.service";
 import { WorkdaysService } from "./services/workdays.service";
 import { TimesheetsService } from "./services/timesheets.service";
+import { ReportsController } from "./reports.controller";
+import { InspectionPublicController } from "./inspection-public.controller";
+import { ReportService } from "./services/report.service";
+import { ReportExportService } from "./services/report-export.service";
+import { IntegrityService } from "./services/integrity.service";
+import { InspectionLinksService } from "./services/inspection-links.service";
 
 /**
  * Módulo Check-In (control horario): fichas de empleado, PIN de kiosco,
@@ -37,6 +43,8 @@ import { TimesheetsService } from "./services/timesheets.service";
     CheckInConfigurationController,
     PunchesController,
     WorkdaysController,
+    ReportsController,
+    InspectionPublicController,
   ],
   providers: [
     EmployeesService,
@@ -51,6 +59,10 @@ import { TimesheetsService } from "./services/timesheets.service";
     AdjustmentsService,
     WorkdaysService,
     TimesheetsService,
+    ReportService,
+    ReportExportService,
+    IntegrityService,
+    InspectionLinksService,
     CheckInManagerGuard,
   ],
   exports: [
