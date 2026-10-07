@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { createHash, randomBytes } from "crypto";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { ModulesService } from "../../modules/modules.service";
 import { Actor } from "./adjustments.service";
 
 const MAX_DAYS = 60;
@@ -29,7 +30,10 @@ export interface CreateInspectionLinkInput {
  */
 @Injectable()
 export class InspectionLinksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly modules: ModulesService,
+  ) {}
 
   async create(tenantId: string, input: CreateInspectionLinkInput, by: Actor) {
     const from = monthIndex(input.fromYear, input.fromMonth);
@@ -96,13 +100,24 @@ export class InspectionLinksService {
 
   /**
    * Valida un token y anota el acceso. Un token desconocido, caducado o
-   * revocado responde igual (404), sin dar pistas.
+   * revocado responde igual (404), sin dar pistas. Tampoco funciona si el
+   * cliente está de baja o ya no tiene el módulo activo.
    */
   async resolve(token: string) {
     const link = await this.prisma.checkInInspectionLink.findUnique({
       where: { tokenHash: hashToken(token) },
     });
     if (!link || link.revokedAt || link.expiresAt <= new Date()) {
+      throw new NotFoundException("Enlace no válido o caducado.");
+    }
+    const [tenant, moduleEnabled] = await Promise.all([
+      this.prisma.tenant.findFirst({
+        where: { id: link.tenantId, isActive: true, deletedAt: null },
+        select: { id: true },
+      }),
+      this.modules.isModuleEnabled(link.tenantId, "check-in"),
+    ]);
+    if (!tenant || !moduleEnabled) {
       throw new NotFoundException("Enlace no válido o caducado.");
     }
     await this.prisma.checkInInspectionLink.update({

@@ -62,7 +62,7 @@ export class ReportService {
           include: { defaultLocation: { select: { name: true } } },
         }),
         this.workdays.getMonth(tenantId, employeeId, year, month),
-        this.adjustments.list(tenantId, { employeeId }),
+        this.adjustments.listAllForEmployee(tenantId, employeeId),
         this.prisma.timesheet.findFirst({
           where: { tenantId, employeeId, year, month },
           orderBy: { version: "desc" },

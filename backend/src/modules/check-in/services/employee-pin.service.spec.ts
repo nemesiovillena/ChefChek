@@ -23,6 +23,8 @@ function makeService(pinLength = 4) {
       update: jest.fn(async ({ data }: any) => Object.assign(employee, data)),
     },
   };
+  prisma.$queryRaw = jest.fn(async () => []);
+  prisma.$transaction = jest.fn(async (run: any) => run(prisma));
   const settings: any = { get: jest.fn(async () => ({ pinLength })) };
   return { service: new EmployeePinService(prisma, settings), employee };
 }
