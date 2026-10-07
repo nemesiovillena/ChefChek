@@ -371,6 +371,26 @@ describe("RecipesService", () => {
   });
 
   describe("findAll", () => {
+    it.each([
+      ["ADMIN", false],
+      ["OWNER", false],
+      ["USER", true],
+      ["VIEWER", true],
+      [undefined, true],
+    ])(
+      "rol %s: filtra las recetas desactivadas = %s",
+      async (role, filtersInactive) => {
+        mockPrismaService.recipe.findMany.mockResolvedValue([]);
+        mockPrismaService.recipe.count.mockResolvedValue(0);
+
+        await service.findAll(tenantId, undefined, true, role);
+
+        const where =
+          mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
+        expect(where.isActive).toBe(filtersInactive ? true : undefined);
+      },
+    );
+
     it("should return a paginated list of recipes", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
       mockPrismaService.recipe.count.mockResolvedValue(1);
@@ -623,6 +643,17 @@ describe("RecipesService", () => {
         notes: "Ingredientes pendientes",
         sourceUrl: "https://recetas.es/tarta",
       });
+    });
+
+    it.each([
+      ["una fuente que no es http(s)", { sourceUrl: "javascript:alert(1)" }],
+      ["notas por encima del límite", { notes: "x".repeat(5001) }],
+    ])("rechaza %s", async (_name, dto) => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+
+      await expect(service.update(tenantId, recipeId, dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it("permite vaciar las notas enviando null", async () => {
@@ -919,6 +950,31 @@ describe("RecipesService", () => {
 
       expect(result).toBeDefined();
       expect(result.name).toBe(newName);
+    });
+
+    it("la copia de una receta con ingredientes pendientes nace inactiva y los conserva", async () => {
+      const pending = { ...mockRecipe, notes: "Ingredientes pendientes" };
+      mockPrismaService.recipe.findFirst.mockResolvedValue(pending);
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(pending);
+
+      await service.duplicate(tenantId, recipeId);
+
+      expect(
+        mockPrismaService.recipe.create.mock.calls.at(-1)[0].data,
+      ).toMatchObject({ isActive: false, notes: "Ingredientes pendientes" });
+    });
+
+    it("la copia de una receta completa nace activa", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
+      mockPrismaService.product.findFirst.mockResolvedValue(mockProduct);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.duplicate(tenantId, recipeId);
+
+      expect(
+        mockPrismaService.recipe.create.mock.calls.at(-1)[0].data.isActive,
+      ).toBe(true);
     });
 
     it("should duplicate a recipe with default name if not provided", async () => {
