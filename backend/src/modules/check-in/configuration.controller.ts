@@ -25,6 +25,7 @@ import {
   CreateLocationDto,
   UpdateLocationDto,
 } from "../compras/dto/location.dto";
+import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
 import {
   ApplyAgreementPresetDto,
@@ -38,11 +39,18 @@ import { WorkCentersService } from "./services/work-centers.service";
 
 /**
  * Configuración de Check-In: convenio y jornada, centros de trabajo con su
- * geovalla y textos legales. Solo para quien gestiona el módulo, salvo
- * `readiness`, que cualquier usuario necesita para saber si puede fichar.
+ * geovalla y textos legales. Solo para quien gestiona el módulo y nunca
+ * desde una cuenta compartida.
  */
 @Controller("api/v1/check-in")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
+@UseGuards(
+  AuthGuard,
+  TenantGuard,
+  RolesGuard,
+  ModuleGuard,
+  SectionAccessGuard,
+  CheckInManagerGuard,
+)
 @RequireModule("check-in")
 @RequireSection("check-in")
 @Roles(CHECK_IN_MANAGER_ROLE)
@@ -131,12 +139,5 @@ export class CheckInConfigurationController {
       id: req.user.id,
       name: req.user.name,
     });
-  }
-
-  /** ¿Están validados los textos legales? Sin eso no se puede fichar. */
-  @Get("readiness")
-  @Roles("VIEWER")
-  async getReadiness(@Req() req: any) {
-    return this.legalTexts.getReadiness(req.tenantId);
   }
 }

@@ -26,6 +26,11 @@ export interface NavItem {
   icon?: string;
   /** Visible only to ADMIN/OWNER/SUPERADMIN (e.g. admin-oriented guides). */
   managerOnly?: boolean;
+  /**
+   * Hidden on shared accounts (a device anyone can use), whatever their role:
+   * screens with personal data that only an identified person may see.
+   */
+  personalAccountOnly?: boolean;
   /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner). */
   extraRoles?: string[];
 }
@@ -98,8 +103,9 @@ export const NAV_GROUPS: NavSection[] = [
   {
     title: 'Personal',
     items: [
-      { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true },
-      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true },
+      { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
+      { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true, personalAccountOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
     ],
   },
   {

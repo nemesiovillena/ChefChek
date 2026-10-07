@@ -8,6 +8,17 @@ export const primaryBtnCls =
 export const secondaryBtnCls =
   'flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 font-medium disabled:opacity-40';
 
+const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+
+/**
+ * ¿Puede gestionar Check-In (fichas, ajustes, presencia)? Hace falta rol de
+ * gestión y cuenta personal: en una cuenta compartida no se muestran datos
+ * personales. El servidor aplica la misma regla.
+ */
+export function canManageCheckIn(user: { role?: string; isSharedAccount?: boolean } | null | undefined): boolean {
+  return MANAGE_ROLES.includes(user?.role ?? '') && user?.isSharedAccount !== true;
+}
+
 export function errorMessage(err: unknown): string {
   return err instanceof Error && err.message ? err.message : 'Inténtalo de nuevo.';
 }

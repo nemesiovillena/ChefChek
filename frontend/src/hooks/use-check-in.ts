@@ -12,7 +12,12 @@ import type {
   LegalTextKind,
   LegalTextState,
   LegalTextVersion,
+  KioskState,
   LinkableUser,
+  OwnCheckInState,
+  PresenceEntry,
+  PunchInput,
+  PunchView,
   WorkCenter,
   WorkCenterGeofenceInput,
 } from '@/lib/check-in-types';
@@ -26,6 +31,9 @@ const KEYS = {
   workCenters: ['check-in', 'work-centers'],
   legalTexts: ['check-in', 'legal-texts'],
   readiness: ['check-in', 'readiness'],
+  me: ['check-in', 'me'],
+  kiosk: ['check-in', 'kiosk'],
+  presence: ['check-in', 'presence'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -55,6 +63,16 @@ export function useCreateEmployee() {
   const invalidate = useInvalidateEmployees();
   return useMutation<Employee, Error, EmployeeInput>({
     mutationFn: async (data) => (await apiClient.post(`${BASE}/employees`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Crea fichas a partir de cuentas del equipo (nombre y puesto ya conocidos). */
+export function useImportEmployees() {
+  const invalidate = useInvalidateEmployees();
+  return useMutation<Employee[], Error, string[]>({
+    mutationFn: async (userIds) =>
+      (await apiClient.post(`${BASE}/employees/import-from-users`, { userIds })).data,
     onSuccess: invalidate,
   });
 }
@@ -175,4 +193,49 @@ export function useValidateLegalText() {
 /** ¿Están validados los textos legales? Sin eso no se puede fichar. */
 export function useCheckInReadiness() {
   return useApiQuery<CheckInReadiness>(KEYS.readiness, `${BASE}/readiness`);
+}
+
+// ─────────────────────────────────────────────────────────────── Fichaje
+
+/** Estado de la cuenta personal: situación, últimos fichajes y textos por leer. */
+export function useOwnCheckIn() {
+  return useApiQuery<OwnCheckInState>(KEYS.me, `${BASE}/me`);
+}
+
+export function useAckOwnLegalTexts() {
+  const qc = useQueryClient();
+  return useMutation<{ acknowledged: number }, Error, void>({
+    mutationFn: async () => (await apiClient.post(`${BASE}/me/legal-acks`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.me }),
+  });
+}
+
+export function useRecordPunch() {
+  const qc = useQueryClient();
+  return useMutation<PunchView, Error, PunchInput>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/punches`, data)).data,
+    // También al fallar: un 409 de secuencia significa que el estado en pantalla estaba viejo.
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: KEYS.me });
+      qc.invalidateQueries({ queryKey: KEYS.kiosk });
+      qc.invalidateQueries({ queryKey: KEYS.presence });
+    },
+  });
+}
+
+/** Pantalla de kiosco de un centro. Sin `locationId` devuelve solo los centros. */
+export function useKioskState(locationId: string | null) {
+  return useApiQuery<KioskState>(
+    [...KEYS.kiosk, locationId ?? 'none'],
+    `${BASE}/kiosk${locationId ? `?locationId=${locationId}` : ''}`,
+    { refetchInterval: 60_000 },
+  );
+}
+
+/** Quién está trabajando ahora. Se refresca solo cada 30 s. */
+export function usePresence(enabled: boolean) {
+  return useApiQuery<PresenceEntry[]>(KEYS.presence, `${BASE}/presence`, {
+    enabled,
+    refetchInterval: 30_000,
+  });
 }

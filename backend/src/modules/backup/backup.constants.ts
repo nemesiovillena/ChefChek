@@ -39,9 +39,21 @@ export const GLOBAL_ONLY_TABLES = new Set<string>(["tenants", "allergens"]);
  */
 export const EVIDENCE_TABLE_PREFIXES = ["checklist_", "sicted_"];
 
+/**
+ * Tablas de evidencia inalterable que no comparten prefijo con el resto de su
+ * módulo (Check-In mezcla tablas normales y de evidencia bajo "check_in_").
+ */
+export const EVIDENCE_TABLES = new Set<string>([
+  "time_punches", // fichajes: registro de jornada (art. 34.9 ET)
+  "check_in_legal_acks", // acuses de textos legales de Check-In
+]);
+
 /** True si `table` pertenece al motor de evidencia inalterable. */
 export function isEvidenceTable(table: string): boolean {
-  return EVIDENCE_TABLE_PREFIXES.some((prefix) => table.startsWith(prefix));
+  return (
+    EVIDENCE_TABLES.has(table) ||
+    EVIDENCE_TABLE_PREFIXES.some((prefix) => table.startsWith(prefix))
+  );
 }
 
 /**

@@ -1,5 +1,7 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
   ArrayUnique,
   IsArray,
   IsBoolean,
@@ -175,4 +177,14 @@ export class SetEmployeePinDto {
   @IsString()
   @Matches(/^\d{4,6}$/, { message: "El PIN debe tener entre 4 y 6 dígitos." })
   pin: string;
+}
+
+export class ImportEmployeesDto {
+  /** Cuentas del equipo de las que crear ficha de empleado. */
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsString({ each: true })
+  userIds: string[];
 }

@@ -9,10 +9,15 @@ import { EmployeePinService } from "./services/employee-pin.service";
 import { CheckInSettingsService } from "./services/check-in-settings.service";
 import { LegalTextsService } from "./services/legal-texts.service";
 import { WorkCentersService } from "./services/work-centers.service";
+import { LegalAcksService } from "./services/legal-acks.service";
+import { PunchService } from "./services/punch.service";
+import { PunchesController } from "./punches.controller";
+import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 
 /**
- * Módulo Check-In (control horario). Fundaciones: fichas de empleado, PIN de
- * kiosco y configuración (convenio, centros con geovalla, textos legales).
+ * Módulo Check-In (control horario): fichas de empleado, PIN de kiosco,
+ * configuración (convenio, centros con geovalla, textos legales) y fichaje
+ * desde cuenta personal o kiosco.
  * Ver docs/pdr-modulo-check-in.md.
  *
  * AuthModule es imprescindible: sin él, AuthGuard rompe el arranque.
@@ -22,7 +27,11 @@ import { WorkCentersService } from "./services/work-centers.service";
  */
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [EmployeesController, CheckInConfigurationController],
+  controllers: [
+    EmployeesController,
+    CheckInConfigurationController,
+    PunchesController,
+  ],
   providers: [
     EmployeesService,
     EmployeePinService,
@@ -30,6 +39,9 @@ import { WorkCentersService } from "./services/work-centers.service";
     LegalTextsService,
     WorkCentersService,
     LocationsService,
+    LegalAcksService,
+    PunchService,
+    CheckInManagerGuard,
   ],
   exports: [
     EmployeesService,

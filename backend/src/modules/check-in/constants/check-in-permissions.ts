@@ -5,5 +5,8 @@
  *
  * Único punto a tocar el día que se añada un rol intermedio (p. ej. un
  * encargado de sección con permiso para aprobar).
+ *
+ * El rol no basta: la gestión exige además cuenta personal, nunca una
+ * compartida (ver CheckInManagerGuard).
  */
 export const CHECK_IN_MANAGER_ROLE = "ADMIN";

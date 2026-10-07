@@ -45,6 +45,8 @@ export interface LinkableUser {
   id: string;
   name: string;
   email: string;
+  /** Puesto que tiene asignado en SICTED, si lo hay. */
+  suggestedJobTitle: string | null;
 }
 
 export type VacationDayType = 'NATURAL' | 'WORKING';
@@ -133,4 +135,80 @@ export interface LegalTextState {
 export interface CheckInReadiness {
   ready: boolean;
   missing: LegalTextKind[];
+}
+
+// ─────────────────────────────────────────────────────────────── Fichaje
+
+export type PunchType = 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END';
+export type WorkStatus = 'OUT' | 'IN' | 'ON_BREAK';
+export type PunchGeofenceStatus = 'INSIDE' | 'OUTSIDE' | 'UNAVAILABLE' | 'OFF';
+
+export interface PunchView {
+  id: string;
+  type: PunchType;
+  occurredAt: string;
+  source: 'PERSONAL' | 'KIOSK';
+  locationName: string | null;
+  geofenceStatus: PunchGeofenceStatus;
+  distanceM: number | null;
+}
+
+export interface LegalTextForEmployee {
+  id: string;
+  kind: LegalTextKind;
+  title: string;
+  version: number;
+  content: string;
+}
+
+/** Estado de la cuenta personal. `employee` es null si la cuenta no tiene ficha. */
+export interface OwnCheckInState {
+  readiness: CheckInReadiness;
+  isSharedAccount: boolean;
+  employee: { id: string; name: string; isActive: boolean } | null;
+  status: WorkStatus | null;
+  since?: string | null;
+  allowedTypes: PunchType[];
+  recentPunches: PunchView[];
+  pendingLegalTexts: LegalTextForEmployee[];
+}
+
+export interface PunchInput {
+  id: string;
+  type: PunchType;
+  employeeId?: string;
+  pin?: string;
+  locationId?: string;
+  latitude?: number;
+  longitude?: number;
+  accuracyM?: number;
+  deviceTime?: string;
+}
+
+export interface KioskEmployee {
+  id: string;
+  name: string;
+  hasPin: boolean;
+  status: WorkStatus;
+  allowedTypes: PunchType[];
+}
+
+export interface KioskState {
+  readiness: CheckInReadiness;
+  pinLength: number;
+  centers: { id: string; name: string; isDefault: boolean }[];
+  center: { id: string; name: string } | null;
+  employees: KioskEmployee[];
+  legalTexts: LegalTextForEmployee[];
+}
+
+export interface PresenceEntry {
+  id: string;
+  name: string;
+  jobTitle: string | null;
+  section: string | null;
+  hasPin: boolean;
+  status: WorkStatus;
+  since: string | null;
+  lastPunch: PunchView | null;
 }

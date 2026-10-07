@@ -1,9 +1,15 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
-import { EmployeesService } from "./employees.service";
+import { EmployeesService, splitFullName } from "./employees.service";
 
 function makeService() {
   const users: any[] = [
-    { id: "u-free", tenantId: "t1", isSharedAccount: false, employee: null },
+    {
+      id: "u-free",
+      name: "Ana López Mora",
+      tenantId: "t1",
+      isSharedAccount: false,
+      employee: null,
+    },
     { id: "u-shared", tenantId: "t1", isSharedAccount: true, employee: null },
     {
       id: "u-taken",
@@ -71,7 +77,22 @@ function makeService() {
   const prisma: any = {
     employee: employeeDelegate,
     employeeLocation: employeeLocationDelegate,
+    sictedJobAssignment: {
+      findMany: jest.fn(async () => [
+        { userId: "u-free", profile: { title: "Jefe de cocina" } },
+      ]),
+    },
     user: {
+      findMany: jest.fn(async ({ where }: any) =>
+        users
+          .filter(
+            (u) =>
+              u.tenantId === where.tenantId &&
+              !u.isSharedAccount &&
+              u.employee === null,
+          )
+          .map((u) => ({ id: u.id, name: u.name, email: `${u.id}@test.com` })),
+      ),
       findFirst: jest.fn(
         async ({ where }: any) =>
           users.find(
@@ -171,6 +192,46 @@ describe("EmployeesService", () => {
     });
     expect(updated.locationIds).toEqual(["loc-b"]);
     expect(updated.defaultLocationId).toBe("loc-b");
+  });
+
+  it("separa nombre y apellidos", () => {
+    expect(splitFullName("  Marta  Ruiz García ")).toEqual({
+      firstName: "Marta",
+      lastName: "Ruiz García",
+    });
+    expect(splitFullName("Nito")).toEqual({ firstName: "Nito", lastName: "" });
+  });
+
+  it("sugiere el puesto de SICTED en las cuentas sin ficha", async () => {
+    const { service } = makeService();
+    const linkable = await service.listLinkableUsers("t1");
+    expect(linkable).toEqual([
+      expect.objectContaining({
+        id: "u-free",
+        suggestedJobTitle: "Jefe de cocina",
+      }),
+    ]);
+  });
+
+  it("importa cuentas del equipo como fichas con nombre y puesto", async () => {
+    const { service } = makeService();
+    const [created] = await service.importFromUsers("t1", ["u-free"]);
+    expect(created).toMatchObject({
+      firstName: "Ana",
+      lastName: "López Mora",
+      jobTitle: "Jefe de cocina",
+      userId: "u-free",
+      locationIds: ["loc-a"],
+    });
+  });
+
+  it("no importa cuentas compartidas, ya vinculadas o de otro tenant", async () => {
+    const { service } = makeService();
+    for (const id of ["u-shared", "u-taken", "u-other"]) {
+      await expect(service.importFromUsers("t1", [id])).rejects.toThrow(
+        "Alguna de las cuentas",
+      );
+    }
   });
 
   it("dar de baja conserva la ficha", async () => {

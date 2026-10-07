@@ -21,9 +21,11 @@ import {
   RequireSection,
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
+import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
 import {
   CreateEmployeeDto,
+  ImportEmployeesDto,
   SetEmployeePinDto,
   UpdateEmployeeDto,
 } from "./dto/employee.dto";
@@ -32,10 +34,18 @@ import { EmployeePinService } from "./services/employee-pin.service";
 
 /**
  * Fichas laborales de Check-In. Contienen DNI y nº de Seguridad Social, así
- * que todo el controlador es solo para quien gestiona el módulo.
+ * que todo el controlador es solo para quien gestiona el módulo y nunca
+ * desde una cuenta compartida.
  */
 @Controller("api/v1/check-in/employees")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
+@UseGuards(
+  AuthGuard,
+  TenantGuard,
+  RolesGuard,
+  ModuleGuard,
+  SectionAccessGuard,
+  CheckInManagerGuard,
+)
 @RequireModule("check-in")
 @RequireSection("check-in")
 @Roles(CHECK_IN_MANAGER_ROLE)
@@ -57,6 +67,12 @@ export class EmployeesController {
   @Get("linkable-users")
   async listLinkableUsers(@Req() req: any) {
     return this.employees.listLinkableUsers(req.tenantId);
+  }
+
+  /** Crea fichas a partir de cuentas del equipo que aún no la tienen. */
+  @Post("import-from-users")
+  async importFromUsers(@Req() req: any, @Body() dto: ImportEmployeesDto) {
+    return this.employees.importFromUsers(req.tenantId, dto.userIds);
   }
 
   @Get(":id")

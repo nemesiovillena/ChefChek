@@ -38,13 +38,64 @@ export class EmployeesService {
     return toEmployeeView(await this.findOwned(tenantId, id));
   }
 
-  /** Cuentas personales del tenant que aún no están vinculadas a un empleado. */
+  /**
+   * Cuentas personales del tenant que aún no están vinculadas a un empleado,
+   * con el puesto que tengan asignado en SICTED (si lo hay) como sugerencia.
+   */
   async listLinkableUsers(tenantId: string) {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: { tenantId, isSharedAccount: false, employee: null },
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
     });
+    if (users.length === 0) {
+      return [];
+    }
+
+    // Lectura directa de las fichas de puesto de SICTED, sin depender de que
+    // el módulo esté activo: si no hay datos, simplemente no hay sugerencia.
+    const assignments = await this.prisma.sictedJobAssignment.findMany({
+      where: { tenantId, until: null, userId: { in: users.map((u) => u.id) } },
+      select: { userId: true, profile: { select: { title: true } } },
+      orderBy: { since: "desc" },
+    });
+    const jobTitleByUser = new Map<string, string>();
+    for (const assignment of assignments) {
+      if (!jobTitleByUser.has(assignment.userId)) {
+        jobTitleByUser.set(assignment.userId, assignment.profile.title);
+      }
+    }
+    return users.map((user) => ({
+      ...user,
+      suggestedJobTitle: jobTitleByUser.get(user.id) ?? null,
+    }));
+  }
+
+  /**
+   * Crea de una vez las fichas de las cuentas indicadas, con nombre y puesto
+   * tomados de lo que ya existe (Equipo y SICTED). El resto de datos (DNI,
+   * Seguridad Social, contrato) se completa después en cada ficha.
+   */
+  async importFromUsers(tenantId: string, userIds: string[]) {
+    const linkable = await this.listLinkableUsers(tenantId);
+    const wanted = new Set(userIds);
+    const selected = linkable.filter((user) => wanted.has(user.id));
+    if (selected.length !== wanted.size) {
+      throw new BadRequestException(
+        "Alguna de las cuentas no existe o ya tiene ficha de empleado.",
+      );
+    }
+    const created = [];
+    for (const user of selected) {
+      created.push(
+        await this.create(tenantId, {
+          ...splitFullName(user.name),
+          userId: user.id,
+          jobTitle: user.suggestedJobTitle ?? undefined,
+        }),
+      );
+    }
+    return created;
   }
 
   async create(tenantId: string, dto: CreateEmployeeDto) {
@@ -211,6 +262,15 @@ export class EmployeesService {
     }
     return [...wanted];
   }
+}
+
+/** "Marta Ruiz García" -> nombre "Marta", apellidos "Ruiz García". */
+export function splitFullName(name: string): {
+  firstName: string;
+  lastName: string;
+} {
+  const parts = name.trim().split(/\s+/);
+  return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
 }
 
 function pickDefaultLocation(
