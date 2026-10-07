@@ -116,6 +116,46 @@ describe("RoleAccessService", () => {
     });
   });
 
+  describe("rol USER_CUINER (derivado de USER)", () => {
+    it("hereda las secciones de USER y ve Albaranes aunque USER no", async () => {
+      prisma.configuration.findMany.mockResolvedValue([
+        { key: "roleAccess.USER.albaranes", value: "false" },
+        { key: "roleAccess.USER.almacenes", value: "false" },
+      ]);
+      expect(
+        await service.isSectionAllowed(tenantId, "USER_CUINER", "albaranes"),
+      ).toBe(true);
+      expect(
+        await service.isSectionAllowed(tenantId, "USER_CUINER", "almacenes"),
+      ).toBe(false);
+      expect(
+        await service.isSectionAllowed(tenantId, "USER", "albaranes"),
+      ).toBe(false);
+    });
+
+    it("respeta el módulo de Albaranes desactivado", async () => {
+      modules.getModules.mockResolvedValue(
+        allModulesEnabled.map((m: { id: string }) =>
+          m.id === "albaranes" ? { ...m, enabled: false } : m,
+        ),
+      );
+      expect(
+        await service.isSectionAllowed(tenantId, "USER_CUINER", "albaranes"),
+      ).toBe(false);
+    });
+
+    it("devuelve su mapa en getSectionMapForUserRole y null para ADMIN", async () => {
+      const map = await service.getSectionMapForUserRole(
+        tenantId,
+        "USER_CUINER",
+      );
+      expect(map?.albaranes).toBe(true);
+      expect(
+        await service.getSectionMapForUserRole(tenantId, "ADMIN"),
+      ).toBeNull();
+    });
+  });
+
   describe("updateRoleAccess", () => {
     it("upserts a Configuration row per (role, section) pair", async () => {
       await service.updateRoleAccess(tenantId, userId, {

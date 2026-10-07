@@ -4,7 +4,7 @@ import { useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 
-export type UserRole = 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'USER' | 'VIEWER';
+export type UserRole = 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'USER' | 'USER_CUINER' | 'VIEWER';
 
 interface ProtectedRouteProps {
   children: ReactNode;

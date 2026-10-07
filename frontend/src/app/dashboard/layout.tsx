@@ -134,7 +134,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           (item) =>
             isEnabled(item.moduleId) &&
             canSee(sectionKeyForItem(item)) &&
-            (!item.managerOnly || NAV_MANAGER_ROLES.includes(user?.role ?? '')) &&
+            (!item.managerOnly ||
+              NAV_MANAGER_ROLES.includes(user?.role ?? '') ||
+              (item.extraRoles?.includes(user?.role ?? '') ?? false)) &&
             (!item.personalAccountOnly || user?.isSharedAccount !== true),
         ),
       })).filter((group) => group.items.length > 0),
@@ -200,7 +202,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-stack-md shrink-0">
           {/* Nombre/rol solo desde xl y truncado: por debajo el menú ocupa el ancho y empujaba fuera el botón de cerrar sesión */}
           <div className="text-right hidden sm:block md:hidden xl:block max-w-44">
-            <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{(user?.role || 'CHEF DE CUISINE').toUpperCase()}</p>
+            <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{(user?.role || 'CHEF DE CUISINE').replace('_', ' ').toUpperCase()}</p>
             <p className="font-body-md text-body-md text-primary truncate">{user?.name || 'Marcus V.'}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => router.push('/dashboard/settings')}>

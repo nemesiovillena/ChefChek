@@ -23,9 +23,9 @@ export class CreateUserDto {
   @IsString()
   name: string;
 
-  @IsEnum(["ADMIN", "USER", "VIEWER"])
+  @IsEnum(["ADMIN", "USER", "USER_CUINER", "VIEWER"])
   @IsOptional()
-  role?: "ADMIN" | "USER" | "VIEWER";
+  role?: "ADMIN" | "USER" | "USER_CUINER" | "VIEWER";
 
   @IsBoolean()
   @IsOptional()
@@ -76,8 +76,8 @@ export class UpdateUserDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(["ADMIN", "USER", "VIEWER"])
-  role?: "ADMIN" | "USER" | "VIEWER";
+  @IsEnum(["ADMIN", "USER", "USER_CUINER", "VIEWER"])
+  role?: "ADMIN" | "USER" | "USER_CUINER" | "VIEWER";
 
   @IsOptional()
   @IsBoolean()

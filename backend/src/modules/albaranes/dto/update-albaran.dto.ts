@@ -4,6 +4,7 @@ import {
   IsEnum,
   ValidateIf,
   IsBoolean,
+  Matches,
 } from "class-validator";
 import { Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
@@ -135,4 +136,16 @@ export class CorrectAlbaranLinePriceDto {
   @Transform(numberAsString)
   @IsString()
   totalPrice?: string | null;
+}
+
+/**
+ * Corrección de la fecha del albarán (p. ej. el OCR leyó mal el año escrito a
+ * mano). Día natural sin hora: AAAA-MM-DD.
+ */
+export class UpdateAlbaranDateDto {
+  @ApiProperty({ description: "Fecha del albarán (AAAA-MM-DD)" })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: "La fecha debe tener el formato AAAA-MM-DD",
+  })
+  date: string;
 }

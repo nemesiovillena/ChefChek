@@ -1,0 +1,13 @@
+{
+  "apiUrl": "https://api.chefchek.example",
+  "tokenFile": "C:\\ChefChekConector\\secrets\\connector-token.txt",
+  "sqlServer": ".\\CUINERSQL",
+  "database": "CuinerPruebas",
+  "sqlUser": "chefchek_conector",
+  "sqlPasswordFile": "C:\\ChefChekConector\\secrets\\chefchek_conector.txt",
+  "logDir": "C:\\ChefChekConector\\logs",
+  "salesStableMinutes": 30,
+  "ticketsPerBatch": 300,
+  "catalogChunk": 500,
+  "maxBatchesPerRun": 50
+}

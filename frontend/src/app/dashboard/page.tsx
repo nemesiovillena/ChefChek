@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const canSeeCompras = canSee('compras');
   const canSeeCosts = canSee('recipes.cost');
   const canSeeEtiquetado = moduleOn('etiquetado') && canSee('etiquetado');
+  const canLabel = moduleOn('etiquetado') && canSee('etiquetado.emit');
   const canSeeSicted = moduleOn('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
@@ -110,6 +111,17 @@ export default function DashboardPage() {
   const handleCompleteTask = async (e: React.MouseEvent, task: NonNullable<typeof kpis>['upcomingProductionTasks'][number]) => {
     e.stopPropagation();
     await completeTask.mutateAsync({ orderId: task.id, actualTime: task.estimatedTime ?? 0 });
+  };
+
+  // Etiquetar desde la tarea: abre Nueva etiqueta con la receta ya elegida;
+  // si la tarea es de título libre, con ese nombre como plato sin receta.
+  const handleLabelTask = (e: React.MouseEvent, task: UpcomingProductionTask) => {
+    e.stopPropagation();
+    router.push(
+      task.recipeId
+        ? `/dashboard/etiquetado/nueva?recipeId=${task.recipeId}`
+        : `/dashboard/etiquetado/nueva?itemName=${encodeURIComponent(task.title)}`,
+    );
   };
 
   const handlePostponeClick = (e: React.MouseEvent, task: UpcomingProductionTask) => {
@@ -353,6 +365,7 @@ export default function DashboardPage() {
                     onNavigate={() => router.push(`/dashboard/production?batchId=${task.batchId}&orderId=${task.id}`)}
                     onComplete={(e) => handleCompleteTask(e, task)}
                     onPostpone={(e) => handlePostponeClick(e, task)}
+                    onLabel={canLabel ? (e) => handleLabelTask(e, task) : undefined}
                     completeDisabled={completeTask.isPending}
                   />
                 ))}
@@ -366,6 +379,7 @@ export default function DashboardPage() {
                 key={task.id}
                 task={task}
                 onComplete={(e) => handleCompleteTask(e, task)}
+                onLabel={canLabel ? (e) => handleLabelTask(e, task) : undefined}
                 completeDisabled={completeTask.isPending}
                 readOnly
               />

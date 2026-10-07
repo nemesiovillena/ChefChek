@@ -36,6 +36,7 @@ import {
 } from "./dto/create-albaran.dto";
 import { ManualAlbaranDto } from "./dto/manual-albaran.dto";
 import {
+  UpdateAlbaranDateDto,
   UpdateAlbaranDto,
   UpdateAlbaranStatusDto,
   UpdateAlbaranLineDto,
@@ -190,6 +191,20 @@ export class AlbaranesController {
   ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.update(id, dto, tenantId);
+  }
+
+  @Put(":id/date")
+  @ApiOperation({
+    summary: "Corregir la fecha del albarán (también si está confirmado)",
+  })
+  @ApiResponse({ status: 200, description: "Fecha corregida" })
+  async updateDate(
+    @Param("id") id: string,
+    @Body() dto: UpdateAlbaranDateDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.updateDate(id, dto, tenantId);
   }
 
   @Put(":id/status")
