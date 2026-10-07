@@ -217,6 +217,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: false,
   },
   {
+    id: "check-in",
+    name: "Check-In",
+    description:
+      "Control horario: fichaje de empleados, registro de jornada e informes para la Inspección de Trabajo",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
+  {
     id: "cuiner",
     name: "Cuiner",
     description:

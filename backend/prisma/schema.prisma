@@ -96,27 +96,27 @@ model Tenant {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  tenantId     String?
-  email        String
-  passwordHash String
-  name         String
-  role         UserRole  @default(USER)
-  isActive     Boolean   @default(true)
-  avatarUrl    String?
-  street       String?
-  city         String?
-  phone        String?
-  whatsapp     String?
-  payrollEmail String?
+  id              String    @id @default(cuid())
+  tenantId        String?
+  email           String
+  passwordHash    String
+  name            String
+  role            UserRole  @default(USER)
+  isActive        Boolean   @default(true)
+  avatarUrl       String?
+  street          String?
+  city            String?
+  phone           String?
+  whatsapp        String?
+  payrollEmail    String?
   // Cuenta de dispositivo compartido (p. ej. el ordenador de cocina): no es
   // una persona, así que en los registros hay que elegir quién lo hizo y no
   // aparece en las listas de "Quién"/"Responsable". Las cuentas personales
   // firman siempre con su propio nombre.
-  isSharedAccount Boolean  @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  isSharedAccount Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   // tenantId is null for SUPERADMIN users (no tenant scope)
   tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -127,6 +127,7 @@ model User {
   telegramUsers          TelegramUser[]
   AuditLog               AuditLog[]
   assistantConversations AssistantConversation[]
+  employee               Employee?
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -1121,7 +1122,7 @@ model ChecklistTemplateItem {
   // Ítem quitado del Plan que ya tiene marcas: no se borra (sus marcas son
   // evidencia inalterable y el borrado en cascada las arrastraría); se retira
   // y deja de salir en el Plan y en las hojas nuevas.
-  removedAt        DateTime?
+  removedAt DateTime?
 
   template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   entries  ChecklistEntry[]
@@ -1432,7 +1433,7 @@ model SictedJobProfile {
   tasks            String[] // lista de tareas, texto libre
   requirements     String?
   reportsTo        String? // texto libre (nombre de puesto), sin auto-relación
-  areas            String[] @default([]) // áreas del Plan (ChecklistTemplate.area) cuyas hojas ve quien tiene este puesto; vacío = todas
+  areas            String[]  @default([]) // áreas del Plan (ChecklistTemplate.area) cuyas hojas ve quien tiene este puesto; vacío = todas
   version          Int       @default(1) // se incrementa al editar; no dispara reacuse (no hay acuse en fichas de puesto)
   archivedAt       DateTime?
   createdAt        DateTime  @default(now())
@@ -1698,16 +1699,16 @@ model SictedAssessmentScore {
 // Módulos complementarios del MBP que aplican al negocio — espejo de lo que el
 // asesor configura en la web oficial SICTED; editable en Configuración → SICTED.
 model SictedSettings {
-  id                          String   @id @default(cuid())
-  tenantId                    String   @unique
-  enabledComplementaryModules String[] @default([]) // moduleCode ("072", "102"...)
+  id                          String    @id @default(cuid())
+  tenantId                    String    @unique
+  enabledComplementaryModules String[]  @default([]) // moduleCode ("072", "102"...)
   // Ciclo de distinción (manual SICTED 2026 §7): fase actual y comité al que se
   // presenta; alimentan el panel de compromisos. Nulos = aún sin configurar.
   cyclePhase                  String? // ADHESION | DISTINCION | SEGUIMIENTO_1 | SEGUIMIENTO_2 | RENOVACION
   phaseStartedAt              DateTime?
   nextCommitteeDate           DateTime?
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   @@map("sicted_settings")
 }
@@ -1758,7 +1759,7 @@ model SictedObjective {
   indicator    String?
   target       String?
   currentValue String?
-  status       String @default("IN_PROGRESS") // IN_PROGRESS | ACHIEVED | MISSED | CANCELLED
+  status       String  @default("IN_PROGRESS") // IN_PROGRESS | ACHIEVED | MISSED | CANCELLED
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1778,7 +1779,7 @@ model SictedEvent {
   kind      String // GRUPO_MEJORA | FORMACION_DESTINO | EVALUACION_EXTERNA | OTRO
   title     String
   eventDate DateTime
-  attended  Boolean @default(true)
+  attended  Boolean  @default(true)
   notes     String?
 
   attachment Json? // StoredAttachment (acta/certificado), opcional
@@ -3030,7 +3031,17 @@ model Location {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  // Centro de trabajo (Check-In): geovalla opcional para el fichaje. Sin
+  // coordenadas el fichaje no comprueba ubicación en este centro.
+  latitude        Float?
+  longitude       Float?
+  geofenceRadiusM Int          @default(150)
+  geofenceMode    GeofenceMode @default(WARN)
+  timezone        String       @default("Europe/Madrid")
+
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeLocations     EmployeeLocation[]
+  defaultEmployees      Employee[]             @relation("EmployeeDefaultLocation")
   warehouses            Warehouse[]
   purchaseOrders        PurchaseOrder[]
   purchaseLists         PurchaseList[]
@@ -3345,6 +3356,127 @@ model AssistantMessage {
 
   @@index([conversationId])
   @@map("assistant_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Check-In (control horario): fundaciones. Ver docs/pdr-modulo-check-in.md
+// ─────────────────────────────────────────────────────────────────────────
+
+// Geovalla del centro: OFF no comprueba, WARN ficha y marca "fuera de zona",
+// BLOCK rechaza el fichaje fuera de zona.
+enum GeofenceMode {
+  OFF
+  WARN
+  BLOCK
+}
+
+enum VacationDayType {
+  NATURAL
+  WORKING
+}
+
+enum CheckInLegalTextKind {
+  REGISTRO_JORNADA_INFO
+  GEOLOCALIZACION
+  PROTOCOLO_REGISTRO
+}
+
+// Ficha laboral. Distinta de User (cuenta de acceso): un empleado puede no
+// tener cuenta propia y fichar solo en kiosco con su PIN. Sin deletedAt a
+// propósito: el registro de jornada se conserva 4 años (art. 34.9 ET), así que
+// un empleado nunca se borra, se da de baja (isActive=false + terminationDate).
+model Employee {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  userId               String?   @unique
+  firstName            String
+  lastName             String
+  nationalId           String? // DNI/NIE
+  socialSecurityNumber String? // NAF
+  jobTitle             String?
+  section              String? // cocina, sala, barra... texto libre
+  contractType         String?
+  weeklyHours          Float     @default(40)
+  hourlyCost           Float?
+  defaultLocationId    String?
+  hireDate             DateTime?
+  terminationDate      DateTime?
+  // PIN de kiosco (bcrypt). La sesión personal no lo usa.
+  pinHash              String?
+  pinFailedAttempts    Int       @default(0)
+  pinLockedUntil       DateTime?
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user            User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  defaultLocation Location?          @relation("EmployeeDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
+  locations       EmployeeLocation[]
+
+  @@index([tenantId])
+  @@map("employees")
+}
+
+// Centros en los que puede fichar un empleado (varios centros).
+model EmployeeLocation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  employeeId String
+  locationId String
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, locationId])
+  @@index([tenantId])
+  @@map("employee_locations")
+}
+
+// Ajustes del módulo por tenant (fila única). Los parámetros de convenio se
+// copian de una plantilla (agreementKey) y a partir de ahí son editables.
+model CheckInSettings {
+  id                        String          @id @default(cuid())
+  tenantId                  String          @unique
+  agreementKey              String          @default("personalizado-et")
+  annualHours               Float           @default(1826)
+  weeklyHours               Float           @default(40)
+  maxDailyHours             Float           @default(9)
+  minRestBetweenShiftsHours Float           @default(12)
+  weeklyRestDays            Float           @default(1.5)
+  nightStart                String          @default("22:00")
+  nightEnd                  String          @default("06:00")
+  vacationDays              Int             @default(30)
+  vacationDayType           VacationDayType @default(NATURAL)
+  overtimeYearlyCap         Float           @default(80)
+  // Pausas cortas dentro de un tramo: ¿cuentan como tiempo de trabajo?
+  breaksCountAsWork         Boolean         @default(false)
+  autoCloseAfterHours       Int             @default(14)
+  pinLength                 Int             @default(4)
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+
+  @@map("check_in_settings")
+}
+
+// Textos legales del módulo, versionados. Editar crea una versión nueva sin
+// validar; la última versión validada de cada tipo es la vigente. El fichaje
+// exige que todos los tipos tengan una versión validada.
+model CheckInLegalText {
+  id                String               @id @default(cuid())
+  tenantId          String
+  kind              CheckInLegalTextKind
+  version           Int
+  content           String
+  createdByUserId   String?
+  validatedByUserId String?
+  validatedByName   String? // snapshot
+  validatedAt       DateTime?
+  createdAt         DateTime             @default(now())
+
+  @@unique([tenantId, kind, version])
+  @@index([tenantId])
+  @@map("check_in_legal_texts")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

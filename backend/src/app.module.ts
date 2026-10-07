@@ -65,6 +65,7 @@ import { ConservationDefaultsModule } from "./modules/conservation-defaults/cons
 import { CuinerModule } from "./modules/cuiner/cuiner.module";
 import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { SictedModule } from "./modules/sicted/sicted.module";
+import { CheckInModule } from "./modules/check-in/check-in.module";
 
 @Module({
   imports: [
@@ -113,6 +114,7 @@ import { SictedModule } from "./modules/sicted/sicted.module";
     EtiquetadoModule,
     ChecklistsModule,
     SictedModule,
+    CheckInModule,
   ],
   controllers: [
     TenantsController,
