@@ -58,45 +58,56 @@ export class EmployeePinService {
     pin: string,
     now: Date = new Date(),
   ): Promise<boolean> {
-    const employee = await this.findOwned(tenantId, employeeId);
-    if (!employee.pinHash) {
-      throw new BadRequestException(
-        "Este empleado no tiene PIN. Pídaselo a un administrador.",
-      );
-    }
-    if (employee.pinLockedUntil && employee.pinLockedUntil > now) {
-      throw new ForbiddenException(
-        "PIN bloqueado por demasiados intentos. Inténtelo más tarde.",
-      );
-    }
-
-    const matches = await bcrypt.compare(pin, employee.pinHash);
-    if (matches) {
-      if (employee.pinFailedAttempts > 0 || employee.pinLockedUntil) {
-        await this.prisma.employee.update({
-          where: { id: employeeId },
-          data: { pinFailedAttempts: 0, pinLockedUntil: null },
-        });
+    return this.prisma.$transaction(async (tx) => {
+      // Bloquea la ficha mientras se comprueba: sin esto, varias peticiones
+      // simultáneas leerían el mismo contador y probarían más PIN de los
+      // permitidos antes de que saltase el bloqueo.
+      await tx.$queryRaw`SELECT id FROM "employees" WHERE id = ${employeeId} FOR UPDATE`;
+      const employee = await tx.employee.findFirst({
+        where: { id: employeeId, tenantId },
+      });
+      if (!employee) {
+        throw new NotFoundException("Empleado no encontrado");
       }
-      return true;
-    }
+      if (!employee.pinHash) {
+        throw new BadRequestException(
+          "Este empleado no tiene PIN. Pídaselo a un administrador.",
+        );
+      }
+      if (employee.pinLockedUntil && employee.pinLockedUntil > now) {
+        throw new ForbiddenException(
+          "PIN bloqueado por demasiados intentos. Inténtelo más tarde.",
+        );
+      }
 
-    // Un bloqueo ya vencido reinicia la cuenta de intentos.
-    const previousAttempts = employee.pinLockedUntil
-      ? 0
-      : employee.pinFailedAttempts;
-    const attempts = previousAttempts + 1;
-    const locked = attempts >= PIN_MAX_FAILED_ATTEMPTS;
-    await this.prisma.employee.update({
-      where: { id: employeeId },
-      data: {
-        pinFailedAttempts: locked ? 0 : attempts,
-        pinLockedUntil: locked
-          ? new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000)
-          : null,
-      },
+      const matches = await bcrypt.compare(pin, employee.pinHash);
+      if (matches) {
+        if (employee.pinFailedAttempts > 0 || employee.pinLockedUntil) {
+          await tx.employee.update({
+            where: { id: employeeId },
+            data: { pinFailedAttempts: 0, pinLockedUntil: null },
+          });
+        }
+        return true;
+      }
+
+      // Un bloqueo ya vencido reinicia la cuenta de intentos.
+      const previousAttempts = employee.pinLockedUntil
+        ? 0
+        : employee.pinFailedAttempts;
+      const attempts = previousAttempts + 1;
+      const locked = attempts >= PIN_MAX_FAILED_ATTEMPTS;
+      await tx.employee.update({
+        where: { id: employeeId },
+        data: {
+          pinFailedAttempts: locked ? 0 : attempts,
+          pinLockedUntil: locked
+            ? new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000)
+            : null,
+        },
+      });
+      return false;
     });
-    return false;
   }
 
   private async findOwned(tenantId: string, employeeId: string) {

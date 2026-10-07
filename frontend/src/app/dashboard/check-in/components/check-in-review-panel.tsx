@@ -13,6 +13,7 @@ const REASON_LABELS: Record<string, string> = {
   SECUENCIA: 'no encaja con los fichajes anteriores o posteriores',
   FUERA_DE_ZONA: 'fuera de la zona del centro',
   RELOJ: 'reloj del dispositivo adelantado',
+  TARDIO: 'enviado más de un día después de la hora indicada',
 };
 
 const describeReasons = (reason: string | null) =>

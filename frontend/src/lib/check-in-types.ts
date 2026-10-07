@@ -160,7 +160,7 @@ export interface PunchView {
 export interface ReviewPunch extends PunchView {
   employeeId: string;
   employeeName: string;
-  /** Códigos separados por coma: PIN, SECUENCIA, FUERA_DE_ZONA, RELOJ. */
+  /** Códigos separados por coma: PIN, SECUENCIA, FUERA_DE_ZONA, RELOJ, TARDIO. */
   reviewReason: string | null;
   wasOffline: boolean;
   receivedAt: string;

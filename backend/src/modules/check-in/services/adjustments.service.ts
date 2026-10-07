@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -67,6 +68,7 @@ export class AdjustmentsService {
     dto: CreateAdjustmentDto,
     manager: Actor,
   ): Promise<AdjustmentWithDecision> {
+    await this.assertNotOwnRecord(tenantId, employee.id, manager.id);
     await this.assertValid(tenantId, employee.id, dto);
     return this.prisma.$transaction(async (tx) => {
       const adjustment = await tx.timePunchAdjustment.create({
@@ -98,6 +100,7 @@ export class AdjustmentsService {
     if (!adjustment) {
       throw new NotFoundException("Solicitud no encontrada");
     }
+    await this.assertNotOwnRecord(tenantId, adjustment.employeeId, manager.id);
     if (!approve && !note?.trim()) {
       throw new BadRequestException("Indica por qué se rechaza.");
     }
@@ -139,12 +142,28 @@ export class AdjustmentsService {
       : withDecision;
   }
 
+  /**
+   * Todas las correcciones de una persona, sin tope. El cómputo de la jornada
+   * y los informes necesitan el historial completo: con un límite, las más
+   * antiguas dejarían de aplicarse.
+   */
+  async listAllForEmployee(
+    tenantId: string,
+    employeeId: string,
+  ): Promise<AdjustmentWithDecision[]> {
+    const adjustments = await this.prisma.timePunchAdjustment.findMany({
+      where: { tenantId, employeeId },
+      orderBy: { createdAt: "desc" },
+    });
+    return this.attachDecisions(tenantId, adjustments);
+  }
+
   /** Correcciones aprobadas de una persona: las que cambian su jornada. */
   async listApproved(
     tenantId: string,
     employeeId: string,
   ): Promise<TimePunchAdjustment[]> {
-    const all = await this.list(tenantId, { employeeId });
+    const all = await this.listAllForEmployee(tenantId, employeeId);
     return all.filter(
       (a) => a.decision?.status === PunchAdjustmentStatus.APPROVED,
     );
@@ -165,6 +184,27 @@ export class AdjustmentsService {
       ...a,
       decision: byAdjustment.get(a.id) ?? null,
     }));
+  }
+
+  /**
+   * Nadie corrige ni aprueba su propia jornada: tiene que hacerlo otro
+   * responsable. Quien gestiona el módulo puede pedir la corrección desde su
+   * cuenta como cualquier empleado.
+   */
+  async assertNotOwnRecord(
+    tenantId: string,
+    employeeId: string,
+    managerUserId: string,
+  ) {
+    const own = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId, userId: managerUserId },
+      select: { id: true },
+    });
+    if (own) {
+      throw new ForbiddenException(
+        "No puedes corregir ni aprobar tu propia jornada. Tiene que hacerlo otro responsable.",
+      );
+    }
   }
 
   private toData(

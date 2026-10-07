@@ -73,7 +73,7 @@ export class TimesheetsService {
     const [monthData, approved, pending] = await Promise.all([
       this.workdays.getMonth(tenantId, employeeId, year, month),
       this.findLatest(tenantId, employeeId, year, month),
-      this.adjustments.list(tenantId, { employeeId, onlyPending: true }),
+      this.adjustments.listAllForEmployee(tenantId, employeeId),
     ]);
     const ack = approved
       ? await this.prisma.timesheetAck.findUnique({
@@ -87,7 +87,7 @@ export class TimesheetsService {
       timezone: monthData.timezone,
       days: monthData.days,
       totals: monthData.totals,
-      pendingAdjustments: pending.length,
+      pendingAdjustments: pending.filter((a) => a.decision === null).length,
       approved: approved ? summarize(approved) : null,
       acknowledgedAt: ack?.ackAt ?? null,
       changedSinceApproval: approved
@@ -104,6 +104,7 @@ export class TimesheetsService {
     manager: Actor,
     reopenReason?: string,
   ) {
+    await this.adjustments.assertNotOwnRecord(tenantId, employeeId, manager.id);
     const state = await this.getState(tenantId, employeeId, year, month);
     if (state.pendingAdjustments > 0) {
       throw new BadRequestException(

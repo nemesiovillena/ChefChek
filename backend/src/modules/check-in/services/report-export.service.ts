@@ -115,7 +115,11 @@ export class ReportExportService {
   /** CSV con separador ";" y BOM: se abre bien en Excel en español. */
   toCsv(reports: WorkdayReport[]): Buffer {
     const escape = (value: string | number) => {
-      const text = String(value);
+      // Un texto que empieza por =, +, - o @ lo ejecutaría Excel como fórmula.
+      const text =
+        typeof value === "string" && /^[=+\-@\t\r]/.test(value)
+          ? `'${value}`
+          : String(value);
       return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
     const lines = [COLUMNS, ...reports.flatMap(rows)].map((row) =>

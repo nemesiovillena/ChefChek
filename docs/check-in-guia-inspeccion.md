@@ -20,6 +20,7 @@ Menú **Personal → Informes de jornada**.
    - Caduca solo (de 1 a 30 días) y puedes revocarlo cuando quieras.
    - El enlace se muestra una única vez al crearlo: cópialo en ese momento.
    - Cada acceso queda anotado junto al enlace.
+   - Deja de funcionar si se desactiva el módulo Check-In o el cliente se da de baja.
 
 ## Antes de entregar
 

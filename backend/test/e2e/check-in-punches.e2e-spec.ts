@@ -457,6 +457,28 @@ describe("E2E - Check-In fichaje", () => {
     );
   });
 
+  it("intentos de PIN simultáneos también cuentan para el bloqueo", async () => {
+    const base = {
+      type: "IN",
+      employeeId: kioskEmployeeId,
+      locationId: centerId,
+    };
+    const statuses = await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        punch(kioskSession, { ...base, pin: `000${i}` }).then((r) => r.status),
+      ),
+    );
+    expect(statuses.every((status) => status === 403)).toBe(true);
+    const employee = await prisma.employee.findUniqueOrThrow({
+      where: { id: kioskEmployeeId },
+    });
+    expect(employee.pinLockedUntil!.getTime()).toBeGreaterThan(Date.now());
+    await prisma.employee.update({
+      where: { id: kioskEmployeeId },
+      data: { pinLockedUntil: null, pinFailedAttempts: 0 },
+    });
+  });
+
   it("gerencia ve quién está dentro; un empleado no", async () => {
     expect(
       (await api(workerSession).get("/api/v1/check-in/presence")).status,

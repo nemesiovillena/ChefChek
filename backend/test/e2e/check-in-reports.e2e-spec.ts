@@ -456,4 +456,44 @@ describe("E2E - Check-In informes e inspección", () => {
       ).status,
     ).toBe(404);
   });
+
+  it("el enlace deja de funcionar si el módulo se desactiva o el cliente se da de baja", async () => {
+    const created = await api(adminSession).post(
+      "/api/v1/check-in/inspection-links",
+      {
+        fromYear: year,
+        fromMonth: month,
+        toYear: year,
+        toMonth: month,
+        validDays: 7,
+      },
+    );
+    expect(created.status).toBe(201);
+    const url = `/api/v1/check-in/inspection/${body(created).token}`;
+    const report = `${url}/report?year=${year}&month=${month}&format=csv`;
+    expect((await anon(url)).status).toBe(200);
+
+    const setModule = (value: string) =>
+      prisma.configuration.updateMany({
+        where: { tenantId, key: "modules.check-in.enabled" },
+        data: { value },
+      });
+    await setModule("false");
+    expect((await anon(url)).status).toBe(404);
+    expect((await anon(report)).status).toBe(404);
+    await setModule("true");
+    expect((await anon(url)).status).toBe(200);
+
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { isActive: false },
+    });
+    expect((await anon(url)).status).toBe(404);
+    expect((await anon(report)).status).toBe(404);
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { isActive: true },
+    });
+    expect((await anon(url)).status).toBe(200);
+  });
 });

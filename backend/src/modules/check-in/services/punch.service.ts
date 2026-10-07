@@ -38,7 +38,12 @@ const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
   `${employee.firstName} ${employee.lastName}`.trim();
 
 /** Motivos por los que un fichaje queda marcado para que gerencia lo revise. */
-export type ReviewReason = "PIN" | "SECUENCIA" | "FUERA_DE_ZONA" | "RELOJ";
+export type ReviewReason =
+  | "PIN"
+  | "SECUENCIA"
+  | "FUERA_DE_ZONA"
+  | "RELOJ"
+  | "TARDIO";
 
 export type SyncStatus = "ACCEPTED" | "DUPLICATE" | "FLAGGED" | "REJECTED";
 
@@ -51,6 +56,13 @@ export interface SyncResult {
 
 /** Margen de adelanto del reloj del dispositivo que se tolera sin marcar. */
 const CLOCK_TOLERANCE_MS = 2 * 60 * 1000;
+
+/**
+ * Antigüedad a partir de la cual un fichaje sin conexión se marca: una cola
+ * puede tardar un turno en enviarse, pero no días. Sin esto, cualquiera podría
+ * fechar un fichaje en el pasado sin que nadie lo revisara.
+ */
+const OFFLINE_MAX_DELAY_MS = 24 * 60 * 60 * 1000;
 
 interface AppendInput {
   id: string;
@@ -286,6 +298,8 @@ export class PunchService {
     if (occurredAt.getTime() > now.getTime() + CLOCK_TOLERANCE_MS) {
       occurredAt = now;
       review.push("RELOJ");
+    } else if (occurredAt.getTime() < now.getTime() - OFFLINE_MAX_DELAY_MS) {
+      review.push("TARDIO");
     }
 
     const saved = await this.append(tenantId, employee, {

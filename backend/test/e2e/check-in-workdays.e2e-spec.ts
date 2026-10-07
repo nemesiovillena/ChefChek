@@ -613,4 +613,82 @@ describe("E2E - Check-In jornadas, correcciones y hojas de horas", () => {
       prisma.$executeRaw`UPDATE "timesheets" SET "workedMinutes" = 0 WHERE "tenantId" = ${tenantId}`,
     ).rejects.toThrow(/inalterable/);
   });
+
+  it("un responsable no corrige ni aprueba su propia jornada", async () => {
+    const manager = await prisma.user.create({
+      data: {
+        email: "cw-manager@test.com",
+        passwordHash: await bcrypt.hash("TestPass123!", 10),
+        name: "cw-manager",
+        tenantId,
+        role: "ADMIN",
+        isActive: true,
+      },
+    });
+    const center = await prisma.location.findFirstOrThrow({
+      where: { tenantId },
+    });
+    const own = await prisma.employee.create({
+      data: {
+        tenantId,
+        userId: manager.id,
+        firstName: "Gerente",
+        lastName: "Prueba",
+        weeklyHours: 40,
+        defaultLocationId: center.id,
+        locations: { create: [{ tenantId, locationId: center.id }] },
+      },
+    });
+    const managerSession = await login("cw-manager@test.com");
+    const correction = {
+      kind: "ADD",
+      type: "IN",
+      occurredAt: at(4, "09:00"),
+      reason: "Olvidé fichar la entrada",
+    };
+
+    // Por la vía de gerencia, sobre sí mismo: no.
+    expect(
+      (
+        await api(managerSession).post("/api/v1/check-in/adjustments", {
+          ...correction,
+          employeeId: own.id,
+        })
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await api(managerSession).post("/api/v1/check-in/timesheets/approve", {
+          employeeId: own.id,
+          year,
+          month,
+        })
+      ).status,
+    ).toBe(403);
+
+    // Puede pedirla como cualquier empleado, pero no resolverla él mismo.
+    const requested = await api(managerSession).post(
+      "/api/v1/check-in/me/adjustments",
+      correction,
+    );
+    expect(requested.status).toBe(201);
+    const decision = `/api/v1/check-in/adjustments/${body(requested).id}/decision`;
+    expect(
+      (await api(managerSession).post(decision, { approve: true })).status,
+    ).toBe(403);
+    // Otro responsable sí.
+    expect(
+      (await api(adminSession).post(decision, { approve: true })).status,
+    ).toBe(201);
+    // Y sigue pudiendo corregir a los demás.
+    expect(
+      (
+        await api(managerSession).post("/api/v1/check-in/adjustments", {
+          ...correction,
+          employeeId: workerEmployeeId,
+          occurredAt: at(20, "09:00"),
+        })
+      ).status,
+    ).toBe(201);
+  });
 });

@@ -414,4 +414,17 @@ describe("E2E - Check-In fichaje sin conexión", () => {
       prevHash = p.hash;
     });
   });
+
+  it("un fichaje sin conexión enviado más de un día después queda a revisar", async () => {
+    const id = randomUUID();
+    const old = new Date(Date.now() - 49 * 3600_000).toISOString();
+    const [result] = await sync(workerSession, [
+      { id, type: "IN", deviceTime: old },
+    ]);
+    expect(result.status).toBe("FLAGGED");
+    expect(result.detail).toContain("TARDIO");
+    const saved = await prisma.timePunch.findUnique({ where: { id } });
+    expect(saved!.occurredAt.toISOString()).toBe(old);
+    expect(saved!.needsReview).toBe(true);
+  });
 });
