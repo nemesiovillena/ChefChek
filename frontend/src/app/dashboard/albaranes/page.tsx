@@ -74,16 +74,22 @@ export default function AlbaranesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-4 sm:p-6">
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
+        {/* En móvil el título y los dos botones no caben en una fila: se apilan
+            y los botones se reparten el ancho */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
           <h1 className="text-3xl font-bold text-gray-900">Albaranes</h1>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push('/dashboard/albaranes/subir')}>
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-none"
+              onClick={() => router.push('/dashboard/albaranes/subir')}
+            >
               <FileUp className="mr-2 h-4 w-4" />
               Subir Albarán
             </Button>
-            <Button onClick={() => setShowManualModal(true)}>
+            <Button className="flex-1 sm:flex-none" onClick={() => setShowManualModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Albarán
             </Button>

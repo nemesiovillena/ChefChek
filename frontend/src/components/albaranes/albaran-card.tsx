@@ -56,15 +56,17 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
   };
 
   return (
-    <Link href={`/dashboard/albaranes/${albaran.id}`}>
+    <Link href={`/dashboard/albaranes/${albaran.id}`} className="block min-w-0">
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-5 cursor-pointer group relative">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+        {/* min-w-0 + truncate: un número de albarán largo empujaba el estado y
+            la papelera fuera de la tarjeta en móvil */}
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-indigo-100 flex items-center justify-center">
               <FileText className="h-5 w-5 text-indigo-600" />
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-gray-900">
                 {albaran.albaranNumber || 'Sin número'}
               </h3>
               {albaran.internalNumber && (
@@ -72,12 +74,12 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <AlbaranStatusBadge status={albaran.status} />
             {canDelete ? (
               <button
                 onClick={handleDelete}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
+                className="md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
                 title="Eliminar albarán"
               >
                 <Trash2 className="h-4 w-4" />
