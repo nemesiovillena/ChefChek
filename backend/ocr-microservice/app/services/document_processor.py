@@ -170,6 +170,11 @@ class DocumentProcessor:
             # perderlo y hace falta para la rama HEIC de abajo.
             img_format = pil_image.format
             exif_tag = pil_image.getexif().get(0x0112)
+            # Reducir ANTES de rotar y convertir: girar y pasar a numpy una
+            # foto de 24 MP costaba ~10 s por hoja en el servidor para acabar
+            # reduciéndola a MAX_IMAGE_DIMENSION igualmente. En JPEG, además,
+            # thumbnail descodifica ya a escala reducida (draft mode).
+            pil_image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION))
             pil_image = ImageOps.exif_transpose(pil_image)
             pil_image.format = img_format
             if exif_tag and exif_tag != 1:
