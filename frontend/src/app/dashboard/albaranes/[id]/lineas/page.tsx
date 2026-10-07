@@ -5,6 +5,7 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
@@ -21,7 +22,7 @@ import { CorrectPriceDialog } from '@/components/albaranes/correct-price-dialog'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock, Pencil } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2 } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 export default function AlbaranLineasPage() {
@@ -38,6 +39,7 @@ export default function AlbaranLineasPage() {
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
   const [updating, setUpdating] = useState<string | null>(null);
   const addNotification = useNotification();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   // Product picker dialog state
@@ -177,6 +179,24 @@ export default function AlbaranLineasPage() {
     }
   };
 
+  /**
+   * Recupera una línea rechazada. El stock y los precios se aplican al
+   * confirmar el albarán, así que en uno ya confirmado la línea recuperada
+   * cuenta para el total pero no mueve almacén: se avisa antes.
+   */
+  const handleRecoverLine = async (line: AlbaranLine) => {
+    if (albaran?.status === 'CONFIRMADO') {
+      const ok = await confirm({
+        title: 'Recuperar línea',
+        description: `«${line.description}» volverá a contar en el total del albarán, pero no entrará en stock ni actualizará precios porque el albarán ya está confirmado.`,
+        confirmText: 'Recuperar',
+        variant: 'warning',
+      });
+      if (!ok) return;
+    }
+    await handleConfirmLine(line.id);
+  };
+
   const handleAcceptSuggestion = async (line: AlbaranLine) => {
     if (!line.suggestedProductId) return;
     setUpdating(line.id);
@@ -263,8 +283,40 @@ export default function AlbaranLineasPage() {
     // Sin texto para estados terminales: la columna Estado ya lo muestra
     // (icono con tooltip) y repetirlo aquí era la causa principal de que la
     // fila no cupiera entera en iPad.
-    if (line.lineStatus === 'CONFIRMADO' || line.lineStatus === 'RECHAZADO') {
+    if (line.lineStatus === 'CONFIRMADO' || albaran?.status === 'ARCHIVADO') {
       return <span className="text-gray-300">—</span>;
+    }
+
+    // Línea rechazada: se puede recuperar (p. ej. un cargo de logística que se
+    // quitó y hace falta para que el total cuadre). Primero necesita artículo.
+    if (line.lineStatus === 'RECHAZADO') {
+      return (
+        <div className="grid grid-cols-2 gap-1 w-fit">
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={() => handleOpenPicker(line)}
+            title="Elegir artículo existente"
+            className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+          >
+            <Search className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="outline"
+            onClick={() => handleRecoverLine(line)}
+            disabled={updating === line.id || !line.matchedProduct}
+            title={line.matchedProduct ? 'Recuperar línea' : 'Elige antes un artículo para recuperar la línea'}
+            className="text-green-600 hover:bg-green-50"
+          >
+            {updating === line.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Undo2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        </div>
+      );
     }
 
     // PENDIENTE lines - show actions based on matchStatus. Icon-only (con
