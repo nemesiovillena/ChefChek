@@ -3324,6 +3324,28 @@ const deleteUser = async (userId) => {
 
 ---
 
+### Captura de recetas (`/api/v1/recipe-captures`)
+
+Requiere el módulo `captura-recetas` activo y la sección `captura-recetas`. Roles: `ADMIN`, `OWNER`, `USER` (un `SUPERADMIN` no tiene tenant y recibe 400). Las altas necesitan la IA configurada en Configuración → Asistente IA (proveedor, modelo y API key); si falta responden 400 sin crear nada.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Capturas del tenant (sin las descartadas), más recientes primero |
+| GET | `/:id` | Detalle con ingredientes y artículo vinculado |
+| POST | `/` | Alta: `{ "source": "URL", "url": "https://..." }` o `{ "source": "TEXTO", "text": "..." }` (20–20 000 caracteres) |
+| POST | `/upload` | Alta por archivo (`multipart/form-data`, campo `file`): JPG, PNG, WebP o PDF, máx. 5 MB |
+| PATCH | `/:id/ingredients/:ingredientId` | `{ "matchedProductId": "<id>" \| null }` — solo en capturas `PENDIENTE` |
+| POST | `/:id/promote` | Crea la receta. Exige además módulo y sección `recipes` y `recipes.edit` |
+| DELETE | `/:id` | Descarta la captura (no se borra: pasa a `DESCARTADA`) |
+
+Las altas devuelven al instante con `status: "PROCESANDO"`; la descarga y la llamada a la IA siguen en segundo plano. Estados: `PROCESANDO` → `PENDIENTE` (lista para revisar) o `ERROR` (con `errorMessage` legible); `PENDIENTE` → `PASANDO` → `PASADA` (con `recipeId`). Máximo 3 capturas procesándose a la vez por tenant (429) y 10 altas por minuto.
+
+`POST /:id/promote` responde `{ "recipeId", "lines", "toNotes" }`. Repetir la llamada devuelve la misma receta; mientras otra petición la está pasando responde 409. La receta se crea inactiva si `toNotes > 0`.
+
+Las recetas (`/api/v1/recipes`) aceptan y devuelven dos campos opcionales nuevos: `notes` (máx. 5000 caracteres) y `sourceUrl` (solo http/https). En un `PATCH` sin `notes` se conservan; `null` las borra.
+
+---
+
 ## 3. Integración con APIs
 
 ### 3.1 Guía Quickstart para Integradores

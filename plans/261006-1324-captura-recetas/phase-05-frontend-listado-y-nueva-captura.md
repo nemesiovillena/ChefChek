@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: Frontend listado y nueva captura
-status: in-progress
+status: completed
 priority: P2
 effort: 1d
 dependencies:

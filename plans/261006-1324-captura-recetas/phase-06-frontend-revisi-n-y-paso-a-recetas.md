@@ -1,10 +1,12 @@
 ---
 phase: 6
-title: "Frontend revisión y paso a Recetas"
-status: pending
+title: Frontend revisión y paso a Recetas
+status: completed
 priority: P2
-effort: "2d"
-dependencies: [4, 5]
+effort: 2d
+dependencies:
+  - 4
+  - 5
 ---
 
 # Phase 6: Frontend revisión y paso a Recetas

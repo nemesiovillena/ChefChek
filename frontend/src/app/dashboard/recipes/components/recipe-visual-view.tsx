@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import RecipeCaptureNotes from './recipe-capture-notes';
 import { X, Printer, Clock, Thermometer, Wrench, ChefHat, Users } from 'lucide-react';
 import { Recipe } from '@/hooks/use-recipes';
 import { formatUnitSymbol } from '@/lib/unit-symbols';
@@ -92,6 +93,11 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
         <div className="p-5 pb-28 sm:p-6 sm:pb-28 md:p-8 md:pb-8 xl:p-10 xl:pb-10">
           {recipe.description && (
             <p className="mb-6 whitespace-pre-line text-base text-[var(--on-surface-variant)] xl:max-w-3xl">{recipe.description}</p>
+          )}
+          {(recipe.notes || recipe.sourceUrl) && (
+            <div className="mb-6 xl:max-w-3xl">
+              <RecipeCaptureNotes notes={recipe.notes ?? ''} sourceUrl={recipe.sourceUrl} />
+            </div>
           )}
 
           {recipe.allergens.length > 0 && (

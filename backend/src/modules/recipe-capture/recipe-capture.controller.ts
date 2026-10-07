@@ -36,8 +36,9 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const CREATE_THROTTLE = { default: { limit: 10, ttl: 60000 } };
 
 /**
- * Sin SUPERADMIN: ese rol no pertenece a ningún tenant y las capturas son
- * siempre de un tenant concreto.
+ * Las capturas son siempre de un tenant. Un SUPERADMIN supera los guards
+ * aunque no esté en @Roles y llega sin tenant: el servicio lo rechaza
+ * (`assertTenant`) antes de consultar nada.
  */
 @ApiTags("Captura de recetas")
 @Controller("api/v1/recipe-captures")
@@ -96,7 +97,8 @@ export class RecipeCaptureController {
       req.user?.id,
       {
         buffer: file.buffer,
-        filename: file.originalname,
+        // multer entrega el nombre en latin1; los navegadores lo envían en UTF-8.
+        filename: Buffer.from(file.originalname, "latin1").toString("utf8"),
         mimetype: file.mimetype,
       },
     );

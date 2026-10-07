@@ -31,6 +31,8 @@ export interface PromotionSplit {
   pending: string[];
 }
 
+const MAX_NOTES_LENGTH = 5000;
+
 export const PENDING_NOTES_HEADER =
   "Ingredientes pendientes de vincular (alérgenos incompletos):";
 
@@ -78,7 +80,15 @@ export function buildPendingNotes(pending: string[]): string | null {
   if (!pending.length) {
     return null;
   }
-  return [PENDING_NOTES_HEADER, ...pending.map((line) => `- ${line}`)].join(
-    "\n",
-  );
+  const text = [
+    PENDING_NOTES_HEADER,
+    ...pending.map((line) => `- ${line}`),
+  ].join("\n");
+  // Recipe.notes admite 5000 caracteres: sin recorte, una captura con muchos
+  // ingredientes largos no se podría pasar nunca.
+  if (text.length <= MAX_NOTES_LENGTH) {
+    return text;
+  }
+  const marker = "\n- (lista recortada: revisa la receta original)";
+  return text.slice(0, MAX_NOTES_LENGTH - marker.length) + marker;
 }

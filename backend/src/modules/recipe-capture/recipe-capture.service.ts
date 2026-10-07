@@ -58,6 +58,7 @@ const LIST_SELECT = {
   errorMessage: true,
   name: true,
   recipeId: true,
+  claimedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -80,11 +81,15 @@ export class RecipeCaptureService {
   async findAll(tenantId: string) {
     assertTenant(tenantId);
     await this.failStaleCaptures(tenantId);
-    return this.prisma.recipeCapture.findMany({
+    const captures = await this.prisma.recipeCapture.findMany({
       where: { tenantId, status: { not: RecipeCaptureStatus.DESCARTADA } },
-      select: LIST_SELECT,
+      select: { ...LIST_SELECT, recipe: { select: { deletedAt: true } } },
       orderBy: { createdAt: "desc" },
     });
+    return captures.map(({ recipe, ...capture }) => ({
+      ...capture,
+      recipeId: liveRecipeId(capture.recipeId, recipe),
+    }));
   }
 
   async findOne(tenantId: string, id: string) {
@@ -100,12 +105,14 @@ export class RecipeCaptureService {
             },
           },
         },
+        recipe: { select: { deletedAt: true } },
       },
     });
     if (!capture) {
       throw new NotFoundException("Captura no encontrada");
     }
-    return capture;
+    const { recipe, ...rest } = capture;
+    return { ...rest, recipeId: liveRecipeId(capture.recipeId, recipe) };
   }
 
   createFromUrl(tenantId: string, userId: string | undefined, url: string) {
@@ -356,6 +363,17 @@ export class RecipeCaptureService {
       data: { status: RecipeCaptureStatus.ERROR, errorMessage: STALE_MESSAGE },
     });
   }
+}
+
+/**
+ * Las recetas se borran lógicamente, así que `recipeId` sigue apuntando a
+ * una receta eliminada: para el cliente esa captura ya no tiene receta.
+ */
+function liveRecipeId(
+  recipeId: string | null,
+  recipe: { deletedAt: Date | null } | null,
+): string | null {
+  return recipe && !recipe.deletedAt ? recipeId : null;
 }
 
 /**

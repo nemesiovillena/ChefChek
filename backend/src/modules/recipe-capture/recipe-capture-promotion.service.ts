@@ -83,7 +83,12 @@ export class RecipeCapturePromotionService {
     }
 
     if (capture.status === RecipeCaptureStatus.PASADA) {
-      if (!capture.recipeId) {
+      // Las recetas se borran lógicamente, así que el enlace sigue ahí:
+      // hay que mirar si la receta sigue viva.
+      if (
+        !capture.recipeId ||
+        !(await this.recipeIsAlive(tenantId, capture.recipeId))
+      ) {
         throw new ConflictException(
           "La receta de esta captura se eliminó; vuelve a capturarla",
         );
@@ -102,9 +107,8 @@ export class RecipeCapturePromotionService {
         capture.reservedRecipeId &&
         (await this.recipeExists(tenantId, capture.reservedRecipeId))
       ) {
-        await this.finish(capture.id, capture.reservedRecipeId);
         return {
-          recipeId: capture.reservedRecipeId,
+          recipeId: await this.finish(capture.id, capture.reservedRecipeId),
           lines: null,
           toNotes: null,
         };
@@ -187,9 +191,8 @@ export class RecipeCapturePromotionService {
       );
     }
 
-    await this.finish(capture.id, recipeId);
     return {
-      recipeId,
+      recipeId: await this.finish(capture.id, recipeId),
       lines: split?.lines.length ?? null,
       toNotes: split?.pending.length ?? null,
     };
@@ -239,11 +242,42 @@ export class RecipeCapturePromotionService {
     return rows.length > 0;
   }
 
-  private async finish(captureId: string, recipeId: string): Promise<void> {
-    await this.prisma.recipeCapture.updateMany({
-      where: { id: captureId, status: RecipeCaptureStatus.PASANDO },
+  /**
+   * Cierra el paso y devuelve la receta enlazada. Solo cierra si la captura
+   * sigue reclamada con ESTE id: si otra petición la re-reclamó (este paso
+   * tardó más que el plazo), manda la suya y se devuelve esa.
+   */
+  private async finish(captureId: string, recipeId: string): Promise<string> {
+    const { count } = await this.prisma.recipeCapture.updateMany({
+      where: {
+        id: captureId,
+        status: RecipeCaptureStatus.PASANDO,
+        reservedRecipeId: recipeId,
+      },
       data: { status: RecipeCaptureStatus.PASADA, recipeId },
     });
+    if (count === 1) {
+      return recipeId;
+    }
+    const current = await this.prisma.recipeCapture.findUnique({
+      where: { id: captureId },
+      select: { recipeId: true },
+    });
+    if (!current?.recipeId) {
+      throw new ConflictException(IN_PROGRESS);
+    }
+    return current.recipeId;
+  }
+
+  private async recipeIsAlive(
+    tenantId: string,
+    recipeId: string,
+  ): Promise<boolean> {
+    const recipe = await this.prisma.recipe.findFirst({
+      where: { id: recipeId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+    return recipe !== null;
   }
 
   private async release(captureId: string, recipeId: string): Promise<void> {

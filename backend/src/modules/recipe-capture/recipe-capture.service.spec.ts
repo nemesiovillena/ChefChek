@@ -126,6 +126,30 @@ describe("RecipeCaptureService", () => {
       });
     });
 
+    it("una captura cuya receta se borró se entrega sin receta", async () => {
+      prisma.recipeCapture.findMany.mockResolvedValue([
+        {
+          id: "c1",
+          status: "PASADA",
+          recipeId: "r1",
+          recipe: { deletedAt: new Date() },
+        },
+        {
+          id: "c2",
+          status: "PASADA",
+          recipeId: "r2",
+          recipe: { deletedAt: null },
+        },
+      ]);
+
+      const result = await service.findAll("t1");
+
+      expect(result).toEqual([
+        { id: "c1", status: "PASADA", recipeId: null },
+        { id: "c2", status: "PASADA", recipeId: "r2" },
+      ]);
+    });
+
     it("no devuelve capturas de otro tenant ni descartadas", async () => {
       prisma.recipeCapture.findFirst.mockResolvedValue(null);
 

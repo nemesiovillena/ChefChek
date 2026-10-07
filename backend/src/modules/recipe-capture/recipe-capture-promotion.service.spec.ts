@@ -40,8 +40,13 @@ const unlinked = {
 
 describe("RecipeCapturePromotionService", () => {
   const prisma = {
-    recipeCapture: { findFirst: jest.fn(), updateMany: jest.fn() },
+    recipeCapture: {
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
     recipeCaptureIngredient: { findMany: jest.fn() },
+    recipe: { findFirst: jest.fn() },
     $queryRaw: jest.fn(),
   };
   const recipes = { create: jest.fn() };
@@ -66,6 +71,7 @@ describe("RecipeCapturePromotionService", () => {
       unlinked,
     ]);
     prisma.$queryRaw.mockResolvedValue([]);
+    prisma.recipe.findFirst.mockResolvedValue({ id: "r1" });
     recipes.create.mockResolvedValue({ id: "ignorado" });
     service = new RecipeCapturePromotionService(
       prisma as any,
@@ -166,7 +172,7 @@ describe("RecipeCapturePromotionService", () => {
       });
 
       expect(prisma.recipeCapture.updateMany.mock.calls[1][0]).toEqual({
-        where: { id: "c1", status: "PASANDO" },
+        where: { id: "c1", status: "PASANDO", reservedRecipeId: reservedId },
         data: { status: "PASADA", recipeId: reservedId },
       });
       expect(result).toEqual({ recipeId: reservedId, lines: 1, toNotes: 1 });
@@ -235,6 +241,33 @@ describe("RecipeCapturePromotionService", () => {
       await expect(service.promote("t1", "ADMIN", "c1")).rejects.toBeInstanceOf(
         ConflictException,
       );
+    });
+
+    it("409 si la receta de una captura pasada está borrada (borrado lógico: el enlace sigue ahí)", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue(
+        capture({ status: "PASADA", recipeId: "r1" }),
+      );
+      prisma.recipe.findFirst.mockResolvedValue(null);
+
+      await expect(service.promote("t1", "ADMIN", "c1")).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(prisma.recipe.findFirst.mock.calls[0][0].where).toEqual({
+        id: "r1",
+        tenantId: "t1",
+        deletedAt: null,
+      });
+    });
+
+    it("si otra petición re-reclamó la captura mientras se creaba la receta, devuelve la de esa petición", async () => {
+      prisma.recipeCapture.updateMany
+        .mockResolvedValueOnce({ count: 1 }) // reclamo
+        .mockResolvedValueOnce({ count: 0 }); // cierre: ya no es nuestro id
+      prisma.recipeCapture.findUnique.mockResolvedValue({ recipeId: "r-otra" });
+
+      const result = await service.promote("t1", "ADMIN", "c1");
+
+      expect(result.recipeId).toBe("r-otra");
     });
 
     it("409 mientras otra petición la está pasando", async () => {

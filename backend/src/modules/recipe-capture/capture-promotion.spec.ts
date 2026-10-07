@@ -103,6 +103,17 @@ describe("buildPendingNotes", () => {
     );
   });
 
+  it("recorta la lista para que quepa en las notas de la receta", () => {
+    const notes = buildPendingNotes(
+      Array.from({ length: 80 }, (_, i) => `${i} ${"x".repeat(300)}`),
+    ) as string;
+
+    expect(notes.length).toBe(5000);
+    expect(notes.endsWith("(lista recortada: revisa la receta original)")).toBe(
+      true,
+    );
+  });
+
   it("no genera notas si todo pasó como línea", () => {
     expect(buildPendingNotes([])).toBeNull();
   });
