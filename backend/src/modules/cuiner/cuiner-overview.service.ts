@@ -5,6 +5,7 @@ import {
   normalizeCifNif,
   normalizeProductDescription,
 } from "../../common/utils/string-similarity";
+import { rankCuinerArticles } from "./cuiner-catalog-search-ranking";
 
 const PAGE_SIZE = 50;
 /** Por debajo de este parecido de nombre no se sugiere nada. */
@@ -290,18 +291,18 @@ export class CuinerOverviewService {
         detalle: r.cif,
       }));
     }
-    const rows = await this.prisma.cuinerArticle.findMany({
-      where: {
-        tenantId,
-        baja: false,
-        OR: [
-          { codigo: { contains: term } },
-          { descripcion: { contains: term, mode: "insensitive" } },
-        ],
+    // El catálogo cabe en memoria (unos miles de filas) y así la búsqueda
+    // tolera tildes y el formato de compra que arrastra el nombre de ChefChek.
+    const articles = await this.prisma.cuinerArticle.findMany({
+      where: { tenantId, baja: false },
+      select: {
+        codigo: true,
+        descripcion: true,
+        medida: true,
+        manipulacion: true,
       },
-      orderBy: { descripcion: "asc" },
-      take: 20,
     });
+    const rows = rankCuinerArticles(term, articles, 20);
     return rows.map((r) => ({
       codigo: r.codigo,
       nombre: r.descripcion,
