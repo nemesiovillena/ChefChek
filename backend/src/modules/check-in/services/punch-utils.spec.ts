@@ -119,6 +119,12 @@ describe("secuencia de fichajes", () => {
   it("en pausa solo se puede terminar la pausa", () => {
     expect(allowedNextTypes("ON_BREAK")).toEqual([PunchType.BREAK_END]);
   });
+
+  it("sin pausas no se ofrece empezar una, pero sí terminar la que esté abierta", () => {
+    expect(allowedNextTypes("IN", false)).toEqual([PunchType.OUT]);
+    expect(allowedNextTypes("ON_BREAK", false)).toEqual([PunchType.BREAK_END]);
+    expect(allowedNextTypes("OUT", false)).toEqual([PunchType.IN]);
+  });
 });
 
 describe("huella encadenada", () => {

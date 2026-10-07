@@ -322,7 +322,7 @@ function Kiosk() {
       ...state,
       offline: true,
       employees: state.employees.map((e) =>
-        e.id === employee.id ? { ...e, status, allowedTypes: allowedAfter(status) } : e,
+        e.id === employee.id ? { ...e, status, allowedTypes: allowedAfter(status, state.allowBreaks !== false) } : e,
       ),
     };
     saveSnapshot(`kiosk.${centerId}`, next);
