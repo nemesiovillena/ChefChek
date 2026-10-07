@@ -32,6 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSectionLink[] = [
   { id: 'mensaje-proveedor', label: 'Mensaje al proveedor' },
   { id: 'claves-api', label: 'Claves API' },
   { id: 'modulos', label: 'Módulos' },
+  { id: 'check-in', label: 'Check-in', moduleId: 'check-in', managerOnly: true },
   { id: 'permisos', label: 'Permisos por rol', managerOnly: true },
 ];
 

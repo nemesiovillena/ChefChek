@@ -172,7 +172,9 @@ const NEXT_TYPES: Record<WorkStatus, PunchType[]> = {
   ON_BREAK: ['BREAK_END'],
 };
 
-export const allowedAfter = (status: WorkStatus): PunchType[] => NEXT_TYPES[status];
+/** Sin pausas no se ofrece empezar una; terminar la que esté abierta, siempre. */
+export const allowedAfter = (status: WorkStatus, allowBreaks = true): PunchType[] =>
+  allowBreaks ? NEXT_TYPES[status] : NEXT_TYPES[status].filter((type) => type !== 'BREAK_START');
 
 // ── PIN del kiosco sin red ──────────────────────────────────────────────────
 

@@ -77,7 +77,7 @@ describe("ChecklistRunService — quién firma el registro", () => {
       },
       checklistEntry: { createMany: jest.fn() },
     };
-    service = new ChecklistRunService(prisma);
+    service = new ChecklistRunService(prisma, {} as any);
     jest.spyOn(service, "getRun").mockResolvedValue({} as any);
   });
 

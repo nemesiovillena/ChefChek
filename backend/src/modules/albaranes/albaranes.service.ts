@@ -746,34 +746,7 @@ export class AlbaranesService {
         );
       }
 
-      // 2b. If supplier has OCR layout hints, refine extraction
-      if (supplierMatch.supplierId) {
-        const supplier = await this.prisma.supplier.findFirst({
-          where: { id: supplierMatch.supplierId, tenantId },
-          select: { ocrLayoutHints: true },
-        });
-        if (supplier?.ocrLayoutHints && document.raw_text) {
-          this.logger.log(
-            `Refinando OCR con hints de proveedor (obs: ${(supplier.ocrLayoutHints as any)?.observationCount})`,
-          );
-          const refinedResult = await this.pythonOcrService.refineExtraction(
-            document.raw_text,
-            supplier.ocrLayoutHints,
-            aiModel,
-            aiApiKey,
-          );
-          if (refinedResult.success && refinedResult.document) {
-            // Override initial extraction with refined data
-            Object.assign(document, refinedResult.document);
-            this.logger.log(
-              `OCR refinado: ${refinedResult.document.products?.length || 0} productos`,
-            );
-          }
-        }
-      }
-
-      // Registrar el modelo que hizo la extracción (se muestra en la UI);
-      // se estampa después del refine para que Object.assign no lo pise
+      // Registrar el modelo que hizo la extracción (se muestra en la UI)
       if ((document as any).extraction_method === "ai" && aiModel) {
         (document as any).extraction_model = aiModel;
       }
@@ -800,7 +773,11 @@ export class AlbaranesService {
           total: document.total_amount || 0,
           ocrRawData: document as any,
           notes:
-            `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)` +
+            // La confianza solo es una medida real cuando leyó EasyOCR; la IA
+            // no devuelve ninguna, así que no se muestra un porcentaje inventado
+            ((document as any).extraction_method === "ai"
+              ? "Importado desde OCR (leído con IA)"
+              : `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`) +
             (failedFiles.length > 0
               ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}) — revisa si faltan líneas.`
               : ""),
@@ -889,8 +866,8 @@ export class AlbaranesService {
    * un mismo albarán de papel) en un único documento: productos concatenados
    * en orden de subida, campos de cabecera con "primer valor no vacío gana"
    * (no se asume que la cabecera esté siempre en la primera hoja), confianza
-   * media, y raw_text concatenado para que el refine por layout hints siga
-   * viendo todo el texto. Con un solo documento de entrada, el resultado es
+   * media, y raw_text concatenado (solo lo trae el fallback EasyOCR+regex;
+   * con IA va vacío). Con un solo documento de entrada, el resultado es
    * observacionalmente idéntico al documento original (no-regresión).
    */
   private mergeOcrDocuments(

@@ -75,7 +75,7 @@ function PunchPanel({ state, userId }: { state: OwnCheckInState; userId: string 
       ...state,
       status,
       since: deviceTime,
-      allowedTypes: allowedAfter(status),
+      allowedTypes: allowedAfter(status, state.allowBreaks !== false),
       recentPunches: [
         { id, type, occurredAt: deviceTime, source: 'PERSONAL', locationName: null, geofenceStatus: 'OFF', distanceM: null, pending: true },
         ...state.recentPunches,
@@ -198,7 +198,7 @@ function PunchPanel({ state, userId }: { state: OwnCheckInState; userId: string 
         Al fichar se registra tu ubicación en ese instante, si el dispositivo la da.
       </p>
 
-      {state.recentPunches.length > 0 && (
+      {state.display?.showRecentPunches !== false && state.recentPunches.length > 0 && (
         <div>
           <p className="mb-2 text-sm font-medium text-[var(--on-surface-variant)]">Últimos fichajes</p>
           <ul className="divide-y divide-[var(--outline-variant)]">

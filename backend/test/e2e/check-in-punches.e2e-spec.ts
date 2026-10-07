@@ -45,6 +45,8 @@ describe("E2E - Check-In fichaje", () => {
       get: (path: string) => request(server).get(path).set(headers),
       post: (path: string, data?: object) =>
         request(server).post(path).set(headers).send(data),
+      patch: (path: string, data?: object) =>
+        request(server).patch(path).set(headers).send(data),
     };
   }
 
@@ -491,6 +493,39 @@ describe("E2E - Check-In fichaje", () => {
     expect(byId[personalEmployeeId].status).toBe("IN");
     expect(byId[kioskEmployeeId].status).toBe("OUT");
     expect(byId[personalEmployeeId].lastPunch.locationName).toBe("Restaurante");
+  });
+
+  it("ajustes de lo que ve el empleado: sin pausas y bloques ocultos solo para él", async () => {
+    const me = async (session: string) =>
+      body(await api(session).get("/api/v1/check-in/me"));
+    const setSettings = (data: object) =>
+      api(adminSession).patch("/api/v1/check-in/settings", data);
+
+    // Viene de la entrada del test anterior: está dentro.
+    expect((await me(workerSession)).allowedTypes).toEqual([
+      "OUT",
+      "BREAK_START",
+    ]);
+    expect(
+      (await setSettings({ allowBreaks: false, showRecentPunches: false }))
+        .status,
+    ).toBe(200);
+
+    const worker = await me(workerSession);
+    expect(worker.allowedTypes).toEqual(["OUT"]);
+    expect(worker.allowBreaks).toBe(false);
+    expect(worker.display.showRecentPunches).toBe(false);
+    expect(worker.display.showMonthPicker).toBe(true);
+    // Quien gestiona el módulo sigue viendo todos los bloques.
+    expect((await me(adminSession)).display.showRecentPunches).toBe(true);
+    expect((await punch(workerSession, { type: "BREAK_START" })).status).toBe(
+      400,
+    );
+
+    await setSettings({ allowBreaks: true, showRecentPunches: true });
+    const restored = await me(workerSession);
+    expect(restored.allowedTypes).toContain("BREAK_START");
+    expect(restored.display.showRecentPunches).toBe(true);
   });
 
   it("una cuenta compartida no ve fichas, configuración ni presencia aunque sea ADMIN", async () => {

@@ -5,6 +5,11 @@ import {
   computePeriodKey,
   madridCalendarDay,
 } from "../../checklists/util/checklist-period.util";
+import { ChecklistClosureCalendarService } from "../../checklists/services/checklist-closure-calendar.service";
+import {
+  ClosureCalendar,
+  isClosedDay,
+} from "../../checklists/util/checklist-closure-calendar.util";
 
 export interface CoverageGap {
   templateId: string;
@@ -33,11 +38,15 @@ export interface CoverageReport {
  * hoja esperada, la misma regla con que se generan (cualquier día del
  * periodo) — así "esperado" nunca se desincroniza de "cuándo se genera". Una plantilla
  * archivada a mitad de rango, o creada a mitad de rango, solo cuenta desde/
- * hasta que existió (filtro por `createdAt`/`archivedAt`).
+ * hasta que existió (filtro por `createdAt`/`archivedAt`). Los días de cierre
+ * del local no cuentan: ni se generan hojas ni se esperan.
  */
 @Injectable()
 export class SictedCoverageService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly closureCalendar: ChecklistClosureCalendarService,
+  ) {}
 
   async coverage(
     tenantId: string,
@@ -49,6 +58,7 @@ export class SictedCoverageService {
     // este tope, pedir la cobertura del mes en curso a mitad de mes marcaba
     // como "sin generar" todos los días que aún no habían llegado.
     const effectiveTo = to > now ? now : to;
+    const calendar = await this.closureCalendar.load(tenantId);
     const templates = await this.prisma.checklistTemplate.findMany({
       where: {
         tenantId,
@@ -72,7 +82,12 @@ export class SictedCoverageService {
     let validated = 0;
 
     for (const template of templates) {
-      const periodKeys = this.expectedPeriodKeys(template, from, effectiveTo);
+      const periodKeys = this.expectedPeriodKeys(
+        template,
+        from,
+        effectiveTo,
+        calendar,
+      );
       if (periodKeys.size === 0) {
         continue;
       }
@@ -147,6 +162,7 @@ export class SictedCoverageService {
     },
     from: Date,
     to: Date,
+    calendar: ClosureCalendar,
   ): Set<string> {
     const frequency = template.frequency as ChecklistFrequency;
     const keys = new Set<string>();
@@ -160,7 +176,9 @@ export class SictedCoverageService {
     let probe = new Date(Date.UTC(startDay.y, startDay.m - 1, startDay.d, 12));
 
     while (probe.getTime() < end.getTime()) {
-      keys.add(computePeriodKey(probe, frequency));
+      if (!isClosedDay(computePeriodKey(probe, "DAILY"), calendar)) {
+        keys.add(computePeriodKey(probe, frequency));
+      }
       // +24h en UTC desde mediodía nunca cruza una medianoche local (ni en
       // Madrid ni en ningún huso razonable) → el día natural Madrid avanza
       // exactamente uno, estable frente al cambio de hora.

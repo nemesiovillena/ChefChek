@@ -85,6 +85,26 @@ export class UpdateCheckInSettingsDto {
   @Min(4)
   @Max(6)
   pinLength?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  allowBreaks?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showRecentPunches?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showMonthPicker?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showOwnAdjustments?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showAddMissingDay?: boolean;
 }
 
 export class ApplyAgreementPresetDto {

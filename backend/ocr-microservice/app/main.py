@@ -14,7 +14,6 @@ from .models import (
     OCRResponse,
     HealthResponse,
     OCRRequest,
-    OCRRefineRequest,
     CatalogExtractionResponse,
 )
 from .services.document_processor import DocumentProcessor
@@ -374,53 +373,6 @@ async def get_config():
         "image_dpi": settings.image_dpi,
         "image_max_size": settings.image_max_size,
         "image_allowed_formats": settings.image_allowed_formats
-    }
-
-
-@app.post("/ocr/refine")
-async def refine_ocr_extraction(request: OCRRefineRequest):
-    """
-    Refinar extracción OCR con hints de proveedor.
-    Recibe el texto OCR ya extraído + hints del proveedor y vuelve a procesar con IA.
-    """
-    from .services.ai_extraction_service import AIExtractionService
-
-    ai_service = AIExtractionService()
-    model = request.ai_model or "gemini-2.0-flash"
-    api_key = request.ai_api_key or ""
-    supplier_hints = request.supplier_hints
-
-    if not api_key:
-        raise HTTPException(status_code=400, detail="ai_api_key es obligatoria para refinamiento")
-
-    if not request.ocr_text:
-        raise HTTPException(status_code=400, detail="ocr_text es obligatorio para refinamiento")
-
-    start_time = time.time()
-
-    # Refinar usando solo el texto OCR (sin imagen, para ahorrar tokens)
-    result = ai_service.extract(
-        ocr_text=request.ocr_text,
-        image_base64="",  # Sin imagen en refine — el texto OCR ya tiene la info
-        model=model,
-        api_key=api_key,
-        supplier_hints=supplier_hints,
-    )
-
-    processing_time = time.time() - start_time
-
-    if not result:
-        raise HTTPException(status_code=500, detail="Error en refinamiento con IA")
-
-    return {
-        "success": True,
-        "document": result,
-        "processing_time": processing_time,
-        "metadata": {
-            "refinement": True,
-            "supplier_hints_used": bool(supplier_hints),
-            "model": model,
-        },
     }
 
 

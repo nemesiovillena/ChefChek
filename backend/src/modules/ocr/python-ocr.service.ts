@@ -378,61 +378,6 @@ export class PythonOcrService implements IOcrService {
   }
 
   /**
-   * Refina la extracción OCR usando hints de layout del proveedor.
-   * Llama al endpoint /ocr/refine del microservicio Python.
-   */
-  async refineExtraction(
-    ocrText: string,
-    supplierHints: any,
-    aiModel?: string,
-    aiApiKey?: string,
-  ): Promise<{
-    success: boolean;
-    document: any;
-    processingTime: number;
-    error?: string;
-  }> {
-    const startTime = Date.now();
-
-    try {
-      this.logger.log(
-        `Refinando OCR con hints de proveedor: ${supplierHints?.supplierName || "desconocido"}`,
-      );
-
-      const response = await this.axiosInstance.post("/ocr/refine", {
-        ocr_text: ocrText,
-        supplier_hints: supplierHints,
-        ai_model: aiModel || "gemini-2.0-flash",
-        ai_api_key: aiApiKey,
-      });
-
-      const result = response.data;
-      const processingTime = Date.now() - startTime;
-
-      if (result.success) {
-        this.logger.log(
-          `✅ Refinamiento OK: ${result.document?.products?.length || 0} productos en ${processingTime}ms`,
-        );
-      }
-
-      return {
-        success: result.success,
-        document: result.document,
-        processingTime,
-        error: result.error,
-      };
-    } catch (error: any) {
-      this.logger.warn(`⚠️ Refinamiento falló (no crítico): ${error.message}`);
-      return {
-        success: false,
-        document: null,
-        processingTime: Date.now() - startTime,
-        error: error.message,
-      };
-    }
-  }
-
-  /**
    * Verifica el estado del servicio OCR
    * @returns Estado del servicio
    */

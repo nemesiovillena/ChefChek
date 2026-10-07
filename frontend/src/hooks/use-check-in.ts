@@ -131,7 +131,11 @@ export function useUpdateCheckInSettings() {
   const qc = useQueryClient();
   return useMutation<CheckInSettings, Error, Partial<CheckInSettings>>({
     mutationFn: async (data) => (await apiClient.patch(`${BASE}/settings`, data)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.settings }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEYS.settings });
+      // Los ajustes cambian los botones y bloques de la pantalla de fichar.
+      qc.invalidateQueries({ queryKey: KEYS.me });
+    },
   });
 }
 

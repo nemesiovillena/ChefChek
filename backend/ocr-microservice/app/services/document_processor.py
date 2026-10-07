@@ -29,6 +29,12 @@ from app.models import ExtractedDocument, ExtractedProduct
 # texto de un albarán, y en CPU EasyOCR escala muy mal con megapíxeles.
 MAX_IMAGE_DIMENSION = 1800
 
+# La IA no devuelve una confianza medible y en este camino EasyOCR ya no corre.
+# Son los valores por defecto que este camino ya usaba cuando faltaba la
+# confianza del OCR; superan los umbrales de aviso de "confianza baja".
+AI_DOCUMENT_CONFIDENCE = 0.8
+AI_PRODUCT_CONFIDENCE = 0.7
+
 
 def _resize_if_needed(image: np.ndarray, max_dimension: int = MAX_IMAGE_DIMENSION) -> np.ndarray:
     """Reduce el lado más largo a max_dimension manteniendo el aspect ratio."""
@@ -249,49 +255,47 @@ class DocumentProcessor:
             if image.shape[:2] != original_size:
                 logger.info(f"Imagen redimensionada: {original_size} -> {image.shape[:2]}")
 
-            # Conservar la imagen (ya redimensionada) original: la IA
-            # multimodal necesita la foto a color, no la versión binarizada
-            # que se genera para EasyOCR
-            original_image = image
+            document = None
+            ocr_results = None
+            ai_time = None
+            ocr_time = None
 
-            # Pre-procesamiento si está habilitado
-            if enable_preprocessing:
-                logger.info("Aplicando pre-procesamiento...")
-                image, preprocessing_metadata = self.preprocessor.preprocess_image(image)
-                logger.info(f"Pre-procesamiento completado: {preprocessing_metadata}")
-            else:
-                logger.info("Pre-procesamiento deshabilitado")
-
-            # OCR (la imagen ya está pre-procesada si enable_preprocessing=true)
-            logger.info("Ejecutando OCR...")
-            ocr_results = self.ocr_service.process_image(image)
-
-            if not ocr_results['success']:
-                return {
-                    'success': False,
-                    'error': ocr_results.get('error', 'OCR falló'),
-                    'processing_time': time.time() - start_time
-                }
-
-            logger.info(f"OCR completado: {len(ocr_results['lines'])} líneas, "
-                       f"confianza: {ocr_results['confidence']:.2f}")
-
-            # Extraer datos estructurados (AI si hay modelo, si no regex)
-            logger.info("Extrayendo datos estructurados...")
-            # Codificar la imagen ORIGINAL para la IA (la pre-procesada está
-            # binarizada y degrada mucho la extracción multimodal)
-            image_base64 = None
+            # Con IA configurada la foto va directa al modelo multimodal: lee
+            # mejor que EasyOCR y evita su coste en CPU (decenas de segundos
+            # por hoja en el servidor). El texto de EasyOCR no mejoraba la
+            # extracción y a veces la desviaba (cliente tomado por proveedor).
             if ai_model and ai_api_key:
-                _, img_encoded = cv2.imencode('.jpg', original_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                image_base64 = base64.b64encode(img_encoded).decode('utf-8')
-            document = self._extract_structured_data(
-                ocr_results,
-                ai_model=ai_model,
-                ai_api_key=ai_api_key,
-                image_base64=image_base64
-            )
-            document.raw_text = ocr_results['raw_text']
-            document.processing_time = ocr_results['processing_time']
+                ai_start = time.time()
+                document = self._extract_with_ai(image, ai_model, ai_api_key)
+                ai_time = time.time() - ai_start
+
+            # Sin IA, o si la IA falló / no devolvió productos: EasyOCR + regex
+            if document is None:
+                if enable_preprocessing:
+                    logger.info("Aplicando pre-procesamiento...")
+                    ocr_image, preprocessing_metadata = self.preprocessor.preprocess_image(image)
+                    logger.info(f"Pre-procesamiento completado: {preprocessing_metadata}")
+                else:
+                    logger.info("Pre-procesamiento deshabilitado")
+                    ocr_image = image
+
+                logger.info("Ejecutando OCR...")
+                ocr_results = self.ocr_service.process_image(ocr_image)
+
+                if not ocr_results['success']:
+                    return {
+                        'success': False,
+                        'error': ocr_results.get('error', 'OCR falló'),
+                        'processing_time': time.time() - start_time
+                    }
+
+                ocr_time = ocr_results['processing_time']
+                logger.info(f"OCR completado: {len(ocr_results['lines'])} líneas, "
+                           f"confianza: {ocr_results['confidence']:.2f}")
+
+                document = self._extract_with_regex(ocr_results)
+                document.raw_text = ocr_results['raw_text']
+                document.processing_time = ocr_time
 
             # Validación si está habilitada
             validation_result = None
@@ -303,7 +307,12 @@ class DocumentProcessor:
             # Tiempo total de procesamiento
             total_time = time.time() - start_time
 
-            logger.info(f"Procesamiento completado exitosamente en {total_time:.2f}s")
+            logger.info(
+                f"Procesamiento completado exitosamente en {total_time:.2f}s "
+                f"(método={document.extraction_method}, "
+                f"ia={f'{ai_time:.2f}s' if ai_time is not None else 'no'}, "
+                f"ocr={f'{ocr_time:.2f}s' if ocr_time is not None else 'no'})"
+            )
 
             return {
                 'success': True,
@@ -311,11 +320,12 @@ class DocumentProcessor:
                 'validation': validation_result,
                 'processing_time': total_time,
                 'preprocessing_metadata': preprocessing_metadata,
+                # Vacío cuando la IA leyó la foto directamente (EasyOCR no corrió)
                 'ocr_metadata': {
                     'confidence': ocr_results['confidence'],
                     'line_count': len(ocr_results['lines']),
                     'language': self.language
-                },
+                } if ocr_results else {},
                 'file_type': file_type,
                 'heic_conversion_time': heic_conversion_time
             }
@@ -328,51 +338,55 @@ class DocumentProcessor:
                 'processing_time': time.time() - start_time
             }
 
-    def _extract_structured_data(self, ocr_results: dict,
-                                 ai_model: Optional[str] = None,
-                                 ai_api_key: Optional[str] = None,
-                                 image_base64: Optional[str] = None) -> ExtractedDocument:
+    def _extract_with_ai(self, image: np.ndarray, ai_model: str,
+                         ai_api_key: str) -> Optional[ExtractedDocument]:
         """
-        Extraer datos estructurados de resultados OCR.
-        Intenta IA primero si hay modelo y API key, fallback a regex.
+        Extraer el albarán enviando la foto al modelo multimodal.
+
+        Args:
+            image: Foto a color ya redimensionada (no la binarizada de EasyOCR,
+                   que degrada mucho la lectura multimodal)
+            ai_model: Modelo de IA (ej: 'gpt-4o-mini')
+            ai_api_key: API key del provider
+
+        Returns:
+            ExtractedDocument, o None si la IA falla o no devuelve productos
+            (el llamador cae entonces a EasyOCR + regex)
+        """
+        logger.info(f"Intentando extracción con IA: {ai_model}")
+        try:
+            from .ai_extraction_service import AIExtractionService
+            _, img_encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            ai_result = AIExtractionService().extract(
+                ocr_text="",
+                image_base64=base64.b64encode(img_encoded).decode('utf-8'),
+                model=ai_model,
+                api_key=ai_api_key,
+            )
+            if ai_result and ai_result.get('products'):
+                logger.info(f"IA extrajo {len(ai_result['products'])} productos correctamente")
+                document = self._build_document_from_ai(ai_result)
+                document.extraction_method = "ai"
+                return document
+            logger.error("IA no devolvió productos, fallback a EasyOCR + regex "
+                         "(el resultado será de calidad muy inferior)")
+        except Exception as e:
+            logger.error(f"Extracción IA falló: {e}, fallback a EasyOCR + regex "
+                         f"(el resultado será de calidad muy inferior)")
+        return None
+
+    def _extract_with_regex(self, ocr_results: dict) -> ExtractedDocument:
+        """
+        Extraer datos estructurados del texto de EasyOCR con regex.
 
         Args:
             ocr_results: Resultados del OCR
-            ai_model: Modelo de IA (ej: 'gpt-4o-mini') o None para regex
-            ai_api_key: API key del provider o None
-            image_base64: Imagen en base64 para visión multimodal
 
         Returns:
             ExtractedDocument con datos estructurados
         """
         raw_text = ocr_results['raw_text']
         lines = ocr_results['lines']
-
-        # Intentar extracción con IA si hay modelo y API key
-        if ai_model and ai_api_key and image_base64:
-            logger.info(f"Intentando extracción con IA: {ai_model}")
-            try:
-                from .ai_extraction_service import AIExtractionService
-                ai_service = AIExtractionService()
-                ai_result = ai_service.extract(
-                    ocr_text=raw_text,
-                    image_base64=image_base64,
-                    model=ai_model,
-                    api_key=ai_api_key,
-                )
-                if ai_result and ai_result.get('products'):
-                    logger.info(f"IA extrajo {len(ai_result['products'])} productos correctamente")
-                    document = self._build_document_from_ai(ai_result, ocr_results)
-                    document.extraction_method = "ai"
-                    return document
-                else:
-                    logger.error("IA no devolvió productos, fallback a regex "
-                                 "(el resultado será de calidad muy inferior)")
-            except Exception as e:
-                logger.error(f"Extracción IA falló: {e}, fallback a regex "
-                             f"(el resultado será de calidad muy inferior)")
-
-        # Fallback: extracción con regex (método original)
 
         # Limpieza inteligente del texto OCR
         cleaned_lines = self._clean_ocr_lines(lines)
@@ -409,26 +423,38 @@ class DocumentProcessor:
             tax_id_confidence=tax_id_confidence
         )
 
-    def _build_document_from_ai(self, ai_result: dict, ocr_results: dict) -> ExtractedDocument:
+    def _build_document_from_ai(self, ai_result: dict) -> ExtractedDocument:
         """
         Construir ExtractedDocument a partir del resultado de la IA.
 
         Args:
             ai_result: Dict devuelto por el AI extraction service
-            ocr_results: Resultados originales del OCR (para CIF/NIF y confianza)
 
         Returns:
             ExtractedDocument con datos de la IA
         """
-        # Extraer CIF/NIF con el validador existente (más fiable que la IA para esto)
+        # El CIF/NIF lo lee la IA de la cabecera del proveedor. Solo se acepta
+        # si supera el dígito de control: uno mal leído casaría con el
+        # proveedor equivocado, peor que no tener ninguno.
         from .cif_validator import CifNifValidator
-        cif_validator = CifNifValidator()
-        tax_ids = cif_validator.extract_from_text(ocr_results['raw_text'])
-
-        # Si la IA encontró CIF y el validador no, usar el de la IA
-        cif_code = tax_ids.cif or ai_result.get('cif_code')
-        nif_code = tax_ids.nif
-        tax_id_confidence = tax_ids.confidence if tax_ids.cif else 0.5
+        validator = CifNifValidator()
+        cif_code = None
+        nif_code = None
+        tax_id_confidence = 0.0
+        ai_tax_id = re.sub(r'[^A-Za-z0-9]', '', ai_result.get('cif_code') or '').upper()
+        if ai_tax_id.startswith('ES'):
+            ai_tax_id = ai_tax_id[2:]
+        if ai_tax_id and validator.validate_cif(ai_tax_id)[0]:
+            cif_code = ai_tax_id
+            tax_id_confidence = 1.0
+        elif ai_tax_id and validator.validate_nif(ai_tax_id)[0]:
+            # Proveedor autónomo: el backend casa proveedores por cif_code
+            # (campo único cifNif), así que el NIF viaja también ahí
+            cif_code = ai_tax_id
+            nif_code = ai_tax_id
+            tax_id_confidence = 1.0
+        elif ai_tax_id:
+            logger.warning(f"CIF/NIF de la IA descartado (dígito de control inválido): {ai_tax_id}")
 
         # Parsear fecha del documento
         document_date = None
@@ -460,7 +486,7 @@ class DocumentProcessor:
                 vat_percent=p.get('vat_percent'),
                 price_with_vat=p.get('price_with_vat'),
                 total_price=p.get('total_price', 0),
-                confidence=ocr_results.get('confidence', 0.7),  # Usar confianza OCR como base
+                confidence=AI_PRODUCT_CONFIDENCE,
             ))
 
         # Calcular total si no lo dio la IA
@@ -474,9 +500,9 @@ class DocumentProcessor:
             document_date=document_date,
             products=products,
             total_amount=total_amount,
-            confidence=ocr_results.get('confidence', 0.8),  # Confianza OCR base, IA mejora la extracción
+            confidence=AI_DOCUMENT_CONFIDENCE,
             processing_time=0.0,
-            raw_text=ocr_results['raw_text'],
+            raw_text=None,
             cif_code=cif_code,
             nif_code=nif_code,
             tax_id_confidence=tax_id_confidence,

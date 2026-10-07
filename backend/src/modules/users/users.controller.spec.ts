@@ -128,7 +128,7 @@ describe("UsersController", () => {
       };
 
       mockUsersService.create.mockRejectedValue(
-        new ConflictException("User already exists in this tenant"),
+        new ConflictException("Ya existe un usuario con ese email."),
       );
 
       await expect(controller.create(createUserDto, mockReq)).rejects.toThrow(
