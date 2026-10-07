@@ -57,19 +57,7 @@ export class UsersService {
       throw new ForbiddenException("Tenant is not active");
     }
 
-    // Verificar que el email no exista en el mismo tenant
-    const existingUser = await this.prisma.user.findUnique({
-      where: {
-        email_tenantId: {
-          email,
-          tenantId,
-        },
-      },
-    });
-
-    if (existingUser) {
-      throw new ConflictException("User already exists in this tenant");
-    }
+    await this.assertEmailFree(tenantId, email);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -113,6 +101,26 @@ export class UsersService {
       data: user,
       message: "User created successfully",
     };
+  }
+
+  /**
+   * El email es único por tenant también frente a usuarios eliminados: siguen
+   * en la tabla (Papelera) y ocupan el índice único. Las lecturas normales de
+   * Prisma los ocultan, así que se consulta la tabla directamente; sin esto el
+   * alta pasaba la comprobación y reventaba en la base de datos con un 500.
+   */
+  private async assertEmailFree(tenantId: string, email: string) {
+    const [holder] = await this.prisma.$queryRaw<
+      { deletedAt: Date | null }[]
+    >`SELECT "deletedAt" FROM "users" WHERE "email" = ${email} AND "tenantId" = ${tenantId} LIMIT 1`;
+    if (!holder) {
+      return;
+    }
+    throw new ConflictException(
+      holder.deletedAt
+        ? "Ese email pertenece a un usuario eliminado. Restáuralo desde la Papelera o usa otro email."
+        : "Ya existe un usuario con ese email.",
+    );
   }
 
   async findAll(requestTenantId: string, page: number = 1, limit: number = 20) {
@@ -206,6 +214,10 @@ export class UsersService {
 
     if (!existingUser) {
       throw new NotFoundException("User not found");
+    }
+
+    if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
+      await this.assertEmailFree(requestTenantId, updateUserDto.email);
     }
 
     const updateData: any = { ...updateUserDto };
