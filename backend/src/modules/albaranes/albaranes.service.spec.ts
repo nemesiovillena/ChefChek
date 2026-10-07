@@ -51,7 +51,6 @@ describe("AlbaranesService", () => {
   };
   const pythonOcrService = {
     processImage: jest.fn(),
-    refineExtraction: jest.fn(),
   };
   const ocrConfigService = {
     resolveForUpload: jest.fn(),
@@ -945,52 +944,6 @@ describe("AlbaranesService", () => {
       expect(prisma.supplier.findFirst).not.toHaveBeenCalled();
       expect(prisma.albaran.create).toHaveBeenCalled();
       expect(lineMatching.matchAllLines).toHaveBeenCalled();
-    });
-
-    it("refines extraction when supplier has OCR layout hints and raw text", async () => {
-      pythonOcrService.processImage.mockResolvedValue({
-        success: true,
-        document: {
-          products: [{ name: "x", quantity: 1, unit_price: 1 }],
-          raw_text: "RAW",
-        },
-      });
-      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: "s1" });
-      prisma.supplier.findFirst.mockResolvedValue({
-        ocrLayoutHints: { observationCount: 1 },
-      });
-      pythonOcrService.refineExtraction.mockResolvedValue({
-        success: true,
-        document: {
-          products: [{ name: "refined", quantity: 5, unit_price: 2 }],
-        },
-      });
-      prisma.albaran.create.mockResolvedValue({ id: "alb-r", lines: [] });
-
-      await service.createFromUpload([file()], "t1");
-
-      expect(pythonOcrService.refineExtraction).toHaveBeenCalled();
-      expect(supplierMatching.enrichSupplierFromOcr).toHaveBeenCalledWith(
-        "s1",
-        expect.any(Object),
-      );
-    });
-
-    it("skips refine override when refined result is unsuccessful", async () => {
-      pythonOcrService.processImage.mockResolvedValue({
-        success: true,
-        document: { products: [], raw_text: "RAW" },
-      });
-      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: "s1" });
-      prisma.supplier.findFirst.mockResolvedValue({
-        ocrLayoutHints: { observationCount: 1 },
-      });
-      pythonOcrService.refineExtraction.mockResolvedValue({ success: false });
-      prisma.albaran.create.mockResolvedValue({ id: "alb-r2", lines: [] });
-
-      await service.createFromUpload([file()], "t1");
-
-      expect(pythonOcrService.refineExtraction).toHaveBeenCalled();
     });
 
     it("creates fallback albaran when OCR returns no document", async () => {
