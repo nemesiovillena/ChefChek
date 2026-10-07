@@ -63,6 +63,7 @@ import { RoleAccessModule } from "./modules/role-access/role-access.module";
 import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
 import { ConservationDefaultsModule } from "./modules/conservation-defaults/conservation-defaults.module";
 import { CuinerModule } from "./modules/cuiner/cuiner.module";
+import { RecipeCaptureModule } from "./modules/recipe-capture/recipe-capture.module";
 import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { SictedModule } from "./modules/sicted/sicted.module";
 import { CheckInModule } from "./modules/check-in/check-in.module";
@@ -103,6 +104,7 @@ import { CheckInModule } from "./modules/check-in/check-in.module";
     OcrConfigModule,
     ConservationDefaultsModule,
     CuinerModule,
+    RecipeCaptureModule,
     AiAssistantModule,
     TrashModule,
     GuardsModule,

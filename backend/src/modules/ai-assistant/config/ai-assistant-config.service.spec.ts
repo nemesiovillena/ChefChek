@@ -65,7 +65,12 @@ describe("AiAssistantConfigService", () => {
   describe("getPublicConfig", () => {
     it("devuelve provider/model null y hasApiKey=false cuando no hay nada guardado", async () => {
       const cfg = await service.getPublicConfig("t1");
-      expect(cfg).toEqual({ provider: null, model: null, hasApiKey: false });
+      expect(cfg).toEqual({
+        provider: null,
+        model: null,
+        hasApiKey: false,
+        isReady: false,
+      });
     });
 
     it("refleja proveedor/modelo y la presencia de key tras guardar", async () => {
@@ -79,6 +84,7 @@ describe("AiAssistantConfigService", () => {
         provider: "openai",
         model: "gpt-4o-mini",
         hasApiKey: true,
+        isReady: true,
       });
     });
   });

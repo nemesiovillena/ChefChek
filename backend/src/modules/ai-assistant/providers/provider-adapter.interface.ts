@@ -21,6 +21,28 @@ export interface ChatMessage {
   toolName?: string;
   /** Solo en mensajes role="assistant" que piden ejecutar tools. */
   toolCalls?: ToolCall[];
+  /** Solo en mensajes role="user": imágenes o PDF que el modelo debe leer. */
+  attachments?: ChatAttachment[];
+}
+
+export interface ChatAttachment {
+  /** image/jpeg, image/png, image/webp o application/pdf. */
+  mimeType: string;
+  dataBase64: string;
+}
+
+/**
+ * Ajustes por llamada. Sin ellos cada adaptador se comporta como en el chat
+ * (respuesta corta, 30 s, con reintentos); los necesita quien pide una salida
+ * larga o envía adjuntos pesados.
+ */
+export interface ChatOptions {
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+  /** Pide JSON válido como salida donde el proveedor lo admite. */
+  jsonMode?: boolean;
+  /** No reenviar la petición si falla (cuerpos grandes, llamadas caras). */
+  noRetry?: boolean;
 }
 
 export interface ToolSchema {
@@ -39,6 +61,8 @@ export interface ToolSchema {
 export interface ProviderChatResult {
   content?: string;
   toolCalls?: ToolCall[];
+  /** true si el proveedor cortó la respuesta al llegar al tope de tokens. */
+  truncated?: boolean;
 }
 
 /**
@@ -53,5 +77,6 @@ export interface ProviderAdapter {
     model: string,
     messages: ChatMessage[],
     tools: ToolSchema[],
+    options?: ChatOptions,
   ): Promise<ProviderChatResult>;
 }

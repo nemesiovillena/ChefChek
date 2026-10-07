@@ -32,6 +32,7 @@ export class AiAssistantConfigService {
       provider: (v.provider as AiAssistantConfigPublic["provider"]) ?? null,
       model: v.model ?? null,
       hasApiKey: Boolean(v.apiKey),
+      isReady: Boolean(v.provider && v.model && v.apiKey),
     };
   }
 

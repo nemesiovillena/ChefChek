@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AiAssistantController } from "./ai-assistant.controller";
 import { AiAssistantService } from "./ai-assistant.service";
+import { AssistantCompletionService } from "./assistant-completion.service";
 import { AiAssistantConfigModule } from "./config/ai-assistant-config.module";
 import { ToolRegistryService } from "./tools/tool-registry.service";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
@@ -32,11 +33,12 @@ import { AlbaranesModule } from "../albaranes/albaranes.module";
   controllers: [AiAssistantController],
   providers: [
     AiAssistantService,
+    AssistantCompletionService,
     ToolRegistryService,
     OpenAiProviderAdapter,
     GeminiProviderAdapter,
     AnthropicProviderAdapter,
   ],
-  exports: [AiAssistantService],
+  exports: [AiAssistantService, AssistantCompletionService],
 })
 export class AiAssistantModule {}

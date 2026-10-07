@@ -35,6 +35,8 @@ export interface AiAssistantConfigPublic {
   provider: AiAssistantProvider | null;
   model: string | null;
   hasApiKey: boolean;
+  /** Proveedor, modelo y clave presentes: se puede llamar a la IA. */
+  isReady: boolean;
 }
 
 /** Vista interna resuelta (con la key descifrada) para el orquestador. */
