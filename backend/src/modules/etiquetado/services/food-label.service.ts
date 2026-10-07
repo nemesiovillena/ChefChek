@@ -21,6 +21,7 @@ import {
 import { deriveLotPrefix } from "../util/lot-prefix.util";
 import { CreateFoodLabelDto } from "../dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "../dto/update-food-label.dto";
+import { FreezeFoodLabelDto } from "../dto/freeze-food-label.dto";
 import { ListFoodLabelsDto } from "../dto/list-food-labels.dto";
 import { EtiquetadoConfigService } from "./etiquetado-config.service";
 
@@ -687,6 +688,104 @@ export class FoodLabelService {
       },
       include: FOOD_LABEL_INCLUDE,
     });
+  }
+
+  /**
+   * Congela una etiqueta ya emitida (p. ej. una elaboración que pasa al
+   * congelador días después). A diferencia de `update`, no exige que sea del
+   * mismo día: conserva el lote, pasa la conservación a congelado, recalcula
+   * el consumo preferente desde la fecha de congelación y deja traza en
+   * `editLog`. Rechaza si en la fecha de congelación ya había caducado.
+   */
+  async freeze(
+    tenantId: string,
+    user: SessionUser,
+    id: string,
+    dto: FreezeFoodLabelDto,
+  ) {
+    const label = await this.prisma.foodLabel.findFirst({
+      where: { id, tenantId },
+      include: FOOD_LABEL_INCLUDE,
+    });
+    if (!label) {
+      throw new NotFoundException("Etiqueta no encontrada");
+    }
+    if (label.voidedAt) {
+      throw new ConflictException(
+        "La etiqueta está anulada: crea una nueva en su lugar.",
+      );
+    }
+    if (label.retiredAt) {
+      throw new ConflictException(
+        "La etiqueta está retirada: deshaz la retirada antes de congelarla.",
+      );
+    }
+    if (label.frozenAt) {
+      throw new ConflictException("La etiqueta ya está congelada.");
+    }
+
+    const frozenAt = dto.frozenAt ? new Date(dto.frozenAt) : new Date();
+    if (frozenAt.getTime() > Date.now()) {
+      throw new BadRequestException(
+        "La fecha de congelación no puede ser futura.",
+      );
+    }
+    // Se compara por día natural en Madrid, igual que se calcula la caducidad.
+    const madridDay = (d: Date) => computeUseByDate(d, 0).getTime();
+    if (madridDay(frozenAt) < madridDay(label.preparedAt)) {
+      throw new BadRequestException(
+        "La fecha de congelación no puede ser anterior a la elaboración.",
+      );
+    }
+    if (madridDay(frozenAt) > madridDay(label.useByDate)) {
+      throw new ConflictException(
+        "El producto ya había caducado en la fecha de congelación: no se puede congelar. Márcalo como desechado.",
+      );
+    }
+
+    const base = await this.loadBaseConservation(tenantId, label);
+    const shelfLifeFrozenDays =
+      dto.shelfLifeFrozenDays ?? base.shelfLifeFrozenDays ?? null;
+    if (shelfLifeFrozenDays === null) {
+      throw new BadRequestException(
+        "Indica los días de vida útil de congelado.",
+      );
+    }
+    const frozenUseByDate = computeUseByDate(frozenAt, shelfLifeFrozenDays);
+
+    // Las temperaturas de refrigerado dejan de aplicar.
+    const next = {
+      frozenAt,
+      frozenUseByDate,
+      useByDate: frozenUseByDate,
+      storageCondition: "FROZEN" as StorageCondition,
+      storageTempMin: null,
+      storageTempMax: null,
+    };
+    const priorLog = Array.isArray(label.editLog)
+      ? (label.editLog as unknown[])
+      : [];
+    const entry = {
+      at: new Date().toISOString(),
+      by: user.name?.trim() || "—",
+      changes: this.diffLabel(label, next),
+    };
+
+    const updated = await this.prisma.foodLabel.update({
+      where: { id },
+      data: {
+        ...next,
+        editedAt: new Date(),
+        editedByUserId: user.id,
+        editedByName: user.name?.trim() || "—",
+        editCount: { increment: 1 },
+        editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+      },
+      include: FOOD_LABEL_INCLUDE,
+    });
+    const warningDays =
+      await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
+    return this.withExpiry(updated, warningDays);
   }
 
   async markReprinted(tenantId: string, id: string) {

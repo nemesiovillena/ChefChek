@@ -30,6 +30,7 @@ import { FoodLabelZplService } from "./services/food-label-zpl.service";
 import { zplSpec } from "./constants/zpl-presets";
 import { CreateFoodLabelDto } from "./dto/create-food-label.dto";
 import { UpdateFoodLabelDto } from "./dto/update-food-label.dto";
+import { FreezeFoodLabelDto } from "./dto/freeze-food-label.dto";
 import { ListFoodLabelsDto } from "./dto/list-food-labels.dto";
 import { VoidFoodLabelDto } from "./dto/void-food-label.dto";
 import { RetireFoodLabelsDto } from "./dto/retire-food-labels.dto";
@@ -186,6 +187,18 @@ export class EtiquetadoController {
     @Body() dto: VoidFoodLabelDto,
   ) {
     return this.foodLabels.void(req.tenantId, id, dto.reason);
+  }
+
+  /** Congela una etiqueta ya emitida (cualquier día, si no había caducado). */
+  @Post("labels/:id/freeze")
+  @Roles("ADMIN", "USER")
+  @RequireSection("etiquetado.emit")
+  async freeze(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: FreezeFoodLabelDto,
+  ) {
+    return this.foodLabels.freeze(req.tenantId, req.user, id, dto);
   }
 
   /** Marca como gastadas/desechadas (una o varias) — cierra sus alertas de caducidad. */

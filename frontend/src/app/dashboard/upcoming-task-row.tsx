@@ -12,6 +12,8 @@ interface UpcomingTaskRowProps {
   onNavigate?: () => void;
   /** Postpone action. Omit in read-only mode. */
   onPostpone?: (e: React.MouseEvent) => void;
+  /** Emit a food label for this task. Omit when the role cannot label. */
+  onLabel?: (e: React.MouseEvent) => void;
   /**
    * Read-only: no drag-reorder, no navigation, no postpone — only "complete".
    * Used for the restricted role that can see prep tasks but not Producción.
@@ -24,12 +26,14 @@ function RowBody({
   task,
   onComplete,
   onPostpone,
+  onLabel,
   completeDisabled,
   showDragHandle,
 }: {
   task: UpcomingProductionTask;
   onComplete: (e: React.MouseEvent) => void;
   onPostpone?: (e: React.MouseEvent) => void;
+  onLabel?: (e: React.MouseEvent) => void;
   completeDisabled: boolean;
   showDragHandle: boolean;
 }) {
@@ -87,6 +91,18 @@ function RowBody({
             <span className="material-symbols-outlined text-[20px]">event_repeat</span>
           </button>
         )}
+        {onLabel && (
+          <button
+            type="button"
+            onClick={onLabel}
+            onPointerDown={(e) => e.stopPropagation()}
+            title="Etiquetar esta elaboración"
+            aria-label="Etiquetar"
+            className="w-8 h-8 md:w-9 md:h-9 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant bg-surface-variant/40 hover:bg-surface-variant hover:text-primary active:scale-90 transition-all duration-150 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">label</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onComplete}
@@ -107,6 +123,7 @@ function SortableRow({
   onNavigate,
   onComplete,
   onPostpone,
+  onLabel,
   completeDisabled,
 }: Omit<UpcomingTaskRowProps, 'readOnly'>) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -128,6 +145,7 @@ function SortableRow({
         task={task}
         onComplete={onComplete}
         onPostpone={onPostpone}
+        onLabel={onLabel}
         completeDisabled={completeDisabled}
         showDragHandle
       />
@@ -138,13 +156,15 @@ function SortableRow({
 function ReadOnlyRow({
   task,
   onComplete,
+  onLabel,
   completeDisabled,
-}: Pick<UpcomingTaskRowProps, 'task' | 'onComplete' | 'completeDisabled'>) {
+}: Pick<UpcomingTaskRowProps, 'task' | 'onComplete' | 'onLabel' | 'completeDisabled'>) {
   return (
     <div className="p-stack-md md:p-stack-lg flex items-center gap-stack-sm select-none">
       <RowBody
         task={task}
         onComplete={onComplete}
+        onLabel={onLabel}
         completeDisabled={completeDisabled}
         showDragHandle={false}
       />
@@ -158,6 +178,7 @@ export function UpcomingTaskRow(props: UpcomingTaskRowProps) {
       <ReadOnlyRow
         task={props.task}
         onComplete={props.onComplete}
+        onLabel={props.onLabel}
         completeDisabled={props.completeDisabled}
       />
     );
@@ -168,6 +189,7 @@ export function UpcomingTaskRow(props: UpcomingTaskRowProps) {
       onNavigate={props.onNavigate}
       onComplete={props.onComplete}
       onPostpone={props.onPostpone}
+      onLabel={props.onLabel}
       completeDisabled={props.completeDisabled}
     />
   );

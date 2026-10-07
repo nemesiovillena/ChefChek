@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'USER' | 'VIEWER';
+  role: 'ADMIN' | 'USER' | 'USER_CUINER' | 'VIEWER';
   isActive: boolean;
   avatarUrl?: string;
   street?: string;
@@ -23,7 +23,7 @@ export interface CreateUserData {
   email: string;
   password: string;
   name: string;
-  role?: 'ADMIN' | 'USER' | 'VIEWER';
+  role?: 'ADMIN' | 'USER' | 'USER_CUINER' | 'VIEWER';
   isActive?: boolean;
   avatarUrl?: string;
   street?: string;

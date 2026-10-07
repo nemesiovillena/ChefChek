@@ -10,6 +10,7 @@ describe("RoleAccessController", () => {
   const service = {
     getRoleAccessConfig: jest.fn(),
     getRoleSectionMap: jest.fn(),
+    getSectionMapForUserRole: jest.fn(),
     updateRoleAccess: jest.fn(),
   };
 
@@ -38,22 +39,35 @@ describe("RoleAccessController", () => {
   });
 
   it("getMine returns {} for ADMIN (all allowed)", async () => {
+    service.getSectionMapForUserRole.mockResolvedValue(null);
     const res = await controller.getMine({
       tenantId: "t1",
       user: { role: "ADMIN" },
     });
     expect(res).toEqual({});
-    expect(service.getRoleSectionMap).not.toHaveBeenCalled();
   });
 
   it("getMine returns the section map for USER", async () => {
-    service.getRoleSectionMap.mockResolvedValue({ recipes: true });
+    service.getSectionMapForUserRole.mockResolvedValue({ recipes: true });
     const res = await controller.getMine({
       tenantId: "t1",
       user: { role: "USER" },
     });
-    expect(service.getRoleSectionMap).toHaveBeenCalledWith("t1", "USER");
+    expect(service.getSectionMapForUserRole).toHaveBeenCalledWith("t1", "USER");
     expect(res).toEqual({ recipes: true });
+  });
+
+  it("getMine returns the inherited map for USER_CUINER", async () => {
+    service.getSectionMapForUserRole.mockResolvedValue({ albaranes: true });
+    const res = await controller.getMine({
+      tenantId: "t1",
+      user: { role: "USER_CUINER" },
+    });
+    expect(service.getSectionMapForUserRole).toHaveBeenCalledWith(
+      "t1",
+      "USER_CUINER",
+    );
+    expect(res).toEqual({ albaranes: true });
   });
 
   it("update forwards tenant, user id and dto", async () => {

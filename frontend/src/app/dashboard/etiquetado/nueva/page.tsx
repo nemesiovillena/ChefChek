@@ -85,16 +85,18 @@ export default function NuevaEtiquetaPage() {
 
   const presetRecipeId = params.get('recipeId');
   const presetProductId = params.get('productId');
+  // Tarea de producción de título libre: llega como plato sin receta.
+  const presetItemName = presetRecipeId || presetProductId ? null : params.get('itemName');
 
   const [labelType, setLabelType] = useState<LabelType | ''>(
-    presetRecipeId ? 'ELABORATED' : presetProductId ? 'HANDLED' : '',
+    presetRecipeId || presetItemName ? 'ELABORATED' : presetProductId ? 'HANDLED' : '',
   );
   const [recipeId, setRecipeId] = useState<string | null>(presetRecipeId);
   const [productId, setProductId] = useState<string | null>(presetProductId);
   // Plato sin receta en el sistema: se guarda como ELABORATED sin recipeId,
   // con el nombre y los alérgenos que escribe el cocinero.
-  const [freeDish, setFreeDish] = useState(false);
-  const [freeName, setFreeName] = useState('');
+  const [freeDish, setFreeDish] = useState(Boolean(presetItemName));
+  const [freeName, setFreeName] = useState(presetItemName?.slice(0, 120) ?? '');
   const [freeNameConfirmed, setFreeNameConfirmed] = useState(false);
   const [freeAllergens, setFreeAllergens] = useState<number[]>([]);
 
