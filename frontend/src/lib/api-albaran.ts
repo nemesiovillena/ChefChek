@@ -164,6 +164,20 @@ export async function updateAlbaran(
   return response.json();
 }
 
+// Corrige la fecha del albarán (AAAA-MM-DD), también si está confirmado
+export async function updateAlbaranDate(id: string, date: string): Promise<Albaran> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}/date`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ date }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error updating date' }));
+    throw new Error(errorMessage(error, 'Error al corregir la fecha'));
+  }
+  return response.json();
+}
+
 // Update albaran status
 export async function updateStatus(id: string, status: AlbaranStatus): Promise<Albaran> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${id}/status`, {

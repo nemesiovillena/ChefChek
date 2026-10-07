@@ -412,6 +412,7 @@ export class DashboardService {
       id: order.id,
       batchId: order.batchId,
       title: order.title,
+      recipeId: order.recipeId,
       orderType: order.orderType,
       status: order.status,
       lotDate: lotDateOf(order),

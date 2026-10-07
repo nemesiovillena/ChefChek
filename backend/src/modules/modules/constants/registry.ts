@@ -225,6 +225,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: false,
   },
+  {
+    id: "cuiner",
+    name: "Cuiner",
+    description:
+      "Conector con el TPV y la gestión de Cuiner: envío de albaranes y ventas para descontar stock",
+    dependencies: ["albaranes"],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
 ];
 
 /**
