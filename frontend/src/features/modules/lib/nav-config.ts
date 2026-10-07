@@ -105,6 +105,7 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
       { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
+      { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: 'beach_access', personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
       { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true, personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
@@ -167,6 +168,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
   { prefix: '/dashboard/sicted', moduleId: 'sicted' },
   { prefix: '/dashboard/check-in', moduleId: 'check-in' },
+  { prefix: '/dashboard/turnos', moduleId: 'turnos' },
   { prefix: '/dashboard/cuiner', moduleId: 'cuiner' },
 ];
 

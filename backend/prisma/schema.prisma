@@ -3441,6 +3441,8 @@ model Employee {
   user            User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   defaultLocation Location?          @relation("EmployeeDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
   locations       EmployeeLocation[]
+  absences        Absence[]
+  leaveBalances   LeaveBalance[]
 
   @@index([tenantId])
   @@map("employees")
@@ -3903,4 +3905,100 @@ model CuinerSaleLine {
   @@unique([tenantId, idVentasCab, linea])
   @@index([tenantId, status])
   @@map("cuiner_sale_lines")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Turnos y ausencias (módulo `turnos`, depende de `check-in`).
+// Ver docs/pdr-modulo-check-in.md
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// Tipo de ausencia configurable por tenant (vacaciones, baja, permiso…).
+model AbsenceType {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String
+  color              String   @default("#6b7280")
+  // ¿Descuenta días del saldo anual de vacaciones?
+  deductsVacation    Boolean  @default(false)
+  isPaid             Boolean  @default(true)
+  // ¿Puede pedirla el propio empleado? Las bajas las registra gerencia.
+  employeeCanRequest Boolean  @default(true)
+  isActive           Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  absences Absence[]
+
+  @@unique([tenantId, name])
+  @@map("absence_types")
+}
+
+// Ausencia de una persona entre dos fechas (ambas incluidas). Solo fechas y
+// tipo: nunca se guarda el motivo médico de una baja.
+model Absence {
+  id                String        @id @default(cuid())
+  tenantId          String
+  employeeId        String
+  absenceTypeId     String
+  startDate         DateTime      @db.Date
+  endDate           DateTime      @db.Date
+  halfDay           Boolean       @default(false) // solo en ausencias de un día
+  status            AbsenceStatus @default(PENDING)
+  note              String?
+  requestedByUserId String
+  requestedByName   String // snapshot
+  decidedByUserId   String?
+  decidedByName     String?
+  decidedAt         DateTime?
+  decisionNote      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  employee Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  type     AbsenceType @relation(fields: [absenceTypeId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, startDate])
+  @@index([tenantId, employeeId])
+  @@map("absences")
+}
+
+// Saldo anual de vacaciones de una persona. Sin fila, se aplica el valor del
+// convenio (CheckInSettings.vacationDays), prorrateado el año del alta.
+model LeaveBalance {
+  id              String   @id @default(cuid())
+  tenantId        String
+  employeeId      String
+  year            Int
+  entitledDays    Float
+  carriedOverDays Float    @default(0)
+  adjustmentDays  Float    @default(0)
+  note            String?
+  updatedAt       DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, year])
+  @@index([tenantId])
+  @@map("leave_balances")
+}
+
+// Festivo. Sin centro, vale para todos los del tenant.
+model Holiday {
+  id         String   @id @default(cuid())
+  tenantId   String
+  locationId String?
+  date       DateTime @db.Date
+  name       String
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, date])
+  @@map("holidays")
 }

@@ -45,7 +45,7 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 | 3 | [PWA y fichaje sin conexion](./phase-03-pwa-y-fichaje-sin-conexion.md) | Completed |
 | 4 | [Registro de jornada correcciones y hojas de horas](./phase-04-registro-de-jornada-correcciones-y-hojas-de-horas.md) | Completed |
 | 5 | [Informes legales y panel de gerencia](./phase-05-informes-legales-y-panel-de-gerencia.md) | Completed |
-| 6 | [Ausencias vacaciones y bajas](./phase-06-ausencias-vacaciones-y-bajas.md) | Pending |
+| 6 | [Ausencias vacaciones y bajas](./phase-06-ausencias-vacaciones-y-bajas.md) | Completed |
 | 7 | [Planificador de turnos](./phase-07-planificador-de-turnos.md) | Pending |
 | 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Pending |
 | 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Pending |
