@@ -58,8 +58,10 @@ export function LineActionsToolbar({ albaranId, lines, onRefresh }: LineActionsT
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg">
-      <div className="flex items-center gap-4 text-sm">
+    // En móvil los contadores ya están en la cabecera del albarán y, junto al
+    // botón, desbordaban la pantalla: aquí queda solo el botón a ancho completo.
+    <div className="flex items-center justify-between gap-4 rounded-lg sm:bg-gray-50 sm:p-4">
+      <div className="hidden items-center gap-4 text-sm sm:flex">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-yellow-400" />
           <span>{pending.length} pendientes</span>
@@ -75,7 +77,12 @@ export function LineActionsToolbar({ albaranId, lines, onRefresh }: LineActionsT
       </div>
 
       {confirmable.length > 0 && (
-        <Button onClick={handleConfirmAll} variant="default" size="sm">
+        <Button
+          onClick={handleConfirmAll}
+          variant="default"
+          size="sm"
+          className="max-sm:h-11 max-sm:w-full"
+        >
           <CheckCircle2 className="h-4 w-4 mr-2" />
           Confirmar {confirmable.length} línea{confirmable.length === 1 ? '' : 's'}
         </Button>

@@ -25,6 +25,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2 } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
+// Móvil: la tabla de 10 columnas no cabe (quedaba recortada tras un scroll
+// horizontal), así que por debajo de md cada fila se apila como una tarjeta
+// de dos columnas. Son las mismas celdas —y sus editores inline—, solo cambia
+// el display; la etiqueta de cada dato sale de data-label porque el thead se
+// oculta.
+const MOBILE_ROW = 'max-md:grid max-md:grid-cols-2 max-md:gap-x-4 max-md:gap-y-3 max-md:p-4';
+const MOBILE_CELL =
+  'max-md:block max-md:min-w-0 max-md:p-0 max-md:whitespace-normal max-md:before:mb-0.5 max-md:before:block max-md:before:text-xs max-md:before:text-muted-foreground max-md:before:content-[attr(data-label)]';
+const MOBILE_CELL_FULL =
+  'max-md:col-span-2 max-md:block max-md:min-w-0 max-md:p-0 max-md:whitespace-normal';
+// Acciones: en escritorio iconos compactos con tooltip; en móvil no hay hover,
+// así que ocupan el ancho, ganan altura táctil y muestran su nombre.
+const LINE_ACTIONS_GRID =
+  'grid grid-cols-2 gap-1 w-fit max-md:w-full max-md:gap-2 max-md:[&>button]:h-11 max-md:[&>button]:w-full max-md:[&>button]:gap-1.5';
+const MOBILE_ACTION_LABEL = 'text-xs md:hidden';
+
 export default function AlbaranLineasPage() {
   const router = useRouter();
   const params = useParams();
@@ -291,7 +307,7 @@ export default function AlbaranLineasPage() {
     // quitó y hace falta para que el total cuadre). Primero necesita artículo.
     if (line.lineStatus === 'RECHAZADO') {
       return (
-        <div className="grid grid-cols-2 gap-1 w-fit">
+        <div className={LINE_ACTIONS_GRID}>
           <Button
             size="icon-sm"
             variant="outline"
@@ -300,6 +316,7 @@ export default function AlbaranLineasPage() {
             className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
           >
             <Search className="h-3.5 w-3.5" />
+            <span className={MOBILE_ACTION_LABEL}>Elegir artículo</span>
           </Button>
           <Button
             size="icon-sm"
@@ -314,6 +331,7 @@ export default function AlbaranLineasPage() {
             ) : (
               <Undo2 className="h-3.5 w-3.5" />
             )}
+            <span className={MOBILE_ACTION_LABEL}>Recuperar</span>
           </Button>
         </div>
       );
@@ -324,7 +342,7 @@ export default function AlbaranLineasPage() {
     // botones (Elegir/Crear + Confirmar/Rechazar) en la misma celda, y en
     // fila única no cabían en el viewport de iPad.
     return (
-      <div className="grid grid-cols-2 gap-1 w-fit">
+      <div className={LINE_ACTIONS_GRID}>
         {(line.matchStatus === 'MATCH_DUDOSO' || line.matchStatus === 'NUEVO') &&
           creatingLine !== line.id && (
             <>
@@ -342,6 +360,7 @@ export default function AlbaranLineasPage() {
                 }
               >
                 <Search className="h-3.5 w-3.5" />
+                <span className={MOBILE_ACTION_LABEL}>Elegir artículo</span>
               </Button>
               <Button
                 size="icon-sm"
@@ -351,6 +370,7 @@ export default function AlbaranLineasPage() {
                 className="text-red-700 border-red-300 hover:bg-red-50"
               >
                 <Plus className="h-3.5 w-3.5" />
+                <span className={MOBILE_ACTION_LABEL}>Crear artículo</span>
               </Button>
             </>
           )}
@@ -371,6 +391,7 @@ export default function AlbaranLineasPage() {
               ) : (
                 <CheckCircle className="h-3.5 w-3.5" />
               )}
+              <span className={MOBILE_ACTION_LABEL}>Confirmar</span>
             </Button>
             <Button
               size="icon-sm"
@@ -381,6 +402,7 @@ export default function AlbaranLineasPage() {
               className="text-red-600 hover:bg-red-50"
             >
               <XCircle className="h-3.5 w-3.5" />
+              <span className={MOBILE_ACTION_LABEL}>Rechazar</span>
             </Button>
           </>
         )}
@@ -421,14 +443,14 @@ export default function AlbaranLineasPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-xl">Líneas del Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-xl break-words">Líneas del Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
               <p className="text-sm text-gray-500 mt-1">
                 {albaran.supplier?.name} - {lines.length} líneas totales
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex shrink-0 flex-col items-end gap-2 whitespace-nowrap">
               <AlbaranStatusBadge status={albaran.status} />
               <OcrMethodBadge
                 extractionMethod={albaran.ocrRawData?.extraction_method}
@@ -438,7 +460,7 @@ export default function AlbaranLineasPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 text-sm">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-yellow-400" />
               <span>{pendingCount} pendientes</span>
@@ -497,8 +519,8 @@ export default function AlbaranLineasPage() {
           <Card className="mt-4">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+                <Table className="max-md:block">
+                  <TableHeader className="max-md:hidden">
                     <TableRow>
                       <TableHead>Descripción</TableHead>
                       <TableHead>Lote</TableHead>
@@ -512,11 +534,11 @@ export default function AlbaranLineasPage() {
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="max-md:block">
                     {lines.map((line) => (
                       <Fragment key={line.id}>
-                      <TableRow className={line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}>
-                        <TableCell>
+                      <TableRow className={`${MOBILE_ROW} ${line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}`}>
+                        <TableCell className={MOBILE_CELL_FULL}>
                           <div>
                             {isEditable(line) ? (
                               <EditableLineCell
@@ -584,7 +606,7 @@ export default function AlbaranLineasPage() {
                               )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Lote">
                           {isEditable(line) ? (
                             <EditableLineCell
                               albaranId={id}
@@ -597,7 +619,7 @@ export default function AlbaranLineasPage() {
                             line.lot || '—'
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Cantidad">
                           {isEditable(line) ? (
                             <div className="flex items-center gap-1">
                               <EditableLineCell
@@ -627,7 +649,7 @@ export default function AlbaranLineasPage() {
                             </>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Precio">
                           {isEditable(line) ? (
                             <EditableLineCell
                               albaranId={id}
@@ -664,7 +686,7 @@ export default function AlbaranLineasPage() {
                             formatCurrency(line.unitPrice)
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="IVA">
                           {isEditable(line) ? (
                             <EditableLineCell
                               albaranId={id}
@@ -680,7 +702,7 @@ export default function AlbaranLineasPage() {
                             `${line.vatPercent}%`
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Total">
                           {(() => {
                             // lineAmount = bruto (qty × precio). totalPrice = neto
                             // del papel (con descuento). Mostramos el neto cuando
@@ -719,7 +741,7 @@ export default function AlbaranLineasPage() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Variación">
                           {(() => {
                             if (!line.matchedProduct) return null;
                             const lineQuantity = Number(line.quantity);
@@ -735,17 +757,19 @@ export default function AlbaranLineasPage() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Match">
                           <LineMatchBadge matchStatus={line.matchStatus} confidence={line.confidence} />
                         </TableCell>
-                        <TableCell>{getLineStatusBadge(line.lineStatus)}</TableCell>
-                        <TableCell>{renderLineActions(line)}</TableCell>
+                        <TableCell className={MOBILE_CELL} data-label="Estado">
+                          {getLineStatusBadge(line.lineStatus)}
+                        </TableCell>
+                        <TableCell className={MOBILE_CELL_FULL}>{renderLineActions(line)}</TableCell>
                       </TableRow>
                       {creatingLine === line.id && (
-                        <TableRow>
+                        <TableRow className="max-md:block">
                           {/* Fila a ancho completo: el formulario (varios campos por fila)
                               no cabe en la columna "Acciones" sin solaparse. */}
-                          <TableCell colSpan={10} className="bg-gray-50 p-0">
+                          <TableCell colSpan={10} className="bg-gray-50 p-0 max-md:block max-md:whitespace-normal">
                             <CreateProductInline
                               albaranId={id}
                               line={line}
