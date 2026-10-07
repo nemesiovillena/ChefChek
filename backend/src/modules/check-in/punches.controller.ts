@@ -20,7 +20,7 @@ import {
 import { Roles } from "../../decorators/roles.decorator";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
-import { CreatePunchDto } from "./dto/punch.dto";
+import { CreatePunchDto, SyncPunchesDto } from "./dto/punch.dto";
 import { LegalTextsService } from "./services/legal-texts.service";
 import { PunchActor, PunchService } from "./services/punch.service";
 
@@ -69,6 +69,29 @@ export class PunchesController {
     @Headers("user-agent") userAgent?: string,
   ) {
     return this.punches.record(req.tenantId, actorOf(req), dto, userAgent);
+  }
+
+  /** Envío de los fichajes hechos sin conexión; responde uno a uno. */
+  @Post("punches/sync")
+  async sync(
+    @Req() req: any,
+    @Body() dto: SyncPunchesDto,
+    @Headers("user-agent") userAgent?: string,
+  ) {
+    return this.punches.sync(
+      req.tenantId,
+      actorOf(req),
+      dto.punches,
+      userAgent,
+    );
+  }
+
+  /** Fichajes que gerencia debe revisar (PIN sin verificar, secuencia, etc.). */
+  @Get("punches/review")
+  @Roles(CHECK_IN_MANAGER_ROLE)
+  @UseGuards(CheckInManagerGuard)
+  async listForReview(@Req() req: any) {
+    return this.punches.listForReview(req.tenantId);
   }
 
   /** Pantalla de kiosco: solo cuentas compartidas o quien gestiona el módulo. */

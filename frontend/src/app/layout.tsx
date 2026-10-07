@@ -20,7 +20,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ChefChek - Gestión Profesional de Cocinas",
   description: "Sistema multi-tenant para gestión de escandallos, recetas, menús y control de producción",
+  // App instalable (fichaje sin conexión): ver public/manifest.webmanifest y public/sw.js.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "ChefChek", statusBarStyle: "black-translucent" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
+
+// El service worker solo se registra en el build de producción: en desarrollo
+// los ficheros de Next no llevan huella y una caché los dejaría viejos.
+const REGISTER_SERVICE_WORKER =
+  "if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}";
 
 export default function RootLayout({
   children,
@@ -58,6 +67,9 @@ export default function RootLayout({
               "(function(){try{var f='24px \"Material Symbols Outlined\"';if(!document.fonts||!document.fonts.load)return;document.fonts.load(f).then(function(){if(document.fonts.check(f))document.documentElement.classList.add('ms-fonts-ready');},function(){});}catch(e){}})();",
           }}
         />
+        {process.env.NODE_ENV === "production" && (
+          <script dangerouslySetInnerHTML={{ __html: REGISTER_SERVICE_WORKER }} />
+        )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <QueryProvider>

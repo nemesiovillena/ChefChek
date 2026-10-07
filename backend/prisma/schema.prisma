@@ -3531,6 +3531,10 @@ model TimePunch {
   wasOffline       Boolean             @default(false)
   deviceId         String?
   userAgent        String?
+  // Fichaje que gerencia debe revisar (p. ej. PIN sin verificar o secuencia
+  // imposible en un fichaje sin conexión). Se fija al crear; no se edita.
+  needsReview      Boolean             @default(false)
+  reviewReason     String? // códigos separados por coma: PIN, SECUENCIA, FUERA_DE_ZONA, RELOJ
   // Cadena de integridad por tenant: hash = sha256(prevHash + campos).
   seq              Int
   prevHash         String?
@@ -3556,6 +3560,20 @@ model CheckInLegalAck {
   @@unique([legalTextId, employeeId])
   @@index([tenantId, employeeId])
   @@map("check_in_legal_acks")
+}
+
+// Par de claves RSA por tenant para el PIN de los fichajes sin conexión del
+// kiosco: el dispositivo cifra el PIN con la pública y solo el servidor puede
+// leerlo al sincronizar, así que en el dispositivo nunca queda el PIN ni un
+// hash que permita adivinarlo.
+model CheckInKioskKey {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  publicKeySpki   String // DER en base64
+  privateKeyPkcs8 String // DER en base64
+  createdAt       DateTime @default(now())
+
+  @@map("check_in_kiosk_keys")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

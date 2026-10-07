@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 import apiClient from '@/lib/api-client';
 import { slugify } from '@/lib/utils';
 
@@ -103,6 +103,7 @@ class AuthService {
   }
 
   async getCurrentSession(): Promise<AuthResponse | null> {
+    let offlineFallback: AuthResponse | null = null;
     try {
       const sessionId = localStorage.getItem('session_id');
       const tenantSlug = localStorage.getItem('tenant_slug');
@@ -112,6 +113,12 @@ class AuthService {
       const isSuperadmin = userObj?.role === 'SUPERADMIN';
 
       if (!sessionId || (!tenantSlug && !isSuperadmin) || !savedUser) return null;
+
+      offlineFallback = {
+        user: userObj,
+        session: { id: sessionId, expiresAt: new Date(Date.now() + 86400000).toISOString() },
+        cookie: '',
+      };
 
       // Validate session with backend
       const response = await apiClient.get<{ user: AuthResponse['user']; isValid: boolean }>('/v1/auth/validate');
@@ -129,7 +136,12 @@ class AuthService {
       }
 
       return null;
-    } catch (_error) {
+    } catch (error) {
+      // Sin red (o servidor inalcanzable) no se puede validar, pero tampoco hay
+      // motivo para cerrar la sesión: se mantiene la guardada para que la app
+      // siga abierta y, en particular, se pueda fichar sin conexión. El
+      // servidor volverá a validar en cuanto responda; un 401 sí la cierra.
+      if (axios.isAxiosError(error) && !error.response) return offlineFallback;
       return null;
     }
   }

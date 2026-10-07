@@ -1,8 +1,9 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
+import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
   CheckInReadiness,
   CheckInSettings,
@@ -18,6 +19,7 @@ import type {
   PresenceEntry,
   PunchInput,
   PunchView,
+  ReviewPunch,
   WorkCenter,
   WorkCenterGeofenceInput,
 } from '@/lib/check-in-types';
@@ -34,6 +36,7 @@ const KEYS = {
   me: ['check-in', 'me'],
   kiosk: ['check-in', 'kiosk'],
   presence: ['check-in', 'presence'],
+  review: ['check-in', 'review'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -197,9 +200,45 @@ export function useCheckInReadiness() {
 
 // ─────────────────────────────────────────────────────────────── Fichaje
 
+export const CHECK_IN_KEYS = KEYS;
+
+/**
+ * Tiempo máximo de espera al servidor en las pantallas de fichaje. Con mala
+ * cobertura el navegador dice que hay red pero las peticiones no llegan: sin
+ * este límite la persona se quedaría mirando un "cargando". Al vencer, se
+ * trata igual que estar sin conexión (copia local / cola de pendientes).
+ */
+const PUNCH_TIMEOUT_MS = 8000;
+
+/**
+ * Consulta que, si no hay red, devuelve la última copia guardada en el
+ * dispositivo marcada con `offline: true`. Así las pantallas de fichaje
+ * siguen funcionando sin conexión.
+ */
+async function fetchWithSnapshot<T extends object>(url: string, snapshotName: string): Promise<T> {
+  try {
+    const data = (await apiClient.get<T>(url, { timeout: PUNCH_TIMEOUT_MS })).data;
+    saveSnapshot(snapshotName, data);
+    return data;
+  } catch (error) {
+    if (isNetworkError(error)) {
+      const snapshot = loadSnapshot<T>(snapshotName);
+      if (snapshot) return { ...snapshot, offline: true };
+    }
+    throw error;
+  }
+}
+
 /** Estado de la cuenta personal: situación, últimos fichajes y textos por leer. */
-export function useOwnCheckIn() {
-  return useApiQuery<OwnCheckInState>(KEYS.me, `${BASE}/me`);
+export function useOwnCheckIn(userId: string | undefined) {
+  return useQuery<OwnCheckInState, Error>({
+    queryKey: KEYS.me,
+    queryFn: () => fetchWithSnapshot<OwnCheckInState>(`${BASE}/me`, `me.${userId}`),
+    enabled: !!userId,
+    // Sin red no tiene sentido reintentar: se usa la copia guardada.
+    retry: false,
+    networkMode: 'always',
+  });
 }
 
 export function useAckOwnLegalTexts() {
@@ -212,8 +251,10 @@ export function useAckOwnLegalTexts() {
 
 export function useRecordPunch() {
   const qc = useQueryClient();
-  return useMutation<PunchView, Error, PunchInput>({
-    mutationFn: async (data) => (await apiClient.post(`${BASE}/punches`, data)).data,
+  return useMutation<PunchView, unknown, PunchInput>({
+    mutationFn: async (data) =>
+      (await apiClient.post(`${BASE}/punches`, data, { timeout: PUNCH_TIMEOUT_MS })).data,
+    networkMode: 'always',
     // También al fallar: un 409 de secuencia significa que el estado en pantalla estaba viejo.
     onSettled: () => {
       qc.invalidateQueries({ queryKey: KEYS.me });
@@ -225,11 +266,17 @@ export function useRecordPunch() {
 
 /** Pantalla de kiosco de un centro. Sin `locationId` devuelve solo los centros. */
 export function useKioskState(locationId: string | null) {
-  return useApiQuery<KioskState>(
-    [...KEYS.kiosk, locationId ?? 'none'],
-    `${BASE}/kiosk${locationId ? `?locationId=${locationId}` : ''}`,
-    { refetchInterval: 60_000 },
-  );
+  return useQuery<KioskState, Error>({
+    queryKey: [...KEYS.kiosk, locationId ?? 'none'],
+    queryFn: () =>
+      fetchWithSnapshot<KioskState>(
+        `${BASE}/kiosk${locationId ? `?locationId=${locationId}` : ''}`,
+        `kiosk.${locationId ?? 'none'}`,
+      ),
+    refetchInterval: 60_000,
+    retry: false,
+    networkMode: 'always',
+  });
 }
 
 /** Quién está trabajando ahora. Se refresca solo cada 30 s. */
@@ -238,4 +285,9 @@ export function usePresence(enabled: boolean) {
     enabled,
     refetchInterval: 30_000,
   });
+}
+
+/** Fichajes marcados para revisión (PIN sin verificar, secuencia, reloj…). */
+export function usePunchesForReview() {
+  return useApiQuery<ReviewPunch[]>(KEYS.review, `${BASE}/punches/review`, { refetchInterval: 60_000 });
 }

@@ -4,7 +4,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from "@nestjs/common";
 import {
   Employee,
@@ -13,12 +12,13 @@ import {
   TimePunch,
 } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
-import { CreatePunchDto } from "../dto/punch.dto";
+import { CreatePunchDto, SyncPunchItemDto } from "../dto/punch.dto";
+import { KioskKeyService } from "./kiosk-key.service";
 import { EmployeePinService } from "./employee-pin.service";
 import { LegalAcksService } from "./legal-acks.service";
 import { LegalTextsService } from "./legal-texts.service";
 import { CheckInSettingsService } from "./check-in-settings.service";
-import { GeoPoint, resolveGeofence } from "./geofence.util";
+import { GeoPoint, GeofenceResult, resolveGeofence } from "./geofence.util";
 import { computePunchHash } from "./punch-hash.util";
 import {
   EmployeeWorkStatus,
@@ -35,6 +35,44 @@ export interface PunchActor {
 
 const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
   `${employee.firstName} ${employee.lastName}`.trim();
+
+/** Motivos por los que un fichaje queda marcado para que gerencia lo revise. */
+export type ReviewReason = "PIN" | "SECUENCIA" | "FUERA_DE_ZONA" | "RELOJ";
+
+export type SyncStatus = "ACCEPTED" | "DUPLICATE" | "FLAGGED" | "REJECTED";
+
+export interface SyncResult {
+  id: string;
+  status: SyncStatus;
+  /** Motivos de revisión (FLAGGED) o causa del rechazo (REJECTED). */
+  detail?: string;
+}
+
+/** Margen de adelanto del reloj del dispositivo que se tolera sin marcar. */
+const CLOCK_TOLERANCE_MS = 2 * 60 * 1000;
+
+interface AppendInput {
+  id: string;
+  type: CreatePunchDto["type"];
+  occurredAt: Date;
+  deviceTime: Date | null;
+  source: PunchSource;
+  actorId: string;
+  geofence: GeofenceResult;
+  point: (GeoPoint & { accuracyM?: number }) | null;
+  pinStatus: PunchPinStatus;
+  wasOffline: boolean;
+  deviceId?: string;
+  userAgent?: string;
+  /** true: una secuencia imposible lanza 409. false: se guarda y se marca. */
+  enforceSequence: boolean;
+  review: ReviewReason[];
+  /**
+   * Siguiente fichaje de la misma persona dentro del mismo lote, aún sin
+   * guardar: cuenta como "el siguiente" al comprobar que este encaja.
+   */
+  nextInBatch?: { type: CreatePunchDto["type"]; occurredAt: Date };
+}
 
 /** Ventana para buscar el último fichaje al pintar listados (no al validar). */
 const RECENT_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -55,6 +93,7 @@ export class PunchService {
     private readonly legalTexts: LegalTextsService,
     private readonly legalAcks: LegalAcksService,
     private readonly settings: CheckInSettingsService,
+    private readonly kioskKeys: KioskKeyService,
   ) {}
 
   async record(
@@ -104,7 +143,9 @@ export class PunchService {
       }
       const ok = await this.pins.verifyPin(tenantId, employee.id, dto.pin);
       if (!ok) {
-        throw new UnauthorizedException("PIN incorrecto.");
+        // 403 y no 401: un 401 hace que el cliente intente renovar la sesión
+        // y repita la petición, lo que contaría dos fallos de PIN por intento.
+        throw new ForbiddenException("PIN incorrecto.");
       }
       pinStatus = PunchPinStatus.VERIFIED;
     } else {
@@ -123,23 +164,228 @@ export class PunchService {
       );
     }
 
-    const hasPoint = dto.latitude !== undefined && dto.longitude !== undefined;
-    const occurredAt = new Date();
+    return this.append(tenantId, employee, {
+      id: dto.id,
+      type: dto.type,
+      // Con conexión manda el reloj del servidor; el del dispositivo se
+      // guarda aparte.
+      occurredAt: new Date(),
+      deviceTime: dto.deviceTime ?? null,
+      source,
+      actorId: actor.id,
+      geofence,
+      point: pointOf(dto),
+      pinStatus,
+      wasOffline: false,
+      deviceId: dto.deviceId,
+      userAgent,
+      enforceSequence: true,
+      review: [],
+    });
+  }
 
+  /**
+   * Fichajes hechos sin conexión. Ya ocurrieron, así que la prioridad es no
+   * perderlos: lo que con conexión se rechazaría (PIN que no cuadra, secuencia
+   * imposible, fuera de una zona con bloqueo) aquí se guarda marcado para que
+   * gerencia lo revise. Solo se rechaza lo que no puede atribuirse a nadie.
+   */
+  async sync(
+    tenantId: string,
+    actor: PunchActor,
+    items: SyncPunchItemDto[],
+    userAgent?: string,
+  ): Promise<SyncResult[]> {
+    const readiness = await this.legalTexts.getReadiness(tenantId);
+    const ordered = [...items].sort(
+      (a, b) => a.deviceTime.getTime() - b.deviceTime.getTime(),
+    );
+    const results: SyncResult[] = [];
+    for (const [index, item] of ordered.entries()) {
+      if (!readiness.ready) {
+        results.push({
+          id: item.id,
+          status: "REJECTED",
+          detail: "El fichaje no está habilitado en esta empresa.",
+        });
+        continue;
+      }
+      try {
+        // En kiosco el lote mezcla personas; en cuenta personal es una sola.
+        const next = ordered
+          .slice(index + 1)
+          .find(
+            (later) =>
+              !actor.isSharedAccount || later.employeeId === item.employeeId,
+          );
+        results.push(
+          await this.syncOne(tenantId, actor, item, userAgent, next),
+        );
+      } catch (error) {
+        results.push({
+          id: item.id,
+          status: "REJECTED",
+          detail: error instanceof Error ? error.message : "Error",
+        });
+      }
+    }
+    return results;
+  }
+
+  private async syncOne(
+    tenantId: string,
+    actor: PunchActor,
+    item: SyncPunchItemDto,
+    userAgent?: string,
+    nextInBatch?: SyncPunchItemDto,
+  ): Promise<SyncResult> {
+    const source = actor.isSharedAccount
+      ? PunchSource.KIOSK
+      : PunchSource.PERSONAL;
+    const employee =
+      source === PunchSource.KIOSK
+        ? await this.findKioskEmployee(tenantId, item.employeeId)
+        : await this.findOwnEmployee(tenantId, actor.id);
+
+    const existing = await this.prisma.timePunch.findUnique({
+      where: { id: item.id },
+    });
+    if (existing) {
+      if (
+        existing.tenantId !== tenantId ||
+        existing.employeeId !== employee.id
+      ) {
+        throw new ConflictException("Identificador de fichaje ya utilizado.");
+      }
+      return { id: item.id, status: "DUPLICATE" };
+    }
+    if (!employee.isActive) {
+      throw new ForbiddenException("Este empleado está dado de baja.");
+    }
+
+    const review: ReviewReason[] = [];
+    let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
+    if (source === PunchSource.KIOSK) {
+      pinStatus = (await this.verifyOfflinePin(tenantId, employee.id, item))
+        ? PunchPinStatus.VERIFIED
+        : PunchPinStatus.PENDING_REVIEW;
+      if (pinStatus === PunchPinStatus.PENDING_REVIEW) {
+        review.push("PIN");
+      }
+    }
+
+    const geofence = await this.resolveCenter(tenantId, employee, source, item);
+    if (geofence.blocked) {
+      review.push("FUERA_DE_ZONA");
+    }
+
+    // Un reloj adelantado no puede fechar un fichaje en el futuro.
+    const now = new Date();
+    let occurredAt = item.deviceTime;
+    if (occurredAt.getTime() > now.getTime() + CLOCK_TOLERANCE_MS) {
+      occurredAt = now;
+      review.push("RELOJ");
+    }
+
+    const saved = await this.append(tenantId, employee, {
+      id: item.id,
+      type: item.type,
+      occurredAt,
+      deviceTime: item.deviceTime,
+      source,
+      actorId: actor.id,
+      geofence,
+      point: pointOf(item),
+      pinStatus,
+      wasOffline: true,
+      deviceId: item.deviceId,
+      userAgent,
+      enforceSequence: false,
+      review,
+      nextInBatch: nextInBatch && {
+        type: nextInBatch.type,
+        occurredAt: nextInBatch.deviceTime,
+      },
+    });
+    return saved.needsReview
+      ? { id: item.id, status: "FLAGGED", detail: saved.reviewReason ?? "" }
+      : { id: item.id, status: "ACCEPTED" };
+  }
+
+  /** PIN de un fichaje sin conexión: cualquier fallo lo deja "a revisar". */
+  private async verifyOfflinePin(
+    tenantId: string,
+    employeeId: string,
+    item: SyncPunchItemDto,
+  ): Promise<boolean> {
+    if (!item.encryptedPin) {
+      return false;
+    }
+    const pin = await this.kioskKeys.decryptPin(
+      tenantId,
+      item.id,
+      item.encryptedPin,
+    );
+    if (!pin) {
+      return false;
+    }
+    try {
+      return await this.pins.verifyPin(tenantId, employeeId, pin);
+    } catch {
+      return false; // sin PIN asignado o bloqueado
+    }
+  }
+
+  /** Inserta el fichaje: numeración, huella y comprobación de secuencia. */
+  private async append(
+    tenantId: string,
+    employee: Employee,
+    input: AppendInput,
+  ): Promise<TimePunch> {
     return this.prisma.$transaction(async (tx) => {
       // Serializa los fichajes del tenant: la numeración y la huella dependen
       // del anterior, y la validación de secuencia no debe ver un estado viejo
       // si la misma persona pulsa dos veces.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
 
-      const lastOfEmployee = await tx.timePunch.findFirst({
-        where: { tenantId, employeeId: employee.id },
-        orderBy: { seq: "desc" },
+      // El fichaje inmediatamente anterior en el tiempo (no el último en
+      // llegar: uno hecho sin conexión puede llegar después de otro posterior).
+      const previous = await tx.timePunch.findFirst({
+        where: {
+          tenantId,
+          employeeId: employee.id,
+          occurredAt: { lte: input.occurredAt },
+        },
+        orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
         select: { type: true },
       });
-      const status = statusAfter(lastOfEmployee?.type);
-      if (!isAllowedTransition(status, dto.type)) {
-        throw new ConflictException(transitionMessage(status));
+      const status = statusAfter(previous?.type);
+      const review = [...input.review];
+      if (!isAllowedTransition(status, input.type)) {
+        if (input.enforceSequence) {
+          throw new ConflictException(transitionMessage(status));
+        }
+        review.push("SECUENCIA");
+      } else if (!input.enforceSequence) {
+        // Un fichaje que llega tarde también debe encajar con el siguiente
+        // que ya estaba registrado (p. ej. no dejar dos salidas seguidas).
+        const stored = await tx.timePunch.findFirst({
+          where: {
+            tenantId,
+            employeeId: employee.id,
+            occurredAt: { gt: input.occurredAt },
+          },
+          orderBy: [{ occurredAt: "asc" }, { seq: "asc" }],
+          select: { type: true, occurredAt: true },
+        });
+        const pending = input.nextInBatch;
+        const next =
+          pending && (!stored || pending.occurredAt < stored.occurredAt)
+            ? pending
+            : stored;
+        if (next && !isAllowedTransition(statusAfter(input.type), next.type)) {
+          review.push("SECUENCIA");
+        }
       }
 
       const lastOfTenant = await tx.timePunch.findFirst({
@@ -151,26 +397,28 @@ export class PunchService {
       const prevHash = lastOfTenant?.hash ?? null;
 
       const data = {
-        id: dto.id,
+        id: input.id,
         tenantId,
         employeeId: employee.id,
         employeeName: fullName(employee),
-        type: dto.type,
-        occurredAt,
-        deviceTime: dto.deviceTime ?? null,
-        source,
-        recordedByUserId: actor.id,
-        locationId: geofence.center?.id ?? null,
-        locationName: geofence.center?.name ?? null,
-        latitude: hasPoint ? (dto.latitude as number) : null,
-        longitude: hasPoint ? (dto.longitude as number) : null,
-        accuracyM: hasPoint ? (dto.accuracyM ?? null) : null,
-        distanceM: geofence.distanceM,
-        geofenceStatus: geofence.status,
-        pinStatus,
-        wasOffline: false,
-        deviceId: dto.deviceId ?? null,
-        userAgent: userAgent?.slice(0, 300) ?? null,
+        type: input.type,
+        occurredAt: input.occurredAt,
+        deviceTime: input.deviceTime,
+        source: input.source,
+        recordedByUserId: input.actorId,
+        locationId: input.geofence.center?.id ?? null,
+        locationName: input.geofence.center?.name ?? null,
+        latitude: input.point?.latitude ?? null,
+        longitude: input.point?.longitude ?? null,
+        accuracyM: input.point?.accuracyM ?? null,
+        distanceM: input.geofence.distanceM,
+        geofenceStatus: input.geofence.status,
+        pinStatus: input.pinStatus,
+        wasOffline: input.wasOffline,
+        deviceId: input.deviceId ?? null,
+        userAgent: input.userAgent?.slice(0, 300) ?? null,
+        needsReview: review.length > 0,
+        reviewReason: review.length > 0 ? review.join(",") : null,
         seq,
         prevHash,
       };
@@ -178,6 +426,23 @@ export class PunchService {
         data: { ...data, hash: computePunchHash(prevHash, data) },
       });
     });
+  }
+
+  /** Fichajes marcados para revisión (los más recientes primero). */
+  async listForReview(tenantId: string) {
+    const punches = await this.prisma.timePunch.findMany({
+      where: { tenantId, needsReview: true },
+      orderBy: { occurredAt: "desc" },
+      take: 100,
+    });
+    return punches.map((punch) => ({
+      ...toPunchView(punch),
+      employeeId: punch.employeeId,
+      employeeName: punch.employeeName,
+      reviewReason: punch.reviewReason,
+      wasOffline: punch.wasOffline,
+      receivedAt: punch.receivedAt,
+    }));
   }
 
   /** Estado de la cuenta personal: situación, últimos fichajes y textos por leer. */
@@ -206,14 +471,14 @@ export class PunchService {
         employeeId: employee.id,
         occurredAt: { gte: new Date(Date.now() - RECENT_WINDOW_MS) },
       },
-      orderBy: { seq: "desc" },
+      orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
       take: 12,
     });
     const last =
       recentPunches[0] ??
       (await this.prisma.timePunch.findFirst({
         where: { tenantId, employeeId: employee.id },
-        orderBy: { seq: "desc" },
+        orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
       }));
     const status = statusAfter(last?.type);
 
@@ -247,16 +512,18 @@ export class PunchService {
 
   /** Datos que necesita la pantalla de kiosco de un centro. */
   async getKioskState(tenantId: string, locationId: string | undefined) {
-    const [readiness, settings, centers, legalTexts] = await Promise.all([
-      this.legalTexts.getReadiness(tenantId),
-      this.settings.get(tenantId),
-      this.prisma.location.findMany({
-        where: { tenantId, isActive: true },
-        select: { id: true, name: true, isDefault: true },
-        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      }),
-      this.legalAcks.listCurrent(tenantId),
-    ]);
+    const [readiness, settings, centers, legalTexts, pinPublicKey] =
+      await Promise.all([
+        this.legalTexts.getReadiness(tenantId),
+        this.settings.get(tenantId),
+        this.prisma.location.findMany({
+          where: { tenantId, isActive: true },
+          select: { id: true, name: true, isDefault: true },
+          orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        }),
+        this.legalAcks.listCurrent(tenantId),
+        this.kioskKeys.getPublicKey(tenantId),
+      ]);
     const center = centers.find((c) => c.id === locationId) ?? null;
     const employees = center
       ? await this.listWithStatus(tenantId, {
@@ -267,6 +534,8 @@ export class PunchService {
     return {
       readiness,
       pinLength: settings.pinLength,
+      // Para cifrar el PIN de los fichajes que se hagan sin conexión.
+      pinPublicKey,
       centers,
       center,
       // En el kiosco solo hace falta el nombre y si está dentro o fuera.
@@ -305,7 +574,7 @@ export class PunchService {
         employeeId: { in: employees.map((e) => e.id) },
         occurredAt: { gte: new Date(Date.now() - RECENT_WINDOW_MS) },
       },
-      orderBy: { seq: "desc" },
+      orderBy: [{ occurredAt: "desc" }, { seq: "desc" }],
     });
     const lastByEmployee = new Map<string, TimePunch>();
     for (const punch of recent) {
@@ -363,7 +632,7 @@ export class PunchService {
     tenantId: string,
     employee: Employee,
     source: PunchSource,
-    dto: CreatePunchDto,
+    dto: Pick<CreatePunchDto, "latitude" | "longitude" | "locationId">,
   ) {
     const assigned = await this.prisma.location.findMany({
       where: {
@@ -398,6 +667,20 @@ export class PunchService {
   }
 }
 
+function pointOf(dto: {
+  latitude?: number;
+  longitude?: number;
+  accuracyM?: number;
+}): (GeoPoint & { accuracyM?: number }) | null {
+  return dto.latitude !== undefined && dto.longitude !== undefined
+    ? {
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        accuracyM: dto.accuracyM,
+      }
+    : null;
+}
+
 function transitionMessage(status: EmployeeWorkStatus): string {
   switch (status) {
     case "OUT":
@@ -419,5 +702,6 @@ function toPunchView(punch: TimePunch) {
     locationName: punch.locationName,
     geofenceStatus: punch.geofenceStatus,
     distanceM: punch.distanceM,
+    needsReview: punch.needsReview,
   };
 }
