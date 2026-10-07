@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -20,6 +21,12 @@ import {
 import { Roles } from "../../decorators/roles.decorator";
 import { ChecklistTemplateService } from "../checklists/services/checklist-template.service";
 import { ChecklistRunService } from "../checklists/services/checklist-run.service";
+import { ChecklistClosureCalendarService } from "../checklists/services/checklist-closure-calendar.service";
+import {
+  CreateCalendarExceptionDto,
+  JustifyClosedDayRunsDto,
+  UpdateClosedWeekdaysDto,
+} from "../checklists/dto/checklist-closure-calendar.dto";
 import { SictedJobProfileService } from "./services/sicted-job-profile.service";
 import {
   CreateChecklistTemplateDto,
@@ -50,7 +57,68 @@ export class SictedChecklistController {
     private readonly templates: ChecklistTemplateService,
     private readonly runs: ChecklistRunService,
     private readonly jobProfiles: SictedJobProfileService,
+    private readonly closureCalendar: ChecklistClosureCalendarService,
   ) {}
+
+  /** Días de cierre del local y cuántas hojas vencidas caen en ellos. */
+  @Get("closure-calendar")
+  @Roles("USER")
+  async getClosureCalendar(@Req() req: any) {
+    const [calendar, overdue] = await Promise.all([
+      this.closureCalendar.get(req.tenantId),
+      this.runs.listOverdueClosedDayRuns(req.tenantId, this.module),
+    ]);
+    return {
+      success: true,
+      data: { ...calendar, overdueOnClosedDays: overdue.length },
+    };
+  }
+
+  @Put("closure-calendar/weekdays")
+  @Roles("ADMIN", "OWNER")
+  async setClosedWeekdays(
+    @Req() req: any,
+    @Body() dto: UpdateClosedWeekdaysDto,
+  ) {
+    await this.closureCalendar.setClosedWeekdays(
+      req.tenantId,
+      dto.closedWeekdays,
+    );
+    return this.getClosureCalendar(req);
+  }
+
+  @Post("closure-calendar/exceptions")
+  @Roles("ADMIN", "OWNER")
+  async addCalendarException(
+    @Req() req: any,
+    @Body() dto: CreateCalendarExceptionDto,
+  ) {
+    await this.closureCalendar.addException(req.tenantId, req.user.id, dto);
+    return this.getClosureCalendar(req);
+  }
+
+  @Delete("closure-calendar/exceptions/:id")
+  @Roles("ADMIN", "OWNER")
+  async removeCalendarException(@Req() req: any, @Param("id") id: string) {
+    await this.closureCalendar.removeException(req.tenantId, id);
+    return this.getClosureCalendar(req);
+  }
+
+  /** Justifica en bloque las hojas vencidas de días en que el local cerró. */
+  @Post("runs/justify-closed-days")
+  @Roles("ADMIN", "OWNER")
+  async justifyClosedDayRuns(
+    @Req() req: any,
+    @Body() dto: JustifyClosedDayRunsDto,
+  ) {
+    const data = await this.runs.justifyClosedDayRuns(
+      req.tenantId,
+      this.module,
+      req.user.id,
+      dto.supervisorUserId,
+    );
+    return { success: true, data };
+  }
 
   @Get("templates")
   async listTemplates(@Req() req: any, @Query("area") area?: string) {

@@ -31,6 +31,7 @@ describe("AuthService", () => {
     addressCity: null,
     addressPostalCode: null,
     cifNif: null,
+    closedWeekdays: [],
     users: [],
   };
 

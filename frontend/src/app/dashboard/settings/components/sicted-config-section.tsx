@@ -12,6 +12,7 @@ import {
   useUpdateSictedCycle,
 } from '@/hooks/use-sicted-direccion';
 import { CYCLE_PHASE_LABELS, type SictedCyclePhase } from '@/lib/sicted-direccion-types';
+import { SictedClosureCalendarForm } from './sicted-closure-calendar-form';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 const fieldCls =
@@ -174,6 +175,7 @@ export function SictedConfigSection() {
           canManage={canManage}
         />
       )}
+      <SictedClosureCalendarForm canManage={canManage} />
       <h3 className="mb-1 font-semibold">Módulos complementarios</h3>
       <p className="text-sm text-gray-500 mb-4">
         Marca lo que ofrece tu establecimiento. Cada opción añade a la autoevaluación las buenas prácticas complementarias

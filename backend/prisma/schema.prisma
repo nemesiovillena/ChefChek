@@ -34,6 +34,12 @@ model Tenant {
   addressPostalCode String?
   cifNif            String?
 
+  // Días de descanso semanal del local (0=domingo..6=sábado): esos días no se
+  // generan ni se esperan hojas. Las excepciones por fecha (vacaciones, o un
+  // descanso en que sí se abre) van en TenantCalendarException.
+  closedWeekdays Int[] @default([])
+
+  calendarExceptions         TenantCalendarException[]
   users                      User[]
   products                   Product[]
   recipes                    Recipe[]
@@ -133,6 +139,29 @@ model User {
   @@index([tenantId])
   @@index([email])
   @@map("users")
+}
+
+// Excepción por fechas al descanso semanal del local. CLOSED = cerrado esos
+// días (vacaciones, festivo); OPEN = se abre aunque caiga en descanso, y manda
+// sobre CLOSED. Los días son naturales de Madrid en 'YYYY-MM-DD', el mismo
+// formato que la clave de periodo de las hojas diarias.
+model TenantCalendarException {
+  id       String @id @default(cuid())
+  tenantId String
+
+  kind    String // CLOSED | OPEN
+  fromDay String
+  toDay   String
+  reason  String?
+
+  // Quién lo declaró: un cierre quita huecos de la cobertura, queda a la vista.
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("tenant_calendar_exceptions")
 }
 
 model Session {
