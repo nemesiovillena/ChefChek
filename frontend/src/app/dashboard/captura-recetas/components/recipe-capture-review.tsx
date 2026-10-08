@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { ArrowLeft, ArrowRight, Copy, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
@@ -150,6 +151,18 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
           </a>
         )}
       </div>
+
+      {capture.imageUrl && (
+        <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-[var(--outline-variant)]">
+          <Image
+            src={capture.imageUrl}
+            alt={capture.name ?? 'Foto del plato'}
+            fill
+            sizes="(min-width: 768px) 768px, 100vw"
+            className="object-cover"
+          />
+        </div>
+      )}
 
       {capture.status === 'ERROR' && (
         <div className="space-y-3 rounded-xl bg-[var(--error-container)] p-4 text-sm text-[var(--on-error-container)]">

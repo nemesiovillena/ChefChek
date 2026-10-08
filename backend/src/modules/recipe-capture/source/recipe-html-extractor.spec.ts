@@ -1,4 +1,7 @@
-import { extractRecipeSourceText } from "./recipe-html-extractor";
+import {
+  extractRecipeImageUrl,
+  extractRecipeSourceText,
+} from "./recipe-html-extractor";
 
 describe("extractRecipeSourceText", () => {
   it("incluye en crudo los datos estructurados y el texto visible", () => {
@@ -81,6 +84,26 @@ describe("extractRecipeSourceText", () => {
     expect(text).toContain("fin");
   });
 
+  it("incluye la descripción de <meta>, donde algunas webs ponen la receta entera", () => {
+    const html = `<html><head>
+      <meta property="og:description" content="1. Sofríe la cebolla. 2. Añade el tomate." />
+    </head><body><p>Ingredientes</p></body></html>`;
+
+    const text = extractRecipeSourceText(html);
+
+    expect(text).toContain("TÍTULO Y METADATOS DE LA PÁGINA:");
+    expect(text).toContain("1. Sofríe la cebolla. 2. Añade el tomate.");
+  });
+
+  it("prefiere og:description y decodifica entidades", () => {
+    const html = `<head>
+      <meta name="description" content="genérica" />
+      <meta property="og:description" content="Pan &amp; vino" />
+    </head>`;
+
+    expect(extractRecipeSourceText(html)).toContain("Pan & vino");
+  });
+
   // El análisis corre en el mismo proceso que atiende a todos los tenants:
   // una página maliciosa no puede bloquearlo. Con coste lineal, 2 MB se
   // recorren en milisegundos; con retroceso serían minutos.
@@ -97,5 +120,29 @@ describe("extractRecipeSourceText", () => {
     extractRecipeSourceText(html);
 
     expect(Date.now() - start).toBeLessThan(500);
+  });
+});
+
+describe("extractRecipeImageUrl", () => {
+  it("usa og:image", () => {
+    const html = `<head><meta property="og:image" content="https://cdn.test/plato.jpg" /></head>`;
+
+    expect(extractRecipeImageUrl(html)).toBe("https://cdn.test/plato.jpg");
+  });
+
+  it("usa twitter:image si no hay og:image", () => {
+    const html = `<head><meta name="twitter:image" content="https://cdn.test/t.jpg" /></head>`;
+
+    expect(extractRecipeImageUrl(html)).toBe("https://cdn.test/t.jpg");
+  });
+
+  it("cae a la imagen del schema.org", () => {
+    const html = `<script type="application/ld+json">{"@type":"Recipe","image":["https://cdn.test/a.jpg","https://cdn.test/b.jpg"]}</script>`;
+
+    expect(extractRecipeImageUrl(html)).toBe("https://cdn.test/a.jpg");
+  });
+
+  it("devuelve null si la página no publica imagen", () => {
+    expect(extractRecipeImageUrl("<html><body>x</body></html>")).toBeNull();
   });
 });

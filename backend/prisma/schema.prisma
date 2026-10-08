@@ -591,6 +591,8 @@ model RecipeCapture {
   // Se guarda hasta que la captura se procesa con éxito (entonces se vacía).
   sourceFile         Bytes?
   sourceFileMimeType String?
+  // Foto del plato (subida a nuestro almacenamiento), si se pudo obtener.
+  imageUrl           String?
   status         RecipeCaptureStatus @default(PROCESANDO)
   errorMessage   String?
   createdBy      String?
