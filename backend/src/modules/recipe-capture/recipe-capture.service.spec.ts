@@ -37,12 +37,14 @@ describe("RecipeCaptureService", () => {
       findFirst: jest.fn(),
       count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
     },
     recipeCaptureIngredient: {
       findFirst: jest.fn(),
       update: jest.fn(),
       createMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     product: { findFirst: jest.fn() },
     $transaction: jest.fn(),
@@ -63,6 +65,8 @@ describe("RecipeCaptureService", () => {
     prisma.recipeCapture.create.mockResolvedValue({
       id: "c1",
       status: "PROCESANDO",
+      source: "TEXTO",
+      sourceFileMimeType: null,
     });
     matcher.match.mockResolvedValue(null);
     service = new RecipeCaptureService(
@@ -85,6 +89,7 @@ describe("RecipeCaptureService", () => {
         () => service.updateIngredient("", "c1", "i1", null),
       ],
       ["discard", () => service.discard(undefined as any, "c1")],
+      ["retry", () => service.retry(undefined as any, "c1")],
     ])("%s falla sin consultar nada", async (_name, call) => {
       await expect(call()).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.recipeCapture.findMany).not.toHaveBeenCalled();
@@ -145,8 +150,8 @@ describe("RecipeCaptureService", () => {
       const result = await service.findAll("t1");
 
       expect(result).toEqual([
-        { id: "c1", status: "PASADA", recipeId: null },
-        { id: "c2", status: "PASADA", recipeId: "r2" },
+        { id: "c1", status: "PASADA", recipeId: null, canRetry: true },
+        { id: "c2", status: "PASADA", recipeId: "r2", canRetry: true },
       ]);
     });
 
@@ -206,7 +211,11 @@ describe("RecipeCaptureService", () => {
         "texto de receta",
       );
 
-      expect(result).toEqual({ id: "c1", status: "PROCESANDO" });
+      expect(result).toMatchObject({
+        id: "c1",
+        status: "PROCESANDO",
+        canRetry: true,
+      });
       expect(prisma.recipeCapture.create.mock.calls[0][0].data).toEqual({
         source: "TEXTO",
         sourceText: "texto de receta",
@@ -402,6 +411,95 @@ describe("RecipeCaptureService", () => {
     });
   });
 
+  describe("reintentar", () => {
+    const enError = {
+      id: "c1",
+      status: "ERROR",
+      source: "TEXTO",
+      sourceUrl: null,
+      sourceText: "texto de receta",
+      sourceFileName: null,
+      sourceFile: null as Uint8Array | null,
+      sourceFileMimeType: null as string | null,
+    };
+
+    it("texto: rehace la fuente guardada, limpia el intento previo y vuelve a PROCESANDO", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue(enError);
+      structuring.structure.mockReturnValue(new Promise(() => {}));
+
+      await service.retry("t1", "c1");
+      await settle();
+
+      expect(structuring.structure).toHaveBeenCalledWith("t1", {
+        text: "texto de receta",
+      });
+      const reset = prisma.recipeCapture.update.mock.calls[0][0];
+      expect(reset.where).toEqual({ id: "c1" });
+      expect(reset.data).toMatchObject({
+        status: "PROCESANDO",
+        errorMessage: null,
+        name: null,
+      });
+      expect(prisma.recipeCaptureIngredient.deleteMany).toHaveBeenCalledWith({
+        where: { captureId: "c1" },
+      });
+    });
+
+    it("archivo: reenvía el archivo guardado como adjunto", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue({
+        ...enError,
+        source: "ARCHIVO",
+        sourceText: null,
+        sourceFileName: "foto.jpg",
+        sourceFile: Buffer.from("img"),
+        sourceFileMimeType: "image/jpeg",
+      });
+      structuring.structure.mockReturnValue(new Promise(() => {}));
+
+      await service.retry("t1", "c1");
+      await settle();
+
+      expect(structuring.structure).toHaveBeenCalledWith("t1", {
+        attachment: {
+          mimeType: "image/jpeg",
+          dataBase64: Buffer.from("img").toString("base64"),
+        },
+      });
+    });
+
+    it("archivo sin el archivo guardado: 400 con mensaje claro", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue({
+        ...enError,
+        source: "ARCHIVO",
+        sourceText: null,
+        sourceFileName: "foto.jpg",
+      });
+
+      await expect(service.retry("t1", "c1")).rejects.toThrow(
+        "vuelve a subir la foto o el PDF",
+      );
+      expect(structuring.structure).not.toHaveBeenCalled();
+    });
+
+    it("404 si no hay una captura con error que reintentar", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue(null);
+
+      await expect(service.retry("t1", "c1")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it("429 si el tenant ya tiene 3 capturas procesándose", async () => {
+      prisma.recipeCapture.findFirst.mockResolvedValue(enError);
+      prisma.recipeCapture.count.mockResolvedValue(3);
+
+      await expect(service.retry("t1", "c1")).rejects.toMatchObject({
+        status: 429,
+      });
+      expect(structuring.structure).not.toHaveBeenCalled();
+    });
+  });
+
   describe("descartar", () => {
     it("pasa la captura a DESCARTADA sin borrarla", async () => {
       await service.discard("t1", "c1");
@@ -409,7 +507,11 @@ describe("RecipeCaptureService", () => {
       const call = prisma.recipeCapture.updateMany.mock.calls[0][0];
       expect(call.where).toMatchObject({ id: "c1", tenantId: "t1" });
       expect(call.where.status.in).not.toContain("PASANDO");
-      expect(call.data).toEqual({ status: "DESCARTADA" });
+      expect(call.data).toEqual({
+        status: "DESCARTADA",
+        sourceFile: null,
+        sourceFileMimeType: null,
+      });
     });
 
     it("404 si no existe, es de otro tenant o se está pasando a Recetas", async () => {

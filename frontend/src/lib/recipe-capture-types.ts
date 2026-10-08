@@ -19,6 +19,8 @@ export interface RecipeCaptureListItem {
   recipeId: string | null;
   /** Cuándo empezó el paso a Recetas (solo en PASANDO). */
   claimedAt: string | null;
+  /** Si se puede reintentar desde su fuente (falso en capturas de archivo antiguas, sin el archivo guardado). */
+  canRetry: boolean;
   createdAt: string;
   updatedAt: string;
 }

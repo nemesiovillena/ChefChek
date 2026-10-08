@@ -58,7 +58,7 @@ Esfuerzo estimado: ~9 días (0,5 + 2 + 2 + 1,5 + 1 + 2).
 - Fotos HEIC (se rechazan con mensaje "usa JPG o PNG").
 - Imagen de la receta.
 - Crear artículos desde la pantalla de captura.
-- Botón "Reintentar" en capturas con error (se vuelve a crear; el texto pegado se conserva para copiarlo).
+- ~~Botón "Reintentar" en capturas con error~~ — **añadido el 2026-10-08**: las capturas en `ERROR` se reintentan desde su fuente guardada (enlace, texto o el archivo); las de foto/PDF exigen que se conserve el archivo, que desde entonces se guarda hasta procesarse.
 - Cuota diaria de IA por tenant.
 - Notas en el PDF de ficha técnica.
 - Validar dependencias de módulos al activar (hoy solo se comprueban al desactivar; no se cambia aquí).
