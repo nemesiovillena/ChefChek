@@ -134,6 +134,15 @@ export class RecipeCaptureController {
     return { success: true, data };
   }
 
+  /** Reintenta una captura que quedó en ERROR desde su fuente original. */
+  @Post(":id/retry")
+  @HttpCode(HttpStatus.OK)
+  @Throttle(CREATE_THROTTLE)
+  async retry(@Req() req: any, @Param("id") id: string) {
+    const data = await this.captureService.retry(req.tenantId, id);
+    return { success: true, data };
+  }
+
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
   async discard(@Req() req: any, @Param("id") id: string) {

@@ -79,6 +79,19 @@ export function useDiscardRecipeCapture() {
   });
 }
 
+/** Reintenta una captura que quedó en ERROR, desde su fuente original. */
+export function useRetryRecipeCapture() {
+  const queryClient = useQueryClient();
+  return useMutation<RecipeCapture, Error, string>({
+    mutationFn: async (id) =>
+      (await apiClient.post<RecipeCapture>(`${BASE_URL}/${id}/retry`)).data,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: LIST_KEY });
+      queryClient.invalidateQueries({ queryKey: [...LIST_KEY, id] });
+    },
+  });
+}
+
 /** Cambia o quita (null) el artículo vinculado a un ingrediente. */
 export function useUpdateCaptureIngredient() {
   const queryClient = useQueryClient();
