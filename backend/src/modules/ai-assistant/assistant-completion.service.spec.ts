@@ -69,6 +69,14 @@ describe("AssistantCompletionService", () => {
       'OpenAI respondió 429: {"code":"insufficient_quota"}',
       PROVIDER_QUOTA_MESSAGE,
     ],
+    [
+      'Anthropic respondió 400: {"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}',
+      PROVIDER_QUOTA_MESSAGE,
+    ],
+    [
+      'Anthropic respondió 400: {"type":"invalid_request_error","message":"max_tokens: must be >= 1"}',
+      PROVIDER_ERROR_MESSAGE,
+    ],
     ['Anthropic respondió 401: {"secret":"sk-abc"}', PROVIDER_ERROR_MESSAGE],
   ])(
     "traduce el error del proveedor y nunca muestra el cuerpo crudo: %s",
