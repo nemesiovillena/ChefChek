@@ -20,12 +20,13 @@ Se retomó la sesión donde quedó: el módulo `captura-recetas` ya estaba en `d
 - **Tests backend**: 168/168 en verde en `ai-assistant/providers`, `recipe-capture` y `assistant-completion` (incluye los specs de adjuntos imagen/PDF de los tres adaptadores).
 - **Captura por imagen, real (Gemini)**: JPG → `PENDIENTE`, "Tarta de queso al horno", 6 pasos y 6 ingredientes, 4 con artículo sugerido. `gemini-flash-latest` volvió a dar **503** (saturación del modelo), como en la sesión anterior; se hizo con `gemini-flash-lite-latest` y la misma clave del tenant. Con una clave de Gemini nueva facilitada por el usuario se repitieron imagen y PDF: ambos `PENDIENTE` (imagen → "Tarta de queso", 6/6/4; PDF → "Bizcocho de yogur", 4 pasos, 7 ingredientes, 5 sugeridos), en dos intentos seguidos. Un 503 puntual tumbó un intento de PDF porque los adjuntos van con `noRetry`.
 - **Anthropic, real**: la clave **es válida** (listó modelos: `claude-haiku-5-5`, `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-sonnet-4-5-*`, …) pero la cuenta **no tiene saldo**: cualquier generación responde `400 invalid_request_error: Your credit balance is too low`. No se pudo verificar la generación real, sí la validez de la clave y del listado de modelos.
+- **Captura por foto real (Gemini)**: foto real de una tarjeta de receta escrita a mano («Pork Chalupas», en blanco y negro, con perspectiva y fondo de cocina) → `PENDIENTE`, «Chalupas de cerdo», 8 ingredientes traducidos al español, 3 pasos, cocción 8 h (480 min) y 2 sugerencias. Confirma que el camino de imagen funciona con una foto de verdad, no solo con una imagen sintética.
 - **Móvil (390×844) y modo claro**: listado, modos Enlace/Texto/Foto y pantalla de revisión, en oscuro y claro. **Sin desbordes horizontales** en ningún caso; buen contraste en ambos temas.
 - **Tests backend tras el arreglo de abajo**: 237/237 en verde (`ai-assistant` + `recipe-capture`).
 
 ## Lo que queda sin verificar
 
-- **Captura por foto real**: la prueba usó una imagen JPG sintética (texto renderizado), no una foto de un móvil. El camino del adjunto es el mismo, pero no se ha probado con una foto real con perspectiva, sombras o mala luz.
+- **Captura por foto**: verificada con una foto real (tarjeta manuscrita). Sigue sin probarse con una foto hecha con un móvil en el momento (cámara, reflejos, movimiento), pero el camino del adjunto es el mismo.
 - **Anthropic y OpenAI**: no se pudo completar una generación real. De Anthropic hay clave y es válida, pero la cuenta no tiene saldo (400 "credit balance is too low"); de OpenAI no hay clave. Siguen cubiertos por specs con respuestas simuladas.
 - Receta de ≥ 20 ingredientes y ≥ 12 pasos con los tres proveedores.
 
