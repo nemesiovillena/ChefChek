@@ -62,10 +62,9 @@ export function RecipeCaptureConfigSection() {
 
   const hasLocalKey = (p: AiAssistantProvider) =>
     Boolean(getApiKey(KEY_STORE_PROVIDER[p]));
-  /** Key ya guardada en el servidor para ese proveedor (por la captura o el asistente). */
+  /** Key ya guardada en el servidor para la captura, por proveedor. */
   const hasServerKey = (p: AiAssistantProvider) =>
-    (Boolean(config?.hasApiKey) && config?.provider === p) ||
-    (Boolean(assistantConfig?.hasApiKey) && assistantConfig?.provider === p);
+    Boolean(config?.hasApiKey) && config?.provider === p;
   const keyReady = (p: AiAssistantProvider) => hasLocalKey(p) || hasServerKey(p);
 
   // El módulo debe estar activo: sin él la sección no aplica.

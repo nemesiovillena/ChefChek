@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Put, Req, UseGuards } from "@nestjs/common";
 import { RecipeCaptureConfigService } from "./recipe-capture-config.service";
 import { RecipeCaptureConfigDto } from "./dto/recipe-capture-config.dto";
+import { assertTenant } from "../recipe-capture.service";
 import { AuthGuard } from "../../../guards/auth.guard";
 import { TenantGuard } from "../../../guards/tenant.guard";
 import { RolesGuard } from "../../../guards/roles.guard";
@@ -19,6 +20,8 @@ export class RecipeCaptureConfigController {
   @Get()
   @Roles("ADMIN", "OWNER", "SUPERADMIN", "USER", "VIEWER")
   async getConfig(@Req() req: any) {
+    // Un SUPERADMIN no tiene tenant: sin esto Prisma ignoraría el filtro.
+    assertTenant(req.tenantId);
     const data = await this.configService.getPublicConfig(req.tenantId);
     return { success: true, data };
   }
@@ -26,6 +29,7 @@ export class RecipeCaptureConfigController {
   @Put()
   @Roles("ADMIN", "OWNER", "SUPERADMIN")
   async updateConfig(@Req() req: any, @Body() dto: RecipeCaptureConfigDto) {
+    assertTenant(req.tenantId);
     const data = await this.configService.saveConfig(
       req.tenantId,
       dto,

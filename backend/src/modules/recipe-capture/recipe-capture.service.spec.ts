@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
 import { RecipeCaptureService } from "./recipe-capture.service";
+import { RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE } from "./recipe-capture-completion.service";
 import { RecipeStructuringError } from "./recipe-structuring.service";
 import * as fetcher from "./source/safe-page-fetcher";
 
@@ -167,12 +168,12 @@ describe("RecipeCaptureService", () => {
   describe("alta", () => {
     it("sin IA configurada no crea ninguna captura", async () => {
       completion.assertConfigured.mockRejectedValue(
-        new BadRequestException("Configura el proveedor de IA"),
+        new BadRequestException(RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE),
       );
 
       await expect(
         service.createFromText("t1", "u1", "texto de receta"),
-      ).rejects.toThrow("Configura el proveedor de IA");
+      ).rejects.toThrow(RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE);
       expect(prisma.recipeCapture.create).not.toHaveBeenCalled();
     });
 
