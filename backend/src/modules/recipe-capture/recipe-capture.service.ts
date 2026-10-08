@@ -54,6 +54,7 @@ const LIST_SELECT = {
   source: true,
   sourceUrl: true,
   sourceFileName: true,
+  sourceFileMimeType: true,
   status: true,
   errorMessage: true,
   name: true,
@@ -61,6 +62,17 @@ const LIST_SELECT = {
   claimedAt: true,
   createdAt: true,
   updatedAt: true,
+} as const;
+
+/** Campos del detalle de una captura (todo lo que ve la pantalla de revisión). */
+const DETAIL_SELECT = {
+  ...LIST_SELECT,
+  sourceText: true,
+  description: true,
+  elaboration: true,
+  portions: true,
+  preparationTimeMinutes: true,
+  cookingTimeMinutes: true,
 } as const;
 
 /**
@@ -86,9 +98,10 @@ export class RecipeCaptureService {
       select: { ...LIST_SELECT, recipe: { select: { deletedAt: true } } },
       orderBy: { createdAt: "desc" },
     });
-    return captures.map(({ recipe, ...capture }) => ({
+    return captures.map(({ recipe, sourceFileMimeType, ...capture }) => ({
       ...capture,
       recipeId: liveRecipeId(capture.recipeId, recipe),
+      canRetry: canRetryCapture(capture, sourceFileMimeType),
     }));
   }
 
@@ -96,7 +109,8 @@ export class RecipeCaptureService {
     assertTenant(tenantId);
     const capture = await this.prisma.recipeCapture.findFirst({
       where: { id, tenantId, status: { not: RecipeCaptureStatus.DESCARTADA } },
-      include: {
+      select: {
+        ...DETAIL_SELECT,
         ingredients: {
           orderBy: { sortOrder: "asc" },
           include: {
@@ -111,8 +125,12 @@ export class RecipeCaptureService {
     if (!capture) {
       throw new NotFoundException("Captura no encontrada");
     }
-    const { recipe, ...rest } = capture;
-    return { ...rest, recipeId: liveRecipeId(capture.recipeId, recipe) };
+    const { recipe, sourceFileMimeType, ...rest } = capture;
+    return {
+      ...rest,
+      recipeId: liveRecipeId(capture.recipeId, recipe),
+      canRetry: canRetryCapture(capture, sourceFileMimeType),
+    };
   }
 
   createFromUrl(tenantId: string, userId: string | undefined, url: string) {
@@ -146,7 +164,13 @@ export class RecipeCaptureService {
     return this.create(
       tenantId,
       userId,
-      { source: RecipeCaptureSource.ARCHIVO, sourceFileName: file.filename },
+      {
+        source: RecipeCaptureSource.ARCHIVO,
+        sourceFileName: file.filename,
+        // Se guarda el archivo para poder reintentar si la IA falla.
+        sourceFile: file.buffer,
+        sourceFileMimeType: file.mimetype,
+      },
       { source: "ARCHIVO", file },
     );
   }
@@ -207,11 +231,76 @@ export class RecipeCaptureService {
           ],
         },
       },
-      data: { status: RecipeCaptureStatus.DESCARTADA },
+      // Ya no hace falta: se libera el archivo guardado.
+      data: {
+        status: RecipeCaptureStatus.DESCARTADA,
+        sourceFile: null,
+        sourceFileMimeType: null,
+      },
     });
     if (count === 0) {
       throw new NotFoundException("Captura no encontrada");
     }
+  }
+
+  /**
+   * Reintenta una captura que quedó en ERROR (p. ej. porque la IA estaba
+   * saturada). Se rehace desde la fuente guardada: enlace, texto o el propio
+   * archivo. Las capturas de archivo anteriores a guardar el archivo no se
+   * pueden reintentar y lo dicen con un mensaje claro.
+   */
+  async retry(tenantId: string, id: string) {
+    assertTenant(tenantId);
+    const capture = await this.prisma.recipeCapture.findFirst({
+      where: { id, tenantId, status: RecipeCaptureStatus.ERROR },
+    });
+    if (!capture) {
+      throw new NotFoundException(
+        "No hay ninguna captura con error que reintentar",
+      );
+    }
+    const work = workFromCapture(capture);
+    // Sin IA configurada volvería a fallar sin remedio: mejor decirlo antes.
+    await this.completion.assertConfigured(tenantId);
+    await this.failStaleCaptures(tenantId);
+
+    const processing = await this.prisma.recipeCapture.count({
+      where: { tenantId, status: RecipeCaptureStatus.PROCESANDO },
+    });
+    if (processing >= MAX_CONCURRENT_CAPTURES) {
+      throw new HttpException(
+        "Espera a que terminen las capturas en curso",
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Un reintento empieza de cero: fuera lo que quedara del intento previo.
+      await tx.recipeCaptureIngredient.deleteMany({
+        where: { captureId: id },
+      });
+      await tx.recipeCapture.update({
+        where: { id },
+        data: {
+          status: RecipeCaptureStatus.PROCESANDO,
+          errorMessage: null,
+          name: null,
+          description: null,
+          elaboration: null,
+          portions: null,
+          preparationTimeMinutes: null,
+          cookingTimeMinutes: null,
+        },
+      });
+    });
+
+    this.processInBackground(tenantId, id, work).catch((error) => {
+      this.logger.error(
+        `Fallo no controlado reintentando la captura ${id}: ${error}`,
+      );
+    });
+
+    return this.findOne(tenantId, id);
   }
 
   /**
@@ -226,6 +315,9 @@ export class RecipeCaptureService {
       sourceUrl?: string;
       sourceText?: string;
       sourceFileName?: string;
+      /** Solo ARCHIVO: el archivo original, para poder reintentar. */
+      sourceFile?: Buffer;
+      sourceFileMimeType?: string;
     },
     work: CaptureWork,
   ) {
@@ -255,7 +347,8 @@ export class RecipeCaptureService {
       );
     });
 
-    return capture;
+    const { sourceFileMimeType, ...rest } = capture;
+    return { ...rest, canRetry: canRetryCapture(capture, sourceFileMimeType) };
   }
 
   private async processInBackground(
@@ -294,6 +387,9 @@ export class RecipeCaptureService {
             portions: recipe.portions,
             preparationTimeMinutes: recipe.preparationTimeMinutes,
             cookingTimeMinutes: recipe.cookingTimeMinutes,
+            // Ya procesada: el archivo original deja de hacer falta.
+            sourceFile: null,
+            sourceFileMimeType: null,
           },
         });
         if (count === 0) {
@@ -385,4 +481,46 @@ export function assertTenant(tenantId: string | undefined): asserts tenantId {
   if (!tenantId) {
     throw new BadRequestException("Esta función requiere un cliente activo");
   }
+}
+
+/** URL y texto siempre guardan su fuente; archivo solo si conserva el archivo. */
+function canRetryCapture(
+  capture: { source: RecipeCaptureSource },
+  sourceFileMimeType: string | null,
+): boolean {
+  return capture.source !== RecipeCaptureSource.ARCHIVO || !!sourceFileMimeType;
+}
+
+/** Reconstruye la fuente original de una captura para rehacer su procesado. */
+function workFromCapture(capture: {
+  source: RecipeCaptureSource;
+  sourceUrl: string | null;
+  sourceText: string | null;
+  sourceFileName: string | null;
+  sourceFile: Uint8Array | null;
+  sourceFileMimeType: string | null;
+}): CaptureWork {
+  if (capture.source === RecipeCaptureSource.URL && capture.sourceUrl) {
+    return { source: "URL", url: capture.sourceUrl };
+  }
+  if (capture.source === RecipeCaptureSource.TEXTO && capture.sourceText) {
+    return { source: "TEXTO", text: capture.sourceText };
+  }
+  if (
+    capture.source === RecipeCaptureSource.ARCHIVO &&
+    capture.sourceFile &&
+    capture.sourceFileMimeType
+  ) {
+    return {
+      source: "ARCHIVO",
+      file: {
+        buffer: Buffer.from(capture.sourceFile),
+        filename: capture.sourceFileName ?? "receta",
+        mimetype: capture.sourceFileMimeType,
+      },
+    };
+  }
+  throw new BadRequestException(
+    "No se puede reintentar esta captura: vuelve a subir la foto o el PDF.",
+  );
 }

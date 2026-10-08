@@ -587,6 +587,10 @@ model RecipeCapture {
   sourceUrl      String? // solo source=URL
   sourceFileName String? // solo source=ARCHIVO (etiqueta en el listado)
   sourceText     String? // solo source=TEXTO: lo pegado, para no perderlo si falla
+  // solo source=ARCHIVO: el archivo, para poder reintentar si la IA falla.
+  // Se guarda hasta que la captura se procesa con éxito (entonces se vacía).
+  sourceFile         Bytes?
+  sourceFileMimeType String?
   status         RecipeCaptureStatus @default(PROCESANDO)
   errorMessage   String?
   createdBy      String?

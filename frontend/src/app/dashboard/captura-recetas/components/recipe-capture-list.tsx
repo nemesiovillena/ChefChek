@@ -1,9 +1,9 @@
 'use client';
 
-import { FileClock, FileText, FileUp, Link2, Loader2, Trash2 } from 'lucide-react';
+import { FileClock, FileText, FileUp, Link2, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
-import { useDiscardRecipeCapture, useRecipeCaptures } from '@/hooks/use-recipe-captures';
+import { useDiscardRecipeCapture, useRecipeCaptures, useRetryRecipeCapture } from '@/hooks/use-recipe-captures';
 import type { RecipeCaptureListItem } from '@/lib/recipe-capture-types';
 
 const SOURCE_ICON = { URL: Link2, TEXTO: FileText, ARCHIVO: FileUp } as const;
@@ -41,8 +41,26 @@ function captureTitle(capture: RecipeCaptureListItem): string {
 export function RecipeCaptureList({ onOpen }: { onOpen: (id: string) => void }) {
   const { data: captures, isLoading, error } = useRecipeCaptures();
   const discardMut = useDiscardRecipeCapture();
+  const retryMut = useRetryRecipeCapture();
   const confirm = useConfirm();
   const addNotification = useNotification();
+
+  const handleRetry = async (capture: RecipeCaptureListItem) => {
+    try {
+      await retryMut.mutateAsync(capture.id);
+      addNotification({
+        type: 'success',
+        title: 'Reintentando',
+        message: 'La IA está leyendo la receta otra vez. Aparecerá abajo en unos segundos.',
+      });
+    } catch (e) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo reintentar',
+        message: e instanceof Error ? e.message : 'Error desconocido',
+      });
+    }
+  };
 
   const handleDiscard = async (capture: RecipeCaptureListItem) => {
     const ok = await confirm({
@@ -127,6 +145,22 @@ export function RecipeCaptureList({ onOpen }: { onOpen: (id: string) => void }) 
                   {chip.label}
                 </span>
               </button>
+              {capture.status === 'ERROR' && capture.canRetry && (
+                <button
+                  type="button"
+                  onClick={() => handleRetry(capture)}
+                  disabled={retryMut.isPending}
+                  aria-label={`Reintentar ${captureTitle(capture)}`}
+                  title="Reintentar"
+                  className="rounded-lg p-2 text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] disabled:opacity-50"
+                >
+                  {retryMut.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                </button>
+              )}
               {capture.status !== 'PASANDO' && (
                 <button
                   type="button"

@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Copy, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Copy, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import {
   usePromoteRecipeCapture,
   useRecipeCapture,
+  useRetryRecipeCapture,
   useUpdateCaptureIngredient,
 } from '@/hooks/use-recipe-captures';
 import { parseSteps } from '@/app/dashboard/recipes/components/elaboration-step-editor';
@@ -24,6 +25,7 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
   const { data: capture, isLoading, error } = useRecipeCapture(captureId);
   const updateIngredient = useUpdateCaptureIngredient();
   const promote = usePromoteRecipeCapture();
+  const retry = useRetryRecipeCapture();
   const addNotification = useNotification();
   const { canSee } = useSectionAccess();
   // Pasar una captura crea una receta: mismo permiso que crearla a mano.
@@ -99,6 +101,23 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
     }
   };
 
+  const handleRetry = async () => {
+    try {
+      await retry.mutateAsync(captureId);
+      addNotification({
+        type: 'success',
+        title: 'Reintentando',
+        message: 'La IA está leyendo la receta otra vez.',
+      });
+    } catch (e) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo reintentar',
+        message: e instanceof Error ? e.message : 'Error desconocido',
+      });
+    }
+  };
+
   const editable = capture.status === 'PENDIENTE';
   const steps = parseSteps(capture.elaboration).filter((step) => step.description.trim());
   const lines = capture.ingredients.filter(willBeRecipeLine).length;
@@ -135,7 +154,19 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
       {capture.status === 'ERROR' && (
         <div className="space-y-3 rounded-xl bg-[var(--error-container)] p-4 text-sm text-[var(--on-error-container)]">
           <p>{capture.errorMessage ?? 'No se pudo procesar la receta.'}</p>
-          <p>Vuelve a la lista y captúrala de nuevo.</p>
+          {capture.canRetry ? (
+            <button
+              type="button"
+              onClick={handleRetry}
+              disabled={retry.isPending}
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 font-medium underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              {retry.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              {retry.isPending ? 'Reintentando...' : 'Reintentar'}
+            </button>
+          ) : (
+            <p>Vuelve a la lista y captúrala de nuevo.</p>
+          )}
         </div>
       )}
 
