@@ -8,6 +8,7 @@ import { ToolRegistryService } from "./tools/tool-registry.service";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
 import { GeminiProviderAdapter } from "./providers/gemini-provider.adapter";
 import { AnthropicProviderAdapter } from "./providers/anthropic-provider.adapter";
+import { OpenCodeProviderAdapter } from "./providers/opencode-provider.adapter";
 
 function makePrismaMock() {
   const conversations = new Map<string, any>();
@@ -122,6 +123,7 @@ describe("AiAssistantService", () => {
         { provide: OpenAiProviderAdapter, useValue: openaiMock },
         { provide: GeminiProviderAdapter, useValue: {} },
         { provide: AnthropicProviderAdapter, useValue: {} },
+        { provide: OpenCodeProviderAdapter, useValue: {} },
         {
           provide: RoleAccessService,
           useValue: (roleAccessMock = {

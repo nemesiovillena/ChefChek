@@ -16,6 +16,7 @@ describe("AssistantCompletionService", () => {
   const openai = { chat: jest.fn() };
   const gemini = { chat: jest.fn() };
   const anthropic = { chat: jest.fn() };
+  const opencode = { chat: jest.fn() };
   let service: AssistantCompletionService;
 
   beforeEach(() => {
@@ -25,6 +26,7 @@ describe("AssistantCompletionService", () => {
       openai as any,
       gemini as any,
       anthropic as any,
+      opencode as any,
     );
     jest.spyOn((service as any).logger, "error").mockImplementation(() => {});
   });
@@ -47,6 +49,28 @@ describe("AssistantCompletionService", () => {
       maxOutputTokens: 4096,
     });
     expect(openai.chat).not.toHaveBeenCalled();
+  });
+
+  it("enruta al adaptador de OpenCode Zen cuando el proveedor configurado es opencode", async () => {
+    config.resolveForRequest.mockResolvedValue({
+      provider: "opencode",
+      model: "deepseek-v4-flash",
+      apiKey: "sk-oc",
+    });
+    opencode.chat.mockResolvedValue({ content: "ok" });
+
+    const result = await service.complete("t1", [
+      { role: "user", content: "hola" },
+    ]);
+
+    expect(result).toEqual({ content: "ok" });
+    expect(opencode.chat).toHaveBeenCalledWith(
+      "sk-oc",
+      "deepseek-v4-flash",
+      [{ role: "user", content: "hola" }],
+      [],
+      undefined,
+    );
   });
 
   it("assertConfigured lanza 400 accionable si la config está incompleta", async () => {

@@ -4,6 +4,7 @@ export const AI_ASSISTANT_PROVIDERS = [
   "openai",
   "gemini",
   "anthropic",
+  "opencode",
 ] as const;
 export type AiAssistantProvider = (typeof AI_ASSISTANT_PROVIDERS)[number];
 

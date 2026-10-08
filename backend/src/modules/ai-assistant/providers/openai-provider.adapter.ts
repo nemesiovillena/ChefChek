@@ -10,9 +10,18 @@ import { postJsonWithRetry, toPostJsonOptions } from "./provider-http.util";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-/** Adaptador para la Chat Completions API de OpenAI (tool calling). */
+/**
+ * Adaptador para la Chat Completions API de OpenAI (tool calling). Sirve también
+ * de base para cualquier gateway OpenAI-compatible (p. ej. OpenCode Zen): las
+ * subclases solo sobrescriben `url` y `providerLabel`.
+ */
 @Injectable()
 export class OpenAiProviderAdapter implements ProviderAdapter {
+  /** Endpoint de chat compatible OpenAI. */
+  protected readonly url: string = OPENAI_URL;
+  /** Nombre legible del proveedor para los mensajes de error. */
+  protected readonly providerLabel: string = "OpenAI";
+
   async chat(
     apiKey: string,
     model: string,
@@ -45,8 +54,8 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
     };
 
     const data: any = await postJsonWithRetry(
-      "OpenAI",
-      OPENAI_URL,
+      this.providerLabel,
+      this.url,
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -58,7 +67,9 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
     );
     const message = data.choices?.[0]?.message;
     if (!message) {
-      throw new BadGatewayException("Respuesta de OpenAI sin contenido");
+      throw new BadGatewayException(
+        `Respuesta de ${this.providerLabel} sin contenido`,
+      );
     }
 
     const toolCalls = (message.tool_calls ?? []).map((tc: any) => ({
