@@ -7,6 +7,7 @@ import { ToolRegistryService } from "./tools/tool-registry.service";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
 import { GeminiProviderAdapter } from "./providers/gemini-provider.adapter";
 import { AnthropicProviderAdapter } from "./providers/anthropic-provider.adapter";
+import { OpenCodeProviderAdapter } from "./providers/opencode-provider.adapter";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { ComprasModule } from "../compras/compras.module";
@@ -38,6 +39,7 @@ import { AlbaranesModule } from "../albaranes/albaranes.module";
     OpenAiProviderAdapter,
     GeminiProviderAdapter,
     AnthropicProviderAdapter,
+    OpenCodeProviderAdapter,
   ],
   exports: [AiAssistantService, AssistantCompletionService],
 })

@@ -184,7 +184,12 @@ export default function SettingsPage() {
     const key = apiKeys[providerId];
     if (!key) return null;
     const provider = AI_PROVIDERS.find(p => p.id === providerId);
-    return provider ? provider.keyPrefixes.some(prefix => key.startsWith(prefix)) : true;
+    if (!provider) return true;
+    // keyPrefixes vacío = proveedor sin prefijo documentado (p. ej. OpenCode Zen).
+    return (
+      provider.keyPrefixes.length === 0 ||
+      provider.keyPrefixes.some(prefix => key.startsWith(prefix))
+    );
   };
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {

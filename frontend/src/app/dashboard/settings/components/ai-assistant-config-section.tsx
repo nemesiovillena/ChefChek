@@ -19,6 +19,7 @@ const PROVIDER_LABELS: Record<AiAssistantProvider, string> = {
   openai: 'OpenAI',
   gemini: 'Gemini',
   anthropic: 'Anthropic',
+  opencode: 'OpenCode Zen',
 };
 
 /** Proveedor del almacén «Claves API» que corresponde a cada proveedor del asistente. */
@@ -37,7 +38,7 @@ interface AssistantModelOption {
 /** Catálogo de modelos del asistente — mismo patrón que OCR_MODELS del motor de
  *  extracción: se muestran TODOS en la rejilla y bajo ella un aviso de si el
  *  proveedor tiene API key. Solo proveedores con adapter en backend
- *  (openai/gemini/anthropic); el id se envía tal cual al proveedor. */
+ *  (openai/gemini/anthropic/opencode); el id se envía tal cual al proveedor. */
 const AI_ASSISTANT_MODELS: AssistantModelOption[] = [
   // OpenAI
   { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas' },
@@ -52,6 +53,17 @@ const AI_ASSISTANT_MODELS: AssistantModelOption[] = [
   // Anthropic
   { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio' },
   { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas' },
+  // OpenCode Zen (https://opencode.ai/zen): gateway OpenAI-compatible; una sola
+  // API key da acceso a todos estos modelos. Subconjunto curado de los modelos
+  // servidos por /chat/completions (precio por 1M tokens: entrada/salida).
+  { id: 'deepseek-v4-flash', provider: 'opencode', name: 'DeepSeek V4 Flash', cost: '~0,001 €', desc: 'El más barato y rápido de Zen' },
+  { id: 'deepseek-v4-flash-vision-exp', provider: 'opencode', name: 'DeepSeek V4 Flash Visión', cost: '~0,001 €', desc: 'Barato y además lee imágenes/PDF' },
+  { id: 'glm-5.3-flash', provider: 'opencode', name: 'GLM 5.3 Flash', cost: '~0,001 €', desc: 'Rápido y muy económico' },
+  { id: 'minimax-m2.7', provider: 'opencode', name: 'MiniMax M2.7', cost: '~0,002 €', desc: 'Buen equilibrio calidad/precio' },
+  { id: 'mistral-large-4', provider: 'opencode', name: 'Mistral Large 4', cost: '~0,003 €', desc: 'Europeo (RGPD) y buena calidad' },
+  { id: 'kimi-k2.6', provider: 'opencode', name: 'Kimi K2.6', cost: '~0,005 €', desc: 'Sólido en preguntas complejas' },
+  { id: 'glm-5.2', provider: 'opencode', name: 'GLM 5.2', cost: '~0,006 €', desc: 'Más preciso, coste medio' },
+  { id: 'qwen3.8-max', provider: 'opencode', name: 'Qwen3.8 Max', cost: '~0,008 €', desc: 'El más potente de Zen (y el más caro)' },
 ];
 
 /** Último recurso del prefill cuando no hay nada configurado. */
