@@ -3326,7 +3326,7 @@ const deleteUser = async (userId) => {
 
 ### Captura de recetas (`/api/v1/recipe-captures`)
 
-Requiere el módulo `captura-recetas` activo y la sección `captura-recetas`. Roles: `ADMIN`, `OWNER`, `USER` (un `SUPERADMIN` no tiene tenant y recibe 400). Las altas necesitan la IA configurada en Configuración → Asistente IA (proveedor, modelo y API key); si falta responden 400 sin crear nada.
+Requiere el módulo `captura-recetas` activo y la sección `captura-recetas`. Roles: `ADMIN`, `OWNER`, `USER` (un `SUPERADMIN` no tiene tenant y recibe 400). Las altas usan el modelo de IA configurado en Configuración → Captura de recetas (`/api/v1/recipe-capture-config`; solo modelos con visión, porque puede leer fotos/PDF) y, si no hay ninguno, caen al del Asistente IA. Sin ninguna IA configurada responden 400 sin crear nada.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
@@ -3343,6 +3343,8 @@ Las altas devuelven al instante con `status: "PROCESANDO"`; la descarga y la lla
 `POST /:id/promote` responde `{ "recipeId", "lines", "toNotes" }`. Repetir la llamada devuelve la misma receta; mientras otra petición la está pasando responde 409. La receta se crea inactiva si `toNotes > 0`.
 
 Las recetas (`/api/v1/recipes`) aceptan y devuelven dos campos opcionales nuevos: `notes` (máx. 5000 caracteres) y `sourceUrl` (solo http/https). En un `PATCH` sin `notes` se conservan; `null` las borra.
+
+Configuración del modelo IA de la captura (`/api/v1/recipe-capture-config`): `GET` la lee cualquier usuario del tenant; `PUT` la editan `ADMIN`/`OWNER`/`SUPERADMIN`. Cuerpo `PUT`: `{ "provider": "openai" | "gemini" | "anthropic" | "opencode", "model": "...", "apiKey": "..." }`; los tres campos son opcionales (omitir `apiKey` conserva la guardada, cifrada). Se guarda por tenant y es independiente de la del Asistente IA; si no hay ninguna, la captura usa la del asistente.
 
 ---
 

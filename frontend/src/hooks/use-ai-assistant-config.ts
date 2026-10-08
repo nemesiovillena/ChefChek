@@ -1,4 +1,5 @@
 import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
+import type { AiAssistantProvider } from '@/lib/ai-models';
 
 /**
  * Configuración del proveedor IA del asistente "Chefchek", guardada por
@@ -6,7 +7,7 @@ import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
  * propia, independiente de use-ocr-config (dominio distinto: chat de
  * negocio vs. extracción de albaranes).
  */
-export type AiAssistantProvider = 'openai' | 'gemini' | 'anthropic' | 'opencode';
+export type { AiAssistantProvider };
 
 export interface AiAssistantConfig {
   provider: AiAssistantProvider | null;

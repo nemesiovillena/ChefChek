@@ -14,8 +14,10 @@ import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-co
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
 import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { useAiAssistantConfig } from '@/hooks/use-ai-assistant-config';
+import { useRecipeCaptureConfig } from '@/hooks/use-recipe-capture-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
+import { RecipeCaptureConfigSection } from './components/recipe-capture-config-section';
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
 import { ConservationDefaultsSection } from './components/conservation-defaults-section';
 import { SictedConfigSection } from './components/sicted-config-section';
@@ -104,6 +106,8 @@ export default function SettingsPage() {
 
   // Asistente IA: para saber si su proveedor tiene key guardada en el servidor.
   const { data: assistantConfig } = useAiAssistantConfig();
+  // Captura de recetas: su modelo tiene config (y key) propia por tenant.
+  const { data: recipeCaptureConfig } = useRecipeCaptureConfig();
   // Providers con key guardada en el servidor (cifrada, compartida entre
   // dispositivos): el motor OCR activo y el proveedor del asistente. Solo
   // esos dos persisten clave en servidor; el resto viven en este navegador.
@@ -114,6 +118,9 @@ export default function SettingsPage() {
   }
   if (assistantConfig?.hasApiKey && assistantConfig.provider) {
     serverKeyProviderIds.add(ASSISTANT_KEY_STORE_PROVIDER[assistantConfig.provider]);
+  }
+  if (recipeCaptureConfig?.hasApiKey && recipeCaptureConfig.provider) {
+    serverKeyProviderIds.add(ASSISTANT_KEY_STORE_PROVIDER[recipeCaptureConfig.provider]);
   }
 
   // Handle authentication redirect in useEffect, not in render
@@ -446,6 +453,11 @@ export default function SettingsPage() {
         {/* Asistente IA "Chefchek" */}
         <div id="asistente" className="scroll-mt-40 mb-6">
           <AiAssistantConfigSection />
+        </div>
+
+        {/* Modelo IA de la Captura de recetas (solo modelos con visión) */}
+        <div id="captura-recetas-ia" className="scroll-mt-40 mb-6">
+          <RecipeCaptureConfigSection />
         </div>
 
         {/* Texto fijo del pedido al proveedor */}
