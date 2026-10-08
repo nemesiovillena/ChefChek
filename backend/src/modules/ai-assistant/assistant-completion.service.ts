@@ -4,6 +4,7 @@ import { AiAssistantProvider } from "./config/dto/ai-assistant-config.dto";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
 import { GeminiProviderAdapter } from "./providers/gemini-provider.adapter";
 import { AnthropicProviderAdapter } from "./providers/anthropic-provider.adapter";
+import { OpenCodeProviderAdapter } from "./providers/opencode-provider.adapter";
 import {
   ChatMessage,
   ChatOptions,
@@ -33,8 +34,9 @@ export class AssistantCompletionService {
     openai: OpenAiProviderAdapter,
     gemini: GeminiProviderAdapter,
     anthropic: AnthropicProviderAdapter,
+    opencode: OpenCodeProviderAdapter,
   ) {
-    this.adapters = { openai, gemini, anthropic };
+    this.adapters = { openai, gemini, anthropic, opencode };
   }
 
   /** Lanza 400 con un mensaje accionable si falta proveedor, modelo o clave. */

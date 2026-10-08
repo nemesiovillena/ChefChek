@@ -6,7 +6,7 @@ import { useApiQuery, useApiMutation, useInvalidateQueries } from './use-api';
  * propia, independiente de use-ocr-config (dominio distinto: chat de
  * negocio vs. extracción de albaranes).
  */
-export type AiAssistantProvider = 'openai' | 'gemini' | 'anthropic';
+export type AiAssistantProvider = 'openai' | 'gemini' | 'anthropic' | 'opencode';
 
 export interface AiAssistantConfig {
   provider: AiAssistantProvider | null;

@@ -78,8 +78,8 @@ ChefChek es una plataforma SaaS Multi-tenant modular diseñada para cocinas prof
 - **Roadmap Tracker**: Sistema de seguimiento de desarrollo
 
 ### Asistente IA (Chefchek)
-- **Tool-calling seguro**: el LLM (OpenAI/Gemini/Anthropic, proveedor por tenant) nunca genera SQL — elige entre un registro de funciones fijas (`ToolRegistryService`) que envuelven/extienden servicios existentes de compras, recetas y almacenes; `tenantId` siempre lo inyecta el orquestador desde la sesión, nunca el LLM
-- **Adaptadores finos por proveedor**: `fetch` nativo normalizado a una interfaz común (`ProviderAdapter`), sin SDKs por proveedor
+- **Tool-calling seguro**: el LLM (OpenAI/Gemini/Anthropic/OpenCode Zen, proveedor por tenant) nunca genera SQL — elige entre un registro de funciones fijas (`ToolRegistryService`) que envuelven/extienden servicios existentes de compras, recetas y almacenes; `tenantId` siempre lo inyecta el orquestador desde la sesión, nunca el LLM
+- **Adaptadores finos por proveedor**: `fetch` nativo normalizado a una interfaz común (`ProviderAdapter`), sin SDKs por proveedor. OpenCode Zen es un gateway OpenAI-compatible (`https://opencode.ai/zen/v1`), así que su adaptador extiende el de OpenAI cambiando solo URL y etiqueta
 - **Config por tenant**: proveedor/modelo/API key cifrada en `Configuration` (categoría `ASSISTANT`, salt propio, independiente de `ocr-config`)
 - **UI**: widget flotante global + página `/dashboard/asistente`, historial persistido en `AssistantConversation`/`AssistantMessage`
 

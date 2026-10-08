@@ -1,19 +1,19 @@
 # Release de captura de recetas fusionado (PR #300) y verificaciones de cierre
 
 **Fecha**: 2026-10-08 19:20
-**Severity**: Baja (sin incidencias; el release solo corta tag, no despliega todavía)
-**Componente**: `main`, workflow `Release` (`.github/workflows/deploy.yml`), módulo `backend/src/modules/recipe-capture/` y `frontend/src/app/dashboard/captura-recetas/`
-**Estado**: PR #300 fusionado, release `v20261008-c3add7e` publicado; despliegue real a producción (Dokploy) sigue diferido por diseño
+**Severity**: Baja (sin incidencias en el código; dos correcciones de documentación)
+**Componente**: `main`, Dokploy (producción `app.chefchek.com` / `api.chefchek.com`), módulo `backend/src/modules/recipe-capture/` y `frontend/src/app/dashboard/captura-recetas/`
+**Estado**: PR #300 (módulo) y #303 (arreglo de cuota + diario) en `main`; releases `v20261008-c3add7e` y `v20261008-6c8f897`; producción desplegada por el auto-deploy de Dokploy
 
 ## Qué pasó
 
-Se retomó la sesión donde quedó: el módulo `captura-recetas` ya estaba en `develop` (PR #290, merge `42854cd`) y solo faltaba decidir el release `develop → main` (PR #300). Se fusionó con merge commit (método del repo para releases), quedando `main` en `c3add7e`, y el workflow `Release` generó el tag `v20261008-c3add7e`. Las cuatro comprobaciones (Lint/Build/Unit, E2E, E2E Smoke, Lint & Build) pasaron antes de fusionar.
+Se retomó la sesión donde quedó: el módulo `captura-recetas` ya estaba en `develop` (PR #290, merge `42854cd`) y solo faltaba decidir el release `develop → main` (PR #300). Se fusionó con merge commit (método del repo para releases), quedando `main` en `c3add7e`, y el workflow `Release` generó el tag `v20261008-c3add7e`. Las cuatro comprobaciones (Lint/Build/Unit, E2E, E2E Smoke, Lint & Build) pasaron antes de fusionar. El push a `main` disparó el auto-deploy de Dokploy a producción (`app.chefchek.com` / `api.chefchek.com`).
 
 ## La verdad brutal
 
-**"Fusionar #300 despliega a producción" era falso.** El workflow `deploy.yml` se llama `Release` y su único job, `Create release tag`, corta un tag con `softprops/action-gh-release`. El comentario del propio archivo lo dice: el despliegue a Dokploy (VPS, Docker Compose) está diferido hasta que el proyecto avance; cuando se active hay que añadir un job `deploy`. Es decir, el merge deja el código en `main` y tagueado, pero **no publica nada**. Conviene corregir esa expectativa en las notas del release.
+**Corrección (2026-10-08 19:45): sí despliega a producción.** Escribí aquí que fusionar #300 no publicaba nada, basándome en el comentario de `.github/workflows/deploy.yml` (dice que el despliegue a Dokploy está diferido). Ese comentario está **desactualizado**: Dokploy lleva activo desde 2026-07-19 (proyecto "ChefChek" en VPS Hostinger) con **auto-deploy en push a `main`** y `watchPaths` por servicio; el workflow `deploy.yml` solo corta el tag/release. Comprobado en vivo: `api.chefchek.com/api/v1/recipe-captures` → **401** (el endpoint existe; un 404 significaría que no está desplegado) y `app.chefchek.com/dashboard/captura-recetas` → **200** (una ruta inexistente daría 404). Detalle en `docs/deployment.md` y `docs/DEPLOYMENTSTRATEGY.md`. Lección: no fiarse de un comentario de workflow; la fuente de verdad es la documentación de despliegue.
 
-**El diario de cierre del módulo nunca llegó a `develop`.** El commit `3f0e7cf docs(captura-recetas): diario de cierre del módulo` está solo en `feat/captura-recetas` (y su remoto), no en `develop` ni `main`; `git branch --contains` lo confirma. El código del módulo sí está en ambos por el PR #290. Queda como cabo suelto: si se quiere el diario junto al código, hay que llevarlo a `develop`.
+**Otra corrección: el diario del módulo sí está en `develop`.** El archivo `261007-captura-recetas-modulo-completo-pr-290.md` entró en `develop` con el propio PR #290 (`42854cd`), y su contenido es idéntico al de `feat/captura-recetas`. Lo que está solo en `feat/captura-recetas` es el *commit* `3f0e7cf` (misma copia), no el archivo. La comprobación correcta es `git cat-file -e origin/develop:<ruta>`, no `git branch --contains`.
 
 ## Verificaciones de cierre
 
@@ -40,5 +40,5 @@ Se retomó la sesión donde quedó: el módulo `captura-recetas` ya estaba en `d
 
 Al probar Anthropic apareció `400 invalid_request_error: Your credit balance is too low`, y la app lo mostraba como *"He tenido un problema para conectar con el proveedor de IA. Revisa la configuración en Ajustes → Asistente IA (modelo/API key)"*. El usuario habría cambiado de modelo o de clave sin motivo: el problema es de saldo/facturación. La causa era que `toUserFacingProviderError` solo reconocía la cuota en respuestas **429**, y Anthropic la señala con **400**.
 
-Arreglado en `provider-error-message.util.ts`: la detección de cuota ahora cubre 400/402/403/429 junto con el motivo (`quota`, `billing`, `credit balance`, `insufficient_quota`), sin tocar el caso 401 (clave inválida), que sigue siendo un problema de configuración. Dos casos nuevos en `assistant-completion.service.spec.ts` (400 de Anthropic con saldo agotado → mensaje de cuota; 400 de validación → mensaje genérico). 10/10 y 237/237 en verde. PR abierto contra `develop`: **#301**.
+Arreglado en `provider-error-message.util.ts`: la detección de cuota ahora cubre 400/402/403/429 junto con el motivo (`quota`, `billing`, `credit balance`, `insufficient_quota`), sin tocar el caso 401 (clave inválida), que sigue siendo un problema de configuración. Dos casos nuevos en `assistant-completion.service.spec.ts` (400 de Anthropic con saldo agotado → mensaje de cuota; 400 de validación → mensaje genérico). 10/10 y 237/237 en verde. PR **#301** fusionado en `develop` y publicado en `main` con el release **#303** (`v20261008-6c8f897`).
 
