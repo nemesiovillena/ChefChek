@@ -154,7 +154,7 @@ describe("E2E - Captura de recetas", () => {
         .send({ source: "URL", url: "https://recetas.example.com/tarta" })
         .expect(400);
 
-      expect(res.body.message).toContain("Configura el proveedor de IA");
+      expect(res.body.message).toContain("Configura el modelo de IA");
       expect(
         await prisma.recipeCapture.count({ where: { tenantId: tenantAId } }),
       ).toBe(0);
@@ -373,6 +373,54 @@ describe("E2E - Captura de recetas", () => {
         expect(read.body.data.sourceUrl).toBe(
           "https://recetas.example.com/bizcocho",
         );
+      });
+    });
+
+    describe("configuración del modelo IA", () => {
+      const configUrl = "/api/v1/recipe-capture-config";
+
+      it("guarda la config y no expone nunca la API key", async () => {
+        const put = await request(app.getHttpServer())
+          .put(configUrl)
+          .set(as(sessionA, tenantA.slug))
+          .send({ provider: "openai", model: "gpt-4o", apiKey: "sk-secreta" })
+          .expect(200);
+
+        expect(put.body.data).toMatchObject({
+          provider: "openai",
+          model: "gpt-4o",
+          hasApiKey: true,
+          isReady: true,
+        });
+        expect(JSON.stringify(put.body)).not.toContain("sk-secreta");
+
+        const get = await request(app.getHttpServer())
+          .get(configUrl)
+          .set(as(sessionA, tenantA.slug))
+          .expect(200);
+
+        expect(get.body.data).toMatchObject({
+          provider: "openai",
+          model: "gpt-4o",
+          hasApiKey: true,
+          isReady: true,
+        });
+        expect(get.body.data.apiKey).toBeUndefined();
+        expect(JSON.stringify(get.body)).not.toContain("sk-secreta");
+      });
+
+      it("aísla la config entre tenants", async () => {
+        const res = await request(app.getHttpServer())
+          .get(configUrl)
+          .set(as(sessionB, tenantB.slug))
+          .expect(200);
+
+        expect(res.body.data).toEqual({
+          provider: null,
+          model: null,
+          hasApiKey: false,
+          isReady: false,
+        });
       });
     });
   });

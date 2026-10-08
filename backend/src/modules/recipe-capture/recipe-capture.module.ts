@@ -2,6 +2,9 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { AiAssistantModule } from "../ai-assistant/ai-assistant.module";
+import { AiAssistantConfigModule } from "../ai-assistant/config/ai-assistant-config.module";
+import { RecipeCaptureConfigModule } from "./config/recipe-capture-config.module";
+import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
 import { ProductsModule } from "../products/products.module";
 import { CaptureIngredientMatcher } from "./capture-ingredient-matcher";
 import { RecipesModule } from "../recipes/recipes.module";
@@ -19,6 +22,8 @@ import { RecipeStructuringService } from "./recipe-structuring.service";
     PrismaModule,
     AuthModule,
     AiAssistantModule,
+    AiAssistantConfigModule,
+    RecipeCaptureConfigModule,
     ProductsModule,
     RecipesModule,
   ],
@@ -27,6 +32,7 @@ import { RecipeStructuringService } from "./recipe-structuring.service";
     RecipeCaptureService,
     RecipeCapturePromotionService,
     RecipeStructuringService,
+    RecipeCaptureCompletionService,
     CaptureIngredientMatcher,
   ],
 })

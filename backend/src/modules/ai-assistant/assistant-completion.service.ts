@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { AiAssistantConfigService } from "./config/ai-assistant-config.service";
-import { AiAssistantProvider } from "./config/dto/ai-assistant-config.dto";
+import {
+  AiAssistantConfigResolved,
+  AiAssistantProvider,
+} from "./config/dto/ai-assistant-config.dto";
 import { OpenAiProviderAdapter } from "./providers/openai-provider.adapter";
 import { GeminiProviderAdapter } from "./providers/gemini-provider.adapter";
 import { AnthropicProviderAdapter } from "./providers/anthropic-provider.adapter";
@@ -56,6 +59,19 @@ export class AssistantCompletionService {
     if (!config) {
       throw new AssistantCompletionError(AI_NOT_CONFIGURED_MESSAGE);
     }
+    return this.completeWith(config, messages, options);
+  }
+
+  /**
+   * Igual que `complete` pero con una config ya resuelta. Lo usan los módulos
+   * que tienen su propia config de IA (p. ej. captura de recetas) y solo caen a
+   * la del asistente como respaldo.
+   */
+  async completeWith(
+    config: AiAssistantConfigResolved,
+    messages: ChatMessage[],
+    options?: ChatOptions,
+  ): Promise<ProviderChatResult> {
     try {
       return await this.adapters[config.provider].chat(
         config.apiKey,

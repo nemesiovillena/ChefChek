@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { AssistantCompletionService } from "../ai-assistant/assistant-completion.service";
 import {
   ChatAttachment,
   ChatMessage,
 } from "../ai-assistant/providers/provider-adapter.interface";
+import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
 
 /** Unidades que admite una captura; al pasar a Recetas `ud` se guarda como `units`. */
 export const CAPTURE_UNITS = ["g", "kg", "ml", "l", "ud"] as const;
@@ -85,7 +85,7 @@ Reglas:
 /** Pide a la IA del tenant la receta normalizada y valida lo que devuelve. */
 @Injectable()
 export class RecipeStructuringService {
-  constructor(private readonly completion: AssistantCompletionService) {}
+  constructor(private readonly completion: RecipeCaptureCompletionService) {}
 
   async structure(
     tenantId: string,
