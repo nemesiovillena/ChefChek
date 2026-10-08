@@ -234,6 +234,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: false,
   },
+  {
+    id: "captura-recetas",
+    name: "Captura de recetas",
+    description:
+      "Importa recetas desde una web, texto o foto con IA y las deja en revisión antes de pasarlas a Recetas",
+    dependencies: ["recipes"],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
 ];
 
 /**

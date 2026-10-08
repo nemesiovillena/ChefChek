@@ -91,6 +91,8 @@ export interface RecipeResponse {
   description?: string;
   elaboration: string;
   imageUrl?: string | null;
+  notes?: string | null;
+  sourceUrl?: string | null;
   portions: number;
   portionSize: number;
   totalYieldWeight?: number | null;

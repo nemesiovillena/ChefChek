@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common";
 import {
   ChatMessage,
+  ChatOptions,
   ProviderAdapter,
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
-import { postJsonWithRetry } from "./provider-http.util";
+import { postJsonWithRetry, toPostJsonOptions } from "./provider-http.util";
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -21,6 +22,7 @@ export class GeminiProviderAdapter implements ProviderAdapter {
     model: string,
     messages: ChatMessage[],
     tools: ToolSchema[],
+    options?: ChatOptions,
   ): Promise<ProviderChatResult> {
     const systemMessages = messages.filter((m) => m.role === "system");
     const systemInstruction = systemMessages.length
@@ -28,9 +30,17 @@ export class GeminiProviderAdapter implements ProviderAdapter {
       : undefined;
     const conversation = messages.filter((m) => m.role !== "system");
 
+    const generationConfig = {
+      ...(options?.maxOutputTokens
+        ? { maxOutputTokens: options.maxOutputTokens }
+        : {}),
+      ...(options?.jsonMode ? { responseMimeType: "application/json" } : {}),
+    };
+
     const body = {
       contents: this.buildContents(conversation),
       ...(systemInstruction ? { systemInstruction } : {}),
+      ...(Object.keys(generationConfig).length ? { generationConfig } : {}),
       ...(tools.length
         ? {
             tools: [
@@ -47,10 +57,15 @@ export class GeminiProviderAdapter implements ProviderAdapter {
     };
 
     const url = `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    const data: any = await postJsonWithRetry("Gemini", url, {
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const data: any = await postJsonWithRetry(
+      "Gemini",
+      url,
+      {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      toPostJsonOptions(options),
+    );
     const parts: any[] = data.candidates?.[0]?.content?.parts ?? [];
 
     const textParts = parts.filter((p) => p.text).map((p) => p.text);
@@ -68,6 +83,9 @@ export class GeminiProviderAdapter implements ProviderAdapter {
             thoughtSignature: p.thoughtSignature,
           }))
         : undefined,
+      ...(data.candidates?.[0]?.finishReason === "MAX_TOKENS"
+        ? { truncated: true }
+        : {}),
     };
   }
 
@@ -118,7 +136,14 @@ export class GeminiProviderAdapter implements ProviderAdapter {
     }
     return {
       role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
+      parts: [
+        ...(m.role === "user" && m.attachments?.length
+          ? m.attachments.map((a) => ({
+              inlineData: { mimeType: a.mimeType, data: a.dataBase64 },
+            }))
+          : []),
+        { text: m.content },
+      ],
     };
   }
 }

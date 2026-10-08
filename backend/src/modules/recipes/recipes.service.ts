@@ -33,6 +33,9 @@ function deriveSellingPriceFromVat(
   return Math.round((sellingPriceWithVat / (1 + RECIPE_VAT_RATE)) * 100) / 100;
 }
 
+/** Roles que ven también las recetas desactivadas en el listado. */
+const INACTIVE_RECIPE_VIEWER_ROLES = ["ADMIN", "OWNER"];
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -138,12 +141,18 @@ export class RecipesService {
   async create(
     tenantId: string,
     createRecipeDto: CreateRecipeDto,
+    // `id` permite reservar el identificador antes de crear, para que quien
+    // llama pueda comprobar después si la receta llegó a existir.
+    opts: { id?: string } = {},
   ): Promise<RecipeResponse> {
     const {
       name,
       description,
       elaboration,
       imageUrl,
+      notes = null,
+      sourceUrl = null,
+      isActive = true,
       portions = 1,
       portionSize = 1,
       totalYieldWeight,
@@ -190,6 +199,7 @@ export class RecipesService {
     // Crear receta
     const recipe = await this.prisma.recipe.create({
       data: {
+        ...(opts.id ? { id: opts.id } : {}),
         tenantId,
         name,
         description,
@@ -198,6 +208,9 @@ export class RecipesService {
             ? JSON.stringify(parsedElaboration)
             : null,
         imageUrl,
+        notes,
+        sourceUrl,
+        isActive,
         portions: yield_.portions,
         portionSize: yield_.portionSize,
         totalYieldWeight: yield_.totalYieldWeight,
@@ -270,11 +283,15 @@ export class RecipesService {
 
     const where: any = {
       tenantId,
-      // Recetas desactivadas (toggle isActive): solo el ADMIN las ve en el
-      // listado. Para USER/VIEWER no existen — su reactivación queda en manos
-      // del administrador. El ADMIN no se filtra porque si no, al desactivar
-      // una receta desaparecería de su lista y no podría reactivarla.
-      ...(role !== "ADMIN" && { isActive: true }),
+      // Recetas desactivadas (toggle isActive): solo ADMIN y OWNER las ven en
+      // el listado. Para USER/VIEWER no existen — su reactivación queda en
+      // manos de quien administra. A ellos no se les filtra porque si no, al
+      // desactivar una receta (o al pasar una captura con ingredientes
+      // pendientes, que nace inactiva) desaparecería de su lista y no podrían
+      // reactivarla.
+      ...(!INACTIVE_RECIPE_VIEWER_ROLES.includes(role ?? "") && {
+        isActive: true,
+      }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
@@ -451,6 +468,10 @@ export class RecipesService {
       description = recipe.description,
       elaboration = recipe.elaboration,
       imageUrl = recipe.imageUrl,
+      // Sin valor en la petición se conservan: un guardado que no las envíe
+      // no debe borrar los ingredientes pendientes que guardan las notas.
+      notes = recipe.notes,
+      sourceUrl = recipe.sourceUrl,
       portions = recipe.portions,
       portionSize = recipe.portionSize,
       preparationTimeMinutes = recipe.preparationTimeMinutes,
@@ -469,6 +490,15 @@ export class RecipesService {
       storageTempMax = recipe.storageTempMax,
     } = updateRecipeDto;
     const sellingPrice = deriveSellingPriceFromVat(sellingPriceWithVat);
+
+    // El cuerpo del PATCH no pasa por las validaciones de CreateRecipeDto:
+    // la fuente se muestra como enlace, así que solo se admite http(s).
+    if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) {
+      throw new BadRequestException("sourceUrl must be an http(s) URL");
+    }
+    if (notes && notes.length > 5000) {
+      throw new BadRequestException("notes must be at most 5000 characters");
+    }
 
     // Rendimiento: el frontend envía portions + totalYieldWeight ya reconciliados.
     // - totalYieldWeight explícito → es el ancla (portionSize = total / portions).
@@ -534,6 +564,8 @@ export class RecipesService {
         description,
         elaboration,
         imageUrl,
+        notes,
+        sourceUrl,
         portions: yield_.portions,
         portionSize: yield_.portionSize,
         totalYieldWeight: yield_.totalYieldWeight,
@@ -654,6 +686,11 @@ export class RecipesService {
       name: newName || `${originalRecipe.name} (Copia)`,
       description: originalRecipe.description,
       elaboration: originalRecipe.elaboration,
+      notes: originalRecipe.notes,
+      sourceUrl: originalRecipe.sourceUrl,
+      // Con ingredientes pendientes la copia está tan incompleta como el
+      // original: nace inactiva, igual que al pasar una captura.
+      isActive: originalRecipe.notes ? false : undefined,
       portions: originalRecipe.portions,
       portionSize: originalRecipe.portionSize,
       totalYieldWeight: originalRecipe.totalYieldWeight ?? undefined,
@@ -1053,6 +1090,8 @@ export class RecipesService {
       description: recipe.description,
       elaboration: recipe.elaboration,
       imageUrl: recipe.imageUrl ?? null,
+      notes: recipe.notes ?? null,
+      sourceUrl: recipe.sourceUrl ?? null,
       portions: recipe.portions,
       portionSize: recipe.portionSize,
       totalYieldWeight: recipe.totalYieldWeight ?? null,

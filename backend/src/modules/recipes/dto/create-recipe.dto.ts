@@ -9,6 +9,8 @@ import {
   Min,
   ValidateNested,
   IsObject,
+  IsUrl,
+  MaxLength,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { STORAGE_CONDITIONS } from "../../../common/constants/storage-condition.constant";
@@ -72,6 +74,19 @@ export class CreateRecipeDto {
   @IsOptional()
   @IsString()
   imageUrl?: string | null;
+
+  // Notas libres de la receta. En recetas venidas de una captura guardan los
+  // ingredientes que quedaron sin vincular a un artículo.
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  notes?: string | null;
+
+  // Página de la que se capturó la receta. Solo http(s): se muestra como enlace.
+  @IsOptional()
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
+  @MaxLength(2048)
+  sourceUrl?: string | null;
 
   // Raciones. Admite decimales (p.ej. 2,5) y valores < 1 cuando el peso total
   // elaborado es menor que el peso de una ración.
