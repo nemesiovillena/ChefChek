@@ -32,9 +32,9 @@ describe("OpenCodeProviderAdapter", () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       "https://opencode.ai/zen/v1/chat/completions",
     );
-    expect(
-      (fetchMock.mock.calls[0][1] as any).headers.Authorization,
-    ).toBe("Bearer sk-oc");
+    expect((fetchMock.mock.calls[0][1] as any).headers.Authorization).toBe(
+      "Bearer sk-oc",
+    );
   });
 
   it("parsea tool_calls igual que el formato de OpenAI", async () => {
@@ -82,14 +82,20 @@ describe("OpenCodeProviderAdapter", () => {
     }) as any;
 
     await expect(
-      adapter.chat("sk-bad", "deepseek-v4-flash", [
-        { role: "user", content: "?" },
-      ], []),
+      adapter.chat(
+        "sk-bad",
+        "deepseek-v4-flash",
+        [{ role: "user", content: "?" }],
+        [],
+      ),
     ).rejects.toThrow(/OpenCode Zen respondió 401/);
     await expect(
-      adapter.chat("sk-bad", "deepseek-v4-flash", [
-        { role: "user", content: "?" },
-      ], []),
+      adapter.chat(
+        "sk-bad",
+        "deepseek-v4-flash",
+        [{ role: "user", content: "?" }],
+        [],
+      ),
     ).rejects.toThrow(BadGatewayException);
   });
 });
