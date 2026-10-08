@@ -8,11 +8,9 @@ import {
 } from "@nestjs/common";
 import { RecipeCaptureSource, RecipeCaptureStatus } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
-import {
-  AssistantCompletionError,
-  AssistantCompletionService,
-} from "../ai-assistant/assistant-completion.service";
+import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
 import { CaptureIngredientMatcher } from "./capture-ingredient-matcher";
+import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
 import {
   RecipeStructuringError,
   RecipeStructuringService,
@@ -73,7 +71,7 @@ export class RecipeCaptureService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly completion: AssistantCompletionService,
+    private readonly completion: RecipeCaptureCompletionService,
     private readonly structuring: RecipeStructuringService,
     private readonly matcher: CaptureIngredientMatcher,
   ) {}

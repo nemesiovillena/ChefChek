@@ -154,7 +154,7 @@ describe("E2E - Captura de recetas", () => {
         .send({ source: "URL", url: "https://recetas.example.com/tarta" })
         .expect(400);
 
-      expect(res.body.message).toContain("Configura el proveedor de IA");
+      expect(res.body.message).toContain("Configura el modelo de IA");
       expect(
         await prisma.recipeCapture.count({ where: { tenantId: tenantAId } }),
       ).toBe(0);

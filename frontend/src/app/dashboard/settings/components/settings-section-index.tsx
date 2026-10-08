@@ -29,6 +29,7 @@ export const SETTINGS_SECTIONS: SettingsSectionLink[] = [
   { id: 'ocr', label: 'Motor de extracción (OCR)' },
   { id: 'correo', label: 'Correo (SMTP)' },
   { id: 'asistente', label: 'Asistente IA' },
+  { id: 'captura-recetas-ia', label: 'Captura de recetas', moduleId: 'captura-recetas' },
   { id: 'mensaje-proveedor', label: 'Mensaje al proveedor' },
   { id: 'claves-api', label: 'Claves API' },
   { id: 'modulos', label: 'Módulos' },
