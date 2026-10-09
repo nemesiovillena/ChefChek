@@ -164,6 +164,31 @@ describe("AlbaranesService", () => {
       expect(where.status).toBe(AlbaranStatus.ARCHIVADO);
     });
 
+    it("combines ARCHIVADO status with pre-window dates when olderThan is given", async () => {
+      await service.findAll({ olderThan: "2024-01-15" } as any, "t1");
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.AND).toEqual([
+        {
+          OR: [
+            { status: AlbaranStatus.ARCHIVADO },
+            { date: { lt: new Date("2024-01-15") } },
+          ],
+        },
+      ]);
+      // Sin el filtro por defecto de estado: los ARCHIVADO deben poder salir
+      expect(where.status).toBeUndefined();
+    });
+
+    it("keeps search OR separate from the olderThan AND condition", async () => {
+      await service.findAll(
+        { olderThan: "2024-01-15", search: "foo" } as any,
+        "t1",
+      );
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.AND).toHaveLength(1);
+      expect(where.OR).toHaveLength(3);
+    });
+
     it("applies supplierId, status, search, date range and pagination", async () => {
       await service.findAll(
         {

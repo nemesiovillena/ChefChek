@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { listAlbaranes, type Albaran, type AlbaranFilters, type AlbaranListResponse } from '@/lib/api-albaran';
 
@@ -22,13 +22,14 @@ export function useAlbaranes(initialFilters: AlbaranFilters = {}): UseAlbaranesR
     queryFn: async () => listAlbaranes(filters),
   });
 
-  const setPage = (page: number) => {
+  // Identidad estable: la página las usa como dependencia de efectos con debounce
+  const setPage = useCallback((page: number) => {
     setFiltersState((prev) => ({ ...prev, page }));
-  };
+  }, []);
 
-  const setFilters = (newFilters: Partial<AlbaranFilters>) => {
+  const setFilters = useCallback((newFilters: Partial<AlbaranFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...newFilters, page: 1 }));
-  };
+  }, []);
 
   return {
     albaranes: data?.data ?? [],

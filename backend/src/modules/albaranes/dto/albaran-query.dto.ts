@@ -27,6 +27,17 @@ export class AlbaranQueryDto {
   @IsDateString()
   dateTo?: string;
 
+  /**
+   * Vista Archivados: albaranes con estado ARCHIVADO o con fecha anterior a
+   * esta (límite de la ventana de dos semanas, calculado por el cliente).
+   */
+  @ApiPropertyOptional({
+    description: "Archivados por estado + anteriores a esta fecha",
+  })
+  @IsOptional()
+  @IsDateString()
+  olderThan?: string;
+
   @ApiPropertyOptional({ description: "Buscar por número o descripción" })
   @IsOptional()
   @IsString()

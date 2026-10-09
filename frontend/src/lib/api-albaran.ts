@@ -79,6 +79,8 @@ export interface AlbaranFilters {
   status?: AlbaranStatus;
   dateFrom?: string;
   dateTo?: string;
+  /** Vista Archivados: estado ARCHIVADO o fecha anterior a esta (YYYY-MM-DD). */
+  olderThan?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -112,6 +114,7 @@ export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<Albar
   if (filters.status) params.append('status', filters.status);
   if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
   if (filters.dateTo) params.append('dateTo', filters.dateTo);
+  if (filters.olderThan) params.append('olderThan', filters.olderThan);
   if (filters.search) params.append('search', filters.search);
   if (filters.page) params.append('page', String(filters.page));
   if (filters.limit) params.append('limit', String(filters.limit));

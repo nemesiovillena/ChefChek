@@ -18,6 +18,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive } from 'lucide-react';
 import type { AlbaranStatus } from '@/lib/api-albaran';
 
+/**
+ * Lunes de la semana anterior en YYYY-MM-DD: frontera de la ventana de dos
+ * semanas (semana actual + anterior) que muestra la pestaña Activos. Todo lo
+ * anterior vive en Archivados.
+ */
+function startOfPreviousWeek(): string {
+  const now = new Date();
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  const mondayLastWeek = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - daysSinceMonday - 7,
+  );
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${mondayLastWeek.getFullYear()}-${pad(mondayLastWeek.getMonth() + 1)}-${pad(mondayLastWeek.getDate())}`;
+}
+
 export default function AlbaranesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -54,11 +71,16 @@ export default function AlbaranesPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
+    const cutoffDate = startOfPreviousWeek();
     const timer = setTimeout(() => {
+      // Activos queda acotado a la ventana de dos semanas: el "Desde" del
+      // usuario solo puede estrecharla, nunca adelantarla
+      const windowFrom = dateFrom && dateFrom > cutoffDate ? dateFrom : cutoffDate;
       setFilters({
         search: searchTerm,
-        status: activeTab === 'archivados' ? 'ARCHIVADO' : statusFilter || undefined,
-        dateFrom: dateFrom || undefined,
+        status: activeTab === 'archivados' ? undefined : statusFilter || undefined,
+        olderThan: activeTab === 'archivados' ? cutoffDate : undefined,
+        dateFrom: activeTab === 'archivados' ? dateFrom || undefined : windowFrom,
         dateTo: dateTo || undefined,
       });
     }, 300);
@@ -116,7 +138,7 @@ export default function AlbaranesPage() {
       </Dialog>
 
       {/* Pestañas: activos vs archivados (div role=tablist — un <nav> no fijo quedaría oculto por globals.css) */}
-      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-6">
+      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-2">
         {(
           [
             { key: 'activos', label: 'Activos', icon: FileText },
@@ -139,6 +161,13 @@ export default function AlbaranesPage() {
           </button>
         ))}
       </div>
+
+      {/* Qué muestra cada pestaña: evita que los antiguos parezcan "desaparecidos" */}
+      <p className="text-xs text-gray-500 mb-6">
+        {activeTab === 'activos'
+          ? 'Semana actual y anterior — los albaranes más antiguos están en Archivados'
+          : 'Albaranes con más de dos semanas y los archivados manualmente'}
+      </p>
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
@@ -210,7 +239,7 @@ export default function AlbaranesPage() {
           {activeTab === 'archivados' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes archivados</h3>
-              <p className="text-gray-600">Los albaranes confirmados que archives aparecerán aquí</p>
+              <p className="text-gray-600">Los albaranes con más de dos semanas y los que archives aparecerán aquí</p>
             </>
           ) : (
             <>

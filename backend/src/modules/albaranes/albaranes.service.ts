@@ -145,7 +145,19 @@ export class AlbaranesService {
     if (query.supplierId) {
       where.supplierId = query.supplierId;
     }
-    if (query.status) {
+    if (query.olderThan) {
+      // Vista Archivados: archivados por estado + todos los anteriores a la
+      // ventana de dos semanas que marca el cliente. Se expresa como AND para
+      // no chocar con el OR que añade la búsqueda.
+      where.AND = [
+        {
+          OR: [
+            { status: AlbaranStatus.ARCHIVADO },
+            { date: { lt: new Date(query.olderThan) } },
+          ],
+        },
+      ];
+    } else if (query.status) {
       where.status = query.status;
     } else {
       // Los archivados solo se muestran pidiéndolos explícitamente (pestaña Archivados)
