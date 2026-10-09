@@ -571,7 +571,13 @@ export default function DashboardPage() {
 
   return (
     <>
-    {/* h- (no min-h) a propósito en desktop: flex-1 en el bento de abajo
+    {/* Por debajo de xl (1280px) el dashboard usa la vista apilada de una
+        columna (mismo orden que en móvil), con las cards a ancho completo:
+        el bento de 12 columnas solo se activa en xl, donde hay ancho
+        suficiente para su split 4/8 y sus franjas de 3 columnas. A 1024
+        (tablet / portátil pequeño) las cards quedaban en ~190–300px y se
+        cortaba el texto.
+        h- (no min-h) a propósito en xl: flex-1 en el bento de abajo
         necesita una altura DEFINIDA en este contenedor para repartir el
         hueco sobrante — con min-h (indefinida mientras el contenido no la
         supere) el navegador no tiene referencia y cada rama de flex/grid
@@ -584,9 +590,9 @@ export default function DashboardPage() {
         Chrome fijo restado: solo lo de fuera de esta caja — header pt-16(64)
         + md:pb-8(32) del layout.tsx = 6rem. Su propio md:pt-stack-md ya va
         dentro del alto (border-box); restarlo otra vez dejaba un hueco bajo
-        las cards. Sin pb propio en escritorio: el margen inferior es el del
+        las cards. Sin pb propio en xl: el margen inferior es el del
         layout. */}
-    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md md:flex md:flex-col md:h-[calc(100dvh-6rem)]">
+    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]">
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>
@@ -596,12 +602,13 @@ export default function DashboardPage() {
         {canSeeProduction && crearOrdenButton('hidden md:flex')}
       </section>
 
-      {/* Orden móvil: Tareas pendientes, Notificaciones de Sala,
-          Pedidos Pendientes, Notificaciones y Alertas, Caducidades, SICTED, Recetas,
+      {/* Vista apilada (móvil y también tablet / portátiles hasta 1279px):
+          Tareas pendientes, Notificaciones de Sala, Pedidos Pendientes,
+          Notificaciones y Alertas, Caducidades, SICTED, Recetas,
           Etiquetado, Compras. "Crear orden producción" es solo de escritorio
           (cabecera). Telemetría de Cocina en Vivo no tiene datos reales
           todavía y queda oculta en móvil. */}
-      <div className="flex flex-col gap-gutter mt-stack-xl md:hidden">
+      <div className="flex flex-col gap-gutter mt-stack-xl xl:hidden">
         {canSeePrepTasks && renderPrepTasksBoard(false)}
         {salaNotificacionesEnabled && renderSalaTasksBoard(false)}
         {canSeeCompras && pedidosPendientesCard}
@@ -613,7 +620,7 @@ export default function DashboardPage() {
         {canSeeCompras && comprasCard}
       </div>
 
-      {/* Bento Grid Content (escritorio). grid-rows minmax(0,1fr): si hay
+      {/* Bento Grid Content (solo xl / escritorio ≥1280px). grid-rows minmax(0,1fr): si hay
           hueco de sobra, la fila lo llena entero (cards estiradas). Sin
           min-h-0 aquí ni en las columnas a propósito: cada nivel debe
           seguir respetando el mínimo real de su contenido (Sala/Alertas
@@ -624,7 +631,7 @@ export default function DashboardPage() {
           desbordara por detrás de la franja inferior en vez de empujarla
           hacia abajo (bug real, visto en pantalla: Caducidades solapada
           sobre Notificaciones y Alertas). */}
-      <div className="hidden md:grid md:grid-cols-12 gap-gutter mt-stack-md md:flex-1 md:grid-rows-[minmax(0,1fr)]">
+      <div className="hidden xl:grid xl:grid-cols-12 gap-gutter mt-stack-md xl:flex-1 xl:grid-rows-[minmax(0,1fr)]">
         {/* Key Indicators Column */}
         <div className="md:col-span-4 md:flex md:flex-col md:gap-gutter">
           {canSeeCompras && pedidosPendientesCard}
@@ -655,13 +662,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Atmospheric Secondary Layer (escritorio). Las 3 columnas usan ternarios
+      {/* Atmospheric Secondary Layer (solo xl / escritorio ≥1280px). Las 3 columnas usan ternarios
           (no `&&`) para que ninguna quede vacía cuando falta un permiso —
           un tenant con recetas activo pero etiquetado desactivado (o
           viceversa) no debe ver un hueco en el grid.
           Con SICTED no se pinta: Caducidades sube junto a la card SICTED
           (arriba) y Etiquetado y Recetas siguen en el menú. */}
-      <section className={`hidden mt-gutter md:grid-cols-3 gap-gutter md:shrink-0 ${canSeeSicted ? '' : 'md:grid'}`}>
+      <section className={`hidden mt-gutter xl:grid-cols-3 gap-gutter xl:shrink-0 ${canSeeSicted ? '' : 'xl:grid'}`}>
         {canSeeEtiquetado ? (
           caducidadesAlertCard
         ) : (
