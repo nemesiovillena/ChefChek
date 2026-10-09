@@ -41,6 +41,7 @@ interface ClaimedCapture {
   preparationTimeMinutes: number | null;
   cookingTimeMinutes: number | null;
   sourceUrl: string | null;
+  imageUrl: string | null;
 }
 
 /**
@@ -168,6 +169,8 @@ export class RecipeCapturePromotionService {
         preparationTimeMinutes: capture.preparationTimeMinutes ?? undefined,
         cookingTimeMinutes: capture.cookingTimeMinutes ?? undefined,
         sourceUrl: capture.sourceUrl ?? undefined,
+        // La foto del plato capturada (si la hubo) viaja a la receta.
+        imageUrl: capture.imageUrl ?? undefined,
         ingredients: split.lines,
         notes: notes ?? undefined,
         // Con ingredientes sin vincular los alérgenos de la receta están

@@ -8,6 +8,8 @@ import {
 } from "@nestjs/common";
 import { RecipeCaptureSource, RecipeCaptureStatus } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
+import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
+import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
 import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
 import { CaptureIngredientMatcher } from "./capture-ingredient-matcher";
 import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
@@ -16,8 +18,15 @@ import {
   RecipeStructuringService,
   StructuringInput,
 } from "./recipe-structuring.service";
-import { extractRecipeSourceText } from "./source/recipe-html-extractor";
-import { fetchPublicPage, PageFetchError } from "./source/safe-page-fetcher";
+import {
+  extractRecipeImageUrl,
+  extractRecipeSourceText,
+} from "./source/recipe-html-extractor";
+import {
+  fetchPublicImage,
+  fetchPublicPage,
+  PageFetchError,
+} from "./source/safe-page-fetcher";
 
 /** Capturas que un tenant puede tener procesándose a la vez (cada una es una llamada de pago a la IA). */
 const MAX_CONCURRENT_CAPTURES = 3;
@@ -47,12 +56,18 @@ type CaptureWork =
   | { source: "TEXTO"; text: string }
   | { source: "ARCHIVO"; file: CaptureFile };
 
+/** Imagen del plato a guardar: una URL de la web o un búfer ya en memoria. */
+type ImageCandidate =
+  | { kind: "url"; url: string }
+  | { kind: "buffer"; buffer: Buffer; contentType: string };
+
 const LIST_SELECT = {
   id: true,
   source: true,
   sourceUrl: true,
   sourceFileName: true,
   sourceFileMimeType: true,
+  imageUrl: true,
   status: true,
   errorMessage: true,
   name: true,
@@ -86,6 +101,7 @@ export class RecipeCaptureService {
     private readonly completion: RecipeCaptureCompletionService,
     private readonly structuring: RecipeStructuringService,
     private readonly matcher: CaptureIngredientMatcher,
+    private readonly bunny: BunnyStorageService,
   ) {}
 
   async findAll(tenantId: string) {
@@ -288,6 +304,7 @@ export class RecipeCaptureService {
           portions: null,
           preparationTimeMinutes: null,
           cookingTimeMinutes: null,
+          imageUrl: null,
         },
       });
     });
@@ -355,10 +372,8 @@ export class RecipeCaptureService {
     work: CaptureWork,
   ): Promise<void> {
     try {
-      const recipe = await this.structuring.structure(
-        tenantId,
-        await this.toStructuringInput(work),
-      );
+      const { input, image } = await this.toStructuringInput(work);
+      const recipe = await this.structuring.structure(tenantId, input);
 
       const ingredients = [];
       for (const [index, ingredient] of recipe.ingredients.entries()) {
@@ -370,6 +385,9 @@ export class RecipeCaptureService {
           matchConfidence: match?.confidence ?? null,
         });
       }
+
+      // La foto del plato es un extra: si falla, la receta sigue adelante.
+      const imageUrl = await this.storeImage(image);
 
       await this.prisma.$transaction(async (tx) => {
         // Solo si sigue PROCESANDO: si entretanto se descartó o se dio por
@@ -385,6 +403,7 @@ export class RecipeCaptureService {
             portions: recipe.portions,
             preparationTimeMinutes: recipe.preparationTimeMinutes,
             cookingTimeMinutes: recipe.cookingTimeMinutes,
+            imageUrl,
             // Ya procesada: el archivo original deja de hacer falta.
             sourceFile: null,
             sourceFileMimeType: null,
@@ -417,22 +436,59 @@ export class RecipeCaptureService {
     }
   }
 
+  /** Fuente para la IA + posible imagen del plato (de la web o del archivo). */
   private async toStructuringInput(
     work: CaptureWork,
-  ): Promise<StructuringInput> {
+  ): Promise<{ input: StructuringInput; image: ImageCandidate | null }> {
     if (work.source === "URL") {
       const html = await fetchPublicPage(work.url);
-      return { text: extractRecipeSourceText(html) };
+      return {
+        input: { text: extractRecipeSourceText(html) },
+        image: imageUrlCandidate(extractRecipeImageUrl(html), work.url),
+      };
     }
     if (work.source === "TEXTO") {
-      return { text: work.text };
+      return { input: { text: work.text }, image: null };
     }
     return {
-      attachment: {
-        mimeType: work.file.mimetype,
-        dataBase64: work.file.buffer.toString("base64"),
+      input: {
+        attachment: {
+          mimeType: work.file.mimetype,
+          dataBase64: work.file.buffer.toString("base64"),
+        },
       },
+      // Un PDF no es una foto del plato; una imagen subida sí.
+      image: work.file.mimetype.startsWith("image/")
+        ? {
+            kind: "buffer",
+            buffer: work.file.buffer,
+            contentType: work.file.mimetype,
+          }
+        : null,
     };
+  }
+
+  /** Sube la foto del plato a nuestro almacenamiento; null si no hay o falla. */
+  private async storeImage(
+    image: ImageCandidate | null,
+  ): Promise<string | null> {
+    if (!image) {
+      return null;
+    }
+    try {
+      const { buffer, contentType } =
+        image.kind === "url" ? await fetchPublicImage(image.url) : image;
+      return await storeUploadedImage(this.bunny, "recipes", {
+        buffer,
+        mimetype: contentType,
+        originalname: `receta.${imageExtension(contentType)}`,
+      } as Express.Multer.File);
+    } catch (error: any) {
+      this.logger.warn(
+        `No se pudo guardar la imagen del plato: ${error?.message ?? error}`,
+      );
+      return null;
+    }
   }
 
   private async markError(captureId: string, message: string): Promise<void> {
@@ -487,6 +543,39 @@ function canRetryCapture(
   sourceFileMimeType: string | null,
 ): boolean {
   return capture.source !== RecipeCaptureSource.ARCHIVO || !!sourceFileMimeType;
+}
+
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+};
+
+/** Extensión para el nombre del archivo a partir del tipo MIME. */
+function imageExtension(contentType: string): string {
+  const type = contentType.split(";")[0].trim().toLowerCase();
+  return IMAGE_EXTENSIONS[type] ?? "jpg";
+}
+
+/** Resuelve la imagen (puede ser relativa) y descarta lo que no sea http(s). */
+function imageUrlCandidate(
+  raw: string | null,
+  pageUrl: string,
+): ImageCandidate | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const url = new URL(raw, pageUrl);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return { kind: "url", url: url.toString() };
+  } catch {
+    return null;
+  }
 }
 
 /** Reconstruye la fuente original de una captura para rehacer su procesado. */
