@@ -279,17 +279,34 @@ export class OrderReconciliationService {
       data: { receivedTotal, staleAlertSentAt: null },
     });
 
-    if (newStatus !== order.status) {
+    // Pedido en estado terminal: se acumulan cantidades/importes (el stock ya
+    // está asentado y son datos reales), pero el estado no se toca. Un cierre
+    // anticipado (RECIBIDO_PARCIAL → RECIBIDO aceptando lo entregado) deja
+    // líneas incompletas, así que un albarán tardío recalcularía
+    // RECIBIDO_PARCIAL — transición que no existe (RECIBIDO no tiene salida)
+    // y cuyo 400 tumbaba la confirmación del albarán entera. El cierre/cancel
+    // fue decisión del usuario y no se revierte desde aquí.
+    const isTerminal =
+      order.status === PurchaseOrderStatus.RECIBIDO ||
+      order.status === PurchaseOrderStatus.CANCELADO;
+
+    if (newStatus !== order.status && !isTerminal) {
       await this.statusService.transition(
         tenantId,
         order.id,
         newStatus,
         undefined, // transición del sistema, no de un usuario
       );
+    } else if (newStatus !== order.status) {
+      this.logger.log(
+        `Albarán ${albaranId}: pedido ${order.orderNumber} en estado terminal ${order.status}, ` +
+          `se acumula la recepción sin cambiar el estado`,
+      );
     }
 
     this.logger.log(
-      `Albarán ${albaranId}: conciliado con pedido ${order.orderNumber} → ${newStatus}`,
+      `Albarán ${albaranId}: conciliado con pedido ${order.orderNumber} → ` +
+        `${isTerminal ? order.status : newStatus}`,
     );
   }
 }

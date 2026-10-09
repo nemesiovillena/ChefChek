@@ -97,6 +97,7 @@ describe("PurchaseOrderStatusService", () => {
     prismaMock.purchaseOrder.findFirst.mockResolvedValue(
       order(PurchaseOrderStatus.ENVIADO, new Date("2026-07-01")),
     );
+    prismaMock.albaran.count.mockResolvedValue(1); // albarán vinculado
     prismaMock.purchaseOrder.update.mockResolvedValue({});
     prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
 
@@ -125,6 +126,68 @@ describe("PurchaseOrderStatusService", () => {
     await service.transition("t1", "o1", PurchaseOrderStatus.ENVIADO, "u1");
 
     expect(notificationsMock.createNotification).not.toHaveBeenCalled();
+  });
+
+  describe("recepción manual exige albarán vinculado", () => {
+    it("ENVIADO → RECIBIDO sin albarán vinculado → 400 y no toca el pedido", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(
+        order(PurchaseOrderStatus.ENVIADO, new Date("2026-07-01")),
+      );
+      prismaMock.albaran.count.mockResolvedValue(0);
+
+      await expect(
+        service.transition("t1", "o1", PurchaseOrderStatus.RECIBIDO, "u1"),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.purchaseOrder.update).not.toHaveBeenCalled();
+    });
+
+    it("ENVIADO → RECIBIDO_PARCIAL sin albarán vinculado → 400", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(
+        order(PurchaseOrderStatus.ENVIADO, new Date("2026-07-01")),
+      );
+      prismaMock.albaran.count.mockResolvedValue(0);
+
+      await expect(
+        service.transition(
+          "t1",
+          "o1",
+          PurchaseOrderStatus.RECIBIDO_PARCIAL,
+          "u1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("ENVIADO → RECIBIDO con albarán vinculado → permitido", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(
+        order(PurchaseOrderStatus.ENVIADO, new Date("2026-07-01")),
+      );
+      prismaMock.albaran.count.mockResolvedValue(2);
+      prismaMock.purchaseOrder.update.mockResolvedValue({});
+      prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
+
+      await service.transition("t1", "o1", PurchaseOrderStatus.RECIBIDO, "u1");
+
+      expect(prismaMock.purchaseOrder.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: PurchaseOrderStatus.RECIBIDO,
+          }),
+        }),
+      );
+    });
+
+    it("RECIBIDO_PARCIAL → RECIBIDO (cierre) no exige albarán: cubre pedidos parciales antiguos", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(
+        order(PurchaseOrderStatus.RECIBIDO_PARCIAL, new Date("2026-07-01")),
+      );
+      prismaMock.purchaseOrder.update.mockResolvedValue({});
+      prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
+
+      await service.transition("t1", "o1", PurchaseOrderStatus.RECIBIDO, "u1");
+
+      expect(prismaMock.albaran.count).not.toHaveBeenCalled();
+      expect(prismaMock.purchaseOrder.update).toHaveBeenCalled();
+    });
   });
 
   describe("revertToDraft", () => {

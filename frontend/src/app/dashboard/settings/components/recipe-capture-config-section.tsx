@@ -35,8 +35,10 @@ const KEY_STORE_PROVIDER = ASSISTANT_KEY_STORE_PROVIDER as Record<
   string
 >;
 
-/** Último recurso del prefill cuando no hay nada configurado ni como respaldo. */
-const DEFAULT_MODEL = VISION_MODELS[0];
+/** Modelo recomendado por defecto para la captura (o el primero del catálogo). */
+const DEFAULT_MODEL =
+  VISION_MODELS.find((m) => m.id === 'gemini-3.1-flash-lite') ??
+  VISION_MODELS[0];
 
 /**
  * Configuración del modelo IA de la Captura de recetas, por tenant. A

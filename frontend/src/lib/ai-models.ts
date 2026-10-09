@@ -30,12 +30,12 @@ export const AI_MODELS: AiModelOption[] = [
   { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas', vision: true },
   { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o', cost: '~0,02 €', desc: 'OpenAI, más preciso en preguntas complejas', vision: true },
   { id: 'gpt-5.2', provider: 'openai', name: 'GPT-5.2', cost: '~0,01 €', desc: 'Rápido y económico para consultas cortas', vision: true },
-  // Gemini — Google retira modelos rápido: gemini-2.0-flash y gemini-2.5-flash
-  // devuelven 404 "no longer available" y remiten a gemini-3.6-flash.
-  // gemini-flash-latest es un alias que Google mantiene apuntando a la Flash
-  // vigente (no se pudre), pero puede saturarse igual que 3.6.
-  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato; puede dar 503 en horas punta', vision: true },
-  { id: 'gemini-flash-latest', provider: 'gemini', name: 'Gemini Flash (última)', cost: '~0,002 €', desc: 'Alias a la última Flash; a prueba de retiradas de modelo', vision: true },
+  // Gemini — Google retira modelos rápido (gemini-2.0-flash y gemini-2.5-flash
+  // dan 404 "no longer available"). gemini-3.1-flash-lite es el más fiable y
+  // rápido para la captura (probado con recetas reales por enlace y foto); los
+  // "Flash" grandes (gemini-3.6-flash y el alias gemini-flash-latest) daban 503
+  // de saturación de forma intermitente y se retiraron del catálogo.
+  { id: 'gemini-3.1-flash-lite', provider: 'gemini', name: 'Gemini 3.1 Flash Lite', cost: '~0,001 €', desc: 'Rápido y fiable para leer recetas; el recomendado para captura', vision: true },
   // Anthropic
   { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio', vision: true },
   { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas', vision: true },
