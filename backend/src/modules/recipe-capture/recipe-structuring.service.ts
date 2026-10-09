@@ -52,7 +52,11 @@ const MAX_STEPS = 60;
 
 // Salida larga (pasos + ingredientes) y llamadas lentas con adjuntos: los
 // valores por defecto del chat (respuesta corta, 30 s) no sirven aquí.
-const MAX_OUTPUT_TOKENS = 4096;
+// Los modelos "pensantes" (p. ej. Gemini 3) gastan parte del tope en razonar y
+// cortan el JSON: con 4096 una receta normal llegaba truncada. Se da más margen
+// y, si aun así se corta, se reintenta una vez con más antes de rendirse.
+const MAX_OUTPUT_TOKENS = 8192;
+const RETRY_OUTPUT_TOKENS = 16_384;
 const TIMEOUT_MS = 120_000;
 
 const SYSTEM_PROMPT = `Eres un extractor de recetas de cocina para una aplicación de hostelería.
@@ -103,22 +107,49 @@ export class RecipeStructuringService {
           content: `Devuelve en JSON la receta de este contenido, siguiendo las reglas.\n\n<<<CONTENIDO\n${input.text ?? ""}\nCONTENIDO>>>`,
         };
 
-    const result = await this.completion.complete(
-      tenantId,
-      [{ role: "system", content: SYSTEM_PROMPT }, user],
-      {
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
-        timeoutMs: TIMEOUT_MS,
-        jsonMode: true,
-        // Un adjunto son varios MB por petición: no reenviarlo.
-        noRetry: Boolean(input.attachment),
-      },
-    );
+    const result = await this.completeWithMoreRoom(tenantId, user, input);
 
     if (result.truncated) {
       throw new RecipeStructuringError(TOO_LONG);
     }
     return parseStructuredRecipe(result.content ?? "");
+  }
+
+  /**
+   * Primera llamada con el tope normal; si el proveedor corta la respuesta
+   * (modelo "pensante"), un segundo intento con más margen antes de fallar.
+   */
+  private async completeWithMoreRoom(
+    tenantId: string,
+    user: ChatMessage,
+    input: StructuringInput,
+  ): Promise<{ content?: string; truncated?: boolean }> {
+    const messages: ChatMessage[] = [
+      { role: "system", content: SYSTEM_PROMPT },
+      user,
+    ];
+    const base = {
+      timeoutMs: TIMEOUT_MS,
+      jsonMode: true,
+      // Un adjunto son varios MB por petición: no reenviarlo.
+      noRetry: Boolean(input.attachment),
+    };
+
+    let result = await this.completion.complete(tenantId, messages, {
+      ...base,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    });
+    if (result.truncated) {
+      try {
+        result = await this.completion.complete(tenantId, messages, {
+          ...base,
+          maxOutputTokens: RETRY_OUTPUT_TOKENS,
+        });
+      } catch {
+        // El proveedor no admite ese tope: se conserva el corte del primero.
+      }
+    }
+    return result;
   }
 }
 
