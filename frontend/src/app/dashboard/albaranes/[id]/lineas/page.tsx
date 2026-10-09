@@ -12,7 +12,6 @@ import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
 import { OcrMethodBadge } from '@/components/albaranes/ocr-method-badge';
-import { LineActionsToolbar } from '@/components/albaranes/line-actions-toolbar';
 import { ProductPickerDialog } from '@/components/albaranes/product-picker-dialog';
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { CreateProductInline } from '@/components/albaranes/create-product-inline';
@@ -22,7 +21,7 @@ import { CorrectPriceDialog } from '@/components/albaranes/correct-price-dialog'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2 } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, CheckCircle2, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2 } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 // Móvil: la tabla de 10 columnas no cabe (quedaba recortada tras un scroll
@@ -433,6 +432,46 @@ export default function AlbaranLineasPage() {
   const confirmedCount = lines.filter((l) => l.lineStatus === 'CONFIRMADO').length;
   const pendingCount = lines.filter((l) => l.lineStatus === 'PENDIENTE').length;
   const rejectedCount = lines.filter((l) => l.lineStatus === 'RECHAZADO').length;
+  // Confirmables en lote: solo las pendientes con producto ya asignado (el
+  // backend rechaza confirmar una línea sin matchedProductId).
+  const confirmableLines = lines.filter(
+    (l) => l.lineStatus === 'PENDIENTE' && l.matchedProductId,
+  );
+
+  /** Confirmar en lote desde la cabecera (antes vivía en una barra bajo ella
+   *  que repetía exactamente estos mismos contadores). */
+  const handleConfirmAll = async () => {
+    const unresolved = pendingCount - confirmableLines.length;
+    await confirm({
+      title: `Confirmar ${confirmableLines.length} línea${confirmableLines.length === 1 ? '' : 's'}`,
+      description:
+        'Se marcarán como confirmadas todas las líneas con producto asignado, sin tener que hacerlo una a una.',
+      confirmText: 'Confirmar todas',
+      variant: 'info',
+      children:
+        unresolved > 0 ? (
+          <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-3 text-sm text-[var(--on-surface-variant)]">
+            Quedarán <strong>{unresolved}</strong> línea{unresolved === 1 ? '' : 's'} pendiente
+            {unresolved === 1 ? '' : 's'} sin producto asignado. Elígelas o créalas antes de
+            confirmar el albarán.
+          </div>
+        ) : undefined,
+      onConfirm: async () => {
+        try {
+          await Promise.all(confirmableLines.map((line) => confirmLine(id, line.id)));
+          refetch();
+        } catch (err) {
+          console.error('Error confirming lines:', err);
+          addNotification({
+            type: 'error',
+            title: 'No se pudieron confirmar',
+            message: err instanceof Error ? err.message : 'Error al confirmar líneas',
+          });
+          throw err;
+        }
+      },
+    });
+  };
 
   return (
     <div>
@@ -460,19 +499,29 @@ export default function AlbaranLineasPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-yellow-400" />
-              <span>{pendingCount} pendientes</span>
+          {/* Contadores + confirmación en lote en un solo sitio: la barra que
+              había justo debajo repetía estos mismos contadores. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                <span>{pendingCount} pendientes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <span>{confirmedCount} confirmadas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <span>{rejectedCount} rechazadas</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span>{confirmedCount} confirmadas</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <span>{rejectedCount} rechazadas</span>
-            </div>
+            {confirmableLines.length > 0 && (
+              <Button onClick={handleConfirmAll} size="sm" className="max-sm:h-11 max-sm:w-full">
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Confirmar {confirmableLines.length} línea{confirmableLines.length === 1 ? '' : 's'}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -487,12 +536,6 @@ export default function AlbaranLineasPage() {
         </Card>
       ) : (
         <>
-          <LineActionsToolbar
-            albaranId={id}
-            lines={lines}
-            onRefresh={refetch}
-          />
-
           {/* Add manual line button + form */}
           {(albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO') && (
             <div className="mt-4">
