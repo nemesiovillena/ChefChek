@@ -76,6 +76,29 @@ export class PurchaseOrderStatusService {
       );
     }
 
+    // Marcar la recepción a mano exige albarán vinculado: es quien aporta las
+    // cantidades/precios reales al confirmarse (conciliación). Sin él, un
+    // "Recibido" directo dejaba el pedido cerrado sin datos y el albarán, al
+    // subirse después, ya no podía vincularse (solo se admite/sugiere el
+    // vínculo con pedidos ENVIADO/RECIBIDO_PARCIAL). La conciliación siempre
+    // llega aquí con su propio albarán vinculado, así que no se ve afectada;
+    // y el cierre RECIBIDO_PARCIAL → RECIBIDO tampoco (parte de PARCIAL).
+    if (
+      order.status === PurchaseOrderStatus.ENVIADO &&
+      (newStatus === PurchaseOrderStatus.RECIBIDO ||
+        newStatus === PurchaseOrderStatus.RECIBIDO_PARCIAL)
+    ) {
+      const linkedAlbaranes = await this.prisma.albaran.count({
+        where: { purchaseOrderId: orderId },
+      });
+      if (linkedAlbaranes === 0) {
+        throw new BadRequestException(
+          "No se puede marcar la recepción sin albarán vinculado: " +
+            "sube y vincula primero el albarán del proveedor.",
+        );
+      }
+    }
+
     const isManualSend =
       newStatus === PurchaseOrderStatus.ENVIADO && !order.sentAt;
 
