@@ -606,5 +606,84 @@ describe("OrderReconciliationService", () => {
 
       expect(statusServiceMock.transition).not.toHaveBeenCalled();
     });
+
+    it("pedido cerrado anticipado (RECIBIDO con líneas incompletas) + albarán tardío parcial → acumula sin tocar el estado", async () => {
+      // Cierre RECIBIDO_PARCIAL → RECIBIDO aceptando 4/10; llega otro albarán
+      // con 3 más. El recálculo daría RECIBIDO_PARCIAL, transición que no
+      // existe desde RECIBIDO y cuyo 400 tumbaba la confirmación del albarán.
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a2",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 3,
+            unitPrice: 12,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0009",
+        status: PurchaseOrderStatus.RECIBIDO,
+        lines: [
+          { id: "l1", productId: "p1", quantity: 10, receivedQuantity: 4 },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        { id: "l1", quantity: 10, receivedQuantity: 7, receivedPrice: 12 },
+      ]);
+
+      await service.reconcileFromAlbaran("a2", tenantId);
+
+      // Las cantidades/importes sí se acumulan (el stock ya está asentado)…
+      expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: {
+          receivedQuantity: 7,
+          receivedPrice: 12,
+          receivedSourceQuantity: null,
+          receivedSourceUnit: null,
+        },
+      });
+      expect(prismaMock.purchaseOrder.update).toHaveBeenCalledWith({
+        where: { id: "o1" },
+        data: { receivedTotal: 84, staleAlertSentAt: null },
+      });
+      // …pero el estado terminal no se toca (sin RECIBIDO → RECIBIDO_PARCIAL).
+      expect(statusServiceMock.transition).not.toHaveBeenCalled();
+    });
+
+    it("pedido CANCELADO + albarán confirmado → acumula sin intentar transición", async () => {
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a3",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 5,
+            unitPrice: 12,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0010",
+        status: PurchaseOrderStatus.CANCELADO,
+        lines: [
+          { id: "l1", productId: "p1", quantity: 10, receivedQuantity: null },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        { id: "l1", quantity: 10, receivedQuantity: 5, receivedPrice: 12 },
+      ]);
+
+      await service.reconcileFromAlbaran("a3", tenantId);
+
+      expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalled();
+      expect(statusServiceMock.transition).not.toHaveBeenCalled();
+    });
   });
 });
