@@ -8,6 +8,7 @@ import * as fetcher from "./source/safe-page-fetcher";
 jest.mock("./source/safe-page-fetcher", () => ({
   ...jest.requireActual("./source/safe-page-fetcher"),
   fetchPublicPage: jest.fn(),
+  fetchPublicImage: jest.fn(),
 }));
 
 const recipe = {
@@ -53,6 +54,7 @@ describe("RecipeCaptureService", () => {
   const completion = { assertConfigured: jest.fn() };
   const structuring = { structure: jest.fn() };
   const matcher = { match: jest.fn() };
+  const bunny = { imagesEnabled: false, uploadImage: jest.fn() };
   let service: RecipeCaptureService;
 
   /** Espera a que termine el trabajo en segundo plano lanzado por create. */
@@ -75,6 +77,7 @@ describe("RecipeCaptureService", () => {
       completion as any,
       structuring as any,
       matcher as any,
+      bunny as any,
     );
     jest.spyOn((service as any).logger, "error").mockImplementation(() => {});
   });
@@ -289,6 +292,62 @@ describe("RecipeCaptureService", () => {
           dataBase64: Buffer.from("pdf").toString("base64"),
         },
       });
+    });
+
+    it("guarda la foto del plato de la página y la deja en la captura", async () => {
+      (fetcher.fetchPublicPage as jest.Mock).mockResolvedValue(
+        '<head><meta property="og:image" content="https://cdn.test/plato.jpg" /></head><body>x</body>',
+      );
+      (fetcher.fetchPublicImage as jest.Mock).mockResolvedValue({
+        buffer: Buffer.from("img"),
+        contentType: "image/jpeg",
+      });
+      bunny.imagesEnabled = true;
+      bunny.uploadImage.mockResolvedValue("https://cdn.test/plato-subida.jpg");
+      structuring.structure.mockResolvedValue(recipe);
+
+      await service.createFromUrl("t1", "u1", "https://recetas.es/tarta");
+      await settle();
+
+      expect(fetcher.fetchPublicImage).toHaveBeenCalledWith(
+        "https://cdn.test/plato.jpg",
+      );
+      const data = prisma.recipeCapture.updateMany.mock.calls.at(-1)[0].data;
+      expect(data.imageUrl).toBe("https://cdn.test/plato-subida.jpg");
+    });
+
+    it("usa la foto subida como imagen del plato", async () => {
+      bunny.imagesEnabled = true;
+      bunny.uploadImage.mockResolvedValue("https://cdn.test/subida.jpg");
+      structuring.structure.mockResolvedValue(recipe);
+
+      await service.createFromFile("t1", "u1", {
+        buffer: Buffer.from("foto"),
+        filename: "receta.jpg",
+        mimetype: "image/jpeg",
+      });
+      await settle();
+
+      expect(bunny.uploadImage).toHaveBeenCalled();
+      const data = prisma.recipeCapture.updateMany.mock.calls.at(-1)[0].data;
+      expect(data.imageUrl).toBe("https://cdn.test/subida.jpg");
+    });
+
+    it("si la imagen falla, la captura sigue PENDIENTE sin imagen", async () => {
+      (fetcher.fetchPublicPage as jest.Mock).mockResolvedValue(
+        '<head><meta property="og:image" content="https://cdn.test/x.jpg" /></head><body>x</body>',
+      );
+      (fetcher.fetchPublicImage as jest.Mock).mockRejectedValue(
+        new Error("boom"),
+      );
+      structuring.structure.mockResolvedValue(recipe);
+
+      await service.createFromUrl("t1", "u1", "https://recetas.es/tarta");
+      await settle();
+
+      const last = prisma.recipeCapture.updateMany.mock.calls.at(-1)[0];
+      expect(last.data.status).toBe("PENDIENTE");
+      expect(last.data.imageUrl).toBeNull();
     });
 
     it("un resultado tardío no pisa una captura que ya no está PROCESANDO", async () => {

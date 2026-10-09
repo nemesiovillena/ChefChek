@@ -24,11 +24,15 @@ const TOTAL_TIMEOUT_MS = 10_000;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const CHARSET_SNIFF_BYTES = 2048;
 const HTML_TYPES = ["text/html", "application/xhtml+xml"];
+const HTML_ACCEPT = "text/html,application/xhtml+xml";
+const IMAGE_ACCEPT = "image/avif,image/webp,image/*,*/*;q=0.8";
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Error con un mensaje pensado para mostrarse tal cual al usuario. */
 export class PageFetchError extends Error {}
 
 const NOT_PUBLIC = "La dirección no es una página web pública";
+const NOT_AN_IMAGE = "La imagen no tiene un formato válido";
 const NO_RESPONSE = "La web no respondió";
 const BLOCKED = "La web bloquea el acceso automático";
 
@@ -53,6 +57,51 @@ export async function fetchPublicPage(
   rawUrl: string,
   overrides: Partial<PageFetcherDeps> = {},
 ): Promise<string> {
+  const { buffer, contentType } = await fetchResource(rawUrl, overrides, {
+    accept: HTML_ACCEPT,
+    maxBytes: MAX_BODY_BYTES,
+    isAllowedType: (type) =>
+      HTML_TYPES.some((allowed) => type.toLowerCase().includes(allowed)),
+    rejectMessage: NOT_PUBLIC,
+  });
+  return decodeBody(buffer, contentType);
+}
+
+/** Imagen descargada de una URL pública, con su tipo MIME. */
+export interface PublicImage {
+  buffer: Buffer;
+  contentType: string;
+}
+
+/**
+ * Descarga una imagen de una URL pública con la misma barrera SSRF que las
+ * páginas (es la foto del plato, y la URL sale del HTML que escribió un
+ * usuario: puede apuntar a la LAN).
+ */
+export async function fetchPublicImage(
+  rawUrl: string,
+  overrides: Partial<PageFetcherDeps> = {},
+): Promise<PublicImage> {
+  return fetchResource(rawUrl, overrides, {
+    accept: IMAGE_ACCEPT,
+    maxBytes: MAX_IMAGE_BYTES,
+    isAllowedType: (type) => type.toLowerCase().startsWith("image/"),
+    rejectMessage: NOT_AN_IMAGE,
+  });
+}
+
+interface ResourceRules {
+  accept: string;
+  maxBytes: number;
+  isAllowedType: (contentType: string) => boolean;
+  rejectMessage: string;
+}
+
+async function fetchResource(
+  rawUrl: string,
+  overrides: Partial<PageFetcherDeps>,
+  rules: ResourceRules,
+): Promise<PublicImage> {
   const deps = { ...defaultDeps, ...overrides };
   const signal = AbortSignal.timeout(TOTAL_TIMEOUT_MS);
 
@@ -66,7 +115,7 @@ export async function fetchPublicPage(
 
     let response: http.IncomingMessage;
     try {
-      response = await request(url, pinned, signal);
+      response = await request(url, pinned, signal, rules.accept);
     } catch {
       throw new PageFetchError(NO_RESPONSE);
     }
@@ -91,14 +140,14 @@ export async function fetchPublicPage(
     }
 
     const contentType = String(response.headers["content-type"] ?? "");
-    if (!HTML_TYPES.some((type) => contentType.toLowerCase().includes(type))) {
+    if (!rules.isAllowedType(contentType)) {
       response.destroy();
-      throw new PageFetchError(NOT_PUBLIC);
+      throw new PageFetchError(rules.rejectMessage);
     }
 
     try {
-      const body = await readBody(response);
-      return decodeBody(body, contentType);
+      const buffer = await readBody(response, rules.maxBytes);
+      return { buffer, contentType };
     } catch {
       throw new PageFetchError(NO_RESPONSE);
     }
@@ -164,6 +213,7 @@ function request(
   url: URL,
   pinned: ResolvedAddress[],
   signal: AbortSignal,
+  accept: string,
 ): Promise<http.IncomingMessage> {
   const transport = url.protocol === "https:" ? https : http;
   // Node puede pedir una dirección o la lista completa (`all`, con
@@ -193,7 +243,7 @@ function request(
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-          Accept: "text/html,application/xhtml+xml",
+          Accept: accept,
           "Accept-Language": "es,en;q=0.5",
           "Accept-Encoding": "gzip, br",
         },
@@ -210,7 +260,10 @@ function request(
  * aplica tras descomprimir para que una respuesta pequeña no se expanda sin
  * tope en memoria.
  */
-function readBody(response: http.IncomingMessage): Promise<Buffer> {
+function readBody(
+  response: http.IncomingMessage,
+  maxBytes: number,
+): Promise<Buffer> {
   const encoding = String(
     response.headers["content-encoding"] ?? "",
   ).toLowerCase();
@@ -239,7 +292,7 @@ function readBody(response: http.IncomingMessage): Promise<Buffer> {
         stream.destroy();
       }
       response.destroy();
-      resolve(Buffer.concat(chunks).subarray(0, MAX_BODY_BYTES));
+      resolve(Buffer.concat(chunks).subarray(0, maxBytes));
     };
     stream.on("data", (chunk: Buffer) => {
       if (settled) {
@@ -247,7 +300,7 @@ function readBody(response: http.IncomingMessage): Promise<Buffer> {
       }
       chunks.push(chunk);
       size += chunk.length;
-      if (size >= MAX_BODY_BYTES) {
+      if (size >= maxBytes) {
         finish();
       }
     });

@@ -17,6 +17,7 @@ const capture = (overrides: Record<string, unknown> = {}) => ({
   preparationTimeMinutes: 15,
   cookingTimeMinutes: 40,
   sourceUrl: "https://recetas.es/tarta",
+  imageUrl: "https://cdn.test/plato.jpg",
   reservedRecipeId: null,
   claimedAt: null,
   recipeId: null,
@@ -165,6 +166,7 @@ describe("RecipeCapturePromotionService", () => {
         preparationTimeMinutes: 15,
         cookingTimeMinutes: 40,
         sourceUrl: "https://recetas.es/tarta",
+        imageUrl: "https://cdn.test/plato.jpg",
         ingredients: [{ productId: "p1", quantity: 500, unit: "g" }],
         notes:
           "Ingredientes pendientes de vincular (alérgenos incompletos):\n- sal al gusto",

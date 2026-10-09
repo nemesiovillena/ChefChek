@@ -56,7 +56,7 @@ Esfuerzo estimado: ~9 días (0,5 + 2 + 2 + 1,5 + 1 + 2).
 
 - Redes sociales, vídeo, webs con muro de pago o renderizadas por JavaScript (quedan en `ERROR` con mensaje claro).
 - Fotos HEIC (se rechazan con mensaje "usa JPG o PNG").
-- Imagen de la receta.
+- ~~Imagen de la receta~~ — **añadida el 2026-10-09**: se captura de `og:image`/schema.org (enlace) o de la propia foto subida, se guarda en nuestro almacenamiento y se copia a la receta al pasarla.
 - Crear artículos desde la pantalla de captura.
 - ~~Botón "Reintentar" en capturas con error~~ — **añadido el 2026-10-08**: las capturas en `ERROR` se reintentan desde su fuente guardada (enlace, texto o el archivo); las de foto/PDF exigen que se conserve el archivo, que desde entonces se guarda hasta procesarse.
 - Cuota diaria de IA por tenant.
