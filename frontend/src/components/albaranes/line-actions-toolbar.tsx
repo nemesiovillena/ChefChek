@@ -60,7 +60,10 @@ export function LineActionsToolbar({ albaranId, lines, onRefresh }: LineActionsT
   return (
     // En móvil los contadores ya están en la cabecera del albarán y, junto al
     // botón, desbordaban la pantalla: aquí queda solo el botón a ancho completo.
-    <div className="flex items-center justify-between gap-4 rounded-lg sm:bg-gray-50 sm:p-4">
+    // bg-muted (no bg-gray-50): el shim dark de globals.css solo sobrescribe la
+    // clase sin prefijo, y "sm:bg-gray-50" se escapaba dejando un fondo claro
+    // con texto claro en modo oscuro.
+    <div className="flex items-center justify-between gap-4 rounded-lg sm:bg-muted sm:p-4">
       <div className="hidden items-center gap-4 text-sm sm:flex">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-yellow-400" />
