@@ -26,6 +26,14 @@ interface PesoPrecioFieldsProps {
   formData: PesoPrecioFormData;
   setFormData: (data: PesoPrecioFormData) => void;
   tree: CategoryTreeNode[];
+  /**
+   * Base del precio introducido: 'unit' = € por unidad de referencia (típico
+   * en líneas de albarán: "72 ud × 1,3221 €"), 'format' = € por formato de
+   * compra (típico del alta manual: "la caja me cuesta X"). Sin indicar se
+   * asume 'format' (comportamiento histórico del modal de Artículos).
+   */
+  priceBasis?: 'unit' | 'format';
+  onPriceBasisChange?: (basis: 'unit' | 'format') => void;
 }
 
 // Dynamic labels based on reference unit
@@ -36,7 +44,7 @@ const UNIT_LABELS: Record<string, { size: string; sizePlaceholder: string; total
 };
 
 
-export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPrecioFieldsProps) {
+export default function PesoPrecioFields({ formData, setFormData, tree, priceBasis, onPriceBasisChange }: PesoPrecioFieldsProps) {
   const update = (field: string, value: string) => {
     const updates: Record<string, string> = { [field]: value };
 
@@ -52,12 +60,20 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
   const [addedCategories, setAddedCategories] = useState<Category[]>([]);
   const effectiveTree = useMemo(() => mergeAddedCategories(tree, addedCategories), [tree, addedCategories]);
 
-  // Live reference price preview
+  // Live reference price preview. El modelo de datos guarda purchasePrice
+  // POR FORMATO (€/caja) y deriva referencePrice = purchasePrice / unitSize;
+  // cuando el precio introducido ya es por unidad de referencia (base
+  // 'unit'), el precio de referencia es el propio precio.
   const price = parseFloat(formData.purchasePrice) || 0;
   const unitsPerFormat = parseInt(formData.unitsPerFormat) || 1;
   const referenceUnitSize = parseFloat(formData.referenceUnitSize) || 1;
   const calculatedUnitSize = unitsPerFormat * referenceUnitSize;
-  const refPrice = calculatedUnitSize > 0 ? price / calculatedUnitSize : 0;
+  const basis = priceBasis ?? 'format';
+  const refPrice = calculatedUnitSize > 0
+    ? basis === 'unit'
+      ? price
+      : price / calculatedUnitSize
+    : 0;
 
   const unitLabelKey = normalizeUnitSymbol(formData.referenceUnit);
   const unitLabels = (unitLabelKey && UNIT_LABELS[unitLabelKey]) || {
@@ -66,6 +82,15 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
     total: formData.referenceUnit || 'unidad',
   };
   const isUnd = unitLabelKey === 'und';
+
+  // Etiquetas del selector de base: "por unidad/kilo/litro" vs "por Caja".
+  const unitNoun =
+    (unitLabelKey === 'und' && 'unidad') ||
+    (unitLabelKey === 'kg' && 'kilo') ||
+    (unitLabelKey === 'L' && 'litro') ||
+    formData.referenceUnit ||
+    'unidad';
+  const formatNoun = formData.purchaseFormat.trim() || 'formato';
 
   return (
     <div className="space-y-4">
@@ -129,6 +154,32 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
             onChange={(e) => update('purchasePrice', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
+          {/* Base del precio: solo cuando el llamador la gestiona (crear desde
+              línea de albarán, donde el precio viene del papel y puede ser por
+              unidad o por formato según cómo facture el proveedor). */}
+          {onPriceBasisChange && (
+            <div
+              role="group"
+              aria-label="Base del precio de compra"
+              className="mt-1.5 inline-flex overflow-hidden rounded-md border border-gray-300 text-xs"
+            >
+              {(['unit', 'format'] as const).map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => onPriceBasisChange(b)}
+                  aria-pressed={basis === b}
+                  className={`px-2.5 py-1 transition-colors ${
+                    basis === b
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+                  }`}
+                >
+                  por {b === 'unit' ? unitNoun : formatNoun}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">% Descuento <span className="text-gray-400">(opcional)</span></label>
@@ -167,6 +218,9 @@ export default function PesoPrecioFields({ formData, setFormData, tree }: PesoPr
           {unitsPerFormat > 1 && (
             <span className="text-xs text-indigo-500">
               Total: {calculatedUnitSize} {unitLabels.total} por formato
+              {basis === 'unit' && onPriceBasisChange
+                ? ` (= ${formatEuro(price * calculatedUnitSize)}/${formatNoun})`
+                : ''}
             </span>
           )}
         </div>

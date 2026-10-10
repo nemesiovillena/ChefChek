@@ -54,11 +54,27 @@ export function CreateProductInline({
   const [error, setError] = useState<string | null>(null);
   const createSupplierOffer = useCreateSupplierOffer();
 
+  // Base del precio de la línea: el precio del albarán suele venir POR
+  // UNIDAD de referencia (el subtotal de abajo lo ancra: qty × precio =
+  // total del papel) y además coincide con la creación automática al
+  // confirmar (unitSize=1 → ref = precio de línea). El proveedor que factura
+  // por caja ("3 cajas × 31,73 €") se cubre cambiando a "por formato".
+  const [priceBasis, setPriceBasis] = useState<'unit' | 'format'>('unit');
+
   // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
   // No bloquea: solo informa para evitar crear un artículo paralelo.
   const { matches: duplicateNameMatches } = useProductNameCheck(name);
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+
+  // El modelo de datos guarda purchasePrice POR FORMATO (€/caja:
+  // referencePrice = purchasePrice / unitSize). Si el precio introducido es
+  // por unidad de referencia, hay que escalarlo por el contenido del formato
+  // (caja de 24 × 1,3221 €/ud → 31,73 €/caja); si ya es por formato, va tal
+  // cual. Sin esta conversión el artículo nacía con el €/ud dividido entre
+  // las unidades del formato (1,3221/24 = 0,06 €/ud).
+  const toFormatPrice = (enteredPrice: number, unitsPerFormat: number, referenceUnitSize: number) =>
+    priceBasis === 'unit' ? enteredPrice * unitsPerFormat * referenceUnitSize : enteredPrice;
 
   // Vincular directamente a un duplicado detectado, sin salir a "Elegir".
   const handleLinkExisting = async (productId: string) => {
@@ -74,10 +90,13 @@ export function CreateProductInline({
       // proveedor asignado (igual que en la confirmación normal de línea).
       if (supplierId) {
         const price = parseFloat(formData.purchasePrice);
+        const upf = parseInt(formData.unitsPerFormat) || 1;
+        const rus = parseFloat(formData.referenceUnitSize) || 1;
+        const basePrice = !Number.isNaN(price) ? price : line.unitPrice;
         await createSupplierOffer.mutateAsync({
           productId,
           supplierId,
-          purchasePrice: !Number.isNaN(price) ? price : line.unitPrice,
+          purchasePrice: toFormatPrice(basePrice, upf, rus),
           purchaseFormat: formData.purchaseFormat || undefined,
           referenceUnit: formData.referenceUnit || undefined,
           unitsPerFormat: parseInt(formData.unitsPerFormat) || undefined,
@@ -139,6 +158,7 @@ export function CreateProductInline({
       const price = !Number.isNaN(parsedPrice) ? parsedPrice : 0;
       const unitsPerFormat = parseInt(formData.unitsPerFormat) || 1;
       const referenceUnitSize = parseFloat(formData.referenceUnitSize) || 1;
+      const formatPrice = toFormatPrice(price, unitsPerFormat, referenceUnitSize);
 
       // Nota de paridad: el modal de Artículos NO envía netPrice (el backend lo
       // calcula con margen). Aquí se mantiene netPrice=precio para preservar el
@@ -146,8 +166,8 @@ export function CreateProductInline({
       // es una decisión de coste pendiente (ver memoria netprice-overloaded).
       const response = await apiClient.post<{ id: string }>('/v1/products', {
         name: name.trim(),
-        netPrice: price,
-        purchasePrice: !Number.isNaN(parsedPrice) ? parsedPrice : undefined,
+        netPrice: formatPrice,
+        purchasePrice: !Number.isNaN(parsedPrice) ? formatPrice : undefined,
         referenceUnit: formData.referenceUnit,
         unitsPerFormat,
         referenceUnitSize,
@@ -227,15 +247,27 @@ export function CreateProductInline({
         {linkError && <p className="mt-1 text-xs text-red-600">{linkError}</p>}
       </div>
 
-      {/* Campos core idénticos a la pestaña "Formato y Precio" de Artículos */}
-      <PesoPrecioFields formData={formData} setFormData={setFormData} tree={tree} />
+      {/* Campos core idénticos a la pestaña "Formato y Precio" de Artículos,
+          más el selector de base del precio (la línea de albarán ancra el
+          precio a la unidad del papel, no necesariamente al formato). */}
+      <PesoPrecioFields
+        formData={formData}
+        setFormData={setFormData}
+        tree={tree}
+        priceBasis={priceBasis}
+        onPriceBasisChange={setPriceBasis}
+      />
 
       {lineSubtotal !== null && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/30">
           <div className="text-gray-600 dark:text-gray-300">
             Subtotal línea:{' '}
             <span className="font-semibold text-gray-800 dark:text-gray-100">
-              {lineQuantity.toLocaleString('es-ES')} {formData.referenceUnit} × {fmtEuro(parsedPrice)} € = {fmtEuro(lineSubtotal)} €
+              {lineQuantity.toLocaleString('es-ES')}{' '}
+              {priceBasis === 'format'
+                ? formData.purchaseFormat || 'formato'
+                : formData.referenceUnit}{' '}
+              × {fmtEuro(parsedPrice)} € = {fmtEuro(lineSubtotal)} €
             </span>
           </div>
           {subtotalMatches !== null && (

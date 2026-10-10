@@ -266,6 +266,237 @@ describe("AlbaranStockService", () => {
       });
     });
 
+    it("converts the line price to per-format when the product was created inline from this same albaran (unit-priced line)", async () => {
+      // Alta inline desde la revisión: la línea factura por unidad (72 ud ×
+      // 1,3221 €) y el formulario guardó el artículo por formato (caja de 24
+      // → purchasePrice 31,7304 €/caja, unitSize 24). La confirmación debe
+      // escalar el precio de línea al formato; en crudo dejaría el €/ud
+      // dividido entre 24 (0,055 €/ud en vez de 1,3221 €/ud).
+      const albaranCreatedAt = new Date("2026-10-09T10:00:00Z");
+      const mockProduct = {
+        id: mockProductId,
+        name: "CERVEZA MAHOU 5 E. 24/3 RETORNABLE",
+        purchasePrice: 1.3221 * 24,
+        netPrice: 1.3221 * 24,
+        supplierId: "supplier-123",
+        tracksInventory: true,
+        unitsPerFormat: 24,
+        referenceUnitSize: 1,
+        unitSize: 24,
+        createdAt: new Date("2026-10-09T12:00:00Z"),
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "001-3968",
+        supplierId: "supplier-123",
+        warehouseId: mockWarehouseId,
+        createdAt: albaranCreatedAt,
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "CERVEZA MAHOU 5 E. 24/3 RETORNABLE",
+            quantity: 72,
+            unit: "ud",
+            unitPrice: 1.3221,
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn().mockResolvedValue(mockProduct),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-123",
+        mockTenantId,
+        { purchasePrice: 1.3221 * 24, netPrice: 1.3221 * 24 },
+        mockTx,
+        mockAlbaranId,
+        true,
+      );
+      // Precio idéntico al plano del artículo → sin notificación de cambio.
+      expect(notifications.notifyPriceChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps the raw line price for a pre-existing catalog product (not created from this albaran)", async () => {
+      // Artículo de catálogo anterior al albarán: no hay forma de saber la
+      // base del precio de línea → comportamiento histórico (precio crudo).
+      const mockProduct = {
+        id: mockProductId,
+        name: "EG CERVEZA ESPECIAL 24/3 RET LN",
+        purchasePrice: 21.942,
+        netPrice: 21.942,
+        supplierId: "supplier-123",
+        tracksInventory: true,
+        unitsPerFormat: 24,
+        referenceUnitSize: 1,
+        unitSize: 24,
+        createdAt: new Date("2026-09-01T10:00:00Z"),
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-002",
+        supplierId: "supplier-123",
+        warehouseId: mockWarehouseId,
+        createdAt: new Date("2026-10-09T10:00:00Z"),
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "EG CERVEZA ESPECIAL 24/3 RET LN",
+            quantity: 2,
+            unit: "ud",
+            unitPrice: 32.75,
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn().mockResolvedValue(mockProduct),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-123",
+        mockTenantId,
+        { purchasePrice: 32.75, netPrice: 32.75 },
+        mockTx,
+        mockAlbaranId,
+        true,
+      );
+    });
+
+    it("keeps the raw line price when the inline-created product was saved with format-based price (no conversion)", async () => {
+      // Alta inline con base "por formato": purchasePrice ya es el de la
+      // línea tal cual (32,75 €/caja) — aplicar el factor lo inflaría ×24.
+      const mockProduct = {
+        id: mockProductId,
+        name: "EG CERVEZA 0.0 R 24/3 LN",
+        purchasePrice: 37.67,
+        netPrice: 37.67,
+        supplierId: "supplier-123",
+        tracksInventory: true,
+        unitsPerFormat: 24,
+        referenceUnitSize: 1,
+        unitSize: 24,
+        createdAt: new Date("2026-10-09T12:00:00Z"),
+      };
+
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-003",
+        supplierId: "supplier-123",
+        warehouseId: mockWarehouseId,
+        createdAt: new Date("2026-10-09T10:00:00Z"),
+        lines: [
+          {
+            id: "line-1",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            description: "EG CERVEZA 0.0 R 24/3 LN",
+            quantity: 1,
+            unit: "ud",
+            unitPrice: 37.67,
+          },
+        ],
+      };
+
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "movement-1" }),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn().mockResolvedValue(mockProduct),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
+        productPriceHistory: { create: jest.fn() },
+      };
+
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-123",
+        mockTenantId,
+        { purchasePrice: 37.67, netPrice: 37.67 },
+        mockTx,
+        mockAlbaranId,
+        true,
+      );
+    });
+
     it("should skip Lot/StockMovement/Stock for products without inventory tracking (service charges)", async () => {
       const mockProduct = {
         id: mockProductId,
