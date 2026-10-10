@@ -550,21 +550,44 @@ export function setPreferredZebraDeviceUid(uid: string | null): void {
   }
 }
 
+/** Margen para que una Zebra recién encendida aparezca por USB en Browser Print. */
+const ZEBRA_POWER_UP_WAIT_MS = 8000;
+const ZEBRA_POWER_UP_RETRY_MS = 1500;
+
+const SAVED_ZEBRA_NOT_CONNECTED =
+  'La impresora de etiquetas está apagada o todavía arrancando. Enciéndela, espera a la luz verde fija y vuelve a imprimir. Si has cambiado de impresora, guárdala en Configuración → Etiquetas.';
+
 /**
- * Impresora a la que van las etiquetas: la guardada en Ajustes; si no hay
- * ninguna guardada (o ya no está conectada) y Browser Print solo ve una, esa;
- * si no, la predeterminada de la app Browser Print.
+ * Impresora a la que van las etiquetas.
+ *
+ * Con una impresora guardada en Ajustes solo se imprime en esa: se espera unos
+ * segundos a que aparezca (la encienden justo para imprimir) y, si no, se avisa.
+ * No se desvía a otro dispositivo porque, con la Zebra apagada, Browser Print
+ * sigue listando la cola del driver de Windows como única impresora y la
+ * etiqueta acababa ahí sin que nadie se enterase.
+ *
+ * Sin impresora guardada: la única que vea Browser Print o, si no, su
+ * predeterminada.
  */
 async function resolveZebraDevice(): Promise<ZebraDevice> {
   const preferredUid = getPreferredZebraDeviceUid();
+  if (preferredUid) {
+    const deadline = Date.now() + ZEBRA_POWER_UP_WAIT_MS;
+    for (;;) {
+      // Si Browser Print no contesta, el error (con cómo arreglarlo) sube tal cual.
+      const devices = await listZebraPrinters();
+      const match = devices.find((d) => d.uid === preferredUid);
+      if (match) return match;
+      if (Date.now() >= deadline) throw new Error(SAVED_ZEBRA_NOT_CONNECTED);
+      await new Promise((resolve) => setTimeout(resolve, ZEBRA_POWER_UP_RETRY_MS));
+    }
+  }
   let devices: ZebraDevice[] = [];
   try {
     devices = await listZebraPrinters();
   } catch {
     // Si no se puede listar, se intenta igualmente con la impresora por defecto.
   }
-  const match = preferredUid ? devices.find((d) => d.uid === preferredUid) : undefined;
-  if (match) return match;
   if (devices.length === 1) return devices[0];
   return getDefaultZebraPrinter();
 }

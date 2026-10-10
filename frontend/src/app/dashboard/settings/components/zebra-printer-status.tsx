@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save, Zap } from 'lucide-react';
+import { Usb, RefreshCw, Printer, Loader2, CheckCircle2, XCircle, ExternalLink, Save, Zap, ShieldCheck } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
+  BROWSER_PRINT_AUTHORIZE_URL,
+  BrowserPrintUnreachableError,
   listZebraPrinters,
   sendZpl,
   type ZebraDevice,
@@ -61,6 +63,10 @@ export function ZebraPrinterStatus() {
   const errorMsg =
     probe.error instanceof Error ? probe.error.message : 'No se pudo comprobar la impresora.';
   const savedConnected = devices.some((d) => d.uid === savedUid);
+  // La guardada no está pero Browser Print responde: casi siempre es que la
+  // Zebra está apagada (solo queda la cola del driver de Windows en la lista).
+  const savedMissing = !!savedUid && !!probe.data && !savedConnected;
+  const unreachable = probe.error instanceof BrowserPrintUnreachableError;
   const selectedUid =
     selectedDraft && devices.some((d) => d.uid === selectedDraft)
       ? selectedDraft
@@ -205,7 +211,34 @@ export function ZebraPrinterStatus() {
             {errorMsg}
           </span>
         )}
+        {state === 'error' && unreachable && (
+          <a
+            href={BROWSER_PRINT_AUTHORIZE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Autorizar Browser Print
+          </a>
+        )}
       </div>
+      {state === 'error' && unreachable && (
+        <p className="mb-3 text-xs text-gray-600 dark:text-gray-400">
+          Se abrirá una pestaña con un aviso de seguridad: pulsa «Avanzado» y luego
+          «Continuar a localhost». Cierra esa pestaña y pulsa «Comprobar». El
+          navegador olvida este permiso cada cierto tiempo, así que es normal tener
+          que repetirlo.
+        </p>
+      )}
+      {state !== 'checking' && savedMissing && (
+        <p className="mb-3 inline-flex items-start gap-1 text-sm text-amber-700 dark:text-amber-400">
+          <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          La impresora guardada no está conectada ahora mismo: enciéndela, espera a
+          la luz verde fija y pulsa Comprobar. Mientras tanto no se imprimirá
+          ninguna etiqueta.
+        </p>
+      )}
 
       {devices.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 mb-3">
@@ -270,7 +303,9 @@ export function ZebraPrinterStatus() {
           ) : (
             <span className="inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-400">
               <XCircle className="h-4 w-4" />
-              Sin guardar: pulsa Guardar para usarla en las etiquetas
+              {savedMissing
+                ? 'No es la impresora guardada: guárdala solo si has cambiado de impresora'
+                : 'Sin guardar: pulsa Guardar para usarla en las etiquetas'}
             </span>
           )}
         </div>
