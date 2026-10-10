@@ -17,7 +17,13 @@
 
 const BROWSER_PRINT_SDK_SRC =
   'https://cdn.jsdelivr.net/npm/zebra-browser-print@1.0.1/index.min.js';
-const CONNECT_TIMEOUT_MS = 4000;
+/**
+ * Con la impresora apagada o arrancando, Browser Print tarda más de 5 s en
+ * contestar a la lista de dispositivos (busca por USB antes de responder): con
+ * menos margen la app lo daba por caído justo cuando alguien la acaba de
+ * encender para imprimir.
+ */
+const CONNECT_TIMEOUT_MS = 10000;
 /**
  * Tope de espera para lectura de comandos (`sendThenRead`): sin esto, si la
  * impresora no contesta (p. ej. firmware que ignora un SGD), la promesa queda
@@ -71,12 +77,37 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * El SDK hace XHR a https://localhost:9101 (la app Browser Print del PC). Si la
- * app no está abierta, la petición falla con status 0 y respuesta vacía: el
- * callback de error llega con "" y sin esto el usuario solo vería un genérico.
+ * Página de Browser Print que hace que el navegador pregunte si confía en su
+ * certificado. ChefChek se sirve por HTTPS, así que el SDK habla con
+ * https://localhost:9101, cuyo certificado es autofirmado: solo funciona
+ * mientras el navegador conserve esa excepción, y la pierde cada cierto tiempo.
+ */
+export const BROWSER_PRINT_AUTHORIZE_URL = 'https://localhost:9101/ssl_support';
+
+/**
+ * El SDK hace XHR a https://localhost:9101 (la app Browser Print del PC). La
+ * petición falla con status 0 y respuesta vacía tanto si la app está cerrada
+ * como si el navegador rechaza su certificado, y desde JS no se pueden
+ * distinguir: el callback de error llega con "" en ambos casos. Por eso el
+ * mensaje cubre los dos y la interfaz ofrece autorizar el certificado.
  */
 const BROWSER_PRINT_UNREACHABLE =
-  'No se puede conectar con Zebra Browser Print en este PC. Ábrelo desde el menú Inicio (su icono debe aparecer junto al reloj) y vuelve a comprobar.';
+  'No se puede conectar con Zebra Browser Print en este PC. Si su icono aparece junto al reloj, falta autorizarlo en este navegador: en Configuración → Etiquetas pulsa «Autorizar Browser Print». Si no aparece, ábrelo desde el menú Inicio.';
+
+/** No se llegó a hablar con Browser Print (app cerrada o certificado sin autorizar). */
+export class BrowserPrintUnreachableError extends Error {
+  constructor() {
+    super(BROWSER_PRINT_UNREACHABLE);
+    this.name = 'BrowserPrintUnreachableError';
+  }
+}
+
+/** Error del SDK → Error; la respuesta vacía es la firma de "no se pudo conectar". */
+function connectionError(err: unknown): Error {
+  if (typeof err === 'string' && err.trim()) return new Error(err);
+  if (err instanceof Error && err.message) return err;
+  return new BrowserPrintUnreachableError();
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -173,7 +204,7 @@ export async function getDefaultZebraPrinter(): Promise<ZebraDevice> {
       bp.getDefaultDevice(
         'printer',
         (device) => resolve(device),
-        (err) => reject(new Error(errorMessage(err, BROWSER_PRINT_UNREACHABLE))),
+        (err) => reject(connectionError(err)),
       );
     }),
     CONNECT_TIMEOUT_MS,
@@ -198,7 +229,7 @@ export async function listZebraPrinters(): Promise<ZebraDevice[]> {
     new Promise<RawBrowserPrintDevice[]>((resolve, reject) => {
       bp.getLocalDevices(
         (devices) => resolve(devices ?? []),
-        (err) => reject(new Error(errorMessage(err, BROWSER_PRINT_UNREACHABLE))),
+        (err) => reject(connectionError(err)),
         'printer',
       );
     }),
