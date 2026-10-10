@@ -70,7 +70,12 @@ const OFFLINE_MAX_DELAY_MS = 24 * 60 * 60 * 1000;
 interface AppendInput {
   id: string;
   type: CreatePunchDto["type"];
-  occurredAt: Date;
+  /**
+   * Hora del fichaje. `null` = ahora, según el reloj del servidor: se fija ya
+   * dentro del tramo serializado, para que el orden de las horas coincida con
+   * el orden en que se guardan.
+   */
+  occurredAt: Date | null;
   deviceTime: Date | null;
   source: PunchSource;
   actorId: string;
@@ -194,7 +199,7 @@ export class PunchService {
       type: dto.type,
       // Con conexión manda el reloj del servidor; el del dispositivo se
       // guarda aparte.
-      occurredAt: new Date(),
+      occurredAt: null,
       deviceTime: dto.deviceTime ?? null,
       source,
       actorId: actor.id,
@@ -375,6 +380,11 @@ export class PunchService {
       // si la misma persona pulsa dos veces.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${tenantId}))`;
 
+      // La hora "de ahora" se toma con el bloqueo ya cogido. Tomada antes, dos
+      // pulsaciones a la vez podían guardarse en orden inverso al de sus
+      // horas: la segunda no veía a la primera como anterior y entraban ambas.
+      const occurredAt = input.occurredAt ?? new Date();
+
       // El fichaje inmediatamente anterior en el tiempo (no el último en
       // llegar: uno hecho sin conexión puede llegar después de otro posterior).
       // La situación sale de los fichajes que cuentan (con las correcciones
@@ -385,12 +395,12 @@ export class PunchService {
             tx,
             tenantId,
             [employee.id],
-            new Date(input.occurredAt.getTime() - STATUS_WINDOW_MS),
+            new Date(occurredAt.getTime() - STATUS_WINDOW_MS),
           )
         ).get(employee.id) ?? [];
       const previous = [...timeline]
         .reverse()
-        .find((entry) => entry.occurredAt <= input.occurredAt);
+        .find((entry) => entry.occurredAt <= occurredAt);
       const status = statusAfter(previous?.type);
       const review = [...input.review];
       if (!isAllowedTransition(status, input.type)) {
@@ -401,9 +411,7 @@ export class PunchService {
       } else if (!input.enforceSequence) {
         // Un fichaje que llega tarde también debe encajar con el siguiente
         // que ya estaba registrado (p. ej. no dejar dos salidas seguidas).
-        const stored = timeline.find(
-          (entry) => entry.occurredAt > input.occurredAt,
-        );
+        const stored = timeline.find((entry) => entry.occurredAt > occurredAt);
         const pending = input.nextInBatch;
         const next =
           pending && (!stored || pending.occurredAt < stored.occurredAt)
@@ -428,7 +436,7 @@ export class PunchService {
         employeeId: employee.id,
         employeeName: fullName(employee),
         type: input.type,
-        occurredAt: input.occurredAt,
+        occurredAt,
         deviceTime: input.deviceTime,
         source: input.source,
         recordedByUserId: input.actorId,

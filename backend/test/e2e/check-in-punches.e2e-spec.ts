@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { AppModule } from "../../src/app.module";
 import { PrismaService } from "../../src/common/services/prisma.service";
 import { computePunchHash } from "../../src/modules/check-in/services/punch-hash.util";
+import { PunchService } from "../../src/modules/check-in/services/punch.service";
 
 /**
  * Check-In, fichaje: cuenta personal sin PIN, kiosco con PIN, geovalla,
@@ -362,6 +363,41 @@ describe("E2E - Check-In fichaje", () => {
     expect(await prisma.timePunch.count({ where: { tenantId } })).toBe(
       before + 1,
     );
+    await punch(workerSession, { type: "OUT", ...INSIDE });
+  });
+
+  it("una pulsación que llega antes pero se guarda después no duplica la entrada", async () => {
+    // La hora del fichaje debe fijarse dentro del tramo serializado: si se
+    // fijara antes, la petición más antigua que entra la segunda no vería la
+    // entrada recién guardada (posterior a su hora) y también la aceptaría.
+    const service = app.get(PunchService) as any;
+    const original = service.append.bind(service);
+    let calls = 0;
+    const spy = jest
+      .spyOn(service, "append")
+      .mockImplementation(async (...args: unknown[]) => {
+        if (calls++ === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+        return original(...args);
+      });
+    try {
+      const before = await prisma.timePunch.count({ where: { tenantId } });
+      const early = punch(workerSession, { type: "IN", ...INSIDE }).then(
+        (res) => res,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const late = punch(workerSession, { type: "IN", ...INSIDE }).then(
+        (res) => res,
+      );
+      const results = await Promise.all([early, late]);
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      expect(await prisma.timePunch.count({ where: { tenantId } })).toBe(
+        before + 1,
+      );
+    } finally {
+      spy.mockRestore();
+    }
     await punch(workerSession, { type: "OUT", ...INSIDE });
   });
 
