@@ -114,7 +114,8 @@ export default function DashboardPage() {
   };
 
   // Etiquetar desde la tarea: abre Nueva etiqueta con la receta ya elegida;
-  // si la tarea es de título libre, con ese nombre como plato sin receta.
+  // si la tarea es de título libre, sin tipo elegido y con ese nombre listo
+  // por si se etiqueta como plato sin receta.
   const handleLabelTask = (e: React.MouseEvent, task: UpcomingProductionTask) => {
     e.stopPropagation();
     router.push(
