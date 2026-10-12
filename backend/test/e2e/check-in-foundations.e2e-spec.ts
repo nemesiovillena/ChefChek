@@ -215,30 +215,50 @@ describe("E2E - Check-In fundaciones", () => {
     expect(again.status).toBe(409);
   });
 
-  it("asigna el PIN de kiosco con la longitud configurada", async () => {
+  it("asigna el PIN de kiosco con la longitud configurada a quien ficha sin cuenta", async () => {
+    const created = await api(adminSession).post("/api/v1/check-in/employees", {
+      firstName: "Paco",
+      lastName: "Sin Cuenta",
+    });
+    expect(created.status).toBe(201);
+    const kioskOnlyId = body(created).id;
+
     const tooLong = await api(adminSession).put(
-      `/api/v1/check-in/employees/${employeeId}/pin`,
+      `/api/v1/check-in/employees/${kioskOnlyId}/pin`,
       { pin: "123456" },
     );
     expect(tooLong.status).toBe(400);
 
     const ok = await api(adminSession).put(
-      `/api/v1/check-in/employees/${employeeId}/pin`,
+      `/api/v1/check-in/employees/${kioskOnlyId}/pin`,
       { pin: "4821" },
     );
     expect(ok.status).toBe(204);
 
     const stored = await prisma.employee.findUnique({
-      where: { id: employeeId },
+      where: { id: kioskOnlyId },
     });
     expect(stored?.pinHash).toBeTruthy();
     expect(stored?.pinHash).not.toContain("4821");
 
     const view = await api(adminSession).get(
-      `/api/v1/check-in/employees/${employeeId}`,
+      `/api/v1/check-in/employees/${kioskOnlyId}`,
     );
     expect(body(view).hasPin).toBe(true);
     expect(JSON.stringify(view.body)).not.toContain(stored!.pinHash!);
+  });
+
+  it("no asigna PIN a quien tiene cuenta: ficha con la contraseña de Equipo", async () => {
+    const res = await api(adminSession).put(
+      `/api/v1/check-in/employees/${employeeId}/pin`,
+      { pin: "4821" },
+    );
+    expect(res.status).toBe(400);
+    expect(
+      body(
+        await api(adminSession).get(`/api/v1/check-in/employees/${employeeId}`),
+      ).usesAccountPassword,
+    ).toBe(true);
   });
 
   it("otro tenant no ve ni modifica al empleado", async () => {
@@ -270,13 +290,14 @@ describe("E2E - Check-In fundaciones", () => {
       { isActive: false, terminationDate: "2026-09-30" },
     );
     expect(res.status).toBe(200);
-    expect(
-      body(await api(adminSession).get("/api/v1/check-in/employees")),
-    ).toEqual([]);
+    const active = body(
+      await api(adminSession).get("/api/v1/check-in/employees"),
+    );
+    expect(active.map((e: any) => e.id)).not.toContain(employeeId);
     const all = await api(adminSession).get(
       "/api/v1/check-in/employees?includeInactive=true",
     );
-    expect(body(all)).toHaveLength(1);
+    expect(body(all).map((e: any) => e.id)).toContain(employeeId);
   });
 
   it("aplica el convenio de hostelería y guarda el interruptor de pausas", async () => {
