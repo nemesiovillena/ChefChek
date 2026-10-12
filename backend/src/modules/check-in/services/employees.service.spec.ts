@@ -170,6 +170,31 @@ describe("EmployeesService", () => {
     expect(created.userId).toBe("u-free");
   });
 
+  it("con cuenta vinculada el nombre es el de Equipo, no el del formulario", async () => {
+    const { service } = makeService();
+    const created = await service.create("t1", { ...BASE, userId: "u-free" });
+    expect(created.firstName).toBe("Ana");
+    expect(created.lastName).toBe("López Mora");
+
+    const updated = await service.update("t1", created.id, {
+      firstName: "Otro",
+      lastName: "Nombre",
+      jobTitle: "Cocinera",
+    });
+    expect(updated.firstName).toBe("Ana");
+    expect(updated.lastName).toBe("López Mora");
+    expect(updated.jobTitle).toBe("Cocinera");
+  });
+
+  it("sin cuenta el nombre se edita en la propia ficha", async () => {
+    const { service } = makeService();
+    const created = await service.create("t1", BASE);
+    const updated = await service.update("t1", created.id, {
+      firstName: "Lucía",
+    });
+    expect(updated.firstName).toBe("Lucía");
+  });
+
   it("rechaza cuentas compartidas, ya vinculadas o de otro tenant", async () => {
     const { service } = makeService();
     await expect(

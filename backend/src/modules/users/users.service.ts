@@ -8,13 +8,17 @@ import {
 import { PrismaService } from "../../common/services/prisma.service";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import * as bcrypt from "bcrypt";
+import { EmployeeAccountSyncService } from "../check-in/services/employee-account-sync.service";
 
 /** Roles que en @Roles solo cumple quien los tiene exactamente (no por nivel). */
 const EXACT_MATCH_ROLES = new Set(["USER_CUINER"]);
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly employeeSync: EmployeeAccountSyncService,
+  ) {}
 
   async create(createUserDto: CreateUserDto, requestTenantId: string) {
     const {
@@ -95,6 +99,8 @@ export class UsersService {
         updatedAt: true,
       },
     });
+
+    await this.employeeSync.onAccountCreated({ ...user, tenantId });
 
     return {
       success: true,
@@ -249,6 +255,11 @@ export class UsersService {
       },
     });
 
+    await this.employeeSync.onAccountUpdated({
+      ...user,
+      tenantId: requestTenantId,
+    });
+
     return {
       success: true,
       data: user,
@@ -271,6 +282,7 @@ export class UsersService {
     await this.prisma.user.delete({
       where: { id },
     });
+    await this.employeeSync.onAccountRemoved(id);
 
     return {
       success: true,

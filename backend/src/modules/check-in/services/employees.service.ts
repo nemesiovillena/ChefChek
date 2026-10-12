@@ -99,9 +99,10 @@ export class EmployeesService {
   }
 
   async create(tenantId: string, dto: CreateEmployeeDto) {
-    if (dto.userId) {
-      await this.assertUserLinkable(tenantId, dto.userId);
-    }
+    const account = dto.userId
+      ? await this.assertUserLinkable(tenantId, dto.userId)
+      : null;
+    const name = account ? splitFullName(account.name) : dto;
     const locationIds = await this.resolveLocationIds(
       tenantId,
       dto.locationIds,
@@ -116,8 +117,8 @@ export class EmployeesService {
       data: {
         tenantId,
         userId: dto.userId ?? null,
-        firstName: dto.firstName.trim(),
-        lastName: dto.lastName.trim(),
+        firstName: name.firstName.trim(),
+        lastName: name.lastName.trim(),
         nationalId: dto.nationalId,
         socialSecurityNumber: dto.socialSecurityNumber,
         jobTitle: dto.jobTitle,
@@ -141,8 +142,16 @@ export class EmployeesService {
   async update(tenantId: string, id: string, dto: UpdateEmployeeDto) {
     const current = await this.findOwned(tenantId, id);
 
+    // Con cuenta vinculada el nombre es el de Equipo: se copia al vincular y
+    // se ignora el que llegue en el formulario.
+    const linkedUserId = dto.userId === undefined ? current.userId : dto.userId;
+    let name: { firstName?: string; lastName?: string } = dto;
     if (dto.userId && dto.userId !== current.userId) {
-      await this.assertUserLinkable(tenantId, dto.userId);
+      name = splitFullName(
+        (await this.assertUserLinkable(tenantId, dto.userId)).name,
+      );
+    } else if (linkedUserId) {
+      name = {};
     }
 
     const replaceLocations =
@@ -179,8 +188,8 @@ export class EmployeesService {
         where: { id },
         data: {
           userId: dto.userId,
-          firstName: dto.firstName?.trim(),
-          lastName: dto.lastName?.trim(),
+          firstName: name.firstName?.trim(),
+          lastName: name.lastName?.trim(),
           nationalId: dto.nationalId,
           socialSecurityNumber: dto.socialSecurityNumber,
           jobTitle: dto.jobTitle,
@@ -214,7 +223,11 @@ export class EmployeesService {
   private async assertUserLinkable(tenantId: string, userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
-      select: { isSharedAccount: true, employee: { select: { id: true } } },
+      select: {
+        name: true,
+        isSharedAccount: true,
+        employee: { select: { id: true } },
+      },
     });
     if (!user) {
       throw new BadRequestException("La cuenta de usuario no existe.");
@@ -229,6 +242,7 @@ export class EmployeesService {
         "Esa cuenta ya está vinculada a otro empleado.",
       );
     }
+    return user;
   }
 
   /**
@@ -246,21 +260,7 @@ export class EmployeesService {
     }
 
     if (wanted.size === 0) {
-      const tenantDefault = await this.prisma.location.findFirst({
-        where: { tenantId, isDefault: true },
-        select: { id: true },
-      });
-      if (tenantDefault) {
-        return [tenantDefault.id];
-      }
-      // Sin centro principal marcado: si el tenant solo tiene un centro, no
-      // hay ambigüedad y el empleado ficha en ese.
-      const active = await this.prisma.location.findMany({
-        where: { tenantId, isActive: true, deletedAt: null },
-        select: { id: true },
-        take: 2,
-      });
-      return active.length === 1 ? [active[0].id] : [];
+      return resolveFallbackLocationIds(this.prisma, tenantId);
     }
 
     const found = await this.prisma.location.findMany({
@@ -272,6 +272,30 @@ export class EmployeesService {
     }
     return [...wanted];
   }
+}
+
+/**
+ * Centros de una ficha a la que no se le ha indicado ninguno: el principal del
+ * tenant o, si no hay principal marcado, el único centro activo (sin
+ * ambigüedad). Con varios centros y ninguno principal, se queda sin centro.
+ */
+export async function resolveFallbackLocationIds(
+  prisma: Pick<PrismaService, "location">,
+  tenantId: string,
+): Promise<string[]> {
+  const tenantDefault = await prisma.location.findFirst({
+    where: { tenantId, isDefault: true },
+    select: { id: true },
+  });
+  if (tenantDefault) {
+    return [tenantDefault.id];
+  }
+  const active = await prisma.location.findMany({
+    where: { tenantId, isActive: true, deletedAt: null },
+    select: { id: true },
+    take: 2,
+  });
+  return active.length === 1 ? [active[0].id] : [];
 }
 
 /** "Marta Ruiz García" -> nombre "Marta", apellidos "Ruiz García". */
@@ -305,6 +329,8 @@ function toEmployeeView(employee: EmployeeWithRelations) {
   return {
     ...rest,
     hasPin: pinHash !== null,
+    // Con cuenta de Equipo se identifica con esa contraseña, no con PIN.
+    usesAccountPassword: employee.userId !== null,
     pinLocked: pinLockedUntil !== null && pinLockedUntil > new Date(),
     locationIds: locations.map((l) => l.locationId),
   };

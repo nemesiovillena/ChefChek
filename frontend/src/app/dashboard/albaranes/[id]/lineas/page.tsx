@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion, correctLineVat } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -18,6 +18,7 @@ import { CreateProductInline } from '@/components/albaranes/create-product-inlin
 import { AddLineForm } from '@/components/albaranes/add-line-form';
 import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
 import { CorrectPriceDialog } from '@/components/albaranes/correct-price-dialog';
+import { AlbaranTotalMismatchNotice } from '@/components/albaranes/albaran-total-mismatch-notice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -273,6 +274,19 @@ export default function AlbaranLineasPage() {
     line.lineStatus === 'CONFIRMADO' &&
     !!line.matchedProduct;
 
+  /** Corrección de IVA: en albaranes confirmados, cualquier línea que cuente
+   *  para el total. El IVA no afecta a stock ni costes, así que no exige
+   *  artículo vinculado como el precio. */
+  const canCorrectVat = (line: AlbaranLine) =>
+    albaran?.status === 'CONFIRMADO' && line.lineStatus !== 'RECHAZADO';
+
+  const handleVatCorrected = () => {
+    void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+    // La tarjeta de envío a Cuiner recalcula el total con el IVA nuevo.
+    void queryClient.invalidateQueries({ queryKey: ['cuiner', 'albaran', id] });
+    refetch();
+  };
+
   const getLineStatusBadge = (status: LineStatus) => {
     // Badge de solo icono (con tooltip) en vez de texto: la palabra completa
     // ("Pendiente"/"Confirmado"/"Rechazado") era una de las columnas que más
@@ -498,7 +512,8 @@ export default function AlbaranLineasPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <AlbaranTotalMismatchNotice albaran={albaran} />
           {/* Contadores + confirmación en lote en un solo sitio: la barra que
               había justo debajo repetía estos mismos contadores. */}
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -740,6 +755,25 @@ export default function AlbaranLineasPage() {
                               step="1"
                               suffix="%"
                               onSave={refetch}
+                            />
+                          ) : canCorrectVat(line) ? (
+                            <EditableLineCell
+                              albaranId={id}
+                              lineId={line.id}
+                              field="vatPercent"
+                              value={line.vatPercent}
+                              type="number"
+                              suffix="%"
+                              variant="correction"
+                              onSubmit={(v) => correctLineVat(id, line.id, Number(v))}
+                              onSave={handleVatCorrected}
+                              onError={(err) =>
+                                addNotification({
+                                  type: 'error',
+                                  title: 'No se pudo corregir el IVA',
+                                  message: err instanceof Error ? err.message : 'Error al corregir el IVA',
+                                })
+                              }
                             />
                           ) : (
                             `${line.vatPercent}%`

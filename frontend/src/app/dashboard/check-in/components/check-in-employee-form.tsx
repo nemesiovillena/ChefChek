@@ -156,10 +156,14 @@ interface Props {
   centers: WorkCenter[];
   pinLength: number;
   onDone: () => void;
+  /** Dentro de la ficha de Equipo: sin tarjeta, sin título ni botón de cerrar. */
+  embedded?: boolean;
 }
 
 /** Alta y edición de la ficha laboral. Montar con `key` distinta por empleado. */
-export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Props) {
+export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embedded = false }: Props) {
+  // Con cuenta vinculada, nombre y cuenta se gestionan en Equipo.
+  const linkedToAccount = Boolean(employee?.userId);
   const notify = useNotification();
   const create = useCreateEmployee();
   const update = useUpdateEmployee();
@@ -188,7 +192,7 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Pr
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.firstName.trim() || !form.lastName.trim()) {
+    if (!linkedToAccount && (!form.firstName.trim() || !form.lastName.trim())) {
       notify({ type: 'error', title: 'Faltan campos', message: 'Nombre y apellidos son obligatorios.' });
       return;
     }
@@ -222,12 +226,21 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Pr
   );
 
   return (
-    <form onSubmit={handleSubmit} className={`${cardCls} mb-6 space-y-4`}>
-      <h3 className="font-semibold">{employee ? `Editar: ${employee.firstName} ${employee.lastName}` : 'Nuevo empleado'}</h3>
+    <form onSubmit={handleSubmit} className={embedded ? 'space-y-4' : `${cardCls} mb-6 space-y-4`}>
+      {!embedded && (
+        <h3 className="font-semibold">
+          {employee ? `Editar: ${employee.firstName} ${employee.lastName}` : 'Nuevo empleado sin cuenta'}
+        </h3>
+      )}
+      {linkedToAccount && !embedded && (
+        <p className="text-sm text-[var(--on-surface-variant)]">
+          El nombre y la cuenta de esta persona se cambian en Equipo.
+        </p>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
-        {field('Nombre *', 'firstName', { autoComplete: 'off' })}
-        {field('Apellidos *', 'lastName', { autoComplete: 'off' })}
+        {!linkedToAccount && field('Nombre *', 'firstName', { autoComplete: 'off' })}
+        {!linkedToAccount && field('Apellidos *', 'lastName', { autoComplete: 'off' })}
         {field('DNI / NIE', 'nationalId', { autoComplete: 'off' })}
         {field('Nº Seguridad Social', 'socialSecurityNumber', { autoComplete: 'off', inputMode: 'numeric' })}
         {field('Puesto', 'jobTitle')}
@@ -238,7 +251,7 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Pr
         {field('Fecha de alta', 'hireDate', { type: 'date' })}
       </div>
 
-      <label className="block">
+      <label className={linkedToAccount ? 'hidden' : 'block'}>
         <span className={labelCls}>Cuenta de ChefChek</span>
         <select value={form.userId} onChange={(e) => set('userId', e.target.value)} className={inputCls}>
           <option value="">Sin cuenta (solo ficha en kiosco con PIN)</option>
@@ -297,7 +310,13 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Pr
         </div>
       )}
 
-      {employee && <PinSection employee={employee} pinLength={pinLength} />}
+      {employee && !linkedToAccount && <PinSection employee={employee} pinLength={pinLength} />}
+      {linkedToAccount && (
+        <p className="flex items-center gap-2 text-sm text-[var(--on-surface-variant)]">
+          <KeyRound className="h-4 w-4 shrink-0" />
+          En el kiosco compartido ficha con la contraseña de su cuenta de Equipo. Desde su propia cuenta, sin clave.
+        </p>
+      )}
       {!employee && (
         <p className="text-sm text-[var(--on-surface-variant)]">
           El PIN de kiosco se asigna después de crear la ficha.
@@ -309,9 +328,11 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone }: Pr
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Guardar
         </button>
-        <button type="button" onClick={onDone} className={secondaryBtnCls}>
-          Cerrar
-        </button>
+        {!embedded && (
+          <button type="button" onClick={onDone} className={secondaryBtnCls}>
+            Cerrar
+          </button>
+        )}
       </div>
     </form>
   );

@@ -5,6 +5,13 @@ import Image from 'next/image';
 import { useNotification } from '@/components/notification-system';
 import { useCreateUser, useUpdateUser, useUploadUserAvatar, User } from '@/hooks/use-users';
 import { processImageForUpload } from '@/lib/image-processing';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/auth.context';
+import { useModules } from '@/features/modules/hooks/use-modules';
+import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
+import { UserLaborDataTab } from './user-labor-data-tab';
+
+export type UserModalTab = 'datos' | 'laboral';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -13,10 +20,12 @@ interface UserModalProps {
   currentTenantId: string | null;
   /** Llamado tras guardar con éxito (antes de cerrar). */
   onSaved?: () => void;
+  /** Pestaña con la que se abre (p. ej. al llegar desde Fichar → Empleados). */
+  initialTab?: UserModalTab;
 }
 
 /** Outer component: keeps hooks stable and mounts the form keyed by the edited entity. */
-export default function UserModal({ isOpen, onClose, targetUser, currentTenantId, onSaved }: UserModalProps) {
+export default function UserModal({ isOpen, onClose, targetUser, currentTenantId, onSaved, initialTab }: UserModalProps) {
   if (!isOpen) return null;
   return (
     <UserModalForm
@@ -25,6 +34,7 @@ export default function UserModal({ isOpen, onClose, targetUser, currentTenantId
       currentTenantId={currentTenantId}
       onClose={onClose}
       onSaved={onSaved}
+      initialTab={initialTab}
     />
   );
 }
@@ -34,10 +44,24 @@ interface UserModalFormProps {
   currentTenantId: string | null;
   onClose: () => void;
   onSaved?: () => void;
+  initialTab?: UserModalTab;
 }
 
-function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserModalFormProps) {
+function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialTab }: UserModalFormProps) {
   const addNotification = useNotification();
+  const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const { modules, isEnabled } = useModules();
+  // Datos laborales: la ficha de Fichar de esta persona. Solo para quien
+  // gestiona Fichar, y nunca en una cuenta compartida (no es una persona).
+  const showLaborTab =
+    !!targetUser &&
+    !targetUser.isSharedAccount &&
+    modules !== null &&
+    isEnabled('check-in') &&
+    canManageCheckIn(currentUser);
+  const [tab, setTab] = useState<UserModalTab>(initialTab ?? 'datos');
+  const activeTab: UserModalTab = showLaborTab ? tab : 'datos';
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const uploadAvatarMutation = useUploadUserAvatar();
@@ -139,6 +163,8 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
         });
         addNotification({ type: 'success', title: 'Usuario creado', message: 'Usuario creado correctamente' });
       }
+      // La ficha de Fichar copia nombre y estado de la cuenta.
+      queryClient.invalidateQueries({ queryKey: ['check-in'] });
       onSaved?.();
       onClose();
     } catch (error: unknown) {
@@ -163,7 +189,35 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
           </button>
         </div>
 
-        <div className="space-y-6">
+        {showLaborTab && (
+          <div role="tablist" className="mb-6 flex gap-1 border-b border-gray-200 dark:border-zinc-800">
+            {(
+              [
+                ['datos', 'Datos'],
+                ['laboral', 'Datos laborales'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === id}
+                onClick={() => setTab(id)}
+                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === id
+                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'laboral' && targetUser && <UserLaborDataTab userId={targetUser.id} />}
+
+        <div className={activeTab === 'datos' ? 'space-y-6' : 'hidden'}>
           {/* Cuenta */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -302,9 +356,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved }: UserMo
           <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors">
             Cerrar
           </button>
-          <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-            {isSaving ? 'Guardando...' : 'Guardar'}
-          </button>
+          {activeTab === 'datos' && (
+            <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+              {isSaving ? 'Guardando...' : 'Guardar'}
+            </button>
+          )}
         </div>
       </div>
     </div>
