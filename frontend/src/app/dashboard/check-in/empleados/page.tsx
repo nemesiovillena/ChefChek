@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { KeyRound, Plus, UserRound, UsersRound } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useCheckInSettings, useEmployees, useLinkableUsers, useWorkCenters } from '@/hooks/use-check-in';
@@ -29,6 +30,34 @@ export default function CheckInEmployeesPage() {
   return <EmployeesContent />;
 }
 
+const rowCls =
+  'flex w-full items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3 text-left';
+
+/** Con cuenta, la ficha se edita en Equipo; sin cuenta, aquí mismo. */
+function EmployeeRow({
+  employee,
+  onEdit,
+  children,
+}: {
+  employee: Employee;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  const cls = `${rowCls} ${employee.isActive ? '' : 'opacity-60'}`;
+  if (employee.userId) {
+    return (
+      <Link href={`/dashboard/users?usuario=${employee.userId}&pestana=laboral`} className={cls}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onEdit} className={cls}>
+      {children}
+    </button>
+  );
+}
+
 function EmployeesContent() {
   const [includeInactive, setIncludeInactive] = useState(false);
   // 'new' = alta; un id = edición; null = formulario cerrado.
@@ -54,12 +83,20 @@ function EmployeesContent() {
             </button>
           )}
           <button type="button" onClick={() => setEditing('new')} className={primaryBtnCls}>
-            <Plus className="h-4 w-4" /> Nuevo empleado
+            <Plus className="h-4 w-4" /> Nuevo empleado sin cuenta
           </button>
         </div>
       </div>
 
       <CheckInReadinessBanner />
+
+      <p className="mb-4 text-sm text-[var(--on-surface-variant)]">
+        Quien tiene cuenta se da de alta y se edita en{' '}
+        <Link href="/dashboard/users" className="underline">
+          Equipo
+        </Link>
+        : su ficha se crea sola. Desde aquí solo se crean las fichas de quien ficha sin cuenta.
+      </p>
 
       {importing && linkableUsers && (
         <CheckInEmployeeImport users={linkableUsers} onDone={() => setImporting(false)} />
@@ -94,14 +131,7 @@ function EmployeesContent() {
 
       <div className="space-y-2">
         {employees?.map((e) => (
-          <button
-            key={e.id}
-            type="button"
-            onClick={() => setEditing(e.id)}
-            className={`flex w-full items-center gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3 text-left ${
-              e.isActive ? '' : 'opacity-60'
-            }`}
-          >
+          <EmployeeRow key={e.id} employee={e} onEdit={() => setEditing(e.id)}>
             <UserRound className="h-5 w-5 shrink-0 text-[var(--on-surface-variant)]" />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">
@@ -125,7 +155,7 @@ function EmployeesContent() {
               <KeyRound className="h-4 w-4" />
               {e.hasPin ? 'PIN' : 'Sin PIN'}
             </span>
-          </button>
+          </EmployeeRow>
         ))}
       </div>
     </div>

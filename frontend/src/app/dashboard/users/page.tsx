@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth.context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useUsers, useUpdateUser, useDeleteUser, User } from '@/hooks/use-users';
@@ -56,6 +56,13 @@ export default function UsersPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  // Enlace directo a la ficha de una persona (p. ej. desde Fichar → Empleados):
+  // ?usuario=<id>&pestana=laboral abre su ficha en esa pestaña.
+  const searchParams = useSearchParams();
+  const linkedUserId = searchParams.get('usuario');
+  const linkedTab = searchParams.get('pestana') === 'laboral' ? 'laboral' : 'datos';
+  const linkedUser = !showModal && linkedUserId ? (users.find((u) => u.id === linkedUserId) ?? null) : null;
+  const modalUser = showModal ? selectedUser : linkedUser;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -232,12 +239,16 @@ export default function UsersPage() {
       </PageContainer>
 
       <UserModal
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        targetUser={selectedUser}
+        isOpen={showModal || !!linkedUser}
+        onClose={() => {
+          setShowModal(false);
+          if (linkedUserId) router.replace('/dashboard/users');
+        }}
+        targetUser={modalUser}
         currentTenantId={tenantId}
+        initialTab={linkedUser ? linkedTab : undefined}
         onSaved={() => {
-          if (selectedUser?.id === user?.id) refreshUser();
+          if (modalUser?.id === user?.id) refreshUser();
         }}
       />
     </div>
