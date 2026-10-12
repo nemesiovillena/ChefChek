@@ -47,8 +47,14 @@ function initialState(employee: Employee | null, centers: WorkCenter[]): FormSta
     weeklyHours: String(employee?.weeklyHours ?? 40),
     hourlyCost: employee?.hourlyCost != null ? String(employee.hourlyCost) : '',
     userId: employee?.userId ?? '',
-    defaultLocationId: employee?.defaultLocationId ?? fallbackCenter,
-    locationIds: employee?.locationIds ?? (fallbackCenter ? [fallbackCenter] : []),
+    // Una ficha sin centro (p. ej. importada antes de crear el centro) parte
+    // del centro por defecto: con un solo centro el selector no se muestra.
+    defaultLocationId: employee?.defaultLocationId || fallbackCenter,
+    locationIds: employee?.locationIds?.length
+      ? employee.locationIds
+      : fallbackCenter
+        ? [fallbackCenter]
+        : [],
     hireDate: toDateInput(employee?.hireDate ?? null),
     terminationDate: toDateInput(employee?.terminationDate ?? null),
     isActive: employee?.isActive ?? true,
