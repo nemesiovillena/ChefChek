@@ -8,6 +8,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import * as bcrypt from "bcrypt";
+import { EmployeeAccountSyncService } from "../check-in/services/employee-account-sync.service";
 
 // Mock bcrypt
 jest.mock("bcrypt", () => ({
@@ -30,6 +31,12 @@ const mockPrismaService = {
   },
 };
 
+const mockEmployeeSync = {
+  onAccountCreated: jest.fn(),
+  onAccountUpdated: jest.fn(),
+  onAccountRemoved: jest.fn(),
+};
+
 describe("UsersService", () => {
   let service: UsersService;
   let prisma: typeof mockPrismaService;
@@ -42,6 +49,7 @@ describe("UsersService", () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        { provide: EmployeeAccountSyncService, useValue: mockEmployeeSync },
       ],
     }).compile();
 
@@ -458,6 +466,7 @@ describe("UsersService", () => {
       expect(prisma.user.delete).toHaveBeenCalledWith({
         where: { id: "user-id" },
       });
+      expect(mockEmployeeSync.onAccountRemoved).toHaveBeenCalledWith("user-id");
       expect(result.success).toBe(true);
       expect(result.data).toBeNull();
       expect(result.message).toBe("User deleted successfully");
