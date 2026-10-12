@@ -138,6 +138,13 @@ export class CorrectAlbaranLinePriceDto {
   totalPrice?: string | null;
 }
 
+export class CorrectAlbaranLineVatDto {
+  @ApiProperty({ description: "Tipo de IVA corregido de la línea (%)" })
+  @Transform(numberAsString)
+  @IsString()
+  vatPercent: string;
+}
+
 /**
  * Corrección de la fecha del albarán (p. ej. el OCR leyó mal el año escrito a
  * mano). Día natural sin hora: AAAA-MM-DD.

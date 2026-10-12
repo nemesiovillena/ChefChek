@@ -18,9 +18,15 @@ import {
   UpdateAlbaranDto,
   UpdateAlbaranLineDto,
   CorrectAlbaranLinePriceDto,
+  CorrectAlbaranLineVatDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
-import { AlbaranStatus, LineStatus, PurchaseOrderStatus } from "@prisma/client";
+import {
+  AlbaranStatus,
+  CuinerExportStatus,
+  LineStatus,
+  PurchaseOrderStatus,
+} from "@prisma/client";
 
 @Injectable()
 export class AlbaranesService {
@@ -478,6 +484,61 @@ export class AlbaranesService {
       }
 
       return updatedLine;
+    });
+  }
+
+  /**
+   * Corrige el tipo de IVA de una línea de un albarán YA confirmado (p. ej. el
+   * OCR leyó 10 % donde el papel dice 21 %). El IVA de la línea no interviene
+   * en stock, costes, histórico de precios ni conciliación del pedido, así que
+   * no hay nada que re-sincronizar. Lo ya enviado (o en cola) a Cuiner no se
+   * toca: allí se corrige a mano.
+   */
+  async correctConfirmedLineVat(
+    albaranId: string,
+    lineId: string,
+    dto: CorrectAlbaranLineVatDto,
+    tenantId: string,
+  ) {
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    if (albaran.status !== AlbaranStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se puede corregir el IVA de albaranes confirmados",
+      );
+    }
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+
+    const vatPercent = parseFloat(dto.vatPercent);
+    if (!Number.isFinite(vatPercent) || vatPercent < 0 || vatPercent > 100) {
+      throw new BadRequestException("IVA no válido");
+    }
+
+    const cuinerExport = await this.prisma.cuinerAlbaranExport.findUnique({
+      where: { albaranId },
+      select: { status: true },
+    });
+    if (cuinerExport?.status === CuinerExportStatus.ENVIADO) {
+      throw new BadRequestException(
+        "Este albarán ya está en Cuiner: corrige el IVA allí",
+      );
+    }
+    if (cuinerExport?.status === CuinerExportStatus.PENDIENTE) {
+      throw new BadRequestException(
+        "Este albarán está en cola de envío a Cuiner: espera a que termine antes de corregir el IVA",
+      );
+    }
+
+    return this.prisma.albaranLine.update({
+      where: { id: lineId },
+      data: {
+        vatPercent,
+        priceWithVat: Number(line.unitPrice) * (1 + vatPercent / 100),
+      },
     });
   }
 
