@@ -1,6 +1,6 @@
 # Plan: fichas de Fichar alimentadas desde Equipo y contraseña única
 
-Estado: APROBADO, EN CURSO (fase 1) · Creado 2026-10-12
+Estado: IMPLEMENTADO, EN REVISIÓN · PR #335 (fase 1) ← #336 (fase 2) ← fase 3, apilados · Creado 2026-10-12
 Research: `../reports/research-261012-2053-fichar-fichas-desde-equipo-y-credencial-unica-report.md`
 
 ## Decisiones del usuario (2026-10-12)
@@ -43,3 +43,13 @@ Un PR por fase contra `develop`.
 5. Bloqueo en kiosco: **3 fallos** seguidos ⇒ 15 min, solo en el kiosco (no afecta al login). Aplica a contraseña y a PIN.
 6. Sin transición: desde el despliegue de la fase 3, quien tiene cuenta ficha con la clave de Equipo. Las contraseñas de Equipo admiten 4 caracteres y el personal las usa como PIN: el kiosco mantiene teclado numérico por defecto, con opción de teclado completo.
 7. Usuarios sin ficha: se mantiene «Importar del equipo»; no se crean en bloque al desplegar.
+
+## Desviaciones respecto al plan
+
+- Fase 1: el nombre no se deriva en lectura; `firstName/lastName` de una ficha vinculada son una copia que se reescribe al guardar la cuenta en Equipo. Evita tocar informes y fichajes, que leen esas columnas.
+- Fase 2: no se extrajo un componente de campos; la pestaña de Equipo incrusta el formulario de ficha existente.
+- Fase 3: `EmployeePinService` conserva nombre y fichero (ya se exporta en `CheckInModule`); el punto reutilizable es `verifyCredential`.
+
+## Pendiente de probar
+
+- Fichaje sin conexión con contraseña (el service worker solo existe en build de producción).

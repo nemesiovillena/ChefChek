@@ -6,6 +6,7 @@ import {
   privateDecrypt,
 } from "crypto";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { KIOSK_CREDENTIAL_MAX_LENGTH } from "./employee-pin.service";
 
 /**
  * Clave del kiosco para fichar sin conexión. El dispositivo cifra
@@ -81,8 +82,11 @@ export class KioskKeyService {
       if (separator < 0 || plain.slice(0, separator) !== punchId) {
         return null;
       }
-      const pin = plain.slice(separator + 1);
-      return /^\d{4,6}$/.test(pin) ? pin : null;
+      // PIN numérico o contraseña de Equipo: aquí solo se acota el tamaño.
+      const secret = plain.slice(separator + 1);
+      return secret.length >= 4 && secret.length <= KIOSK_CREDENTIAL_MAX_LENGTH
+        ? secret
+        : null;
     } catch {
       return null;
     }

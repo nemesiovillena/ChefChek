@@ -19,6 +19,8 @@ export interface Employee {
   isActive: boolean;
   /** Tiene PIN de kiosco asignado (el PIN en sí nunca sale del servidor). */
   hasPin: boolean;
+  /** Con cuenta de Equipo ficha con esa contraseña, no con PIN. */
+  usesAccountPassword?: boolean;
   pinLocked: boolean;
   user: { id: string; name: string; email: string } | null;
 }
@@ -218,7 +220,10 @@ export interface PunchInput {
 export interface KioskEmployee {
   id: string;
   name: string;
+  /** Puede identificarse en el kiosco (tiene cuenta de Equipo o PIN). */
   hasPin: boolean;
+  /** Con qué se identifica: contraseña de su cuenta de Equipo o PIN de la ficha. */
+  credentialType?: 'PASSWORD' | 'PIN';
   status: WorkStatus;
   allowedTypes: PunchType[];
 }

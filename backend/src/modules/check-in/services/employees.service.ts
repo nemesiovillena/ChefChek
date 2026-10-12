@@ -329,6 +329,8 @@ function toEmployeeView(employee: EmployeeWithRelations) {
   return {
     ...rest,
     hasPin: pinHash !== null,
+    // Con cuenta de Equipo se identifica con esa contraseña, no con PIN.
+    usesAccountPassword: employee.userId !== null,
     pinLocked: pinLockedUntil !== null && pinLockedUntil > new Date(),
     locationIds: locations.map((l) => l.locationId),
   };
