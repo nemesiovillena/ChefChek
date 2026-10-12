@@ -310,7 +310,13 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embe
         </div>
       )}
 
-      {employee && <PinSection employee={employee} pinLength={pinLength} />}
+      {employee && !linkedToAccount && <PinSection employee={employee} pinLength={pinLength} />}
+      {linkedToAccount && (
+        <p className="flex items-center gap-2 text-sm text-[var(--on-surface-variant)]">
+          <KeyRound className="h-4 w-4 shrink-0" />
+          En el kiosco compartido ficha con la contraseña de su cuenta de Equipo. Desde su propia cuenta, sin clave.
+        </p>
+      )}
       {!employee && (
         <p className="text-sm text-[var(--on-surface-variant)]">
           El PIN de kiosco se asigna después de crear la ficha.

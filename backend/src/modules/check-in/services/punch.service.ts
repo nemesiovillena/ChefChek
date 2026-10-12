@@ -164,13 +164,17 @@ export class PunchService {
     let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
     if (source === PunchSource.KIOSK) {
       if (!dto.pin) {
-        throw new BadRequestException("Introduce tu PIN para fichar.");
+        throw new BadRequestException("Introduce tu clave para fichar.");
       }
-      const ok = await this.pins.verifyPin(tenantId, employee.id, dto.pin);
+      const ok = await this.pins.verifyCredential(
+        tenantId,
+        employee.id,
+        dto.pin,
+      );
       if (!ok) {
         // 403 y no 401: un 401 hace que el cliente intente renovar la sesión
-        // y repita la petición, lo que contaría dos fallos de PIN por intento.
-        throw new ForbiddenException("PIN incorrecto.");
+        // y repita la petición, lo que contaría dos fallos por intento.
+        throw new ForbiddenException("Clave incorrecta.");
       }
       pinStatus = PunchPinStatus.VERIFIED;
     } else {
@@ -357,9 +361,9 @@ export class PunchService {
       return false;
     }
     try {
-      return await this.pins.verifyPin(tenantId, employeeId, pin);
+      return await this.pins.verifyCredential(tenantId, employeeId, pin);
     } catch {
-      return false; // sin PIN asignado o bloqueado
+      return false; // sin clave asignada o bloqueada
     }
   }
 
@@ -600,6 +604,7 @@ export class PunchService {
         id: e.id,
         name: e.name,
         hasPin: e.hasPin,
+        credentialType: e.credentialType,
         status: e.status,
         allowedTypes: allowedNextTypes(e.status, settings.allowBreaks),
       })),
@@ -654,7 +659,12 @@ export class PunchService {
         name: fullName(employee),
         jobTitle: employee.jobTitle,
         section: employee.section,
-        hasPin: employee.pinHash !== null,
+        // Puede identificarse en el kiosco: con la contraseña de su cuenta
+        // de Equipo o, si no tiene cuenta, con el PIN de la ficha.
+        hasPin: employee.userId !== null || employee.pinHash !== null,
+        credentialType: employee.userId
+          ? ("PASSWORD" as const)
+          : ("PIN" as const),
         status: statusAfter(lastEffective?.type),
         since: lastEffective?.occurredAt ?? null,
         lastPunch: last ? toPunchView(last) : null,

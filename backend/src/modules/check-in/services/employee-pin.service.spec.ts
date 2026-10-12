@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import * as bcrypt from "bcrypt";
 import {
   EmployeePinService,
   PIN_LOCK_MINUTES,
@@ -9,6 +10,8 @@ function makeService(pinLength = 4) {
   const employee: any = {
     id: "emp-1",
     tenantId: "t1",
+    userId: null,
+    user: null,
     pinHash: null,
     pinFailedAttempts: 0,
     pinLockedUntil: null,
@@ -27,6 +30,15 @@ function makeService(pinLength = 4) {
   prisma.$transaction = jest.fn(async (run: any) => run(prisma));
   const settings: any = { get: jest.fn(async () => ({ pinLength })) };
   return { service: new EmployeePinService(prisma, settings), employee };
+}
+
+/** Vincula la ficha a una cuenta de Equipo con esa contraseña. */
+async function linkAccount(employee: any, password: string, deleted = false) {
+  employee.userId = "u1";
+  employee.user = {
+    passwordHash: await bcrypt.hash(password, 4),
+    deletedAt: deleted ? new Date() : null,
+  };
 }
 
 describe("EmployeePinService", () => {
@@ -54,15 +66,15 @@ describe("EmployeePinService", () => {
   it("verifica el PIN correcto y falla con el incorrecto", async () => {
     const { service } = makeService();
     await service.setPin("t1", "emp-1", "1234");
-    expect(await service.verifyPin("t1", "emp-1", "1234")).toBe(true);
-    expect(await service.verifyPin("t1", "emp-1", "0000")).toBe(false);
+    expect(await service.verifyCredential("t1", "emp-1", "1234")).toBe(true);
+    expect(await service.verifyCredential("t1", "emp-1", "0000")).toBe(false);
   });
 
   it("exige que el empleado tenga PIN", async () => {
     const { service } = makeService();
-    await expect(service.verifyPin("t1", "emp-1", "1234")).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.verifyCredential("t1", "emp-1", "1234"),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it("bloquea tras los intentos fallidos máximos, incluso con el PIN correcto", async () => {
@@ -70,14 +82,16 @@ describe("EmployeePinService", () => {
     await service.setPin("t1", "emp-1", "1234");
     const now = new Date("2026-10-05T10:00:00Z");
     for (let i = 0; i < PIN_MAX_FAILED_ATTEMPTS; i++) {
-      expect(await service.verifyPin("t1", "emp-1", "0000", now)).toBe(false);
+      expect(await service.verifyCredential("t1", "emp-1", "0000", now)).toBe(
+        false,
+      );
     }
     expect(employee.pinLockedUntil).toEqual(
       new Date(now.getTime() + PIN_LOCK_MINUTES * 60_000),
     );
-    await expect(service.verifyPin("t1", "emp-1", "1234", now)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(
+      service.verifyCredential("t1", "emp-1", "1234", now),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it("vuelve a aceptar el PIN cuando vence el bloqueo", async () => {
@@ -85,10 +99,12 @@ describe("EmployeePinService", () => {
     await service.setPin("t1", "emp-1", "1234");
     const now = new Date("2026-10-05T10:00:00Z");
     for (let i = 0; i < PIN_MAX_FAILED_ATTEMPTS; i++) {
-      await service.verifyPin("t1", "emp-1", "0000", now);
+      await service.verifyCredential("t1", "emp-1", "0000", now);
     }
     const later = new Date(now.getTime() + (PIN_LOCK_MINUTES + 1) * 60_000);
-    expect(await service.verifyPin("t1", "emp-1", "1234", later)).toBe(true);
+    expect(await service.verifyCredential("t1", "emp-1", "1234", later)).toBe(
+      true,
+    );
     expect(employee.pinLockedUntil).toBeNull();
     expect(employee.pinFailedAttempts).toBe(0);
   });
@@ -96,10 +112,54 @@ describe("EmployeePinService", () => {
   it("un acierto reinicia la cuenta de fallos", async () => {
     const { service, employee } = makeService();
     await service.setPin("t1", "emp-1", "1234");
-    await service.verifyPin("t1", "emp-1", "0000");
-    await service.verifyPin("t1", "emp-1", "0000");
+    await service.verifyCredential("t1", "emp-1", "0000");
+    await service.verifyCredential("t1", "emp-1", "0000");
     expect(employee.pinFailedAttempts).toBe(2);
-    await service.verifyPin("t1", "emp-1", "1234");
+    await service.verifyCredential("t1", "emp-1", "1234");
     expect(employee.pinFailedAttempts).toBe(0);
+  });
+
+  it("bloquea al tercer fallo", () => {
+    expect(PIN_MAX_FAILED_ATTEMPTS).toBe(3);
+  });
+
+  it("con cuenta de Equipo la clave es la contraseña de esa cuenta, no el PIN", async () => {
+    const { service, employee } = makeService();
+    await service.setPin("t1", "emp-1", "1234");
+    await linkAccount(employee, "clave-equipo");
+    expect(await service.verifyCredential("t1", "emp-1", "clave-equipo")).toBe(
+      true,
+    );
+    expect(await service.verifyCredential("t1", "emp-1", "1234")).toBe(false);
+  });
+
+  it("con cuenta de Equipo no hace falta PIN y los fallos bloquean igual", async () => {
+    const { service, employee } = makeService();
+    await linkAccount(employee, "clave-equipo");
+    const now = new Date("2026-10-05T10:00:00Z");
+    for (let i = 0; i < PIN_MAX_FAILED_ATTEMPTS; i++) {
+      expect(await service.verifyCredential("t1", "emp-1", "mala", now)).toBe(
+        false,
+      );
+    }
+    await expect(
+      service.verifyCredential("t1", "emp-1", "clave-equipo", now),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it("una cuenta eliminada deja de valer como clave", async () => {
+    const { service, employee } = makeService();
+    await linkAccount(employee, "clave-equipo", true);
+    await expect(
+      service.verifyCredential("t1", "emp-1", "clave-equipo"),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it("no deja asignar PIN a quien ficha con su cuenta de Equipo", async () => {
+    const { service, employee } = makeService();
+    await linkAccount(employee, "clave-equipo");
+    await expect(service.setPin("t1", "emp-1", "1234")).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

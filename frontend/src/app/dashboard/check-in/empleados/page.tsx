@@ -149,11 +149,11 @@ function EmployeesContent() {
             </span>
             <span
               className={`flex shrink-0 items-center gap-1 text-xs ${
-                e.hasPin ? 'text-[var(--primary)]' : 'text-[var(--on-surface-variant)]'
+                e.userId || e.hasPin ? 'text-[var(--primary)]' : 'text-[var(--on-surface-variant)]'
               }`}
             >
               <KeyRound className="h-4 w-4" />
-              {e.hasPin ? 'PIN' : 'Sin PIN'}
+              {e.userId ? 'Clave de Equipo' : e.hasPin ? 'PIN' : 'Sin PIN'}
             </span>
           </EmployeeRow>
         ))}

@@ -10,7 +10,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
+  Length,
   Max,
   MaxLength,
   Min,
@@ -30,10 +30,14 @@ export class CreatePunchDto {
   @IsString()
   employeeId?: string;
 
-  /** Solo en kiosco. */
+  /**
+   * Solo en kiosco: la clave de la persona (contraseña de su cuenta de Equipo
+   * o PIN de la ficha). Conserva el nombre `pin` por compatibilidad con los
+   * dispositivos que ya tienen la pantalla de fichaje instalada.
+   */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4,6}$/, { message: "PIN no válido." })
+  @Length(4, 64, { message: "Clave no válida." })
   pin?: string;
 
   /** Solo en kiosco: centro en el que está instalado el dispositivo. */
