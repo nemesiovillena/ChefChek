@@ -250,7 +250,17 @@ export class EmployeesService {
         where: { tenantId, isDefault: true },
         select: { id: true },
       });
-      return tenantDefault ? [tenantDefault.id] : [];
+      if (tenantDefault) {
+        return [tenantDefault.id];
+      }
+      // Sin centro principal marcado: si el tenant solo tiene un centro, no
+      // hay ambigüedad y el empleado ficha en ese.
+      const active = await this.prisma.location.findMany({
+        where: { tenantId, isActive: true, deletedAt: null },
+        select: { id: true },
+        take: 2,
+      });
+      return active.length === 1 ? [active[0].id] : [];
     }
 
     const found = await this.prisma.location.findMany({

@@ -23,6 +23,7 @@ function makeService() {
     { id: "loc-a", tenantId: "t1", isDefault: true },
     { id: "loc-b", tenantId: "t1", isDefault: false },
     { id: "loc-x", tenantId: "t2", isDefault: true },
+    { id: "loc-solo", tenantId: "t3", isDefault: false },
   ];
   const employees: any[] = [];
   const withRelations = (employee: any) => ({
@@ -110,7 +111,9 @@ function makeService() {
       ),
       findMany: jest.fn(async ({ where }: any) =>
         locations.filter(
-          (l) => l.tenantId === where.tenantId && where.id.in.includes(l.id),
+          (l) =>
+            l.tenantId === where.tenantId &&
+            (!where.id || where.id.in.includes(l.id)),
         ),
       ),
     },
@@ -127,6 +130,13 @@ describe("EmployeesService", () => {
     const created: any = await service.create("t1", BASE);
     expect(created.pinHash).toBeUndefined();
     expect(created.hasPin).toBe(true);
+  });
+
+  it("asigna el único centro del tenant aunque no esté marcado como principal", async () => {
+    const { service } = makeService();
+    const created = await service.create("t3", BASE);
+    expect(created.locationIds).toEqual(["loc-solo"]);
+    expect(created.defaultLocationId).toBe("loc-solo");
   });
 
   it("asigna el centro por defecto del tenant si no se indica ninguno", async () => {
