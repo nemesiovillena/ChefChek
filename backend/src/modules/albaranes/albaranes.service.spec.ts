@@ -32,6 +32,7 @@ describe("AlbaranesService", () => {
     supplier: { findFirst: jest.fn() },
     productPriceHistory: { create: jest.fn() },
     purchaseOrderLine: { updateMany: jest.fn() },
+    cuinerAlbaranExport: { findUnique: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -503,6 +504,85 @@ describe("AlbaranesService", () => {
         service.updateLine("alb-1", "l1", { unitPrice: "7" } as any, "t1"),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("correctConfirmedLineVat", () => {
+    const line = { id: "l1", lineStatus: "CONFIRMADO", unitPrice: 10 };
+    const confirmed = () =>
+      albaran({ status: AlbaranStatus.CONFIRMADO, lines: [line] });
+
+    beforeEach(() => {
+      prisma.albaranLine.update.mockReset();
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue(null);
+    });
+
+    it("rechaza albaranes que no están confirmados", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.REVISADO, lines: [line] }),
+      );
+
+      await expect(
+        service.correctConfirmedLineVat(
+          "alb-1",
+          "l1",
+          { vatPercent: "21" },
+          "t1",
+        ),
+      ).rejects.toThrow(
+        "Solo se puede corregir el IVA de albaranes confirmados",
+      );
+    });
+
+    it("rechaza un IVA que no es un porcentaje válido", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(confirmed());
+
+      await expect(
+        service.correctConfirmedLineVat(
+          "alb-1",
+          "l1",
+          { vatPercent: "abc" },
+          "t1",
+        ),
+      ).rejects.toThrow("IVA no válido");
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+
+    it.each(["ENVIADO", "PENDIENTE"])(
+      "no toca el IVA si el envío a Cuiner está %s",
+      async (status) => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmed());
+        prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({ status });
+
+        await expect(
+          service.correctConfirmedLineVat(
+            "alb-1",
+            "l1",
+            { vatPercent: "21" },
+            "t1",
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it("actualiza solo el IVA y el precio con IVA de la línea", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(confirmed());
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({
+        status: "ERROR",
+      });
+
+      await service.correctConfirmedLineVat(
+        "alb-1",
+        "l1",
+        { vatPercent: "21" },
+        "t1",
+      );
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: { vatPercent: 21, priceWithVat: 12.1 },
+      });
     });
   });
 

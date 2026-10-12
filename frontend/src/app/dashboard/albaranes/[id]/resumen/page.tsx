@@ -15,6 +15,7 @@ import { SupplierMatchBadge } from '@/components/albaranes/supplier-match-badge'
 import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dialog';
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { CuinerSendCard } from '@/components/albaranes/cuiner-send-card';
+import { AlbaranTotalMismatchNotice } from '@/components/albaranes/albaran-total-mismatch-notice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart, ArrowUpRight } from 'lucide-react';
@@ -272,6 +273,15 @@ export default function AlbaranResumenPage() {
                   {formatCurrency(duplicateMatch.total)}). Revisa que no sea el mismo antes de confirmar.
                 </div>
               )}
+              <AlbaranTotalMismatchNotice albaran={albaran}>
+                <button
+                  type="button"
+                  className="mt-1 font-medium underline"
+                  onClick={() => router.push(`/dashboard/albaranes/${id}/lineas`)}
+                >
+                  Revisar líneas
+                </button>
+              </AlbaranTotalMismatchNotice>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
