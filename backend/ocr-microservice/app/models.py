@@ -107,14 +107,6 @@ class OCRRequest(BaseModel):
     confidence_threshold: float = Field(default=0.7, ge=0.0, le=1.0, description="Umbral de confianza")
 
 
-class OCRRefineRequest(BaseModel):
-    """Solicitud de refinamiento OCR con hints de proveedor"""
-    ocr_text: str = Field(..., description="Texto OCR ya extraído")
-    ai_model: Optional[str] = Field(None, description="Modelo IA a usar")
-    ai_api_key: Optional[str] = Field(None, description="API key del provider IA")
-    supplier_hints: Optional[Dict[str, Any]] = Field(None, description="Hints de layout del proveedor")
-
-
 class OCRResponse(BaseModel):
     """Respuesta del procesamiento OCR"""
     success: bool = Field(..., description="Si el procesamiento fue exitoso")

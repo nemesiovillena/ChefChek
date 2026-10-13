@@ -94,7 +94,15 @@ interface DoneInfo {
   offline?: boolean;
 }
 
-/** Elegir acción + PIN de una persona. Se monta con `key` por empleado. */
+/** Longitud máxima de la contraseña en el kiosco (la misma que acepta el servidor). */
+const PASSWORD_MAX_LENGTH = 64;
+/**
+ * Sin conexión la clave viaja cifrada con RSA junto al id del fichaje, y ese
+ * cifrado solo admite 190 bytes: quedan 150 para la clave.
+ */
+const OFFLINE_SECRET_MAX_BYTES = 150;
+
+/** Elegir acción + clave de una persona. Se monta con `key` por empleado. */
 function PunchPad({
   employee,
   centerId,
@@ -121,6 +129,12 @@ function PunchPad({
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Quien tiene cuenta en Equipo se identifica con esa contraseña: no tiene
+  // longitud fija, así que se confirma con el botón Fichar. Muchas son
+  // numéricas y se teclean con el mismo teclado; el resto, con el del sistema.
+  const usesPassword = employee.credentialType === 'PASSWORD';
+  const maxLength = usesPassword ? PASSWORD_MAX_LENGTH : pinLength;
+  const [fullKeyboard, setFullKeyboard] = useState(false);
 
   async function submit(fullPin: string) {
     setSending(true);
@@ -130,6 +144,9 @@ function PunchPad({
     // Sin red el PIN no se puede comprobar aquí: se guarda cifrado y lo
     // valida el servidor al enviar. Si no cuadra, lo revisará un responsable.
     const saveOffline = async () => {
+      if (new TextEncoder().encode(fullPin).length > OFFLINE_SECRET_MAX_BYTES) {
+        throw new Error('Clave demasiado larga para fichar sin conexión.');
+      }
       await onSaveOffline({ id, type, deviceTime, pin: fullPin });
       onDone({ name: employee.name, type, time: formatTime(deviceTime), offline: true });
     };
@@ -167,12 +184,14 @@ function PunchPad({
   }
 
   function press(digit: string) {
-    if (sending || pin.length >= pinLength) return;
+    if (sending || pin.length >= maxLength) return;
     const next = pin + digit;
     setPin(next);
     setError(null);
-    if (next.length === pinLength) void submit(next);
+    if (!usesPassword && next.length === pinLength) void submit(next);
   }
+
+  const canSubmitPassword = usesPassword && pin.length >= 4 && !sending;
 
   if (!employee.hasPin) {
     return (
@@ -214,19 +233,82 @@ function PunchPad({
         ))}
       </div>
 
-      <div className="flex justify-center gap-3" aria-label={`PIN: ${pin.length} de ${pinLength} dígitos`}>
-        {Array.from({ length: pinLength }, (_, i) => (
-          <span
-            key={i}
-            className={`h-5 w-5 rounded-full border-2 border-[var(--primary)] ${i < pin.length ? 'bg-[var(--primary)]' : ''}`}
-          />
-        ))}
-      </div>
+      {usesPassword ? (
+        <div className="space-y-2">
+          <p className="text-center text-[var(--on-surface-variant)]">Tu contraseña de Equipo</p>
+          {fullKeyboard ? (
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => {
+                setPin(e.target.value.slice(0, PASSWORD_MAX_LENGTH));
+                setError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && canSubmitPassword) void submit(pin);
+              }}
+              disabled={sending}
+              autoFocus
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="Contraseña"
+              className="min-h-[56px] w-full rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-4 text-center text-2xl"
+            />
+          ) : (
+            <div
+              className="flex min-h-[20px] flex-wrap justify-center gap-2"
+              aria-label={`Contraseña: ${pin.length} caracteres`}
+            >
+              {Array.from({ length: Math.max(pin.length, 4) }, (_, i) => (
+                <span
+                  key={i}
+                  className={`h-5 w-5 rounded-full border-2 border-[var(--primary)] ${i < pin.length ? 'bg-[var(--primary)]' : ''}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex justify-center gap-3" aria-label={`PIN: ${pin.length} de ${pinLength} dígitos`}>
+          {Array.from({ length: pinLength }, (_, i) => (
+            <span
+              key={i}
+              className={`h-5 w-5 rounded-full border-2 border-[var(--primary)] ${i < pin.length ? 'bg-[var(--primary)]' : ''}`}
+            />
+          ))}
+        </div>
+      )}
       <p className="min-h-[28px] text-center text-lg text-[var(--error)]" role="alert">
         {error}
       </p>
 
-      <div className="grid grid-cols-3 gap-3">
+      {usesPassword && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void submit(pin)}
+            disabled={!canSubmitPassword}
+            className={`${bigBtn} flex-1 bg-[var(--primary)] text-xl text-primary-foreground disabled:opacity-50`}
+          >
+            {sending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Check className="h-6 w-6" />} Fichar
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFullKeyboard((prev) => !prev);
+              setPin('');
+            }}
+            disabled={sending}
+            className={`${bigBtn} border border-[var(--outline-variant)] px-4 text-base`}
+          >
+            {fullKeyboard ? 'Teclado numérico' : 'Tiene letras'}
+          </button>
+        </div>
+      )}
+
+      <div className={fullKeyboard && usesPassword ? 'hidden' : 'grid grid-cols-3 gap-3'}>
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
           <button
             key={digit}

@@ -39,6 +39,17 @@ export interface PostJsonOptions {
   retryDelaysMs?: number[];
 }
 
+/** Timeout y reintentos de una llamada según sus `ChatOptions`. */
+export function toPostJsonOptions(options?: {
+  timeoutMs?: number;
+  noRetry?: boolean;
+}): PostJsonOptions {
+  return {
+    ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
+    ...(options?.noRetry ? { retryDelaysMs: [] } : {}),
+  };
+}
+
 export async function postJsonWithRetry(
   providerLabel: string,
   url: string,

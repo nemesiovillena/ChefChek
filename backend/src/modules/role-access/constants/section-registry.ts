@@ -57,6 +57,12 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     defaultAllowed: true,
   },
   {
+    key: "captura-recetas",
+    label: "Captura de recetas",
+    moduleId: "captura-recetas",
+    defaultAllowed: true,
+  },
+  {
     key: "production",
     label: "Producción",
     moduleId: "production",

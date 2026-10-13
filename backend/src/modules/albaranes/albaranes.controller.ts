@@ -42,6 +42,7 @@ import {
   UpdateAlbaranLineDto,
   MatchLineDto,
   CorrectAlbaranLinePriceDto,
+  CorrectAlbaranLineVatDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 
@@ -250,6 +251,26 @@ export class AlbaranesController {
   ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.correctConfirmedLinePrice(
+      id,
+      lineId,
+      dto,
+      tenantId,
+    );
+  }
+
+  @Put(":id/lines/:lineId/correct-vat")
+  @ApiOperation({
+    summary: "Corregir el tipo de IVA de una línea de un albarán confirmado",
+  })
+  @ApiResponse({ status: 200, description: "IVA de la línea corregido" })
+  async correctLineVat(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: CorrectAlbaranLineVatDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.correctConfirmedLineVat(
       id,
       lineId,
       dto,

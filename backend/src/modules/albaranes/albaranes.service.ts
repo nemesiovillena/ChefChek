@@ -18,9 +18,15 @@ import {
   UpdateAlbaranDto,
   UpdateAlbaranLineDto,
   CorrectAlbaranLinePriceDto,
+  CorrectAlbaranLineVatDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
-import { AlbaranStatus, LineStatus, PurchaseOrderStatus } from "@prisma/client";
+import {
+  AlbaranStatus,
+  CuinerExportStatus,
+  LineStatus,
+  PurchaseOrderStatus,
+} from "@prisma/client";
 
 @Injectable()
 export class AlbaranesService {
@@ -481,6 +487,61 @@ export class AlbaranesService {
     });
   }
 
+  /**
+   * Corrige el tipo de IVA de una línea de un albarán YA confirmado (p. ej. el
+   * OCR leyó 10 % donde el papel dice 21 %). El IVA de la línea no interviene
+   * en stock, costes, histórico de precios ni conciliación del pedido, así que
+   * no hay nada que re-sincronizar. Lo ya enviado (o en cola) a Cuiner no se
+   * toca: allí se corrige a mano.
+   */
+  async correctConfirmedLineVat(
+    albaranId: string,
+    lineId: string,
+    dto: CorrectAlbaranLineVatDto,
+    tenantId: string,
+  ) {
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    if (albaran.status !== AlbaranStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se puede corregir el IVA de albaranes confirmados",
+      );
+    }
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+
+    const vatPercent = parseFloat(dto.vatPercent);
+    if (!Number.isFinite(vatPercent) || vatPercent < 0 || vatPercent > 100) {
+      throw new BadRequestException("IVA no válido");
+    }
+
+    const cuinerExport = await this.prisma.cuinerAlbaranExport.findUnique({
+      where: { albaranId },
+      select: { status: true },
+    });
+    if (cuinerExport?.status === CuinerExportStatus.ENVIADO) {
+      throw new BadRequestException(
+        "Este albarán ya está en Cuiner: corrige el IVA allí",
+      );
+    }
+    if (cuinerExport?.status === CuinerExportStatus.PENDIENTE) {
+      throw new BadRequestException(
+        "Este albarán está en cola de envío a Cuiner: espera a que termine antes de corregir el IVA",
+      );
+    }
+
+    return this.prisma.albaranLine.update({
+      where: { id: lineId },
+      data: {
+        vatPercent,
+        priceWithVat: Number(line.unitPrice) * (1 + vatPercent / 100),
+      },
+    });
+  }
+
   /** Assign a product match to a line (user override) */
   async matchLine(
     albaranId: string,
@@ -746,34 +807,7 @@ export class AlbaranesService {
         );
       }
 
-      // 2b. If supplier has OCR layout hints, refine extraction
-      if (supplierMatch.supplierId) {
-        const supplier = await this.prisma.supplier.findFirst({
-          where: { id: supplierMatch.supplierId, tenantId },
-          select: { ocrLayoutHints: true },
-        });
-        if (supplier?.ocrLayoutHints && document.raw_text) {
-          this.logger.log(
-            `Refinando OCR con hints de proveedor (obs: ${(supplier.ocrLayoutHints as any)?.observationCount})`,
-          );
-          const refinedResult = await this.pythonOcrService.refineExtraction(
-            document.raw_text,
-            supplier.ocrLayoutHints,
-            aiModel,
-            aiApiKey,
-          );
-          if (refinedResult.success && refinedResult.document) {
-            // Override initial extraction with refined data
-            Object.assign(document, refinedResult.document);
-            this.logger.log(
-              `OCR refinado: ${refinedResult.document.products?.length || 0} productos`,
-            );
-          }
-        }
-      }
-
-      // Registrar el modelo que hizo la extracción (se muestra en la UI);
-      // se estampa después del refine para que Object.assign no lo pise
+      // Registrar el modelo que hizo la extracción (se muestra en la UI)
       if ((document as any).extraction_method === "ai" && aiModel) {
         (document as any).extraction_model = aiModel;
       }
@@ -800,7 +834,11 @@ export class AlbaranesService {
           total: document.total_amount || 0,
           ocrRawData: document as any,
           notes:
-            `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)` +
+            // La confianza solo es una medida real cuando leyó EasyOCR; la IA
+            // no devuelve ninguna, así que no se muestra un porcentaje inventado
+            ((document as any).extraction_method === "ai"
+              ? "Importado desde OCR (leído con IA)"
+              : `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`) +
             (failedFiles.length > 0
               ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}) — revisa si faltan líneas.`
               : ""),
@@ -889,8 +927,8 @@ export class AlbaranesService {
    * un mismo albarán de papel) en un único documento: productos concatenados
    * en orden de subida, campos de cabecera con "primer valor no vacío gana"
    * (no se asume que la cabecera esté siempre en la primera hoja), confianza
-   * media, y raw_text concatenado para que el refine por layout hints siga
-   * viendo todo el texto. Con un solo documento de entrada, el resultado es
+   * media, y raw_text concatenado (solo lo trae el fallback EasyOCR+regex;
+   * con IA va vacío). Con un solo documento de entrada, el resultado es
    * observacionalmente idéntico al documento original (no-regresión).
    */
   private mergeOcrDocuments(

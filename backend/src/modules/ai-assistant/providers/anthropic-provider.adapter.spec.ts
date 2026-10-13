@@ -129,4 +129,133 @@ describe("AnthropicProviderAdapter", () => {
       ],
     });
   });
+
+  describe("adjuntos y opciones por llamada", () => {
+    const respond = (finish: string) =>
+      jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          stop_reason: finish,
+          content: [{ type: "text", text: "{}" }],
+        }),
+      });
+
+    it("envía adjuntos, tope de salida y modo JSON cuando se piden", async () => {
+      const fetchMock = respond("end_turn");
+      global.fetch = fetchMock as any;
+
+      await adapter.chat(
+        "key",
+        "claude-haiku-4-5",
+        [
+          {
+            role: "user",
+            content: "lee esto",
+            attachments: [
+              { mimeType: "image/png", dataBase64: "AAA" },
+              { mimeType: "application/pdf", dataBase64: "BBB" },
+            ],
+          },
+        ],
+        [],
+        { maxOutputTokens: 4096, jsonMode: true },
+      );
+
+      const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+      expect(sentBody.max_tokens).toBe(4096);
+      expect(sentBody.messages[0].content).toEqual([
+        {
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data: "AAA" },
+        },
+        {
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: "application/pdf",
+            data: "BBB",
+          },
+        },
+        { type: "text", text: "lee esto" },
+      ]);
+    });
+
+    it("omite el bloque de texto cuando el mensaje solo lleva adjuntos", async () => {
+      const fetchMock = respond("end_turn");
+      global.fetch = fetchMock as any;
+
+      await adapter.chat(
+        "key",
+        "claude-haiku-4-5",
+        [
+          {
+            role: "user",
+            content: "",
+            attachments: [{ mimeType: "image/png", dataBase64: "AAA" }],
+          },
+        ],
+        [],
+      );
+
+      const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+      expect(sentBody.messages[0].content).toHaveLength(1);
+      expect(sentBody.messages[0].content[0].type).toBe("image");
+    });
+
+    it("sin opciones ni adjuntos el cuerpo es el de siempre", async () => {
+      const fetchMock = respond("end_turn");
+      global.fetch = fetchMock as any;
+
+      const result = await adapter.chat(
+        "key",
+        "claude-haiku-4-5",
+        [{ role: "user", content: "hola" }],
+        [],
+      );
+
+      const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+      expect(sentBody).toEqual({
+        model: "claude-haiku-4-5",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: "hola" }],
+      });
+      expect(result.truncated).toBeUndefined();
+    });
+
+    it("avisa cuando el proveedor corta la respuesta por el tope de tokens", async () => {
+      global.fetch = respond("max_tokens") as any;
+
+      const result = await adapter.chat(
+        "key",
+        "claude-haiku-4-5",
+        [{ role: "user", content: "hola" }],
+        [],
+      );
+
+      expect(result.truncated).toBe(true);
+    });
+
+    it("no reintenta cuando se pide noRetry", async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: { get: () => null },
+        text: async () => "sobrecargado",
+      });
+      global.fetch = fetchMock as any;
+
+      await expect(
+        adapter.chat(
+          "key",
+          "claude-haiku-4-5",
+          [{ role: "user", content: "hola" }],
+          [],
+          {
+            noRetry: true,
+          },
+        ),
+      ).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

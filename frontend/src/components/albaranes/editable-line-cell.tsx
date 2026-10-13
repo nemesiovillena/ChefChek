@@ -15,6 +15,12 @@ interface EditableLineCellProps {
   className?: string;
   format?: (v: string | number) => string;
   onSave?: () => void;
+  /** Guardado alternativo al PUT genérico de la línea (p. ej. una corrección
+   *  sobre un albarán ya confirmado, que va por su propio endpoint). */
+  onSubmit?: (value: string | number) => Promise<unknown>;
+  onError?: (err: unknown) => void;
+  /** 'correction': lápiz ámbar siempre visible, como el del precio asentado. */
+  variant?: 'default' | 'correction';
 }
 
 /**
@@ -32,6 +38,9 @@ export function EditableLineCell({
   className = '',
   format,
   onSave,
+  onSubmit,
+  onError,
+  variant = 'default',
 }: EditableLineCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value ?? ''));
@@ -60,13 +69,17 @@ export function EditableLineCell({
 
     setSaving(true);
     try {
-      const payload: Record<string, string | number> = {};
-      payload[field] =
+      const parsed =
         type === 'number' ? parseFloat(cleanDraft.replace(',', '.')) || 0 : cleanDraft;
-      await updateLine(albaranId, lineId, payload as Parameters<typeof updateLine>[2]);
+      if (onSubmit) {
+        await onSubmit(parsed);
+      } else {
+        await updateLine(albaranId, lineId, { [field]: parsed } as Parameters<typeof updateLine>[2]);
+      }
       onSave?.();
     } catch (err) {
       console.error('Error saving:', err);
+      onError?.(err);
       // Revert on error
     } finally {
       setSaving(false);
@@ -88,7 +101,7 @@ export function EditableLineCell({
       <span
         className={`group cursor-pointer inline-flex items-center gap-1 ${className}`}
         onClick={startEdit}
-        title="Click para editar"
+        title={variant === 'correction' ? 'Corregir' : 'Click para editar'}
       >
         {saving ? (
           <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
@@ -96,7 +109,11 @@ export function EditableLineCell({
           <>
             <span>{format ? format(value) : (value ?? '—')}</span>
             {suffix && <span className="text-gray-400">{suffix}</span>}
-            <Pencil className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Pencil
+              className={`h-3 w-3 transition-opacity group-hover:opacity-100 ${
+                variant === 'correction' ? 'text-amber-500 opacity-70' : 'text-gray-300 opacity-0'
+              }`}
+            />
           </>
         )}
       </span>

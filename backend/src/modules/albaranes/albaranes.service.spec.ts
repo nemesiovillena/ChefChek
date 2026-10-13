@@ -32,6 +32,7 @@ describe("AlbaranesService", () => {
     supplier: { findFirst: jest.fn() },
     productPriceHistory: { create: jest.fn() },
     purchaseOrderLine: { updateMany: jest.fn() },
+    cuinerAlbaranExport: { findUnique: jest.fn() },
     $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   };
@@ -51,7 +52,6 @@ describe("AlbaranesService", () => {
   };
   const pythonOcrService = {
     processImage: jest.fn(),
-    refineExtraction: jest.fn(),
   };
   const ocrConfigService = {
     resolveForUpload: jest.fn(),
@@ -507,6 +507,85 @@ describe("AlbaranesService", () => {
     });
   });
 
+  describe("correctConfirmedLineVat", () => {
+    const line = { id: "l1", lineStatus: "CONFIRMADO", unitPrice: 10 };
+    const confirmed = () =>
+      albaran({ status: AlbaranStatus.CONFIRMADO, lines: [line] });
+
+    beforeEach(() => {
+      prisma.albaranLine.update.mockReset();
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue(null);
+    });
+
+    it("rechaza albaranes que no están confirmados", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.REVISADO, lines: [line] }),
+      );
+
+      await expect(
+        service.correctConfirmedLineVat(
+          "alb-1",
+          "l1",
+          { vatPercent: "21" },
+          "t1",
+        ),
+      ).rejects.toThrow(
+        "Solo se puede corregir el IVA de albaranes confirmados",
+      );
+    });
+
+    it("rechaza un IVA que no es un porcentaje válido", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(confirmed());
+
+      await expect(
+        service.correctConfirmedLineVat(
+          "alb-1",
+          "l1",
+          { vatPercent: "abc" },
+          "t1",
+        ),
+      ).rejects.toThrow("IVA no válido");
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+
+    it.each(["ENVIADO", "PENDIENTE"])(
+      "no toca el IVA si el envío a Cuiner está %s",
+      async (status) => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmed());
+        prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({ status });
+
+        await expect(
+          service.correctConfirmedLineVat(
+            "alb-1",
+            "l1",
+            { vatPercent: "21" },
+            "t1",
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+      },
+    );
+
+    it("actualiza solo el IVA y el precio con IVA de la línea", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(confirmed());
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({
+        status: "ERROR",
+      });
+
+      await service.correctConfirmedLineVat(
+        "alb-1",
+        "l1",
+        { vatPercent: "21" },
+        "t1",
+      );
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: { vatPercent: 21, priceWithVat: 12.1 },
+      });
+    });
+  });
+
   describe("correctConfirmedLinePrice", () => {
     const confirmedLine = {
       id: "l1",
@@ -945,52 +1024,6 @@ describe("AlbaranesService", () => {
       expect(prisma.supplier.findFirst).not.toHaveBeenCalled();
       expect(prisma.albaran.create).toHaveBeenCalled();
       expect(lineMatching.matchAllLines).toHaveBeenCalled();
-    });
-
-    it("refines extraction when supplier has OCR layout hints and raw text", async () => {
-      pythonOcrService.processImage.mockResolvedValue({
-        success: true,
-        document: {
-          products: [{ name: "x", quantity: 1, unit_price: 1 }],
-          raw_text: "RAW",
-        },
-      });
-      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: "s1" });
-      prisma.supplier.findFirst.mockResolvedValue({
-        ocrLayoutHints: { observationCount: 1 },
-      });
-      pythonOcrService.refineExtraction.mockResolvedValue({
-        success: true,
-        document: {
-          products: [{ name: "refined", quantity: 5, unit_price: 2 }],
-        },
-      });
-      prisma.albaran.create.mockResolvedValue({ id: "alb-r", lines: [] });
-
-      await service.createFromUpload([file()], "t1");
-
-      expect(pythonOcrService.refineExtraction).toHaveBeenCalled();
-      expect(supplierMatching.enrichSupplierFromOcr).toHaveBeenCalledWith(
-        "s1",
-        expect.any(Object),
-      );
-    });
-
-    it("skips refine override when refined result is unsuccessful", async () => {
-      pythonOcrService.processImage.mockResolvedValue({
-        success: true,
-        document: { products: [], raw_text: "RAW" },
-      });
-      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: "s1" });
-      prisma.supplier.findFirst.mockResolvedValue({
-        ocrLayoutHints: { observationCount: 1 },
-      });
-      pythonOcrService.refineExtraction.mockResolvedValue({ success: false });
-      prisma.albaran.create.mockResolvedValue({ id: "alb-r2", lines: [] });
-
-      await service.createFromUpload([file()], "t1");
-
-      expect(pythonOcrService.refineExtraction).toHaveBeenCalled();
     });
 
     it("creates fallback albaran when OCR returns no document", async () => {

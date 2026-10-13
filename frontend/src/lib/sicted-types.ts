@@ -134,14 +134,45 @@ export interface ChecklistRunTemplateRef {
   frequency: ChecklistFrequency;
 }
 
+const MONTH_NAMES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Lunes y domingo de una semana ISO, como fechas UTC planas (solo año/mes/día). */
+function isoWeekRange(isoYear: number, isoWeek: number): [Date, Date] {
+  const jan4 = new Date(Date.UTC(isoYear, 0, 4));
+  const jan4Dow = jan4.getUTCDay() || 7;
+  const monday = new Date(jan4.getTime() + ((isoWeek - 1) * 7 - (jan4Dow - 1)) * 86_400_000);
+  return [monday, new Date(monday.getTime() + 6 * 86_400_000)];
+}
+
 /**
- * Periodo de una hoja para mostrar: la clave diaria `2026-10-01` pasa a `01/10/2026`;
- * semana/mes/trimestre/año (`2026-W40`, `2026-10`…) se dejan como vienen.
+ * Periodo de una hoja para mostrar, con fechas que se entiendan sin calendario:
+ * `2026-10-01` → `01/10/2026`; `2026-W40` → `semana del 28/09 al 04/10/2026`;
+ * `2026-10` → `octubre de 2026`; `2026-Q4` → `4.º trimestre de 2026`; `2026` → `año 2026`.
  * Se trocea el texto en vez de usar `new Date(key)`, que lo leería en UTC y podría bailar un día.
  */
 export function formatPeriodKey(periodKey: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(periodKey);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : periodKey;
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(periodKey);
+  if (day) return `${day[3]}/${day[2]}/${day[1]}`;
+
+  const week = /^(\d{4})-W(\d{2})$/.exec(periodKey);
+  if (week) {
+    const [monday, sunday] = isoWeekRange(Number(week[1]), Number(week[2]));
+    const dayMonth = (d: Date) => `${pad2(d.getUTCDate())}/${pad2(d.getUTCMonth() + 1)}`;
+    return `semana del ${dayMonth(monday)} al ${dayMonth(sunday)}/${sunday.getUTCFullYear()}`;
+  }
+
+  const month = /^(\d{4})-(\d{2})$/.exec(periodKey);
+  if (month) return `${MONTH_NAMES[Number(month[2]) - 1]} de ${month[1]}`;
+
+  const quarter = /^(\d{4})-Q([1-4])$/.exec(periodKey);
+  if (quarter) return `${quarter[2]}.º trimestre de ${quarter[1]}`;
+
+  return /^\d{4}$/.test(periodKey) ? `año ${periodKey}` : periodKey;
 }
 
 /** Forma común a `GET runs/today` y `GET runs` (sin entries). */

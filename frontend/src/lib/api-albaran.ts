@@ -238,6 +238,24 @@ export async function correctLinePrice(
   return response.json();
 }
 
+// Corrige el IVA de una línea de un albarán ya confirmado
+export async function correctLineVat(
+  albaranId: string,
+  lineId: string,
+  vatPercent: number
+): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/correct-vat`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ vatPercent }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error correcting VAT' }));
+    throw new Error(errorMessage(error, 'Error al corregir el IVA'));
+  }
+  return response.json();
+}
+
 // Match line to product
 export async function matchLine(albaranId: string, lineId: string, productId: string): Promise<AlbaranLine> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/match`, {

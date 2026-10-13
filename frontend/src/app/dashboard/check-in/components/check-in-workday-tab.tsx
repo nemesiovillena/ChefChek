@@ -68,7 +68,8 @@ function WorkdayForm({ settings }: { settings: CheckInSettings }) {
         </select>
         {pinLength !== settings.pinLength && (
           <span className="mt-1 block text-sm text-[var(--error)]">
-            Los PIN ya asignados siguen valiendo; los nuevos tendrán {pinLength} dígitos.
+            Solo para quien ficha sin cuenta en Equipo; quien tiene cuenta usa su contraseña. Los PIN ya
+            asignados siguen valiendo; los nuevos tendrán {pinLength} dígitos.
           </span>
         )}
       </label>

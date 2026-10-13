@@ -36,10 +36,21 @@ export interface SalaTaskInput {
 
 const QUERY_KEY = ['sala-tasks'];
 
-// Orden cronológico del evento (más próximo primero); empates por orden de
+// Orden por cercanía a hoy: primero los eventos de hoy en adelante (el más
+// próximo arriba) y después los ya pasados (el más reciente arriba), para que
+// un evento antiguo sin cerrar no tape lo que viene. Empates por orden de
 // creación. Rige en la card del dashboard y en las columnas del Kanban.
 export function compareSalaTasksByEventDate(a: SalaTask, b: SalaTask): number {
-  const byDate = new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const today = startOfToday.getTime();
+  const aTime = new Date(a.eventDate).getTime();
+  const bTime = new Date(b.eventDate).getTime();
+  const aPast = aTime < today;
+  const bPast = bTime < today;
+
+  if (aPast !== bPast) return aPast ? 1 : -1;
+  const byDate = aPast ? bTime - aTime : aTime - bTime;
   return byDate !== 0
     ? byDate
     : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
