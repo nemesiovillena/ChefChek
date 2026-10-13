@@ -79,3 +79,45 @@ export const REQUEST_STATUS_LABELS: Record<EmployeeRequestStatus, string> = {
   REJECTED: 'Rechazada',
   CANCELLED: 'Retirada',
 };
+
+// ─────────────────────────────────────────────────── Documentación laboral
+
+export type EmployeeDocumentCategory = 'CONTRATO' | 'JUSTIFICANTE' | 'FORMACION' | 'PRL' | 'OTRO';
+
+export const DOCUMENT_CATEGORY_LABELS: Record<EmployeeDocumentCategory, string> = {
+  CONTRATO: 'Contrato',
+  JUSTIFICANTE: 'Justificante',
+  FORMACION: 'Formación',
+  PRL: 'Prevención de riesgos',
+  OTRO: 'Otro',
+};
+
+export interface EmployeeDocument {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  category: EmployeeDocumentCategory;
+  title: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedByName: string;
+  /** Lo subió su titular (un justificante). */
+  uploadedByEmployee: boolean;
+  requiresAck: boolean;
+  ackAt: string | null;
+  /** AAAA-MM-DD. */
+  expiresAt: string | null;
+  /** EXPIRING: caduca en 30 días o menos. */
+  expiryStatus: 'VALID' | 'EXPIRING' | 'EXPIRED' | null;
+  createdAt: string;
+}
+
+export interface EmployeeDocumentUpload {
+  employeeIds: string[];
+  category: EmployeeDocumentCategory;
+  title: string;
+  requiresAck: boolean;
+  expiresAt?: string;
+  file: File;
+}

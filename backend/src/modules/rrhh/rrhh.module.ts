@@ -5,8 +5,10 @@ import { CheckInModule } from "../check-in/check-in.module";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import { ModulesModule } from "../modules/modules.module";
 import { TurnosModule } from "../turnos/turnos.module";
+import { DocumentsController } from "./documents.controller";
 import { MeController } from "./me.controller";
 import { RequestsController } from "./requests.controller";
+import { EmployeeDocumentsService } from "./services/employee-documents.service";
 import { EmployeeRequestsService } from "./services/employee-requests.service";
 import { EmployeeSelfService } from "./services/employee-self.service";
 
@@ -25,10 +27,11 @@ import { EmployeeSelfService } from "./services/employee-self.service";
     TurnosModule,
     ModulesModule,
   ],
-  controllers: [MeController, RequestsController],
+  controllers: [MeController, RequestsController, DocumentsController],
   providers: [
     EmployeeSelfService,
     EmployeeRequestsService,
+    EmployeeDocumentsService,
     CheckInManagerGuard,
   ],
 })

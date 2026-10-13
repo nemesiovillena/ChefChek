@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { CalendarDays, Home, Inbox, MonitorSmartphone, Plane, UserRound } from 'lucide-react';
+import { CalendarDays, FileText, Home, Inbox, MonitorSmartphone, Plane, UserRound } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { useOwnProfile } from '@/hooks/use-rrhh';
@@ -12,12 +12,13 @@ import { CheckInPersonalCard } from '../check-in/components/check-in-personal-ca
 import { OwnAbsencesTab } from '../turnos/components/own-absences-tab';
 import { OwnShifts } from '../turnos/components/own-shifts';
 import { MyDataTab } from './components/my-data-tab';
+import { MyDocumentsTab } from './components/my-documents-tab';
 import { MyRequestsTab } from './components/my-requests-tab';
 
 export const dynamic = 'force-dynamic';
 
-type TabId = 'inicio' | 'ausencias' | 'datos' | 'solicitudes';
-const TAB_IDS: readonly TabId[] = ['inicio', 'ausencias', 'datos', 'solicitudes'];
+type TabId = 'inicio' | 'ausencias' | 'documentos' | 'datos' | 'solicitudes';
+const TAB_IDS: readonly TabId[] = ['inicio', 'ausencias', 'documentos', 'datos', 'solicitudes'];
 
 function MySpace() {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ function MySpace() {
   const tabs = [
     { id: 'inicio' as const, label: 'Inicio', icon: Home },
     ...(hasTurnos ? [{ id: 'ausencias' as const, label: 'Ausencias', icon: Plane }] : []),
+    { id: 'documentos' as const, label: 'Documentos', icon: FileText },
     { id: 'datos' as const, label: 'Mis datos', icon: UserRound },
     { id: 'solicitudes' as const, label: 'Solicitudes', icon: Inbox },
   ];
@@ -99,6 +101,7 @@ function MySpace() {
         </div>
       )}
       {tab === 'ausencias' && <OwnAbsencesTab year={new Date().getFullYear()} />}
+      {tab === 'documentos' && <MyDocumentsTab />}
       {tab === 'datos' && <MyDataTab />}
       {tab === 'solicitudes' && <MyRequestsTab />}
     </>

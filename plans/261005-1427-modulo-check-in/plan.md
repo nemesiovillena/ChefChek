@@ -49,7 +49,7 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 | 7 | [Planificador de turnos](./phase-07-planificador-de-turnos.md) | Completed |
 | 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Completed |
 | 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Completed |
-| 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Pending |
+| 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Completed |
 | 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | Pending |
 
 | Oleada | Módulo | Fases | Esfuerzo |
