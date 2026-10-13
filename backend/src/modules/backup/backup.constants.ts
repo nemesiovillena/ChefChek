@@ -50,6 +50,7 @@ export const EVIDENCE_TABLES = new Set<string>([
   "time_punch_adjustment_decisions",
   "timesheets", // hojas de horas aprobadas
   "timesheet_acks",
+  "employee_document_acks", // acuses de lectura de documentos laborales
 ]);
 
 /** True si `table` pertenece al motor de evidencia inalterable. */

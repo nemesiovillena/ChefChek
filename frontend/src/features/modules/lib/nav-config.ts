@@ -115,6 +115,7 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Turnos', href: '/dashboard/turnos/planificador', moduleId: 'turnos', icon: 'calendar_view_week', personalAccountOnly: true },
       { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: 'beach_access', personalAccountOnly: true },
       { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, personalAccountOnly: true },
+      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
       { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true, personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
