@@ -1,7 +1,7 @@
 ---
 phase: 10
 title: "Documentacion laboral"
-status: pending
+status: completed
 priority: P3
 effort: "12-14h"
 dependencies: [9]
@@ -48,14 +48,23 @@ Gestión de contratos, justificantes y otros documentos laborales por empleado, 
 
 ## Success Criteria
 
-- [ ] Subir, consultar y descargar un documento con permisos correctos
-- [ ] Un empleado no puede descargar documentos de otro (test)
-- [ ] Acuse registrado e inmutable
-- [ ] Aviso de caducidad generado
-- [ ] Subida de imagen HEIC desde iPhone funciona
+- [x] Subir, consultar y descargar un documento con permisos correctos (e2e + navegador)
+- [x] Un empleado no puede descargar documentos de otro (e2e)
+- [x] Acuse registrado e inmutable (e2e: el trigger rechaza UPDATE y DELETE)
+- [x] Caducidad señalada: "Caduca pronto" (30 días) y "Caducado" (e2e + navegador)
+- [x] El tipo HEIC se acepta en la subida (e2e); falta probar desde un iPhone real
 
 ## Risk Assessment
 
 - URL de fichero expuesta → nunca URL pública; siempre endpoint autenticado.
 - Confusión acuse/firma legal → texto claro en la interfaz y en la guía.
 - Retención de documentos de exempleados → política a definir con asesor; sin borrado automático.
+
+## Desviaciones (2026-10-13)
+
+- **Sin cron ni `Alert` de caducidad**: la campana es común a todo el tenant y revelaría documentos de una persona a toda la plantilla. La caducidad se ve en "Documentos del equipo" (distintivos y contador de pendientes) y en "Mi espacio".
+- **`EmployeeDocumentAck` sin claves foráneas**, con el título y el nombre copiados, como el resto de tablas de evidencia; añadida a `EVIDENCE_TABLES` del backup.
+- **Un documento con acuse no se puede retirar.** Retirar es un borrado lógico (`deletedAt`); no entra en la Papelera.
+- **Varias personas, un fichero**: un registro por persona con la misma `fileKey`.
+- **Justificantes sin vínculo a una ausencia concreta**: el empleado los sube en "Mi espacio → Documentos" con un título libre.
+- Añadidos `fileName`, `uploadedByName` y `updatedAt` al modelo.

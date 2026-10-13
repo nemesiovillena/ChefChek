@@ -18,10 +18,22 @@ const shift = ({ year, month }: YearMonth, delta: number): YearMonth => {
   return { year: date.getFullYear(), month: date.getMonth() + 1 };
 };
 
-/** Selector de mes con flechas. No deja ir más allá del mes actual. */
-export function CheckInMonthPicker({ value, onChange }: { value: YearMonth; onChange: (next: YearMonth) => void }) {
+/**
+ * Selector de mes con flechas. Por defecto no deja ir más allá del mes actual
+ * (registro de jornada); `allowFuture` lo permite (ausencias y turnos se
+ * planifican por adelantado).
+ */
+export function CheckInMonthPicker({
+  value,
+  onChange,
+  allowFuture = false,
+}: {
+  value: YearMonth;
+  onChange: (next: YearMonth) => void;
+  allowFuture?: boolean;
+}) {
   const now = currentYearMonth();
-  const isCurrent = value.year === now.year && value.month === now.month;
+  const isCurrent = !allowFuture && value.year === now.year && value.month === now.month;
   const btn = 'flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--outline-variant)] disabled:opacity-30';
   return (
     <div className="flex items-center gap-2">

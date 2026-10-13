@@ -163,6 +163,18 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     moduleId: "check-in",
     defaultAllowed: true,
   },
+  {
+    key: "turnos",
+    label: "Turnos y ausencias",
+    moduleId: "turnos",
+    defaultAllowed: true,
+  },
+  {
+    key: "rrhh",
+    label: "Portal del empleado",
+    moduleId: "rrhh",
+    defaultAllowed: true,
+  },
 
   // ── Contenido ───────────────────────────────────────────────────────────
   { key: "menus", label: "Menús", moduleId: "menus", defaultAllowed: true },
