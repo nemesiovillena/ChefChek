@@ -10,6 +10,17 @@ SaaS multi-tenant modular para gestión de cocinas profesionales con API-first a
 
 ---
 
+## 2026-10-13 — Check-In, Turnos y Portal del empleado (módulos `check-in`, `turnos`, `rrhh`)
+
+- **`check-in`**: fichaje personal, kiosco (contraseña de Equipo o PIN) y sin conexión; registro de jornada inalterable con correcciones documentadas, hojas de horas e informes para la Inspección.
+- **`turnos`** (depende de `check-in`): ausencias, vacaciones, bajas y festivos; planificador semanal con arrastrar y soltar, plantillas, copia de semana y publicación; avisos legales al planificar, coste estimado y plan frente a real.
+- **`rrhh`** (depende de `check-in`): "Mi espacio", cambio de datos personales con aprobación, bandeja única de solicitudes y documentación laboral con acuse de lectura y caducidad.
+- Modelos nuevos (aditivos): `Employee`, `TimePunch` y derivados, `Absence`, `Shift`, `EmployeeRequest`, `EmployeeDocument`, `EmployeeDocumentAck`, entre otros. Las tablas de evidencia llevan trigger `forbid_mutation` y están en `EVIDENCE_TABLES` del backup.
+- Fuera de alcance: nóminas, prenómina y reclutamiento.
+- Ver `check-in-user-guide.md`, `check-in-guia-inspeccion.md` y `pdr-modulo-check-in.md`.
+
+---
+
 ## 2026-09-01 — Sistema de Etiquetado de Alimentos (módulo `etiquetado`)
 
 - Nuevo módulo `etiquetado` (`defaultEnabled: false`, secciones `etiquetado` / `etiquetado.emit`): emite e historifica etiquetas de cocina con trazabilidad para platos elaborados (desde receta) y artículos manipulados (desde artículo + lote de proveedor).

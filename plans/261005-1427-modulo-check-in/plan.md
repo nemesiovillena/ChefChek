@@ -5,7 +5,7 @@ description: >-
   geovalla en PWA con modo sin conexión, registro de jornada inalterable con
   informes para Inspección, planificador de turnos, ausencias, portal del
   empleado y documentación
-status: pending
+status: in-progress
 priority: P1
 effort: 180-220h
 branch: develop
@@ -50,13 +50,13 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 | 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Completed |
 | 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Completed |
 | 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Completed |
-| 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | Pending |
+| 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | In Progress |
 
 | Oleada | Módulo | Fases | Esfuerzo |
 |---|---|---|---|
 | 1 | `check-in` | 1-5 | Completed |
 | 2 | `turnos` | 6-8 | Completed |
-| 3 | `rrhh` | 9-11 | Pending |
+| 3 | `rrhh` | 9-11 | Fases 9 y 10 completas; QA final a falta de pruebas en dispositivos reales |
 
 ## Dependency Graph
 
