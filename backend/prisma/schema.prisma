@@ -3528,6 +3528,7 @@ model Employee {
   absences        Absence[]
   leaveBalances   LeaveBalance[]
   shifts          Shift[]
+  requests        EmployeeRequest[]
 
   @@index([tenantId])
   @@map("employees")
@@ -4088,6 +4089,46 @@ model Holiday {
 
   @@index([tenantId, date])
   @@map("holidays")
+}
+
+enum EmployeeRequestKind {
+  DATA_CHANGE // el empleado propone cambiar sus datos personales
+  OTHER // petición libre a gerencia
+}
+
+enum EmployeeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED // retirada por el propio empleado
+}
+
+/// Solicitud del empleado a gerencia desde "Mi espacio". Las correcciones de
+/// fichaje y las ausencias tienen sus propias tablas; aquí solo van el cambio
+/// de datos personales y las peticiones libres.
+model EmployeeRequest {
+  id              String                @id @default(cuid())
+  tenantId        String
+  employeeId      String
+  employeeName    String // snapshot
+  kind            EmployeeRequestKind
+  // DATA_CHANGE: los campos propuestos ({ phone, street… }). No se aplican
+  // a la ficha hasta que gerencia aprueba.
+  payload         Json?
+  message         String?
+  status          EmployeeRequestStatus @default(PENDING)
+  decisionNote    String?
+  decidedByUserId String?
+  decidedByName   String? // snapshot
+  decidedAt       DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId])
+  @@map("employee_requests")
 }
 
 enum ShiftStatus {

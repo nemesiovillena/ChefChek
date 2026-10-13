@@ -1,7 +1,7 @@
 ---
 phase: 9
 title: "Portal del empleado y solicitudes"
-status: pending
+status: completed
 priority: P3
 effort: "14-16h"
 dependencies: [4, 6]
@@ -46,13 +46,23 @@ Primer bloque del módulo `rrhh`: "Mi espacio", un único punto donde el emplead
 
 ## Success Criteria
 
-- [ ] El empleado hace todo desde "Mi espacio" sin entrar en otras secciones
-- [ ] Tests de aislamiento en verde
-- [ ] Apartados de `turnos` desaparecen si el módulo está apagado
-- [ ] Solicitud de cambio de datos no se aplica hasta aprobarse
-- [ ] Usable con una mano en móvil
+- [x] El empleado ficha y consulta turnos, ausencias, datos y solicitudes desde "Mi espacio" (navegador, móvil); el registro de jornada mensual se abre con un enlace
+- [x] Tests de aislamiento en verde (e2e)
+- [x] Apartados de `turnos` desaparecen si el módulo está apagado (e2e + interfaz)
+- [x] Solicitud de cambio de datos no se aplica hasta aprobarse (e2e + navegador)
+- [x] Usable en móvil (navegador a 390 px)
 
 ## Risk Assessment
 
 - Fuga de datos entre empleados → empleado siempre derivado de la sesión; tests dedicados.
 - Duplicar lógica de solicitudes → `EmployeeRequest` solo referencia, no reimplementa.
+
+## Desviaciones (2026-10-13)
+
+- **`EmployeeRequest` solo guarda cambios de datos y peticiones libres.** Las correcciones de fichaje y las ausencias siguen en sus tablas; `GET /rrhh/me/requests` las lista juntas, sin `refId`.
+- **Bandeja de gerencia por composición**: la página "Solicitudes del equipo" reúne las tres bandejas existentes (datos, correcciones, ausencias); no hay endpoint unificado de gerencia.
+- **Datos que puede proponer el empleado**: teléfono, WhatsApp, dirección, población, email para nóminas, DNI/NIE y nº de la Seguridad Social. Nombre, puesto, contrato y coste los lleva gerencia. Un solo cambio pendiente a la vez. Nadie decide su propia solicitud.
+- **Sin apartado de notificaciones**: se usa la campana general.
+- **Una página con pestañas** (`?tab=`) en vez de subpáginas; "Mis fichajes" enlaza al Registro de jornada.
+- **Aterrizaje**: tras iniciar sesión, USER/VIEWER con ficha y portal activo entra por "Mi espacio".
+- Código en `frontend/src/app/dashboard/mi-espacio/` y `rrhh/solicitudes/`, hooks en `src/hooks/use-rrhh.ts`.

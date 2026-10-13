@@ -12,7 +12,7 @@ export interface AuthContextType {
   sessionId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<AuthResponse['user']>;
   loginSuperadmin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -123,6 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // WebSocket will auto-connect via useEffect
+      return response.user;
     } catch (error) {
       throw error;
     } finally {
