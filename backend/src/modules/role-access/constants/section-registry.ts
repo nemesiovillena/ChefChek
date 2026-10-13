@@ -169,6 +169,12 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     moduleId: "turnos",
     defaultAllowed: true,
   },
+  {
+    key: "rrhh",
+    label: "Portal del empleado",
+    moduleId: "rrhh",
+    defaultAllowed: true,
+  },
 
   // ── Contenido ───────────────────────────────────────────────────────────
   { key: "menus", label: "Menús", moduleId: "menus", defaultAllowed: true },

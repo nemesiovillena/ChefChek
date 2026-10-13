@@ -235,6 +235,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: false,
   },
   {
+    id: "rrhh",
+    name: "Portal del empleado",
+    description:
+      "Mi espacio: cada persona consulta sus fichajes, turnos y ausencias, y pide cambios de sus datos",
+    dependencies: ["check-in"],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
+  {
     id: "cuiner",
     name: "Cuiner",
     description:
