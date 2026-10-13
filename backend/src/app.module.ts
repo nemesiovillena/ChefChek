@@ -67,6 +67,7 @@ import { RecipeCaptureModule } from "./modules/recipe-capture/recipe-capture.mod
 import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { SictedModule } from "./modules/sicted/sicted.module";
 import { CheckInModule } from "./modules/check-in/check-in.module";
+import { TurnosModule } from "./modules/turnos/turnos.module";
 
 @Module({
   imports: [
@@ -117,6 +118,7 @@ import { CheckInModule } from "./modules/check-in/check-in.module";
     ChecklistsModule,
     SictedModule,
     CheckInModule,
+    TurnosModule,
   ],
   controllers: [
     TenantsController,

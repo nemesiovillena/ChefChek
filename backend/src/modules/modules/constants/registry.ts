@@ -226,6 +226,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: false,
   },
   {
+    id: "turnos",
+    name: "Turnos y ausencias",
+    description:
+      "Vacaciones, permisos y bajas del equipo, saldos anuales y festivos",
+    dependencies: ["check-in"],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
+  {
     id: "cuiner",
     name: "Cuiner",
     description:
