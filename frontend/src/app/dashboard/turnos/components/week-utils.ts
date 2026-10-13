@@ -33,6 +33,14 @@ export function formatWeekRange(weekStart: string): string {
   return `${fmt(weekStart, !sameMonth)} – ${fmt(end, true)} ${end.slice(0, 4)}`;
 }
 
+/** 384 -> "384 €"; 95.5 -> "95,50 €". */
+export const formatEuros = (amount: number) =>
+  amount.toLocaleString('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+  });
+
 /** 450 -> "7,5 h". */
 export const formatHours = (minutes: number) =>
   `${(Math.round((minutes / 60) * 10) / 10).toString().replace('.', ',')} h`;

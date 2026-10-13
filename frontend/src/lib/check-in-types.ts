@@ -78,6 +78,8 @@ export interface CheckInSettings extends AgreementParams {
   showMonthPicker: boolean;
   showOwnAdjustments: boolean;
   showAddMissingDay: boolean;
+  /** Minutos de margen antes de dar un turno por retraso, salida anticipada o exceso. */
+  scheduleToleranceMinutes: number;
   updatedAt: string;
 }
 

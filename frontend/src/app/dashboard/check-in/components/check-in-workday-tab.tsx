@@ -14,11 +14,12 @@ function WorkdayForm({ settings }: { settings: CheckInSettings }) {
   const [breaksCountAsWork, setBreaksCountAsWork] = useState(settings.breaksCountAsWork);
   const [autoCloseAfterHours, setAutoCloseAfterHours] = useState(settings.autoCloseAfterHours);
   const [pinLength, setPinLength] = useState(settings.pinLength);
+  const [scheduleToleranceMinutes, setScheduleToleranceMinutes] = useState(settings.scheduleToleranceMinutes);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     try {
-      await update.mutateAsync({ breaksCountAsWork, autoCloseAfterHours, pinLength });
+      await update.mutateAsync({ breaksCountAsWork, autoCloseAfterHours, pinLength, scheduleToleranceMinutes });
       notify({ type: 'success', title: 'Ajustes guardados', message: '' });
     } catch (err) {
       notify({ type: 'error', title: 'Error', message: errorMessage(err) });
@@ -54,6 +55,22 @@ function WorkdayForm({ settings }: { settings: CheckInSettings }) {
         />
         <span className="mt-1 block text-sm text-[var(--on-surface-variant)]">
           Si alguien olvida fichar la salida, se marca como incidencia; nunca se inventa una hora.
+        </span>
+      </label>
+
+      <label className="block">
+        <span className={labelCls}>Margen frente al turno planificado (minutos)</span>
+        <input
+          type="number"
+          min={0}
+          max={120}
+          value={scheduleToleranceMinutes}
+          onChange={(e) => setScheduleToleranceMinutes(Number(e.target.value))}
+          className={`${inputCls} max-w-[160px]`}
+        />
+        <span className="mt-1 block text-sm text-[var(--on-surface-variant)]">
+          Por encima de este margen se señala retraso, salida anticipada o exceso sobre el turno. Solo se usa si
+          planificas turnos.
         </span>
       </label>
 

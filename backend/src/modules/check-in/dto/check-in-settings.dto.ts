@@ -105,6 +105,12 @@ export class UpdateCheckInSettingsDto {
   @IsOptional()
   @IsBoolean()
   showAddMissingDay?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  scheduleToleranceMinutes?: number;
 }
 
 export class ApplyAgreementPresetDto {

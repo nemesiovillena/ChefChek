@@ -162,4 +162,59 @@ export interface WeekSchedule {
   /** Turnos en borrador: aún no los ve su persona. */
   draftCount: number;
   lastPublication: { publishedAt: string; publishedByName: string } | null;
+  /** Avisos legales de lo planificado: orientativos, no impiden guardar. */
+  alerts: ScheduleAlert[];
+  /** Estimación: horas planificadas por el coste hora de cada ficha. */
+  laborCost: { byDay: number[]; total: number; employeesWithoutCost: number };
+}
+
+export type ScheduleRuleCode =
+  | 'DESCANSO_ENTRE_JORNADAS'
+  | 'JORNADA_DIARIA'
+  | 'HORAS_SEMANALES'
+  | 'DESCANSO_SEMANAL'
+  | 'HORAS_EXTRA_ANUALES';
+
+export interface ScheduleAlert {
+  code: ScheduleRuleCode;
+  employeeId: string;
+  /** Día al que se refiere, o null si es de toda la semana. */
+  date: string | null;
+  shiftIds: string[];
+  message: string;
+}
+
+/**
+ * PENDING: aún no ha empezado. IN_PROGRESS: trabajando. NO_SHOW: debería
+ * haber empezado y no ha fichado. INCIDENT: fichó con retraso, salida
+ * anticipada o exceso. UNPLANNED: trabajó sin turno publicado.
+ */
+export type DayComparisonStatus = 'PENDING' | 'IN_PROGRESS' | 'OK' | 'NO_SHOW' | 'INCIDENT' | 'UNPLANNED';
+export type DayComparisonFlag = 'LATE' | 'EARLY_LEAVE' | 'OVER';
+
+/** Lo planificado para una persona en un día frente a lo que fichó. */
+export interface PlanVsActualRow {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  status: DayComparisonStatus;
+  flags: DayComparisonFlag[];
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  plannedMinutes: number;
+  actualStart: string | null;
+  actualEnd: string | null;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  overMinutes: number;
+  /** null si la ficha no tiene coste hora. */
+  plannedCost: number | null;
+  actualCost: number | null;
+}
+
+export interface PlanVsActualWeek {
+  weekStart: string;
+  rows: PlanVsActualRow[];
+  totals: { plannedMinutes: number; workedMinutes: number; plannedCost: number; actualCost: number };
 }

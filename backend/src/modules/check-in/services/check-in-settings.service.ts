@@ -50,6 +50,7 @@ export class CheckInSettingsService {
         showMonthPicker: dto.showMonthPicker,
         showOwnAdjustments: dto.showOwnAdjustments,
         showAddMissingDay: dto.showAddMissingDay,
+        scheduleToleranceMinutes: dto.scheduleToleranceMinutes,
       },
     });
   }

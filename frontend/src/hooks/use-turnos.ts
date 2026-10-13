@@ -11,6 +11,8 @@ import type {
   Holiday,
   LeaveBalance,
   LeaveBalanceInput,
+  PlanVsActualRow,
+  PlanVsActualWeek,
   Shift,
   ShiftInput,
   ShiftTemplate,
@@ -234,6 +236,23 @@ export function useSaveShiftTemplate() {
         ? (await apiClient.patch(`${BASE}/shift-templates/${id}`, data)).data
         : (await apiClient.post(`${BASE}/shift-templates`, data)).data,
     onSuccess: invalidate,
+  });
+}
+
+/** Turnos publicados de la semana frente a lo fichado, con coste. Solo gerencia. */
+export function usePlanVsActual(locationId: string | null, weekStart: string, enabled = true) {
+  return useApiQuery<PlanVsActualWeek>(
+    [...scheduleKey(locationId, weekStart), 'plan-vs-actual'],
+    `${BASE}/schedule/plan-vs-actual?locationId=${locationId}&weekStart=${weekStart}`,
+    { enabled: enabled && !!locationId },
+  );
+}
+
+/** Estado de los turnos de hoy: retrasos y quien no ha fichado. Solo gerencia. */
+export function useTodaySchedule(enabled = true) {
+  return useApiQuery<{ rows: PlanVsActualRow[] }>([...ROOT, 'schedule', 'today'], `${BASE}/schedule/today`, {
+    enabled,
+    refetchInterval: 60_000,
   });
 }
 

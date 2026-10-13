@@ -14,9 +14,9 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { Plus } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import type { Shift, WeekSchedule } from '@/lib/turnos-types';
-import { formatHours, formatWeekday } from './week-utils';
+import { formatEuros, formatHours, formatWeekday } from './week-utils';
 
 /** Fila de turnos sin asignar. */
 const OPEN_ROW = 'open';
@@ -32,7 +32,18 @@ interface Props {
   onDropShift: (shift: Shift, employeeId: string | null, date: string) => void;
 }
 
-function ShiftCard({ shift, selected, onSelect }: { shift: Shift; selected: boolean; onSelect: () => void }) {
+function ShiftCard({
+  shift,
+  selected,
+  warning,
+  onSelect,
+}: {
+  shift: Shift;
+  selected: boolean;
+  /** Avisos legales que afectan a este turno. */
+  warning?: string;
+  onSelect: () => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: shift.id, data: { shift } });
   return (
     <button
@@ -41,7 +52,7 @@ function ShiftCard({ shift, selected, onSelect }: { shift: Shift; selected: bool
       onClick={onSelect}
       {...listeners}
       {...attributes}
-      title={shift.note ?? undefined}
+      title={[warning, shift.note].filter(Boolean).join('\n') || undefined}
       className={`block w-full touch-none rounded-md px-1.5 py-1 text-left text-xs text-white ${
         isDragging ? 'opacity-30' : ''
       } ${selected ? 'ring-2 ring-[var(--on-surface)]' : ''} ${
@@ -50,8 +61,9 @@ function ShiftCard({ shift, selected, onSelect }: { shift: Shift; selected: bool
       }`}
       style={{ backgroundColor: shift.color ?? DEFAULT_COLOR }}
     >
-      <span className="block font-semibold leading-tight">
+      <span className="flex items-center justify-between gap-1 font-semibold leading-tight">
         {shift.startTime}–{shift.endTime}
+        {warning && <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-label={`Aviso: ${warning}`} />}
       </span>
       <span className="block leading-tight opacity-90">{formatHours(shift.workMinutes)}</span>
     </button>
@@ -120,6 +132,13 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
   const dayMinutes = (date: string) =>
     schedule.shifts.filter((s) => s.date === date && s.employeeId).reduce((sum, s) => sum + s.workMinutes, 0);
 
+  const shiftWarning = (shiftId: string) =>
+    schedule.alerts
+      .filter((alert) => alert.shiftIds.includes(shiftId))
+      .map((alert) => alert.message)
+      .join('\n') || undefined;
+  const employeeAlerts = (employeeId: string) => schedule.alerts.filter((alert) => alert.employeeId === employeeId);
+
   // Secciones en orden de aparición; quien no tiene sección va al final.
   const sections = [...new Set(schedule.employees.map((e) => e.section ?? ''))].sort((a, b) =>
     a === '' ? 1 : b === '' ? -1 : a.localeCompare(b),
@@ -145,6 +164,7 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
         key={shift.id}
         shift={shift}
         selected={shift.id === selectedShiftId}
+        warning={shiftWarning(shift.id)}
         onSelect={() => onSelectShift(shift)}
       />
     ));
@@ -192,10 +212,23 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
                   .map((employee) => {
                     const planned = weekMinutes(employee.id);
                     const over = planned > employee.weeklyHours * 60;
+                    const alerts = employeeAlerts(employee.id);
                     return (
                       <tr key={employee.id}>
                         <th className="sticky left-0 z-10 border-t border-[var(--outline-variant)] bg-[var(--surface-container)] p-2 text-left font-medium">
-                          <span className="block truncate">{employee.name}</span>
+                          <span className="flex items-center gap-1">
+                            <span className="truncate">{employee.name}</span>
+                            {alerts.length > 0 && (
+                              <span
+                                title={alerts.map((alert) => alert.message).join('\n')}
+                                className="flex shrink-0 items-center gap-0.5 text-xs font-semibold text-amber-600"
+                              >
+                                <AlertTriangle className="h-4 w-4" aria-hidden />
+                                {alerts.length}
+                                <span className="sr-only"> avisos</span>
+                              </span>
+                            )}
+                          </span>
                           <span className={`block text-xs font-normal ${over ? 'text-[var(--error)]' : 'text-[var(--on-surface-variant)]'}`}>
                             {formatHours(planned)} / {employee.weeklyHours} h
                           </span>
@@ -244,6 +277,19 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
               {schedule.days.map((date) => (
                 <td key={date} className="border-l border-t border-[var(--outline-variant)] p-2 text-center text-[var(--on-surface-variant)]">
                   {formatHours(dayMinutes(date))}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th className="sticky left-0 z-10 border-t border-[var(--outline-variant)] bg-[var(--surface-container)] p-2 text-left font-medium">
+                Coste estimado
+              </th>
+              {schedule.laborCost.byDay.map((cost, index) => (
+                <td
+                  key={schedule.days[index]}
+                  className="border-l border-t border-[var(--outline-variant)] p-2 text-center text-[var(--on-surface-variant)]"
+                >
+                  {formatEuros(cost)}
                 </td>
               ))}
             </tr>

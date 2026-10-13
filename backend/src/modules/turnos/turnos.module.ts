@@ -6,6 +6,7 @@ import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import { TurnosController } from "./turnos.controller";
 import { ScheduleController } from "./schedule.controller";
 import { ShiftsService } from "./services/shifts.service";
+import { PlanVsActualService } from "./services/plan-vs-actual.service";
 import { AbsenceTypesService } from "./services/absence-types.service";
 import { AbsencesService } from "./services/absences.service";
 import { HolidaysService } from "./services/holidays.service";
@@ -27,6 +28,7 @@ import { LeaveBalanceService } from "./services/leave-balance.service";
     HolidaysService,
     LeaveBalanceService,
     ShiftsService,
+    PlanVsActualService,
     CheckInManagerGuard,
   ],
   exports: [AbsencesService, HolidaysService],

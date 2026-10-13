@@ -70,6 +70,7 @@ import { InspectionLinksService } from "./services/inspection-links.service";
     EmployeePinService,
     CheckInSettingsService,
     LegalTextsService,
+    WorkdaysService,
   ],
 })
 export class CheckInModule {}
