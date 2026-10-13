@@ -11,6 +11,11 @@ import type {
   Holiday,
   LeaveBalance,
   LeaveBalanceInput,
+  Shift,
+  ShiftInput,
+  ShiftTemplate,
+  ShiftTemplateInput,
+  WeekSchedule,
 } from '@/lib/turnos-types';
 
 const BASE = '/v1/turnos';
@@ -144,5 +149,98 @@ export function useDeleteHoliday() {
       await apiClient.delete(`${BASE}/holidays/${id}`);
     },
     onSuccess: invalidate,
+  });
+}
+
+// ─────────────────────────────────────────────────────────── Planificador
+
+const scheduleKey = (locationId: string | null, weekStart: string) => [...ROOT, 'schedule', locationId ?? 'none', weekStart];
+
+export function useSchedule(locationId: string | null, weekStart: string) {
+  return useApiQuery<WeekSchedule>(
+    scheduleKey(locationId, weekStart),
+    `${BASE}/schedule?locationId=${locationId}&weekStart=${weekStart}`,
+    { enabled: !!locationId },
+  );
+}
+
+export function useCreateShift() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<Shift, Error, ShiftInput>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/shifts`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Editar o mover un turno. El cambio se pinta al instante en la rejilla de
+ * esa semana y, si el servidor lo rechaza (se pisa con otro, hay una
+ * ausencia…), se deshace.
+ */
+export function useUpdateShift(locationId: string | null, weekStart: string) {
+  const qc = useQueryClient();
+  const key = scheduleKey(locationId, weekStart);
+  return useMutation<Shift, Error, { id: string; data: Partial<ShiftInput> }, { previous?: WeekSchedule }>({
+    mutationFn: async ({ id, data }) => (await apiClient.patch(`${BASE}/shifts/${id}`, data)).data,
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<WeekSchedule>(key);
+      if (previous) {
+        qc.setQueryData<WeekSchedule>(key, {
+          ...previous,
+          shifts: previous.shifts.map((shift) => (shift.id === id ? { ...shift, ...data } : shift)),
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) qc.setQueryData(key, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ROOT }),
+  });
+}
+
+export function useDeleteShift() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await apiClient.delete(`${BASE}/shifts/${id}`);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useCopyWeek() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<{ copied: number; skipped: number }, Error, { locationId: string; fromWeekStart: string; toWeekStart: string }>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/schedule/copy-week`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function usePublishWeek() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<{ published: number }, Error, { locationId: string; weekStart: string }>({
+    mutationFn: async (data) => (await apiClient.post(`${BASE}/schedule/publish`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useSaveShiftTemplate() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<ShiftTemplate, Error, { id?: string; data: ShiftTemplateInput }>({
+    mutationFn: async ({ id, data }) =>
+      id
+        ? (await apiClient.patch(`${BASE}/shift-templates/${id}`, data)).data
+        : (await apiClient.post(`${BASE}/shift-templates`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Mis turnos publicados entre dos fechas. */
+export function useOwnShifts(from: string, to: string, enabled = true) {
+  return useApiQuery<Shift[]>([...ROOT, 'me', 'shifts', from, to], `${BASE}/me/shifts?from=${from}&to=${to}`, {
+    enabled,
+    retry: false,
   });
 }

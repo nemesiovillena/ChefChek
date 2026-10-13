@@ -4,6 +4,8 @@ import { AuthModule } from "../auth/auth.module";
 import { CheckInModule } from "../check-in/check-in.module";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import { TurnosController } from "./turnos.controller";
+import { ScheduleController } from "./schedule.controller";
+import { ShiftsService } from "./services/shifts.service";
 import { AbsenceTypesService } from "./services/absence-types.service";
 import { AbsencesService } from "./services/absences.service";
 import { HolidaysService } from "./services/holidays.service";
@@ -18,12 +20,13 @@ import { LeaveBalanceService } from "./services/leave-balance.service";
  */
 @Module({
   imports: [PrismaModule, AuthModule, CheckInModule],
-  controllers: [TurnosController],
+  controllers: [TurnosController, ScheduleController],
   providers: [
     AbsenceTypesService,
     AbsencesService,
     HolidaysService,
     LeaveBalanceService,
+    ShiftsService,
     CheckInManagerGuard,
   ],
   exports: [AbsencesService, HolidaysService],
