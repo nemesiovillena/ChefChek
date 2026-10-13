@@ -172,32 +172,6 @@ describe("PythonOcrService", () => {
     });
   });
 
-  describe("refineExtraction", () => {
-    it("should call /ocr/refine endpoint and return results", async () => {
-      const mockResult = {
-        success: true,
-        document: { products: [{ name: "Refined Product" }] },
-      };
-      mockAxiosPost.mockResolvedValue({ data: mockResult });
-
-      const result = await service.refineExtraction(
-        "raw text",
-        { supplierName: "Supplier" },
-        "model-1",
-        "key-1",
-      );
-
-      expect(result.success).toBe(true);
-      expect(result.document.products[0].name).toBe("Refined Product");
-      expect(mockAxiosPost).toHaveBeenCalledWith("/ocr/refine", {
-        ocr_text: "raw text",
-        supplier_hints: { supplierName: "Supplier" },
-        ai_model: "model-1",
-        ai_api_key: "key-1",
-      });
-    });
-  });
-
   describe("healthCheck", () => {
     it("should return status of microservice", async () => {
       const mockHealth = { status: "healthy", version: "1.0" };

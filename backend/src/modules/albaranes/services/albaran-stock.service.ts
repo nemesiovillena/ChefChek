@@ -132,6 +132,27 @@ export class AlbaranStockService {
 
           const currentPrice = Number(product.purchasePrice);
 
+          // Un artículo creado inline durante la revisión de ESTE albarán ya
+          // guarda purchasePrice POR FORMATO (el formulario convierte el
+          // precio de la línea cuando el papel factura por unidad: "72 ud ×
+          // 1,3221" con caja de 24 → 31,73 €/caja). El precio de línea llega
+          // en la base del papel (por unidad): volcarlo en crudo pisaría
+          // 31,73 con 1,3221 y dejaría el €/ud dividido entre 24. Se detecta
+          // ese alta inline (artículo nacido con este albarán cuyo precio
+          // plano coincide con línea × formato) y se lleva el precio de línea
+          // a la misma base de formato. Para cualquier otro artículo el
+          // comportamiento es idéntico al anterior.
+          const grossLinePrice = Number(line.unitPrice);
+          const createdInlineFromThisAlbaran =
+            product.unitSize > 1 &&
+            grossLinePrice > 0 &&
+            product.createdAt >= albaran.createdAt &&
+            Math.abs(currentPrice - grossLinePrice * product.unitSize) <=
+              Math.max(0.01, currentPrice * 0.005);
+          const offerLinePrice = createdInlineFromThisAlbaran
+            ? lineUnitPrice * product.unitSize
+            : lineUnitPrice;
+
           if (albaran.supplierId) {
             // Upsert de la oferta de ESTE proveedor: toda compra confirmada
             // lo marca preferente (regla de negocio — el último proveedor al
@@ -143,17 +164,17 @@ export class AlbaranStockService {
               product.id,
               albaran.supplierId,
               tenantId,
-              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+              { purchasePrice: offerLinePrice, netPrice: offerLinePrice },
               tx,
               albaran.id,
               true,
             );
 
-            if (lineUnitPrice !== currentPrice) {
+            if (offerLinePrice !== currentPrice) {
               const percentageChange =
                 currentPrice > 0
                   ? Math.abs(
-                      ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                      ((offerLinePrice - currentPrice) / currentPrice) * 100,
                     )
                   : 100;
               if (percentageChange > 10) {
@@ -161,19 +182,19 @@ export class AlbaranStockService {
                   tenantId,
                   product.name,
                   currentPrice,
-                  lineUnitPrice,
+                  offerLinePrice,
                   percentageChange,
                   product.id,
                 );
               }
             }
-          } else if (lineUnitPrice !== currentPrice) {
+          } else if (offerLinePrice !== currentPrice) {
             // Fallback legacy: albarán sin proveedor asignado, no se puede
             // crear una oferta (supplierId es obligatorio en el modelo).
             const percentageChange =
               currentPrice > 0
                 ? Math.abs(
-                    ((lineUnitPrice - currentPrice) / currentPrice) * 100,
+                    ((offerLinePrice - currentPrice) / currentPrice) * 100,
                   )
                 : 100;
 
@@ -181,8 +202,8 @@ export class AlbaranStockService {
               where: { id: product.id },
               data: {
                 previousPurchasePrice: currentPrice,
-                purchasePrice: lineUnitPrice,
-                netPrice: lineUnitPrice,
+                purchasePrice: offerLinePrice,
+                netPrice: offerLinePrice,
               },
             });
 
@@ -193,7 +214,7 @@ export class AlbaranStockService {
                 supplierId: null,
                 albaranId: albaran.id,
                 previousPrice: currentPrice,
-                newPrice: lineUnitPrice,
+                newPrice: offerLinePrice,
                 // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
                 // que antes/después es el mismo — se snapshotea igual para que
                 // el frontend pueda calcular €/kg normalizado con datos completos.
@@ -207,7 +228,7 @@ export class AlbaranStockService {
                 tenantId,
                 product.name,
                 currentPrice,
-                lineUnitPrice,
+                offerLinePrice,
                 percentageChange,
                 product.id,
               );
@@ -227,7 +248,7 @@ export class AlbaranStockService {
               await this.priceAgreementService.evaluateAndRecord(
                 tenantId,
                 offerForDeviation.id,
-                lineUnitPrice,
+                offerLinePrice,
                 {
                   albaranId: albaran.id,
                   productName: product.name,

@@ -50,9 +50,9 @@ export interface Recipe {
   name: string;
   description?: string;
   elaboration?: string;
-  notes?: string;
+  notes?: string | null;
   imageUrl?: string | null;
-  sourceUrl?: string;
+  sourceUrl?: string | null;
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number | null;
@@ -98,9 +98,9 @@ export interface CreateRecipeData {
   name: string;
   description?: string;
   elaboration?: string;
-  notes?: string;
+  notes?: string | null;
   imageUrl?: string | null;
-  sourceUrl?: string;
+  sourceUrl?: string | null;
   portions: number;
   portionSize?: number;
   totalYieldWeight?: number;

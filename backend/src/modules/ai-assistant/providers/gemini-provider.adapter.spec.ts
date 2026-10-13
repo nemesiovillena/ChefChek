@@ -240,4 +240,103 @@ describe("GeminiProviderAdapter", () => {
       response: { result: '{"quantity":30}' },
     });
   });
+
+  describe("adjuntos y opciones por llamada", () => {
+    const respond = (finish: string) =>
+      jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [
+            { finishReason: finish, content: { parts: [{ text: "{}" }] } },
+          ],
+        }),
+      });
+
+    it("envía adjuntos, tope de salida y modo JSON cuando se piden", async () => {
+      const fetchMock = respond("STOP");
+      global.fetch = fetchMock as any;
+
+      await adapter.chat(
+        "key",
+        "gemini-2.5-flash",
+        [
+          {
+            role: "user",
+            content: "lee esto",
+            attachments: [
+              { mimeType: "image/png", dataBase64: "AAA" },
+              { mimeType: "application/pdf", dataBase64: "BBB" },
+            ],
+          },
+        ],
+        [],
+        { maxOutputTokens: 4096, jsonMode: true },
+      );
+
+      const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+      expect(sentBody.generationConfig).toEqual({
+        maxOutputTokens: 4096,
+        responseMimeType: "application/json",
+      });
+      expect(sentBody.contents[0].parts).toEqual([
+        { inlineData: { mimeType: "image/png", data: "AAA" } },
+        { inlineData: { mimeType: "application/pdf", data: "BBB" } },
+        { text: "lee esto" },
+      ]);
+    });
+
+    it("sin opciones ni adjuntos el cuerpo es el de siempre", async () => {
+      const fetchMock = respond("STOP");
+      global.fetch = fetchMock as any;
+
+      const result = await adapter.chat(
+        "key",
+        "gemini-2.5-flash",
+        [{ role: "user", content: "hola" }],
+        [],
+      );
+
+      const sentBody = JSON.parse((fetchMock.mock.calls[0][1] as any).body);
+      expect(sentBody).toEqual({
+        contents: [{ role: "user", parts: [{ text: "hola" }] }],
+      });
+      expect(result.truncated).toBeUndefined();
+    });
+
+    it("avisa cuando el proveedor corta la respuesta por el tope de tokens", async () => {
+      global.fetch = respond("MAX_TOKENS") as any;
+
+      const result = await adapter.chat(
+        "key",
+        "gemini-2.5-flash",
+        [{ role: "user", content: "hola" }],
+        [],
+      );
+
+      expect(result.truncated).toBe(true);
+    });
+
+    it("no reintenta cuando se pide noRetry", async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: { get: () => null },
+        text: async () => "sobrecargado",
+      });
+      global.fetch = fetchMock as any;
+
+      await expect(
+        adapter.chat(
+          "key",
+          "gemini-2.5-flash",
+          [{ role: "user", content: "hola" }],
+          [],
+          {
+            noRetry: true,
+          },
+        ),
+      ).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

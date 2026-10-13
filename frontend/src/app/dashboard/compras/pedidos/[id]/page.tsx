@@ -159,6 +159,10 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const hasReception = ['ENVIADO', 'RECIBIDO_PARCIAL', 'RECIBIDO'].includes(
     order.status,
   );
+  // Marcar recibido a mano exige albarán vinculado (lo fuerza el backend):
+  // es quien aporta cantidades/precios reales al confirmarse. Sin él, cocina
+  // debe esperar a que oficina suba y vincule el albarán del proveedor.
+  const hasLinkedAlbaran = (order.albaranes ?? []).length > 0;
   const meta = ORDER_STATUS_META[order.status];
 
   const [lines, setLines] = useState(
@@ -691,22 +695,32 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
             <CalendarClock className="h-4 w-4" /> Programar
           </button>
         )}
-        {canManageOrder && STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => (
-          <button
-            key={to}
-            onClick={() => handleTransition(to)}
-            disabled={transitionMut.isPending || (isEditable && dirty)}
-            title={isEditable && dirty ? 'Guarda los cambios primero' : undefined}
-            className={
-              primary
-                ? 'flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50'
-                : 'flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50'
-            }
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
+        {canManageOrder && STATUS_ACTIONS[order.status].map(({ to, label, icon: Icon, primary }) => {
+          const needsAlbaran =
+            order.status === 'ENVIADO' && to === 'RECIBIDO' && !hasLinkedAlbaran;
+          return (
+            <button
+              key={to}
+              onClick={() => handleTransition(to)}
+              disabled={transitionMut.isPending || (isEditable && dirty) || needsAlbaran}
+              title={
+                needsAlbaran
+                  ? 'Sube y vincula primero el albarán del proveedor (sección Recepción)'
+                  : isEditable && dirty
+                    ? 'Guarda los cambios primero'
+                    : undefined
+              }
+              className={
+                primary
+                  ? 'flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50'
+                  : 'flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)] disabled:opacity-50'
+              }
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          );
+        })}
         {hasReception && canManageOrder && (
           <button
             onClick={handleReportIncident}

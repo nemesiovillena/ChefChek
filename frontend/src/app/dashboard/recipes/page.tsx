@@ -33,6 +33,7 @@ import ProductCombobox from './components/product-combobox';
 import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import RecipeVisualView from './components/recipe-visual-view';
+import RecipeCaptureNotes from './components/recipe-capture-notes';
 import ImagePicker from '@/components/image-picker';
 import ConservationFieldset from '@/components/conservation-fieldset';
 import { useInvalidateQueries, useApiQuery } from '@/hooks/use-api';
@@ -72,6 +73,8 @@ const RECIPE_TABS = [
 const EMPTY_RECIPE_FORM = {
   name: '',
   description: '',
+  // Recipe.notes: ingredientes pendientes de una receta capturada.
+  notes: '',
   portions: '1',
   portionSize: '',
   totalYieldWeight: '',
@@ -158,8 +161,15 @@ export default function RecipesPage() {
     deepLinkRecipeId && deepLinkRecipe?.id === deepLinkRecipeId
       ? deepLinkRecipe
       : null;
+  // ?recipe=<id>&edit=1 (p.ej. tras pasar una captura a Recetas): en vez de
+  // la vista visual abre el modal de edición, una sola vez por receta.
+  const wantsEditLink = searchParams.get('edit') === '1' && canEditRecipes;
+  const [openedEditLinkId, setOpenedEditLinkId] = useState<string | null>(null);
+  const clearEditLink = () => {
+    if (wantsEditLink) router.replace('/dashboard/recipes');
+  };
   // Vista activa: deep link si lo hay, si no la abierta con un click en la tabla
-  const activeVisualRecipe = deepLinkViewRecipe ?? visualViewRecipe;
+  const activeVisualRecipe = (wantsEditLink ? null : deepLinkViewRecipe) ?? visualViewRecipe;
   const closeVisualView = () => {
     setVisualViewRecipe(null);
     if (deepLinkViewRecipe) router.replace('/dashboard/recipes');
@@ -585,6 +595,9 @@ export default function RecipesPage() {
     const recipeData = {
       name: formData.name,
       description: formData.description || undefined,
+      // Vacío en una receta que tenía pendientes = ya están completados → null
+      // explícito para borrarlos (undefined = "no tocar", ver update()).
+      notes: formData.notes.trim() || (selectedRecipe?.notes ? null : undefined),
       elaboration: filledSteps.length > 0 ? serializeSteps(filledSteps) : undefined,
       // '' + receta que ya tenía imagen = el usuario la quitó → null explícito
       // para que el backend la borre (undefined = "no tocar", ver update()).
@@ -657,6 +670,7 @@ export default function RecipesPage() {
         });
       }
       setShowCreateForm(false);
+      clearEditLink();
       setSelectedRecipe(null);
       setFormData(EMPTY_RECIPE_FORM);
       setElaborationSteps(parseSteps(null));
@@ -681,6 +695,7 @@ export default function RecipesPage() {
     setFormData({
       name: recipe.name,
       description: recipe.description || '',
+      notes: recipe.notes || '',
       portions: recipe.portions.toString(),
       portionSize: recipe.portionSize ? recipe.portionSize.toString() : '',
       totalYieldWeight: (() => {
@@ -721,6 +736,14 @@ export default function RecipesPage() {
     setActiveTab('general');
     setShowCreateForm(true);
   };
+
+  // Ajuste de estado durante el render (sin efecto): cuando llega la receta
+  // del enlace de edición se abre su formulario. El id recordado evita
+  // reabrirlo en cada render y tras cerrarlo.
+  if (wantsEditLink && deepLinkViewRecipe && openedEditLinkId !== deepLinkViewRecipe.id) {
+    setOpenedEditLinkId(deepLinkViewRecipe.id);
+    handleEdit(deepLinkViewRecipe);
+  }
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -1113,6 +1136,7 @@ export default function RecipesPage() {
                   <button
                     onClick={() => {
                       setShowCreateForm(false);
+      clearEditLink();
                       setSelectedRecipe(null);
                       setFormData(EMPTY_RECIPE_FORM);
                       setElaborationSteps(parseSteps(null));
@@ -1232,6 +1256,18 @@ export default function RecipesPage() {
                           className={m3Field}
                         />
                       </div>
+
+                      {(selectedRecipe?.notes || selectedRecipe?.sourceUrl) && (
+                        <RecipeCaptureNotes
+                          notes={formData.notes}
+                          sourceUrl={selectedRecipe.sourceUrl}
+                          onChange={
+                            selectedRecipe.notes
+                              ? (notes) => setFormData({ ...formData, notes })
+                              : undefined
+                          }
+                        />
+                      )}
 
                       <div className="grid grid-cols-3 gap-4">
                         <div>
@@ -1614,6 +1650,7 @@ export default function RecipesPage() {
                       type="button"
                       onClick={() => {
                         setShowCreateForm(false);
+      clearEditLink();
                         setSelectedRecipe(null);
                         setFormData(EMPTY_RECIPE_FORM);
                         setElaborationSteps(parseSteps(null));

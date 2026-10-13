@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   CalendarDays,
   FileText,
@@ -24,8 +25,9 @@ export const dynamic = "force-dynamic";
 export default function CheckInPage() {
   const { user, isLoading: authLoading } = useAuth();
   if (authLoading) return null;
+  // Una cuenta compartida solo ficha en modo kiosco: se abre directamente.
+  if (user?.isSharedAccount === true) redirect("/fichar");
   const canManage = canManageCheckIn(user);
-  const isShared = user?.isSharedAccount === true;
 
   return (
     <div className="px-margin-mobile md:px-margin-desktop mx-auto max-w-container-max-width space-y-6 pb-28 pt-8">
@@ -45,14 +47,11 @@ export default function CheckInPage() {
 
       <div className="flex flex-wrap gap-2">
         <Link href="/fichar" className={secondaryBtnCls}>
-          <MonitorSmartphone className="h-4 w-4" />{" "}
-          {isShared ? "Abrir modo kiosco" : "Pantalla de fichaje"}
+          <MonitorSmartphone className="h-4 w-4" /> Pantalla de fichaje
         </Link>
-        {!isShared && (
-          <Link href="/dashboard/check-in/jornadas" className={secondaryBtnCls}>
-            <CalendarDays className="h-4 w-4" /> Registro de jornada
-          </Link>
-        )}
+        <Link href="/dashboard/check-in/jornadas" className={secondaryBtnCls}>
+          <CalendarDays className="h-4 w-4" /> Registro de jornada
+        </Link>
         {canManage && (
           <>
             <Link

@@ -58,6 +58,18 @@ export const AI_PROVIDERS: AIProvider[] = [
       { id: 'openrouter-llama', name: 'Llama 4 Maverick' },
     ],
   },
+  {
+    id: 'opencode',
+    name: 'OpenCode Zen',
+    // OpenCode Zen no documenta un prefijo fijo para sus claves: se acepta
+    // cualquier formato (keyPrefixes vacío = sin comprobación en Ajustes).
+    keyPrefixes: [],
+    keyPlaceholder: 'Pega tu API key de OpenCode Zen',
+    // Los modelos de OpenCode Zen se eligen en Configuración → Asistente IA
+    // (gateway OpenAI-compatible). No se listan aquí porque este catálogo lo
+    // comparten el motor OCR/catálogos, que aún no soportan OpenCode.
+    models: [],
+  },
 ];
 
 /** Proveedor del almacén «Claves API» (AI_PROVIDERS) que corresponde a cada
@@ -66,6 +78,7 @@ export const ASSISTANT_KEY_STORE_PROVIDER: Record<string, string> = {
   openai: 'openai',
   gemini: 'google',
   anthropic: 'anthropic',
+  opencode: 'opencode',
 };
 
 const STORAGE_KEY_PREFIX = 'ai_api_key_';

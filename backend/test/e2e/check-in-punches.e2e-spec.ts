@@ -436,13 +436,44 @@ describe("E2E - Check-In fichaje", () => {
     expect(otherTenant.status).toBe(404);
   });
 
-  it("el PIN se bloquea tras cinco fallos seguidos", async () => {
+  it("quien tiene cuenta ficha en el kiosco con la contraseña de Equipo", async () => {
+    const kiosk = body(
+      await api(kioskSession).get(
+        `/api/v1/check-in/kiosk?locationId=${centerId}`,
+      ),
+    );
+    const worker = kiosk.employees.find(
+      (e: any) => e.id === personalEmployeeId,
+    );
+    expect(worker).toMatchObject({ hasPin: true, credentialType: "PASSWORD" });
+    expect(
+      kiosk.employees.find((e: any) => e.id === kioskEmployeeId).credentialType,
+    ).toBe("PIN");
+
+    const base = {
+      type: worker.allowedTypes[0],
+      employeeId: personalEmployeeId,
+      locationId: centerId,
+    };
+    expect(
+      (await punch(kioskSession, { ...base, pin: "otra-clave" })).status,
+    ).toBe(403);
+    const ok = await punch(kioskSession, { ...base, pin: "TestPass123!" });
+    expect(ok.status).toBe(201);
+    expect(body(ok)).toMatchObject({
+      employeeId: personalEmployeeId,
+      source: "KIOSK",
+      pinStatus: "VERIFIED",
+    });
+  });
+
+  it("la clave se bloquea tras tres fallos seguidos", async () => {
     const base = {
       type: "OUT",
       employeeId: kioskEmployeeId,
       locationId: centerId,
     };
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       expect((await punch(kioskSession, { ...base, pin: "0000" })).status).toBe(
         403,
       );

@@ -1,26 +1,43 @@
 import { Injectable, BadGatewayException } from "@nestjs/common";
 import {
   ChatMessage,
+  ChatOptions,
   ProviderAdapter,
   ProviderChatResult,
   ToolSchema,
 } from "./provider-adapter.interface";
-import { postJsonWithRetry } from "./provider-http.util";
+import { postJsonWithRetry, toPostJsonOptions } from "./provider-http.util";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
-/** Adaptador para la Chat Completions API de OpenAI (tool calling). */
+/**
+ * Adaptador para la Chat Completions API de OpenAI (tool calling). Sirve también
+ * de base para cualquier gateway OpenAI-compatible (p. ej. OpenCode Zen): las
+ * subclases solo sobrescriben `url` y `providerLabel`.
+ */
 @Injectable()
 export class OpenAiProviderAdapter implements ProviderAdapter {
+  /** Endpoint de chat compatible OpenAI. */
+  protected readonly url: string = OPENAI_URL;
+  /** Nombre legible del proveedor para los mensajes de error. */
+  protected readonly providerLabel: string = "OpenAI";
+
   async chat(
     apiKey: string,
     model: string,
     messages: ChatMessage[],
     tools: ToolSchema[],
+    options?: ChatOptions,
   ): Promise<ProviderChatResult> {
     const body = {
       model,
       messages: messages.map((m) => this.toOpenAiMessage(m)),
+      ...(options?.maxOutputTokens
+        ? { max_completion_tokens: options.maxOutputTokens }
+        : {}),
+      ...(options?.jsonMode
+        ? { response_format: { type: "json_object" } }
+        : {}),
       ...(tools.length
         ? {
             tools: tools.map((t) => ({
@@ -36,16 +53,23 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
         : {}),
     };
 
-    const data: any = await postJsonWithRetry("OpenAI", OPENAI_URL, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    const data: any = await postJsonWithRetry(
+      this.providerLabel,
+      this.url,
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      toPostJsonOptions(options),
+    );
     const message = data.choices?.[0]?.message;
     if (!message) {
-      throw new BadGatewayException("Respuesta de OpenAI sin contenido");
+      throw new BadGatewayException(
+        `Respuesta de ${this.providerLabel} sin contenido`,
+      );
     }
 
     const toolCalls = (message.tool_calls ?? []).map((tc: any) => ({
@@ -57,6 +81,9 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
     return {
       content: message.content ?? undefined,
       toolCalls: toolCalls.length ? toolCalls : undefined,
+      ...(data.choices?.[0]?.finish_reason === "length"
+        ? { truncated: true }
+        : {}),
     };
   }
 
@@ -81,6 +108,23 @@ export class OpenAiProviderAdapter implements ProviderAdapter {
           type: "function",
           function: { name: tc.name, arguments: JSON.stringify(tc.params) },
         })),
+      };
+    }
+    if (m.role === "user" && m.attachments?.length) {
+      return {
+        role: "user",
+        content: [
+          { type: "text", text: m.content },
+          ...m.attachments.map((a) => {
+            const dataUri = `data:${a.mimeType};base64,${a.dataBase64}`;
+            return a.mimeType === "application/pdf"
+              ? {
+                  type: "file",
+                  file: { filename: "documento.pdf", file_data: dataUri },
+                }
+              : { type: "image_url", image_url: { url: dataUri } };
+          }),
+        ],
       };
     }
     return { role: m.role, content: m.content };

@@ -14,52 +14,20 @@ import {
   useSaveAiAssistantConfig,
   type AiAssistantProvider,
 } from '@/hooks/use-ai-assistant-config';
+import { AI_MODELS, aiModelName, type AiModelOption } from '@/lib/ai-models';
 
 const PROVIDER_LABELS: Record<AiAssistantProvider, string> = {
   openai: 'OpenAI',
   gemini: 'Gemini',
   anthropic: 'Anthropic',
+  opencode: 'OpenCode Zen',
 };
 
 /** Proveedor del almacén «Claves API» que corresponde a cada proveedor del asistente. */
 const KEY_STORE_PROVIDER = ASSISTANT_KEY_STORE_PROVIDER as Record<AiAssistantProvider, string>;
 
-/** Modelo elegible en la rejilla (mismo patrón que OCR_MODELS del motor OCR). */
-interface AssistantModelOption {
-  id: string;
-  name: string;
-  provider: AiAssistantProvider;
-  /** Coste aproximado por llamada al asistente */
-  cost: string;
-  desc: string;
-}
-
-/** Catálogo de modelos del asistente — mismo patrón que OCR_MODELS del motor de
- *  extracción: se muestran TODOS en la rejilla y bajo ella un aviso de si el
- *  proveedor tiene API key. Solo proveedores con adapter en backend
- *  (openai/gemini/anthropic); el id se envía tal cual al proveedor. */
-const AI_ASSISTANT_MODELS: AssistantModelOption[] = [
-  // OpenAI
-  { id: 'gpt-4o-mini', provider: 'openai', name: 'GPT-4o Mini', cost: '~0,002 €', desc: 'OpenAI económico, respuestas correctas' },
-  { id: 'gpt-4o', provider: 'openai', name: 'GPT-4o', cost: '~0,02 €', desc: 'OpenAI, más preciso en preguntas complejas' },
-  { id: 'gpt-5.2', provider: 'openai', name: 'GPT-5.2', cost: '~0,01 €', desc: 'Rápido y económico para consultas cortas' },
-  // Gemini — Google retira modelos rápido: gemini-2.0-flash y gemini-2.5-flash
-  // devuelven 404 "no longer available" y remiten a gemini-3.6-flash.
-  // gemini-flash-latest es un alias que Google mantiene apuntando a la Flash
-  // vigente (no se pudre), pero puede saturarse igual que 3.6.
-  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash', cost: '~0,001 €', desc: 'El más barato; puede dar 503 en horas punta' },
-  { id: 'gemini-flash-latest', provider: 'gemini', name: 'Gemini Flash (última)', cost: '~0,002 €', desc: 'Alias a la última Flash; a prueba de retiradas de modelo' },
-  // Anthropic
-  { id: 'claude-haiku-4-5-20251001', provider: 'anthropic', name: 'Claude Haiku 4.5', cost: '~0,005 €', desc: 'Buen balance calidad/precio' },
-  { id: 'claude-sonnet-4-5', provider: 'anthropic', name: 'Claude Sonnet 4.5', cost: '~0,02 €', desc: 'El más preciso para preguntas complejas' },
-];
-
 /** Último recurso del prefill cuando no hay nada configurado. */
-const DEFAULT_MODEL_ID = AI_ASSISTANT_MODELS[0].id;
-
-function modelName(id: string | null | undefined): string {
-  return AI_ASSISTANT_MODELS.find((m) => m.id === id)?.name ?? id ?? '';
-}
+const DEFAULT_MODEL_ID = AI_MODELS[0].id;
 
 /**
  * Configuración del modelo IA del asistente "Chefchek" (chat en lenguaje
@@ -89,7 +57,7 @@ export function AiAssistantConfigSection() {
   const keyReady = (p: AiAssistantProvider) => hasLocalKey(p) || hasServerKey(p);
 
   const startEditing = () => {
-    const savedInCatalog = AI_ASSISTANT_MODELS.find((m) => m.id === config?.model);
+    const savedInCatalog = AI_MODELS.find((m) => m.id === config?.model);
     let provider: AiAssistantProvider;
     let model: string;
     if (savedInCatalog) {
@@ -100,14 +68,14 @@ export function AiAssistantConfigSection() {
       provider = config.provider;
       model = config.model;
     } else {
-      provider = AI_ASSISTANT_MODELS[0].provider;
+      provider = AI_MODELS[0].provider;
       model = DEFAULT_MODEL_ID;
     }
     setForm({ provider, model });
     setEditing(true);
   };
 
-  const handleModelPick = (option: AssistantModelOption) => {
+  const handleModelPick = (option: AiModelOption) => {
     setForm((f) => ({ ...f, provider: option.provider, model: option.id }));
   };
 
@@ -137,7 +105,7 @@ export function AiAssistantConfigSection() {
     }
   };
 
-  const selectedModel = AI_ASSISTANT_MODELS.find((m) => m.id === form.model);
+  const selectedModel = AI_MODELS.find((m) => m.id === form.model);
   const selectedProvider = selectedModel?.provider ?? form.provider;
   const selectedKeyReady = keyReady(selectedProvider);
 
@@ -161,7 +129,7 @@ export function AiAssistantConfigSection() {
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {config?.provider ? (
             <p className="text-sm text-[var(--on-surface)]">
-              {config.model ? modelName(config.model) : PROVIDER_LABELS[config.provider]}
+              {config.model ? aiModelName(config.model) : PROVIDER_LABELS[config.provider]}
               {' · '}
               {keyReady(config.provider) ? (
                 <span className="inline-flex items-center gap-1 font-medium text-green-600">
@@ -192,7 +160,7 @@ export function AiAssistantConfigSection() {
               *  con API key agregada («Claves API» o servidor); el resto queda
               *  atenuado y no seleccionable. */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
-            {AI_ASSISTANT_MODELS.map((model) => {
+            {AI_MODELS.map((model) => {
               const isSelected = form.model === model.id;
               const usable = keyReady(model.provider);
               return (

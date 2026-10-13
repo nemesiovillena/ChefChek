@@ -59,6 +59,7 @@ describe("ProductsService", () => {
     lot: { updateMany: jest.fn() },
     purchaseOrderLine: { updateMany: jest.fn() },
     catalogImportLine: { updateMany: jest.fn() },
+    recipeCaptureIngredient: { updateMany: jest.fn() },
     inventoryItem: { updateMany: jest.fn() },
     nutritionalInfo: { findUnique: jest.fn(), update: jest.fn() },
     purchaseListItem: {
@@ -1197,6 +1198,9 @@ describe("ProductsService", () => {
       prismaService.catalogImportLine.updateMany.mockResolvedValue({
         count: 0,
       });
+      prismaService.recipeCaptureIngredient.updateMany.mockResolvedValue({
+        count: 0,
+      });
       prismaService.inventoryItem.updateMany.mockResolvedValue({ count: 0 });
       prismaService.nutritionalInfo.findUnique.mockResolvedValue(null);
       prismaService.stock.findMany.mockResolvedValue([]);
@@ -1235,6 +1239,12 @@ describe("ProductsService", () => {
       expect(prismaService.albaranLine.updateMany).toHaveBeenCalledWith({
         where: { matchedProductId: source.id },
         data: { matchedProductId: target.id },
+      });
+      expect(
+        prismaService.recipeCaptureIngredient.updateMany,
+      ).toHaveBeenCalledWith({
+        where: { matchedProductId: expect.any(String) },
+        data: { matchedProductId: expect.any(String) },
       });
       expect(prismaService.product.update).toHaveBeenCalledWith({
         where: { id: source.id },
