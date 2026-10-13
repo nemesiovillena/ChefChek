@@ -3576,6 +3576,8 @@ model CheckInSettings {
   showMonthPicker           Boolean         @default(true)
   showOwnAdjustments        Boolean         @default(true)
   showAddMissingDay         Boolean         @default(true)
+  // Minutos de margen antes de dar un turno por retraso, salida anticipada o exceso.
+  scheduleToleranceMinutes  Int             @default(10)
   createdAt                 DateTime        @default(now())
   updatedAt                 DateTime        @updatedAt
 

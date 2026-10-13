@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: "Plan vs real alertas legales y coste"
-status: pending
+status: completed
 priority: P2
 effort: "12-14h"
 dependencies: [4, 7]
@@ -48,13 +48,24 @@ Cruza los turnos planificados con los fichajes reales, avisa de incumplimientos 
 
 ## Success Criteria
 
-- [ ] Cada regla se dispara en su caso de prueba y no en el contrario
-- [ ] Retraso y ausencia sin fichar visibles en el panel del día
-- [ ] Coste no llega en la respuesta API a un rol sin permiso
-- [ ] Umbrales editables por tenant
-- [ ] Oleada 2 lista para uso real
+- [x] Cada regla se dispara en su caso de prueba y no en el contrario (unit)
+- [x] Retraso y ausencia sin fichar visibles en el panel del día (e2e + navegador)
+- [x] Coste no llega en la respuesta API a un rol sin permiso (e2e)
+- [x] Umbrales editables por tenant (e2e)
+- [ ] Oleada 2 lista para uso real (pendiente de prueba del usuario en producción)
 
 ## Risk Assessment
 
 - Reglas no ajustadas al convenio del cliente → umbrales configurables y texto que aclara que son avisos orientativos.
 - Coste hora incompleto (sin Seguridad Social) → etiquetar como "estimado".
+
+## Desviaciones (2026-10-13)
+
+- **Sin cron ni aviso en la campana** para quien no ficha: la campana es común a todo el tenant y lo vería toda la plantilla. El aviso sale en "Turnos de hoy" (página Fichar, solo gerencia), calculado en vivo y refrescado cada minuto.
+- **Sin sección `checkin.cost`**: avisos, coste y comparación van en endpoints ya restringidos a gerencia con cuenta personal. Lo que ve el empleado (`me/shifts`) no lleva coste.
+- **Un único ajuste nuevo**: `scheduleToleranceMinutes` (10 por defecto). Los umbrales legales son los parámetros de convenio que ya existían.
+- **Horas semanales sin margen**: avisa en cuanto lo planificado supera lo pactado en la ficha.
+- **Descanso semanal**: mayor hueco sin trabajo dentro de la semana (lunes a domingo); no acumula en 14 días.
+- **Horas extra del año**: suma de las hojas de horas aprobadas; avisa al 90 % del tope.
+- **Coste planificado** cuenta también los borradores; el plan frente a real solo compara turnos publicados.
+- Ficheros en `frontend/src/app/dashboard/turnos/components/` (no `features/turnos`), como el resto del módulo.

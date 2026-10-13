@@ -47,7 +47,7 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 | 5 | [Informes legales y panel de gerencia](./phase-05-informes-legales-y-panel-de-gerencia.md) | Completed |
 | 6 | [Ausencias vacaciones y bajas](./phase-06-ausencias-vacaciones-y-bajas.md) | Completed |
 | 7 | [Planificador de turnos](./phase-07-planificador-de-turnos.md) | Completed |
-| 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Pending |
+| 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Completed |
 | 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Pending |
 | 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Pending |
 | 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | Pending |
@@ -56,7 +56,7 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 |---|---|---|---|
 | 1 | `check-in` | 1-5 | Completed |
 | 2 | `turnos` | 6-8 | Completed |
-| 3 | `rrhh` | 9-11 | Completed |
+| 3 | `rrhh` | 9-11 | Pending |
 
 ## Dependency Graph
 

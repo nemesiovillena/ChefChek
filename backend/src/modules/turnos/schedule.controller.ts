@@ -33,6 +33,7 @@ import {
   ScheduleQueryDto,
   UpdateShiftDto,
 } from "./dto/shift.dto";
+import { PlanVsActualService } from "./services/plan-vs-actual.service";
 import { ShiftsService } from "./services/shifts.service";
 
 /**
@@ -48,6 +49,7 @@ export class ScheduleController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly shifts: ShiftsService,
+    private readonly planVsActual: PlanVsActualService,
   ) {}
 
   /** Mis turnos publicados entre dos fechas. */
@@ -71,6 +73,26 @@ export class ScheduleController {
   @UseGuards(CheckInManagerGuard)
   async getWeek(@Req() req: any, @Query() query: ScheduleQueryDto) {
     return this.shifts.getWeek(req.tenantId, query.locationId, query.weekStart);
+  }
+
+  /** Turnos publicados frente a lo fichado, con coste: solo gerencia. */
+  @Get("schedule/plan-vs-actual")
+  @Roles(CHECK_IN_MANAGER_ROLE)
+  @UseGuards(CheckInManagerGuard)
+  async getPlanVsActual(@Req() req: any, @Query() query: ScheduleQueryDto) {
+    return this.planVsActual.getWeek(
+      req.tenantId,
+      query.locationId,
+      query.weekStart,
+    );
+  }
+
+  /** Estado de los turnos de hoy: retrasos y quien no ha fichado. */
+  @Get("schedule/today")
+  @Roles(CHECK_IN_MANAGER_ROLE)
+  @UseGuards(CheckInManagerGuard)
+  async getToday(@Req() req: any) {
+    return this.planVsActual.getToday(req.tenantId);
   }
 
   @Post("schedule/copy-week")

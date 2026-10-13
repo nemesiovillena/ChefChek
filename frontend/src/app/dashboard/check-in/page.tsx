@@ -10,10 +10,12 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth.context";
+import { useModules } from "@/features/modules/hooks/use-modules";
 import { CheckInPersonalCard } from "./components/check-in-personal-card";
 import { CheckInPresencePanel } from "./components/check-in-presence-panel";
 import { CheckInReadinessBanner } from "./components/check-in-readiness-banner";
 import { CheckInReviewPanel } from "./components/check-in-review-panel";
+import { CheckInTodayShiftsPanel } from "./components/check-in-today-shifts-panel";
 import {
   canManageCheckIn,
   secondaryBtnCls,
@@ -24,6 +26,7 @@ export const dynamic = "force-dynamic";
 /** Fichar desde la cuenta personal y, para gerencia, quién está trabajando ahora. */
 export default function CheckInPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const { isEnabled } = useModules();
   if (authLoading) return null;
   // Una cuenta compartida solo ficha en modo kiosco: se abre directamente.
   if (user?.isSharedAccount === true) redirect("/fichar");
@@ -77,6 +80,8 @@ export default function CheckInPage() {
       </div>
 
       {canManage && <CheckInReviewPanel />}
+
+      {canManage && isEnabled("turnos") && <CheckInTodayShiftsPanel />}
 
       {canManage && (
         <section>

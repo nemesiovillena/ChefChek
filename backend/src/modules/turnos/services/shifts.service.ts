@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { AbsenceStatus, Shift, ShiftStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { CheckInSettingsService } from "../../check-in/services/check-in-settings.service";
 import {
   CopyWeekDto,
   CreateShiftDto,
@@ -14,6 +15,8 @@ import {
 } from "../dto/shift.dto";
 import { formatDate, parseDate } from "./absence-days.util";
 import { HolidaysService } from "./holidays.service";
+import { laborCost } from "./plan-vs-actual.service";
+import { evaluateScheduleRules } from "./schedule-rules-engine";
 import {
   addDays,
   isMonday,
@@ -43,6 +46,7 @@ export class ShiftsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly holidays: HolidaysService,
+    private readonly settings: CheckInSettingsService,
   ) {}
 
   /** Todo lo que pinta la rejilla de una semana en un centro. */
@@ -81,14 +85,37 @@ export class ShiftsService {
           orderBy: { publishedAt: "desc" },
         }),
       ]);
+    const days = Array.from({ length: 7 }, (_, i) =>
+      formatDate(addDays(monday, i)),
+    );
+    const names = employees.map((e) => ({
+      ...e,
+      name: `${e.firstName} ${e.lastName}`.trim(),
+    }));
+    const hourlyCosts = new Map(employees.map((e) => [e.id, e.hourlyCost]));
+    const assigned = shifts.filter((s) => s.employeeId !== null);
+    const costByDay = days.map((day) =>
+      assigned
+        .filter((s) => formatDate(s.date) === day)
+        .reduce(
+          (sum, s) =>
+            sum +
+            (laborCost(
+              shiftWorkMinutes(s),
+              hourlyCosts.get(s.employeeId as string) ?? null,
+            ) ?? 0),
+          0,
+        ),
+    );
+    const round = (value: number) => Math.round(value * 100) / 100;
 
     return {
       weekStart: formatDate(monday),
-      days: Array.from({ length: 7 }, (_, i) => formatDate(addDays(monday, i))),
+      days,
       location: { id: location.id, name: location.name },
-      employees: employees.map((e) => ({
+      employees: names.map((e) => ({
         id: e.id,
-        name: `${e.firstName} ${e.lastName}`.trim(),
+        name: e.name,
         section: e.section,
         weeklyHours: e.weeklyHours,
       })),
@@ -107,6 +134,19 @@ export class ShiftsService {
       ),
       templates,
       draftCount: shifts.filter((s) => s.status === ShiftStatus.DRAFT).length,
+      alerts: await this.weekAlerts(tenantId, monday, names),
+      // Estimación: horas planificadas por el coste hora de cada ficha.
+      laborCost: {
+        byDay: costByDay.map(round),
+        total: round(costByDay.reduce((sum, cost) => sum + cost, 0)),
+        employeesWithoutCost: new Set(
+          assigned
+            .filter(
+              (s) => (hourlyCosts.get(s.employeeId as string) ?? null) === null,
+            )
+            .map((s) => s.employeeId),
+        ).size,
+      },
       lastPublication: publication && {
         publishedAt: publication.publishedAt,
         publishedByName: publication.publishedByName,
@@ -326,6 +366,65 @@ export class ShiftsService {
   }
 
   // ──────────────────────────────────────────────────────────── Internos
+
+  /**
+   * Avisos legales de la semana para las personas de la rejilla. Cuenta sus
+   * turnos en cualquier centro y los de los días pegados a la semana, y las
+   * horas extra ya aprobadas en el año.
+   */
+  private async weekAlerts(
+    tenantId: string,
+    monday: Date,
+    employees: { id: string; name: string; weeklyHours: number }[],
+  ) {
+    const employeeIds = employees.map((e) => e.id);
+    const [settings, shifts, timesheets] = await Promise.all([
+      this.settings.get(tenantId),
+      this.prisma.shift.findMany({
+        where: {
+          tenantId,
+          employeeId: { in: employeeIds },
+          date: { gte: addDays(monday, -1), lte: addDays(monday, 7) },
+        },
+      }),
+      this.prisma.timesheet.findMany({
+        where: {
+          tenantId,
+          employeeId: { in: employeeIds },
+          year: monday.getUTCFullYear(),
+        },
+        orderBy: { version: "asc" },
+      }),
+    ]);
+    // De cada mes cuenta la última versión aprobada de la hoja.
+    const overtime = new Map<string, Map<number, number>>();
+    for (const sheet of timesheets) {
+      const months = overtime.get(sheet.employeeId) ?? new Map();
+      months.set(sheet.month, sheet.overtimeMinutes);
+      overtime.set(sheet.employeeId, months);
+    }
+    return evaluateScheduleRules({
+      weekStart: formatDate(monday),
+      shifts: shifts.map((s) => ({
+        id: s.id,
+        employeeId: s.employeeId as string,
+        date: formatDate(s.date),
+        startTime: s.startTime,
+        endTime: s.endTime,
+        breakMinutes: s.breakMinutes,
+      })),
+      employees: employees.map((e) => ({
+        id: e.id,
+        name: e.name,
+        weeklyHours: e.weeklyHours,
+        overtimeYearMinutes: [...(overtime.get(e.id)?.values() ?? [])].reduce(
+          (sum, minutes) => sum + minutes,
+          0,
+        ),
+      })),
+      thresholds: settings,
+    });
+  }
 
   /**
    * ¿Se puede colocar el turno? La persona debe estar en activo y asignada

@@ -22,9 +22,17 @@ import {
   primaryBtnCls,
   secondaryBtnCls,
 } from '../../check-in/components/check-in-form-styles';
+import { PlanVsActualView } from './plan-vs-actual-view';
+import { ScheduleAlertsCard } from './schedule-alerts-card';
 import { ScheduleGrid } from './schedule-grid';
 import { ShiftEditor, type EditorTarget } from './shift-editor';
-import { addDaysIso, formatHours, formatWeekRange, mondayOf } from './week-utils';
+import { addDaysIso, formatEuros, formatHours, formatWeekRange, mondayOf } from './week-utils';
+
+type PlannerView = 'plan' | 'actual';
+const VIEWS: { id: PlannerView; label: string }[] = [
+  { id: 'plan', label: 'Planificación' },
+  { id: 'actual', label: 'Plan frente a real' },
+];
 
 const navBtn = 'flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--outline-variant)]';
 
@@ -124,6 +132,7 @@ export function SchedulePlanner() {
   const [chosenCenter, setChosenCenter] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditorTarget | null>(null);
   const [duplicate, setDuplicate] = useState(false);
+  const [view, setView] = useState<PlannerView>('plan');
 
   const activeCenters = (centers ?? []).filter((c) => c.isActive);
   // Sin elegir, el centro principal.
@@ -239,7 +248,31 @@ export function SchedulePlanner() {
         )}
       </div>
 
-      {isLoading || !schedule ? (
+      {/* role=tablist: globals.css oculta los <nav> que no son fijos. */}
+      <div role="tablist" aria-label="Vista" className="flex gap-1 overflow-x-auto rounded-2xl bg-[var(--surface-container)] p-1">
+        {VIEWS.map(({ id, label }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => {
+              setEditing(null);
+              setView(id);
+            }}
+            className={`shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition ${
+              view === id
+                ? 'bg-[var(--primary)] text-primary-foreground'
+                : 'text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'actual' ? (
+        locationId && <PlanVsActualView locationId={locationId} weekStart={weekStart} />
+      ) : isLoading || !schedule ? (
         <p className="text-[var(--on-surface-variant)]">Cargando…</p>
       ) : (
         <>
@@ -257,7 +290,9 @@ export function SchedulePlanner() {
               Duplicar al arrastrar
             </label>
             <span className="ml-auto text-sm text-[var(--on-surface-variant)]">
-              {formatHours(totalMinutes)} planificadas
+              {formatHours(totalMinutes)} planificadas · {formatEuros(schedule.laborCost.total)} estimados
+              {schedule.laborCost.employeesWithoutCost > 0 &&
+                ` (${schedule.laborCost.employeesWithoutCost} sin coste hora)`}
               {schedule.lastPublication &&
                 ` · publicada por ${schedule.lastPublication.publishedByName} el ${new Date(schedule.lastPublication.publishedAt).toLocaleDateString('es-ES')}`}
             </span>
@@ -274,6 +309,8 @@ export function SchedulePlanner() {
             Arrastra un turno a otro día o a otra persona. Borde discontinuo = borrador, todavía no lo ve su persona. Los
             cambios sobre un turno ya publicado se ven al momento.
           </p>
+
+          <ScheduleAlertsCard alerts={schedule.alerts} />
 
           {editing && <ShiftEditor key={editorKey} schedule={schedule} target={editing} onDone={() => setEditing(null)} />}
 
