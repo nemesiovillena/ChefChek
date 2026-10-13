@@ -5,7 +5,7 @@ description: >-
   geovalla en PWA con modo sin conexión, registro de jornada inalterable con
   informes para Inspección, planificador de turnos, ausencias, portal del
   empleado y documentación
-status: pending
+status: in-progress
 priority: P1
 effort: 180-220h
 branch: develop
@@ -45,18 +45,18 @@ Tres oleadas desplegables por separado. La Oleada 1 (fases 1-5) cubre por sí so
 | 3 | [PWA y fichaje sin conexion](./phase-03-pwa-y-fichaje-sin-conexion.md) | Completed |
 | 4 | [Registro de jornada correcciones y hojas de horas](./phase-04-registro-de-jornada-correcciones-y-hojas-de-horas.md) | Completed |
 | 5 | [Informes legales y panel de gerencia](./phase-05-informes-legales-y-panel-de-gerencia.md) | Completed |
-| 6 | [Ausencias vacaciones y bajas](./phase-06-ausencias-vacaciones-y-bajas.md) | Pending |
-| 7 | [Planificador de turnos](./phase-07-planificador-de-turnos.md) | Pending |
-| 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Pending |
-| 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Pending |
-| 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Pending |
-| 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | Pending |
+| 6 | [Ausencias vacaciones y bajas](./phase-06-ausencias-vacaciones-y-bajas.md) | Completed |
+| 7 | [Planificador de turnos](./phase-07-planificador-de-turnos.md) | Completed |
+| 8 | [Plan vs real alertas legales y coste](./phase-08-plan-vs-real-alertas-legales-y-coste.md) | Completed |
+| 9 | [Portal del empleado y solicitudes](./phase-09-portal-del-empleado-y-solicitudes.md) | Completed |
+| 10 | [Documentacion laboral](./phase-10-documentacion-laboral.md) | Completed |
+| 11 | [QA final (prenomina aplazada)](./phase-11-prenomina-y-qa-final.md) | In Progress |
 
 | Oleada | Módulo | Fases | Esfuerzo |
 |---|---|---|---|
 | 1 | `check-in` | 1-5 | Completed |
 | 2 | `turnos` | 6-8 | Completed |
-| 3 | `rrhh` | 9-11 | Completed |
+| 3 | `rrhh` | 9-11 | Fases 9 y 10 completas; QA final a falta de pruebas en dispositivos reales |
 
 ## Dependency Graph
 

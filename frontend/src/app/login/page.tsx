@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter } from 'next/navigation';
+import apiClient from '@/lib/api-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,20 @@ const superadminLoginSchema = z.object({
 
 type TenantLoginFormData = z.infer<typeof tenantLoginSchema>;
 type SuperadminLoginFormData = z.infer<typeof superadminLoginSchema>;
+
+/**
+ * Quien no gestiona y tiene ficha de empleado entra por "Mi espacio" si el
+ * portal está activo; el resto, por el panel.
+ */
+async function landingPath(user: { role: string; isSharedAccount?: boolean }): Promise<string> {
+  if (!['USER', 'VIEWER'].includes(user.role) || user.isSharedAccount) return '/dashboard';
+  try {
+    await apiClient.get('/v1/rrhh/me/profile');
+    return '/dashboard/mi-espacio';
+  } catch {
+    return '/dashboard';
+  }
+}
 
 export default function LoginPage() {
   const { login, loginSuperadmin } = useAuth();
@@ -42,8 +57,8 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await login(data);
-      router.push('/dashboard');
+      const user = await login(data);
+      router.push(await landingPath(user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
     } finally {

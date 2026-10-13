@@ -1,7 +1,7 @@
 ---
 phase: 11
 title: "QA final (prenomina aplazada)"
-status: pending
+status: in-progress
 priority: P3
 effort: "10-12h"
 dependencies: [5, 8, 10]
@@ -39,13 +39,20 @@ Revisión de calidad transversal de `check-in`, `turnos` y `rrhh`, guía de usua
 
 ## Success Criteria
 
-- [ ] Batería e2e y jest en verde; builds de backend y frontend sin errores
-- [ ] Backup/restore verificado
-- [ ] Sin hallazgos de seguridad abiertos de severidad alta
-- [ ] Probado en iPhone, Android y tablet
-- [ ] Guía de usuario publicada y docs actualizadas
+- [x] Batería e2e y jest en verde en local (backend); la compilación de producción la valida el CI de cada PR
+- [x] Backup/restore verificado con las tablas de los tres módulos (e2e `check-in-backup-roundtrip`)
+- [ ] Revisión de seguridad independiente (hecha solo la propia de cada fase: aislamiento, permisos y adjuntos privados con e2e)
+- [ ] Probado en iPhone, Android y tablet (pendiente: lo hace el usuario)
+- [x] Guía de usuario (`docs/check-in-user-guide.md`) y changelog actualizados
 
 ## Risk Assessment
 
 - Deriva de reglas de Backup tras 10 fases → verificación explícita en el paso 6.
 - Defectos tardíos en el modo sin conexión → cada fase ya trae sus pruebas; aquí solo se confirma el conjunto.
+
+## Estado (2026-10-13)
+
+- **Hecho**: e2e por fase (check-in, turnos, plan frente a real, Mi espacio, documentos, backup), guía de usuario y changelog. Navegador en local, escritorio y móvil a 390 px, modo oscuro.
+- **Sin hacer**: pruebas Playwright en `frontend/`; modo claro y accesibilidad con lector; dispositivos reales; fichaje sin conexión con contraseña (el service worker solo existe en la compilación de producción).
+- **Observación**: activar un módulo no comprueba que su dependencia esté activa (solo se impide desactivar la dependencia). Vale para todos los módulos, no solo estos; no se ha cambiado.
+- **Pendiente de fases anteriores**: las ausencias aprobadas no figuran en el registro de jornada ni en los informes; al publicar una semana no se avisa a los afectados; el planificador solo tiene vista de semana.

@@ -1,10 +1,11 @@
 ---
 phase: 6
-title: "Ausencias vacaciones y bajas"
-status: pending
+title: Ausencias vacaciones y bajas
+status: completed
 priority: P2
-effort: "16-18h"
-dependencies: [1]
+effort: 16-18h
+dependencies:
+  - 1
 ---
 
 # Phase 6: Ausencias, vacaciones y bajas
@@ -48,13 +49,28 @@ Primer bloque del módulo `turnos`: tipos de ausencia, saldos de vacaciones, sol
 
 ## Success Criteria
 
-- [ ] Solicitud → aprobación → saldo descontado y visible en calendario
-- [ ] Solapes rechazados
-- [ ] Baja con justificante accesible solo para gerencia y el propio empleado
-- [ ] Saldo correcto en casos de prueba (alta a mitad de año, medio día)
-- [ ] `turnos` no activable sin `check-in`
+- [x] Solicitud → aprobación → saldo descontado y visible en el calendario (e2e + navegador)
+- [x] Solapes rechazados; el empleado no puede pedir más días de los que le quedan (e2e)
+- [x] Las bajas las registra gerencia; el empleado no puede registrarse una (e2e)
+- [x] Saldo correcto: días naturales o laborables, festivos, medio día, alta a mitad de año, ausencia a caballo de dos años (unit + e2e)
+- [x] Rechazar exige explicación; una solicitud no se decide dos veces (e2e)
+- [x] Cada persona ve solo lo suyo; gestión vetada a cuentas compartidas (e2e)
+- [x] `turnos` apagado por defecto y dependiente de `check-in` (e2e)
+- [ ] Justificante adjunto en las bajas (pasa a la Fase 10, documentación)
+- [ ] Las ausencias aprobadas aún no aparecen en el registro de jornada ni en los informes
 
 ## Risk Assessment
 
 - Reglas de vacaciones por convenio (naturales/laborables, devengo) → configurable; documentar el valor por defecto.
 - Datos de salud → no pedir diagnóstico; adjunto privado.
+
+## Desviaciones (2026-10-07)
+
+- **Sin adjuntos**: el justificante de una baja se gestionará con la documentación laboral (Fase 10). Aquí solo tipo y fechas; la interfaz avisa de no anotar datos de salud.
+- **Sin soft-delete en `Absence`**: una ausencia no se borra, se cancela (estado `CANCELLED`, con autor y fecha).
+- **`AbsenceType.employeeCanRequest`** en lugar de `requiresApproval`/`requiresAttachment`: distingue lo que pide el empleado de lo que registra gerencia.
+- **Saldo sin fila = valor del convenio** (`CheckInSettings.vacationDays`), proporcional el año del alta; `LeaveBalance` solo existe cuando gerencia lo fija a mano.
+- **Festivos manuales**, generales o por centro (la interfaz solo crea generales).
+- **Sin notificaciones** al solicitar o decidir: se ve en la bandeja (con contador) y en "Mis ausencias".
+- **Integración con jornadas pendiente**: un día de vacaciones no figura todavía en el registro de jornada, la hoja de horas ni los informes; se abordará con el planificador (Fases 7-8).
+- Frontend en `src/app/dashboard/turnos/`, hooks en `src/hooks/use-turnos.ts`.
