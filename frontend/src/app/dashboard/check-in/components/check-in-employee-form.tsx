@@ -202,7 +202,14 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embe
     }
     try {
       if (employee) {
-        await update.mutateAsync({ id: employee.id, data: toPayload(form) });
+        // Con cuenta vinculada el nombre es el de Equipo y no se envía: una
+        // cuenta de una sola palabra («Pruebas») deja los apellidos vacíos y
+        // el servidor los rechazaría.
+        const { firstName, lastName, ...laborData } = toPayload(form);
+        await update.mutateAsync({
+          id: employee.id,
+          data: linkedToAccount ? laborData : { firstName, lastName, ...laborData },
+        });
       } else {
         await create.mutateAsync(toPayload(form));
       }
