@@ -88,6 +88,9 @@ async function bootstrap() {
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,
+    // El navegador guarda 10 min la respuesta al preflight (OPTIONS): sin
+    // esto repetía uno antes de cada petición con cabeceras propias.
+    maxAge: 600,
   });
 
   // API prefix included in controllers
