@@ -235,6 +235,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 minLength={4}
+                // Sin esto el navegador rellena la contraseña guardada al
+                // editar una ficha y, al guardar, se la cambia sin querer.
+                autoComplete="new-password"
                 placeholder={targetUser ? 'Dejar en blanco para no cambiar' : undefined}
                 className={inputClass}
               />
