@@ -53,6 +53,34 @@ export function madridCalendarDay(date: Date): MadridDate {
   return { y: get("year"), m: get("month"), d: get("day") };
 }
 
+/**
+ * Hora (0-23) en Madrid a la que empieza la jornada de las hojas. El servicio
+ * de noche del fin de semana pasa de las 00:00: hasta esta hora sigue siendo
+ * la jornada del día anterior.
+ */
+export const CHECKLIST_WORKDAY_START_HOUR = 3;
+
+/**
+ * Instante equivalente a `now` dentro de su jornada de trabajo: antes de las
+ * 03:00 de Madrid devuelve un instante del día natural anterior. Pasarlo a
+ * `computePeriodKey`/`isPeriodElapsed` cuando la pregunta es "¿qué hoja toca
+ * ahora?".
+ */
+export function checklistWorkdayInstant(now: Date): Date {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: TIMEZONE,
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(now),
+  );
+  // Restar 12 h cae seguro en el día anterior (00:00–02:59 → 12:00–14:59),
+  // también la noche del cambio de hora.
+  return hour < CHECKLIST_WORKDAY_START_HOUR
+    ? new Date(now.getTime() - 12 * 3_600_000)
+    : now;
+}
+
 /** Instante "mediodía UTC" de un día natural: estable frente a DST, no depende del huso del servidor. */
 function noonUtc(md: MadridDate): Date {
   return new Date(Date.UTC(md.y, md.m - 1, md.d, 12, 0, 0, 0));
@@ -200,7 +228,7 @@ export function frequencyOfPeriodKey(periodKey: string): ChecklistFrequency {
  * True si el periodo `periodKey` ya terminó respecto a `now` (candidato a
  * cerrar OPEN → INCOMPLETE): `now` cae en un periodo posterior en día natural
  * de Madrid. No se compara con `periodEndFromKey` (mediodía UTC del día
- * siguiente): el cierre nocturno de las 00:10 dejaría la hoja de ayer abierta
+ * siguiente): el cierre nocturno de las 03:00 dejaría la hoja de ayer abierta
  * un día más.
  */
 export function isPeriodElapsed(
