@@ -12,7 +12,6 @@ interface SalaTaskRowProps {
 // /dashboard/sala-notificaciones permite arrastrar entre columnas de estado).
 export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
   const eventDate = new Date(task.eventDate);
-  const inProgress = task.status === 'EN_CURSO';
 
   return (
     <div
@@ -20,7 +19,7 @@ export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
       className="p-stack-md md:px-stack-lg flex items-center gap-stack-sm hover:bg-surface-variant transition-colors cursor-pointer select-none"
     >
       <div className="flex items-center gap-stack-xs md:gap-stack-sm min-w-0 flex-1">
-        <div className={`w-2 h-10 shrink-0 rounded-full ${inProgress ? 'bg-secondary' : 'bg-primary'}`}></div>
+        <div className="w-2 h-10 shrink-0 rounded-full bg-primary"></div>
         <div className="min-w-0">
           <h4 className="font-body-lg text-body-lg text-primary truncate">{task.title}</h4>
           {task.customerName && (

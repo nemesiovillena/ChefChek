@@ -32,9 +32,8 @@ import {
   type SalaTaskStatus,
 } from '@/hooks/use-sala-tasks';
 
-const STATUS_LABELS: Record<SalaTaskStatus, string> = {
+const STATUS_LABELS: Record<Exclude<SalaTaskStatus, 'EN_CURSO'>, string> = {
   PENDIENTE: 'Pendiente',
-  EN_CURSO: 'En curso',
   COMPLETADO: 'Completado',
 };
 
@@ -68,7 +67,9 @@ function taskToFormState(task: SalaTask): SalaTaskInput {
     menuNotes: task.menuNotes ?? '',
     observations: task.observations ?? '',
     allergies: task.allergies ?? '',
-    status: task.status,
+    // «En curso» ya no se ofrece: una notificación antigua con ese estado se
+    // edita como pendiente.
+    status: task.status === 'EN_CURSO' ? 'PENDIENTE' : task.status,
   };
 }
 

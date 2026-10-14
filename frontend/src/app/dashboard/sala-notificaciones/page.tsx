@@ -27,22 +27,24 @@ import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 
 export const dynamic = 'force-dynamic';
 
-const COLUMNS: { status: SalaTaskStatus; title: string }[] = [
+type BoardStatus = Exclude<SalaTaskStatus, 'EN_CURSO'>;
+
+const COLUMNS: { status: BoardStatus; title: string }[] = [
   { status: 'PENDIENTE', title: 'Pendiente' },
-  { status: 'EN_CURSO', title: 'En curso' },
   { status: 'COMPLETADO', title: 'Completado' },
 ];
 
-function groupByStatus(tasks: SalaTask[]): Record<SalaTaskStatus, SalaTask[]> {
-  const grouped: Record<SalaTaskStatus, SalaTask[]> = {
+function groupByStatus(tasks: SalaTask[]): Record<BoardStatus, SalaTask[]> {
+  const grouped: Record<BoardStatus, SalaTask[]> = {
     PENDIENTE: [],
-    EN_CURSO: [],
     COMPLETADO: [],
   };
   for (const task of tasks) {
-    grouped[task.status]?.push(task);
+    // «En curso» ya no es una columna: las notificaciones antiguas con ese
+    // estado se muestran como pendientes hasta que se completen.
+    grouped[task.status === 'COMPLETADO' ? 'COMPLETADO' : 'PENDIENTE'].push(task);
   }
-  for (const status of Object.keys(grouped) as SalaTaskStatus[]) {
+  for (const status of Object.keys(grouped) as BoardStatus[]) {
     grouped[status].sort(compareSalaTasksByEventDate);
   }
   return grouped;
@@ -72,10 +74,10 @@ export default function SalaNotificacionesPage() {
   }
 
   const grouped = groupByStatus(tasks ?? []);
-  const isStatus = (id: string): id is SalaTaskStatus =>
-    id === 'PENDIENTE' || id === 'EN_CURSO' || id === 'COMPLETADO';
-  const findStatusOf = (id: string): SalaTaskStatus | undefined =>
-    (Object.keys(grouped) as SalaTaskStatus[]).find((status) =>
+  const isStatus = (id: string): id is BoardStatus =>
+    id === 'PENDIENTE' || id === 'COMPLETADO';
+  const findStatusOf = (id: string): BoardStatus | undefined =>
+    (Object.keys(grouped) as BoardStatus[]).find((status) =>
       grouped[status].some((t) => t.id === id),
     );
 
@@ -87,7 +89,7 @@ export default function SalaNotificacionesPage() {
     if (!sourceStatus) return;
 
     const destStatus = isStatus(String(over.id))
-      ? (over.id as SalaTaskStatus)
+      ? (over.id as BoardStatus)
       : findStatusOf(String(over.id));
     // El orden dentro de cada columna es cronológico: arrastrar solo sirve
     // para mover la notificación a otra columna (cambiar su estado).
@@ -130,7 +132,7 @@ export default function SalaNotificacionesPage() {
         </div>
       ) : (
         <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
             {COLUMNS.map((column) => (
               <SalaTaskColumn
                 key={column.status}
