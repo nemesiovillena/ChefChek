@@ -248,12 +248,38 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         "sicted",
         new Date("2026-08-10T10:00:00Z"),
       );
-      // 00:10 del 11 en Madrid.
+      // 03:00 del 11 en Madrid.
       const closed = await runs.closeElapsedRuns(
         tenantId,
-        new Date("2026-08-10T22:10:00Z"),
+        new Date("2026-08-11T01:00:00Z"),
       );
       expect(closed.map((r) => r.templateId)).toContain(template.id);
+    });
+
+    it("hasta las 03:00 sigue siendo la jornada anterior: ni se cierra la de ayer ni sale la de hoy", async () => {
+      const template = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria del servicio de noche" }),
+      );
+      await runs.ensureRunsForToday(
+        tenantId,
+        "sicted",
+        new Date("2026-08-15T10:00:00Z"),
+      );
+      // Domingo 16, 00:30 en Madrid: el servicio del sábado sigue.
+      const lateNight = new Date("2026-08-15T22:30:00Z");
+      await runs.ensureRunsForToday(tenantId, "sicted", lateNight);
+      const closed = await runs.closeElapsedRuns(tenantId, lateNight);
+      expect(closed.map((r) => r.templateId)).not.toContain(template.id);
+
+      const current = await runs.listCurrentRuns(tenantId, "sicted", lateNight);
+      expect(
+        current
+          .filter((r) => r.templateId === template.id)
+          .map((r) => r.periodKey),
+      ).toEqual(["2026-08-15"]);
     });
 
     it("una hoja se cierra aunque a su plantilla le hayan cambiado la frecuencia", async () => {
@@ -291,7 +317,7 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
         "sicted",
         new Date("2026-08-19T10:00:00Z"),
       );
-      const closeAt = new Date("2026-08-23T22:10:00Z"); // lunes 24, 00:10 Madrid
+      const closeAt = new Date("2026-08-24T01:00:00Z"); // lunes 24, 03:00 Madrid
       await runs.closeElapsedRuns(tenantId, closeAt);
 
       // Consultada el martes: la ventana de avisos es "últimos 7 días".
@@ -379,6 +405,33 @@ describe("E2E - Motor de checklist compartido (fase 2)", () => {
           where: { templateId: daily.id, periodKey: "2026-10-12" },
         }),
       ).toBe(1);
+    });
+
+    it("un cierre declarado el mismo día oculta sus hojas y su vencimiento no avisa", async () => {
+      const daily = await templates.create(
+        tenantId,
+        "sicted",
+        "u1",
+        executionDto({ name: "Diaria de un cierre imprevisto" }),
+      );
+      // El cron ya generó la hoja del miércoles antes de declarar el cierre.
+      await runs.ensureRunsForToday(tenantId, "sicted", WEDNESDAY);
+      await calendar.addException(tenantId, SUPERVISOR_ID, {
+        kind: "CLOSED",
+        fromDay: "2026-10-07",
+        toDay: "2026-10-07",
+        reason: "Cierre tras festivo",
+      });
+
+      const current = await runs.listCurrentRuns(tenantId, "sicted", WEDNESDAY);
+      expect(current).toEqual([]);
+
+      const closed = await runs.closeElapsedRuns(
+        tenantId,
+        new Date("2026-10-08T10:00:00Z"),
+      );
+      const run = closed.find((r) => r.templateId === daily.id);
+      expect(run?.onClosedDays).toBe(true);
     });
 
     it("justifica en bloque solo las vencidas de días de cierre", async () => {
