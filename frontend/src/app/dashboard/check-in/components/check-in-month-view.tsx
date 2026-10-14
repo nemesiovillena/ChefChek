@@ -32,14 +32,20 @@ function Stat({ label, value, alert }: { label: string; value: string; alert?: b
 const hasIncidence = (day: Workday) => day.incidences.length > 0 || day.open;
 const dayAnchorId = (date: string) => `jornada-${date}`;
 
-/** Lleva al primer día con incidencia de la lista para poder resolverlo. */
-function goToFirstIncidence(days: Workday[]) {
-  const day = days.find(hasIncidence);
-  if (!day) return;
-  document.getElementById(dayAnchorId(day.date))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
+/** Cuánto dura el resaltado del día al que lleva el contador de incidencias. */
+const HIGHLIGHT_MS = 2500;
 
-function DayRow({ day, state, mode }: { day: Workday; state: MonthState; mode: 'own' | 'manager' }) {
+function DayRow({
+  day,
+  state,
+  mode,
+  highlighted,
+}: {
+  day: Workday;
+  state: MonthState;
+  mode: 'own' | 'manager';
+  highlighted: boolean;
+}) {
   // Qué corrección está abierta en este día: un fichaje concreto, 'new' o ninguna.
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const tz = state.timezone;
@@ -47,7 +53,12 @@ function DayRow({ day, state, mode }: { day: Workday; state: MonthState; mode: '
   const target = editing && editing !== 'new' ? day.punches.find((p) => p.id === editing) : undefined;
 
   return (
-    <li id={dayAnchorId(day.date)} className="scroll-mt-24 py-3">
+    <li
+      id={dayAnchorId(day.date)}
+      className={`scroll-mt-24 py-3 transition-colors duration-500 ${
+        highlighted ? '-mx-2 rounded-lg bg-[var(--error-container)] px-2' : ''
+      }`}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-medium capitalize">{formatDay(day.date)}</p>
         <p className="font-semibold">
@@ -178,10 +189,23 @@ export function CheckInMonthView({
   showAddMissingDay?: boolean;
 }) {
   const [addingDay, setAddingDay] = useState('');
+  const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
   const { totals } = state;
   const pad = (n: number) => String(n).padStart(2, '0');
   const monthPrefix = `${state.year}-${pad(state.month)}-`;
   const lastDay = new Date(state.year, state.month, 0).getDate();
+
+  /**
+   * Lleva al primer día con incidencia y lo resalta un momento: si el día ya
+   * está a la vista, el desplazamiento no se nota y el resaltado indica cuál es.
+   */
+  function goToFirstIncidence() {
+    const day = state.days.find(hasIncidence);
+    if (!day) return;
+    document.getElementById(dayAnchorId(day.date))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedDate(day.date);
+    setTimeout(() => setHighlightedDate((current) => (current === day.date ? null : current)), HIGHLIGHT_MS);
+  }
 
   return (
     <div className="space-y-4">
@@ -193,7 +217,7 @@ export function CheckInMonthView({
           {totals.incidenceCount > 0 ? (
             <button
               type="button"
-              onClick={() => goToFirstIncidence(state.days)}
+              onClick={() => goToFirstIncidence()}
               title="Ver el día con incidencia"
               className="text-left"
             >
@@ -227,7 +251,7 @@ export function CheckInMonthView({
         ) : (
           <ul className="divide-y divide-[var(--outline-variant)]">
             {state.days.map((day) => (
-              <DayRow key={day.date} day={day} state={state} mode={mode} />
+              <DayRow key={day.date} day={day} state={state} mode={mode} highlighted={day.date === highlightedDate} />
             ))}
           </ul>
         )}
