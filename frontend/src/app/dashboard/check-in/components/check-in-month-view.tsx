@@ -28,6 +28,17 @@ function Stat({ label, value, alert }: { label: string; value: string; alert?: b
   );
 }
 
+/** Mismo criterio que el contador del backend: un día abierto también cuenta como incidencia. */
+const hasIncidence = (day: Workday) => day.incidences.length > 0 || day.open;
+const dayAnchorId = (date: string) => `jornada-${date}`;
+
+/** Lleva al primer día con incidencia de la lista para poder resolverlo. */
+function goToFirstIncidence(days: Workday[]) {
+  const day = days.find(hasIncidence);
+  if (!day) return;
+  document.getElementById(dayAnchorId(day.date))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function DayRow({ day, state, mode }: { day: Workday; state: MonthState; mode: 'own' | 'manager' }) {
   // Qué corrección está abierta en este día: un fichaje concreto, 'new' o ninguna.
   const [editing, setEditing] = useState<string | 'new' | null>(null);
@@ -36,7 +47,7 @@ function DayRow({ day, state, mode }: { day: Workday; state: MonthState; mode: '
   const target = editing && editing !== 'new' ? day.punches.find((p) => p.id === editing) : undefined;
 
   return (
-    <li className="py-3">
+    <li id={dayAnchorId(day.date)} className="scroll-mt-24 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-medium capitalize">{formatDay(day.date)}</p>
         <p className="font-semibold">
@@ -58,6 +69,11 @@ function DayRow({ day, state, mode }: { day: Workday; state: MonthState; mode: '
           <AlertTriangle className="h-4 w-4" /> {INCIDENCE_LABELS[incidence] ?? incidence}
         </p>
       ))}
+      {day.open && (
+        <p className="mt-1 flex items-center gap-1 text-sm text-[var(--error)]">
+          <AlertTriangle className="h-4 w-4" /> Jornada sin cerrar: falta fichar la salida
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap gap-2">
         {day.punches.map((punch) => (
@@ -174,11 +190,21 @@ export function CheckInMonthView({
           <Stat label="Trabajado" value={formatMinutes(totals.workedMinutes)} />
           <Stat label="Jornada pactada del mes" value={formatMinutes(totals.expectedMinutes)} />
           <Stat label="Exceso (estimado)" value={formatMinutes(totals.overtimeMinutes)} />
-          <Stat
-            label="Días con incidencia"
-            value={String(totals.incidenceCount)}
-            alert={totals.incidenceCount > 0}
-          />
+          {totals.incidenceCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => goToFirstIncidence(state.days)}
+              title="Ver el día con incidencia"
+              className="text-left"
+            >
+              <p className="text-sm text-[var(--on-surface-variant)]">Días con incidencia</p>
+              <p className="text-xl font-semibold text-[var(--error)] underline underline-offset-4">
+                {totals.incidenceCount}
+              </p>
+            </button>
+          ) : (
+            <Stat label="Días con incidencia" value="0" />
+          )}
         </div>
         <p className="text-sm text-[var(--on-surface-variant)]">
           El exceso compara lo trabajado con las horas semanales pactadas repartidas en el mes. El cómputo definitivo de
