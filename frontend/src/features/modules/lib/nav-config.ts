@@ -145,7 +145,7 @@ export const MOBILE_NAV: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
   { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
   { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
-  { label: 'Etiqueta', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: 'label' },
+  { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: 'description' },
   { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: 'schedule' },
 ];
 
