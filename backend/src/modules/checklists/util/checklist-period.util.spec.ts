@@ -1,4 +1,5 @@
 import {
+  checklistWorkdayInstant,
   computePeriodKey,
   frequencyOfPeriodKey,
   isPeriodElapsed,
@@ -140,6 +141,36 @@ describe("checklist-period.util", () => {
       expect(
         isPeriodElapsed("2026-W40", "WEEKLY", new Date("2026-10-04T22:10:00Z")),
       ).toBe(true);
+    });
+  });
+
+  describe("checklistWorkdayInstant", () => {
+    const dayOf = (d: Date) =>
+      computePeriodKey(checklistWorkdayInstant(d), "DAILY");
+
+    it("antes de las 03:00 de Madrid sigue siendo la jornada anterior", () => {
+      // 00:30 del domingo 16/08 en Madrid (CEST).
+      expect(dayOf(new Date("2026-08-15T22:30:00Z"))).toBe("2026-08-15");
+      // 02:59 del 16/08 en Madrid.
+      expect(dayOf(new Date("2026-08-16T00:59:00Z"))).toBe("2026-08-15");
+    });
+
+    it("a las 03:00 de Madrid empieza la jornada nueva", () => {
+      expect(dayOf(new Date("2026-08-16T01:00:00Z"))).toBe("2026-08-16");
+    });
+
+    it("la madrugada del cambio de hora de octubre cuenta para el sábado", () => {
+      // 25/10/2026 02:30 CET (tras retrasar el reloj) = 01:30 UTC.
+      expect(dayOf(new Date("2026-10-25T01:30:00Z"))).toBe("2026-10-24");
+      // 03:00 CET = 02:00 UTC.
+      expect(dayOf(new Date("2026-10-25T02:00:00Z"))).toBe("2026-10-25");
+    });
+
+    it("la semanal del domingo noche sigue viva hasta las 03:00 del lunes", () => {
+      const mondayLate = checklistWorkdayInstant(
+        new Date("2026-10-04T23:30:00Z"),
+      );
+      expect(computePeriodKey(mondayLate, "WEEKLY")).toBe("2026-W40");
     });
   });
 

@@ -19,6 +19,7 @@ import {
 import {
   CHECKLIST_FREQUENCIES,
   ChecklistFrequency,
+  checklistWorkdayInstant,
   computePeriodKey,
   frequencyOfPeriodKey,
   isPeriodElapsed,
@@ -56,15 +57,17 @@ export class ChecklistRunService {
    *
    * En un día de cierre del local no se genera nada: la diaria no toca, y la
    * de un periodo más largo se creará el primer día que se abra (si el
-   * periodo entero es de cierre, nunca).
+   * periodo entero es de cierre, nunca). El día es la jornada, que cambia a
+   * las 03:00 (ver `checklistWorkdayInstant`).
    */
   async ensureRunsForToday(
     tenantId: string,
     module: ChecklistConsumerModule,
     now: Date = new Date(),
   ): Promise<void> {
+    const workday = checklistWorkdayInstant(now);
     const calendar = await this.closureCalendar.load(tenantId);
-    if (isClosedDay(computePeriodKey(now, "DAILY"), calendar)) {
+    if (isClosedDay(computePeriodKey(workday, "DAILY"), calendar)) {
       return;
     }
     const templates = await this.prisma.checklistTemplate.findMany({
@@ -74,7 +77,7 @@ export class ChecklistRunService {
 
     for (const template of templates) {
       const frequency = template.frequency as ChecklistFrequency;
-      const periodKey = computePeriodKey(now, frequency);
+      const periodKey = computePeriodKey(workday, frequency);
       const periodStart = periodStartFromKey(periodKey, frequency);
       await this.prisma.checklistRun.upsert({
         where: { templateId_periodKey: { templateId: template.id, periodKey } },
@@ -95,23 +98,32 @@ export class ChecklistRunService {
    * Hojas para trabajar hoy: las de los periodos en curso (día, semana, mes,
    * trimestre, año). Las diarias salen siempre; las de periodos más largos
    * solo mientras sigan pendientes o si se completaron hoy — hecha la
-   * semanal, no vuelve a aparecer el resto de la semana.
+   * semanal, no vuelve a aparecer el resto de la semana. En un día de cierre
+   * no sale ninguna, aunque se hubieran generado antes de declararlo.
    */
   async listCurrentRuns(
     tenantId: string,
     module: ChecklistConsumerModule,
     now: Date = new Date(),
   ) {
-    const todayKey = computePeriodKey(now, "DAILY");
+    const workday = checklistWorkdayInstant(now);
+    const todayKey = computePeriodKey(workday, "DAILY");
+    const calendar = await this.closureCalendar.load(tenantId);
+    if (isClosedDay(todayKey, calendar)) {
+      return [];
+    }
     const runs = await this.listRuns(tenantId, module, {
-      periodKeys: CHECKLIST_FREQUENCIES.map((f) => computePeriodKey(now, f)),
+      periodKeys: CHECKLIST_FREQUENCIES.map((f) =>
+        computePeriodKey(workday, f),
+      ),
     });
     return runs.filter(
       (run) =>
         run.template.frequency === "DAILY" ||
         run.status === "OPEN" ||
         (run.closedAt !== null &&
-          computePeriodKey(run.closedAt, "DAILY") === todayKey),
+          computePeriodKey(checklistWorkdayInstant(run.closedAt), "DAILY") ===
+            todayKey),
     );
   }
 
@@ -495,7 +507,13 @@ export class ChecklistRunService {
    * plantilla: si a la plantilla le cambiaron la frecuencia, sus hojas
    * antiguas siguen cerrándose con la frecuencia con que se generaron.
    */
+  /**
+   * Pasa a INCOMPLETE las hojas abiertas cuyo periodo ya terminó y las
+   * devuelve. `onClosedDays` marca las de un periodo entero de cierre del
+   * local (declarado después de generarse): no merecen aviso.
+   */
   async closeElapsedRuns(tenantId: string, now: Date = new Date()) {
+    const calendar = await this.closureCalendar.load(tenantId);
     const openRuns = await this.prisma.checklistRun.findMany({
       where: { tenantId, status: "OPEN", periodStart: { lt: now } },
       include: {
@@ -504,15 +522,21 @@ export class ChecklistRunService {
         },
       },
     });
-    const closed: typeof openRuns = [];
+    const closed: ((typeof openRuns)[number] & { onClosedDays: boolean })[] =
+      [];
     for (const run of openRuns) {
       const frequency = frequencyOfPeriodKey(run.periodKey);
-      if (isPeriodElapsed(run.periodKey, frequency, now)) {
+      if (
+        isPeriodElapsed(run.periodKey, frequency, checklistWorkdayInstant(now))
+      ) {
         await this.prisma.checklistRun.update({
           where: { id: run.id },
           data: { status: "INCOMPLETE", closedAt: now },
         });
-        closed.push(run);
+        closed.push({
+          ...run,
+          onClosedDays: this.isPeriodFullyClosed(run.periodKey, calendar),
+        });
       }
     }
     return closed;

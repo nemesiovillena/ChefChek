@@ -27,8 +27,12 @@ export class ChecklistRunSchedulerService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  /** 00:10 hora de servidor. La generación en sí trabaja en Europe/Madrid vía checklist-period.util. */
-  @Cron("10 0 * * *")
+  /**
+   * 03:00 de Madrid, cuando empieza la jornada (`CHECKLIST_WORKDAY_START_HOUR`):
+   * a las 00:10 el servicio de noche del fin de semana sigue en marcha y se
+   * mezclaban las hojas del día siguiente.
+   */
+  @Cron("0 3 * * *", { timeZone: "Europe/Madrid" })
   async runDailyTick(): Promise<void> {
     const tenants = await this.prisma.tenant.findMany({
       where: { isActive: true, deletedAt: null },
@@ -63,7 +67,7 @@ export class ChecklistRunSchedulerService {
 
   private async closeElapsedAndAlert(tenantId: string): Promise<void> {
     const closed = await this.runs.closeElapsedRuns(tenantId);
-    for (const run of closed) {
+    for (const run of closed.filter((r) => !r.onClosedDays)) {
       // Una alerta por hoja vencida — `Alert` no distingue por módulo (sin
       // columna propia), así que una fila por módulo consumidor activo se
       // vería como campanas duplicadas e idénticas para el mismo evento.
