@@ -128,8 +128,12 @@ function WorkdaysContent() {
     );
   }
 
+  // Quien gestiona sin ficha de empleado (p. ej. el administrador) no tiene jornadas
+  // propias: su pestaña solo diría eso. Un empleado sin ficha sí la conserva, porque
+  // es lo único que ve y el aviso le explica por qué está vacía.
+  const hideOwnTab = canManage && !!own && !own.employee;
   const tabs: { id: TabId; label: string; icon: typeof CalendarDays; badge?: boolean }[] = [
-    { id: 'mias', label: 'Mis jornadas', icon: CalendarDays },
+    ...(hideOwnTab ? [] : [{ id: 'mias' as const, label: 'Mis jornadas', icon: CalendarDays }]),
     ...(canManage
       ? [
           { id: 'equipo' as const, label: 'Equipo', icon: Users },
@@ -138,8 +142,9 @@ function WorkdaysContent() {
         ]
       : []),
   ];
-  // Un enlace a una pestaña de gerencia abierto por quien no gestiona cae en la suya.
-  const tab = tabs.some((t) => t.id === activeTab) ? activeTab : 'mias';
+  // Una pestaña que este usuario no tiene (enlace de gerencia, o «Mis jornadas» sin
+  // ficha) cae en la primera que sí tiene.
+  const tab = tabs.some((t) => t.id === activeTab) ? activeTab : tabs[0].id;
   // El local puede dejar al empleado solo con el mes en curso.
   const ownMonthOnly = tab === 'mias' && own?.display?.showMonthPicker === false;
 
