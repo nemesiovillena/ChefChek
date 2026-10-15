@@ -152,7 +152,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.dashboard.view,
   ],
 };
-// USER_CUINER tiene los mismos permisos que USER; lo extra (albaranes y Cuiner)
+// USER_CUINER tiene los mismos permisos que USER; lo extra (Almacén y Cuiner)
 // lo dan el acceso por secciones y los @Roles del módulo Cuiner.
 ROLE_PERMISSIONS.USER_CUINER = ROLE_PERMISSIONS.USER;
 

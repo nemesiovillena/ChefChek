@@ -209,15 +209,26 @@ export type RoleAccessRole = (typeof ROLE_ACCESS_ROLES)[number];
 
 /**
  * Roles que heredan el mapa de secciones de otro rol, con algunas secciones
- * siempre visibles. USER_CUINER = lo que el tenant configure para USER +
- * Albaranes (si el módulo está activo). Cuiner no es una sección: lo controla
- * su módulo y sus @Roles.
+ * siempre visibles. USER_CUINER = lo que el tenant configure para USER + todo
+ * Almacén salvo Escandallos (cada sección, si su módulo está activo), para que
+ * gestione el almacén entero. Cuiner no es una sección: lo controla su módulo
+ * y sus @Roles.
  */
 export const DERIVED_SECTION_ROLES: Record<
   string,
   { base: RoleAccessRole; alwaysAllowed: string[] }
 > = {
-  USER_CUINER: { base: "USER", alwaysAllowed: ["albaranes"] },
+  USER_CUINER: {
+    base: "USER",
+    alwaysAllowed: [
+      "compras",
+      "albaranes",
+      "articulos",
+      "proveedores",
+      "almacenes",
+      "historico-precios",
+    ],
+  },
 };
 
 /** Roles that bypass all section gating. */
