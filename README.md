@@ -52,3 +52,7 @@ Cada restaurante es un cliente independiente, con sus datos aislados, y activa s
 - **Copias de seguridad** exportables e importables.
 - Modo oscuro y menú adaptado al móvil.
 
+
+---
+
+¿Eres desarrollador? → [DESARROLLADORES.md](DESARROLLADORES.md)
