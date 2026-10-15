@@ -117,16 +117,33 @@ describe("RoleAccessService", () => {
   });
 
   describe("rol USER_CUINER (derivado de USER)", () => {
-    it("hereda las secciones de USER y ve Albaranes aunque USER no", async () => {
+    it("hereda las secciones de USER y ve todo Almacén aunque USER no", async () => {
+      const almacen = [
+        "compras",
+        "albaranes",
+        "articulos",
+        "proveedores",
+        "almacenes",
+        "historico-precios",
+      ];
       prisma.configuration.findMany.mockResolvedValue([
-        { key: "roleAccess.USER.albaranes", value: "false" },
-        { key: "roleAccess.USER.almacenes", value: "false" },
+        ...almacen.map((k) => ({
+          key: `roleAccess.USER.${k}`,
+          value: "false",
+        })),
+        { key: "roleAccess.USER.escandallos", value: "false" },
+        { key: "roleAccess.USER.recipes", value: "false" },
       ]);
+      for (const key of almacen) {
+        expect(
+          await service.isSectionAllowed(tenantId, "USER_CUINER", key),
+        ).toBe(true);
+      }
       expect(
-        await service.isSectionAllowed(tenantId, "USER_CUINER", "albaranes"),
-      ).toBe(true);
+        await service.isSectionAllowed(tenantId, "USER_CUINER", "escandallos"),
+      ).toBe(false);
       expect(
-        await service.isSectionAllowed(tenantId, "USER_CUINER", "almacenes"),
+        await service.isSectionAllowed(tenantId, "USER_CUINER", "recipes"),
       ).toBe(false);
       expect(
         await service.isSectionAllowed(tenantId, "USER", "albaranes"),
