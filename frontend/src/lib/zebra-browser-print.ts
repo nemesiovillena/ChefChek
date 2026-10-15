@@ -157,6 +157,23 @@ function loadSdk(): Promise<void> {
   return sdkLoadPromise;
 }
 
+/**
+ * Si la Zebra se apaga o se enciende con Browser Print abierto, este se queda
+ * con la conexión USB anterior: la impresora sigue en su lista, pero escribir
+ * falla con "Error writing to port, connection closed", y reintentar puede
+ * tumbar Browser Print entero (visto en cocina: se cerró con 0xc0000005 un
+ * segundo después del segundo intento). Solo se recupera reabriendo la app.
+ */
+const STALE_USB_CONNECTION_PATTERN = /error writing to port|connection closed/i;
+
+const STALE_USB_CONNECTION =
+  'Browser Print perdió la conexión con la impresora (suele pasar al encenderla con Browser Print ya abierto). Con la impresora encendida y en verde, cierra Zebra Browser Print (icono junto al reloj → Salir), ábrelo de nuevo desde el menú Inicio y vuelve a imprimir. No reintentes antes: podría cerrarse solo.';
+
+function sendError(err: unknown): Error {
+  const message = errorMessage(err, 'La impresora rechazó el envío.');
+  return new Error(STALE_USB_CONNECTION_PATTERN.test(message) ? STALE_USB_CONNECTION : message);
+}
+
 function wrapDevice(raw: RawBrowserPrintDevice): ZebraDevice {
   return {
     name: raw.name,
@@ -167,7 +184,7 @@ function wrapDevice(raw: RawBrowserPrintDevice): ZebraDevice {
         raw.send(
           zpl,
           () => resolve(),
-          (err) => reject(new Error(errorMessage(err, 'La impresora rechazó el envío.'))),
+          (err) => reject(sendError(err)),
         );
       });
     },
