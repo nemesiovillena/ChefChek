@@ -157,11 +157,14 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           {/* Base del precio: solo cuando el llamador la gestiona (crear desde
               línea de albarán, donde el precio viene del papel y puede ser por
               unidad o por formato según cómo facture el proveedor). */}
+          {/* Bloque (flex, no inline-flex): dentro de la tabla de líneas del
+              albarán la celda lleva whitespace-nowrap y un selector en línea se
+              quedaba a la derecha del input, tapado por el campo siguiente. */}
           {onPriceBasisChange && (
             <div
               role="group"
               aria-label="Base del precio de compra"
-              className="mt-1.5 inline-flex overflow-hidden rounded-md border border-gray-300 text-xs"
+              className="mt-1.5 flex w-fit overflow-hidden rounded-md border border-gray-300 text-xs"
             >
               {(['unit', 'format'] as const).map((b) => (
                 <button
