@@ -152,6 +152,47 @@ export class SictedJobProfileService {
     return assignment?.profile.areas ?? [];
   }
 
+  /**
+   * Selector «¿quién lo hizo?» de una cuenta compartida (cocina, sala…): deja
+   * solo a quien comparte alguna área de puesto con esa cuenta, para que en
+   * sala salgan los camareros y en cocina los cocineros. Sin filtro si la
+   * cuenta es personal o su puesto no tiene áreas. Quien no tiene puesto, o lo
+   * tiene sin áreas, sale en todas: puede cubrir cualquier zona.
+   */
+  async filterPerformersForAccount<T extends { id: string }>(
+    tenantId: string,
+    account: { id: string; isSharedAccount?: boolean },
+    performers: T[],
+  ): Promise<T[]> {
+    if (account.isSharedAccount !== true) {
+      return performers;
+    }
+    // El área es texto libre en el Plan: se compara sin espacios ni mayúsculas.
+    const normalize = (area: string) => area.trim().toLocaleLowerCase("es");
+    const accountAreas = new Set(
+      (await this.areasForUser(tenantId, account.id)).map(normalize),
+    );
+    if (accountAreas.size === 0) {
+      return performers;
+    }
+    const assignments = await this.prisma.sictedJobAssignment.findMany({
+      where: {
+        tenantId,
+        userId: { in: performers.map((p) => p.id) },
+        until: null,
+        profile: { archivedAt: null },
+      },
+      select: { userId: true, profile: { select: { areas: true } } },
+    });
+    const areasByUser = new Map(
+      assignments.map((a) => [a.userId, a.profile.areas.map(normalize)]),
+    );
+    return performers.filter((p) => {
+      const areas = areasByUser.get(p.id) ?? [];
+      return areas.length === 0 || areas.some((a) => accountAreas.has(a));
+    });
+  }
+
   /** "Cada empleado con puesto asignado" (criterio de éxito) — usuarios activos del tenant sin asignación vigente. */
   async listUnassignedActiveUsers(tenantId: string) {
     const [users, assigned] = await Promise.all([
