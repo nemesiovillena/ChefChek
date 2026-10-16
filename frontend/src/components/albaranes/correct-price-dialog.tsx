@@ -189,7 +189,8 @@ export function CorrectPriceDialog({
           {isReturn ? (
             <>
               <ul className="list-disc space-y-0.5 pl-8">
-                <li>solo el importe de esta línea (devolución o abono)</li>
+                <li>el importe de esta línea (devolución o abono)</li>
+                <li>los totales del albarán</li>
               </ul>
               <p>El coste del artículo, los escandallos, el histórico, la cantidad y el stock no cambian.</p>
             </>
@@ -198,6 +199,7 @@ export function CorrectPriceDialog({
               <ul className="list-disc space-y-0.5 pl-8">
                 <li>la oferta de {albaran.supplier?.name ?? 'este proveedor'} (pasará a ser la preferente) y con ella el coste del artículo y los escandallos</li>
                 <li>el histórico de precios, dejando traza de la corrección</li>
+                <li>los totales del albarán</li>
                 {albaran.purchaseOrderId && <li>el precio recibido del pedido vinculado</li>}
               </ul>
               <p>La cantidad recibida y el stock no cambian.</p>
