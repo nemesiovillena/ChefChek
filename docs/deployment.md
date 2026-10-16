@@ -2,8 +2,9 @@
 
 ## Platform: Dokploy (self-hosted, VPS Hostinger)
 
-- Dokploy project: **ChefChek** (`projectId=4uZT3_IQ6oyjN1Oeg5vov`), environment `production`.
-- VPS: Hostinger, IP `72.62.183.215` (verificada vía `domain-validateDomain`; el registro `@` raíz de `chefchek.com` apunta a otro servidor, `2.57.91.91` — no confundir), dominio `chefchek.com`.
+- Dokploy project: **ChefChek** (`projectId=vOooiS94CZcGzma9KZvmj`), environment `production`.
+- VPS: Hostinger `srv2058713.hstgr.cloud`, IP `72.60.89.213`, dedicado a ChefChek. Panel de Dokploy en `https://srv2058713.hstgr.cloud` (el puerto 3000 directo está cerrado). El registro `@` raíz de `chefchek.com` apunta a otro servidor, `2.57.91.91` — no confundir.
+- Servidor anterior (`72.62.183.215`, panel `panel.eneweb.es`): desde el 2026-10-13 solo aloja Warynessy. Ver "Migración de servidor" más abajo.
 
 ## Servicios
 
@@ -28,7 +29,7 @@ Definidas en Dokploy (no en el repo): `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES
 
 ## Custom Domain
 
-DNS en Hostinger: registros `A` para `api` y `app` → `72.62.183.215` (IP real del servidor Dokploy). SSL: Let's Encrypt vía Traefik (gestionado por Dokploy).
+DNS en Hostinger: registros `A` para `api` y `app` → `72.60.89.213` (IP real del servidor Dokploy). SSL: Let's Encrypt vía Traefik (gestionado por Dokploy).
 
 **Estado (2026-07-20): primer deploy completo y funcionando.**
 
@@ -44,6 +45,23 @@ Dos bugs más encontrados al probar el login real (no bastaba con `curl`, que ig
 
 5. **CORS**: el backend usa `ALLOWED_ORIGINS` (no `FRONTEND_URL`) para `app.enableCors()`; sin esa env var, caía al default `localhost:3000/3001` y el navegador bloqueaba la petición (`curl` no lo detecta porque no aplica CORS). Fix: añadir `ALLOWED_ORIGINS=https://app.chefchek.com` en Dokploy.
 6. **`NEXT_PUBLIC_*` no llegaban al bundle**: Next.js inlinea las env vars `NEXT_PUBLIC_*` en el JS del cliente **en build time**, no en runtime — configurarlas como env var normal en Dokploy no tiene efecto. El navegador llamaba a `localhost:3001` (fallback hardcodeado). Fix: añadir `ARG`/`ENV` para `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_APP_URL`/`NEXT_PUBLIC_BACKEND_URL` en `frontend/Dockerfile` y pasarlas como `buildArgs` en Dokploy (no como `env`).
+
+## Migración de servidor (2026-10-13)
+
+Producción se movió de `72.62.183.215` a `72.60.89.213` con ~3,5 min de parada. Procedimiento que funcionó:
+
+1. Recrear proyecto, Postgres 18 y las 3 apps en el Dokploy nuevo con autoDeploy apagado. Env copiadas tal cual salvo los hostnames internos, que Dokploy genera distintos: `DATABASE_URL`, `OCR_SERVICE_URL` y el build arg `BACKEND_URL` del frontend. `JWT_SECRET` y `CONFIG_ENCRYPTION_KEY` **idénticos** (la segunda cifra las claves de IA de los tenants).
+2. Ensayo con dominios temporales (`app-nuevo`/`api-nuevo`): el frontend inlinea `NEXT_PUBLIC_*` en build, así que hay que reconstruirlo con las URL temporales y añadir el origen a `ALLOWED_ORIGINS`; revertir ambos antes del corte.
+3. Corte: parar backend+frontend viejos → `pg_dump -Fc | pg_restore --no-owner --clean --if-exists` (BD de 27 MB: 4 s) → `tar` del volumen `chefchek-uploads` → comparar conteo de filas por tabla → arrancar backend nuevo → cambiar DNS → crear los dominios reales en Dokploy **después** de que el DNS apunte (Let's Encrypt emitió a la primera).
+4. Restaurar la BD **antes** de arrancar el backend: su arranque ejecuta `prisma migrate deploy`.
+
+Incidencia: el VPS creado con la plantilla Dokploy de Hostinger deja el registro del primer administrador abierto en el puerto 3000. Un bot lo registró antes que nosotros (~50 min tras crear el VPS) y lanzó un escáner desde el servidor; hubo que reinstalar. **Al crear un Dokploy nuevo: cerrar el 3000 en `DOCKER-USER` y registrar el administrador de inmediato** (ufw no filtra los puertos publicados por Docker).
+
+## Seguridad y copias del servidor
+
+- `ufw` activo: solo 22, 80 y 443. El 3000 del panel se cierra con una regla en la cadena `DOCKER-USER`, reaplicada en cada arranque por `close-dokploy-panel-port.service`.
+- Copia diaria de la BD (03:30 UTC): `/usr/local/sbin/chefchek-db-backup.sh` (cron en `/etc/cron.d/chefchek-db-backup`). Volcado `pg_dump -Fc` en `/var/backups/chefchek` (14 días) + subida a la zona de backups de Bunny, carpeta `server-pg-dumps/`. Log en `/var/log/chefchek-db-backup.log`.
+- Restaurar: `docker exec -i <contenedor chefchek-db> pg_restore -U chefchek -d chefchek --no-owner --clean --if-exists < fichero.dump` con el backend parado.
 
 ## Datos iniciales de producción
 
