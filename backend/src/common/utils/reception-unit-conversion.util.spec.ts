@@ -1,6 +1,7 @@
 import {
   convertReceivedToOrderUnit,
   deriveWeightPerUnit,
+  isBilledPerFormat,
 } from "./reception-unit-conversion.util";
 
 describe("convertReceivedToOrderUnit", () => {
@@ -114,6 +115,18 @@ describe("convertReceivedToOrderUnit", () => {
     expect(r.price).toBeCloseTo(18.5); // 5 €/kg × 0,37 × 10
   });
 
+  it("pedido en caja + albarán en ud → null aunque haya peso medio (lo decide el precio)", () => {
+    const r = convertReceivedToOrderUnit({
+      ...base,
+      orderUnit: "Caja",
+      receivedQuantity: 2,
+      receivedUnit: "ud",
+      unitsPerFormat: 24,
+      avgUnitWeight: 0.26,
+    });
+    expect(r).toBeNull();
+  });
+
   it("peso↔volumen no convertible → null", () => {
     const r = convertReceivedToOrderUnit({
       ...base,
@@ -136,5 +149,82 @@ describe("deriveWeightPerUnit", () => {
     expect(deriveWeightPerUnit(1.85, 0)).toBeNull();
     expect(deriveWeightPerUnit(500, 5)).toBeNull();
     expect(deriveWeightPerUnit(0.001, 5)).toBeNull();
+  });
+});
+
+describe("isBilledPerFormat", () => {
+  const pan = {
+    pendingQuantity: 2,
+    expectedPrice: 18.04 as number | null,
+    unitsPerFormat: 24,
+  };
+
+  it("cantidad igual a las cajas pedidas → factura por caja", () => {
+    // Pan C/24U: el papel dice "2" a 18,04 € neto.
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        receivedQuantity: 2,
+        receivedUnitPrice: 18.04,
+      }),
+    ).toBe(true);
+  });
+
+  it("cantidad en uds sueltas → factura por ud", () => {
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        receivedQuantity: 48,
+        receivedUnitPrice: 0.75,
+      }),
+    ).toBe(false);
+  });
+
+  it("la cantidad manda sobre un precio esperado guardado por ud", () => {
+    // Salmón 15×180 g: 1 caja pedida a 3,55 € (precio por ud en la ficha);
+    // el papel dice 15 ud a 3,55 €. Por precio parecería caja; son uds.
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 15,
+        pendingQuantity: 1,
+        receivedUnitPrice: 3.55,
+        expectedPrice: 3.55,
+        unitsPerFormat: 15,
+      }),
+    ).toBe(false);
+  });
+
+  it("empate por cantidad → desempata el precio", () => {
+    // 4 cajas de 4 pedidas, llegan "4": 4 cajas o 1 caja quedan a la misma
+    // distancia de lo pendiente (2); el precio por caja decide.
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 4,
+        pendingQuantity: 2,
+        receivedUnitPrice: 10,
+        expectedPrice: 10,
+        unitsPerFormat: 4,
+      }),
+    ).toBe(true);
+  });
+
+  it("sin formato o sin pistas → suposición histórica (uds)", () => {
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        unitsPerFormat: 1,
+        receivedQuantity: 2,
+        receivedUnitPrice: 18.04,
+      }),
+    ).toBe(false);
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 2,
+        pendingQuantity: 0,
+        receivedUnitPrice: 18.04,
+        expectedPrice: null,
+        unitsPerFormat: 24,
+      }),
+    ).toBe(false);
   });
 });

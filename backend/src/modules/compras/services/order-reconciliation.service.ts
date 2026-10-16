@@ -4,6 +4,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { getUnitMeta } from "../../../common/utils/product-costing.util";
 import {
   convertReceivedToOrderUnit,
+  isBilledPerFormat,
   ReceptionConversionResult,
 } from "../../../common/utils/reception-unit-conversion.util";
 import { PurchaseOrderStatusService } from "./purchase-order-status.service";
@@ -120,7 +121,7 @@ export class OrderReconciliationService {
         baseQty: number; // total en kg / l / ud de la categoría del albarán
         lastUnit: string | null; // última unidad cruda vista (re-expresa baseQty)
         lastToBase: number; // factor a base de esa unidad
-        unitPrice: number; // € por unidad cruda; última entrega manda
+        unitPrice: number; // € neto por unidad cruda; última entrega manda
         legacyQty: number | null; // suma cruda cuando hay unidades desconocidas
       }
     >();
@@ -128,11 +129,18 @@ export class OrderReconciliationService {
       if (line.lineStatus !== LineStatus.CONFIRMADO || !line.matchedProductId) {
         continue;
       }
+      // Lo pagado de verdad: el neto del papel (con el descuento del
+      // proveedor) cuando existe. Con el bruto, una línea con 33% de dto
+      // aparece como subida de precio frente al esperado del pedido.
+      const netUnitPrice =
+        typeof line.totalPrice === "number" && line.quantity > 0
+          ? line.totalPrice / line.quantity
+          : line.unitPrice;
       const acc = receivedByProduct.get(line.matchedProductId) ?? {
         baseQty: 0,
         lastUnit: null,
         lastToBase: 1,
-        unitPrice: line.unitPrice,
+        unitPrice: netUnitPrice,
         legacyQty: null,
       };
       const meta = getUnitMeta(line.unit);
@@ -143,7 +151,7 @@ export class OrderReconciliationService {
         acc.lastUnit = line.unit;
         acc.lastToBase = meta.toBase;
       }
-      acc.unitPrice = line.unitPrice;
+      acc.unitPrice = netUnitPrice;
       receivedByProduct.set(line.matchedProductId, acc);
     }
     if (receivedByProduct.size === 0) {
@@ -164,7 +172,18 @@ export class OrderReconciliationService {
           avgUnitWeight: null as number | null,
         };
         const acc = receivedByProduct.get(l.productId)!;
-        const upf = Math.max(product.unitsPerFormat, 1);
+        // Formato sin unidad fiable en el albarán: decide si el número son
+        // cajas (1:1) o uds sueltas (÷ unitsPerFormat).
+        const pending = l.quantity - (l.receivedQuantity ?? 0);
+        const upf = isBilledPerFormat({
+          receivedQuantity: acc.legacyQty ?? acc.baseQty / acc.lastToBase,
+          pendingQuantity: pending > 0 ? pending : l.quantity,
+          receivedUnitPrice: acc.unitPrice,
+          expectedPrice: l.expectedPrice,
+          unitsPerFormat: product.unitsPerFormat,
+        })
+          ? 1
+          : Math.max(product.unitsPerFormat, 1);
         const legacy: ReceptionConversionResult = {
           quantity: (acc.legacyQty ?? acc.baseQty / acc.lastToBase) / upf,
           price: acc.unitPrice * upf,
