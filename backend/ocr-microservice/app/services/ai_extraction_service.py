@@ -31,6 +31,12 @@ REGLAS IMPORTANTES:
 6. El registro sanitario del proveedor suele aparecer como "R.S.", "Reg. Sanitario" o "RGSA" seguido de un código.
 7. El IVA puede variar por línea (4%, 10%, 21%). Extrae el porcentaje exacto de cada línea.
 8. price_with_vat = unit_price × (1 + vat_percent/100). Si aparece en el documento, úsalo; si no, calcúlalo.
+9. CARGOS DEL PIE: algunos albaranes ponen fuera de la tabla de líneas, en el bloque de totales, un cargo con importe propio
+   que SÍ se suma al total: tasas ("T.S.", "Tasa", "Tasa servicio"), portes o transporte, punto verde, envases, recargo de servicio...
+   Suelen tener su propia base y su propio tipo de IVA en el desglose. NO son un total: inclúyelos en "products" como una línea más,
+   con name = la etiqueta tal cual aparece (ej: "T.S."), quantity 1, unit "ud", unit_price = su importe sin IVA y su vat_percent.
+   Comprobación: la suma de bases de todas las líneas (incluidos estos cargos) debe coincidir con la base total del albarán.
+   El recargo de equivalencia (R.E.) NO es un cargo: no lo incluyas como línea.
 
 Responde SOLO con JSON válido en este formato exacto:
 {
