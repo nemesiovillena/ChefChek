@@ -517,18 +517,33 @@ export default function AlbaranLineasPage() {
           {/* Contadores + confirmación en lote en un solo sitio: la barra que
               había justo debajo repetía estos mismos contadores. */}
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <span>{pendingCount} pendientes</span>
+            <div className="flex flex-col gap-y-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                  <span>{pendingCount} pendientes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span>{confirmedCount} confirmadas</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span>{rejectedCount} rechazadas</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
-                <span>{confirmedCount} confirmadas</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span>{rejectedCount} rechazadas</span>
+              {/* Totales guardados del albarán, los mismos que en Resumen, para
+                  revisar IVA y total sin salir de las líneas. */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <span className="text-gray-500">
+                  Base <span className="font-medium text-foreground">{formatCurrency(albaran.base)}</span>
+                </span>
+                <span className="text-gray-500">
+                  IVA <span className="font-medium text-foreground">{formatCurrency(albaran.vatTotal)}</span>
+                </span>
+                <span className="font-semibold">
+                  Total <span className="text-indigo-600">{formatCurrency(albaran.total)}</span>
+                </span>
               </div>
             </div>
             {confirmableLines.length > 0 && (
