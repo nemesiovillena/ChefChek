@@ -68,8 +68,9 @@ export function CorrectPriceDialog({
   const parsedPrice = parseEsNumber(price);
   const parsedNet = net.trim() === '' ? null : parseEsNumber(net);
 
-  const priceValid = parsedPrice !== null && parsedPrice > 0;
-  const netValid = parsedNet === null || (showNet && parsedNet >= 0);
+  // 0 o negativo es válido: envases devueltos y abonos.
+  const priceValid = parsedPrice !== null;
+  const netValid = parsedNet === null || showNet;
 
   // Mismo coste efectivo que asienta el backend (applyDiscountToCost manda el
   // neto del papel cuando existe).
@@ -77,6 +78,10 @@ export function CorrectPriceDialog({
     albaran.applyDiscountToCost && parsedNet !== null && line.quantity > 0
       ? parsedNet / line.quantity
       : parsedPrice;
+
+  // Devolución/abono: el backend solo corrige el importe de la línea, sin
+  // re-sincronizar coste, oferta, histórico ni pedido.
+  const isReturn = effectivePrice !== null && effectivePrice <= 0;
 
   const priceChanged =
     priceValid && netValid && (parsedPrice !== line.unitPrice || (showNet && parsedNet !== line.totalPrice));
@@ -101,7 +106,9 @@ export function CorrectPriceDialog({
       addNotification({
         type: 'success',
         title: 'Precio corregido',
-        message: `${line.matchedProduct?.name ?? line.description}: el coste quedó en ${formatEur(effectivePrice ?? 0)}/${line.unit}`,
+        message: isReturn
+          ? `${line.matchedProduct?.name ?? line.description}: importe de la línea corregido; el coste del artículo no cambia`
+          : `${line.matchedProduct?.name ?? line.description}: el coste quedó en ${formatEur(effectivePrice ?? 0)}/${line.unit}`,
       });
       onOpenChange(false);
       onSuccess();
@@ -159,7 +166,7 @@ export function CorrectPriceDialog({
         </div>
 
         {/* Preview del coste que quedará asentado, contra el coste en ficha */}
-        {priceValid && netValid && effectivePrice !== null && (
+        {priceValid && netValid && effectivePrice !== null && !isReturn && (
           <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
             <span className="text-gray-600 dark:text-gray-300">
               Coste que quedará asentado
@@ -179,12 +186,23 @@ export function CorrectPriceDialog({
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             Al guardar se actualizará:
           </p>
-          <ul className="list-disc space-y-0.5 pl-8">
-            <li>la oferta de {albaran.supplier?.name ?? 'este proveedor'} (pasará a ser la preferente) y con ella el coste del artículo y los escandallos</li>
-            <li>el histórico de precios, dejando traza de la corrección</li>
-            {albaran.purchaseOrderId && <li>el precio recibido del pedido vinculado</li>}
-          </ul>
-          <p>La cantidad recibida y el stock no cambian.</p>
+          {isReturn ? (
+            <>
+              <ul className="list-disc space-y-0.5 pl-8">
+                <li>solo el importe de esta línea (devolución o abono)</li>
+              </ul>
+              <p>El coste del artículo, los escandallos, el histórico, la cantidad y el stock no cambian.</p>
+            </>
+          ) : (
+            <>
+              <ul className="list-disc space-y-0.5 pl-8">
+                <li>la oferta de {albaran.supplier?.name ?? 'este proveedor'} (pasará a ser la preferente) y con ella el coste del artículo y los escandallos</li>
+                <li>el histórico de precios, dejando traza de la corrección</li>
+                {albaran.purchaseOrderId && <li>el precio recibido del pedido vinculado</li>}
+              </ul>
+              <p>La cantidad recibida y el stock no cambian.</p>
+            </>
+          )}
         </div>
 
         {error && (

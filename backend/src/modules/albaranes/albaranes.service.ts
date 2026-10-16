@@ -386,8 +386,10 @@ export class AlbaranesService {
       );
     }
 
+    // Se admite 0 o negativo: envases devueltos y abonos van en el albarán
+    // como línea con importe ≤ 0.
     const unitPrice = parseFloat(dto.unitPrice);
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+    if (!Number.isFinite(unitPrice)) {
       throw new BadRequestException("Precio corregido no válido");
     }
     // Neto del papel: null explícito lo limpia; ausente conserva el actual.
@@ -397,10 +399,7 @@ export class AlbaranesService {
         : dto.totalPrice === null
           ? null
           : parseFloat(dto.totalPrice);
-    if (
-      totalPrice !== null &&
-      (!Number.isFinite(totalPrice) || totalPrice < 0)
-    ) {
+    if (totalPrice !== null && !Number.isFinite(totalPrice)) {
       throw new BadRequestException("Importe neto no válido");
     }
 
@@ -424,6 +423,13 @@ export class AlbaranesService {
           totalPrice,
         },
       });
+
+      // Devolución/abono (coste ≤ 0): no es un precio de compra. Solo se
+      // corrige el importe de la línea; oferta, coste del artículo,
+      // escandallos, histórico y pedido conservan el último precio real.
+      if (effectivePrice <= 0) {
+        return updatedLine;
+      }
 
       if (supplierId) {
         // Reusa el pipeline de la confirmación: upsert de oferta + preferencia
