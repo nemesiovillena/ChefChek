@@ -12,9 +12,11 @@
  *   unidad del artículo (Product.avgUnitWeight). Si aún no existe, se deriva
  *   del ratio de precios del propio cruce pedido/albarán y se devuelve para
  *   que la conciliación lo persista (aprendizaje "una sola vez").
- * - Unidad de pedido irreconocible (cajas, texto libre): comportamiento
- *   histórico — se asume que el albarán factura en uds y se divide por
- *   unitsPerFormat para expresar el recibido en formatos.
+ * - Unidad de pedido irreconocible (cajas, texto libre) y albarán en uds o
+ *   sin unidad legible: lo resuelve el llamador. Muchos proveedores no
+ *   imprimen unidad (el OCR guarda "ud" por defecto) y facturan por caja,
+ *   así que el precio decide si el número son formatos o uds
+ *   (isBilledPerFormat).
  *
  * Toda la aritmética normaliza primero a la base de la categoría (kg / l /
  * ud) y solo al final re-expresa en la unidad destino, para que los factores
@@ -86,6 +88,32 @@ export function deriveWeightPerUnit(
 }
 
 /**
+ * ¿El albarán factura por formato (caja) en vez de por ud suelta? Sin columna
+ * de unidad en el papel, el precio es la única pista: se compara con el
+ * esperado por formato y con el esperado por ud (÷ unitsPerFormat) y gana el
+ * más cercano en proporción (2 cajas a 18,04 € frente a 18,04 €/caja → caja;
+ * 48 uds a 0,75 € → uds). Sin precio esperado se mantiene la suposición
+ * histórica: uds.
+ */
+export function isBilledPerFormat(
+  receivedUnitPrice: number,
+  expectedPrice: number | null,
+  unitsPerFormat: number,
+): boolean {
+  if (
+    unitsPerFormat <= 1 ||
+    expectedPrice === null ||
+    expectedPrice <= 0 ||
+    receivedUnitPrice <= 0
+  ) {
+    return false;
+  }
+  const distanceTo = (target: number) =>
+    Math.abs(Math.log(receivedUnitPrice / target));
+  return distanceTo(expectedPrice) < distanceTo(expectedPrice / unitsPerFormat);
+}
+
+/**
  * Convierte una línea de albarán a la unidad de la línea de pedido.
  * Devuelve null cuando no hay forma segura de convertir (unidades
  * desconocidas sin precio de referencia): el llamador debe aplicar entonces
@@ -136,6 +164,12 @@ export function convertReceivedToOrderUnit(
   // Cruzado ud↔peso/volumen: se necesita el puente kg (o L) por unidad.
   const orderIsUnit = orderMeta?.category === "unidad";
   const recvIsUnit = recvMeta.category === "unidad";
+  // Pedido en formato y albarán en uds: no hay magnitud que cruzar, y "ud"
+  // puede ser el valor por defecto de un papel que factura por caja. Lo
+  // decide el llamador con isBilledPerFormat.
+  if (!orderMeta && recvIsUnit) {
+    return null;
+  }
   if (orderMeta && !orderIsUnit && !recvIsUnit) {
     return null; // peso↔volumen: no convertible
   }
@@ -172,7 +206,7 @@ export function convertReceivedToOrderUnit(
     };
   }
 
-  // Unidad de pedido irreconocible (caja): recibir en uds y bajar a formatos.
+  // Pedido en formato (caja) y albarán a peso/volumen: kg → uds → formatos.
   if (!orderMeta) {
     const upf = Math.max(unitsPerFormat, 1);
     return {

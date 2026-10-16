@@ -1,6 +1,7 @@
 import {
   convertReceivedToOrderUnit,
   deriveWeightPerUnit,
+  isBilledPerFormat,
 } from "./reception-unit-conversion.util";
 
 describe("convertReceivedToOrderUnit", () => {
@@ -114,6 +115,18 @@ describe("convertReceivedToOrderUnit", () => {
     expect(r.price).toBeCloseTo(18.5); // 5 €/kg × 0,37 × 10
   });
 
+  it("pedido en caja + albarán en ud → null aunque haya peso medio (lo decide el precio)", () => {
+    const r = convertReceivedToOrderUnit({
+      ...base,
+      orderUnit: "Caja",
+      receivedQuantity: 2,
+      receivedUnit: "ud",
+      unitsPerFormat: 24,
+      avgUnitWeight: 0.26,
+    });
+    expect(r).toBeNull();
+  });
+
   it("peso↔volumen no convertible → null", () => {
     const r = convertReceivedToOrderUnit({
       ...base,
@@ -136,5 +149,23 @@ describe("deriveWeightPerUnit", () => {
     expect(deriveWeightPerUnit(1.85, 0)).toBeNull();
     expect(deriveWeightPerUnit(500, 5)).toBeNull();
     expect(deriveWeightPerUnit(0.001, 5)).toBeNull();
+  });
+});
+
+describe("isBilledPerFormat", () => {
+  it("precio cercano al esperado por caja → factura por caja", () => {
+    // Pan C/24U: 18,04 € neto por caja frente a 18,04 €/caja esperado.
+    expect(isBilledPerFormat(18.04, 18.04, 24)).toBe(true);
+    // Subida real de precio sigue leyéndose como caja.
+    expect(isBilledPerFormat(21.5, 18.04, 24)).toBe(true);
+  });
+
+  it("precio cercano al esperado por ud → factura por uds", () => {
+    expect(isBilledPerFormat(0.75, 18.04, 24)).toBe(false);
+  });
+
+  it("sin precio esperado o sin formato → suposición histórica (uds)", () => {
+    expect(isBilledPerFormat(18.04, null, 24)).toBe(false);
+    expect(isBilledPerFormat(18.04, 18.04, 1)).toBe(false);
   });
 });

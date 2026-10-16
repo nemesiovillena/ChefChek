@@ -267,6 +267,70 @@ describe("OrderReconciliationService", () => {
       );
     });
 
+    it("albarán sin columna de unidad que factura por caja con descuento → 1:1 y precio neto", async () => {
+      // Albarán real: 2 cajas de pan C/24U a 20,50 € −12% = 36,08 € neto,
+      // pedido de 2 cajas a 18,04 €. Antes: 0,083 cajas a 492 €.
+      prismaMock.product.findMany.mockResolvedValue([
+        {
+          id: "p1",
+          unitsPerFormat: 24,
+          referenceUnit: "ud",
+          avgUnitWeight: 0.26,
+        },
+      ]);
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a1",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 2,
+            unit: "ud", // valor por defecto: el papel no trae unidad
+            unitPrice: 20.5, // bruto
+            totalPrice: 36.08, // neto con −12%
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0010",
+        status: PurchaseOrderStatus.ENVIADO,
+        lines: [
+          {
+            id: "l1",
+            productId: "p1",
+            quantity: 2,
+            unit: "Caja",
+            expectedPrice: 18.04,
+            receivedQuantity: null,
+          },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          id: "l1",
+          quantity: 2,
+          unit: "Caja",
+          receivedQuantity: 2,
+          receivedPrice: 18.04,
+        },
+      ]);
+
+      await service.reconcileFromAlbaran("a1", tenantId);
+
+      const { data } = prismaMock.purchaseOrderLine.update.mock.calls[0][0];
+      expect(data.receivedQuantity).toBe(2);
+      expect(data.receivedPrice).toBeCloseTo(18.04);
+      expect(prismaMock.product.update).not.toHaveBeenCalled();
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+      );
+    });
+
     it("pedido en ud + albarán en kg con peso medio aprendido → convierte y marca RECIBIDO", async () => {
       prismaMock.product.findMany.mockResolvedValue([
         {
