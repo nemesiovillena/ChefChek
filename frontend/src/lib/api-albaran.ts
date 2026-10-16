@@ -64,6 +64,8 @@ export interface Albaran {
     confidence?: number;
     /** Nombre de proveedor tal como lo leyó el OCR, antes de intentar hacer match contra la BD */
     supplier_name?: string | null;
+    /** Total leído del papel; vacío si la hoja que lleva el total no se subió o no se leyó */
+    total_amount?: number | null;
   } | null;
 }
 
