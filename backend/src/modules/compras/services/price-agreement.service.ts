@@ -81,7 +81,14 @@ export class PriceAgreementService {
     tolerancePercent: number,
     now: Date = new Date(),
   ): PriceDeviationResult | null {
-    if (offer.agreedPrice === null || offer.agreedPrice === undefined) {
+    // Un pactado de 0 no es un pacto: lo deja así una oferta creada sin
+    // precio (el pactado hereda el de compra). Evaluarlo dividiría por 0 y
+    // el Infinity resultante tumba la confirmación del albarán entero.
+    if (
+      offer.agreedPrice === null ||
+      offer.agreedPrice === undefined ||
+      offer.agreedPrice <= 0
+    ) {
       return null;
     }
     if (offer.agreedUntil && offer.agreedUntil < now) {
