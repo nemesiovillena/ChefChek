@@ -19,6 +19,7 @@ import { AddLineForm } from '@/components/albaranes/add-line-form';
 import { EditableLineCell } from '@/components/albaranes/editable-line-cell';
 import { CorrectPriceDialog } from '@/components/albaranes/correct-price-dialog';
 import { AlbaranTotalMismatchNotice } from '@/components/albaranes/albaran-total-mismatch-notice';
+import { getDisplayTotals } from '@/lib/albaran-total-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -443,6 +444,7 @@ export default function AlbaranLineasPage() {
   }
 
   const lines = albaran.lines || [];
+  const totals = getDisplayTotals(albaran);
   const confirmedCount = lines.filter((l) => l.lineStatus === 'CONFIRMADO').length;
   const pendingCount = lines.filter((l) => l.lineStatus === 'PENDIENTE').length;
   const rejectedCount = lines.filter((l) => l.lineStatus === 'RECHAZADO').length;
@@ -532,17 +534,17 @@ export default function AlbaranLineasPage() {
                   <span>{rejectedCount} rechazadas</span>
                 </div>
               </div>
-              {/* Totales guardados del albarán, los mismos que en Resumen, para
-                  revisar IVA y total sin salir de las líneas. */}
+              {/* Totales del albarán, los mismos que en Resumen, para revisar
+                  IVA y total sin salir de las líneas. */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 <span className="text-gray-500">
-                  Base <span className="font-medium text-foreground">{formatCurrency(albaran.base)}</span>
+                  Base <span className="font-medium text-foreground">{formatCurrency(totals.base)}</span>
                 </span>
                 <span className="text-gray-500">
-                  IVA <span className="font-medium text-foreground">{formatCurrency(albaran.vatTotal)}</span>
+                  IVA <span className="font-medium text-foreground">{formatCurrency(totals.vatTotal)}</span>
                 </span>
                 <span className="font-semibold">
-                  Total <span className="text-indigo-600">{formatCurrency(albaran.total)}</span>
+                  Total <span className="text-indigo-600">{formatCurrency(totals.total)}</span>
                 </span>
               </div>
             </div>
