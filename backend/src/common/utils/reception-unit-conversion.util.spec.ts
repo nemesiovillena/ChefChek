@@ -153,19 +153,78 @@ describe("deriveWeightPerUnit", () => {
 });
 
 describe("isBilledPerFormat", () => {
-  it("precio cercano al esperado por caja → factura por caja", () => {
-    // Pan C/24U: 18,04 € neto por caja frente a 18,04 €/caja esperado.
-    expect(isBilledPerFormat(18.04, 18.04, 24)).toBe(true);
-    // Subida real de precio sigue leyéndose como caja.
-    expect(isBilledPerFormat(21.5, 18.04, 24)).toBe(true);
+  const pan = {
+    pendingQuantity: 2,
+    expectedPrice: 18.04 as number | null,
+    unitsPerFormat: 24,
+  };
+
+  it("cantidad igual a las cajas pedidas → factura por caja", () => {
+    // Pan C/24U: el papel dice "2" a 18,04 € neto.
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        receivedQuantity: 2,
+        receivedUnitPrice: 18.04,
+      }),
+    ).toBe(true);
   });
 
-  it("precio cercano al esperado por ud → factura por uds", () => {
-    expect(isBilledPerFormat(0.75, 18.04, 24)).toBe(false);
+  it("cantidad en uds sueltas → factura por ud", () => {
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        receivedQuantity: 48,
+        receivedUnitPrice: 0.75,
+      }),
+    ).toBe(false);
   });
 
-  it("sin precio esperado o sin formato → suposición histórica (uds)", () => {
-    expect(isBilledPerFormat(18.04, null, 24)).toBe(false);
-    expect(isBilledPerFormat(18.04, 18.04, 1)).toBe(false);
+  it("la cantidad manda sobre un precio esperado guardado por ud", () => {
+    // Salmón 15×180 g: 1 caja pedida a 3,55 € (precio por ud en la ficha);
+    // el papel dice 15 ud a 3,55 €. Por precio parecería caja; son uds.
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 15,
+        pendingQuantity: 1,
+        receivedUnitPrice: 3.55,
+        expectedPrice: 3.55,
+        unitsPerFormat: 15,
+      }),
+    ).toBe(false);
+  });
+
+  it("empate por cantidad → desempata el precio", () => {
+    // 4 cajas de 4 pedidas, llegan "4": 4 cajas o 1 caja quedan a la misma
+    // distancia de lo pendiente (2); el precio por caja decide.
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 4,
+        pendingQuantity: 2,
+        receivedUnitPrice: 10,
+        expectedPrice: 10,
+        unitsPerFormat: 4,
+      }),
+    ).toBe(true);
+  });
+
+  it("sin formato o sin pistas → suposición histórica (uds)", () => {
+    expect(
+      isBilledPerFormat({
+        ...pan,
+        unitsPerFormat: 1,
+        receivedQuantity: 2,
+        receivedUnitPrice: 18.04,
+      }),
+    ).toBe(false);
+    expect(
+      isBilledPerFormat({
+        receivedQuantity: 2,
+        pendingQuantity: 0,
+        receivedUnitPrice: 18.04,
+        expectedPrice: null,
+        unitsPerFormat: 24,
+      }),
+    ).toBe(false);
   });
 });

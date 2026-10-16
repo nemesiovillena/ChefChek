@@ -172,13 +172,16 @@ export class OrderReconciliationService {
           avgUnitWeight: null as number | null,
         };
         const acc = receivedByProduct.get(l.productId)!;
-        // Formato sin unidad fiable en el albarán: el precio dice si el
-        // número son cajas (1:1) o uds sueltas (÷ unitsPerFormat).
-        const upf = isBilledPerFormat(
-          acc.unitPrice,
-          l.expectedPrice,
-          product.unitsPerFormat,
-        )
+        // Formato sin unidad fiable en el albarán: decide si el número son
+        // cajas (1:1) o uds sueltas (÷ unitsPerFormat).
+        const pending = l.quantity - (l.receivedQuantity ?? 0);
+        const upf = isBilledPerFormat({
+          receivedQuantity: acc.legacyQty ?? acc.baseQty / acc.lastToBase,
+          pendingQuantity: pending > 0 ? pending : l.quantity,
+          receivedUnitPrice: acc.unitPrice,
+          expectedPrice: l.expectedPrice,
+          unitsPerFormat: product.unitsPerFormat,
+        })
           ? 1
           : Math.max(product.unitsPerFormat, 1);
         const legacy: ReceptionConversionResult = {

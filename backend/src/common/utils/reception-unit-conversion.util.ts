@@ -15,8 +15,8 @@
  * - Unidad de pedido irreconocible (cajas, texto libre) y albarán en uds o
  *   sin unidad legible: lo resuelve el llamador. Muchos proveedores no
  *   imprimen unidad (el OCR guarda "ud" por defecto) y facturan por caja,
- *   así que el precio decide si el número son formatos o uds
- *   (isBilledPerFormat).
+ *   así que la cantidad pedida (y, si empata, el precio) decide si el
+ *   número son formatos o uds (isBilledPerFormat).
  *
  * Toda la aritmética normaliza primero a la base de la categoría (kg / l /
  * ud) y solo al final re-expresa en la unidad destino, para que los factores
@@ -89,28 +89,51 @@ export function deriveWeightPerUnit(
 
 /**
  * ¿El albarán factura por formato (caja) en vez de por ud suelta? Sin columna
- * de unidad en el papel, el precio es la única pista: se compara con el
- * esperado por formato y con el esperado por ud (÷ unitsPerFormat) y gana el
- * más cercano en proporción (2 cajas a 18,04 € frente a 18,04 €/caja → caja;
- * 48 uds a 0,75 € → uds). Sin precio esperado se mantiene la suposición
- * histórica: uds.
+ * de unidad en el papel hay que deducirlo. Señal principal: la cantidad
+ * pendiente del pedido (2 cajas pedidas, el papel dice "2" → cajas; dice
+ * "48" → uds). El precio solo desempata cuando ambas lecturas quedan igual de
+ * lejos: no basta como señal principal porque hay artículos cuyo precio de
+ * compra está guardado por ud aunque se pidan por caja. Sin pistas se
+ * mantiene la suposición histórica: uds.
  */
-export function isBilledPerFormat(
-  receivedUnitPrice: number,
-  expectedPrice: number | null,
-  unitsPerFormat: number,
-): boolean {
-  if (
-    unitsPerFormat <= 1 ||
-    expectedPrice === null ||
-    expectedPrice <= 0 ||
-    receivedUnitPrice <= 0
-  ) {
+export function isBilledPerFormat(input: {
+  receivedQuantity: number;
+  pendingQuantity: number;
+  receivedUnitPrice: number;
+  expectedPrice: number | null;
+  unitsPerFormat: number;
+}): boolean {
+  const {
+    receivedQuantity,
+    pendingQuantity,
+    receivedUnitPrice,
+    expectedPrice,
+    unitsPerFormat,
+  } = input;
+  if (unitsPerFormat <= 1 || receivedQuantity <= 0) {
     return false;
   }
-  const distanceTo = (target: number) =>
-    Math.abs(Math.log(receivedUnitPrice / target));
-  return distanceTo(expectedPrice) < distanceTo(expectedPrice / unitsPerFormat);
+  // Distancia en proporción: 0,083 frente a 2 está tan lejos como 48 frente a 2.
+  const distance = (value: number, target: number) =>
+    Math.abs(Math.log(value / target));
+
+  if (pendingQuantity > 0) {
+    const asFormats = distance(receivedQuantity, pendingQuantity);
+    const asUnits = distance(
+      receivedQuantity / unitsPerFormat,
+      pendingQuantity,
+    );
+    if (Math.abs(asFormats - asUnits) > 1e-9) {
+      return asFormats < asUnits;
+    }
+  }
+  if (expectedPrice === null || expectedPrice <= 0 || receivedUnitPrice <= 0) {
+    return false;
+  }
+  return (
+    distance(receivedUnitPrice, expectedPrice) <
+    distance(receivedUnitPrice, expectedPrice / unitsPerFormat)
+  );
 }
 
 /**
