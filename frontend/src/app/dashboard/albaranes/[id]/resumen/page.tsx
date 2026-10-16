@@ -16,6 +16,7 @@ import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dia
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { CuinerSendCard } from '@/components/albaranes/cuiner-send-card';
 import { AlbaranTotalMismatchNotice } from '@/components/albaranes/albaran-total-mismatch-notice';
+import { getDisplayTotals } from '@/lib/albaran-total-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Building2, Calendar, Warehouse, FileText, Trash2, CheckCircle, Archive, Eye, Edit2, ShoppingCart, ArrowUpRight } from 'lucide-react';
@@ -236,6 +237,7 @@ export default function AlbaranResumenPage() {
   }
 
   const nextAction = getNextStatusAction(albaran.status);
+  const totals = getDisplayTotals(albaran);
 
   return (
     <div>
@@ -427,11 +429,11 @@ export default function AlbaranResumenPage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Base imponible</span>
-                <span className="font-medium">{formatCurrency(albaran.base)}</span>
+                <span className="font-medium">{formatCurrency(totals.base)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">IVA</span>
-                <span className="font-medium">{formatCurrency(albaran.vatTotal)}</span>
+                <span className="font-medium">{formatCurrency(totals.vatTotal)}</span>
               </div>
               {(albaran.lines || []).some(
                 (l) =>
@@ -480,7 +482,7 @@ export default function AlbaranResumenPage() {
                 )}
               <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
                 <span>Total</span>
-                <span className="text-indigo-600">{formatCurrency(albaran.total)}</span>
+                <span className="text-indigo-600">{formatCurrency(totals.total)}</span>
               </div>
             </CardContent>
           </Card>
