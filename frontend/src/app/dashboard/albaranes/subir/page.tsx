@@ -157,7 +157,7 @@ function SubirAlbaranContent() {
               onClick={() => cameraInputRef.current?.click()}
             >
               <Camera className="mr-2 h-5 w-5" />
-              Hacer foto al albarán
+              {files.length > 0 ? 'Hacer foto a la siguiente hoja' : 'Hacer foto al albarán'}
             </Button>
             <input
               ref={cameraInputRef}
@@ -194,7 +194,9 @@ function SubirAlbaranContent() {
           {/* File List */}
           {files.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-medium">Archivos seleccionados</h3>
+              <h3 className="text-sm font-medium">
+                {files.length === 1 ? '1 hoja seleccionada' : `${files.length} hojas seleccionadas`}
+              </h3>
               {files.map((file, index) => (
                 <div
                   key={index}
@@ -242,12 +244,22 @@ function SubirAlbaranContent() {
             </div>
           )}
 
-          {/* Process Button */}
+          {/* Process Button: todas las hojas deben ir en la misma subida, porque
+              un albarán confirmado ya no admite líneas nuevas. */}
           {!isUploading && files.length > 0 && !results && (
-            <Button className="w-full h-12" onClick={processFiles}>
-              <Upload className="mr-2 h-4 w-4" />
-              Procesar Albarán
-            </Button>
+            <>
+              <p className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  ¿El albarán tiene más hojas? Haz una foto de cada una <strong>antes</strong> de
+                  procesar: todas se juntan en un solo albarán.
+                </span>
+              </p>
+              <Button className="w-full h-12" onClick={processFiles}>
+                <Upload className="mr-2 h-4 w-4" />
+                Procesar Albarán
+              </Button>
+            </>
           )}
         </CardContent>
       </Card>

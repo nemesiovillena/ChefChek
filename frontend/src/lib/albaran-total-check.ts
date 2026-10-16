@@ -42,3 +42,16 @@ export function getTotalMismatch(
     ? { computed, paper: albaran.total }
     : null;
 }
+
+/**
+ * Albarán leído por OCR en el que no apareció ningún total en el papel. En un
+ * albarán de varias hojas el total suele ir en la última, así que es la señal
+ * de que falta alguna hoja (y sin total no hay descuadre que avisar).
+ * Los albaranes manuales no tienen ocrRawData y no aplican.
+ */
+export function isPaperTotalMissing(
+  albaran: Pick<Albaran, 'ocrRawData' | 'lines'>,
+): boolean {
+  if (!albaran.ocrRawData || (albaran.lines ?? []).length === 0) return false;
+  return !(Number(albaran.ocrRawData.total_amount) > 0);
+}
