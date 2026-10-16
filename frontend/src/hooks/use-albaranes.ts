@@ -2,7 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listAlbaranes, type Albaran, type AlbaranFilters, type AlbaranListResponse } from '@/lib/api-albaran';
+import {
+  getAlbaranStatusCounts,
+  listAlbaranes,
+  type Albaran,
+  type AlbaranFilters,
+  type AlbaranListResponse,
+} from '@/lib/api-albaran';
 
 interface UseAlbaranesReturn {
   albaranes: Albaran[];
@@ -42,4 +48,16 @@ export function useAlbaranes(initialFilters: AlbaranFilters = {}): UseAlbaranesR
     setPage,
     setFilters,
   };
+}
+
+/**
+ * Números de los botones de estado. La clave cuelga de ['albaranes'], así que
+ * cualquier invalidación del listado (confirmar, borrar, subir) los refresca.
+ */
+export function useAlbaranStatusCounts(since: string) {
+  const { data } = useQuery({
+    queryKey: ['albaranes', 'status-counts', since],
+    queryFn: () => getAlbaranStatusCounts(since),
+  });
+  return data ?? null;
 }

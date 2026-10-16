@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsEnum, IsDateString } from "class-validator";
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsDateString,
+  IsBoolean,
+} from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { AlbaranStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
@@ -16,6 +22,18 @@ export class AlbaranQueryDto {
   @IsOptional()
   @IsEnum(AlbaranStatus)
   status?: AlbaranStatus;
+
+  /**
+   * Vista "Pendientes": todo lo que falta por confirmar (PENDIENTE y
+   * REVISADO). Tiene prioridad sobre `status`.
+   */
+  @ApiPropertyOptional({
+    description: "Solo albaranes por confirmar (PENDIENTE y REVISADO)",
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  pending?: boolean;
 
   @ApiPropertyOptional({ description: "Fecha desde" })
   @IsOptional()

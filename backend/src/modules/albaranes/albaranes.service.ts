@@ -28,6 +28,9 @@ import {
   PurchaseOrderStatus,
 } from "@prisma/client";
 
+/** Albaranes por confirmar: su stock y precios todavía no se han aplicado. */
+const PENDING_STATUSES = [AlbaranStatus.PENDIENTE, AlbaranStatus.REVISADO];
+
 @Injectable()
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
@@ -139,6 +142,28 @@ export class AlbaranesService {
   }
 
   /** List albaranes with filters and pagination */
+  /**
+   * Recuentos para los botones de estado del listado. Cada número coincide con
+   * lo que muestra su botón: "pending" no tiene límite de fecha (un albarán por
+   * confirmar sigue siendo trabajo pendiente aunque sea antiguo); "all" y
+   * "confirmed" cuentan desde `since`, el inicio de la ventana de Activos.
+   */
+  async countByStatus(tenantId: string, since?: string) {
+    const date = since ? { gte: new Date(since) } : undefined;
+    const [all, pending, confirmed] = await Promise.all([
+      this.prisma.albaran.count({
+        where: { tenantId, status: { not: AlbaranStatus.ARCHIVADO }, date },
+      }),
+      this.prisma.albaran.count({
+        where: { tenantId, status: { in: PENDING_STATUSES } },
+      }),
+      this.prisma.albaran.count({
+        where: { tenantId, status: AlbaranStatus.CONFIRMADO, date },
+      }),
+    ]);
+    return { all, pending, confirmed };
+  }
+
   async findAll(query: AlbaranQueryDto, tenantId: string) {
     const where: any = { tenantId };
 
@@ -157,6 +182,8 @@ export class AlbaranesService {
           ],
         },
       ];
+    } else if (query.pending) {
+      where.status = { in: PENDING_STATUSES };
     } else if (query.status) {
       where.status = query.status;
     } else {

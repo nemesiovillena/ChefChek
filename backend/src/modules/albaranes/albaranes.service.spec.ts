@@ -189,6 +189,17 @@ describe("AlbaranesService", () => {
       expect(where.OR).toHaveLength(3);
     });
 
+    it("filters PENDIENTE and REVISADO when pending is requested, ignoring status", async () => {
+      await service.findAll(
+        { pending: true, status: AlbaranStatus.CONFIRMADO } as any,
+        "t1",
+      );
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.status).toEqual({
+        in: [AlbaranStatus.PENDIENTE, AlbaranStatus.REVISADO],
+      });
+    });
+
     it("applies supplierId, status, search, date range and pagination", async () => {
       await service.findAll(
         {
@@ -225,6 +236,34 @@ describe("AlbaranesService", () => {
       const { date } = prisma.albaran.findMany.mock.calls[0][0].where;
       expect(date.lte).toEqual(new Date("2024-02-01"));
       expect(date.gte).toBeUndefined();
+    });
+  });
+
+  describe("countByStatus", () => {
+    it("counts pending without date limit and the rest from since", async () => {
+      prisma.albaran.count
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(5);
+      const res = await service.countByStatus("t1", "2024-01-15");
+      expect(res).toEqual({ all: 10, pending: 4, confirmed: 5 });
+      const [allArg, pendingArg, confirmedArg] =
+        prisma.albaran.count.mock.calls.map((c: any[]) => c[0].where);
+      const since = { gte: new Date("2024-01-15") };
+      expect(allArg).toEqual({
+        tenantId: "t1",
+        status: { not: AlbaranStatus.ARCHIVADO },
+        date: since,
+      });
+      expect(pendingArg).toEqual({
+        tenantId: "t1",
+        status: { in: [AlbaranStatus.PENDIENTE, AlbaranStatus.REVISADO] },
+      });
+      expect(confirmedArg).toEqual({
+        tenantId: "t1",
+        status: AlbaranStatus.CONFIRMADO,
+        date: since,
+      });
     });
   });
 

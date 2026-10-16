@@ -81,6 +81,8 @@ export interface AlbaranFilters {
   dateTo?: string;
   /** Vista Archivados: estado ARCHIVADO o fecha anterior a esta (YYYY-MM-DD). */
   olderThan?: string;
+  /** Vista Pendientes: PENDIENTE y REVISADO (todo lo que falta por confirmar). */
+  pending?: boolean;
   search?: string;
   page?: number;
   limit?: number;
@@ -107,6 +109,27 @@ function errorMessage(payload: unknown, fallback: string): string {
   return err?.error?.message || err?.message || fallback;
 }
 
+/** Números de los botones de estado del listado. */
+export interface AlbaranStatusCounts {
+  all: number;
+  pending: number;
+  confirmed: number;
+}
+
+/**
+ * Recuentos por estado. `since` (YYYY-MM-DD) acota "all" y "confirmed" a la
+ * ventana de Activos; "pending" nunca tiene límite de fecha.
+ */
+export async function getAlbaranStatusCounts(since: string): Promise<AlbaranStatusCounts> {
+  const url = `${API_BASE_URL}/v1/albaranes/status-counts?since=${encodeURIComponent(since)}`;
+  const response = await fetch(url, { method: 'GET', headers: getAuthHeaders() });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error fetching counts' }));
+    throw new Error(errorMessage(error, 'Error fetching counts'));
+  }
+  return response.json();
+}
+
 // List albaranes with filters
 export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<AlbaranListResponse> {
   const params = new URLSearchParams();
@@ -115,6 +138,7 @@ export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<Albar
   if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
   if (filters.dateTo) params.append('dateTo', filters.dateTo);
   if (filters.olderThan) params.append('olderThan', filters.olderThan);
+  if (filters.pending) params.append('pending', 'true');
   if (filters.search) params.append('search', filters.search);
   if (filters.page) params.append('page', String(filters.page));
   if (filters.limit) params.append('limit', String(filters.limit));
