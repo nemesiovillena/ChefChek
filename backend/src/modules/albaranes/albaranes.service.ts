@@ -424,6 +424,33 @@ export class AlbaranesService {
         },
       });
 
+      // Totales del albarán: se ajustan por la diferencia de esta línea en
+      // vez de re-sumar todas, para no pisar los totales del papel (OCR) con
+      // descuentos que las líneas no reflejan. La línea aporta su neto del
+      // papel si lo tiene; si no, el bruto qty × precio.
+      const oldLineAmount = Number(
+        line.lineAmount ?? quantity * Number(line.unitPrice),
+      );
+      const newLineAmount = quantity * unitPrice;
+      const oldBase =
+        line.totalPrice !== null ? Number(line.totalPrice) : oldLineAmount;
+      const newBase = totalPrice !== null ? totalPrice : newLineAmount;
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const grossDelta = round2(newLineAmount - oldLineAmount);
+      const baseDelta = round2(newBase - oldBase);
+      const vatDelta = round2(baseDelta * (Number(line.vatPercent) / 100));
+      if (baseDelta !== 0 || grossDelta !== 0) {
+        await tx.albaran.update({
+          where: { id: albaranId },
+          data: {
+            grossAmount: { increment: grossDelta },
+            base: { increment: baseDelta },
+            vatTotal: { increment: vatDelta },
+            total: { increment: round2(baseDelta + vatDelta) },
+          },
+        });
+      }
+
       // Devolución/abono (coste ≤ 0): no es un precio de compra. Solo se
       // corrige el importe de la línea; oferta, coste del artículo,
       // escandallos, histórico y pedido conservan el último precio real.
