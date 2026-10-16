@@ -136,6 +136,21 @@ export class AlbaranesController {
   }
 
   // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  // Números de los botones de estado del listado (Todos/Pendientes/Confirmados).
+  @Get("status-counts")
+  @ApiOperation({ summary: "Recuento de albaranes por estado" })
+  @ApiResponse({ status: 200, description: "{ all, pending, confirmed }" })
+  async statusCounts(
+    @Query("since") since: string | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    const validSince =
+      since && /^\d{4}-\d{2}-\d{2}$/.test(since) ? since : undefined;
+    return this.albaranesService.countByStatus(tenantId, validSince);
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
   // Advisory-only: devuelve el albarán existente del mismo proveedor con el
   // mismo número, si lo hay. No bloquea el alta (ni manual ni OCR).
   @Get("check-duplicate")

@@ -6,7 +6,8 @@ export const fetchCache = 'force-no-store';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
-import { useAlbaranes } from '@/hooks/use-albaranes';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAlbaranes, useAlbaranStatusCounts } from '@/hooks/use-albaranes';
 import { useSuppliers } from '@/hooks/use-suppliers';
 import { useProducts, Product } from '@/hooks/use-products';
 import { AlbaranCard } from '@/components/albaranes/albaran-card';
@@ -14,21 +15,47 @@ import ManualAlbaranForm from '@/components/albaranes/manual-albaran-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive } from 'lucide-react';
-import type { AlbaranStatus } from '@/lib/api-albaran';
+
+/**
+ * Lunes de la semana anterior en YYYY-MM-DD: frontera de la ventana de dos
+ * semanas (semana actual + anterior) que muestra la pestaña Activos. Todo lo
+ * anterior vive en Archivados.
+ */
+function startOfPreviousWeek(): string {
+  const now = new Date();
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  const mondayLastWeek = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - daysSinceMonday - 7,
+  );
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${mondayLastWeek.getFullYear()}-${pad(mondayLastWeek.getMonth() + 1)}-${pad(mondayLastWeek.getDate())}`;
+}
+
+/**
+ * Botones de estado de la pestaña Activos. "Pendientes" agrupa PENDIENTE y
+ * REVISADO (todo lo que falta por confirmar) y no tiene límite de fecha: un
+ * albarán sin confirmar sigue siendo trabajo pendiente aunque sea antiguo.
+ */
+type StatusView = 'todos' | 'pendientes' | 'confirmados';
 
 export default function AlbaranesPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaranes, meta, loading, error, refetch, setPage, setFilters } = useAlbaranes();
 
+  const queryClient = useQueryClient();
+  // Invalida listado y recuentos (ambos cuelgan de la clave 'albaranes')
   const handleAlbaranDelete = () => {
-    refetch();
+    void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
   };
+  const cutoffDate = startOfPreviousWeek();
+  const statusCounts = useAlbaranStatusCounts(cutoffDate);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<AlbaranStatus | ''>('');
+  const [statusView, setStatusView] = useState<StatusView>('todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
@@ -55,15 +82,23 @@ export default function AlbaranesPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const archived = activeTab === 'archivados';
+      const pending = !archived && statusView === 'pendientes';
+      // Activos queda acotado a la ventana de dos semanas: el "Desde" del
+      // usuario solo puede estrecharla, nunca adelantarla. Pendientes y
+      // Archivados no usan la ventana.
+      const windowFrom = dateFrom && dateFrom > cutoffDate ? dateFrom : cutoffDate;
       setFilters({
         search: searchTerm,
-        status: activeTab === 'archivados' ? 'ARCHIVADO' : statusFilter || undefined,
-        dateFrom: dateFrom || undefined,
+        pending: pending || undefined,
+        status: !archived && statusView === 'confirmados' ? 'CONFIRMADO' : undefined,
+        olderThan: archived ? cutoffDate : undefined,
+        dateFrom: archived || pending ? dateFrom || undefined : windowFrom,
         dateTo: dateTo || undefined,
       });
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, dateFrom, dateTo, activeTab, setFilters]);
+  }, [searchTerm, statusView, dateFrom, dateTo, activeTab, cutoffDate, setFilters]);
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -116,7 +151,7 @@ export default function AlbaranesPage() {
       </Dialog>
 
       {/* Pestañas: activos vs archivados (div role=tablist — un <nav> no fijo quedaría oculto por globals.css) */}
-      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-6">
+      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-2">
         {(
           [
             { key: 'activos', label: 'Activos', icon: FileText },
@@ -140,9 +175,58 @@ export default function AlbaranesPage() {
         ))}
       </div>
 
+      {/* Botones de estado: un clic para ver lo que falta por confirmar */}
+      {activeTab === 'activos' && (
+        <div className="flex flex-wrap gap-2 mt-3 mb-2">
+          {(
+            [
+              { key: 'todos', label: 'Todos', count: statusCounts?.all },
+              { key: 'pendientes', label: 'Pendientes', count: statusCounts?.pending },
+              { key: 'confirmados', label: 'Confirmados', count: statusCounts?.confirmed },
+            ] as const
+          ).map((view) => (
+            <button
+              key={view.key}
+              type="button"
+              aria-pressed={statusView === view.key}
+              onClick={() => setStatusView(view.key)}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
+                statusView === view.key
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {view.label}
+              {view.count !== undefined && (
+                <span
+                  className={`min-w-[1.5rem] rounded-full px-1.5 text-xs font-semibold ${
+                    statusView === view.key
+                      ? 'bg-primary-foreground/20'
+                      : view.key === 'pendientes' && view.count > 0
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-muted'
+                  }`}
+                >
+                  {view.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Qué se está viendo: evita que los antiguos parezcan "desaparecidos" */}
+      <p className="text-xs text-gray-500 mb-6">
+        {activeTab === 'archivados'
+          ? 'Albaranes con más de dos semanas y los archivados manualmente'
+          : statusView === 'pendientes'
+            ? 'Pendientes y revisados sin confirmar, de cualquier fecha'
+            : 'Semana actual y anterior — los albaranes más antiguos están en Archivados'}
+      </p>
+
       {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-        <div className={`grid grid-cols-1 gap-4 ${activeTab === 'activos' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
@@ -152,19 +236,6 @@ export default function AlbaranesPage() {
               className="pl-10"
             />
           </div>
-          {activeTab === 'activos' && (
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as AlbaranStatus | '')}>
-              <SelectTrigger>
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Todos los estados</SelectItem>
-                <SelectItem value="PENDIENTE">Pendiente</SelectItem>
-                <SelectItem value="REVISADO">Revisado</SelectItem>
-                <SelectItem value="CONFIRMADO">Confirmado</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
           <Input
             type="date"
             placeholder="Desde"
@@ -210,7 +281,7 @@ export default function AlbaranesPage() {
           {activeTab === 'archivados' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes archivados</h3>
-              <p className="text-gray-600">Los albaranes confirmados que archives aparecerán aquí</p>
+              <p className="text-gray-600">Los albaranes con más de dos semanas y los que archives aparecerán aquí</p>
             </>
           ) : (
             <>

@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsEnum, IsDateString } from "class-validator";
+import {
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsDateString,
+  IsBoolean,
+} from "class-validator";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { AlbaranStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
@@ -17,6 +23,18 @@ export class AlbaranQueryDto {
   @IsEnum(AlbaranStatus)
   status?: AlbaranStatus;
 
+  /**
+   * Vista "Pendientes": todo lo que falta por confirmar (PENDIENTE y
+   * REVISADO). Tiene prioridad sobre `status`.
+   */
+  @ApiPropertyOptional({
+    description: "Solo albaranes por confirmar (PENDIENTE y REVISADO)",
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  pending?: boolean;
+
   @ApiPropertyOptional({ description: "Fecha desde" })
   @IsOptional()
   @IsDateString()
@@ -26,6 +44,17 @@ export class AlbaranQueryDto {
   @IsOptional()
   @IsDateString()
   dateTo?: string;
+
+  /**
+   * Vista Archivados: albaranes con estado ARCHIVADO o con fecha anterior a
+   * esta (límite de la ventana de dos semanas, calculado por el cliente).
+   */
+  @ApiPropertyOptional({
+    description: "Archivados por estado + anteriores a esta fecha",
+  })
+  @IsOptional()
+  @IsDateString()
+  olderThan?: string;
 
   @ApiPropertyOptional({ description: "Buscar por número o descripción" })
   @IsOptional()
