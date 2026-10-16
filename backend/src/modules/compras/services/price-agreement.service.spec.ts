@@ -45,6 +45,16 @@ describe("PriceAgreementService", () => {
       ).toBeNull();
     });
 
+    it("pactado 0 (oferta creada sin precio) → null, no divide por 0", () => {
+      expect(
+        PriceAgreementService.detectDeviation(
+          { agreedPrice: 0, agreedUntil: null },
+          1.9,
+          0,
+        ),
+      ).toBeNull();
+    });
+
     it("pactado caducado (agreedUntil pasado) → null, no evalúa", () => {
       const now = new Date("2026-07-15");
       const result = PriceAgreementService.detectDeviation(
