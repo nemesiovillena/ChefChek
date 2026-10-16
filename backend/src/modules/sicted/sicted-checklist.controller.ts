@@ -290,7 +290,11 @@ export class SictedChecklistController {
   @Get("performers")
   @Roles("USER")
   async performers(@Req() req: any) {
-    const data = await this.runs.listPerformers(req.tenantId);
+    const data = await this.jobProfiles.filterPerformersForAccount(
+      req.tenantId,
+      req.user,
+      await this.runs.listPerformers(req.tenantId),
+    );
     return { success: true, data };
   }
 }
