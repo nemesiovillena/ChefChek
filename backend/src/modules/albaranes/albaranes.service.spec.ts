@@ -686,6 +686,35 @@ describe("AlbaranesService", () => {
       );
     });
 
+    it("accepts a negative price (returned container) without touching cost", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          purchaseOrderId: "po-1",
+          lines: [{ ...confirmedLine, quantity: 1, unitPrice: 0 }],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "-30", totalPrice: "-30" } as any,
+        "t1",
+      );
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { unitPrice: -30, lineAmount: -30, totalPrice: -30 },
+        }),
+      );
+      expect(offersService.upsertOffer).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+      expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
+      expect(prisma.purchaseOrderLine.updateMany).not.toHaveBeenCalled();
+    });
+
     it("uses net-of-paper effective price when applyDiscountToCost is on", async () => {
       prisma.albaran.findFirst.mockResolvedValue(
         albaran({
