@@ -593,6 +593,8 @@ describe("AlbaranesService", () => {
       matchedProductId: "p1",
       quantity: 10,
       unitPrice: 9.5,
+      lineAmount: 95,
+      vatPercent: 10,
       totalPrice: null,
     };
 
@@ -713,6 +715,73 @@ describe("AlbaranesService", () => {
       expect(prisma.product.update).not.toHaveBeenCalled();
       expect(prisma.productPriceHistory.create).not.toHaveBeenCalled();
       expect(prisma.purchaseOrderLine.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("adjusts albaran totals by the corrected line's difference", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          lines: [confirmedLine],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+      offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "8.9" } as any,
+        "t1",
+      );
+
+      // 95 → 89: base -6, IVA 10 % -0.6
+      expect(prisma.albaran.update).toHaveBeenCalledWith({
+        where: { id: "alb-1" },
+        data: {
+          grossAmount: { increment: -6 },
+          base: { increment: -6 },
+          vatTotal: { increment: -0.6 },
+          total: { increment: -6.6 },
+        },
+      });
+    });
+
+    it("subtracts a returned container from the albaran totals using paper net", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          lines: [
+            {
+              ...confirmedLine,
+              quantity: 1,
+              unitPrice: 0,
+              lineAmount: 0,
+              vatPercent: 21,
+              totalPrice: 0,
+            },
+          ],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "-30", totalPrice: "-30" } as any,
+        "t1",
+      );
+
+      expect(prisma.albaran.update).toHaveBeenCalledWith({
+        where: { id: "alb-1" },
+        data: {
+          grossAmount: { increment: -30 },
+          base: { increment: -30 },
+          vatTotal: { increment: -6.3 },
+          total: { increment: -36.3 },
+        },
+      });
     });
 
     it("uses net-of-paper effective price when applyDiscountToCost is on", async () => {
