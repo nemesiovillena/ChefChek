@@ -35,8 +35,23 @@ REGLAS IMPORTANTES:
    que SÍ se suma al total: tasas ("T.S.", "Tasa", "Tasa servicio"), portes o transporte, punto verde, envases, recargo de servicio...
    Suelen tener su propia base y su propio tipo de IVA en el desglose. NO son un total: inclúyelos en "products" como una línea más,
    con name = la etiqueta tal cual aparece (ej: "T.S."), quantity 1, unit "ud", unit_price = su importe sin IVA y su vat_percent.
-   Comprobación: la suma de bases de todas las líneas (incluidos estos cargos) debe coincidir con la base total del albarán.
+   Comprobación: la suma de total_price de todas las líneas (incluidos estos cargos) debe coincidir con la base total del albarán.
    El recargo de equivalencia (R.E.) NO es un cargo: no lo incluyas como línea.
+10. DESCUENTOS: total_price es SIEMPRE el importe NETO de la línea, sin IVA y ya descontado. unit_price es el precio de tarifa
+   (antes de descuento), así que con descuento total_price < quantity × unit_price.
+   - Descuento en columna de la propia línea ("Dto.", "% Dto", "Desc."): total_price = el importe neto que imprime la línea.
+   - Descuento en SUBFILA debajo del artículo ("Dto. Fijo", "Dto. Promoción", "Descuento", "Rappel"...), con importe negativo
+     (signo menos delante o DETRÁS: "16,47-" = -16.47): NO es una línea. Réstalo del importe de ese artículo y pon el resultado
+     en su total_price (ej: AQUARIUS 1 × 35,04, subfila "Dto. Fijo 16,47-" → unit_price 35.04, total_price 18.57).
+   - Subfilas solo informativas ("SUBUNIDADES/NETO", "Neto", "Precio neto unidad", desglose por unidad): NO son líneas ni cargos; ignóralas.
+   - Subfila "Punto Verde" (o ecotasa/envase) bajo un artículo: SÍ es una línea propia, name "Punto Verde", quantity = la
+     cantidad del artículo, total_price = el importe que imprime la subfila (no lo recalcules), unit_price = total_price / quantity,
+     y el mismo vat_percent que el artículo al que acompaña.
+11. IVA SIN COLUMNA: si las líneas no imprimen su tipo de IVA, NO lo adivines: dedúcelo del desglose del pie. Agrupa cada artículo
+   con su punto verde y busca qué grupos suman exactamente la base imponible de cada tipo (ej: desglose "10% base 30,00" y
+   "21% base 12,50"; grupos 12,50 / 10,00 / 20,00 → el de 12,50 va al 21% y los de 10,00 + 20,00 = 30,00 al 10%).
+   Antes de responder, comprueba que la suma de total_price por tipo coincide con cada base del desglose. Si el desglose no
+   se lee, recuerda en España: agua mineral 10%, refrescos con azúcar añadido 21%, alcohol 21%, alimentos 10% o 4%.
 
 Responde SOLO con JSON válido en este formato exacto:
 {

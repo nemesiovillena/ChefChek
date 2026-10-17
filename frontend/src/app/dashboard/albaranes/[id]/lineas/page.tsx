@@ -827,7 +827,7 @@ export default function AlbaranLineasPage() {
                                       {formatCurrency(gross)}
                                     </span>
                                     <span className="text-[10px] font-medium text-emerald-700">
-                                      −{discountPct}% dto
+                                      Dto. −{formatCurrency(gross - net!)} (−{discountPct}%)
                                     </span>
                                   </>
                                 )}
