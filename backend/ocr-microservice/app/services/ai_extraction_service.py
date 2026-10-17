@@ -11,6 +11,8 @@ import json
 import time
 from typing import Optional
 
+from .vat_breakdown_reconciliation import reconcile_line_vat_with_breakdown
+
 logger = logging.getLogger(__name__)
 
 # Prompt optimizado para albaranes españoles
@@ -37,21 +39,33 @@ REGLAS IMPORTANTES:
    con name = la etiqueta tal cual aparece (ej: "T.S."), quantity 1, unit "ud", unit_price = su importe sin IVA y su vat_percent.
    Comprobación: la suma de total_price de todas las líneas (incluidos estos cargos) debe coincidir con la base total del albarán.
    El recargo de equivalencia (R.E.) NO es un cargo: no lo incluyas como línea.
-10. DESCUENTOS: total_price es SIEMPRE el importe NETO de la línea, sin IVA y ya descontado. unit_price es el precio de tarifa
-   (antes de descuento), así que con descuento total_price < quantity × unit_price.
-   - Descuento en columna de la propia línea ("Dto.", "% Dto", "Desc."): total_price = el importe neto que imprime la línea.
+10. IMPORTES Y DESCUENTOS: lee, no calcules. Para cada línea:
+   - printed_amount = el número que aparece en la columna IMPORTE de ESA misma fila, tal cual (sin restar descuentos de
+     subfila). Si la fila no imprime importe, null. Es la referencia: NO lo sustituyas por cantidad × precio.
+   - discount_amount = importe en euros de un descuento que va en SUBFILA aparte (ver abajo), en positivo; null si no hay.
+     Si el descuento va en una columna de la propia fila ("Dto.", "% Dto"), el importe impreso ya es el neto: printed_amount =
+     ese importe y discount_amount null.
+   - total_price = importe NETO sin IVA = printed_amount − discount_amount. unit_price es el precio de tarifa.
    - Descuento en SUBFILA debajo del artículo ("Dto. Fijo", "Dto. Promoción", "Descuento", "Rappel"...), con importe negativo
-     (signo menos delante o DETRÁS: "16,47-" = -16.47): NO es una línea. Réstalo del importe de ese artículo y pon el resultado
-     en su total_price (ej: AQUARIUS 1 × 35,04, subfila "Dto. Fijo 16,47-" → unit_price 35.04, total_price 18.57).
-   - Subfilas solo informativas ("SUBUNIDADES/NETO", "Neto", "Precio neto unidad", desglose por unidad): NO son líneas ni cargos; ignóralas.
-   - Subfila "Punto Verde" (o ecotasa/envase) bajo un artículo: SÍ es una línea propia, name "Punto Verde", quantity = la
-     cantidad del artículo, total_price = el importe que imprime la subfila (no lo recalcules), unit_price = total_price / quantity,
-     y el mismo vat_percent que el artículo al que acompaña.
-11. IVA SIN COLUMNA: si las líneas no imprimen su tipo de IVA, NO lo adivines: dedúcelo del desglose del pie. Agrupa cada artículo
+     (signo menos delante o DETRÁS: "16,47-" = -16.47): NO es una línea; va al discount_amount del artículo de encima
+     (ej: AQUARIUS 1 × 35,04 importe 35,04, subfila "Dto. Fijo 16,47-" → printed_amount 35.04, discount_amount 16.47,
+     total_price 18.57).
+   - Subfilas solo informativas ("SUBUNIDADES/NETO", "Neto", "Precio neto unidad", desglose por unidad): NO son líneas ni cargos.
+     Ignora TODOS sus números: ni su cantidad (subunidades por caja) ni su importe (suele sumar ya el punto verde) pertenecen a
+     otra fila.
+   - Subfila "Punto Verde" (o ecotasa/envase) bajo un artículo: SÍ es una línea propia, name "Punto Verde". Esa subfila no imprime
+     cantidad propia: quantity = la CANTIDAD del artículo al que acompaña (cajas), nunca las subunidades de la fila de abajo.
+     printed_amount = su importe impreso (ej: 6 cajas, precio 0,07, importe 0,40 → printed_amount 0.40 aunque 6 × 0,07 = 0,42),
+     total_price = printed_amount, y el mismo vat_percent que su artículo.
+   - Comprobación: si el papel trae subtotales ("TOTAL PRODUCTOS", "TOTAL PUNTO VERDE"), la suma de tus líneas debe darlos.
+11. PIE DEL ALBARÁN: gross_amount, tax_base, vat_breakdown (base, tipo y cuota de cada fila), vat_total y total_amount se COPIAN
+   tal cual están impresos, número a número, aunque no cuadren con tus líneas. NUNCA los recalcules ni los ajustes: se usan
+   para comprobar tus líneas, así que un pie inventado esconde el error.
+12. IVA SIN COLUMNA: si las líneas no imprimen su tipo de IVA, NO lo adivines: dedúcelo del desglose del pie. Agrupa cada artículo
    con su punto verde y busca qué grupos suman exactamente la base imponible de cada tipo (ej: desglose "10% base 30,00" y
    "21% base 12,50"; grupos 12,50 / 10,00 / 20,00 → el de 12,50 va al 21% y los de 10,00 + 20,00 = 30,00 al 10%).
-   Antes de responder, comprueba que la suma de total_price por tipo coincide con cada base del desglose. Si el desglose no
-   se lee, recuerda en España: agua mineral 10%, refrescos con azúcar añadido 21%, alcohol 21%, alimentos 10% o 4%.
+   Si no lo consigues, deja tu mejor estimación en las líneas pero el pie igual que en el papel. Si el desglose no se lee,
+   recuerda en España: agua mineral 10%, refrescos con azúcar añadido 21%, alcohol 21%, alimentos 10% o 4%.
 
 Responde SOLO con JSON válido en este formato exacto:
 {
@@ -73,6 +87,8 @@ Responde SOLO con JSON válido en este formato exacto:
       "unit_price": 5.50,
       "vat_percent": 10.0,
       "price_with_vat": 6.05,
+      "printed_amount": 55.00,
+      "discount_amount": null,
       "total_price": 55.00
     }
   ],
@@ -473,6 +489,30 @@ class AIExtractionService:
             if product["total_price"] == 0 and product["quantity"] > 0 and product["unit_price"] > 0:
                 product["total_price"] = product["quantity"] * product["unit_price"]
 
+            # Neto calculado aquí, no por la IA: importe impreso en la fila menos
+            # el descuento leído. La IA a veces toma como neto una subfila
+            # informativa que ya suma el punto verde ("SUBUNIDADES/NETO") o
+            # recalcula cantidad × precio en vez de leer el importe del papel.
+            discount = abs(float(product.get("discount_amount") or 0))
+            printed = abs(float(product.get("printed_amount") or 0))
+            gross = round(product["quantity"] * product["unit_price"], 2)
+            line_base = printed or gross
+            if 0 < discount < line_base:
+                product["total_price"] = round(line_base - discount, 2)
+            elif printed:
+                product["total_price"] = printed
+            if not discount and product["quantity"] > 0 and product["total_price"] > 0:
+                # Sin descuento, una diferencia de medio céntimo por unidad o
+                # menos es el precio unitario redondeado en el papel (6 × 0,07
+                # impreso como 0,40): manda el importe y se ajusta el precio
+                # para que la línea no aparente un descuento que no existe.
+                rounding_gap = abs(gross - product["total_price"])
+                if 0.005 < rounding_gap <= product["quantity"] * 0.005 + 1e-9:
+                    product["unit_price"] = round(product["total_price"] / product["quantity"], 4)
+                    if product["vat_percent"] is not None:
+                        product["price_with_vat"] = round(product["unit_price"] * (1 + product["vat_percent"] / 100), 4)
+            product["discount_amount"] = discount or None
+
         # Normalizar campos del proveedor
         # Mapear supplier_cif → cif_code (legacy compatibility)
         if data.get("supplier_cif") and not data.get("cif_code"):
@@ -492,5 +532,7 @@ class AIExtractionService:
                 item["rate"] = float(item.get("rate", 0))
                 item["base"] = float(item.get("base", 0))
                 item["amount"] = float(item.get("amount", 0))
+
+        reconcile_line_vat_with_breakdown(data)
 
         return data
