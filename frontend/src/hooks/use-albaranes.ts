@@ -1,8 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { listAlbaranes, type Albaran, type AlbaranFilters, type AlbaranListResponse } from '@/lib/api-albaran';
+import {
+  getAlbaranStatusCounts,
+  listAlbaranes,
+  type Albaran,
+  type AlbaranFilters,
+  type AlbaranListResponse,
+} from '@/lib/api-albaran';
 
 interface UseAlbaranesReturn {
   albaranes: Albaran[];
@@ -22,13 +28,14 @@ export function useAlbaranes(initialFilters: AlbaranFilters = {}): UseAlbaranesR
     queryFn: async () => listAlbaranes(filters),
   });
 
-  const setPage = (page: number) => {
+  // Identidad estable: la página las usa como dependencia de efectos con debounce
+  const setPage = useCallback((page: number) => {
     setFiltersState((prev) => ({ ...prev, page }));
-  };
+  }, []);
 
-  const setFilters = (newFilters: Partial<AlbaranFilters>) => {
+  const setFilters = useCallback((newFilters: Partial<AlbaranFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...newFilters, page: 1 }));
-  };
+  }, []);
 
   return {
     albaranes: data?.data ?? [],
@@ -41,4 +48,16 @@ export function useAlbaranes(initialFilters: AlbaranFilters = {}): UseAlbaranesR
     setPage,
     setFilters,
   };
+}
+
+/**
+ * Números de los botones de estado. La clave cuelga de ['albaranes'], así que
+ * cualquier invalidación del listado (confirmar, borrar, subir) los refresca.
+ */
+export function useAlbaranStatusCounts(since: string) {
+  const { data } = useQuery({
+    queryKey: ['albaranes', 'status-counts', since],
+    queryFn: () => getAlbaranStatusCounts(since),
+  });
+  return data ?? null;
 }
