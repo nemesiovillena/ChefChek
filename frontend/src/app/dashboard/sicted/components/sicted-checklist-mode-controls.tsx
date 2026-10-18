@@ -52,17 +52,31 @@ interface ControlsProps {
   onChange: (d: ChecklistItemDraft) => void;
 }
 
+/**
+ * Pulsar la opción ya elegida la desmarca (conserva la nota): así un toque
+ * equivocado se deshace antes de Guardar, que es cuando la marca se vuelve inalterable.
+ */
+function pick(draft: ChecklistItemDraft, outcome: string, next: ChecklistItemDraft): ChecklistItemDraft {
+  return draft.outcome === outcome ? { note: draft.note } : next;
+}
+
 export function ExecutionControls({ draft, onChange }: ControlsProps) {
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <button type="button" className={toggleBtn(draft.outcome === 'DONE', 'ok')} onClick={() => onChange({ outcome: 'DONE' })}>
+        <button
+          type="button"
+          aria-pressed={draft.outcome === 'DONE'}
+          className={toggleBtn(draft.outcome === 'DONE', 'ok')}
+          onClick={() => onChange(pick(draft, 'DONE', { outcome: 'DONE' }))}
+        >
           <Check className="h-4 w-4" /> Hecho
         </button>
         <button
           type="button"
+          aria-pressed={draft.outcome === 'NOT_DONE'}
           className={toggleBtn(draft.outcome === 'NOT_DONE', 'bad')}
-          onClick={() => onChange({ ...draft, outcome: 'NOT_DONE' })}
+          onClick={() => onChange(pick(draft, 'NOT_DONE', { ...draft, outcome: 'NOT_DONE' }))}
         >
           <X className="h-4 w-4" /> No realizado
         </button>
@@ -83,10 +97,20 @@ export function InspectionControls({ draft, onChange }: ControlsProps) {
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <button type="button" className={toggleBtn(draft.outcome === 'OK', 'ok')} onClick={() => onChange({ outcome: 'OK' })}>
+        <button
+          type="button"
+          aria-pressed={draft.outcome === 'OK'}
+          className={toggleBtn(draft.outcome === 'OK', 'ok')}
+          onClick={() => onChange(pick(draft, 'OK', { outcome: 'OK' }))}
+        >
           <Check className="h-4 w-4" /> Bien
         </button>
-        <button type="button" className={toggleBtn(draft.outcome === 'BAD', 'bad')} onClick={() => onChange({ ...draft, outcome: 'BAD' })}>
+        <button
+          type="button"
+          aria-pressed={draft.outcome === 'BAD'}
+          className={toggleBtn(draft.outcome === 'BAD', 'bad')}
+          onClick={() => onChange(pick(draft, 'BAD', { ...draft, outcome: 'BAD' }))}
+        >
           <X className="h-4 w-4" /> Mal
         </button>
       </div>

@@ -72,6 +72,10 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
   // Una hoja vencida sin completar no se valida: el encargado la justifica con un motivo y queda sellada.
   const overdue = run.status === 'INCOMPLETE';
   const canJustify = !run.supervisedAt && overdue && canSupervise;
+  // Las hojas diarias (periodo '2026-09-21') vienen rellenas con lo esperado. Las semanales,
+  // mensuales y más largas no: sus tareas se hacen en días distintos y por personas distintas,
+  // así que cada una se marca cuando se hace, con su autor y su fecha reales.
+  const isDailySheet = /^\d{4}-\d{2}-\d{2}$/.test(run.periodKey);
 
   // Valor habitual de cada ítem de medición, leído de la plantilla viva (no del
   // snapshot): así un cambio en el Plan se aplica también a la hoja de hoy. Si
@@ -89,7 +93,7 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
    */
   function draftFor(itemId: string): ChecklistItemDraft | undefined {
     if (drafts[itemId]) return drafts[itemId];
-    if (locked || reviewing || run!.currentByItem[itemId]) return undefined;
+    if (!isDailySheet || locked || reviewing || run!.currentByItem[itemId]) return undefined;
     const mode = run!.snapshot.mode;
     if (mode === 'EXECUTION') return { outcome: 'DONE', prefilled: true };
     if (mode === 'INSPECTION') return { outcome: 'OK', prefilled: true };
@@ -256,6 +260,12 @@ export function SictedRunChecklist({ runId, readOnly, confirmValidate, onSupervi
           {run.snapshot.mode === 'MEASUREMENT'
             ? 'Las mediciones vienen con su valor habitual: cambia solo las que marquen distinto y pulsa Guardar.'
             : `Todo viene marcado como ${run.snapshot.mode === 'INSPECTION' ? '«Bien»' : '«Hecho»'}: cambia solo lo que no fue así y pulsa Guardar.`}
+        </p>
+      )}
+
+      {!isDailySheet && !locked && !reviewing && doneCount < totalCount && (
+        <p className="rounded-xl bg-[var(--surface-container)] px-3 py-2 text-sm text-[var(--on-surface-variant)]">
+          Marca cada tarea cuando la hagas y pulsa Guardar; las demás quedan pendientes hasta que se hagan.
         </p>
       )}
 
