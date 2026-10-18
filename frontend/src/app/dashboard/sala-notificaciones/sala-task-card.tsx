@@ -20,7 +20,10 @@ export function SalaTaskCard({ task, onClick }: SalaTaskCardProps) {
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform) }}
+      // Solo traslación: el transform de dnd-kit trae scaleX/scaleY = tamaño del
+      // droppable bajo el cursor ÷ tamaño de la card, y aquí el droppable es la
+      // columna entera → con CSS.Transform la card se estiraba al alto de la columna.
+      style={{ transform: CSS.Translate.toString(transform) }}
       onClick={onClick}
       {...attributes}
       {...listeners}
