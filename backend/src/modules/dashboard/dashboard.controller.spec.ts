@@ -77,6 +77,7 @@ describe("DashboardController", () => {
       expect(mockDashboardService.calculateKPIs).toHaveBeenCalledWith(
         mockReq.tenantId,
         mockReq.user.role,
+        mockReq.user.id,
       );
       expect(result.success).toBe(true);
       expect(result.data).toEqual(mockKPIs);

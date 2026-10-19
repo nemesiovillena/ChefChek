@@ -75,7 +75,7 @@ export class DashboardService {
     };
   }
 
-  async calculateKPIs(tenantId: string, role?: string) {
+  async calculateKPIs(tenantId: string, role?: string, userId?: string) {
     const lastMonth = new Date();
     lastMonth.setMonth(lastMonth.getMonth() - 1);
 
@@ -506,6 +506,7 @@ export class DashboardService {
       tenantId,
       role,
       "recipes.cost",
+      userId,
     );
     if (!canViewCosts) {
       delete (kpis as Partial<typeof kpis>).averageCost;

@@ -68,9 +68,10 @@ export class RecipeCapturePromotionService {
     tenantId: string,
     role: string | undefined,
     captureId: string,
+    userId?: string,
   ): Promise<PromotionResult> {
     assertTenant(tenantId);
-    await this.assertCanCreateRecipes(tenantId, role);
+    await this.assertCanCreateRecipes(tenantId, role, userId);
 
     const capture = await this.prisma.recipeCapture.findFirst({
       where: {
@@ -210,11 +211,22 @@ export class RecipeCapturePromotionService {
   private async assertCanCreateRecipes(
     tenantId: string,
     role: string | undefined,
+    userId?: string,
   ): Promise<void> {
     const allowed =
       (await this.modules.isModuleEnabled(tenantId, "recipes")) &&
-      (await this.roleAccess.isSectionAllowed(tenantId, role, "recipes")) &&
-      (await this.roleAccess.isSectionAllowed(tenantId, role, "recipes.edit"));
+      (await this.roleAccess.isSectionAllowed(
+        tenantId,
+        role,
+        "recipes",
+        userId,
+      )) &&
+      (await this.roleAccess.isSectionAllowed(
+        tenantId,
+        role,
+        "recipes.edit",
+        userId,
+      ));
     if (!allowed) {
       throw new ForbiddenException("No tienes permiso para crear recetas");
     }

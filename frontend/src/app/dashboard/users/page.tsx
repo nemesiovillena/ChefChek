@@ -8,6 +8,8 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useUsers, useUpdateUser, useDeleteUser, User } from '@/hooks/use-users';
 import { Pencil, Trash2, UserRound } from 'lucide-react';
 import UserModal from './components/user-modal';
+import { TeamPositionsTab } from './components/team-positions-tab';
+import { useSetUserPosition, useTeamPositions } from '@/hooks/use-team-positions';
 import PageContainer from '@/components/shared/page-container';
 import PageHeader from '@/components/shared/page-header';
 import {
@@ -20,6 +22,36 @@ export const dynamic = 'force-dynamic';
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+}
+
+/** Desplegable del puesto de una persona (cambia al momento). */
+function UserPositionSelect({ userId }: { userId: string }) {
+  const addNotification = useNotification();
+  const positions = useTeamPositions();
+  const setPosition = useSetUserPosition();
+  const current = positions.data?.find((p) => p.users.some((u) => u.id === userId))?.id ?? '';
+  return (
+    <select
+      aria-label="Puesto"
+      value={current}
+      disabled={positions.isLoading || setPosition.isPending}
+      onChange={async (e) => {
+        try {
+          await setPosition.mutateAsync({ userId, positionId: e.target.value || null });
+        } catch (error: unknown) {
+          addNotification({ type: 'error', title: 'No se pudo cambiar el puesto', message: error instanceof Error ? error.message : '' });
+        }
+      }}
+      className="min-h-[36px] max-w-[160px] rounded-md border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 text-sm text-[var(--on-surface)]"
+    >
+      <option value="">Sin puesto</option>
+      {positions.data?.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.title}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 /** Tarjeta de contexto para el diálogo de borrado: ancla la confirmación al usuario real. */
@@ -55,6 +87,8 @@ export default function UsersPage() {
   const deleteMutation = useDeleteUser();
 
   const [showModal, setShowModal] = useState(false);
+  // Pestañas de Equipo: personas o puestos (y qué ve cada puesto).
+  const [view, setView] = useState<'personas' | 'puestos'>('personas');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   // Enlace directo a la ficha de una persona (p. ej. desde Fichar → Empleados):
   // ?usuario=<id>&pestana=laboral abre su ficha en esa pestaña.
@@ -132,16 +166,40 @@ export default function UsersPage() {
         <PageHeader
           title="Gestión de usuarios"
           actions={
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-              Crear usuario
-            </button>
+            view === 'personas' ? (
+              <button
+                onClick={handleCreate}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Crear usuario
+              </button>
+            ) : undefined
           }
         />
 
-        <div className={tableCardClass}>
+        {/* role="tablist" en un <div>: globals.css oculta los <nav> no fijos. */}
+        <div role="tablist" aria-label="Equipo" className="mb-4 flex gap-2">
+          {(['personas', 'puestos'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              className={`min-h-[44px] rounded-full px-4 text-sm font-medium ${
+                view === v
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-[var(--on-surface)]'
+              }`}
+            >
+              {v === 'personas' ? 'Personas' : 'Puestos'}
+            </button>
+          ))}
+        </div>
+
+        {view === 'puestos' && <TeamPositionsTab />}
+
+        <div className={view === 'personas' ? tableCardClass : 'hidden'}>
           <div className={tableScrollClass}>
             <table className={tableClass}>
               <thead className={theadClass}>
@@ -149,6 +207,7 @@ export default function UsersPage() {
                   <th className={thBaseClass}>Usuario</th>
                   <th className={thBaseClass}>Email</th>
                   <th className={thBaseClass}>Rol</th>
+                  <th className={thBaseClass}>Puesto</th>
                   <th className={thBaseClass}>Estado</th>
                   <th className={thBaseClass}>Fecha de creación</th>
                   <th className={thActionsClass}>Acciones</th>
@@ -157,13 +216,13 @@ export default function UsersPage() {
               <tbody className={tbodyClass}>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       Cargando...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       No se encontraron usuarios
                     </td>
                   </tr>
@@ -195,6 +254,9 @@ export default function UsersPage() {
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                           {targetUser.role.replace('_', ' ')}
                         </span>
+                      </td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <UserPositionSelect userId={targetUser.id} />
                       </td>
                       <td className="px-3 py-3 whitespace-nowrap">
                         <button

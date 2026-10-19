@@ -14,6 +14,8 @@ import { UpdateRoleAccessDto } from "./dto/role-access.dto";
 
 const CONFIG_PREFIX = "roleAccess.";
 const CONFIG_CATEGORY = "ROLE_ACCESS";
+/** Permisos por puesto: `positionAccess.{puestoId}.{sección}` = "true"/"false". */
+const POSITION_PREFIX = "positionAccess.";
 
 export interface RoleAccessConfigResponse {
   sections: {
@@ -85,6 +87,28 @@ export class RoleAccessService {
   async getSectionMapForUserRole(
     tenantId: string,
     role: string | undefined,
+    userId?: string,
+  ): Promise<Record<string, boolean> | null> {
+    const map = await this.getRoleOnlySectionMap(tenantId, role);
+    if (!map || !userId) {
+      return map;
+    }
+    // El puesto solo resta: lo que su puesto oculta, no se ve aunque el rol lo
+    // permita. Sin puesto vigente no cambia nada.
+    const denied = await this.getDeniedSectionsForUserPosition(
+      tenantId,
+      userId,
+    );
+    for (const key of denied) {
+      map[key] = false;
+    }
+    return map;
+  }
+
+  /** Mapa solo por rol (sin puesto). */
+  private async getRoleOnlySectionMap(
+    tenantId: string,
+    role: string | undefined,
   ): Promise<Record<string, boolean> | null> {
     if (!role) {
       return null;
@@ -116,16 +140,20 @@ export class RoleAccessService {
     return modules.some((m) => m.id === moduleId && m.enabled);
   }
 
-  /** Whether `role` may access `sectionKey` in `tenantId`. */
+  /**
+   * Whether `role` may access `sectionKey` in `tenantId`. Con `userId` también
+   * se aplica lo que oculte el puesto vigente de ese usuario.
+   */
   async isSectionAllowed(
     tenantId: string,
     role: string | undefined,
     sectionKey: string,
+    userId?: string,
   ): Promise<boolean> {
     if (role && SECTION_BYPASS_ROLES.includes(role)) {
       return true;
     }
-    const map = await this.getSectionMapForUserRole(tenantId, role);
+    const map = await this.getSectionMapForUserRole(tenantId, role, userId);
     if (!map) {
       return false;
     }
@@ -198,5 +226,77 @@ export class RoleAccessService {
     }
 
     return this.getRoleAccessConfig(tenantId);
+  }
+
+  // ── Permisos por puesto ─────────────────────────────────────────────────
+
+  /** Secciones que oculta el puesto vigente (no archivado) del usuario. */
+  async getDeniedSectionsForUserPosition(
+    tenantId: string,
+    userId: string,
+  ): Promise<string[]> {
+    const assignment = await this.prisma.sictedJobAssignment.findFirst({
+      where: { tenantId, userId, until: null, profile: { archivedAt: null } },
+      select: { profileId: true },
+    });
+    if (!assignment) {
+      return [];
+    }
+    const access = await this.getPositionAccess(tenantId, assignment.profileId);
+    return Object.entries(access)
+      .filter(([, allowed]) => !allowed)
+      .map(([key]) => key);
+  }
+
+  /** Lo configurado para un puesto: `{ 'recipes.drinks': false, ... }` (sin fila = permitido). */
+  async getPositionAccess(
+    tenantId: string,
+    positionId: string,
+  ): Promise<Record<string, boolean>> {
+    const prefix = `${POSITION_PREFIX}${positionId}.`;
+    const rows = await this.prisma.configuration.findMany({
+      where: { tenantId, key: { startsWith: prefix } },
+    });
+    const access: Record<string, boolean> = {};
+    for (const row of rows) {
+      const key = row.key.slice(prefix.length);
+      if (SECTION_KEYS.has(key)) {
+        access[key] = row.value === "true";
+      }
+    }
+    return access;
+  }
+
+  /** Guarda qué secciones ve un puesto. Solo claves del registro. */
+  async updatePositionAccess(
+    tenantId: string,
+    positionId: string,
+    userId: string,
+    flags: Record<string, unknown>,
+  ): Promise<Record<string, boolean>> {
+    for (const [sectionKey, value] of Object.entries(flags)) {
+      if (!SECTION_KEYS.has(sectionKey)) {
+        throw new BadRequestException(`Unknown section key: '${sectionKey}'`);
+      }
+      if (typeof value !== "boolean") {
+        throw new BadRequestException(
+          `Value for '${sectionKey}' must be a boolean`,
+        );
+      }
+      const key = `${POSITION_PREFIX}${positionId}.${sectionKey}`;
+      await this.prisma.configuration.upsert({
+        where: { tenantId_key: { tenantId, key } },
+        create: {
+          tenantId,
+          key,
+          value: String(value),
+          category: CONFIG_CATEGORY,
+          description: `Position access for ${positionId}: ${sectionKey}`,
+          updatedBy: userId,
+        },
+        update: { value: String(value), updatedBy: userId },
+      });
+    }
+    return this.getPositionAccess(tenantId, positionId);
   }
 }
