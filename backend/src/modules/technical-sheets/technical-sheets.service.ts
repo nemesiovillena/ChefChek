@@ -39,14 +39,15 @@ export class TechnicalSheetsService {
     tenantId: string,
     role: string | undefined,
     dto: GenerateSheetDto | GenerateBatchDto,
+    userId?: string,
   ): Promise<void> {
     if ((dto as GenerateSheetDto).recipeCardOnly) {
       return;
     }
 
     const [canFicha, canCost] = await Promise.all([
-      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.ficha"),
-      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.cost"),
+      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.ficha", userId),
+      this.roleAccess.isSectionAllowed(tenantId, role, "recipes.cost", userId),
     ]);
 
     if (!canFicha) {
@@ -161,7 +162,7 @@ export class TechnicalSheetsService {
     dto: GenerateSheetDto,
     role?: string,
   ): Promise<Buffer> {
-    await this.assertPdfOptionsAllowed(tenantId, role, dto);
+    await this.assertPdfOptionsAllowed(tenantId, role, dto, userId);
 
     const recipe = await this.prisma.recipe.findFirst({
       where: { id: dto.recipeId, tenantId },
@@ -225,7 +226,7 @@ export class TechnicalSheetsService {
     dto: GenerateBatchDto,
     role?: string,
   ): Promise<Buffer> {
-    await this.assertPdfOptionsAllowed(tenantId, role, dto);
+    await this.assertPdfOptionsAllowed(tenantId, role, dto, userId);
 
     const recipes = await this.prisma.recipe.findMany({
       where: {

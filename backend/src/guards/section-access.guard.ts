@@ -96,7 +96,12 @@ export class SectionAccessGuard implements CanActivate {
     const allowed = (key: string) => {
       let hit = cache.get(key);
       if (!hit) {
-        hit = this.roleAccess.isSectionAllowed(tenantId, role, key);
+        hit = this.roleAccess.isSectionAllowed(
+          tenantId,
+          role,
+          key,
+          request.user?.id,
+        );
         cache.set(key, hit);
       }
       return hit;

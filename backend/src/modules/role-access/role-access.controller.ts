@@ -24,9 +24,11 @@ export class RoleAccessController {
     const role: string = req.user?.role;
     // USER/VIEWER: su mapa; roles derivados (USER_CUINER): el heredado.
     // ADMIN and above see everything; return an empty map (all allowed).
+    // También aplica lo que oculte el puesto del usuario.
     const map = await this.roleAccessService.getSectionMapForUserRole(
       req.tenantId,
       role,
+      req.user?.id,
     );
     return map ?? {};
   }

@@ -37,6 +37,7 @@ export class AlertsController {
       req.tenantId,
       req.user?.role,
       "recipes.cost",
+      req.user?.id,
     );
     const result = await this.notificationsService.getUserNotifications(
       req.tenantId,

@@ -47,6 +47,7 @@ export class DashboardController {
     return await this.dashboardService.calculateKPIs(
       req.tenantId,
       req.user?.role,
+      req.user?.id,
     );
   }
 

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Fragment, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
@@ -46,6 +48,13 @@ export function RoleAccessPanel() {
         Elige qué apartados ven los roles <strong>Usuario</strong> y <strong>Visor</strong> de tu
         organización. No afecta a administradores. Los cambios se aplican la próxima vez que el
         usuario recargue.
+      </p>
+      <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
+        Para limitar por puesto (Cocina, Barra, Sala…), ve a{' '}
+        <Link href="/dashboard/users" className="text-[var(--primary)] underline">
+          Equipo → Puestos
+        </Link>
+        .
       </p>
 
       {isLoading || !data ? (
