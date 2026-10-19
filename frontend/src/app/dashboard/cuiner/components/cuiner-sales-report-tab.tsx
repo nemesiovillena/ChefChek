@@ -40,7 +40,8 @@ const labelCls = 'flex min-w-[9rem] flex-1 flex-col gap-1 text-sm';
 export function CuinerSalesReportTab() {
   const notify = useNotification();
   const [preset, setPreset] = useState<RangePreset>('thisMonth');
-  const [custom, setCustom] = useState(() => presetRange('thisMonth'));
+  // Las dos fechas siempre a la vista: el periodo rápido solo las rellena.
+  const [range, setRange] = useState(() => presetRange('thisMonth'));
   const [groupBy, setGroupBy] = useState<SalesReportGroupBy>('day');
   const [level, setLevel] = useState(1);
   const [output, setOutput] = useState<Output>('screen');
@@ -49,7 +50,6 @@ export function CuinerSalesReportTab() {
   const [shown, setShown] = useState<SalesReportQuery | null>(null);
   const report = useCuinerSalesReport(shown);
 
-  const range = preset === 'custom' ? custom : presetRange(preset);
   const draft: SalesReportQuery = { ...range, groupBy, level };
 
   async function generate() {
@@ -92,9 +92,11 @@ export function CuinerSalesReportTab() {
             value={preset}
             onChange={(e) => {
               const next = e.target.value as RangePreset;
-              if (next === 'custom') setCustom(range);
               setPreset(next);
-              setGroupBy(defaultGroupBy(next));
+              if (next !== 'custom') {
+                setRange(presetRange(next));
+                setGroupBy(defaultGroupBy(next));
+              }
             }}
           >
             {RANGE_PRESETS.map((p) => (
@@ -104,22 +106,32 @@ export function CuinerSalesReportTab() {
             ))}
           </select>
         </label>
-        {preset === 'custom' ? (
-          <>
-            <label className={labelCls}>
-              Desde
-              <input type="date" className={inputCls} value={custom.from} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} />
-            </label>
-            <label className={labelCls}>
-              Hasta
-              <input type="date" className={inputCls} value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} />
-            </label>
-          </>
-        ) : (
-          <p className="min-w-[9rem] flex-1 pb-3 text-sm text-muted-foreground">
-            {range.from === range.to ? formatDay(range.from) : `${formatDay(range.from)} – ${formatDay(range.to)}`}
-          </p>
-        )}
+        <label className={labelCls}>
+          Desde
+          <input
+            type="date"
+            className={inputCls}
+            value={range.from}
+            max={range.to}
+            onChange={(e) => {
+              setRange((r) => ({ ...r, from: e.target.value }));
+              setPreset('custom');
+            }}
+          />
+        </label>
+        <label className={labelCls}>
+          Hasta
+          <input
+            type="date"
+            className={inputCls}
+            value={range.to}
+            min={range.from}
+            onChange={(e) => {
+              setRange((r) => ({ ...r, to: e.target.value }));
+              setPreset('custom');
+            }}
+          />
+        </label>
         <label className={labelCls}>
           Agrupar
           <select className={inputCls} value={groupBy} onChange={(e) => setGroupBy(e.target.value as SalesReportGroupBy)}>

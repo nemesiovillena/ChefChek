@@ -14,7 +14,7 @@ export const RANGE_PRESETS = [
   { id: 'lastMonth', label: 'Mes pasado' },
   { id: 'thisYear', label: 'Este año' },
   { id: 'lastYear', label: 'Año pasado' },
-  { id: 'custom', label: 'Fechas a mano' },
+  { id: 'custom', label: 'Entre dos fechas' },
 ] as const;
 export type RangePreset = (typeof RANGE_PRESETS)[number]['id'];
 
