@@ -9,7 +9,7 @@ import { useProductSearch } from '@/hooks/use-product-search';
 import type { Product } from '@/hooks/use-products';
 import { useCuinerDishes, useDeleteCuinerDishMap, useServingMeasures, useSetCuinerDishMap } from '@/hooks/use-cuiner';
 import { CUINER_DISH_TIPO_LABELS, type CuinerDishRow, type CuinerDishTipo } from '@/lib/cuiner-types';
-import { formatMeasure, measuresForProduct, suggestMeasure } from '@/lib/cuiner-serving-measure-suggestion';
+import { formatMeasure, measuresForProduct, needsAvgUnitWeight, suggestMeasure } from '@/lib/cuiner-serving-measure-suggestion';
 import { CuinerBulkLinkPanel } from './cuiner-bulk-link-panel';
 import { Pager, inputCls } from './cuiner-link-cell';
 
@@ -33,8 +33,8 @@ function ServingMeasureStep({
 }) {
   const measures = useServingMeasures();
   const options = useMemo(
-    () => measuresForProduct(measures.data ?? [], product.referenceUnit),
-    [measures.data, product.referenceUnit],
+    () => measuresForProduct(measures.data ?? [], product.referenceUnit, product.avgUnitWeight),
+    [measures.data, product.referenceUnit, product.avgUnitWeight],
   );
   const suggested = useMemo(
     () => suggestMeasure(dish.nombre, options, `${product.name} ${product.category?.name ?? ''}`),
@@ -65,6 +65,12 @@ function ServingMeasureStep({
             </option>
           ))}
         </select>
+      )}
+      {!measures.isLoading && needsAvgUnitWeight(measures.data ?? [], product.referenceUnit, product.avgUnitWeight) && (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          Para venderlo por piezas (medida en unidades), indica su «Peso medio por pieza» en la ficha del artículo, pestaña Formato y
+          precio.
+        </p>
       )}
       {!measures.isLoading && options.length === 0 && (
         <p className="text-sm text-gray-500">

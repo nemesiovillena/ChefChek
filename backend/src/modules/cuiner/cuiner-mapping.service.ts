@@ -256,7 +256,12 @@ export class CuinerMappingService {
     } else {
       const product = await this.prisma.product.findFirst({
         where: { id: dto.productId as string, tenantId, deletedAt: null },
-        select: { id: true, name: true, referenceUnit: true },
+        select: {
+          id: true,
+          name: true,
+          referenceUnit: true,
+          avgUnitWeight: true,
+        },
       });
       if (!product) {
         throw new NotFoundException("Artículo no encontrado");

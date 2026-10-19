@@ -20,6 +20,7 @@ export interface BulkProduct {
   name: string;
   referenceUnit: string;
   categoryName: string | null;
+  avgUnitWeight?: number | null;
 }
 
 export interface BulkGroup {

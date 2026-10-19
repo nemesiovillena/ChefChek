@@ -93,6 +93,7 @@ export interface CuinerBulkProduct {
   name: string;
   referenceUnit: string;
   categoryName: string | null;
+  avgUnitWeight?: number | null;
 }
 
 /** Platos «MARCA + MEDIDA» sin enlazar que comparten marca (BARCELO …). */
