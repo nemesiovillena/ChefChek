@@ -1,5 +1,6 @@
 import {
   buildPendingNotes,
+  getPendingReason,
   PromotableIngredient,
   splitIngredientsForRecipe,
 } from "./capture-promotion";
@@ -116,5 +117,27 @@ describe("buildPendingNotes", () => {
 
   it("no genera notas si todo pasó como línea", () => {
     expect(buildPendingNotes([])).toBeNull();
+  });
+});
+
+describe("getPendingReason", () => {
+  it.each([
+    [
+      "piezas contra un artículo por kilo",
+      { quantity: 3, unit: "ud", matchedProduct: product("kilo") },
+      "unidad-incompatible",
+    ],
+    ["sin cantidad", { quantity: null, unit: null }, "sin-cantidad"],
+    ["cantidad sin unidad", { unit: null }, "sin-cantidad"],
+    ["sin artículo", { matchedProduct: null }, "sin-articulo"],
+    [
+      "gramos contra un artículo por kilo",
+      { quantity: 15, unit: "g", matchedProduct: product("kilo") },
+      null,
+    ],
+  ])("%s", (_name, overrides, expected) => {
+    expect(
+      getPendingReason(ingredient(overrides as Partial<PromotableIngredient>)),
+    ).toBe(expected);
   });
 });

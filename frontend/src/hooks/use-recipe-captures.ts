@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import type {
+  CaptureIngredientChanges,
   PromotionResult,
   RecipeCapture,
   RecipeCaptureListItem,
@@ -98,13 +99,13 @@ export function useUpdateCaptureIngredient() {
   return useMutation<
     RecipeCapture,
     Error,
-    { captureId: string; ingredientId: string; matchedProductId: string | null }
+    { captureId: string; ingredientId: string; changes: CaptureIngredientChanges }
   >({
-    mutationFn: async ({ captureId, ingredientId, matchedProductId }) =>
+    mutationFn: async ({ captureId, ingredientId, changes }) =>
       (
         await apiClient.patch<RecipeCapture>(
           `${BASE_URL}/${captureId}/ingredients/${ingredientId}`,
-          { matchedProductId },
+          changes,
         )
       ).data,
     onSuccess: (_, { captureId }) =>

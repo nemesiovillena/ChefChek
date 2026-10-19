@@ -12,14 +12,15 @@ import {
   useUpdateCaptureIngredient,
 } from '@/hooks/use-recipe-captures';
 import { parseSteps } from '@/app/dashboard/recipes/components/elaboration-step-editor';
+import type { CaptureIngredientChanges } from '@/lib/recipe-capture-types';
 import { CaptureIngredientRow, willBeRecipeLine } from './capture-ingredient-row';
 
 const SECTION_TITLE = 'text-sm font-semibold text-[var(--on-surface)]';
 
 /**
- * Revisión de una captura: muestra la receta que entendió la IA y deja
- * vincular cada ingrediente a un artículo antes de pasarla a Recetas. El
- * contenido (nombre, pasos, cantidades) se corrige después, ya en Recetas.
+ * Revisión de una captura: muestra la receta que entendió la IA y, antes de
+ * pasarla a Recetas, deja vincular cada ingrediente y corregir su cantidad y unidad; el resto (nombre,
+ * pasos) se corrige después, ya en Recetas.
  */
 export function RecipeCaptureReview({ captureId, onClose }: { captureId: string; onClose: () => void }) {
   const router = useRouter();
@@ -62,13 +63,13 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
     );
   }
 
-  const handleChangeProduct = async (ingredientId: string, matchedProductId: string | null) => {
+  const handleChangeIngredient = async (ingredientId: string, changes: CaptureIngredientChanges) => {
     try {
-      await updateIngredient.mutateAsync({ captureId, ingredientId, matchedProductId });
+      await updateIngredient.mutateAsync({ captureId, ingredientId, changes });
     } catch (e) {
       addNotification({
         type: 'error',
-        title: 'No se pudo cambiar el artículo',
+        title: 'No se pudo guardar el ingrediente',
         message: e instanceof Error ? e.message : 'Error desconocido',
       });
     }
@@ -243,7 +244,7 @@ export function RecipeCaptureReview({ captureId, onClose }: { captureId: string;
                 ingredient={ingredient}
                 editable={editable}
                 saving={updateIngredient.isPending}
-                onChangeProduct={(productId) => handleChangeProduct(ingredient.id, productId)}
+                onChange={(changes) => handleChangeIngredient(ingredient.id, changes)}
               />
             ))}
           </ul>
