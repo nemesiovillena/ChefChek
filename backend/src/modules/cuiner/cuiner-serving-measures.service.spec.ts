@@ -6,6 +6,14 @@ import {
   DEFAULT_SERVING_MEASURES,
 } from "./cuiner-serving-measures.service";
 
+const unidad = {
+  id: "m-ud",
+  tenantId: "t1",
+  name: "Unidad",
+  quantity: 1,
+  unit: "ud",
+  keywords: [],
+};
 const cana = {
   id: "m-cana",
   tenantId: "t1",
@@ -23,8 +31,9 @@ function makePrisma(opts: { measureCount?: number; linked?: number } = {}) {
         count: DEFAULT_SERVING_MEASURES.length,
       })),
       findMany: jest.fn(async () => [cana]),
-      findFirst: jest.fn(async (args: { where: { id: string } }) =>
-        args.where.id === cana.id ? cana : null,
+      findFirst: jest.fn(
+        async (args: { where: { id: string } }) =>
+          ({ [cana.id]: cana, [unidad.id]: unidad })[args.where.id] ?? null,
       ),
       create: jest.fn(async (args: { data: object }) => ({
         id: "new",
@@ -58,6 +67,18 @@ function makePrisma(opts: { measureCount?: number; linked?: number } = {}) {
               id: "lata",
               name: "Coca-Cola lata",
               referenceUnit: "unidad",
+            },
+            vieira: {
+              id: "vieira",
+              name: "Vieira",
+              referenceUnit: "kilo",
+              avgUnitWeight: null,
+            },
+            zamburina: {
+              id: "zamburina",
+              name: "Zamburiña",
+              referenceUnit: "kilo",
+              avgUnitWeight: 0.04,
             },
           })[args.where.id] ?? null,
       ),
@@ -152,6 +173,25 @@ describe("CuinerMappingService.setDishMap con medida", () => {
         servingMeasureId: "m-cana",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("por unidades sobre artículo en kilos: vale con peso medio, si no pide rellenarlo", async () => {
+    const prisma = makePrisma();
+    await services(prisma).mapping.setDishMap("t1", {
+      tipo: "P",
+      producto: "00481",
+      productId: "zamburina",
+      servingMeasureId: "m-ud",
+    });
+    expect(prisma.cuinerDishMap.upsert).toHaveBeenCalled();
+    await expect(
+      services(makePrisma()).mapping.setDishMap("t1", {
+        tipo: "P",
+        producto: "00481",
+        productId: "vieira",
+        servingMeasureId: "m-ud",
+      }),
+    ).rejects.toThrow(/peso medio por unidad/);
   });
 
   it("rechaza medida si el plato va a receta", async () => {

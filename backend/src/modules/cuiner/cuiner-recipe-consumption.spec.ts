@@ -3,6 +3,7 @@ import {
   ConsumptionRecipe,
   directProductFormats,
   explodeRecipe,
+  measureToReferenceQuantity,
   subRecipeFraction,
 } from "./cuiner-recipe-consumption";
 
@@ -157,6 +158,33 @@ describe("directProductFormats", () => {
     expect(
       directProductFormats(100, cafe, { quantity: 7, unit: "g" }),
     ).toBeCloseTo(0.7, 10);
+  });
+
+  it("una zamburiña de un artículo en kilos descuenta su peso medio", () => {
+    const vieira = product({
+      id: "vieira",
+      referenceUnit: "kilo",
+      unitSize: 1,
+      avgUnitWeight: 0.04,
+    });
+    // 25 piezas de 40 g = 1 kg
+    expect(
+      directProductFormats(25, vieira, { quantity: 1, unit: "ud" }),
+    ).toBeCloseTo(1, 10);
+  });
+
+  it("vender por unidades sin peso medio no descuenta (nunca 1 kg por pieza)", () => {
+    const vieira = product({
+      id: "vieira",
+      referenceUnit: "kilo",
+      unitSize: 1,
+    });
+    expect(directProductFormats(25, vieira, { quantity: 1, unit: "ud" })).toBe(
+      0,
+    );
+    expect(
+      measureToReferenceQuantity({ quantity: 1, unit: "ud" }, vieira),
+    ).toBeNull();
   });
 
   it("sin medida mantiene 1 unidad de referencia por venta", () => {

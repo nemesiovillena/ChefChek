@@ -75,6 +75,8 @@ export interface Product {
   yieldFactor: number;
   grossWeight?: number | null;
   netWeight?: number | null;
+  /** kg o L de una pieza: para vender o recibir por unidades lo que se compra por kilo. */
+  avgUnitWeight?: number | null;
   categoryId?: string;
   supplierId?: string;
   allergens: number[];
@@ -137,6 +139,7 @@ export interface CreateProductData {
   yieldFactor?: number;
   grossWeight?: number;
   netWeight?: number;
+  avgUnitWeight?: number | null;
   allergens?: number[];
   iva?: number;
   qr?: string;

@@ -9,6 +9,7 @@ import {
   ConsumptionProduct,
   ConsumptionRecipe,
   directProductFormats,
+  measureToReferenceQuantity,
   explodeRecipe,
 } from "./cuiner-recipe-consumption";
 
@@ -293,14 +294,18 @@ export class CuinerStockService {
           totals.set(productId, (totals.get(productId) ?? 0) + qty),
         );
       } else if (product && product.tracksInventory) {
+        const measure = map?.servingMeasureId
+          ? measures.get(map.servingMeasureId)
+          : null;
+        if (measure && measureToReferenceQuantity(measure, product) === null) {
+          warnings.add(
+            `«${product.name}» se vende por unidades pero no tiene peso medio por unidad: esas ventas no descuentan stock hasta que lo indiques en el artículo`,
+          );
+        }
         totals.set(
           product.id,
           (totals.get(product.id) ?? 0) +
-            directProductFormats(
-              line.unidades,
-              product,
-              map?.servingMeasureId ? measures.get(map.servingMeasureId) : null,
-            ),
+            directProductFormats(line.unidades, product, measure),
         );
       }
       plan.appliedLineIds.push(line.id);
@@ -371,6 +376,7 @@ export class CuinerStockService {
         referenceUnit: true,
         unitSize: true,
         tracksInventory: true,
+        avgUnitWeight: true,
         purchaseFormat: true,
       },
     });

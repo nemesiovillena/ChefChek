@@ -59,7 +59,7 @@ function GroupProductPicker({
               type="button"
               className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800"
               onClick={() =>
-                onPick({ id: p.id, name: p.name, referenceUnit: p.referenceUnit, categoryName: p.category?.name ?? null })
+                onPick({ id: p.id, name: p.name, referenceUnit: p.referenceUnit, categoryName: p.category?.name ?? null, avgUnitWeight: p.avgUnitWeight ?? null })
               }
             >
               {p.name} <span className="text-xs text-muted-foreground">· {p.referenceUnit}</span>
@@ -100,7 +100,7 @@ export function CuinerBulkLinkPanel({ onClose }: { onClose: () => void }) {
 
   /** Medida que delata el nombre del plato para ese artículo (id), o '' si ninguna. */
   const suggestedMeasureId = (product: CuinerBulkProduct, dish: CuinerBulkGroup['dishes'][number]) => {
-    const options = measuresForProduct(allMeasures, product.referenceUnit);
+    const options = measuresForProduct(allMeasures, product.referenceUnit, product.avgUnitWeight);
     return suggestMeasure(dish.nombre, options, `${product.name} ${product.categoryName ?? ''}`)?.id ?? '';
   };
 
@@ -173,7 +173,7 @@ export function CuinerBulkLinkPanel({ onClose }: { onClose: () => void }) {
       <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
         {groups.map((group) => {
           const { product, selected } = stateOf(group);
-          const options = product ? measuresForProduct(allMeasures, product.referenceUnit) : [];
+          const options = product ? measuresForProduct(allMeasures, product.referenceUnit, product.avgUnitWeight) : [];
           return (
             <li key={group.brand} className="space-y-2 py-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

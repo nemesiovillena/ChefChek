@@ -13,6 +13,7 @@ import {
   IsIn,
   IsInt,
   IsDateString,
+  ValidateIf,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 import { STORAGE_CONDITIONS } from "../../../common/constants/storage-condition.constant";
@@ -126,6 +127,18 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   netWeight?: number;
+
+  /**
+   * Peso (kg) o volumen (L) medio de una pieza, para artículos que se compran
+   * por kilo o litro pero se venden o reciben por unidades (zamburiña 0,04 kg).
+   * Lo usa la recepción ud↔kg y la medida «Unidad» al vender por Cuiner.
+   */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsNumber()
+  @Min(0.001)
+  @Max(25)
+  avgUnitWeight?: number | null;
 
   @IsOptional()
   @IsNumber()
@@ -304,6 +317,18 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0)
   netWeight?: number;
+
+  /**
+   * Peso (kg) o volumen (L) medio de una pieza, para artículos que se compran
+   * por kilo o litro pero se venden o reciben por unidades (zamburiña 0,04 kg).
+   * Lo usa la recepción ud↔kg y la medida «Unidad» al vender por Cuiner.
+   */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsNumber()
+  @Min(0.001)
+  @Max(25)
+  avgUnitWeight?: number | null;
 
   @IsOptional()
   @IsNumber()

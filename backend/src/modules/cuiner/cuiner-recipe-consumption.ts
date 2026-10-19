@@ -1,4 +1,7 @@
-import { getUnitToReferenceFactor } from "../../common/utils/product-costing.util";
+import {
+  getUnitMeta,
+  getUnitToReferenceFactor,
+} from "../../common/utils/product-costing.util";
 
 /**
  * Consumo de stock que provoca vender platos: descompone recetas (con sus
@@ -21,6 +24,8 @@ export interface ConsumptionProduct {
   referenceUnit: string;
   unitSize: number;
   tracksInventory: boolean;
+  /** kg o L de una pieza (zamburiña 0,04): puente para vender por unidades. */
+  avgUnitWeight?: number | null;
 }
 
 export interface ConsumptionRecipe {
@@ -128,10 +133,47 @@ export interface ConsumptionMeasure {
 }
 
 /**
+ * Cantidad, en la unidad de referencia del artículo, que sale en una venta
+ * con esa medida. Misma magnitud: conversión directa (4 cl → 0,04 L). Medida
+ * en unidades sobre un artículo en kilos o litros: piezas × peso medio por
+ * pieza del artículo. Devuelve null si no se puede convertir (magnitudes
+ * distintas sin peso medio): nunca se inventa 1 kilo por pieza.
+ */
+export function measureToReferenceQuantity(
+  measure: ConsumptionMeasure,
+  product: Pick<ConsumptionProduct, "referenceUnit" | "avgUnitWeight">,
+): number | null {
+  const m = getUnitMeta(measure.unit);
+  const ref = getUnitMeta(product.referenceUnit);
+  if (!m || !ref) {
+    return null;
+  }
+  if (m.category === ref.category) {
+    return (
+      measure.quantity *
+      getUnitToReferenceFactor(measure.unit, product.referenceUnit)
+    );
+  }
+  const weight = product.avgUnitWeight ?? 0;
+  if (m.category === "unidad" && ref.category !== "unidad" && weight > 0) {
+    const base = ref.category === "peso" ? "kg" : "l";
+    return (
+      measure.quantity *
+      m.toBase *
+      weight *
+      getUnitToReferenceFactor(base, product.referenceUnit)
+    );
+  }
+  return null;
+}
+
+/**
  * Formatos que consume vender `units` unidades de un artículo de venta
  * directa. Sin medida, 1 unidad vendida = 1 ud de referencia (botellín,
  * lata). Con medida, cada venta consume esa cantidad pasada a la unidad de
- * referencia del artículo (chupito 4 cl de una botella en litros = 0,04 L).
+ * referencia del artículo (chupito 4 cl de una botella en litros = 0,04 L;
+ * una zamburiña de un artículo en kilos = su peso medio). Si la medida no se
+ * puede convertir no descuenta nada (el servicio avisa).
  */
 export function directProductFormats(
   units: number,
@@ -140,8 +182,7 @@ export function directProductFormats(
 ): number {
   const unitSize = product.unitSize > 0 ? product.unitSize : 1;
   const perSale = measure
-    ? measure.quantity *
-      getUnitToReferenceFactor(measure.unit, product.referenceUnit)
+    ? (measureToReferenceQuantity(measure, product) ?? 0)
     : getUnitToReferenceFactor("ud", product.referenceUnit);
   return (units * perSale) / unitSize;
 }
