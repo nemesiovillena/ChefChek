@@ -49,6 +49,15 @@ export class RecipesController {
     private readonly bunny: BunnyStorageService,
   ) {}
 
+  /** Whether the request's role may see drink recipes (Bebidas tab). */
+  private canViewDrinks(req: any): Promise<boolean> {
+    return this.roleAccess.isSectionAllowed(
+      req.tenantId,
+      req.user?.role,
+      "recipes.drinks",
+    );
+  }
+
   /** Whether the request's role may receive cost/pricing figures in payloads. */
   private canViewCost(req: any): Promise<boolean> {
     return this.roleAccess.isSectionAllowed(
@@ -88,6 +97,7 @@ export class RecipesController {
       query,
       await this.canViewCost(req),
       req.user?.role,
+      await this.canViewDrinks(req),
     );
     return {
       success: true,
@@ -108,6 +118,7 @@ export class RecipesController {
     const data = await this.recipesService.findAllOptions(
       tenantId,
       await this.canViewCost(req),
+      await this.canViewDrinks(req),
     );
     return {
       success: true,
@@ -154,6 +165,7 @@ export class RecipesController {
       tenantId,
       id,
       await this.canViewCost(req),
+      await this.canViewDrinks(req),
     );
     return {
       success: true,

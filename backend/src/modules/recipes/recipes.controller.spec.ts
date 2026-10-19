@@ -114,6 +114,7 @@ describe("RecipesController", () => {
         {},
         true,
         "ADMIN",
+        true,
       );
       expect(result).toEqual({
         success: true,
@@ -134,6 +135,7 @@ describe("RecipesController", () => {
         query,
         true,
         "ADMIN",
+        true,
       );
     });
 
@@ -148,6 +150,7 @@ describe("RecipesController", () => {
         {},
         true,
         "USER",
+        true,
       );
     });
   });
@@ -161,6 +164,7 @@ describe("RecipesController", () => {
       expect(mockRecipesService.findOne).toHaveBeenCalledWith(
         "tenant-1",
         "recipe-1",
+        true,
         true,
       );
       expect(result).toEqual({

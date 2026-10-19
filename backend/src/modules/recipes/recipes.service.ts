@@ -58,7 +58,9 @@ export class RecipesService {
     tenantId: string,
     name: string,
     excludeId?: string,
-  ): Promise<{ id: string; name: string; isActive: boolean }[]> {
+  ): Promise<
+    { id: string; name: string; isActive: boolean; isDrink: boolean }[]
+  > {
     const trimmed = (name ?? "").trim();
     if (trimmed.length < 2) {
       return [];
@@ -68,14 +70,14 @@ export class RecipesService {
     // nombre es idéntico, sino si lo escrito está contenido en uno existente o
     // viceversa. NO detecta typos. Se normaliza una sola vez (CTE + subquery).
     const matches = await this.prisma.$queryRaw<
-      { id: string; name: string; isActive: boolean }[]
+      { id: string; name: string; isActive: boolean; isDrink: boolean }[]
     >(Prisma.sql`
       WITH norm AS (
         SELECT translate(lower(trim(${trimmed})), ${RecipesService.ACCENTS_FROM}, ${RecipesService.ACCENTS_TO}) AS input
       )
-      SELECT q.id, q.name, q."isActive"
+      SELECT q.id, q.name, q."isActive", q."isDrink"
       FROM (
-        SELECT r.id, r.name, r."isActive",
+        SELECT r.id, r.name, r."isActive", r."isDrink",
                translate(lower(trim(r.name)), ${RecipesService.ACCENTS_FROM}, ${RecipesService.ACCENTS_TO}) AS pn
         FROM recipes r
         WHERE r."tenantId" = ${tenantId}
@@ -156,6 +158,7 @@ export class RecipesService {
       notes = null,
       sourceUrl = null,
       isActive = true,
+      isDrink = false,
       portions = 1,
       portionSize = 1,
       totalYieldWeight,
@@ -214,6 +217,7 @@ export class RecipesService {
         notes,
         sourceUrl,
         isActive,
+        isDrink,
         portions: yield_.portions,
         portionSize: yield_.portionSize,
         totalYieldWeight: yield_.totalYieldWeight,
@@ -271,6 +275,7 @@ export class RecipesService {
     query?: RecipesQueryDto,
     includeCost = true,
     role?: string,
+    canViewDrinks = true,
   ): Promise<{
     data: RecipeResponse[];
     meta: { total: number; page: number; limit: number; totalPages: number };
@@ -278,6 +283,7 @@ export class RecipesService {
     const {
       search,
       category,
+      kind = "food",
       sortBy = "name",
       sortOrder = "asc",
       page = 1,
@@ -286,6 +292,9 @@ export class RecipesService {
 
     const where: any = {
       tenantId,
+      // Pestañas Comida / Bebidas. Sin la sección `recipes.drinks` el rol solo
+      // ve comida aunque pida bebidas.
+      isDrink: canViewDrinks && kind === "drink",
       // Recetas desactivadas (toggle isActive): solo ADMIN y OWNER las ven en
       // el listado. Para USER/VIEWER no existen — su reactivación queda en
       // manos de quien administra. A ellos no se les filtra porque si no, al
@@ -351,9 +360,16 @@ export class RecipesService {
   async findAllOptions(
     tenantId: string,
     includeCost = true,
+    canViewDrinks = true,
   ): Promise<{ id: string; name: string; pricePerKgOrL: number | null }[]> {
     const recipes = await this.prisma.recipe.findMany({
-      where: { tenantId, isActive: true },
+      // Las bebidas pueden ser sub-receta de un plato (café en el tiramisú),
+      // pero solo las ofrece el selector a quien puede verlas.
+      where: {
+        tenantId,
+        isActive: true,
+        ...(!canViewDrinks && { isDrink: false }),
+      },
       select: {
         id: true,
         name: true,
@@ -386,9 +402,12 @@ export class RecipesService {
     tenantId: string,
     id: string,
     includeCost = true,
+    canViewDrinks = true,
   ): Promise<RecipeResponse> {
     const recipe = await this.prisma.recipe.findFirst({
-      where: { id, tenantId },
+      // Una bebida no se abre sin `recipes.drinks` (404, como si no existiera).
+      // Dentro de un plato que la usa como sub-receta se sigue viendo.
+      where: { id, tenantId, ...(!canViewDrinks && { isDrink: false }) },
       include: {
         ingredients: {
           include: {
@@ -485,6 +504,7 @@ export class RecipesService {
       categoryIds,
       allergens = recipe.allergens,
       isActive = recipe.isActive,
+      isDrink = recipe.isDrink,
       sellingPriceWithVat = recipe.sellingPriceWithVat,
       shelfLifeDays = recipe.shelfLifeDays,
       shelfLifeFrozenDays = recipe.shelfLifeFrozenDays,
@@ -586,6 +606,7 @@ export class RecipesService {
         isPublic,
         allergens,
         isActive,
+        isDrink,
         sellingPriceWithVat,
         sellingPrice,
       },
@@ -694,6 +715,7 @@ export class RecipesService {
       // Con ingredientes pendientes la copia está tan incompleta como el
       // original: nace inactiva, igual que al pasar una captura.
       isActive: originalRecipe.notes ? false : undefined,
+      isDrink: originalRecipe.isDrink,
       portions: originalRecipe.portions,
       portionSize: originalRecipe.portionSize,
       totalYieldWeight: originalRecipe.totalYieldWeight ?? undefined,
@@ -1067,6 +1089,7 @@ export class RecipesService {
       version: recipe.version,
       parentVersion: recipe.parentVersion,
       isActive: recipe.isActive,
+      isDrink: recipe.isDrink,
       isPublic: recipe.isPublic,
       createdAt: recipe.createdAt,
       updatedAt: recipe.updatedAt,
