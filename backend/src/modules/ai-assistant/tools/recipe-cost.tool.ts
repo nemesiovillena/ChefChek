@@ -23,11 +23,12 @@ export function createRecipeCostTool(
       },
       required: ["recipeName"],
     },
-    handler: async (tenantId, params) => {
+    handler: async (tenantId, params, ctx) => {
       const resolution = await resolveRecipeByName(
         recipesService,
         tenantId,
         params.recipeName,
+        ctx?.canViewDrinks ?? true,
       );
       if (resolution.status === "not_found") {
         return { error: resolution.error };

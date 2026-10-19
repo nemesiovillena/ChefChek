@@ -10,6 +10,12 @@ export class RecipesQueryDto {
   @IsString()
   category?: string;
 
+  /** Pestaña del listado: recetas de comida (por defecto) o de bebida. */
+  @IsOptional()
+  @IsString()
+  @IsIn(["food", "drink"])
+  kind?: "food" | "drink";
+
   @IsOptional()
   @IsString()
   @IsIn(["name", "createdAt"])

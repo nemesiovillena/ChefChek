@@ -138,6 +138,7 @@ export default function RecipesPage() {
   const canViewCost = canSee('recipes.cost');
   const canViewFicha = canSee('recipes.ficha');
   const canEditRecipes = canSee('recipes.edit');
+  const canViewDrinks = canSee('recipes.drinks');
   const canLabel = isEnabled('etiquetado') && canSee('etiquetado.emit');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -179,6 +180,9 @@ export default function RecipesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
+  // Pestañas Comida / Bebidas. Sin permiso de bebidas siempre es comida.
+  const [kind, setKind] = useState<'food' | 'drink'>('food');
+  const [isDrink, setIsDrink] = useState(false);
   const [sortField, setSortField] = useState<'name' | 'category' | 'costPerUnit'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -205,6 +209,7 @@ export default function RecipesPage() {
   const { data: recipesData, error: recipesError, refetch } = useRecipes({
     search: debouncedSearch || undefined,
     category: selectedCategory || undefined,
+    kind: canViewDrinks ? kind : 'food',
     sortBy: 'name',
     sortOrder: sortField === 'name' ? sortDirection : 'asc',
     page,
@@ -622,6 +627,7 @@ export default function RecipesPage() {
         .map((s) => ({ ...s, note: s.note?.trim() || undefined })),
       categoryIds: selectedCategoryIds,
       allergens: selectedAllergenIds,
+      isDrink,
       shelfLifeDays: numOrUndef(formData.shelfLifeDays),
       shelfLifeFrozenDays: numOrUndef(formData.shelfLifeFrozenDays),
       storageCondition: formData.storageCondition || undefined,
@@ -641,6 +647,8 @@ export default function RecipesPage() {
       } else {
         const createdRecipe = await createRecipeMutation.mutateAsync(recipeData);
         invalidateQueries([['recipe-options']]);
+        // Se pasa a la pestaña de la receta creada para que se vea al momento.
+        if (canViewDrinks) setKind(isDrink ? 'drink' : 'food');
         // Si el filtro de categoría activo excluiría la receta recién creada
         // (p.ej. creada sin categoría con un filtro puesto), se limpia para
         // que sea visible sin recargar: cambiar la key del query refetchea.
@@ -732,6 +740,7 @@ export default function RecipesPage() {
     );
     setSelectedCategoryIds(recipe.categories?.map(cat => cat.categoryId) || []);
     setSelectedAllergenIds(recipe.allergens || []);
+    setIsDrink(recipe.isDrink ?? false);
     setRecipeImageUrl(recipe.imageUrl || '');
     setActiveTab('general');
     setShowCreateForm(true);
@@ -787,7 +796,7 @@ export default function RecipesPage() {
         Gestionar categorías
       </button>
       <button
-        onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setShowCreateForm(true); }}
+        onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setIsDrink(canViewDrinks && kind === 'drink'); setShowCreateForm(true); }}
         className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
       >
         Crear Receta
@@ -805,6 +814,28 @@ export default function RecipesPage() {
           onClose={() => setShowCategoriesModal(false)}
           context="recipes"
         />
+
+        {canViewDrinks && (
+          // role="tablist" en un <div>: globals.css oculta los <nav> no fijos.
+          <div role="tablist" aria-label="Tipo de receta" className="mb-4 flex gap-2">
+            {(['food', 'drink'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={kind === k}
+                onClick={() => { setKind(k); setPage(1); }}
+                className={`min-h-[44px] rounded-full px-4 text-sm font-medium ${
+                  kind === k
+                    ? 'bg-primary text-primary-foreground'
+                    : 'border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] text-[var(--on-surface)]'
+                }`}
+              >
+                {k === 'food' ? 'Comida' : 'Bebidas'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
@@ -1592,6 +1623,22 @@ export default function RecipesPage() {
                   {/* ── Clasificación: categorías y alérgenos (metadatos, no afectan al coste) ── */}
                   {activeTab === 'clasificacion' && (
                     <div className="space-y-4">
+                      {canViewDrinks && (
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4"
+                            checked={isDrink}
+                            onChange={(e) => setIsDrink(e.target.checked)}
+                          />
+                          <span>
+                            <span className="block font-medium">Es bebida</span>
+                            <span className="block text-sm text-[var(--on-surface-variant)]">
+                              Se lista en la pestaña Bebidas y solo la ven los roles con «Ver recetas de bebida».
+                            </span>
+                          </span>
+                        </label>
+                      )}
                       <div>
                         <label className={`${m3Label} mb-2`}>Categorías</label>
                         <div className="flex flex-wrap gap-4 p-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)]">

@@ -29,10 +29,12 @@ export async function resolveRecipeByName(
   recipesService: RecipesService,
   tenantId: string,
   recipeName: string,
+  canViewDrinks = true,
 ): Promise<RecipeNameResolution> {
+  // Las recetas de bebida tampoco existen para quien no tiene `recipes.drinks`.
   const matches = (
     await recipesService.findNameMatches(tenantId, recipeName)
-  ).filter((m) => m.isActive !== false);
+  ).filter((m) => m.isActive !== false && (canViewDrinks || !m.isDrink));
   if (matches.length === 0) {
     return {
       status: "not_found",

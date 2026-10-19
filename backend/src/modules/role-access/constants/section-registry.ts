@@ -57,6 +57,12 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     defaultAllowed: true,
   },
   {
+    key: "recipes.drinks",
+    label: "Ver recetas de bebida",
+    parent: "recipes",
+    defaultAllowed: true,
+  },
+  {
     key: "captura-recetas",
     label: "Captura de recetas",
     moduleId: "captura-recetas",
