@@ -7,6 +7,7 @@ import { useCuinerStatus } from '@/hooks/use-cuiner';
 import { CuinerConfigTab } from './components/cuiner-config-tab';
 import { CuinerDishesTab } from './components/cuiner-dishes-tab';
 import { CuinerSalesTab } from './components/cuiner-sales-tab';
+import { CuinerServingMeasuresTab } from './components/cuiner-serving-measures-tab';
 import { CuinerProductsTab, CuinerSuppliersTab } from './components/cuiner-suppliers-products-tabs';
 
 /** Usan Cuiner; la configuración del conector solo la cambian ADMIN/OWNER/SUPERADMIN. */
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'proveedores', label: 'Proveedores' },
   { id: 'articulos', label: 'Artículos' },
   { id: 'platos', label: 'Platos' },
+  { id: 'medidas', label: 'Medidas' },
   { id: 'ventas', label: 'Ventas' },
   { id: 'conector', label: 'Conector y envíos' },
 ] as const;
@@ -81,6 +83,7 @@ export default function CuinerPage() {
             {activeTab === 'proveedores' && <CuinerSuppliersTab />}
             {activeTab === 'articulos' && <CuinerProductsTab />}
             {activeTab === 'platos' && <CuinerDishesTab />}
+            {activeTab === 'medidas' && <CuinerServingMeasuresTab />}
             {activeTab === 'ventas' && <CuinerSalesTab />}
             {activeTab === 'conector' && <CuinerConfigTab key={status.config?.id ?? 'nuevo'} status={status} />}
           </div>

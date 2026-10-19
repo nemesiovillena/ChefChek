@@ -73,6 +73,7 @@ function makePrisma() {
       ]),
     },
     product: { findMany: jest.fn(async () => []) },
+    servingMeasure: { findMany: jest.fn(async () => []) },
   };
 }
 

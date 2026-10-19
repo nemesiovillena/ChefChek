@@ -6,9 +6,82 @@ import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
 import { useRecipeOptions } from '@/hooks/use-recipes';
 import { useProductSearch } from '@/hooks/use-product-search';
-import { useCuinerDishes, useDeleteCuinerDishMap, useSetCuinerDishMap } from '@/hooks/use-cuiner';
+import type { Product } from '@/hooks/use-products';
+import { useCuinerDishes, useDeleteCuinerDishMap, useServingMeasures, useSetCuinerDishMap } from '@/hooks/use-cuiner';
 import { CUINER_DISH_TIPO_LABELS, type CuinerDishRow, type CuinerDishTipo } from '@/lib/cuiner-types';
+import { formatMeasure, measuresForProduct, suggestMeasure } from '@/lib/cuiner-serving-measure-suggestion';
+import { CuinerBulkLinkPanel } from './cuiner-bulk-link-panel';
 import { Pager, inputCls } from './cuiner-link-cell';
+
+type DishTarget = { recipeId: string } | { productId: string; servingMeasureId: string | null };
+
+/**
+ * Segundo paso al enlazar con un artículo: cuánto sale de él en cada venta.
+ * Propone la medida que delata el nombre del plato («BARCELO CHUPITO» →
+ * Chupito) y solo ofrece medidas compatibles con la unidad del artículo.
+ */
+function ServingMeasureStep({
+  dish,
+  product,
+  onBack,
+  onConfirm,
+}: {
+  dish: CuinerDishRow;
+  product: Product;
+  onBack: () => void;
+  onConfirm: (servingMeasureId: string | null) => void;
+}) {
+  const measures = useServingMeasures();
+  const options = useMemo(
+    () => measuresForProduct(measures.data ?? [], product.referenceUnit),
+    [measures.data, product.referenceUnit],
+  );
+  const suggested = useMemo(
+    () => suggestMeasure(dish.nombre, options, `${product.name} ${product.category?.name ?? ''}`),
+    [dish.nombre, options, product.name, product.category?.name],
+  );
+  // null = aún no tocado: se usa la sugerencia; '' = 1 unidad entera.
+  const [picked, setPicked] = useState<string | null>(null);
+  const value = picked ?? suggested?.id ?? '';
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm">
+        <span className="font-medium">{product.name}</span>
+        <span className="text-gray-500"> · se cuenta en {product.referenceUnit || 'sin unidad'}</span>
+      </p>
+      <label className="block text-sm font-medium" htmlFor={`measure-${dish.producto}`}>
+        ¿Cuánto sale del artículo en cada venta?
+      </label>
+      {measures.isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+      ) : (
+        <select id={`measure-${dish.producto}`} className={inputCls} value={value} onChange={(e) => setPicked(e.target.value)}>
+          <option value="">1 unidad entera ({product.referenceUnit || 'ud'})</option>
+          {options.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name} · {formatMeasure(m)}
+              {m.id === suggested?.id ? ' (sugerida)' : ''}
+            </option>
+          ))}
+        </select>
+      )}
+      {!measures.isLoading && options.length === 0 && (
+        <p className="text-sm text-gray-500">
+          No hay medidas para artículos en {product.referenceUnit || 'esa unidad'}: cada venta descontará 1 unidad entera.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" onClick={() => onConfirm(value || null)}>
+          Guardar enlace
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onBack}>
+          Elegir otro artículo
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Elige la receta (o el artículo de venta directa, p. ej. una bebida) que se
@@ -20,10 +93,11 @@ function DishTargetPicker({
   onCancel,
 }: {
   dish: CuinerDishRow;
-  onPick: (target: { recipeId: string } | { productId: string }) => void;
+  onPick: (target: DishTarget) => void;
   onCancel: () => void;
 }) {
   const [mode, setMode] = useState<'recipe' | 'product'>('recipe');
+  const [product, setProduct] = useState<Product | null>(null);
   const [filter, setFilter] = useState(dish.nombre.toLowerCase());
   const recipes = useRecipeOptions();
   const products = useProductSearch(300);
@@ -51,6 +125,7 @@ function DishTargetPicker({
               if (m === 'product') products.setSearch(filter);
               else setFilter(products.search);
               setMode(m);
+              setProduct(null);
             }}
             className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
           >
@@ -61,36 +136,47 @@ function DishTargetPicker({
           <X className="h-4 w-4" />
         </Button>
       </div>
-      <input
-        className={inputCls}
-        autoFocus
-        placeholder={mode === 'recipe' ? 'Buscar receta de ChefChek' : 'Buscar artículo de ChefChek'}
-        value={mode === 'recipe' ? filter : products.search}
-        onChange={(e) => (mode === 'recipe' ? setFilter(e.target.value) : products.setSearch(e.target.value))}
-      />
-      <ul className="max-h-60 divide-y divide-gray-200 overflow-y-auto rounded-md bg-white dark:divide-zinc-800 dark:bg-zinc-900">
-        {mode === 'recipe'
-          ? recipeHits.map((r) => (
-              <li key={r.id}>
-                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => onPick({ recipeId: r.id })}>
-                  {r.name}
-                </button>
-              </li>
-            ))
-          : products.products.slice(0, 20).map((p) => (
-              <li key={p.id}>
-                <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => onPick({ productId: p.id })}>
-                  {p.name}
-                </button>
-              </li>
-            ))}
-      </ul>
-      {(recipes.isLoading || products.loading) && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
-      {!recipes.isLoading && mode === 'recipe' && recipeHits.length === 0 && (
-        <p className="text-sm text-gray-500">Ninguna receta coincide. Cambia el texto de búsqueda.</p>
-      )}
-      {!products.loading && mode === 'product' && products.search.trim() && products.products.length === 0 && (
-        <p className="text-sm text-gray-500">Ningún artículo coincide.</p>
+      {product ? (
+        <ServingMeasureStep
+          dish={dish}
+          product={product}
+          onBack={() => setProduct(null)}
+          onConfirm={(servingMeasureId) => onPick({ productId: product.id, servingMeasureId })}
+        />
+      ) : (
+        <>
+        <input
+          className={inputCls}
+          autoFocus
+          placeholder={mode === 'recipe' ? 'Buscar receta de ChefChek' : 'Buscar artículo de ChefChek'}
+          value={mode === 'recipe' ? filter : products.search}
+          onChange={(e) => (mode === 'recipe' ? setFilter(e.target.value) : products.setSearch(e.target.value))}
+        />
+        <ul className="max-h-60 divide-y divide-gray-200 overflow-y-auto rounded-md bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+          {mode === 'recipe'
+            ? recipeHits.map((r) => (
+                <li key={r.id}>
+                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => onPick({ recipeId: r.id })}>
+                    {r.name}
+                  </button>
+                </li>
+              ))
+            : products.products.slice(0, 20).map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => setProduct(p)}>
+                    {p.name}
+                  </button>
+                </li>
+              ))}
+        </ul>
+        {(recipes.isLoading || products.loading) && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+        {!recipes.isLoading && mode === 'recipe' && recipeHits.length === 0 && (
+          <p className="text-sm text-gray-500">Ninguna receta coincide. Cambia el texto de búsqueda.</p>
+        )}
+        {!products.loading && mode === 'product' && products.search.trim() && products.products.length === 0 && (
+          <p className="text-sm text-gray-500">Ningún artículo coincide.</p>
+        )}
+        </>
       )}
     </div>
   );
@@ -104,6 +190,7 @@ export function CuinerDishesTab() {
   const [onlyUnmapped, setOnlyUnmapped] = useState(true);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<string | null>(null);
+  const [bulk, setBulk] = useState(false);
   const { data, isLoading, error } = useCuinerDishes({ tipo, search, onlyUnmapped, page });
   const setMap = useSetCuinerDishMap();
   const deleteMap = useDeleteCuinerDishMap();
@@ -115,6 +202,10 @@ export function CuinerDishesTab() {
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo guardar el enlace', message: err instanceof Error ? err.message : '' });
     }
+  }
+
+  if (bulk) {
+    return <CuinerBulkLinkPanel onClose={() => setBulk(false)} />;
   }
 
   return (
@@ -161,6 +252,9 @@ export function CuinerDishesTab() {
           />
           Solo sin enlazar
         </label>
+        <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setBulk(true)}>
+          Enlace rápido por marca
+        </Button>
       </div>
       <p className="mb-2 text-sm text-gray-600 dark:text-zinc-400">
         Ordenados por unidades vendidas. Los platos sin enlazar no descuentan stock en ChefChek.
@@ -195,6 +289,14 @@ export function CuinerDishesTab() {
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           <Link2 className="h-3.5 w-3.5" />
                           {dish.mapped.kind === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek'}: {dish.mapped.name}
+                          {dish.mapped.kind === 'product' && (
+                            <span className="font-medium">
+                              {' · '}
+                              {dish.mapped.servingMeasure
+                                ? `${dish.mapped.servingMeasure.name} ${formatMeasure(dish.mapped.servingMeasure)}`
+                                : '1 unidad'}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-sm text-gray-500">Sin enlazar</span>

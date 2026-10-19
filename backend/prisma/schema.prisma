@@ -3952,11 +3952,31 @@ model CuinerDishMap {
   producto  String
   recipeId  String? // Receta que se descompone al vender el plato
   productId String? // O artículo de venta directa (bebidas)
+  // Medida que consume cada venta del artículo (chupito 4 cl, caña 20 cl).
+  // Sin medida: 1 unidad de referencia del artículo (botellín, lata).
+  servingMeasureId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([tenantId, tipo, producto])
+  @@index([tenantId, servingMeasureId])
   @@map("cuiner_dish_maps")
+}
+
+/// Medida de servicio de un artículo vendido en porciones (chupito, copa, caña).
+/// keywords: palabras del nombre del plato en el TPV que la delatan.
+model ServingMeasure {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  quantity  Float
+  unit      String // cl | ml | l | g | kg | ud
+  keywords  String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, name])
+  @@map("serving_measures")
 }
 
 model CuinerAlbaranExport {

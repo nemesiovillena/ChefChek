@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import apiClient from '@/lib/api-client';
 import type {
   CuinerAlbaranExport,
+  CuinerBulkGroup,
   CuinerCatalogHit,
   CuinerDishRow,
   CuinerDishTipo,
@@ -13,6 +14,8 @@ import type {
   CuinerSalesPreview,
   CuinerStatus,
   CuinerSupplierRow,
+  ServingMeasure,
+  ServingMeasureInput,
   UpdateCuinerConfigInput,
 } from '@/lib/cuiner-types';
 
@@ -27,6 +30,8 @@ const keys = {
   exports: [ROOT_KEY, 'exports'] as const,
   salesPreview: [ROOT_KEY, 'sales-preview'] as const,
   albaran: (albaranId: string) => [ROOT_KEY, 'albaran', albaranId] as const,
+  servingMeasures: [ROOT_KEY, 'serving-measures'] as const,
+  bulkCandidates: [ROOT_KEY, 'bulk-candidates'] as const,
 };
 
 // ─── Configuración ──────────────────────────────────────────────────────────
@@ -147,6 +152,7 @@ export function useSetCuinerDishMap() {
       producto: string;
       recipeId?: string | null;
       productId?: string | null;
+      servingMeasureId?: string | null;
     }) => (await apiClient.put(`${BASE_URL}/maps/dishes`, input)).data,
     onSuccess: invalidate,
   });
@@ -157,6 +163,62 @@ export function useDeleteCuinerDishMap() {
   return useMutation({
     mutationFn: async ({ tipo, producto }: { tipo: CuinerDishTipo; producto: string }) =>
       (await apiClient.delete(`${BASE_URL}/maps/dishes/${tipo}/${producto}`)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Asistente de enlace masivo: grupos de platos por marca. */
+export function useCuinerBulkCandidates(enabled = true) {
+  return useQuery<{ groups: CuinerBulkGroup[] }, Error>({
+    queryKey: keys.bulkCandidates,
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/maps/dishes/bulk-candidates`)).data,
+    enabled,
+  });
+}
+
+export function useSetCuinerDishMapsBulk() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (
+      items: { tipo: CuinerDishTipo; producto: string; productId: string; servingMeasureId: string | null }[],
+    ): Promise<{ linked: number }> => (await apiClient.put(`${BASE_URL}/maps/dishes/bulk`, { items })).data,
+    onSuccess: invalidate,
+  });
+}
+
+// ─── Medidas de servicio ────────────────────────────────────────────────────
+
+export function useServingMeasures(enabled = true) {
+  return useQuery<ServingMeasure[], Error>({
+    queryKey: keys.servingMeasures,
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/serving-measures`)).data,
+    enabled,
+  });
+}
+
+export function useCreateServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (input: ServingMeasureInput) =>
+      (await apiClient.post(`${BASE_URL}/serving-measures`, input)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<ServingMeasureInput> & { id: string }) =>
+      (await apiClient.patch(`${BASE_URL}/serving-measures/${id}`, input)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await apiClient.delete(`${BASE_URL}/serving-measures/${id}`)).data,
     onSuccess: invalidate,
   });
 }

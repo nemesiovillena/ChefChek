@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -18,17 +19,22 @@ import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
+import { CuinerBulkLinkService } from "./cuiner-bulk-link.service";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
+import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
 import { CuinerStockService } from "./cuiner-stock.service";
 import {
+  CreateServingMeasureDto,
   SetDishMapDto,
+  SetDishMapsBulkDto,
   SetProductMapDto,
   SetSupplierMapDto,
   UpdateCuinerConfigDto,
+  UpdateServingMeasureDto,
 } from "./dto/cuiner.dto";
 
 const ADMIN_ROLES = ["ADMIN", "OWNER", "SUPERADMIN"] as const;
@@ -66,6 +72,8 @@ export class CuinerController {
     private readonly salesService: CuinerSalesService,
     private readonly overviewService: CuinerOverviewService,
     private readonly stockService: CuinerStockService,
+    private readonly servingMeasuresService: CuinerServingMeasuresService,
+    private readonly bulkLinkService: CuinerBulkLinkService,
   ) {}
 
   // ─── Configuración ─────────────────────────────────────────────────────
@@ -130,6 +138,17 @@ export class CuinerController {
     return this.mappingService.setDishMap(req.tenantId, dto);
   }
 
+  /** Asistente: platos «MARCA + MEDIDA» sin enlazar, agrupados por marca. */
+  @Get("maps/dishes/bulk-candidates")
+  bulkLinkCandidates(@Req() req: AuthedRequest) {
+    return this.bulkLinkService.candidates(req.tenantId);
+  }
+
+  @Put("maps/dishes/bulk")
+  setDishMapsBulk(@Req() req: AuthedRequest, @Body() dto: SetDishMapsBulkDto) {
+    return this.mappingService.setDishMaps(req.tenantId, dto.items);
+  }
+
   @Delete("maps/dishes/:tipo/:producto")
   deleteDishMap(
     @Req() req: AuthedRequest,
@@ -137,6 +156,35 @@ export class CuinerController {
     @Param("producto") producto: string,
   ) {
     return this.mappingService.deleteDishMap(req.tenantId, tipo, producto);
+  }
+
+  // ─── Medidas de servicio (chupito, copa, caña…) ─────────────────────────
+
+  @Get("serving-measures")
+  listServingMeasures(@Req() req: AuthedRequest) {
+    return this.servingMeasuresService.list(req.tenantId);
+  }
+
+  @Post("serving-measures")
+  createServingMeasure(
+    @Req() req: AuthedRequest,
+    @Body() dto: CreateServingMeasureDto,
+  ) {
+    return this.servingMeasuresService.create(req.tenantId, dto);
+  }
+
+  @Patch("serving-measures/:id")
+  updateServingMeasure(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() dto: UpdateServingMeasureDto,
+  ) {
+    return this.servingMeasuresService.update(req.tenantId, id, dto);
+  }
+
+  @Delete("serving-measures/:id")
+  deleteServingMeasure(@Req() req: AuthedRequest, @Param("id") id: string) {
+    return this.servingMeasuresService.remove(req.tenantId, id);
   }
 
   // ─── Vistas para las pantallas de enlace ───────────────────────────────

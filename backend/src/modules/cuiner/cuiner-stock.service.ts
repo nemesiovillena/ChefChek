@@ -232,12 +232,17 @@ export class CuinerStockService {
       return empty;
     }
 
-    const [maps, recipes, products, dishes] = await Promise.all([
+    const [maps, recipes, products, dishes, measureRows] = await Promise.all([
       this.prisma.cuinerDishMap.findMany({ where: { tenantId } }),
       this.loadRecipes(tenantId),
       this.loadProducts(tenantId),
       this.prisma.cuinerDish.findMany({ where: { tenantId } }),
+      this.prisma.servingMeasure.findMany({
+        where: { tenantId },
+        select: { id: true, quantity: true, unit: true },
+      }),
     ]);
+    const measures = new Map(measureRows.map((m) => [m.id, m]));
     const mapByKey = new Map(maps.map((m) => [`${m.tipo}-${m.producto}`, m]));
     const dishName = new Map(
       dishes.map((d) => [`${d.tipo}-${d.producto}`, d.nombre]),
@@ -291,7 +296,11 @@ export class CuinerStockService {
         totals.set(
           product.id,
           (totals.get(product.id) ?? 0) +
-            directProductFormats(line.unidades, product),
+            directProductFormats(
+              line.unidades,
+              product,
+              map?.servingMeasureId ? measures.get(map.servingMeasureId) : null,
+            ),
         );
       }
       plan.appliedLineIds.push(line.id);

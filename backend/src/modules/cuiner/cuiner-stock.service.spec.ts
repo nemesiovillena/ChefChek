@@ -58,6 +58,11 @@ function makePrisma(opts: {
         { tipo: "P", producto: "00500", nombre: "TARTA DE QUESO" },
       ]),
     },
+    servingMeasure: {
+      findMany: jest.fn(async () => [
+        { id: "m-cana", quantity: 20, unit: "cl" },
+      ]),
+    },
     recipe: {
       findMany: jest.fn(async () => [
         {
@@ -129,6 +134,36 @@ describe("CuinerStockService.preview", () => {
     expect(preview.unmappedDishes).toEqual([
       { tipo: "P", producto: "00500", nombre: "TARTA DE QUESO", unidades: 1 },
     ]);
+  });
+});
+
+describe("CuinerStockService.preview (medidas de servicio)", () => {
+  it("una caña descuenta 20 cl del barril, no un litro", async () => {
+    const prisma = makePrisma({
+      lines: [line("l1", { producto: "00777", unidades: 150 })],
+    });
+    prisma.cuinerDishMap.findMany.mockResolvedValueOnce([
+      {
+        tipo: "P",
+        producto: "00777",
+        recipeId: null,
+        productId: "barril",
+        servingMeasureId: "m-cana",
+      } as never,
+    ]);
+    prisma.product.findMany.mockResolvedValueOnce([
+      {
+        id: "barril",
+        name: "Barril 30 L",
+        referenceUnit: "litro",
+        unitSize: 30,
+        tracksInventory: true,
+        purchaseFormat: "",
+      },
+    ]);
+    const preview = await serviceWith(prisma).preview("t1");
+    expect(preview.consumption).toHaveLength(1);
+    expect(preview.consumption[0].formats).toBeCloseTo(1, 10);
   });
 });
 

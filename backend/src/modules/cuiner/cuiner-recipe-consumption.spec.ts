@@ -133,4 +133,38 @@ describe("directProductFormats", () => {
     const caja = product({ id: "agua", referenceUnit: "unidad", unitSize: 12 });
     expect(directProductFormats(3, caja)).toBe(0.25);
   });
+
+  it("10 chupitos de 4 cl gastan 0,57 botellas de 0,7 L", () => {
+    const ron = product({ id: "ron", referenceUnit: "litro", unitSize: 0.7 });
+    expect(
+      directProductFormats(10, ron, { quantity: 4, unit: "cl" }),
+    ).toBeCloseTo(0.5714, 4);
+  });
+
+  it("150 cañas de 20 cl gastan un barril de 30 L", () => {
+    const barril = product({
+      id: "barril",
+      referenceUnit: "litro",
+      unitSize: 30,
+    });
+    expect(
+      directProductFormats(150, barril, { quantity: 20, unit: "cl" }),
+    ).toBeCloseTo(1, 10);
+  });
+
+  it("café de 7 g sale de un paquete de 1 kg", () => {
+    const cafe = product({ id: "cafe", referenceUnit: "kilo", unitSize: 1 });
+    expect(
+      directProductFormats(100, cafe, { quantity: 7, unit: "g" }),
+    ).toBeCloseTo(0.7, 10);
+  });
+
+  it("sin medida mantiene 1 unidad de referencia por venta", () => {
+    const barril = product({
+      id: "barril",
+      referenceUnit: "litro",
+      unitSize: 30,
+    });
+    expect(directProductFormats(30, barril, null)).toBe(1);
+  });
 });
