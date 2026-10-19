@@ -7,6 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { getUnitMeta } from "../../common/utils/product-costing.util";
+import { measureToReferenceQuantity } from "./cuiner-recipe-consumption";
 import {
   CreateServingMeasureDto,
   UpdateServingMeasureDto,
@@ -165,15 +166,28 @@ export class CuinerServingMeasuresService {
    */
   assertMeasureFitsProduct(
     measure: { name: string; unit: string },
-    product: { name: string; referenceUnit: string },
+    product: {
+      name: string;
+      referenceUnit: string;
+      avgUnitWeight?: number | null;
+    },
   ) {
-    const m = getUnitMeta(measure.unit);
-    const ref = getUnitMeta(product.referenceUnit);
-    if (!m || !ref || m.category !== ref.category) {
-      throw new BadRequestException(
-        `La medida «${measure.name}» (${measure.unit}) no encaja con «${product.name}», que se cuenta en ${product.referenceUnit || "sin unidad"}`,
-      );
+    if (
+      measureToReferenceQuantity(
+        { quantity: 1, unit: measure.unit },
+        product,
+      ) !== null
+    ) {
+      return;
     }
+    const byPieces =
+      getUnitMeta(measure.unit)?.category === "unidad" &&
+      getUnitMeta(product.referenceUnit)?.category !== "unidad";
+    throw new BadRequestException(
+      byPieces
+        ? `Para vender «${product.name}» por unidades, indica su peso medio por unidad en la ficha del artículo`
+        : `La medida «${measure.name}» (${measure.unit}) no encaja con «${product.name}», que se cuenta en ${product.referenceUnit || "sin unidad"}`,
+    );
   }
 
   async findOrThrow(tenantId: string, id: string) {
@@ -207,7 +221,7 @@ export class CuinerServingMeasuresService {
         tenantId,
         id: { in: maps.map((m) => m.productId as string) },
       },
-      select: { name: true, referenceUnit: true },
+      select: { name: true, referenceUnit: true, avgUnitWeight: true },
     });
     for (const product of products) {
       this.assertMeasureFitsProduct({ name: "editada", unit }, product);

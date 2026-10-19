@@ -38,9 +38,38 @@ export function unitCategory(unit: string | null | undefined): UnitCategory | nu
 }
 
 /** Medidas que encajan con la unidad en que se cuenta el artículo. */
-export function measuresForProduct(measures: ServingMeasure[], referenceUnit: string): ServingMeasure[] {
+/**
+ * Medidas que encajan con el artículo: las de su misma magnitud y, si se
+ * cuenta en kilos o litros y tiene peso medio por pieza, también las de
+ * unidades (una zamburiña = su peso medio). Igual que el servidor.
+ */
+export function measuresForProduct(
+  measures: ServingMeasure[],
+  referenceUnit: string,
+  avgUnitWeight?: number | null,
+): ServingMeasure[] {
   const ref = unitCategory(referenceUnit);
-  return ref ? measures.filter((m) => unitCategory(m.unit) === ref) : [];
+  if (!ref) return [];
+  const byPieces = ref !== 'unidad' && (avgUnitWeight ?? 0) > 0;
+  return measures.filter((m) => {
+    const category = unitCategory(m.unit);
+    return category === ref || (byPieces && category === 'unidad');
+  });
+}
+
+/** ¿Hay medidas por unidades que este artículo no puede usar por no tener peso medio por pieza? */
+export function needsAvgUnitWeight(
+  measures: ServingMeasure[],
+  referenceUnit: string,
+  avgUnitWeight?: number | null,
+): boolean {
+  const ref = unitCategory(referenceUnit);
+  return (
+    !!ref &&
+    ref !== 'unidad' &&
+    !((avgUnitWeight ?? 0) > 0) &&
+    measures.some((m) => unitCategory(m.unit) === 'unidad')
+  );
 }
 
 /** Mayúsculas sin tildes (la Ñ se conserva: CAÑA ≠ CANA). */

@@ -56,6 +56,7 @@ const emptyFormData = {
   referenceUnitSize: '1',
   grossWeight: '',
   netWeight: '',
+  avgUnitWeight: '',
   wastePercentage: '',
   purchasePrice: '',
   discountPercentage: '',
@@ -93,6 +94,7 @@ function deriveFormData(article: Product | null | undefined) {
     referenceUnitSize: String(article.referenceUnitSize || article.unitSize || 1),
     grossWeight: article.grossWeight?.toString() || '',
     netWeight: article.netWeight?.toString() || '',
+    avgUnitWeight: article.avgUnitWeight ? String(article.avgUnitWeight).replace('.', ',') : '',
     wastePercentage: article.wastePercentage > 0 ? article.wastePercentage.toString() : '',
     purchasePrice: article.purchasePrice?.toString() || '',
     discountPercentage: article.discountPercentage > 0 ? article.discountPercentage.toString() : '',
@@ -259,6 +261,11 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
       discountPercentage: parseFloat(formData.discountPercentage) || 0,
       grossWeight: parseFloat(formData.grossWeight) || 0,
       netWeight: parseFloat(formData.netWeight) || 0,
+      // Recepción también lo aprende sola: solo se envía si el usuario lo cambió,
+      // para no borrar un peso aprendido al guardar otra cosa del artículo.
+      ...(formData.avgUnitWeight !== deriveFormData(article).avgUnitWeight
+        ? { avgUnitWeight: parseFloat(formData.avgUnitWeight.replace(',', '.')) > 0 ? parseFloat(formData.avgUnitWeight.replace(',', '.')) : null }
+        : {}),
       wastePercentage: parseFloat(formData.wastePercentage) || 0,
       iva: parseFloat(formData.iva) || undefined,
       qr: formData.qr || undefined,
@@ -436,11 +443,30 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
         {/* Tab Content */}
         <div className="min-h-[200px]">
           {activeTab === 'formato-precio' && (
-            <PesoPrecioFields
-              formData={formData}
-              setFormData={(data) => setFormData({ ...formData, ...data })}
-              tree={tree}
-            />
+            <>
+              <PesoPrecioFields
+                formData={formData}
+                setFormData={(data) => setFormData({ ...formData, ...data })}
+                tree={tree}
+              />
+              <div className="mt-4 grid gap-1 sm:max-w-xs">
+                <label htmlFor="avg-unit-weight" className="text-sm font-medium text-gray-700">
+                  Peso medio por pieza (kg o L)
+                </label>
+                <input
+                  id="avg-unit-weight"
+                  inputMode="decimal"
+                  value={formData.avgUnitWeight}
+                  onChange={(e) => setFormData({ ...formData, avgUnitWeight: e.target.value })}
+                  placeholder="Ej. 0,04 (una zamburiña)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Para vender o recibir por piezas lo que compras por kilo o litro. Si lo dejas vacío, se aprende al cruzar un pedido en
+                  unidades con un albarán en kilos.
+                </p>
+              </div>
+            </>
           )}
           {activeTab === 'codigos' && (
             <TabCodigos

@@ -36,6 +36,7 @@ export class CuinerBulkLinkService {
           id: true,
           name: true,
           referenceUnit: true,
+          avgUnitWeight: true,
           category: { select: { name: true } },
         },
       }),
@@ -58,6 +59,7 @@ export class CuinerBulkLinkService {
         name: p.name,
         referenceUnit: p.referenceUnit,
         categoryName: p.category?.name ?? null,
+        avgUnitWeight: p.avgUnitWeight,
       })),
     );
     return { groups };
