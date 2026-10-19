@@ -108,6 +108,20 @@ const fmtYield = (n: number | null | undefined): string =>
 const sanitizeDecimal = (v: string): string =>
   v.replace(',', '.').replace(/[^\d.]/g, '');
 
+/**
+ * Unidad del desplegable de ingredientes (kg, g, l, ml, units) que corresponde a
+ * la unidad de referencia del artículo («kilo», «litro», «unidad»…).
+ */
+function ingredientUnitFor(referenceUnit?: string): string | undefined {
+  const u = (referenceUnit ?? '').trim().toLowerCase();
+  if (['kg', 'kilo', 'kilos', 'kilogramo', 'kilogramos'].includes(u)) return 'kg';
+  if (['g', 'gr', 'gramo', 'gramos'].includes(u)) return 'g';
+  if (['l', 'lt', 'litro', 'litros'].includes(u)) return 'l';
+  if (['ml', 'mililitro', 'mililitros'].includes(u)) return 'ml';
+  if (['units', 'ud', 'uds', 'u', 'unidad', 'unidades'].includes(u)) return 'units';
+  return undefined;
+}
+
 export default function RecipesPage() {
   const { isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -512,7 +526,7 @@ export default function RecipesPage() {
   // producto completo para resolver nombre y alérgenos sin el listado en cliente.
   const handleProductSelect = (
     index: number,
-    product: { id: string; name: string; allergens?: number[]; wastePercentage?: number },
+    product: { id: string; name: string; referenceUnit?: string; allergens?: number[]; wastePercentage?: number },
   ) => {
     const hasArticleWaste = (product.wastePercentage ?? 0) > 0;
     const newIngredients = [...ingredients];
@@ -520,6 +534,9 @@ export default function RecipesPage() {
       ...newIngredients[index],
       productId: product.id,
       productName: product.name,
+      // La línea toma la unidad en que se cuenta el artículo (leche → l), en vez
+      // de quedarse en kg. Si no se reconoce, se deja la que hubiera.
+      unit: ingredientUnitFor(product.referenceUnit) ?? newIngredients[index].unit,
       hasArticleWaste,
       wastePercentage: product.wastePercentage,
       // Prefill con la merma del artículo (editable/sobreescribible después);
