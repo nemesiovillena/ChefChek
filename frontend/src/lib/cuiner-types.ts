@@ -22,7 +22,7 @@ export interface CuinerConfig {
 export interface CuinerStatus {
   config: CuinerConfig | null;
   catalog: { suppliers: number; articles: number; articleSuppliers: number; dishes: number };
-  sales: Partial<Record<'PENDIENTE' | 'APLICADA' | 'SIN_MAPEO' | 'IGNORADA', number>>;
+  sales: Partial<Record<'PENDIENTE' | 'APLICADA' | 'SIN_MAPEO' | 'IGNORADA' | 'HISTORICO', number>>;
 }
 
 export interface UpdateCuinerConfigInput {
@@ -181,4 +181,41 @@ export interface CuinerSalesPreview {
   warnings: string[];
   dateFrom: string | null;
   dateTo: string | null;
+}
+
+// ─── Informe de ventas ──────────────────────────────────────────────────────
+
+export type SalesReportGroupBy = 'day' | 'week' | 'month' | 'year' | 'total';
+export type SalesReportFormat = 'xlsx' | 'csv' | 'pdf';
+
+export interface SalesReportQuery {
+  from: string;
+  to: string;
+  groupBy: SalesReportGroupBy;
+  /** 1 familia, 2 subfamilia, 3 sección, 4 plato. */
+  level: number;
+  /** Ruta de familia a la que se ha bajado («BEBIDAS ALCOHOL-LICORES»). */
+  family?: string;
+}
+
+export interface SalesReportAmounts {
+  units: number;
+  invitedUnits: number;
+  base: number;
+  total: number;
+}
+
+export interface SalesReportRow extends SalesReportAmounts {
+  key: string;
+  label: string;
+  family?: string;
+  share: number;
+}
+
+export interface SalesReport {
+  query: SalesReportQuery;
+  periods: { key: string; label: string; rows: SalesReportRow[]; totals: SalesReportAmounts }[];
+  totals: SalesReportAmounts;
+  missingAmounts: number;
+  history: { done: boolean; oldestDate: string | null };
 }

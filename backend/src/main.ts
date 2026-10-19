@@ -19,6 +19,10 @@ async function bootstrap() {
 
   const logger = app.get(AppLogger);
 
+  // Express limita el JSON a 100 KB: un lote de ventas del conector de Cuiner
+  // (300 tickets, varias líneas cada uno) lo supera.
+  app.useBodyParser("json", { limit: "2mb" });
+
   // Security headers with Content-Security-Policy
   app.use(
     helmet.contentSecurityPolicy({

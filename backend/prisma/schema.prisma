@@ -3839,6 +3839,7 @@ enum CuinerSaleStatus {
   APLICADA // Descontada del stock de ChefChek
   SIN_MAPEO // El plato de Cuiner no está enlazado a ninguna receta/artículo
   IGNORADA // Anulada, invitación o tipo de línea que no descuenta
+  HISTORICO // Venta anterior al conector importada para informes: nunca descuenta stock
 }
 
 model CuinerConfig {
@@ -3853,6 +3854,9 @@ model CuinerConfig {
   warehouseId        String? // Almacén de ChefChek donde descuentan las ventas
   connectorTokenHash String? // sha256 del token del conector; el token en claro solo se muestra al generarlo
   lastVentasCabId    Int        @default(0) // Cursor incremental de VentasCab.Id_VentasCab
+  // Importación del histórico hacia atrás: tickets con Id_VentasCab < historyCursor ya enviados.
+  historyCursor      Int?
+  historyDone        Boolean    @default(false)
   lastSeenAt         DateTime? // Último contacto del conector
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -3913,6 +3917,8 @@ model CuinerDish {
   tipo     String // P plato, I ingrediente/modificador, M menú: el mismo código significa cosas distintas según el tipo
   producto String // VentasLin.Producto / CartasLin.Codigo
   nombre   String
+  // Ruta de familia de la carta con «-» por nivel: «BEBIDAS ALCOHOL-LICORES-TUBO L».
+  familia  String?
   syncedAt DateTime @updatedAt
 
   @@unique([tenantId, tipo, producto])
@@ -4006,6 +4012,11 @@ model CuinerSaleLine {
   tipo             String // P plato, I ingrediente/modificador, M menú
   producto         String
   unidades         Float
+  // Importes de la línea en Cuiner: base sin IVA (con descuentos) y cuota de IVA.
+  // Nulos en las líneas recibidas antes de que el conector los enviara.
+  base             Float?
+  impuesto         Float?
+  invitacion       Boolean          @default(false)
   anulada          Boolean          @default(false)
   status           CuinerSaleStatus @default(PENDIENTE)
   stockMovementIds String[]         @default([])
@@ -4013,6 +4024,7 @@ model CuinerSaleLine {
 
   @@unique([tenantId, idVentasCab, linea])
   @@index([tenantId, status])
+  @@index([tenantId, fecha])
   @@map("cuiner_sale_lines")
 }
 

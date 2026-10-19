@@ -9,8 +9,10 @@ import {
   Put,
   Query,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
 import { CuinerExportStatus } from "@prisma/client";
 import { AuthGuard } from "../../guards/auth.guard";
@@ -24,11 +26,18 @@ import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
+import {
+  CuinerSalesReportExportService,
+  SALES_REPORT_CONTENT_TYPES,
+} from "./cuiner-sales-report-export.service";
+import { CuinerSalesReportService } from "./cuiner-sales-report.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
 import { CuinerStockService } from "./cuiner-stock.service";
 import {
   CreateServingMeasureDto,
+  SalesReportExportQueryDto,
+  SalesReportQueryDto,
   SetDishMapDto,
   SetDishMapsBulkDto,
   SetProductMapDto,
@@ -74,7 +83,43 @@ export class CuinerController {
     private readonly stockService: CuinerStockService,
     private readonly servingMeasuresService: CuinerServingMeasuresService,
     private readonly bulkLinkService: CuinerBulkLinkService,
+    private readonly salesReportService: CuinerSalesReportService,
+    private readonly salesReportExport: CuinerSalesReportExportService,
   ) {}
+
+  // ─── Informe de ventas (facturación: solo gerencia) ────────────────────
+
+  @Get("reports/sales")
+  @Roles(...ADMIN_ROLES)
+  salesReport(@Req() req: AuthedRequest, @Query() query: SalesReportQueryDto) {
+    return this.salesReportService.build(req.tenantId, query);
+  }
+
+  @Get("reports/sales/export")
+  @Roles(...ADMIN_ROLES)
+  async exportSalesReport(
+    @Req() req: AuthedRequest,
+    @Query() query: SalesReportExportQueryDto,
+    @Res() res: Response,
+  ) {
+    const { format, ...reportQuery } = query;
+    const report = await this.salesReportService.build(
+      req.tenantId,
+      reportQuery,
+    );
+    const buffer =
+      format === "csv"
+        ? this.salesReportExport.toCsv(report)
+        : format === "xlsx"
+          ? await this.salesReportExport.toXlsx(report)
+          : await this.salesReportExport.toPdf(report);
+    res.set({
+      "Content-Type": SALES_REPORT_CONTENT_TYPES[format],
+      "Content-Disposition": `attachment; filename="${this.salesReportExport.fileName(report, format)}"`,
+      "Cache-Control": "no-store",
+    });
+    res.send(buffer);
+  }
 
   // ─── Configuración ─────────────────────────────────────────────────────
 
