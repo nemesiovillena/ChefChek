@@ -47,7 +47,7 @@ function DishTargetPicker({
             onClick={() => setMode(m)}
             className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
           >
-            {m === 'recipe' ? 'Receta' : 'Artículo (venta directa)'}
+            {m === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek (venta directa)'}
           </button>
         ))}
         <Button type="button" size="sm" variant="ghost" onClick={onCancel} className="ml-auto" aria-label="Cancelar">
@@ -57,7 +57,7 @@ function DishTargetPicker({
       <input
         className={inputCls}
         autoFocus
-        placeholder={mode === 'recipe' ? 'Buscar receta' : 'Buscar artículo'}
+        placeholder={mode === 'recipe' ? 'Buscar receta de ChefChek' : 'Buscar artículo de ChefChek'}
         value={mode === 'recipe' ? filter : products.search}
         onChange={(e) => (mode === 'recipe' ? setFilter(e.target.value) : products.setSearch(e.target.value))}
       />
@@ -187,7 +187,7 @@ export function CuinerDishesTab() {
                       {dish.mapped ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           <Link2 className="h-3.5 w-3.5" />
-                          {dish.mapped.kind === 'recipe' ? 'Receta' : 'Artículo'}: {dish.mapped.name}
+                          {dish.mapped.kind === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek'}: {dish.mapped.name}
                         </span>
                       ) : (
                         <span className="text-sm text-gray-500">Sin enlazar</span>
