@@ -55,6 +55,7 @@ export class RecipesController {
       req.tenantId,
       req.user?.role,
       "recipes.drinks",
+      req.user?.id,
     );
   }
 
@@ -64,6 +65,7 @@ export class RecipesController {
       req.tenantId,
       req.user?.role,
       "recipes.cost",
+      req.user?.id,
     );
   }
 

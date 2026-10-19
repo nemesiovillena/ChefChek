@@ -130,6 +130,7 @@ export class RecipeCaptureController {
       req.tenantId,
       req.user?.role,
       id,
+      req.user?.id,
     );
     return { success: true, data };
   }

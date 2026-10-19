@@ -104,11 +104,13 @@ export class AiAssistantService {
       tenantId,
       role,
       "recipes.cost",
+      userId,
     );
     const canViewDrinks = await this.roleAccess.isSectionAllowed(
       tenantId,
       role,
       "recipes.drinks",
+      userId,
     );
 
     const systemPrompt = buildSystemPrompt(new Date());

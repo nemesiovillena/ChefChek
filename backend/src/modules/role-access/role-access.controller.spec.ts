@@ -51,9 +51,13 @@ describe("RoleAccessController", () => {
     service.getSectionMapForUserRole.mockResolvedValue({ recipes: true });
     const res = await controller.getMine({
       tenantId: "t1",
-      user: { role: "USER" },
+      user: { id: "u-user", role: "USER" },
     });
-    expect(service.getSectionMapForUserRole).toHaveBeenCalledWith("t1", "USER");
+    expect(service.getSectionMapForUserRole).toHaveBeenCalledWith(
+      "t1",
+      "USER",
+      "u-user",
+    );
     expect(res).toEqual({ recipes: true });
   });
 
@@ -61,11 +65,12 @@ describe("RoleAccessController", () => {
     service.getSectionMapForUserRole.mockResolvedValue({ albaranes: true });
     const res = await controller.getMine({
       tenantId: "t1",
-      user: { role: "USER_CUINER" },
+      user: { id: "u-cuiner", role: "USER_CUINER" },
     });
     expect(service.getSectionMapForUserRole).toHaveBeenCalledWith(
       "t1",
       "USER_CUINER",
+      "u-cuiner",
     );
     expect(res).toEqual({ albaranes: true });
   });

@@ -23,6 +23,9 @@ describe("RoleAccessService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         upsert: jest.fn().mockResolvedValue({}),
       },
+      sictedJobAssignment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
     modules = {
       getModules: jest.fn().mockResolvedValue(allModulesEnabled),
@@ -40,6 +43,107 @@ describe("RoleAccessService", () => {
   });
 
   afterEach(() => jest.clearAllMocks());
+
+  describe("permisos por puesto", () => {
+    /** Config: el rol USER lo ve todo; el puesto «pos-cocina» oculta bebidas. */
+    function withCocinaPosition() {
+      prisma.sictedJobAssignment.findFirst.mockResolvedValue({
+        profileId: "pos-cocina",
+      });
+      prisma.configuration.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.key.startsWith === "positionAccess.pos-cocina."
+            ? [
+                {
+                  key: "positionAccess.pos-cocina.recipes.drinks",
+                  value: "false",
+                },
+              ]
+            : [],
+        ),
+      );
+    }
+
+    it("el puesto oculta lo que tiene en false aunque el rol lo permita", async () => {
+      withCocinaPosition();
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "USER",
+          "recipes.drinks",
+          userId,
+        ),
+      ).toBe(false);
+      expect(
+        await service.isSectionAllowed(tenantId, "USER", "recipes", userId),
+      ).toBe(true);
+    });
+
+    it("sin usuario solo cuenta el rol", async () => {
+      withCocinaPosition();
+      expect(
+        await service.isSectionAllowed(tenantId, "USER", "recipes.drinks"),
+      ).toBe(true);
+    });
+
+    it("sin puesto vigente no cambia nada", async () => {
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "USER",
+          "recipes.drinks",
+          userId,
+        ),
+      ).toBe(true);
+    });
+
+    it("el puesto nunca afecta a ADMIN", async () => {
+      withCocinaPosition();
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "ADMIN",
+          "recipes.drinks",
+          userId,
+        ),
+      ).toBe(true);
+    });
+
+    it("el mapa del usuario (/me) refleja lo que oculta su puesto", async () => {
+      withCocinaPosition();
+      const map = await service.getSectionMapForUserRole(
+        tenantId,
+        "USER",
+        userId,
+      );
+      expect(map?.["recipes.drinks"]).toBe(false);
+      expect(map?.["recipes.cost"]).toBe(true);
+    });
+
+    it("updatePositionAccess rechaza claves desconocidas", async () => {
+      await expect(
+        service.updatePositionAccess(tenantId, "pos-1", userId, {
+          nope: false,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("updatePositionAccess guarda una fila por apartado", async () => {
+      await service.updatePositionAccess(tenantId, "pos-1", userId, {
+        "recipes.drinks": false,
+      });
+      expect(prisma.configuration.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId_key: {
+              tenantId,
+              key: "positionAccess.pos-1.recipes.drinks",
+            },
+          },
+        }),
+      );
+    });
+  });
 
   describe("getRoleSectionMap", () => {
     it("returns every section allowed when there is no config", async () => {
