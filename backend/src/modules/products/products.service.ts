@@ -403,9 +403,31 @@ export class ProductsService {
     }
   }
 
+  /**
+   * Una condición por palabra de la búsqueda (nombre, descripción, marca o
+   * código de barras, sin acentos). En modo "any" se descartan las palabras de
+   * menos de 3 letras («cl», «de»…), que harían coincidir casi todo.
+   */
+  private searchWordConditions(
+    search: string,
+    mode: "all" | "any",
+  ): Prisma.Sql[] {
+    const fold = (col: Prisma.Sql) =>
+      Prisma.sql`translate(lower(coalesce(${col}, '')), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO})`;
+    return search
+      .toLowerCase()
+      .split(/[\s\-/(),.]+/)
+      .filter((w) => w && (mode === "all" || w.length >= 3))
+      .map((word) => {
+        const term = Prisma.sql`'%' || translate(${word}, ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) || '%'`;
+        return Prisma.sql`(${fold(Prisma.sql`p.name`)} LIKE ${term} OR ${fold(Prisma.sql`p.description`)} LIKE ${term} OR ${fold(Prisma.sql`p.brand`)} LIKE ${term} OR p.barcode ILIKE ${term})`;
+      });
+  }
+
   private buildProductsWhere(
     query: ProductsQueryDto,
     requestTenantId: string,
+    searchMode: "all" | "any" = "all",
   ): Prisma.Sql {
     const {
       categoryIds,
@@ -427,17 +449,16 @@ export class ProductsService {
     if (search) {
       // Palabra a palabra y sin acentos: cada palabra tiene que aparecer en
       // algún campo, en cualquier orden. Así «coca cola zero» encuentra
-      // «Coca-Cola Zero lata 33cl» y «cafe» encuentra «Café».
-      const fold = (col: Prisma.Sql) =>
-        Prisma.sql`translate(lower(coalesce(${col}, '')), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO})`;
-      const words = search
-        .toLowerCase()
-        .split(/[\s\-/(),.]+/)
-        .filter(Boolean);
-      for (const word of words) {
-        const term = Prisma.sql`'%' || translate(${word}, ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) || '%'`;
+      // «Coca-Cola Zero lata 33cl» y «cafe» encuentra «Café». En modo
+      // "parecidos" basta con una palabra (ver findAll).
+      const wordConds = this.searchWordConditions(search, searchMode);
+      if (searchMode === "all") {
+        conditions.push(...wordConds);
+      } else {
         conditions.push(
-          Prisma.sql`(${fold(Prisma.sql`p.name`)} LIKE ${term} OR ${fold(Prisma.sql`p.description`)} LIKE ${term} OR ${fold(Prisma.sql`p.brand`)} LIKE ${term} OR p.barcode ILIKE ${term})`,
+          wordConds.length > 0
+            ? Prisma.sql`(${Prisma.join(wordConds, " OR ")})`
+            : Prisma.sql`FALSE`,
         );
       }
     }
@@ -503,28 +524,57 @@ export class ProductsService {
     const orderDirection =
       sortOrder === "desc" ? Prisma.sql`DESC` : Prisma.sql`ASC`;
     const orderExpr = this.sortExprFor(sortBy);
-    const whereSql = this.buildProductsWhere(query, requestTenantId);
-
     const paginationSql = exportAll
       ? Prisma.empty
       : Prisma.sql`LIMIT ${limit} OFFSET ${(page - 1) * limit}`;
 
-    const [rows, countRows] = await Promise.all([
-      this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
-        SELECT p.id
-        FROM products p
-        LEFT JOIN categories c ON c.id = p."categoryId" AND c."deletedAt" IS NULL
-        LEFT JOIN categories parent ON parent.id = c."parentId" AND parent."deletedAt" IS NULL
-        WHERE ${whereSql}
-        ORDER BY ${orderExpr} ${orderDirection}
-        ${paginationSql}
-      `),
-      this.prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
-        SELECT COUNT(*)::bigint AS count
-        FROM products p
-        WHERE ${whereSql}
-      `),
-    ]);
+    const runQuery = (searchMode: "all" | "any") => {
+      const whereSql = this.buildProductsWhere(
+        query,
+        requestTenantId,
+        searchMode,
+      );
+      // En modo "parecidos" primero los que comparten más palabras.
+      const scoreConds =
+        searchMode === "any" && query.search
+          ? this.searchWordConditions(query.search, "any")
+          : [];
+      const scoreSql =
+        scoreConds.length > 0
+          ? Prisma.sql`(${Prisma.join(
+              scoreConds.map(
+                (cond) => Prisma.sql`CASE WHEN ${cond} THEN 1 ELSE 0 END`,
+              ),
+              " + ",
+            )}) DESC, `
+          : Prisma.empty;
+      return Promise.all([
+        this.prisma.$queryRaw<{ id: string }[]>(Prisma.sql`
+          SELECT p.id
+          FROM products p
+          LEFT JOIN categories c ON c.id = p."categoryId" AND c."deletedAt" IS NULL
+          LEFT JOIN categories parent ON parent.id = c."parentId" AND parent."deletedAt" IS NULL
+          WHERE ${whereSql}
+          ORDER BY ${scoreSql}${orderExpr} ${orderDirection}
+          ${paginationSql}
+        `),
+        this.prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+          SELECT COUNT(*)::bigint AS count
+          FROM products p
+          WHERE ${whereSql}
+        `),
+      ]);
+    };
+
+    let [rows, countRows] = await runQuery("all");
+    // Si ningún artículo tiene todas las palabras (p. ej. «coca cola zero 350 cl»
+    // frente a «COCACOLA ZER VR35 C24»), se muestran los que tienen alguna, para
+    // que el buscador no se quede en blanco por nombres de albarán abreviados.
+    const searchWords =
+      query.search?.split(/[\s\-/(),.]+/).filter(Boolean) ?? [];
+    if (Number(countRows[0]?.count ?? 0) === 0 && searchWords.length > 1) {
+      [rows, countRows] = await runQuery("any");
+    }
 
     const total = Number(countRows[0]?.count ?? 0);
     const orderedIds = rows.map((r) => r.id);
