@@ -597,6 +597,44 @@ describe("RecipesService", () => {
       );
     });
 
+    it("hereda los alérgenos manuales de la subreceta, además de los de sus productos", async () => {
+      // Caso real: subreceta etiquetada a mano (Gluten + Frutos de Cáscara)
+      // cuyos productos aún no tienen alérgenos — el padre debe heredarlos.
+      const untaggedProduct = { ...mockProduct, allergens: [] };
+      mockPrismaService.recipe.findFirst.mockResolvedValue({
+        ...mockRecipe,
+        allergens: [4], // Pescado, manual del padre
+        ingredients: [{ ...mockIngredient, product: untaggedProduct }],
+        subRecipes: [
+          {
+            ...mockSubRecipe,
+            subRecipe: {
+              ...mockSubRecipe.subRecipe,
+              allergens: [1, 14],
+              ingredients: [
+                {
+                  id: "crumble-ing-1",
+                  productId: "product-1",
+                  quantity: 100,
+                  unit: "g",
+                  product: { ...mockProduct, id: "product-2", allergens: [7] },
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      const result = await service.findOne(tenantId, recipeId);
+
+      // 1 y 14 vienen del etiquetado manual de la subreceta; 7 del producto de
+      // su ingrediente; 4 es el manual del padre. El producto del padre no
+      // aporta nada (sin etiquetar).
+      expect([...result.allergens].sort((a, b) => a - b)).toEqual([
+        1, 4, 7, 14,
+      ]);
+    });
+
     it("strips every cost/pricing figure when includeCost is false", async () => {
       mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
 

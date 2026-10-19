@@ -1070,6 +1070,12 @@ export class RecipesService {
       const subRecipeData = recipe.subRecipes.find(
         (s: any) => s.id === sub.id,
       )?.subRecipe;
+      // Alérgenos anotados a mano en la subreceta: también cuentan para el
+      // padre. La columna persistida es solo la selección manual (los derivados
+      // de sus productos se calculan en lectura), así que no hay doble conteo.
+      if (subRecipeData?.allergens) {
+        subRecipeData.allergens.forEach((a: number) => allergens.add(a));
+      }
       if (subRecipeData?.ingredients) {
         subRecipeData.ingredients.forEach((ing: any) => {
           if (ing.product?.allergens) {
