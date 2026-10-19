@@ -495,8 +495,8 @@ describe("ProductsService", () => {
     });
 
     it("should require every word of the search, ignoring separators", async () => {
-      mockIdsAndCount([], 0);
-      prismaService.product.findMany.mockResolvedValue([]);
+      mockIdsAndCount(["p-1"], 1);
+      prismaService.product.findMany.mockResolvedValue([{ id: "p-1" }]);
 
       await service.findAll({ search: "Coca-Cola  Zero" }, tenantId);
 
@@ -506,6 +506,49 @@ describe("ProductsService", () => {
       expect(idsQuery.values).toEqual(
         expect.arrayContaining(["coca", "cola", "zero"]),
       );
+    });
+
+    it("falls back to products sharing some word when none has all of them", async () => {
+      mockIdsAndCount([], 0); // búsqueda estricta: nada
+      mockIdsAndCount(["p-coca"], 1); // parecidos
+      prismaService.product.findMany.mockResolvedValue([
+        { id: "p-coca", name: "COCACOLA ZER VR35 C24" },
+      ]);
+
+      const result = await service.findAll(
+        { search: "coca cola zero 350 cl" },
+        tenantId,
+      );
+
+      expect(prismaService.$queryRaw).toHaveBeenCalledTimes(4);
+      const fallbackQuery = prismaService.$queryRaw.mock.calls[2][0];
+      // Palabras con alguna coincidencia (OR) y ordenadas por cuántas comparten.
+      expect(fallbackQuery.sql).toContain(" OR (");
+      expect(fallbackQuery.sql).toContain("CASE WHEN");
+      // «cl» se descarta en modo parecidos por ser demasiado corta.
+      expect(fallbackQuery.values).not.toContain("cl");
+      expect(fallbackQuery.values).toEqual(
+        expect.arrayContaining(["coca", "cola", "zero", "350"]),
+      );
+      expect(result.meta.total).toBe(1);
+    });
+
+    it("does not fall back when the strict search finds something", async () => {
+      mockIdsAndCount(["p-1"], 1);
+      prismaService.product.findMany.mockResolvedValue([{ id: "p-1" }]);
+
+      await service.findAll({ search: "coca cola" }, tenantId);
+
+      expect(prismaService.$queryRaw).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not fall back for a single-word search", async () => {
+      mockIdsAndCount([], 0);
+      prismaService.product.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: "inexistente" }, tenantId);
+
+      expect(prismaService.$queryRaw).toHaveBeenCalledTimes(2);
     });
 
     it("should filter by isActive status", async () => {
