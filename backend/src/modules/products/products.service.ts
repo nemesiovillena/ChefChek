@@ -425,10 +425,21 @@ export class ProductsService {
     ];
 
     if (search) {
-      const term = `%${search}%`;
-      conditions.push(
-        Prisma.sql`(p.name ILIKE ${term} OR p.description ILIKE ${term} OR p.barcode ILIKE ${term} OR p.brand ILIKE ${term})`,
-      );
+      // Palabra a palabra y sin acentos: cada palabra tiene que aparecer en
+      // algún campo, en cualquier orden. Así «coca cola zero» encuentra
+      // «Coca-Cola Zero lata 33cl» y «cafe» encuentra «Café».
+      const fold = (col: Prisma.Sql) =>
+        Prisma.sql`translate(lower(coalesce(${col}, '')), ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO})`;
+      const words = search
+        .toLowerCase()
+        .split(/[\s\-/(),.]+/)
+        .filter(Boolean);
+      for (const word of words) {
+        const term = Prisma.sql`'%' || translate(${word}, ${ProductsService.ACCENTS_FROM}, ${ProductsService.ACCENTS_TO}) || '%'`;
+        conditions.push(
+          Prisma.sql`(${fold(Prisma.sql`p.name`)} LIKE ${term} OR ${fold(Prisma.sql`p.description`)} LIKE ${term} OR ${fold(Prisma.sql`p.brand`)} LIKE ${term} OR p.barcode ILIKE ${term})`,
+        );
+      }
     }
 
     const ids = categoryIds
