@@ -21,6 +21,7 @@ import {
   ExportResultDto,
   UploadCatalogDto,
   UploadSalesDto,
+  UploadSalesHistoryDto,
 } from "./dto/cuiner.dto";
 
 interface ConnectorRequest {
@@ -46,9 +47,26 @@ export class CuinerConnectorController {
 
   @Get("config")
   getConfig(@Req() req: ConnectorRequest) {
-    const { enabled, mode, empresa, centro, almacen, lastVentasCabId } =
-      req.cuinerConfig;
-    return { enabled, mode, empresa, centro, almacen, lastVentasCabId };
+    const {
+      enabled,
+      mode,
+      empresa,
+      centro,
+      almacen,
+      lastVentasCabId,
+      historyCursor,
+      historyDone,
+    } = req.cuinerConfig;
+    return {
+      enabled,
+      mode,
+      empresa,
+      centro,
+      almacen,
+      lastVentasCabId,
+      historyCursor,
+      historyDone,
+    };
   }
 
   @Put("catalog")
@@ -73,6 +91,16 @@ export class CuinerConnectorController {
   uploadSales(@Req() req: ConnectorRequest, @Body() dto: UploadSalesDto) {
     this.assertEnabled(req);
     return this.salesService.ingest(req.tenantId, dto);
+  }
+
+  /** Ventas anteriores al conector, solo para informes (no descuentan stock). */
+  @Post("sales/history")
+  uploadSalesHistory(
+    @Req() req: ConnectorRequest,
+    @Body() dto: UploadSalesHistoryDto,
+  ) {
+    this.assertEnabled(req);
+    return this.salesService.ingestHistory(req.tenantId, dto);
   }
 
   @Get("albaranes/pending")

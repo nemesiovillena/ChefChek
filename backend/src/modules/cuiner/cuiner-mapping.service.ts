@@ -106,8 +106,13 @@ export class CuinerMappingService {
             tipo: d.tipo,
             producto: d.producto,
             nombre: d.nombre,
+            familia: d.familia ?? null,
           },
-          update: { nombre: d.nombre },
+          // Un conector antiguo no envía familia: no borrar la que ya hay.
+          update: {
+            nombre: d.nombre,
+            ...(d.familia !== undefined ? { familia: d.familia } : {}),
+          },
         }),
       ),
     ];

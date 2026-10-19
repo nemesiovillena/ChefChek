@@ -6,12 +6,15 @@ import { useAuth } from '@/contexts/auth.context';
 import { useCuinerStatus } from '@/hooks/use-cuiner';
 import { CuinerConfigTab } from './components/cuiner-config-tab';
 import { CuinerDishesTab } from './components/cuiner-dishes-tab';
+import { CuinerSalesReportTab } from './components/cuiner-sales-report-tab';
 import { CuinerSalesTab } from './components/cuiner-sales-tab';
 import { CuinerServingMeasuresTab } from './components/cuiner-serving-measures-tab';
 import { CuinerProductsTab, CuinerSuppliersTab } from './components/cuiner-suppliers-products-tabs';
 
 /** Usan Cuiner; la configuración del conector solo la cambian ADMIN/OWNER/SUPERADMIN. */
 const CUINER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
+/** Facturación: los informes de ventas solo los ve gerencia. */
+const REPORT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
 const TABS = [
   { id: 'proveedores', label: 'Proveedores' },
@@ -19,6 +22,7 @@ const TABS = [
   { id: 'platos', label: 'Platos' },
   { id: 'medidas', label: 'Medidas' },
   { id: 'ventas', label: 'Ventas' },
+  { id: 'informes', label: 'Informes', reportsOnly: true },
   { id: 'conector', label: 'Conector y envíos' },
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
@@ -30,6 +34,7 @@ type TabId = (typeof TABS)[number]['id'];
 export default function CuinerPage() {
   const { user } = useAuth();
   const canManage = !!user && CUINER_ROLES.includes(user.role);
+  const canSeeReports = !!user && REPORT_ROLES.includes(user.role);
   const { data: status, isLoading, error } = useCuinerStatus(canManage);
   const [tab, setTab] = useState<TabId>('proveedores');
 
@@ -60,7 +65,7 @@ export default function CuinerPage() {
             </p>
           )}
           <div role="tablist" className="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-zinc-800">
-            {TABS.map((t) => (
+            {TABS.filter((t) => !('reportsOnly' in t) || canSeeReports).map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -85,6 +90,7 @@ export default function CuinerPage() {
             {activeTab === 'platos' && <CuinerDishesTab />}
             {activeTab === 'medidas' && <CuinerServingMeasuresTab />}
             {activeTab === 'ventas' && <CuinerSalesTab />}
+            {activeTab === 'informes' && canSeeReports && <CuinerSalesReportTab />}
             {activeTab === 'conector' && <CuinerConfigTab key={status.config?.id ?? 'nuevo'} status={status} />}
           </div>
         </>

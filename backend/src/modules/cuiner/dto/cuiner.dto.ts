@@ -10,11 +10,20 @@ import {
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+import {
+  REPORT_GROUP_BY,
+  ReportGroupBy,
+} from "../cuiner-sales-report-grouping";
+import {
+  SALES_REPORT_FORMATS,
+  SalesReportFormat,
+} from "../cuiner-sales-report-export.service";
 
 /** Códigos de Cuiner: numéricos con ceros a la izquierda (centro "02", proveedor "00009"). */
 const CUINER_CODE = /^\d{1,10}$/;
@@ -232,6 +241,12 @@ export class CatalogDishDto {
   @IsString()
   @MaxLength(200)
   nombre!: string;
+
+  /** Ruta de familia de la carta («BEBIDAS ALCOHOL-LICORES-TUBO L»). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  familia?: string | null;
 }
 
 /** Lotes acotados: el conector trocea catálogos grandes (≈3.000 artículos). */
@@ -290,6 +305,19 @@ export class SaleLineDto {
 
   @IsBoolean()
   anulada!: boolean;
+
+  // Opcionales: un conector antiguo no los envía.
+  @IsOptional()
+  @IsNumber()
+  base?: number;
+
+  @IsOptional()
+  @IsNumber()
+  impuesto?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  invitacion?: boolean;
 }
 
 export class UploadSalesDto {
@@ -297,6 +325,24 @@ export class UploadSalesDto {
   @IsInt()
   @Min(0)
   cursor!: number;
+
+  @IsArray()
+  @ArrayMaxSize(5000)
+  @ValidateNested({ each: true })
+  @Type(() => SaleLineDto)
+  lines!: SaleLineDto[];
+}
+
+/** Lote del histórico: tickets anteriores al conector, de más nuevo a más viejo. */
+export class UploadSalesHistoryDto {
+  /** Id_VentasCab más bajo incluido en el lote: nuevo tope del histórico. */
+  @IsInt()
+  @Min(0)
+  cursor!: number;
+
+  /** No quedan tickets más antiguos en Cuiner. */
+  @IsBoolean()
+  done!: boolean;
 
   @IsArray()
   @ArrayMaxSize(5000)
@@ -328,4 +374,36 @@ export class ExportResultDto {
   @IsString()
   @MaxLength(2000)
   error?: string;
+}
+
+// ─── Informe de ventas ───────────────────────────────────────────────────────
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export class SalesReportQueryDto {
+  @Matches(ISO_DAY)
+  from!: string;
+
+  @Matches(ISO_DAY)
+  to!: string;
+
+  @IsIn(REPORT_GROUP_BY)
+  groupBy!: ReportGroupBy;
+
+  /** 1-3 nivel de familia, 4 plato a plato. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(4)
+  level!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  family?: string;
+}
+
+export class SalesReportExportQueryDto extends SalesReportQueryDto {
+  @IsIn(SALES_REPORT_FORMATS)
+  format!: SalesReportFormat;
 }

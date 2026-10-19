@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
+import { downloadBlob } from '@/lib/utils';
 import type {
   CuinerAlbaranExport,
   CuinerBulkGroup,
@@ -16,6 +17,9 @@ import type {
   CuinerSupplierRow,
   ServingMeasure,
   ServingMeasureInput,
+  SalesReport,
+  SalesReportFormat,
+  SalesReportQuery,
   UpdateCuinerConfigInput,
 } from '@/lib/cuiner-types';
 
@@ -32,6 +36,7 @@ const keys = {
   albaran: (albaranId: string) => [ROOT_KEY, 'albaran', albaranId] as const,
   servingMeasures: [ROOT_KEY, 'serving-measures'] as const,
   bulkCandidates: [ROOT_KEY, 'bulk-candidates'] as const,
+  salesReport: (q: SalesReportQuery) => [ROOT_KEY, 'sales-report', q] as const,
 };
 
 // ─── Configuración ──────────────────────────────────────────────────────────
@@ -283,4 +288,26 @@ export function useRequeueCuinerSales() {
       (await apiClient.post(`${BASE_URL}/sales/requeue-unmapped`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: [ROOT_KEY] }),
   });
+}
+
+// ─── Informe de ventas ──────────────────────────────────────────────────────
+
+/** Informe en pantalla. Solo pide cuando hay consulta (tras «Generar»). */
+export function useCuinerSalesReport(query: SalesReportQuery | null) {
+  return useQuery<SalesReport, Error>({
+    queryKey: keys.salesReport(query ?? ({} as SalesReportQuery)),
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/reports/sales`, { params: query })).data,
+    enabled: !!query,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Descarga el informe en Excel, CSV o PDF (va por apiClient: lleva la sesión). */
+export async function downloadCuinerSalesReport(query: SalesReportQuery, format: SalesReportFormat) {
+  const response = await apiClient.get<Blob>(`${BASE_URL}/reports/sales/export`, {
+    params: { ...query, format },
+    responseType: 'blob',
+  });
+  const range = query.from === query.to ? query.from : `${query.from}_${query.to}`;
+  downloadBlob(`ventas-${range}.${format}`, response.data);
 }

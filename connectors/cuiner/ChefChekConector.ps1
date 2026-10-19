@@ -55,7 +55,7 @@ function Read-Config {
   foreach ($key in 'apiUrl', 'tokenFile', 'sqlServer', 'database', 'sqlUser', 'sqlPasswordFile', 'logDir') {
     if (-not $cfg.$key) { throw "Falta '$key' en $Path" }
   }
-  $defaults = @{ salesStableMinutes = 30; ticketsPerBatch = 300; catalogChunk = 500; maxBatchesPerRun = 50 }
+  $defaults = @{ salesStableMinutes = 30; ticketsPerBatch = 300; catalogChunk = 500; maxBatchesPerRun = 50; historyBatchesPerRun = 20 }
   foreach ($k in $defaults.Keys) {
     if (-not ($cfg.PSObject.Properties.Name -contains $k)) {
       $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $defaults[$k]
@@ -226,7 +226,7 @@ FROM ArticulosProv WHERE Empresa = @empresa
 
   # Carta del centro: el mismo código es distinto plato según el tipo (P/I/M).
   $dishes = foreach ($r in (Invoke-SqlQuery $Conn @'
-SELECT Tipo, Codigo, MAX(Descripcion) AS Descripcion
+SELECT Tipo, Codigo, MAX(Descripcion) AS Descripcion, MAX(Familias) AS Familias
 FROM CartasLin
 WHERE Empresa = @empresa AND Centro = @centro AND Tipo IN ('P', 'I', 'M') AND ISNULL(Baja, 0) = 0
 GROUP BY Tipo, Codigo
@@ -234,11 +234,44 @@ GROUP BY Tipo, Codigo
     $code = Get-Value $r 'Codigo'
     if ($code -notmatch $CodePattern) { $skipped++; continue }
     $name = Get-Value $r 'Descripcion'; if (-not $name) { $name = $code }
-    @{ tipo = (Get-Value $r 'Tipo'); producto = $code; nombre = $name }
+    # Familia de la carta como ruta «NIVEL1-NIVEL2-NIVEL3»: la usan los informes de ventas.
+    @{ tipo = (Get-Value $r 'Tipo'); producto = $code; nombre = $name; familia = (Get-Value $r 'Familias') }
   }
   Send-InChunks $Cfg 'dishes' @($dishes)
 
   if ($skipped -gt 0) { Write-Log "Catálogo: $skipped registros con código no numérico omitidos" 'WARN' }
+}
+
+# Líneas de venta del centro del tenant para los tickets con
+# @from < Id_VentasCab <= @to, listas para enviar a ChefChek.
+function Get-SaleLines {
+  param($Conn, $Remote, [int]$From, [int]$To)
+  $p = @{ from = $From; to = $To; empresa = $Remote.empresa; centro = $Remote.centro }
+  $lines = foreach ($r in (Invoke-SqlQuery $Conn @'
+SELECT c.Id_VentasCab, l.Linea, c.Fecha, l.Tipo, l.Producto, l.Unidades,
+       ISNULL(l.MediaRacion, 0) AS MediaRacion, ISNULL(l.Anulacion, 0) AS Anulacion,
+       ISNULL(l.Base, 0) AS Base, ISNULL(l.Impuesto, 0) AS Impuesto, ISNULL(l.Invitacion, 0) AS Invitacion
+FROM VentasCab c
+JOIN Ventas v ON v.Id_Ventas = c.Id_Ventas
+JOIN VentasLin l ON l.Id_VentasCab = c.Id_VentasCab
+WHERE c.Id_VentasCab > @from AND c.Id_VentasCab <= @to
+  AND v.Empresa = @empresa AND v.Centro = @centro
+ORDER BY c.Id_VentasCab, l.Linea
+'@ $p).Rows) {
+    $producto = Get-Value $r 'Producto'
+    if ($producto -notmatch $CodePattern) { continue }
+    $units = [double](Get-Value $r 'Unidades')
+    # Media ración: consume la mitad. Las anulaciones de ticket ya vienen
+    # como tickets con unidades negativas y se envían tal cual. La base ya
+    # viene calculada por el TPV (con media ración y descuentos).
+    if ([bool](Get-Value $r 'MediaRacion')) { $units = $units / 2 }
+    @{ idVentasCab = [int](Get-Value $r 'Id_VentasCab'); linea = [int](Get-Value $r 'Linea');
+       fecha = ([datetime](Get-Value $r 'Fecha')).ToString('yyyy-MM-dd'); tipo = (Get-Value $r 'Tipo');
+       producto = $producto; unidades = $units; anulada = [bool](Get-Value $r 'Anulacion');
+       base = [double](Get-Value $r 'Base'); impuesto = [double](Get-Value $r 'Impuesto');
+       invitacion = [bool](Get-Value $r 'Invitacion') }
+  }
+  return ,@($lines)
 }
 
 function Invoke-SalesSync {
@@ -272,31 +305,10 @@ ORDER BY c.Id_VentasCab
 '@ $p
     if ($ids.Rows.Count -eq 0) { break }
     $newCursor = [int]$ids.Rows[$ids.Rows.Count - 1].Id_VentasCab
-    $p.upTo = $newCursor
 
     # Solo las líneas del centro de este tenant; el cursor avanza igualmente
     # sobre los tickets de otros centros.
-    $lines = foreach ($r in (Invoke-SqlQuery $Conn @'
-SELECT c.Id_VentasCab, l.Linea, c.Fecha, l.Tipo, l.Producto, l.Unidades,
-       ISNULL(l.MediaRacion, 0) AS MediaRacion, ISNULL(l.Anulacion, 0) AS Anulacion
-FROM VentasCab c
-JOIN Ventas v ON v.Id_Ventas = c.Id_Ventas
-JOIN VentasLin l ON l.Id_VentasCab = c.Id_VentasCab
-WHERE c.Id_VentasCab > @cursor AND c.Id_VentasCab <= @upTo
-  AND v.Empresa = @empresa AND v.Centro = @centro
-ORDER BY c.Id_VentasCab, l.Linea
-'@ $p).Rows) {
-      $producto = Get-Value $r 'Producto'
-      if ($producto -notmatch $CodePattern) { continue }
-      $units = [double](Get-Value $r 'Unidades')
-      # Media ración: consume la mitad. Las anulaciones de ticket ya vienen
-      # como tickets con unidades negativas y se envían tal cual.
-      if ([bool](Get-Value $r 'MediaRacion')) { $units = $units / 2 }
-      @{ idVentasCab = [int](Get-Value $r 'Id_VentasCab'); linea = [int](Get-Value $r 'Linea');
-         fecha = ([datetime](Get-Value $r 'Fecha')).ToString('yyyy-MM-dd'); tipo = (Get-Value $r 'Tipo');
-         producto = $producto; unidades = $units; anulada = [bool](Get-Value $r 'Anulacion') }
-    }
-    $lines = @($lines)
+    $lines = Get-SaleLines $Conn $Remote $cursor $newCursor
 
     $res = Invoke-ChefChekApi $Cfg 'POST' 'sales' @{ cursor = $newCursor; lines = $lines }
     Write-Log ("Ventas: tickets hasta {0}, {1} líneas del centro, {2} nuevas" -f $newCursor, $lines.Count, $res.inserted)
@@ -304,6 +316,35 @@ ORDER BY c.Id_VentasCab, l.Linea
   }
   if ($null -ne $p.limit) {
     Write-Log ("Ventas: tickets desde {0} en espera (cinta importada hace menos de {1} min)" -f $p.limit, $Cfg.salesStableMinutes)
+  }
+}
+
+# Histórico para informes: tickets anteriores al conector, de más nuevo a más
+# viejo, por lotes. ChefChek los guarda como HISTORICO y nunca descuentan stock.
+# Si un lote falla, la siguiente ejecución sigue desde el mismo tope.
+function Invoke-HistorySync {
+  param($Cfg, $Conn, $Remote)
+  $props = $Remote.PSObject.Properties.Name
+  if (-not ($props -contains 'historyDone') -or $Remote.historyDone) { return }
+  # Primera vez: justo por encima del último ticket recibido, para completar
+  # también los importes de las ventas que llegaron sin ellos.
+  $upper = if ($null -ne $Remote.historyCursor) { [int]$Remote.historyCursor } else { [int]$Remote.lastVentasCabId + 1 }
+  if ($upper -le 1) { return }
+
+  for ($batch = 0; $batch -lt $Cfg.historyBatchesPerRun; $batch++) {
+    $ids = Invoke-SqlQuery $Conn @'
+SELECT TOP (@n) Id_VentasCab FROM VentasCab WHERE Id_VentasCab < @upper ORDER BY Id_VentasCab DESC
+'@ @{ n = [int]$Cfg.ticketsPerBatch; upper = $upper }
+    if ($ids.Rows.Count -eq 0) {
+      [void](Invoke-ChefChekApi $Cfg 'POST' 'sales/history' @{ cursor = 0; done = $true; lines = @() })
+      Write-Log 'Histórico: importación terminada'
+      return
+    }
+    $low = [int]$ids.Rows[$ids.Rows.Count - 1].Id_VentasCab
+    $lines = Get-SaleLines $Conn $Remote ($low - 1) ($upper - 1)
+    $res = Invoke-ChefChekApi $Cfg 'POST' 'sales/history' @{ cursor = $low; done = $false; lines = $lines }
+    Write-Log ("Histórico: tickets {0}-{1}, {2} líneas del centro, {3} nuevas, {4} completadas" -f $low, ($upper - 1), $lines.Count, $res.inserted, $res.completed)
+    $upper = $low
   }
 }
 
@@ -428,7 +469,10 @@ try {
     Write-Log 'El conector está desactivado en ChefChek: no se hace nada' 'WARN'
   } else {
     if ($Task -in 'catalog', 'all') { Invoke-CatalogSync $cfg $conn $remote }
-    if ($Task -in 'sales', 'all') { Invoke-SalesSync $cfg $conn $remote }
+    if ($Task -in 'sales', 'all') {
+      Invoke-SalesSync $cfg $conn $remote
+      Invoke-HistorySync $cfg $conn $remote
+    }
     if ($Task -in 'albaranes', 'all') { Invoke-AlbaranSync $cfg $conn $remote }
   }
   Write-Log "Fin tarea '$Task'"

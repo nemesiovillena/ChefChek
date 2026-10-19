@@ -8,6 +8,8 @@ import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
+import { CuinerSalesReportExportService } from "./cuiner-sales-report-export.service";
+import { CuinerSalesReportService } from "./cuiner-sales-report.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
 import { CuinerStockService } from "./cuiner-stock.service";
@@ -25,6 +27,8 @@ import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard
     CuinerExportService,
     CuinerSalesService,
     CuinerServingMeasuresService,
+    CuinerSalesReportService,
+    CuinerSalesReportExportService,
     CuinerStockService,
     CuinerConnectorGuard,
     CuinerTenantRequiredGuard,
