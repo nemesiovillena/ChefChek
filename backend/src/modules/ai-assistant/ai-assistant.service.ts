@@ -105,6 +105,11 @@ export class AiAssistantService {
       role,
       "recipes.cost",
     );
+    const canViewDrinks = await this.roleAccess.isSectionAllowed(
+      tenantId,
+      role,
+      "recipes.drinks",
+    );
 
     const systemPrompt = buildSystemPrompt(new Date());
     const messages: ChatMessage[] = [
@@ -186,6 +191,7 @@ export class AiAssistantService {
           call.name,
           call.params,
           canViewCosts,
+          canViewDrinks,
         );
         if (action && !actions.some((a) => a.recipeId === action.recipeId)) {
           actions.push(action);
@@ -263,13 +269,14 @@ export class AiAssistantService {
     name: string,
     params: Record<string, any>,
     canViewCosts: boolean,
+    canViewDrinks: boolean,
   ): Promise<{ text: string; action: AssistantAction | null }> {
     try {
       const result = await this.toolRegistry.executeTool(
         tenantId,
         name,
         params,
-        { canViewCosts },
+        { canViewCosts, canViewDrinks },
       );
       return {
         text: JSON.stringify(result),

@@ -70,6 +70,8 @@ export interface Recipe {
   version?: number;
   parentVersion?: string | null;
   isActive: boolean;
+  /** Receta de bebida: pestaña Bebidas, visible según el rol (`recipes.drinks`). */
+  isDrink?: boolean;
   isPublic: boolean;
   ingredients: RecipeIngredient[];
   subRecipes?: RecipeSubRecipeItem[];
@@ -116,6 +118,7 @@ export interface CreateRecipeData {
   categoryIds?: string[];
   allergens?: number[];
   sellingPriceWithVat?: number;
+  isDrink?: boolean;
 }
 
 export interface UpdateRecipeData extends Partial<CreateRecipeData> {
@@ -161,6 +164,8 @@ const {
 export interface RecipesQuery {
   search?: string;
   category?: string;
+  /** Pestaña: comida (por defecto en el servidor) o bebida. */
+  kind?: 'food' | 'drink';
   sortBy?: 'name' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
   page?: number;
@@ -172,6 +177,7 @@ function buildRecipesQueryString(query?: RecipesQuery): string {
   const params = new URLSearchParams();
   if (query.search) params.set('search', query.search);
   if (query.category) params.set('category', query.category);
+  if (query.kind) params.set('kind', query.kind);
   if (query.sortBy) params.set('sortBy', query.sortBy);
   if (query.sortOrder) params.set('sortOrder', query.sortOrder);
   if (query.page) params.set('page', String(query.page));

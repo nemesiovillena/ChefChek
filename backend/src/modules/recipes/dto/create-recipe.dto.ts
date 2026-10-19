@@ -148,6 +148,11 @@ export class CreateRecipeDto {
   @IsBoolean()
   isActive?: boolean;
 
+  /** Receta de bebida: se lista en la pestaña Bebidas (sección `recipes.drinks`). */
+  @IsOptional()
+  @IsBoolean()
+  isDrink?: boolean;
+
   // PVP con IVA, manual — PVP sin IVA se deriva dividiendo entre 1,10 (IVA hostelería 10%)
   @IsOptional()
   @IsNumber()

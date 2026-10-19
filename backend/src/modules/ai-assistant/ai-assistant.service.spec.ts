@@ -171,7 +171,7 @@ describe("AiAssistantService", () => {
       "t1",
       "get_top_purchased_products",
       {},
-      { canViewCosts: false },
+      { canViewCosts: false, canViewDrinks: true },
     );
   });
 
@@ -199,7 +199,7 @@ describe("AiAssistantService", () => {
       "t1",
       "get_top_purchased_products",
       { period: "week" },
-      { canViewCosts: true },
+      { canViewCosts: true, canViewDrinks: true },
     );
     expect(result.answer).toBe("Se compró más Harina (500 kg).");
     expect(openaiMock.chat).toHaveBeenCalledTimes(2);
@@ -315,14 +315,14 @@ describe("AiAssistantService", () => {
       "t1",
       "tool_a",
       {},
-      { canViewCosts: true },
+      { canViewCosts: true, canViewDrinks: true },
     );
     expect(toolRegistryMock.executeTool).toHaveBeenNthCalledWith(
       2,
       "t1",
       "tool_b",
       {},
-      { canViewCosts: true },
+      { canViewCosts: true, canViewDrinks: true },
     );
     expect(result.answer).toBe("Respuesta con ambos datos.");
   });

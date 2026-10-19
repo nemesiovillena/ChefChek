@@ -14,5 +14,15 @@ export interface ToolDefinition {
     >;
     required?: string[];
   };
-  handler: (tenantId: string, params: Record<string, any>) => Promise<unknown>;
+  handler: (
+    tenantId: string,
+    params: Record<string, any>,
+    ctx?: ToolContext,
+  ) => Promise<unknown>;
+}
+
+/** Permisos del rol que hace la pregunta, para que las tools filtren datos. */
+export interface ToolContext {
+  /** Sección `recipes.drinks`: sin ella las recetas de bebida no existen. */
+  canViewDrinks?: boolean;
 }

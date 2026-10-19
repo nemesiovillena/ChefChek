@@ -79,7 +79,7 @@ export class ToolRegistryService {
     tenantId: string,
     name: string,
     params: Record<string, any>,
-    opts: { canViewCosts?: boolean } = {},
+    opts: { canViewCosts?: boolean; canViewDrinks?: boolean } = {},
   ): Promise<unknown> {
     const canViewCosts = opts.canViewCosts ?? true;
     if (!canViewCosts && AI_COST_TOOL_NAMES.has(name)) {
@@ -91,6 +91,8 @@ export class ToolRegistryService {
     if (!tool) {
       throw new BadRequestException(`Tool desconocida: "${name}"`);
     }
-    return tool.handler(tenantId, params ?? {});
+    return tool.handler(tenantId, params ?? {}, {
+      canViewDrinks: opts.canViewDrinks ?? true,
+    });
   }
 }

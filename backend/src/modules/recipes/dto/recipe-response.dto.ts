@@ -110,6 +110,7 @@ export interface RecipeResponse {
   version: number;
   parentVersion?: string;
   isActive: boolean;
+  isDrink: boolean;
   isPublic: boolean;
   createdAt: Date;
   updatedAt: Date;

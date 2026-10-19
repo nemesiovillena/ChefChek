@@ -391,6 +391,57 @@ describe("RecipesService", () => {
       },
     );
 
+    it.each([
+      // [pestaña pedida, puede ver bebidas, isDrink esperado]
+      [undefined, true, false],
+      ["food", true, false],
+      ["drink", true, true],
+      ["drink", false, false],
+    ] as const)(
+      "pestaña %s con permiso de bebidas=%s → isDrink %s",
+      async (kind, canViewDrinks, expected) => {
+        mockPrismaService.recipe.findMany.mockResolvedValue([]);
+        mockPrismaService.recipe.count.mockResolvedValue(0);
+
+        await service.findAll(
+          tenantId,
+          kind ? { kind } : undefined,
+          true,
+          "USER",
+          canViewDrinks,
+        );
+
+        const where =
+          mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
+        expect(where.isDrink).toBe(expected);
+      },
+    );
+
+    it("findAllOptions sin permiso de bebidas no ofrece bebidas como sub-receta", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+
+      await service.findAllOptions(tenantId, true, false);
+      expect(
+        mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where.isDrink,
+      ).toBe(false);
+
+      await service.findAllOptions(tenantId, true, true);
+      expect(
+        mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where,
+      ).not.toHaveProperty("isDrink");
+    });
+
+    it("findOne sin permiso de bebidas no abre una bebida", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.findOne(tenantId, "drink-1", true, false),
+      ).rejects.toThrow();
+      expect(
+        mockPrismaService.recipe.findFirst.mock.calls.at(-1)[0].where,
+      ).toEqual({ id: "drink-1", tenantId, isDrink: false });
+    });
+
     it("should return a paginated list of recipes", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([mockRecipe]);
       mockPrismaService.recipe.count.mockResolvedValue(1);
@@ -410,6 +461,7 @@ describe("RecipesService", () => {
       expect(mockPrismaService.recipe.findMany).toHaveBeenCalledWith({
         where: {
           tenantId,
+          isDrink: false,
         },
         include: {
           ingredients: {
