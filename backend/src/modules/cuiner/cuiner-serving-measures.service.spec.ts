@@ -44,6 +44,7 @@ function makePrisma(opts: { measureCount?: number; linked?: number } = {}) {
       findMany: jest.fn(async () => []),
       upsert: jest.fn(async (args: { create: object }) => args.create),
     },
+    $transaction: jest.fn(async (ops: unknown[]) => ops),
     product: {
       findFirst: jest.fn(
         async (args: { where: { id: string } }) =>
@@ -162,5 +163,44 @@ describe("CuinerMappingService.setDishMap con medida", () => {
         servingMeasureId: "m-cana",
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe("CuinerMappingService.setDishMaps (en bloque)", () => {
+  it("guarda todos si todos son válidos", async () => {
+    const prisma = makePrisma();
+    const result = await services(prisma).mapping.setDishMaps("t1", [
+      {
+        tipo: "P",
+        producto: "00062",
+        productId: "barril",
+        servingMeasureId: "m-cana",
+      },
+      { tipo: "P", producto: "00090", productId: "lata" },
+    ]);
+    expect(result).toEqual({ linked: 2 });
+    expect(prisma.cuinerDishMap.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("no guarda ninguno si uno falla y dice cuál", async () => {
+    const prisma = makePrisma();
+    await expect(
+      services(prisma).mapping.setDishMaps("t1", [
+        {
+          tipo: "P",
+          producto: "00062",
+          productId: "barril",
+          servingMeasureId: "m-cana",
+        },
+        {
+          tipo: "P",
+          producto: "00777",
+          productId: "lata",
+          servingMeasureId: "m-cana",
+        },
+      ]),
+    ).rejects.toThrow(/00777/);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

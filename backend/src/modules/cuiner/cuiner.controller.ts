@@ -19,6 +19,7 @@ import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
+import { CuinerBulkLinkService } from "./cuiner-bulk-link.service";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
@@ -29,6 +30,7 @@ import { CuinerStockService } from "./cuiner-stock.service";
 import {
   CreateServingMeasureDto,
   SetDishMapDto,
+  SetDishMapsBulkDto,
   SetProductMapDto,
   SetSupplierMapDto,
   UpdateCuinerConfigDto,
@@ -71,6 +73,7 @@ export class CuinerController {
     private readonly overviewService: CuinerOverviewService,
     private readonly stockService: CuinerStockService,
     private readonly servingMeasuresService: CuinerServingMeasuresService,
+    private readonly bulkLinkService: CuinerBulkLinkService,
   ) {}
 
   // ─── Configuración ─────────────────────────────────────────────────────
@@ -133,6 +136,17 @@ export class CuinerController {
   @Put("maps/dishes")
   setDishMap(@Req() req: AuthedRequest, @Body() dto: SetDishMapDto) {
     return this.mappingService.setDishMap(req.tenantId, dto);
+  }
+
+  /** Asistente: platos «MARCA + MEDIDA» sin enlazar, agrupados por marca. */
+  @Get("maps/dishes/bulk-candidates")
+  bulkLinkCandidates(@Req() req: AuthedRequest) {
+    return this.bulkLinkService.candidates(req.tenantId);
+  }
+
+  @Put("maps/dishes/bulk")
+  setDishMapsBulk(@Req() req: AuthedRequest, @Body() dto: SetDishMapsBulkDto) {
+    return this.mappingService.setDishMaps(req.tenantId, dto.items);
   }
 
   @Delete("maps/dishes/:tipo/:producto")

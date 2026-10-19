@@ -10,6 +10,7 @@ import type { Product } from '@/hooks/use-products';
 import { useCuinerDishes, useDeleteCuinerDishMap, useServingMeasures, useSetCuinerDishMap } from '@/hooks/use-cuiner';
 import { CUINER_DISH_TIPO_LABELS, type CuinerDishRow, type CuinerDishTipo } from '@/lib/cuiner-types';
 import { formatMeasure, measuresForProduct, suggestMeasure } from '@/lib/cuiner-serving-measure-suggestion';
+import { CuinerBulkLinkPanel } from './cuiner-bulk-link-panel';
 import { Pager, inputCls } from './cuiner-link-cell';
 
 type DishTarget = { recipeId: string } | { productId: string; servingMeasureId: string | null };
@@ -189,6 +190,7 @@ export function CuinerDishesTab() {
   const [onlyUnmapped, setOnlyUnmapped] = useState(true);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<string | null>(null);
+  const [bulk, setBulk] = useState(false);
   const { data, isLoading, error } = useCuinerDishes({ tipo, search, onlyUnmapped, page });
   const setMap = useSetCuinerDishMap();
   const deleteMap = useDeleteCuinerDishMap();
@@ -200,6 +202,10 @@ export function CuinerDishesTab() {
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo guardar el enlace', message: err instanceof Error ? err.message : '' });
     }
+  }
+
+  if (bulk) {
+    return <CuinerBulkLinkPanel onClose={() => setBulk(false)} />;
   }
 
   return (
@@ -246,6 +252,9 @@ export function CuinerDishesTab() {
           />
           Solo sin enlazar
         </label>
+        <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => setBulk(true)}>
+          Enlace rápido por marca
+        </Button>
       </div>
       <p className="mb-2 text-sm text-gray-600 dark:text-zinc-400">
         Ordenados por unidades vendidas. Los platos sin enlazar no descuentan stock en ChefChek.

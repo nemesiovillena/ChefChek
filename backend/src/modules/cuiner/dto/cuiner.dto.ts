@@ -90,6 +90,14 @@ export class SetDishMapDto {
   servingMeasureId?: string | null;
 }
 
+export class SetDishMapsBulkDto {
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => SetDishMapDto)
+  items!: SetDishMapDto[];
+}
+
 export class CreateServingMeasureDto {
   @IsString()
   @MaxLength(60)

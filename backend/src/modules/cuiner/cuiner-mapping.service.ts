@@ -186,6 +186,48 @@ export class CuinerMappingService {
   }
 
   async setDishMap(tenantId: string, dto: SetDishMapDto) {
+    const { key, data } = await this.validateDishMap(tenantId, dto);
+    return this.prisma.cuinerDishMap.upsert({
+      where: { tenantId_tipo_producto: key },
+      create: { ...key, ...data },
+      update: data,
+    });
+  }
+
+  /**
+   * Enlaza varios platos de una vez (asistente por marca). Todo o nada: si
+   * un enlace no es válido no se guarda ninguno y se dice qué plato falla.
+   */
+  async setDishMaps(tenantId: string, items: SetDishMapDto[]) {
+    const valid: Awaited<ReturnType<typeof this.validateDishMap>>[] = [];
+    const errors: string[] = [];
+    for (const item of items) {
+      try {
+        valid.push(await this.validateDishMap(tenantId, item));
+      } catch (error) {
+        errors.push(
+          `${item.producto}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    if (errors.length > 0) {
+      throw new BadRequestException(
+        `No se ha enlazado ningún plato. Revisa: ${errors.slice(0, 5).join(" · ")}${errors.length > 5 ? ` y ${errors.length - 5} más` : ""}`,
+      );
+    }
+    await this.prisma.$transaction(
+      valid.map(({ key, data }) =>
+        this.prisma.cuinerDishMap.upsert({
+          where: { tenantId_tipo_producto: key },
+          create: { ...key, ...data },
+          update: data,
+        }),
+      ),
+    );
+    return { linked: valid.length };
+  }
+
+  private async validateDishMap(tenantId: string, dto: SetDishMapDto) {
     const hasRecipe = Boolean(dto.recipeId);
     const hasProduct = Boolean(dto.productId);
     if (hasRecipe === hasProduct) {
@@ -243,11 +285,7 @@ export class CuinerMappingService {
       productId: dto.productId ?? null,
       servingMeasureId: hasProduct ? (dto.servingMeasureId ?? null) : null,
     };
-    return this.prisma.cuinerDishMap.upsert({
-      where: { tenantId_tipo_producto: key },
-      create: { ...key, ...data },
-      update: data,
-    });
+    return { key, data };
   }
 
   async deleteSupplierMap(tenantId: string, supplierId: string) {

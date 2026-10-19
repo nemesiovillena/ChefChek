@@ -18,3 +18,10 @@
 
 ## Preguntas abiertas
 - ¿Incluir modificadores tipo I (refrescos) en el asistente con medida «1 unidad»? Propuesta: sí, segunda sección.
+
+## Resultado (2026-10-19)
+- Hecho: `GET maps/dishes/bulk-candidates`, `PUT maps/dishes/bulk` (todo o nada), panel «Enlace rápido por marca» en Platos.
+- Propuesta de artículo: solo en la magnitud de la medida (cl → litros, g → kilos); palabra dentro de otra solo si ≥6 letras y al inicio; sin vacías ni números sueltos; parcial exige ≥2 palabras.
+- Grupo marcado por defecto solo si artículo casa entero, se cuenta en volumen/peso y todos sus platos tienen medida.
+- Modificadores tipo I (refrescos) NO incluidos: se enlazan uno a uno en Platos › Ingredientes/extras.
+- BD dev: casi ningún destilado dado de alta como artículo → la mayoría de grupos sin propuesta; «Ron Negrita» está en kilo.

@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import apiClient from '@/lib/api-client';
 import type {
   CuinerAlbaranExport,
+  CuinerBulkGroup,
   CuinerCatalogHit,
   CuinerDishRow,
   CuinerDishTipo,
@@ -30,6 +31,7 @@ const keys = {
   salesPreview: [ROOT_KEY, 'sales-preview'] as const,
   albaran: (albaranId: string) => [ROOT_KEY, 'albaran', albaranId] as const,
   servingMeasures: [ROOT_KEY, 'serving-measures'] as const,
+  bulkCandidates: [ROOT_KEY, 'bulk-candidates'] as const,
 };
 
 // ─── Configuración ──────────────────────────────────────────────────────────
@@ -161,6 +163,25 @@ export function useDeleteCuinerDishMap() {
   return useMutation({
     mutationFn: async ({ tipo, producto }: { tipo: CuinerDishTipo; producto: string }) =>
       (await apiClient.delete(`${BASE_URL}/maps/dishes/${tipo}/${producto}`)).data,
+    onSuccess: invalidate,
+  });
+}
+
+/** Asistente de enlace masivo: grupos de platos por marca. */
+export function useCuinerBulkCandidates(enabled = true) {
+  return useQuery<{ groups: CuinerBulkGroup[] }, Error>({
+    queryKey: keys.bulkCandidates,
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/maps/dishes/bulk-candidates`)).data,
+    enabled,
+  });
+}
+
+export function useSetCuinerDishMapsBulk() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (
+      items: { tipo: CuinerDishTipo; producto: string; productId: string; servingMeasureId: string | null }[],
+    ): Promise<{ linked: number }> => (await apiClient.put(`${BASE_URL}/maps/dishes/bulk`, { items })).data,
     onSuccess: invalidate,
   });
 }

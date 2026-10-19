@@ -87,6 +87,24 @@ export interface ServingMeasure {
   linkedDishes: number;
 }
 
+/** Artículo propuesto o elegido en el asistente de enlace masivo. */
+export interface CuinerBulkProduct {
+  id: string;
+  name: string;
+  referenceUnit: string;
+  categoryName: string | null;
+}
+
+/** Platos «MARCA + MEDIDA» sin enlazar que comparten marca (BARCELO …). */
+export interface CuinerBulkGroup {
+  brand: string;
+  dishes: { tipo: CuinerDishTipo; producto: string; nombre: string; sold: number }[];
+  sold: number;
+  suggestedProduct: CuinerBulkProduct | null;
+  /** Todas las palabras de la marca están en el nombre del artículo. */
+  exactMatch: boolean;
+}
+
 export type ServingMeasureInput = Pick<ServingMeasure, 'name' | 'quantity' | 'unit' | 'keywords'>;
 
 export interface CuinerPage<T> {
