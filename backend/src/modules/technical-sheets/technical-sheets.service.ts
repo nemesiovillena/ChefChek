@@ -8,6 +8,7 @@ import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import {
   calculateProductCostPerUnit,
+  calculateSubRecipeCost,
   formatUnitSymbol,
 } from "../../common/utils/product-costing.util";
 import {
@@ -169,7 +170,15 @@ export class TechnicalSheetsService {
           include: { product: true },
         },
         subRecipes: {
-          include: { subRecipe: true },
+          include: {
+            subRecipe: {
+              include: {
+                ingredients: {
+                  include: { product: true },
+                },
+              },
+            },
+          },
         },
         translations: true,
       },
@@ -226,6 +235,17 @@ export class TechnicalSheetsService {
       include: {
         ingredients: {
           include: { product: true },
+        },
+        subRecipes: {
+          include: {
+            subRecipe: {
+              include: {
+                ingredients: {
+                  include: { product: true },
+                },
+              },
+            },
+          },
         },
         translations: true,
       },
@@ -487,8 +507,9 @@ export class TechnicalSheetsService {
     doc.fontSize(this.bodyFontSize(styles)).font("Helvetica");
 
     let totalCost = 0;
+    let index = 0;
 
-    recipe.ingredients.forEach((ingredient, index) => {
+    recipe.ingredients.forEach((ingredient) => {
       // Mismo precio rector que el escandallo de recetas: precio de
       // referencia del artículo corregido por mermas, según unidad usada.
       const cost =
@@ -523,12 +544,59 @@ export class TechnicalSheetsService {
           doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
         }
       }
+      index += 1;
+    });
+
+    // Sub-recetas: una línea por subreceta, sin expandir sus ingredientes —
+    // las cantidades de la subreceta son las de su rendimiento total, no las
+    // de la porción usada aquí, y escalarlas solo es posible cuando hay peso.
+    // Sus alérgenos (manuales ∪ los de sus productos) sí se declaran, igual
+    // que en el detalle de la receta.
+    (recipe.subRecipes || []).forEach((sub: any) => {
+      const subData = sub.subRecipe;
+      if (!subData) {
+        return;
+      }
+      const cost = calculateSubRecipeCost(sub.quantity, sub.unit, subData);
+      totalCost += cost;
+
+      const label = `${subData.name.toLowerCase()} (subreceta${sub.note ? ` — ${sub.note}` : ""})`;
+      doc.text(
+        `${index + 1}. ${label} - ${sub.quantity} ${formatUnitSymbol(sub.unit || "g")}`,
+        { continued: options.includeCosts },
+      );
+
+      if (options.includeCosts) {
+        doc.text(` (Costo: ${this.formatEuro(cost)})`, { align: "right" });
+      }
+
+      doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
+
+      if (options.includeAllergens) {
+        const allergenIds = Array.from(
+          new Set<number>([
+            ...((subData.allergens || []) as number[]),
+            ...((subData.ingredients || []).flatMap((ing: any) =>
+              ing.product?.allergens ? ing.product.allergens : [],
+            ) as number[]),
+          ]),
+        );
+        if (allergenIds.length > 0) {
+          const allergenNames = allergenIds.map((id) =>
+            this.getAllergenName(id),
+          );
+          doc.text(`   Alérgenos: ${allergenNames.join(", ")}`);
+          this.drawAllergenIcons(doc, allergenIds);
+          doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
+        }
+      }
+      index += 1;
     });
 
     if (options.includeCosts) {
       doc.moveDown(TechnicalSheetsService.COMPACT_LINE_GAP);
       doc.font("Helvetica-Bold");
-      doc.text(`Costo Total Ingredientes: ${this.formatEuro(totalCost)}`);
+      doc.text(`Costo Total: ${this.formatEuro(totalCost)}`);
       doc.font("Helvetica");
     }
 

@@ -111,3 +111,49 @@ export function calculateProductCostPerUnit(
     getUnitToReferenceFactor(ingredientUnit, product.referenceUnit)
   );
 }
+
+/**
+ * Costo de usar una sub-receta según la unidad de la cantidad:
+ * - raciones/porciones → cantidad × costo por ración de la sub-receta
+ * - kg/L → convertidos a unidad de rendimiento (g/ml) antes de multiplicar
+ * - g/ml/ud (u otra unidad) → cantidad × costo por unidad de rendimiento
+ *
+ * Compartido entre recetas (escandallo) y fichas técnicas para que el coste
+ * de una subreceta sea el mismo en ambos sitios.
+ */
+export function calculateSubRecipeCost(
+  quantity: number,
+  unit: string,
+  subRecipeData: {
+    totalCost: number;
+    totalCostPerUnit: number;
+    portions: number;
+  },
+): number {
+  const normalized = (unit || "").trim().toLowerCase();
+
+  if (
+    [
+      "ración",
+      "raciones",
+      "racion",
+      "porción",
+      "porciones",
+      "porcion",
+    ].includes(normalized)
+  ) {
+    const costPerPortion =
+      subRecipeData.portions > 0
+        ? subRecipeData.totalCost / subRecipeData.portions
+        : subRecipeData.totalCost;
+    return quantity * costPerPortion;
+  }
+
+  const toYieldUnitFactor: { [key: string]: number } = {
+    kg: 1000,
+    l: 1000,
+    cl: 10,
+  };
+  const factor = toYieldUnitFactor[normalized] ?? 1;
+  return quantity * factor * subRecipeData.totalCostPerUnit;
+}
