@@ -110,13 +110,19 @@ export class RecipeCaptureService {
     assertTenant(tenantId);
     await this.failStaleCaptures(tenantId);
     const captures = await this.prisma.recipeCapture.findMany({
-      where: { tenantId, status: { not: RecipeCaptureStatus.DESCARTADA } },
-      select: { ...LIST_SELECT, recipe: { select: { deletedAt: true } } },
+      // Una PASADA ya cumplió su función: la receta existe y se edita desde
+      // Recetas, así que no lista. La fila se conserva para trazabilidad.
+      where: {
+        tenantId,
+        status: {
+          notIn: [RecipeCaptureStatus.DESCARTADA, RecipeCaptureStatus.PASADA],
+        },
+      },
+      select: LIST_SELECT,
       orderBy: { createdAt: "desc" },
     });
-    return captures.map(({ recipe, sourceFileMimeType, ...capture }) => ({
+    return captures.map(({ sourceFileMimeType, ...capture }) => ({
       ...capture,
-      recipeId: liveRecipeId(capture.recipeId, recipe),
       canRetry: canRetryCapture(capture, sourceFileMimeType),
     }));
   }

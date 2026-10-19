@@ -105,14 +105,17 @@ describe("RecipeCaptureService", () => {
   });
 
   describe("lectura", () => {
-    it("lista solo las capturas del tenant que no están descartadas", async () => {
+    it("lista solo las capturas del tenant que no están descartadas ni pasadas", async () => {
       prisma.recipeCapture.findMany.mockResolvedValue([]);
 
       await service.findAll("t1");
 
       expect(prisma.recipeCapture.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { tenantId: "t1", status: { not: "DESCARTADA" } },
+          where: {
+            tenantId: "t1",
+            status: { notIn: ["DESCARTADA", "PASADA"] },
+          },
         }),
       );
     });
@@ -136,28 +139,30 @@ describe("RecipeCaptureService", () => {
       });
     });
 
-    it("una captura cuya receta se borró se entrega sin receta", async () => {
-      prisma.recipeCapture.findMany.mockResolvedValue([
-        {
+    it("en el detalle, una captura PASADA cuya receta se borró se entrega sin receta", async () => {
+      prisma.recipeCapture.findFirst
+        .mockResolvedValueOnce({
           id: "c1",
           status: "PASADA",
           recipeId: "r1",
           recipe: { deletedAt: new Date() },
-        },
-        {
+          sourceFileMimeType: null,
+          ingredients: [],
+        })
+        .mockResolvedValueOnce({
           id: "c2",
           status: "PASADA",
           recipeId: "r2",
           recipe: { deletedAt: null },
-        },
-      ]);
+          sourceFileMimeType: null,
+          ingredients: [],
+        });
 
-      const result = await service.findAll("t1");
+      const borrada = await service.findOne("t1", "c1");
+      const viva = await service.findOne("t1", "c2");
 
-      expect(result).toEqual([
-        { id: "c1", status: "PASADA", recipeId: null, canRetry: true },
-        { id: "c2", status: "PASADA", recipeId: "r2", canRetry: true },
-      ]);
+      expect(borrada.recipeId).toBeNull();
+      expect(viva.recipeId).toBe("r2");
     });
 
     it("no devuelve capturas de otro tenant ni descartadas", async () => {
