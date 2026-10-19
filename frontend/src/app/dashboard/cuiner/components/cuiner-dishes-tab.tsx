@@ -44,7 +44,14 @@ function DishTargetPicker({
             type="button"
             role="tab"
             aria-selected={mode === m}
-            onClick={() => setMode(m)}
+            onClick={() => {
+              // Cada pestaña guarda su propio texto: al cambiar, se lleva el
+              // que ya estaba escrito para no dejar el buscador vacío.
+              if (m === mode) return;
+              if (m === 'product') products.setSearch(filter);
+              else setFilter(products.search);
+              setMode(m);
+            }}
             className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
           >
             {m === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek (venta directa)'}
