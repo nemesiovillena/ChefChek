@@ -90,7 +90,8 @@ describe("RecipeCaptureService", () => {
       ["createFromUrl", () => service.createFromUrl("", "u1", "https://x.es")],
       [
         "updateIngredient",
-        () => service.updateIngredient("", "c1", "i1", null),
+        () =>
+          service.updateIngredient("", "c1", "i1", { matchedProductId: null }),
       ],
       ["discard", () => service.discard(undefined as any, "c1")],
       ["retry", () => service.retry(undefined as any, "c1")],
@@ -416,7 +417,7 @@ describe("RecipeCaptureService", () => {
       prisma.recipeCaptureIngredient.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateIngredient("t1", "c1", "i1", null),
+        service.updateIngredient("t1", "c1", "i1", { matchedProductId: null }),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(
         prisma.recipeCaptureIngredient.findFirst.mock.calls[0][0].where,
@@ -436,7 +437,9 @@ describe("RecipeCaptureService", () => {
         });
 
         await expect(
-          service.updateIngredient("t1", "c1", "i1", "p1"),
+          service.updateIngredient("t1", "c1", "i1", {
+            matchedProductId: "p1",
+          }),
         ).rejects.toBeInstanceOf(BadRequestException);
         expect(prisma.recipeCaptureIngredient.update).not.toHaveBeenCalled();
       },
@@ -447,7 +450,9 @@ describe("RecipeCaptureService", () => {
       prisma.product.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateIngredient("t1", "c1", "i1", "p-ajeno"),
+        service.updateIngredient("t1", "c1", "i1", {
+          matchedProductId: "p-ajeno",
+        }),
       ).rejects.toThrow("Artículo no encontrado");
       expect(prisma.product.findFirst.mock.calls[0][0].where).toEqual({
         id: "p-ajeno",
@@ -460,14 +465,69 @@ describe("RecipeCaptureService", () => {
     it("al elegirlo el usuario deja de ser una sugerencia automática", async () => {
       prisma.recipeCaptureIngredient.findFirst.mockResolvedValue(pending);
       prisma.product.findFirst.mockResolvedValue({ id: "p1" });
-      prisma.recipeCapture.findFirst.mockResolvedValue({ id: "c1" });
+      prisma.recipeCapture.findFirst.mockResolvedValue({
+        id: "c1",
+        ingredients: [],
+      });
 
-      await service.updateIngredient("t1", "c1", "i1", "p1");
+      await service.updateIngredient("t1", "c1", "i1", {
+        matchedProductId: "p1",
+      });
 
       expect(prisma.recipeCaptureIngredient.update).toHaveBeenCalledWith({
         where: { id: "i1" },
         data: { matchedProductId: "p1", matchConfidence: null },
       });
+    });
+
+    it("corregir cantidad y unidad no toca el artículo vinculado", async () => {
+      prisma.recipeCaptureIngredient.findFirst.mockResolvedValue(pending);
+      prisma.recipeCapture.findFirst.mockResolvedValue({
+        id: "c1",
+        ingredients: [],
+      });
+
+      await service.updateIngredient("t1", "c1", "i1", {
+        quantity: 15,
+        unit: "g",
+      });
+
+      expect(prisma.product.findFirst).not.toHaveBeenCalled();
+      expect(prisma.recipeCaptureIngredient.update).toHaveBeenCalledWith({
+        where: { id: "i1" },
+        data: { quantity: 15, unit: "g" },
+      });
+    });
+
+    it("al leer la captura avisa de qué ingredientes irán a notas y por qué", async () => {
+      const kilo = {
+        id: "p1",
+        name: "Ajos",
+        referenceUnit: "kilo",
+        deletedAt: null,
+      };
+      prisma.recipeCapture.findFirst.mockResolvedValue({
+        id: "c1",
+        status: "PENDIENTE",
+        recipeId: null,
+        recipe: null,
+        sourceFileMimeType: null,
+        ingredients: [
+          { id: "a", quantity: 3, unit: "ud", matchedProduct: kilo },
+          { id: "b", quantity: null, unit: null, matchedProduct: kilo },
+          { id: "c", quantity: 15, unit: "g", matchedProduct: kilo },
+          { id: "d", quantity: 15, unit: "g", matchedProduct: null },
+        ],
+      });
+
+      const capture = await service.findOne("t1", "c1");
+
+      expect(capture.ingredients.map((i: any) => i.pendingReason)).toEqual([
+        "unidad-incompatible",
+        "sin-cantidad",
+        null,
+        "sin-articulo",
+      ]);
     });
   });
 
@@ -481,6 +541,7 @@ describe("RecipeCaptureService", () => {
       sourceFileName: null,
       sourceFile: null as Uint8Array | null,
       sourceFileMimeType: null as string | null,
+      ingredients: [] as unknown[],
     };
 
     it("texto: rehace la fuente guardada, limpia el intento previo y vuelve a PROCESANDO", async () => {

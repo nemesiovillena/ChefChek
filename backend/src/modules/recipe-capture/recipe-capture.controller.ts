@@ -116,7 +116,7 @@ export class RecipeCaptureController {
       req.tenantId,
       id,
       ingredientId,
-      dto.matchedProductId,
+      dto,
     );
     return { success: true, data };
   }

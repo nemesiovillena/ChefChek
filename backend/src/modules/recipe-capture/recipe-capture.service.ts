@@ -12,6 +12,8 @@ import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import { storeUploadedImage } from "../../common/utils/store-uploaded-image.util";
 import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
 import { CaptureIngredientMatcher } from "./capture-ingredient-matcher";
+import { getPendingReason } from "./capture-promotion";
+import { UpdateCaptureIngredientDto } from "./dto/update-capture-ingredient.dto";
 import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
 import {
   RecipeStructuringError,
@@ -129,7 +131,12 @@ export class RecipeCaptureService {
           orderBy: { sortOrder: "asc" },
           include: {
             matchedProduct: {
-              select: { id: true, name: true, deletedAt: true },
+              select: {
+                id: true,
+                name: true,
+                referenceUnit: true,
+                deletedAt: true,
+              },
             },
           },
         },
@@ -142,6 +149,10 @@ export class RecipeCaptureService {
     const { recipe, sourceFileMimeType, ...rest } = capture;
     return {
       ...rest,
+      ingredients: rest.ingredients.map((ingredient) => ({
+        ...ingredient,
+        pendingReason: getPendingReason(ingredient),
+      })),
       recipeId: liveRecipeId(capture.recipeId, recipe),
       canRetry: canRetryCapture(capture, sourceFileMimeType),
     };
@@ -189,12 +200,15 @@ export class RecipeCaptureService {
     );
   }
 
-  /** Cambia o quita el artículo vinculado a un ingrediente de una captura en revisión. */
+  /**
+   * Corrige un ingrediente de una captura en revisión: el artículo vinculado
+   * (o quitarlo) y la cantidad y unidad, para que pueda pasar como línea.
+   */
   async updateIngredient(
     tenantId: string,
     captureId: string,
     ingredientId: string,
-    matchedProductId: string | null,
+    changes: UpdateCaptureIngredientDto,
   ) {
     assertTenant(tenantId);
     const ingredient = await this.prisma.recipeCaptureIngredient.findFirst({
@@ -212,6 +226,7 @@ export class RecipeCaptureService {
         "Solo se pueden editar capturas pendientes de revisión",
       );
     }
+    const { matchedProductId, quantity, unit } = changes;
     if (matchedProductId) {
       const product = await this.prisma.product.findFirst({
         where: { id: matchedProductId, tenantId, deletedAt: null },
@@ -223,8 +238,14 @@ export class RecipeCaptureService {
     }
     await this.prisma.recipeCaptureIngredient.update({
       where: { id: ingredientId },
-      // Elegido por el usuario: deja de ser una sugerencia automática.
-      data: { matchedProductId, matchConfidence: null },
+      data: {
+        // Elegido por el usuario: deja de ser una sugerencia automática.
+        ...(matchedProductId !== undefined
+          ? { matchedProductId, matchConfidence: null }
+          : {}),
+        ...(quantity !== undefined ? { quantity } : {}),
+        ...(unit !== undefined ? { unit } : {}),
+      },
     });
     return this.findOne(tenantId, captureId);
   }

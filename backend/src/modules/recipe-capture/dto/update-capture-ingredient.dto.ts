@@ -1,10 +1,25 @@
-import { IsString, ValidateIf } from "class-validator";
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+} from "class-validator";
+import { CAPTURE_UNITS } from "../recipe-structuring.service";
 
+/** Solo se cambian los campos presentes; null los vacía. */
 export class UpdateCaptureIngredientDto {
   /** Artículo vinculado; null para quitar el vínculo. */
-  @ValidateIf(
-    (dto: UpdateCaptureIngredientDto) => dto.matchedProductId !== null,
-  )
+  @IsOptional()
   @IsString()
-  matchedProductId: string | null;
+  matchedProductId?: string | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @IsPositive()
+  quantity?: number | null;
+
+  @IsOptional()
+  @IsIn(CAPTURE_UNITS)
+  unit?: string | null;
 }

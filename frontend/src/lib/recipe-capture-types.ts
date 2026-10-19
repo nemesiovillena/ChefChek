@@ -39,7 +39,21 @@ export interface RecipeCaptureIngredient {
   matchedProductId: string | null;
   /** 0..1 si el artículo lo sugirió el sistema; null si lo eligió el usuario. */
   matchConfidence: number | null;
-  matchedProduct: { id: string; name: string; deletedAt: string | null } | null;
+  matchedProduct: { id: string; name: string; referenceUnit: string; deletedAt: string | null } | null;
+  /** Por qué irá a notas al pasar a Recetas (lo calcula el servidor con su misma regla); null si pasa como línea. */
+  pendingReason: CapturePendingReason | null;
+}
+
+export type CapturePendingReason = 'sin-articulo' | 'sin-cantidad' | 'unidad-incompatible';
+
+/** Unidades que admite una captura (mismas que el servidor). */
+export const CAPTURE_UNITS = ['g', 'kg', 'ml', 'l', 'ud'] as const;
+
+/** Cambios de un ingrediente: solo se envían los campos que cambian; null los vacía. */
+export interface CaptureIngredientChanges {
+  matchedProductId?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
 }
 
 export interface RecipeCapture extends RecipeCaptureListItem {

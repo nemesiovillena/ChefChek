@@ -36,6 +36,48 @@ const MAX_NOTES_LENGTH = 5000;
 export const PENDING_NOTES_HEADER =
   "Ingredientes pendientes de vincular (alérgenos incompletos):";
 
+/** Por qué un ingrediente no puede ser línea de la receta; null si puede. */
+export type PendingReason =
+  | "sin-articulo"
+  | "sin-cantidad"
+  | "unidad-incompatible";
+
+/** Sufijo que acompaña al texto del ingrediente en las notas de la receta. */
+const REASON_SUFFIX: Record<PendingReason, string> = {
+  "sin-articulo": "",
+  "sin-cantidad": " (sin cantidad)",
+  "unidad-incompatible": " (unidad no compatible con el artículo)",
+};
+
+/**
+ * Misma regla que aplica el paso a Recetas: la pantalla de revisión la usa
+ * para avisar antes de pasar, así nunca dice "vinculado" de algo que acabará
+ * en notas.
+ */
+export function getPendingReason(
+  ingredient: Pick<
+    PromotableIngredient,
+    "quantity" | "unit" | "matchedProduct"
+  >,
+): PendingReason | null {
+  const product = ingredient.matchedProduct;
+  if (!product || product.deletedAt) {
+    return "sin-articulo";
+  }
+  if (!ingredient.quantity || ingredient.quantity <= 0 || !ingredient.unit) {
+    return "sin-cantidad";
+  }
+  // El coste convierte entre unidades de la misma magnitud; si no coinciden
+  // (ml contra un artículo en kg) usa factor 1 sin avisar y el coste sale
+  // absurdo. Mejor dejarlo en notas que crear una línea con coste falso.
+  const unit = getUnitMeta(ingredient.unit);
+  const reference = getUnitMeta(product.referenceUnit);
+  if (!unit || !reference || unit.category !== reference.category) {
+    return "unidad-incompatible";
+  }
+  return null;
+}
+
 export function splitIngredientsForRecipe(
   ingredients: PromotableIngredient[],
 ): PromotionSplit {
@@ -43,31 +85,16 @@ export function splitIngredientsForRecipe(
   const pending: string[] = [];
 
   for (const ingredient of ingredients) {
-    const product = ingredient.matchedProduct;
-    if (!product || product.deletedAt) {
-      pending.push(ingredient.rawText);
-      continue;
-    }
-    if (!ingredient.quantity || ingredient.quantity <= 0 || !ingredient.unit) {
-      pending.push(`${ingredient.rawText} (sin cantidad)`);
-      continue;
-    }
-    // El coste convierte entre unidades de la misma magnitud; si no coinciden
-    // (ml contra un artículo en kg) usa factor 1 sin avisar y el coste sale
-    // absurdo. Mejor dejarlo en notas que crear una línea con coste falso.
-    const unit = getUnitMeta(ingredient.unit);
-    const reference = getUnitMeta(product.referenceUnit);
-    if (!unit || !reference || unit.category !== reference.category) {
-      pending.push(
-        `${ingredient.rawText} (unidad no compatible con el artículo)`,
-      );
+    const reason = getPendingReason(ingredient);
+    if (reason) {
+      pending.push(`${ingredient.rawText}${REASON_SUFFIX[reason]}`);
       continue;
     }
     lines.push({
-      productId: product.id,
-      quantity: ingredient.quantity,
+      productId: ingredient.matchedProduct!.id,
+      quantity: ingredient.quantity!,
       // El editor de recetas guarda las unidades sueltas como "units".
-      unit: ingredient.unit === "ud" ? "units" : ingredient.unit,
+      unit: ingredient.unit === "ud" ? "units" : ingredient.unit!,
       ...(ingredient.note ? { note: ingredient.note } : {}),
     });
   }
