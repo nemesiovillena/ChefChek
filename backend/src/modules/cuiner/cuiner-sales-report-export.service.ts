@@ -20,6 +20,13 @@ const LEVEL_NAMES: Record<number, string> = {
   4: "Plato",
 };
 
+const PDF_HEADERS: Record<string, string> = {
+  "Base sin IVA (€)": "Sin IVA",
+  "Total con IVA (€)": "Con IVA",
+  "% del periodo": "%",
+  "Familia del plato": "Familia",
+};
+
 const euros = (n: number) =>
   n.toLocaleString("es-ES", {
     minimumFractionDigits: 2,
@@ -213,7 +220,13 @@ export class CuinerSalesReportExportService {
       doc.y = y + 13;
     };
 
-    drawRow(headers(report), true);
+    // Cabeceras cortas: en el PDF cada columna tiene una sola línea de alto
+    // (una cabecera larga saltaba de línea y pisaba la primera fila) y la
+    // fuente estándar de pdfkit dibuja mal el símbolo «€».
+    drawRow(
+      headers(report).map((h) => PDF_HEADERS[h] ?? h),
+      true,
+    );
     doc
       .moveTo(left, doc.y - 2)
       .lineTo(left + widths.reduce((a, b) => a + b, 0), doc.y - 2)
