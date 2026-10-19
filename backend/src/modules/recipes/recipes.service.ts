@@ -5,7 +5,10 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
-import { calculateProductCostPerUnit } from "../../common/utils/product-costing.util";
+import {
+  calculateProductCostPerUnit,
+  calculateSubRecipeCost,
+} from "../../common/utils/product-costing.util";
 import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { RecipesQueryDto } from "./dto/recipes-query.dto";
@@ -819,7 +822,7 @@ export class RecipesService {
         );
       }
 
-      subRecipesCost += this.calculateSubRecipeCost(
+      subRecipesCost += calculateSubRecipeCost(
         subRecipe.quantity,
         subRecipe.unit,
         subRecipeData,
@@ -839,49 +842,6 @@ export class RecipesService {
         portionSize,
       ),
     };
-  }
-
-  /**
-   * Costo de usar una sub-receta según la unidad de la cantidad:
-   * - raciones/porciones → cantidad × costo por ración de la sub-receta
-   * - kg/L → convertidos a unidad de rendimiento (g/ml) antes de multiplicar
-   * - g/ml/ud (u otra unidad) → cantidad × costo por unidad de rendimiento
-   */
-  private calculateSubRecipeCost(
-    quantity: number,
-    unit: string,
-    subRecipeData: {
-      totalCost: number;
-      totalCostPerUnit: number;
-      portions: number;
-    },
-  ): number {
-    const normalized = (unit || "").trim().toLowerCase();
-
-    if (
-      [
-        "ración",
-        "raciones",
-        "racion",
-        "porción",
-        "porciones",
-        "porcion",
-      ].includes(normalized)
-    ) {
-      const costPerPortion =
-        subRecipeData.portions > 0
-          ? subRecipeData.totalCost / subRecipeData.portions
-          : subRecipeData.totalCost;
-      return quantity * costPerPortion;
-    }
-
-    const toYieldUnitFactor: { [key: string]: number } = {
-      kg: 1000,
-      l: 1000,
-      cl: 10,
-    };
-    const factor = toYieldUnitFactor[normalized] ?? 1;
-    return quantity * factor * subRecipeData.totalCostPerUnit;
   }
 
   /**
@@ -1020,11 +980,7 @@ export class RecipesService {
         unit: sub.unit,
         totalCost: sub.subRecipe.totalCost,
         costPerUnit: sub.subRecipe.totalCostPerUnit,
-        cost: this.calculateSubRecipeCost(
-          sub.quantity,
-          sub.unit,
-          sub.subRecipe,
-        ),
+        cost: calculateSubRecipeCost(sub.quantity, sub.unit, sub.subRecipe),
         note: sub.note ?? null,
       })) || [];
 
@@ -1070,6 +1026,12 @@ export class RecipesService {
       const subRecipeData = recipe.subRecipes.find(
         (s: any) => s.id === sub.id,
       )?.subRecipe;
+      // Alérgenos anotados a mano en la subreceta: también cuentan para el
+      // padre. La columna persistida es solo la selección manual (los derivados
+      // de sus productos se calculan en lectura), así que no hay doble conteo.
+      if (subRecipeData?.allergens) {
+        subRecipeData.allergens.forEach((a: number) => allergens.add(a));
+      }
       if (subRecipeData?.ingredients) {
         subRecipeData.ingredients.forEach((ing: any) => {
           if (ing.product?.allergens) {

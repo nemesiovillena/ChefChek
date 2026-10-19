@@ -405,7 +405,15 @@ describe("TechnicalSheetsService", () => {
             include: { product: true },
           },
           subRecipes: {
-            include: { subRecipe: true },
+            include: {
+              subRecipe: {
+                include: {
+                  ingredients: {
+                    include: { product: true },
+                  },
+                },
+              },
+            },
           },
           translations: true,
         },
@@ -515,6 +523,117 @@ describe("TechnicalSheetsService", () => {
     });
   });
 
+  describe("generateIngredients (subrecetas)", () => {
+    const makeDoc = () => {
+      const doc: any = {
+        text: jest.fn(),
+        moveDown: jest.fn(),
+        image: jest.fn(),
+        y: 0,
+        x: 0,
+        page: { height: 800, margins: { bottom: 40, left: 40 } },
+      };
+      doc.fontSize = jest.fn().mockReturnValue(doc);
+      doc.font = jest.fn().mockReturnValue(doc);
+      return doc;
+    };
+
+    it("lista cada subreceta como una línea con sus alérgenos (manuales ∪ productos) y su coste", () => {
+      const spyIcons = jest
+        .spyOn(service as any, "drawAllergenIcons")
+        .mockImplementation(() => undefined);
+
+      const recipe = {
+        ...mockRecipe,
+        ingredients: [],
+        subRecipes: [
+          {
+            id: "link-1",
+            quantity: 50,
+            unit: "g",
+            note: "base",
+            subRecipe: {
+              id: "sub-1",
+              name: "Crumble Tradicional",
+              allergens: [1, 14], // Gluten + Frutos de Cáscara anotados a mano
+              totalCost: 4,
+              totalCostPerUnit: 0.008, // €/g
+              portions: 10,
+              ingredients: [
+                {
+                  id: "si-1",
+                  quantity: 200,
+                  unit: "g",
+                  product: { id: "p1", name: "BARRAS DE PAN", allergens: [1] },
+                },
+                {
+                  id: "si-2",
+                  quantity: 100,
+                  unit: "g",
+                  product: { id: "p2", name: "ALMENDRA", allergens: [7] },
+                },
+              ],
+            },
+          },
+        ],
+      };
+      const doc = makeDoc();
+
+      (service as any).generateIngredients(
+        doc,
+        recipe,
+        mockTemplate,
+        mockTemplate.styles,
+        { includeAllergens: true, includeCosts: true },
+      );
+
+      const texts: string[] = doc.text.mock.calls.map((c: any[]) =>
+        String(c[0]),
+      );
+      // Línea única de la subreceta: nombre en minúsculas + nota + cantidad
+      expect(
+        texts.some((t) =>
+          t.includes("1. crumble tradicional (subreceta — base) - 50 g"),
+        ),
+      ).toBe(true);
+      // Alérgenos: manuales [1,14] ∪ productos [1,7]
+      const allergenLine = texts.find((t) => t.startsWith("   Alérgenos:"));
+      expect(allergenLine).toContain("Gluten");
+      expect(allergenLine).toContain("Frutos de Cáscara");
+      expect(allergenLine).toContain("Leche");
+      // Coste de la subreceta: 50 g × 0,008 €/g = 0,40 €, dentro del total
+      expect(texts.some((t) => t.includes("Costo: 0,40 €"))).toBe(true);
+      expect(texts.some((t) => t.startsWith("Costo Total: 0,40 €"))).toBe(true);
+
+      spyIcons.mockRestore();
+    });
+
+    it("omite una subreceta cuyo destino desapareció sin romper la numeración", () => {
+      const recipe = {
+        ...mockRecipe,
+        ingredients: [],
+        subRecipes: [
+          { id: "link-1", quantity: 10, unit: "g", subRecipe: null },
+        ],
+      };
+      const doc = makeDoc();
+
+      (service as any).generateIngredients(
+        doc,
+        recipe,
+        mockTemplate,
+        mockTemplate.styles,
+        { includeAllergens: true, includeCosts: false },
+      );
+
+      // Solo el título de la sección; ninguna línea de subreceta
+      const texts: string[] = doc.text.mock.calls.map((c: any[]) =>
+        String(c[0]),
+      );
+      expect(texts).toEqual(["INGREDIENTES"]);
+    });
+  });
+
   describe("generateBatch", () => {
     const batchDto: GenerateBatchDto = {
       recipeIds: [recipeId, "recipe-2"],
@@ -545,6 +664,17 @@ describe("TechnicalSheetsService", () => {
         include: {
           ingredients: {
             include: { product: true },
+          },
+          subRecipes: {
+            include: {
+              subRecipe: {
+                include: {
+                  ingredients: {
+                    include: { product: true },
+                  },
+                },
+              },
+            },
           },
           translations: true,
         },
