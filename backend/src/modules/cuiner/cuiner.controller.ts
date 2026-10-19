@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -23,12 +24,15 @@ import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerOverviewService } from "./cuiner-overview.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
+import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
 import { CuinerStockService } from "./cuiner-stock.service";
 import {
+  CreateServingMeasureDto,
   SetDishMapDto,
   SetProductMapDto,
   SetSupplierMapDto,
   UpdateCuinerConfigDto,
+  UpdateServingMeasureDto,
 } from "./dto/cuiner.dto";
 
 const ADMIN_ROLES = ["ADMIN", "OWNER", "SUPERADMIN"] as const;
@@ -66,6 +70,7 @@ export class CuinerController {
     private readonly salesService: CuinerSalesService,
     private readonly overviewService: CuinerOverviewService,
     private readonly stockService: CuinerStockService,
+    private readonly servingMeasuresService: CuinerServingMeasuresService,
   ) {}
 
   // ─── Configuración ─────────────────────────────────────────────────────
@@ -137,6 +142,35 @@ export class CuinerController {
     @Param("producto") producto: string,
   ) {
     return this.mappingService.deleteDishMap(req.tenantId, tipo, producto);
+  }
+
+  // ─── Medidas de servicio (chupito, copa, caña…) ─────────────────────────
+
+  @Get("serving-measures")
+  listServingMeasures(@Req() req: AuthedRequest) {
+    return this.servingMeasuresService.list(req.tenantId);
+  }
+
+  @Post("serving-measures")
+  createServingMeasure(
+    @Req() req: AuthedRequest,
+    @Body() dto: CreateServingMeasureDto,
+  ) {
+    return this.servingMeasuresService.create(req.tenantId, dto);
+  }
+
+  @Patch("serving-measures/:id")
+  updateServingMeasure(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() dto: UpdateServingMeasureDto,
+  ) {
+    return this.servingMeasuresService.update(req.tenantId, id, dto);
+  }
+
+  @Delete("serving-measures/:id")
+  deleteServingMeasure(@Req() req: AuthedRequest, @Param("id") id: string) {
+    return this.servingMeasuresService.remove(req.tenantId, id);
   }
 
   // ─── Vistas para las pantallas de enlace ───────────────────────────────

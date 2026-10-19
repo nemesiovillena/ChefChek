@@ -63,8 +63,31 @@ export interface CuinerDishRow {
   producto: string;
   nombre: string;
   sold: number;
-  mapped: { kind: 'recipe' | 'product'; id: string; name: string } | null;
+  mapped:
+    | { kind: 'recipe'; id: string; name: string }
+    | {
+        kind: 'product';
+        id: string;
+        name: string;
+        referenceUnit: string;
+        servingMeasure: Pick<ServingMeasure, 'id' | 'name' | 'quantity' | 'unit'> | null;
+      }
+    | null;
 }
+
+/** Lo que sale de un artículo en cada venta: chupito 4 cl, caña 20 cl, café 7 g. */
+export interface ServingMeasure {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  /** Palabras del nombre del plato en el TPV que delatan la medida. */
+  keywords: string[];
+  /** Platos enlazados que la usan. */
+  linkedDishes: number;
+}
+
+export type ServingMeasureInput = Pick<ServingMeasure, 'name' | 'quantity' | 'unit' | 'keywords'>;
 
 export interface CuinerPage<T> {
   items: T[];

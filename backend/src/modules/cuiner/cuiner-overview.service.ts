@@ -224,18 +224,26 @@ export class CuinerOverviewService {
     const productIds = pageRows
       .map((d) => mapByCode.get(d.producto)?.productId)
       .filter((id): id is string => !!id);
-    const [recipes, products] = await Promise.all([
+    const measureIds = pageRows
+      .map((d) => mapByCode.get(d.producto)?.servingMeasureId)
+      .filter((id): id is string => !!id);
+    const [recipes, products, measures] = await Promise.all([
       this.prisma.recipe.findMany({
         where: { tenantId, id: { in: recipeIds } },
         select: { id: true, name: true },
       }),
       this.prisma.product.findMany({
         where: { tenantId, id: { in: productIds } },
-        select: { id: true, name: true },
+        select: { id: true, name: true, referenceUnit: true },
+      }),
+      this.prisma.servingMeasure.findMany({
+        where: { tenantId, id: { in: measureIds } },
+        select: { id: true, name: true, quantity: true, unit: true },
       }),
     ]);
     const recipeName = new Map(recipes.map((r) => [r.id, r.name]));
-    const productName = new Map(products.map((p) => [p.id, p.name]));
+    const productById = new Map(products.map((p) => [p.id, p]));
+    const measureById = new Map(measures.map((m) => [m.id, m]));
 
     const items = pageRows.map((d) => {
       const map = mapByCode.get(d.producto);
@@ -255,8 +263,13 @@ export class CuinerOverviewService {
                 kind: "product" as const,
                 id: map.productId as string,
                 name:
-                  productName.get(map.productId as string) ??
+                  productById.get(map.productId as string)?.name ??
                   "(artículo eliminado)",
+                referenceUnit:
+                  productById.get(map.productId as string)?.referenceUnit ?? "",
+                servingMeasure: map.servingMeasureId
+                  ? (measureById.get(map.servingMeasureId) ?? null)
+                  : null,
               }
           : null,
       };

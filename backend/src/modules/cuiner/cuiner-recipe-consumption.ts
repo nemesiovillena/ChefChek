@@ -121,16 +121,27 @@ export function explodeRecipe(
   return { formats, missing };
 }
 
+/** Medida de servicio: lo que sale del artículo en cada venta (4 cl, 20 cl…). */
+export interface ConsumptionMeasure {
+  quantity: number;
+  unit: string;
+}
+
 /**
  * Formatos que consume vender `units` unidades de un artículo de venta
- * directa (p. ej. una botella): 1 unidad vendida = 1 ud de referencia.
+ * directa. Sin medida, 1 unidad vendida = 1 ud de referencia (botellín,
+ * lata). Con medida, cada venta consume esa cantidad pasada a la unidad de
+ * referencia del artículo (chupito 4 cl de una botella en litros = 0,04 L).
  */
 export function directProductFormats(
   units: number,
   product: ConsumptionProduct,
+  measure?: ConsumptionMeasure | null,
 ): number {
   const unitSize = product.unitSize > 0 ? product.unitSize : 1;
-  return (
-    (units * getUnitToReferenceFactor("ud", product.referenceUnit)) / unitSize
-  );
+  const perSale = measure
+    ? measure.quantity *
+      getUnitToReferenceFactor(measure.unit, product.referenceUnit)
+    : getUnitToReferenceFactor("ud", product.referenceUnit);
+  return (units * perSale) / unitSize;
 }

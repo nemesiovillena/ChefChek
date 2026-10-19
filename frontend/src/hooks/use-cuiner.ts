@@ -13,6 +13,8 @@ import type {
   CuinerSalesPreview,
   CuinerStatus,
   CuinerSupplierRow,
+  ServingMeasure,
+  ServingMeasureInput,
   UpdateCuinerConfigInput,
 } from '@/lib/cuiner-types';
 
@@ -27,6 +29,7 @@ const keys = {
   exports: [ROOT_KEY, 'exports'] as const,
   salesPreview: [ROOT_KEY, 'sales-preview'] as const,
   albaran: (albaranId: string) => [ROOT_KEY, 'albaran', albaranId] as const,
+  servingMeasures: [ROOT_KEY, 'serving-measures'] as const,
 };
 
 // ─── Configuración ──────────────────────────────────────────────────────────
@@ -147,6 +150,7 @@ export function useSetCuinerDishMap() {
       producto: string;
       recipeId?: string | null;
       productId?: string | null;
+      servingMeasureId?: string | null;
     }) => (await apiClient.put(`${BASE_URL}/maps/dishes`, input)).data,
     onSuccess: invalidate,
   });
@@ -157,6 +161,43 @@ export function useDeleteCuinerDishMap() {
   return useMutation({
     mutationFn: async ({ tipo, producto }: { tipo: CuinerDishTipo; producto: string }) =>
       (await apiClient.delete(`${BASE_URL}/maps/dishes/${tipo}/${producto}`)).data,
+    onSuccess: invalidate,
+  });
+}
+
+// ─── Medidas de servicio ────────────────────────────────────────────────────
+
+export function useServingMeasures(enabled = true) {
+  return useQuery<ServingMeasure[], Error>({
+    queryKey: keys.servingMeasures,
+    queryFn: async () => (await apiClient.get(`${BASE_URL}/serving-measures`)).data,
+    enabled,
+  });
+}
+
+export function useCreateServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (input: ServingMeasureInput) =>
+      (await apiClient.post(`${BASE_URL}/serving-measures`, input)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: Partial<ServingMeasureInput> & { id: string }) =>
+      (await apiClient.patch(`${BASE_URL}/serving-measures/${id}`, input)).data,
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteServingMeasure() {
+  const invalidate = useInvalidateMaps();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      (await apiClient.delete(`${BASE_URL}/serving-measures/${id}`)).data,
     onSuccess: invalidate,
   });
 }

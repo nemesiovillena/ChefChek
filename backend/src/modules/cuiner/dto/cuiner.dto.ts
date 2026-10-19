@@ -82,6 +82,57 @@ export class SetDishMapDto {
   @ValidateIf((_, v) => v !== null)
   @IsString()
   productId?: string | null;
+
+  /** Solo con productId: cuánto sale del artículo en cada venta. */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  servingMeasureId?: string | null;
+}
+
+export class CreateServingMeasureDto {
+  @IsString()
+  @MaxLength(60)
+  name!: string;
+
+  @IsNumber()
+  @Min(0.0001)
+  quantity!: number;
+
+  @IsString()
+  @MaxLength(10)
+  unit!: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  keywords?: string[];
+}
+
+export class UpdateServingMeasureDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.0001)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  unit?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  keywords?: string[];
 }
 
 // ─── Conector (token) ───────────────────────────────────────────────────────

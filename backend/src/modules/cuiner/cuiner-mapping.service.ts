@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
 import {
   SetDishMapDto,
   SetProductMapDto,
@@ -18,7 +19,10 @@ import {
  */
 @Injectable()
 export class CuinerMappingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly servingMeasures: CuinerServingMeasuresService,
+  ) {}
 
   // ─── Catálogos ────────────────────────────────────────────────────────────
 
@@ -189,6 +193,11 @@ export class CuinerMappingService {
         "Enlaza el plato con una receta o con un artículo, no con ambos",
       );
     }
+    if (dto.servingMeasureId && !hasProduct) {
+      throw new BadRequestException(
+        "La medida solo se usa al enlazar con un artículo de venta directa",
+      );
+    }
     if (hasRecipe) {
       const recipe = await this.prisma.recipe.findFirst({
         where: { id: dto.recipeId as string, tenantId, deletedAt: null },
@@ -200,10 +209,17 @@ export class CuinerMappingService {
     } else {
       const product = await this.prisma.product.findFirst({
         where: { id: dto.productId as string, tenantId, deletedAt: null },
-        select: { id: true },
+        select: { id: true, name: true, referenceUnit: true },
       });
       if (!product) {
         throw new NotFoundException("Artículo no encontrado");
+      }
+      if (dto.servingMeasureId) {
+        const measure = await this.servingMeasures.findOrThrow(
+          tenantId,
+          dto.servingMeasureId,
+        );
+        this.servingMeasures.assertMeasureFitsProduct(measure, product);
       }
     }
     const dish = await this.prisma.cuinerDish.findUnique({
@@ -225,6 +241,7 @@ export class CuinerMappingService {
     const data = {
       recipeId: dto.recipeId ?? null,
       productId: dto.productId ?? null,
+      servingMeasureId: hasProduct ? (dto.servingMeasureId ?? null) : null,
     };
     return this.prisma.cuinerDishMap.upsert({
       where: { tenantId_tipo_producto: key },
