@@ -487,10 +487,25 @@ describe("ProductsService", () => {
       await service.findAll(query, tenantId);
 
       const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
-      expect(idsQuery.sql).toContain("p.name ILIKE");
+      expect(idsQuery.sql).toContain("coalesce(p.name, '')");
+      expect(idsQuery.sql).toContain("coalesce(p.description, '')");
+      expect(idsQuery.sql).toContain("coalesce(p.brand, '')");
       expect(idsQuery.sql).toContain("p.barcode ILIKE");
-      expect(idsQuery.sql).toContain("p.brand ILIKE");
-      expect(idsQuery.values).toContain("%Tomate%");
+      expect(idsQuery.values).toContain("tomate");
+    });
+
+    it("should require every word of the search, ignoring separators", async () => {
+      mockIdsAndCount([], 0);
+      prismaService.product.findMany.mockResolvedValue([]);
+
+      await service.findAll({ search: "Coca-Cola  Zero" }, tenantId);
+
+      const idsQuery = prismaService.$queryRaw.mock.calls[0][0];
+      // Una condición por palabra, unidas con AND.
+      expect(idsQuery.sql.match(/p\.barcode ILIKE/g)).toHaveLength(3);
+      expect(idsQuery.values).toEqual(
+        expect.arrayContaining(["coca", "cola", "zero"]),
+      );
     });
 
     it("should filter by isActive status", async () => {
