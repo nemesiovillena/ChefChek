@@ -102,6 +102,11 @@ const parsePositive = (s: string): number => {
 };
 // Redondeo a 2 decimales: evita arrastre de coma flotante al recalcular campos.
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+// Peso en g hasta 1 kg; a partir de ahí en kg con hasta 2 decimales (1,25 kg).
+const formatIngredientsWeight = (grams: number): string =>
+  grams >= 1000
+    ? `${(grams / 1000).toLocaleString('es-ES', { maximumFractionDigits: 2 })} kg`
+    : `${grams.toLocaleString('es-ES', { maximumFractionDigits: 2 })} g`;
 // Raciones / gramos con hasta 2 decimales y sin ceros de relleno.
 const fmtYield = (n: number | null | undefined): string =>
   n == null ? '—' : String(Number(n.toFixed(2)));
@@ -363,17 +368,31 @@ export default function RecipesPage() {
     return { grams: Math.round(grams * 100) / 100, hasUnknownWeightItems };
   }, [ingredients, subRecipes]);
 
-  // Precio de referencia €/kg-L de la receta guardada, para que al usarla como
-  // sub-receta se vea de un vistazo. costBreakdown.costPerUnit es €/g (o €/ml,
-  // se tratan como equivalentes) calculado en vivo; ×1000 = €/kg-L. Solo
-  // existe para una receta ya guardada (selectedRecipe) y se recalcula al
-  // guardar, igual que el resto del costeo.
+  // Peso total elaborado (g) que se guardará con el formulario tal como está.
+  // Rendimiento: trío coherente (T = R × P); si el usuario no ha puesto peso
+  // ni peso/ración a mano, se usa el estimado por ingredientes como último
+  // recurso antes de dejarlo en 0 ("sin especificar").
+  const formYieldWeight = useMemo(() => {
+    const raciones = parsePositive(formData.portions) || 1;
+    const pesoRacion = parsePositive(formData.portionSize);
+    return (
+      parsePositive(formData.totalYieldWeight) ||
+      (pesoRacion > 0 ? round2(raciones * pesoRacion) : 0) ||
+      estimatedYieldWeight.grams
+    );
+  }, [formData.portions, formData.portionSize, formData.totalYieldWeight, estimatedYieldWeight.grams]);
+
+  // Precio de referencia €/kg-L, para que al usar la receta como sub-receta
+  // se vea de un vistazo: coste total guardado ÷ peso del formulario × 1000.
+  // El peso sigue lo que se escribe; el coste se recalcula al guardar (los
+  // precios de los artículos viven en el backend). Solo para una receta ya
+  // guardada (selectedRecipe); sin peso no hay €/kg que mostrar.
   const referencePricePerKgOrL = useMemo(() => {
-    if (!selectedRecipe) return null;
-    const costPerUnit = selectedRecipe.costBreakdown?.costPerUnit ?? selectedRecipe.totalCostPerUnit;
-    if (!costPerUnit) return null;
-    return costPerUnit * 1000;
-  }, [selectedRecipe]);
+    if (!selectedRecipe || formYieldWeight <= 0) return null;
+    const totalCost = selectedRecipe.costBreakdown?.totalCost ?? selectedRecipe.totalCost;
+    if (!totalCost) return null;
+    return (totalCost / formYieldWeight) * 1000;
+  }, [selectedRecipe, formYieldWeight]);
 
   // Handle authentication redirect in useEffect, not in render
   useEffect(() => {
@@ -602,17 +621,11 @@ export default function RecipesPage() {
 
     const filledSteps = elaborationSteps.filter((s) => s.description.trim());
 
-    // Rendimiento: se envía el trío ya coherente (T = R × P). El backend usa
-    // totalYieldWeight como ancla y deriva portionSize = totalYieldWeight / portions.
-    // Si el usuario no ha puesto peso ni peso/ración a mano, se usa el
-    // estimado por ingredientes (ver estimatedYieldWeight) como último
-    // recurso antes de dejarlo en 0 ("sin especificar").
+    // Rendimiento: se envía el trío ya coherente (ver formYieldWeight). El
+    // backend usa totalYieldWeight como ancla y deriva portionSize = T / portions.
     const raciones = parsePositive(formData.portions) || 1;
     const pesoRacion = parsePositive(formData.portionSize);
-    const pesoTotal =
-      parsePositive(formData.totalYieldWeight) ||
-      (pesoRacion > 0 ? round2(raciones * pesoRacion) : 0) ||
-      estimatedYieldWeight.grams;
+    const pesoTotal = formYieldWeight;
 
     const recipeData = {
       name: formData.name,
@@ -1380,12 +1393,28 @@ export default function RecipesPage() {
                         </p>
                       )}
 
-                      {canViewCost && referencePricePerKgOrL != null && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
-                          <span className="text-[var(--on-surface-variant)]">Precio de referencia:</span>
-                          <span className="font-semibold text-[var(--on-surface)]">
-                            {formatEuro(referencePricePerKgOrL)}/kg-L
-                          </span>
+                      {(estimatedYieldWeight.grams > 0 ||
+                        (canViewCost && referencePricePerKgOrL != null)) && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {/* Suma en vivo de lo que llevan los ingredientes: sirve de
+                              aproximado del peso total cuando no se ha pesado. */}
+                          {estimatedYieldWeight.grams > 0 && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
+                              <span className="text-[var(--on-surface-variant)]">Peso de ingredientes:</span>
+                              <span className="font-semibold text-[var(--on-surface)]">
+                                {formatIngredientsWeight(estimatedYieldWeight.grams)}
+                                {estimatedYieldWeight.hasUnknownWeightItems ? '*' : ''}
+                              </span>
+                            </div>
+                          )}
+                          {canViewCost && referencePricePerKgOrL != null && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
+                              <span className="text-[var(--on-surface-variant)]">Precio de referencia:</span>
+                              <span className="font-semibold text-[var(--on-surface)]">
+                                {formatEuro(referencePricePerKgOrL)}/kg-L
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
 

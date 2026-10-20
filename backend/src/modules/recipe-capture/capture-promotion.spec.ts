@@ -1,5 +1,6 @@
 import {
   buildPendingNotes,
+  estimateYieldWeightGrams,
   getPendingReason,
   PromotableIngredient,
   splitIngredientsForRecipe,
@@ -139,5 +140,37 @@ describe("getPendingReason", () => {
     expect(
       getPendingReason(ingredient(overrides as Partial<PromotableIngredient>)),
     ).toBe(expected);
+  });
+});
+
+describe("estimateYieldWeightGrams", () => {
+  it("suma peso y volumen en gramos (densidad 1)", () => {
+    expect(
+      estimateYieldWeightGrams([
+        { productId: "a", quantity: 500, unit: "g" },
+        { productId: "b", quantity: 0.004, unit: "kg" },
+        { productId: "c", quantity: 0.1, unit: "l" },
+        { productId: "d", quantity: 5, unit: "cl" },
+        { productId: "e", quantity: 20, unit: "ml" },
+      ]),
+    ).toBe(674);
+  });
+
+  it("ignora las líneas en unidades", () => {
+    expect(
+      estimateYieldWeightGrams([
+        { productId: "a", quantity: 200, unit: "g" },
+        { productId: "b", quantity: 3, unit: "units" },
+      ]),
+    ).toBe(200);
+  });
+
+  it("null si ninguna línea aporta peso", () => {
+    expect(
+      estimateYieldWeightGrams([
+        { productId: "a", quantity: 3, unit: "units" },
+      ]),
+    ).toBeNull();
+    expect(estimateYieldWeightGrams([])).toBeNull();
   });
 });
