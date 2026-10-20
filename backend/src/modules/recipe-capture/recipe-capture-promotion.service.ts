@@ -17,6 +17,7 @@ import { RecipesService } from "../recipes/recipes.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import {
   buildPendingNotes,
+  estimateYieldWeightGrams,
   splitIngredientsForRecipe,
 } from "./capture-promotion";
 import { assertTenant } from "./recipe-capture.service";
@@ -167,6 +168,7 @@ export class RecipeCapturePromotionService {
         description: capture.description ?? undefined,
         elaboration: capture.elaboration ?? undefined,
         portions: capture.portions ?? 1,
+        totalYieldWeight: estimateYieldWeightGrams(split.lines) ?? undefined,
         preparationTimeMinutes: capture.preparationTimeMinutes ?? undefined,
         cookingTimeMinutes: capture.cookingTimeMinutes ?? undefined,
         sourceUrl: capture.sourceUrl ?? undefined,

@@ -168,6 +168,8 @@ describe("RecipeCapturePromotionService", () => {
         sourceUrl: "https://recetas.es/tarta",
         imageUrl: "https://cdn.test/plato.jpg",
         ingredients: [{ productId: "p1", quantity: 500, unit: "g" }],
+        // Peso estimado por ingredientes: sin él nacía con 1 g por ración.
+        totalYieldWeight: 500,
         notes:
           "Ingredientes pendientes de vincular (alérgenos incompletos):\n- sal al gusto",
         isPublic: false,
