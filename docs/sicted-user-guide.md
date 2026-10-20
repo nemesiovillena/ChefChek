@@ -24,7 +24,7 @@ Ve a **Calidad → SICTED → Hojas de hoy**. Cada mañana aparecen las hojas de
 1. Elige **quién eres** en el selector "Quién" arriba de la hoja (la cuenta de sesión puede ser compartida, pero cada marca debe llevar la persona real que la hizo).
 2. Marca cada ítem como **Hecho** o **No realizado**. Si algo no se pudo hacer, se te pedirá un motivo — anótalo, es justo lo que el auditor quiere ver (que hay trazabilidad de las incidencias, no que todo salga perfecto siempre).
 3. Una vez marcado, **no se puede editar ni borrar**. Si te equivocaste, no pasa nada: se corrige con una **entrada nueva con motivo**, el historial completo queda visible.
-4. Algunas hojas (las que llevan doble comprobación) piden que un encargado las **valide** al final — es la firma del supervisor que exige el manual.
+4. Algunas hojas (las que llevan doble comprobación) piden que un encargado las **valide** al final — es la firma del supervisor que exige el manual. En la portada de SICTED, la lista "Pendientes de validar" permite al encargado marcar varias hojas con su casilla (o "Todas") y validarlas de una vez con una sola firma; también puede entrar en cada hoja para revisarla y validarla individualmente.
 
 ## 4. Consultar lo registrado
 

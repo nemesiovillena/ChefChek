@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useSictedStatus } from '@/hooks/use-sicted';
 import { formatPeriodKey } from '@/lib/sicted-types';
 import { SictedCommitmentsPanel } from './components/sicted-commitments-panel';
+import { SictedPendingValidation } from './components/sicted-pending-validation';
 
 export const dynamic = 'force-dynamic';
 
@@ -166,30 +167,7 @@ export default function SictedHubPage() {
         )}
       </section>
 
-      {pendingValidation.length > 0 && (
-        <section className="mb-6">
-          <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold uppercase tracking-wide text-[var(--on-surface-variant)]">
-            <ShieldAlert className="h-4 w-4" /> Pendientes de validar ({pendingValidation.length})
-          </h3>
-          <ul className="space-y-1 text-sm">
-            {pendingValidation.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => router.push(`/dashboard/sicted/registros/${r.id}`)}
-                  className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg bg-[var(--surface-container)] px-3 py-2 text-left hover:bg-[var(--surface-container-high)]"
-                >
-                  <span>
-                    {r.template.name} — {r.template.area}
-                    <span className="text-[var(--on-surface-variant)]"> · {formatPeriodKey(r.periodKey)}</span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {pendingValidation.length > 0 && <SictedPendingValidation runs={pendingValidation} />}
 
       {overdue.length > 0 && (
         <section>
