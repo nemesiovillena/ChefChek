@@ -102,6 +102,11 @@ const parsePositive = (s: string): number => {
 };
 // Redondeo a 2 decimales: evita arrastre de coma flotante al recalcular campos.
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+// Peso en g hasta 1 kg; a partir de ahí en kg con hasta 2 decimales (1,25 kg).
+const formatIngredientsWeight = (grams: number): string =>
+  grams >= 1000
+    ? `${(grams / 1000).toLocaleString('es-ES', { maximumFractionDigits: 2 })} kg`
+    : `${grams.toLocaleString('es-ES', { maximumFractionDigits: 2 })} g`;
 // Raciones / gramos con hasta 2 decimales y sin ceros de relleno.
 const fmtYield = (n: number | null | undefined): string =>
   n == null ? '—' : String(Number(n.toFixed(2)));
@@ -1388,12 +1393,28 @@ export default function RecipesPage() {
                         </p>
                       )}
 
-                      {canViewCost && referencePricePerKgOrL != null && (
-                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
-                          <span className="text-[var(--on-surface-variant)]">Precio de referencia:</span>
-                          <span className="font-semibold text-[var(--on-surface)]">
-                            {formatEuro(referencePricePerKgOrL)}/kg-L
-                          </span>
+                      {(estimatedYieldWeight.grams > 0 ||
+                        (canViewCost && referencePricePerKgOrL != null)) && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {/* Suma en vivo de lo que llevan los ingredientes: sirve de
+                              aproximado del peso total cuando no se ha pesado. */}
+                          {estimatedYieldWeight.grams > 0 && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
+                              <span className="text-[var(--on-surface-variant)]">Peso de ingredientes:</span>
+                              <span className="font-semibold text-[var(--on-surface)]">
+                                {formatIngredientsWeight(estimatedYieldWeight.grams)}
+                                {estimatedYieldWeight.hasUnknownWeightItems ? '*' : ''}
+                              </span>
+                            </div>
+                          )}
+                          {canViewCost && referencePricePerKgOrL != null && (
+                            <div className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container)] px-3 py-1.5 text-sm">
+                              <span className="text-[var(--on-surface-variant)]">Precio de referencia:</span>
+                              <span className="font-semibold text-[var(--on-surface)]">
+                                {formatEuro(referencePricePerKgOrL)}/kg-L
+                              </span>
+                            </div>
+                          )}
                         </div>
                       )}
 
