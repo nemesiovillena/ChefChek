@@ -119,3 +119,26 @@ export function buildPendingNotes(pending: string[]): string | null {
   const marker = "\n- (lista recortada: revisa la receta original)";
   return text.slice(0, MAX_NOTES_LENGTH - marker.length) + marker;
 }
+
+/** Gramos por unidad de peso/volumen (densidad 1), igual que el estimado del formulario de Recetas. */
+const GRAMS_PER_UNIT: Record<string, number> = {
+  kg: 1000,
+  g: 1,
+  l: 1000,
+  ml: 1,
+  cl: 10,
+};
+
+/**
+ * Peso total elaborado (g) estimado sumando las líneas con unidad de peso o
+ * volumen; las de "units" no tienen peso conocido y no cuentan. Sin él la
+ * receta nacía con 1 g por ración y su precio €/kg salía cientos de veces
+ * mayor. null si ninguna línea aporta peso.
+ */
+export function estimateYieldWeightGrams(lines: RecipeLine[]): number | null {
+  const grams = lines.reduce((total, line) => {
+    const factor = GRAMS_PER_UNIT[line.unit.trim().toLowerCase()];
+    return factor ? total + line.quantity * factor : total;
+  }, 0);
+  return grams > 0 ? Math.round(grams * 100) / 100 : null;
+}
