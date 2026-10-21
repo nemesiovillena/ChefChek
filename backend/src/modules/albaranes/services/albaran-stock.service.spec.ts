@@ -820,6 +820,7 @@ describe("AlbaranStockService", () => {
             quantity: 5,
             unit: "L",
             unitPrice: 7.5,
+            vatPercent: 21,
           },
         ],
       };
@@ -862,6 +863,7 @@ describe("AlbaranStockService", () => {
           unitSize: 1,
           purchasePrice: 7.5,
           netPrice: 7.5,
+          iva: 21,
           supplierId: "supplier-123",
           wastePercentage: 0,
           yieldFactor: 1.0,

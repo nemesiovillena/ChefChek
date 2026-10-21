@@ -345,6 +345,8 @@ export class AlbaranStockService {
               unitSize: 1,
               purchasePrice: lineUnitPrice,
               netPrice: lineUnitPrice,
+              // El IVA de la línea del albarán (sin él, el default 10 %).
+              iva: Number(line.vatPercent ?? 10),
               supplierId: albaran.supplierId,
               wastePercentage: 0,
               yieldFactor: 1.0,

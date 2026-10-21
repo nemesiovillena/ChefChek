@@ -45,7 +45,8 @@ export function CreateProductInline({
     referenceUnitSize: '1',
     purchasePrice: line.unitPrice != null ? String(line.unitPrice) : '',
     discountPercentage: '',
-    iva: '10',
+    // El IVA impreso en la línea manda (vino 21 %, refrescos 10 %…).
+    iva: line.vatPercent != null ? String(line.vatPercent) : '10',
     brand: '',
     categoryId: '',
   });
