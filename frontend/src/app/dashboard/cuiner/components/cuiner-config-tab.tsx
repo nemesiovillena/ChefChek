@@ -213,6 +213,10 @@ function CuinerExportsList() {
             <span className={e.status === 'ERROR' ? 'text-red-600' : e.status === 'ENVIADO' ? 'text-emerald-700' : 'text-gray-600'}>
               {CUINER_EXPORT_STATUS_LABELS[e.status]}
               {e.cuinerIdDocsCab ? ` · doc ${e.cuinerIdDocsCab}` : ''}
+              {/* Procesado: hora en que el conector lo escribió; pendiente: desde cuándo espera en cola */}
+              <span className="ml-2 text-xs text-gray-500">
+                {e.processedAt ? formatDateTime(e.processedAt) : `En cola desde ${formatDateTime(e.requestedAt)}`}
+              </span>
             </span>
             {e.error && <p className="w-full text-xs text-red-600">{e.error}</p>}
           </li>
