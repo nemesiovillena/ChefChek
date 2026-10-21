@@ -86,14 +86,14 @@ const REVERTIBLE_STATUSES: PurchaseOrderStatus[] = [
 ];
 const REVERT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 /** Roles que pueden crear programaciones de compra (espejo de @Roles del controller). */
-const SCHEDULE_ROLES = ['ADMIN', 'USER', 'OWNER', 'SUPERADMIN'];
+const SCHEDULE_ROLES = ['ADMIN', 'USER', 'USER_CUINER', 'OWNER', 'SUPERADMIN'];
 /**
  * Roles que pueden editar, transicionar estado o reportar incidencias del
  * pedido (espejo de @Roles("ADMIN", "USER") en compras.controller.ts para
- * esos endpoints). VIEWER es de solo lectura en el backend: sin este check
+ * esos endpoints; USER_CUINER pasa como USER). VIEWER es de solo lectura en el backend: sin este check
  * el botón se mostraba igualmente y el submit fallaba con 403.
  */
-const MANAGE_ORDER_ROLES = ['ADMIN', 'USER', 'OWNER', 'SUPERADMIN'];
+const MANAGE_ORDER_ROLES = ['ADMIN', 'USER', 'USER_CUINER', 'OWNER', 'SUPERADMIN'];
 
 export default function PedidoDetailPage() {
   const params = useParams<{ id: string }>();
