@@ -127,7 +127,9 @@ export class CuinerExportService {
           `IVA ${line.vatPercent}% de «${line.description}» no existe en Cuiner`,
         );
       }
-      if (!(line.quantity > 0)) {
+      // Negativa = devolución en el propio papel (envases, género devuelto):
+      // Cuiner la guarda tal cual, con Unidades y Base en negativo.
+      if (!Number.isFinite(line.quantity) || line.quantity === 0) {
         problems.push(`La línea «${line.description}» no tiene cantidad`);
       }
     }
