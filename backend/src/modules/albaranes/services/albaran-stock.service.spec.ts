@@ -1206,4 +1206,125 @@ describe("AlbaranStockService", () => {
       });
     });
   });
+
+  describe("processAddedLine", () => {
+    // Línea añadida a mano a un albarán YA confirmado (tasa/cargo que el OCR
+    // no leyó). Recibe el tx abierto por AlbaranesService.addLine: aquí no hay
+    // chequeo de idempotencia por albarán (ya existen los movimientos de la
+    // confirmación) ni lectura del albarán — llega todo por parámetro.
+    const confirmedAlbaran = {
+      id: mockAlbaranId,
+      tenantId: mockTenantId,
+      internalNumber: "ALB-001",
+      supplierId: "supplier-123",
+      supplier: { id: "supplier-123", name: "Proveedor" },
+      warehouseId: mockWarehouseId,
+      applyDiscountToCost: false,
+      createdAt: new Date("2026-10-01"),
+    };
+
+    const addedLine = (overrides = {}) => ({
+      id: "line-added",
+      lineStatus: LineStatus.CONFIRMADO,
+      matchedProductId: mockProductId,
+      description: "CLPPV Art 78 LEY 37/92",
+      quantity: 1,
+      unit: "und",
+      unitPrice: 1.4,
+      totalPrice: null,
+      lot: null,
+      ...overrides,
+    });
+
+    const buildTx = (product: any) => ({
+      stockMovement: { create: jest.fn().mockResolvedValue({ id: "m-1" }) },
+      product: {
+        findFirst: jest.fn().mockResolvedValue(product),
+        update: jest.fn().mockResolvedValue(product),
+        create: jest.fn(),
+      },
+      stock: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: "stock-1" }),
+        update: jest.fn(),
+      },
+      albaranLine: { update: jest.fn() },
+      productSupplierOffer: { findFirst: jest.fn().mockResolvedValue(null) },
+      productPriceHistory: { create: jest.fn() },
+    });
+
+    it("cargo de servicio (sin control de stock): oferta al día, ni lote ni movimiento ni stock", async () => {
+      const product = {
+        id: mockProductId,
+        name: "Tasa CLPPV",
+        purchasePrice: 1.4,
+        netPrice: 1.4,
+        supplierId: "supplier-123",
+        tracksInventory: false,
+        unitSize: 1,
+      };
+      const tx = buildTx(product);
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processAddedLine(
+        tx,
+        confirmedAlbaran,
+        addedLine(),
+        mockTenantId,
+      );
+
+      expect(productSupplierOffersService.upsertOffer).toHaveBeenCalledWith(
+        mockProductId,
+        "supplier-123",
+        mockTenantId,
+        { purchasePrice: 1.4, netPrice: 1.4 },
+        tx,
+        mockAlbaranId,
+        true,
+      );
+      expect(lotService.createLotFromReception).not.toHaveBeenCalled();
+      expect(tx.stockMovement.create).not.toHaveBeenCalled();
+      expect(tx.stock.findFirst).not.toHaveBeenCalled();
+      expect(tx.stock.create).not.toHaveBeenCalled();
+    });
+
+    it("artículo físico: entra en stock con su movimiento como en la confirmación", async () => {
+      const product = {
+        id: mockProductId,
+        name: "Vaca",
+        purchasePrice: 12,
+        netPrice: 12,
+        supplierId: "supplier-123",
+        tracksInventory: true,
+        unitSize: 1,
+      };
+      const tx = buildTx(product);
+      (productSupplierOffersService.upsertOffer as jest.Mock).mockResolvedValue(
+        { isPreferred: true },
+      );
+
+      await service.processAddedLine(
+        tx,
+        confirmedAlbaran,
+        addedLine({ quantity: 3, unit: "kg", unitPrice: 12 }),
+        mockTenantId,
+      );
+
+      expect(tx.stockMovement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productId: mockProductId,
+          type: "ENTRANCE",
+          quantity: 3,
+        }),
+      });
+      expect(tx.stock.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          productId: mockProductId,
+          quantity: 3,
+        }),
+      });
+    });
+  });
 });
