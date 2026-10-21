@@ -164,8 +164,16 @@ export class CuinerExportService {
     // Última barrera: si lo que se escribiría en Cuiner no cuadra con el
     // total del papel, casi siempre es un IVA mal leído por el OCR en alguna
     // línea. Mejor bloquear que meter un albarán con el IVA equivocado.
+    // Excepción: albaranes sin total ni IVA impresos (Frutas Candela), donde
+    // el OCR guarda como «total» la suma sin IVA. Si cuadra con la base y no
+    // se leyó IVA, es la base: no hay descuadre.
+    const payloadBase = payload.sumas.reduce((acc, s) => acc + s.base, 0);
+    const paperIsBaseOnly =
+      !(Number(albaran.vatTotal) > 0) &&
+      Math.abs(payloadBase - albaran.total) <= TOTAL_MISMATCH_TOLERANCE;
     if (
       albaran.total > 0 &&
+      !paperIsBaseOnly &&
       Math.abs(payload.total - albaran.total) > TOTAL_MISMATCH_TOLERANCE
     ) {
       const fmt = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
