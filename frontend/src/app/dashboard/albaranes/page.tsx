@@ -15,7 +15,7 @@ import ManualAlbaranForm from '@/components/albaranes/manual-albaran-form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive } from 'lucide-react';
+import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive, X } from 'lucide-react';
 
 /**
  * Lunes de la semana anterior en YYYY-MM-DD: frontera de la ventana de dos
@@ -58,6 +58,13 @@ export default function AlbaranesPage() {
   const [statusView, setStatusView] = useState<StatusView>('todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const hasActiveFilters = !!(searchTerm || dateFrom || dateTo) || statusView !== 'todos';
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDateFrom('');
+    setDateTo('');
+    setStatusView('todos');
+  };
   const [showManualModal, setShowManualModal] = useState(false);
   // Los archivados no aparecen en el listado general; viven en su propia pestaña
   const [activeTab, setActiveTab] = useState<'activos' | 'archivados'>('activos');
@@ -230,7 +237,7 @@ export default function AlbaranesPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar albarán..."
+              placeholder="Buscar por nº, proveedor o nota..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -249,6 +256,14 @@ export default function AlbaranesPage() {
             onChange={(e) => setDateTo(e.target.value)}
           />
         </div>
+        {hasActiveFilters && (
+          <div className="mt-3 flex justify-end">
+            <Button variant="outline" size="sm" onClick={clearFilters}>
+              <X className="mr-1 h-4 w-4" />
+              Limpiar filtros
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Error State */}
