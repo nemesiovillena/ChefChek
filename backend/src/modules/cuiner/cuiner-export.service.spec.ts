@@ -181,6 +181,23 @@ describe("CuinerExportService.preview", () => {
     ]);
   });
 
+  it("no bloquea si el papel no trae IVA y el «total» leído es la base (Frutas Candela)", async () => {
+    // El albarán no imprime total ni IVA: el OCR guarda la suma sin IVA.
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        total: 158.5,
+        vatTotal: 0,
+        lines: [
+          albaranLine({ quantity: 1, unitPrice: 158.5, totalPrice: 158.5 }),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(problems).toEqual([]);
+    expect(payload?.total).toBe(174.35);
+  });
+
   it("admite diferencias de redondeo de hasta 5 céntimos", async () => {
     const prisma = makePrisma({
       ...fullyMapped,
