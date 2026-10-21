@@ -1125,9 +1125,9 @@ export class AlbaranesService {
    * el OCR no leyó por venir cortado en la foto). La línea nace confirmada y
    * con artículo vinculado —no hay revisión pendiente sobre un documento
    * asentado— y en la misma transacción se asientan sus efectos (oferta,
-   * histórico, lote, movimiento y stock, lo que aplique según el artículo) y
-   * los totales del albarán, que se ajustan por delta como en la corrección
-   * de precio para no pisar los totales del papel.
+   * histórico, lote, movimiento y stock, lo que aplique según el artículo).
+   * Los totales del albarán NO se tocan: son los del papel, que ya incluían
+   * la línea que faltaba; añadirla es lo que hace cuadrar las líneas con ellos.
    * La conciliación del pedido vinculado no se re-ejecuta: una línea que no
    * estaba en el papel al confirmar no pertenece a ninguna línea del pedido.
    */
@@ -1166,8 +1166,6 @@ export class AlbaranesService {
     const unitPrice = Number(dto.unitPrice) || 0;
     const vatPercent = Number(dto.vatPercent) || 10;
     const lineAmount = quantity * unitPrice;
-    const round2 = (n: number) => Math.round(n * 100) / 100;
-    const vatDelta = round2(lineAmount * (vatPercent / 100));
 
     return this.prisma.$transaction(async (tx) => {
       const line = await tx.albaranLine.create({
@@ -1188,16 +1186,6 @@ export class AlbaranesService {
           matchedProductId: product.id,
           matchStatus: "MATCH_ALTO",
           confidence: 1.0,
-        },
-      });
-
-      await tx.albaran.update({
-        where: { id: albaran.id },
-        data: {
-          grossAmount: { increment: round2(lineAmount) },
-          base: { increment: round2(lineAmount) },
-          vatTotal: { increment: vatDelta },
-          total: { increment: round2(lineAmount + vatDelta) },
         },
       });
 
