@@ -1233,7 +1233,7 @@ describe("AlbaranesService", () => {
         ).rejects.toThrow(BadRequestException);
       });
 
-      it("crea la línea nacida confirmada, ajusta totales por delta y asienta stock/precios", async () => {
+      it("crea la línea nacida confirmada, asienta stock/precios y no toca los totales del papel", async () => {
         const alb = confirmedAlbaran();
         prisma.albaran.findFirst.mockResolvedValue(alb);
         const createdLine = {
@@ -1263,16 +1263,9 @@ describe("AlbaranesService", () => {
             lineAmount: 1.4,
           }),
         });
-        // 1,4 € con IVA al 21 %: delta 0,29 € (redondeo a 2 decimales).
-        expect(prisma.albaran.update).toHaveBeenCalledWith({
-          where: { id: "alb-1" },
-          data: {
-            grossAmount: { increment: 1.4 },
-            base: { increment: 1.4 },
-            vatTotal: { increment: 0.29 },
-            total: { increment: 1.69 },
-          },
-        });
+        // El total del papel ya incluía la línea que faltaba: sumarla otra vez
+        // descuadraría el albarán por el importe de la propia línea.
+        expect(prisma.albaran.update).not.toHaveBeenCalled();
         expect(stockService.processAddedLine).toHaveBeenCalledWith(
           prisma,
           alb,

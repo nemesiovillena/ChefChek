@@ -14,7 +14,7 @@ import { Loader2, Plus, Package, Search, X } from 'lucide-react';
 interface AddLineFormProps {
   albaranId: string;
   /** Estado del albarán. En CONFIRMADO el artículo es obligatorio: la línea
-   *  nace confirmada y se asienta (stock/precios/total) al crearla. */
+   *  nace confirmada y se asienta (stock/precios) al crearla; el total del papel no cambia. */
   albaranStatus?: 'PENDIENTE' | 'REVISADO' | 'CONFIRMADO';
   onSuccess: () => void;
   onCancel: () => void;
@@ -87,7 +87,8 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
       {isConfirmed && (
         <div role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
           El albarán ya está confirmado: la línea nacerá confirmada y se asentará al momento
-          (stock si el artículo lo controla, precio del artículo y total del albarán).
+          (stock si el artículo lo controla y precio del artículo). El total del albarán no cambia:
+          es el del papel, que ya incluía esta línea.
         </div>
       )}
 
