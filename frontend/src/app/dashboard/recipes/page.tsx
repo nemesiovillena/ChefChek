@@ -282,36 +282,6 @@ export default function RecipesPage() {
 
   const [formData, setFormData] = useState(EMPTY_RECIPE_FORM);
 
-  // Los 3 campos de rendimiento se mantienen coherentes (T = R × P):
-  // - Editar peso ración → raciones = redondeo(pesoTotal / pesoRación) a entero
-  //   (no hay medias raciones al partir un peso); el peso total se reajusta al
-  //   entero de raciones y el peso ración se respeta tal cual se escribió.
-  // - Editar raciones → recalcula peso ración, peso total fijo. Admite decimales
-  //   cuando el usuario los teclea directamente.
-  // - Editar peso total → recalcula peso ración, raciones fijas.
-  const handleYieldChange = (
-    field: 'totalYieldWeight' | 'portions' | 'portionSize',
-    raw: string,
-  ) => {
-    const v = sanitizeDecimal(raw);
-    setFormData((f) => {
-      const next = { ...f, [field]: v };
-      const T = parsePositive(field === 'totalYieldWeight' ? v : f.totalYieldWeight);
-      const R = parsePositive(field === 'portions' ? v : f.portions);
-      const P = parsePositive(field === 'portionSize' ? v : f.portionSize);
-      if (field === 'portionSize') {
-        if (T > 0 && P > 0) {
-          const raciones = Math.max(1, Math.round(T / P));
-          next.portions = String(raciones);
-          next.totalYieldWeight = String(round2(raciones * P));
-        }
-      } else if (T > 0 && R > 0) {
-        // field === 'portions' o 'totalYieldWeight'
-        next.portionSize = String(round2(T / R));
-      }
-      return next;
-    });
-  };
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye la propia receta.
   const { matches: rawDuplicateRecipeNameMatches } = useRecipeNameCheck(formData.name, selectedRecipe?.id);
   // Descartes locales inmediatos: el backend ya no volverá a devolver estos
@@ -367,6 +337,41 @@ export default function RecipesPage() {
     });
     return { grams: Math.round(grams * 100) / 100, hasUnknownWeightItems };
   }, [ingredients, subRecipes]);
+
+  // Los 3 campos de rendimiento se mantienen coherentes (T = R × P):
+  // - Editar peso ración → raciones = redondeo(pesoTotal / pesoRación) a entero
+  //   (no hay medias raciones al partir un peso); el peso total se reajusta al
+  //   entero de raciones y el peso ración se respeta tal cual se escribió.
+  // - Editar raciones → recalcula peso ración, peso total fijo. Admite decimales
+  //   cuando el usuario los teclea directamente.
+  // - Editar peso total → recalcula peso ración, raciones fijas.
+  const handleYieldChange = (
+    field: 'totalYieldWeight' | 'portions' | 'portionSize',
+    raw: string,
+  ) => {
+    const v = sanitizeDecimal(raw);
+    setFormData((f) => {
+      const next = { ...f, [field]: v };
+      const typedT = parsePositive(field === 'totalYieldWeight' ? v : f.totalYieldWeight);
+      // Peso total vacío → se usa el estimado por ingredientes (el que se ve en
+      // gris) como peso total real, para que raciones/peso ración se calculen ya.
+      const T = typedT || (field === 'totalYieldWeight' ? 0 : estimatedYieldWeight.grams);
+      const R = parsePositive(field === 'portions' ? v : f.portions);
+      const P = parsePositive(field === 'portionSize' ? v : f.portionSize);
+      if (field === 'portionSize') {
+        if (T > 0 && P > 0) {
+          const raciones = Math.max(1, Math.round(T / P));
+          next.portions = String(raciones);
+          next.totalYieldWeight = String(round2(raciones * P));
+        }
+      } else if (T > 0 && R > 0) {
+        // field === 'portions' o 'totalYieldWeight'
+        next.portionSize = String(round2(T / R));
+        if (!typedT) next.totalYieldWeight = String(T);
+      }
+      return next;
+    });
+  };
 
   // Peso total elaborado (g) que se guardará con el formulario tal como está.
   // Rendimiento: trío coherente (T = R × P); si el usuario no ha puesto peso
