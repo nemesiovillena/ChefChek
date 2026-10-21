@@ -198,6 +198,52 @@ describe("CuinerExportService.preview", () => {
     expect(payload?.total).toBe(174.35);
   });
 
+  it("envía las devoluciones del papel como líneas en negativo", async () => {
+    // Caso real (Bodegas Conca 8980): vino servido y envases devueltos.
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        total: 105.1,
+        lines: [
+          albaranLine({
+            quantity: 1,
+            unitPrice: 100,
+            totalPrice: 100,
+            vatPercent: 21,
+          }),
+          albaranLine({
+            description: "VINALOPO TINTO",
+            quantity: -6,
+            unitPrice: 2.1901,
+            totalPrice: 13.14,
+            vatPercent: 21,
+          }),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(problems).toEqual([]);
+    expect(payload?.lineas[1]).toMatchObject({
+      unidades: -6,
+      importe: 2.1901,
+      descuentoP: 0,
+      base: -13.14,
+    });
+    expect(payload?.total).toBe(105.1);
+  });
+
+  it("bloquea las líneas sin cantidad", async () => {
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({ lines: [albaranLine({ quantity: 0 })] }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(payload).toBeNull();
+    expect(problems).toEqual([
+      "La línea «MAYONESA INMACULADA 3,6KG» no tiene cantidad",
+    ]);
+  });
+
   it("admite diferencias de redondeo de hasta 5 céntimos", async () => {
     const prisma = makePrisma({
       ...fullyMapped,
