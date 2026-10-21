@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { AlbaranStatusService } from "./services/albaran-status.service";
+import { AlbaranStockService } from "./services/albaran-stock.service";
 import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
@@ -47,6 +48,7 @@ export class AlbaranesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly statusService: AlbaranStatusService,
+    private readonly stockService: AlbaranStockService,
     private readonly numberService: AlbaranNumberService,
     private readonly supplierMatching: SupplierMatchingService,
     private readonly lineMatching: LineMatchingService,
@@ -1063,16 +1065,20 @@ export class AlbaranesService {
   async addLine(albaranId: string, dto: any, tenantId: string) {
     const albaran = await this.prisma.albaran.findFirst({
       where: { id: albaranId, tenantId },
-      include: { lines: true },
+      include: { lines: true, supplier: true },
     });
 
     if (!albaran) {
       throw new NotFoundException("Albarán no encontrado");
     }
 
+    if (albaran.status === "CONFIRMADO") {
+      return this.addLineToConfirmed(albaran, dto, tenantId);
+    }
+
     if (albaran.status !== "PENDIENTE" && albaran.status !== "REVISADO") {
       throw new BadRequestException(
-        "No se pueden añadir líneas a un albarán confirmado o archivado",
+        "No se pueden añadir líneas a un albarán archivado",
       );
     }
 
@@ -1112,5 +1118,92 @@ export class AlbaranesService {
     });
 
     return { success: true, data: line };
+  }
+
+  /**
+   * Añade una línea a un albarán YA confirmado (típico: una tasa o cargo que
+   * el OCR no leyó por venir cortado en la foto). La línea nace confirmada y
+   * con artículo vinculado —no hay revisión pendiente sobre un documento
+   * asentado— y en la misma transacción se asientan sus efectos (oferta,
+   * histórico, lote, movimiento y stock, lo que aplique según el artículo) y
+   * los totales del albarán, que se ajustan por delta como en la corrección
+   * de precio para no pisar los totales del papel.
+   * La conciliación del pedido vinculado no se re-ejecuta: una línea que no
+   * estaba en el papel al confirmar no pertenece a ninguna línea del pedido.
+   */
+  private async addLineToConfirmed(albaran: any, dto: any, tenantId: string) {
+    if (!dto.matchedProductId) {
+      throw new BadRequestException(
+        "Para añadir una línea a un albarán confirmado debes elegir el artículo: la línea se asienta al crearla",
+      );
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.matchedProductId, tenantId },
+    });
+    if (!product) {
+      throw new NotFoundException("Artículo no encontrado");
+    }
+
+    // Si el albarán ya salió (o está saliendo) hacia Cuiner, la línea hay que
+    // apuntarla allí: añadirla aquí descuadraría el documento enviado.
+    const cuinerExport = await this.prisma.cuinerAlbaranExport.findUnique({
+      where: { albaranId: albaran.id },
+      select: { status: true },
+    });
+    if (cuinerExport?.status === CuinerExportStatus.ENVIADO) {
+      throw new BadRequestException(
+        "Este albarán ya está en Cuiner: añade la línea allí",
+      );
+    }
+    if (cuinerExport?.status === CuinerExportStatus.PENDIENTE) {
+      throw new BadRequestException(
+        "Este albarán está en cola de envío a Cuiner: espera a que termine antes de añadir la línea",
+      );
+    }
+
+    const quantity = Number(dto.quantity) || 0;
+    const unitPrice = Number(dto.unitPrice) || 0;
+    const vatPercent = Number(dto.vatPercent) || 10;
+    const lineAmount = quantity * unitPrice;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const vatDelta = round2(lineAmount * (vatPercent / 100));
+
+    return this.prisma.$transaction(async (tx) => {
+      const line = await tx.albaranLine.create({
+        data: {
+          albaranId: albaran.id,
+          description: dto.description,
+          quantity,
+          unit: dto.unit || "kilo",
+          unitPrice,
+          vatPercent,
+          lineAmount,
+          articleNumber: dto.articleNumber || null,
+          lot: dto.lot || null,
+          lineOrder: albaran.lines.length,
+          // Nace asentada: mismo resultado que si el OCR la hubiera leído y
+          // se hubiera confirmado con el resto.
+          lineStatus: LineStatus.CONFIRMADO,
+          matchedProductId: product.id,
+          matchStatus: "MATCH_ALTO",
+          confidence: 1.0,
+        },
+      });
+
+      await tx.albaran.update({
+        where: { id: albaran.id },
+        data: {
+          grossAmount: { increment: round2(lineAmount) },
+          base: { increment: round2(lineAmount) },
+          vatTotal: { increment: vatDelta },
+          total: { increment: round2(lineAmount + vatDelta) },
+        },
+      });
+
+      await this.stockService.processAddedLine(tx, albaran, line, tenantId);
+
+      return { success: true, data: line };
+    });
   }
 }

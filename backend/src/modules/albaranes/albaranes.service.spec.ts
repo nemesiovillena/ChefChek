@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { AlbaranesService } from "./albaranes.service";
 import { PrismaService } from "../../common/services/prisma.service";
 import { AlbaranStatusService } from "./services/albaran-status.service";
+import { AlbaranStockService } from "./services/albaran-stock.service";
 import { AlbaranNumberService } from "./services/albaran-number.service";
 import { SupplierMatchingService } from "./services/supplier-matching.service";
 import { LineMatchingService } from "./services/line-matching.service";
@@ -42,6 +43,9 @@ describe("AlbaranesService", () => {
   const statusService = {
     transitionStatus: jest.fn().mockResolvedValue(undefined),
   };
+  const stockService = {
+    processAddedLine: jest.fn().mockResolvedValue(undefined),
+  };
   const supplierMatching = {
     matchSupplier: jest.fn(),
     enrichSupplierFromOcr: jest.fn().mockResolvedValue(undefined),
@@ -72,6 +76,7 @@ describe("AlbaranesService", () => {
         AlbaranesService,
         { provide: PrismaService, useValue: prisma },
         { provide: AlbaranStatusService, useValue: statusService },
+        { provide: AlbaranStockService, useValue: stockService },
         { provide: AlbaranNumberService, useValue: numberService },
         { provide: SupplierMatchingService, useValue: supplierMatching },
         { provide: LineMatchingService, useValue: lineMatching },
@@ -1121,9 +1126,9 @@ describe("AlbaranesService", () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it("throws BadRequest when status is not PENDIENTE/REVISADO", async () => {
+    it("throws BadRequest when status is ARCHIVADO", async () => {
       prisma.albaran.findFirst.mockResolvedValue(
-        albaran({ status: AlbaranStatus.CONFIRMADO, lines: [] }),
+        albaran({ status: AlbaranStatus.ARCHIVADO, lines: [] }),
       );
       await expect(
         service.addLine("alb-1", { description: "x" } as any, "t1"),
@@ -1155,6 +1160,126 @@ describe("AlbaranesService", () => {
       expect(prisma.albaran.update).toHaveBeenCalledWith({
         where: { id: "alb-1" },
         data: expect.objectContaining({ base: 110 }),
+      });
+    });
+
+    describe("sobre albarán CONFIRMADO", () => {
+      const confirmedAlbaran = () =>
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          lines: [],
+          supplierId: "sup-1",
+          supplier: { id: "sup-1", name: "Proveedor" },
+          warehouseId: "wh-1",
+          internalNumber: "ALB-0001",
+          applyDiscountToCost: false,
+          createdAt: new Date("2026-10-01"),
+        });
+
+      beforeEach(() => {
+        // La transacción ejecuta el callback con el propio mock como tx.
+        prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+        prisma.cuinerAlbaranExport.findUnique.mockResolvedValue(null);
+        prisma.product.findFirst.mockResolvedValue({
+          id: "prod-1",
+          tracksInventory: false,
+        });
+      });
+
+      it("exige el artículo: sin matchedProductId lanza BadRequest", async () => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmedAlbaran());
+        await expect(
+          service.addLine("alb-1", { description: "TASA" } as any, "t1"),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("lanza NotFound si el artículo no existe", async () => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmedAlbaran());
+        prisma.product.findFirst.mockResolvedValue(null);
+        await expect(
+          service.addLine(
+            "alb-1",
+            { description: "TASA", matchedProductId: "prod-x" } as any,
+            "t1",
+          ),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it("bloquea si el albarán ya está enviado a Cuiner", async () => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmedAlbaran());
+        prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({
+          status: "ENVIADO",
+        });
+        await expect(
+          service.addLine(
+            "alb-1",
+            { description: "TASA", matchedProductId: "prod-1" } as any,
+            "t1",
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("bloquea si el albarán está en cola de envío a Cuiner", async () => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmedAlbaran());
+        prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({
+          status: "PENDIENTE",
+        });
+        await expect(
+          service.addLine(
+            "alb-1",
+            { description: "TASA", matchedProductId: "prod-1" } as any,
+            "t1",
+          ),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it("crea la línea nacida confirmada, ajusta totales por delta y asienta stock/precios", async () => {
+        const alb = confirmedAlbaran();
+        prisma.albaran.findFirst.mockResolvedValue(alb);
+        const createdLine = {
+          id: "l-tasa",
+          lineStatus: "CONFIRMADO",
+          matchedProductId: "prod-1",
+        };
+        prisma.albaranLine.create.mockResolvedValue(createdLine);
+
+        const res = await service.addLine(
+          "alb-1",
+          {
+            description: "CLPPV Art 78 LEY 37/92",
+            quantity: 1,
+            unitPrice: 1.4,
+            vatPercent: 21,
+            matchedProductId: "prod-1",
+          } as any,
+          "t1",
+        );
+
+        expect(prisma.albaranLine.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            lineStatus: "CONFIRMADO",
+            matchedProductId: "prod-1",
+            matchStatus: "MATCH_ALTO",
+            lineAmount: 1.4,
+          }),
+        });
+        // 1,4 € con IVA al 21 %: delta 0,29 € (redondeo a 2 decimales).
+        expect(prisma.albaran.update).toHaveBeenCalledWith({
+          where: { id: "alb-1" },
+          data: {
+            grossAmount: { increment: 1.4 },
+            base: { increment: 1.4 },
+            vatTotal: { increment: 0.29 },
+            total: { increment: 1.69 },
+          },
+        });
+        expect(stockService.processAddedLine).toHaveBeenCalledWith(
+          prisma,
+          alb,
+          createdLine,
+          "t1",
+        );
+        expect(res).toEqual({ success: true, data: createdLine });
       });
     });
   });

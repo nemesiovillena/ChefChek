@@ -90,339 +90,7 @@ export class AlbaranStockService {
       }
 
       for (const line of confirmedLines) {
-        const lineQuantity = Number(line.quantity);
-        let lineUnitPrice = Number(line.unitPrice);
-        // Opt-in del usuario: si activó "aplicar descuento al coste" y la línea
-        // trae el importe neto del papel (con descuento), el coste real por
-        // unidad es totalPrice/qty, no el bruto. Sin descuento o sin opt-in,
-        // comportamiento idéntico al anterior (precio bruto).
-        if (
-          albaran.applyDiscountToCost &&
-          line.totalPrice !== null &&
-          lineQuantity > 0
-        ) {
-          lineUnitPrice = Number(line.totalPrice) / lineQuantity;
-        }
-        const lineUnit = line.unit || "kilo";
-
-        if (line.matchedProductId) {
-          // Existing product - update price and stock
-          const product = await tx.product.findFirst({
-            where: { id: line.matchedProductId, tenantId },
-          });
-
-          if (!product) {
-            this.logger.warn(
-              `Producto ${line.matchedProductId} no encontrado, omitiendo línea`,
-            );
-            continue;
-          }
-
-          // Producto sin proveedor: hereda el del albarán. Solo se rellena
-          // cuando está vacío — nunca se pisa un proveedor ya asignado.
-          if (!product.supplierId && albaran.supplierId) {
-            await tx.product.update({
-              where: { id: product.id },
-              data: { supplierId: albaran.supplierId },
-            });
-            this.logger.log(
-              `Proveedor ${albaran.supplierId} asignado a producto sin proveedor: ${product.name}`,
-            );
-          }
-
-          const currentPrice = Number(product.purchasePrice);
-
-          // Un artículo creado inline durante la revisión de ESTE albarán ya
-          // guarda purchasePrice POR FORMATO (el formulario convierte el
-          // precio de la línea cuando el papel factura por unidad: "72 ud ×
-          // 1,3221" con caja de 24 → 31,73 €/caja). El precio de línea llega
-          // en la base del papel (por unidad): volcarlo en crudo pisaría
-          // 31,73 con 1,3221 y dejaría el €/ud dividido entre 24. Se detecta
-          // ese alta inline (artículo nacido con este albarán cuyo precio
-          // plano coincide con línea × formato) y se lleva el precio de línea
-          // a la misma base de formato. Para cualquier otro artículo el
-          // comportamiento es idéntico al anterior.
-          const grossLinePrice = Number(line.unitPrice);
-          const createdInlineFromThisAlbaran =
-            product.unitSize > 1 &&
-            grossLinePrice > 0 &&
-            product.createdAt >= albaran.createdAt &&
-            Math.abs(currentPrice - grossLinePrice * product.unitSize) <=
-              Math.max(0.01, currentPrice * 0.005);
-          const offerLinePrice = createdInlineFromThisAlbaran
-            ? lineUnitPrice * product.unitSize
-            : lineUnitPrice;
-
-          if (albaran.supplierId) {
-            // Upsert de la oferta de ESTE proveedor: toda compra confirmada
-            // lo marca preferente (regla de negocio — el último proveedor al
-            // que se le compró rige el coste/escandallos), pisando cualquier
-            // estrella manual anterior. Se llama siempre, no solo cuando
-            // cambia el precio plano, para que un proveedor distinto al
-            // preferente actual tome la estrella aunque el precio coincida.
-            const offer = await this.productSupplierOffersService.upsertOffer(
-              product.id,
-              albaran.supplierId,
-              tenantId,
-              { purchasePrice: offerLinePrice, netPrice: offerLinePrice },
-              tx,
-              albaran.id,
-              true,
-            );
-
-            if (offerLinePrice !== currentPrice) {
-              const percentageChange =
-                currentPrice > 0
-                  ? Math.abs(
-                      ((offerLinePrice - currentPrice) / currentPrice) * 100,
-                    )
-                  : 100;
-              if (percentageChange > 10) {
-                await this.notifyPriceChange(
-                  tenantId,
-                  product.name,
-                  currentPrice,
-                  offerLinePrice,
-                  percentageChange,
-                  product.id,
-                );
-              }
-            }
-          } else if (offerLinePrice !== currentPrice) {
-            // Fallback legacy: albarán sin proveedor asignado, no se puede
-            // crear una oferta (supplierId es obligatorio en el modelo).
-            const percentageChange =
-              currentPrice > 0
-                ? Math.abs(
-                    ((offerLinePrice - currentPrice) / currentPrice) * 100,
-                  )
-                : 100;
-
-            await tx.product.update({
-              where: { id: product.id },
-              data: {
-                previousPurchasePrice: currentPrice,
-                purchasePrice: offerLinePrice,
-                netPrice: offerLinePrice,
-              },
-            });
-
-            await tx.productPriceHistory.create({
-              data: {
-                tenantId,
-                productId: product.id,
-                supplierId: null,
-                albaranId: albaran.id,
-                previousPrice: currentPrice,
-                newPrice: offerLinePrice,
-                // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
-                // que antes/después es el mismo — se snapshotea igual para que
-                // el frontend pueda calcular €/kg normalizado con datos completos.
-                previousUnitSize: product.unitSize,
-                newUnitSize: product.unitSize,
-              },
-            });
-
-            if (percentageChange > 10) {
-              await this.notifyPriceChange(
-                tenantId,
-                product.name,
-                currentPrice,
-                offerLinePrice,
-                percentageChange,
-                product.id,
-              );
-            }
-          }
-
-          // Control de precios pactados (módulo Compras): se evalúa en TODA
-          // entrega con proveedor, no solo cuando cambia el precio plano del
-          // producto — un pacto se compara contra cada recepción, incluso si
-          // el precio coincide con el vigente (que puede venir de la oferta
-          // preferente de OTRO proveedor). No-op si no hay oferta o pacto.
-          if (albaran.supplierId) {
-            const offerForDeviation = await tx.productSupplierOffer.findFirst({
-              where: { productId: product.id, supplierId: albaran.supplierId },
-            });
-            if (offerForDeviation) {
-              await this.priceAgreementService.evaluateAndRecord(
-                tenantId,
-                offerForDeviation.id,
-                offerLinePrice,
-                {
-                  albaranId: albaran.id,
-                  productName: product.name,
-                  supplierName: albaran.supplier?.name ?? "Proveedor",
-                  albaranLabel: albaran.internalNumber,
-                },
-                tx,
-              );
-            }
-          }
-
-          // Producto sin stock (cargo de servicio: portes, logística...): la
-          // línea sí cuenta en el total del albarán y en precio/oferta
-          // (arriba), pero no genera lote ni movimiento/registro de stock —
-          // no es inventario físico.
-          if (!product.tracksInventory) {
-            this.logger.log(
-              `${product.name}: sin stock (tracksInventory=false), omitiendo Lot/StockMovement/Stock`,
-            );
-          } else {
-            // Lote (si la línea trae número de lote)
-            const lot = line.lot
-              ? await this.lotService.createLotFromReception(tx, {
-                  tenantId,
-                  productId: product.id,
-                  albaranLineId: line.id,
-                  lotNumber: line.lot,
-                  quantity: lineQuantity,
-                  warehouseId: albaran.warehouseId,
-                  supplierId: albaran.supplierId,
-                })
-              : null;
-
-            if (lot) {
-              await tx.product.update({
-                where: { id: product.id },
-                data: { lot: line.lot },
-              });
-            }
-
-            // Create stock movement
-            await tx.stockMovement.create({
-              data: {
-                productId: product.id,
-                warehouseId: albaran.warehouseId,
-                lotId: lot?.id,
-                type: "ENTRANCE",
-                quantity: lineQuantity,
-                unit: normalizeUnit(lineUnit),
-                reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
-              },
-            });
-
-            // Upsert stock
-            const existingStock = await tx.stock.findFirst({
-              where: {
-                productId: product.id,
-                warehouseId: albaran.warehouseId || null,
-                tenantId,
-              },
-            });
-
-            if (existingStock) {
-              await tx.stock.update({
-                where: { id: existingStock.id },
-                data: { quantity: { increment: lineQuantity } },
-              });
-            } else {
-              await tx.stock.create({
-                data: {
-                  tenantId,
-                  productId: product.id,
-                  warehouseId: albaran.warehouseId,
-                  quantity: lineQuantity,
-                },
-              });
-            }
-
-            this.logger.log(
-              `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
-            );
-          }
-        } else {
-          // NUEVO product - create product, update line, and add stock
-          const newProduct = await tx.product.create({
-            data: {
-              tenantId,
-              name: line.description,
-              description: `Creado desde albarán ${albaran.internalNumber}`,
-              purchaseFormat: lineUnit,
-              referenceUnit: normalizeUnit(lineUnit),
-              unitsPerFormat: 1,
-              referenceUnitSize: 1,
-              unitSize: 1,
-              purchasePrice: lineUnitPrice,
-              netPrice: lineUnitPrice,
-              // El IVA de la línea del albarán (sin él, el default 10 %).
-              iva: Number(line.vatPercent ?? 10),
-              supplierId: albaran.supplierId,
-              wastePercentage: 0,
-              yieldFactor: 1.0,
-              allergens: [],
-              lot: line.lot || null,
-            },
-          });
-
-          // Update line with new product
-          await tx.albaranLine.update({
-            where: { id: line.id },
-            data: {
-              matchedProductId: newProduct.id,
-              matchStatus: LineMatchStatus.MATCH_ALTO,
-            },
-          });
-
-          // Lote (si la línea trae número de lote)
-          const newProductLot = line.lot
-            ? await this.lotService.createLotFromReception(tx, {
-                tenantId,
-                productId: newProduct.id,
-                albaranLineId: line.id,
-                lotNumber: line.lot,
-                quantity: lineQuantity,
-                warehouseId: albaran.warehouseId,
-                supplierId: albaran.supplierId,
-              })
-            : null;
-
-          // Create stock movement
-          await tx.stockMovement.create({
-            data: {
-              productId: newProduct.id,
-              warehouseId: albaran.warehouseId,
-              lotId: newProductLot?.id,
-              type: "ENTRANCE",
-              quantity: lineQuantity,
-              unit: normalizeUnit(lineUnit),
-              reason: `Entrada desde albarán ${albaran.internalNumber} (${albaranId})`,
-            },
-          });
-
-          // Create stock record
-          await tx.stock.create({
-            data: {
-              tenantId,
-              productId: newProduct.id,
-              warehouseId: albaran.warehouseId,
-              quantity: lineQuantity,
-            },
-          });
-
-          // Oferta preferente inicial del producto recién creado. Sin este
-          // bloque, el artículo nacía con Product.supplierId plano pero SIN
-          // ninguna fila en ProductSupplierOffer; la pestaña "Proveedor y
-          // Stock" del modal de edición (y el módulo Compras) leen offers, no
-          // el campo plano, así que aparecía "sin proveedor" al editarlo
-          // pese a que el listado sí lo mostraba. Patrón idéntico al del
-          // producto existente (bloque if line.matchedProductId más arriba).
-          if (albaran.supplierId) {
-            await this.productSupplierOffersService.upsertOffer(
-              newProduct.id,
-              albaran.supplierId,
-              tenantId,
-              { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
-              tx,
-              albaran.id,
-              true,
-            );
-          }
-
-          this.logger.log(
-            `Producto creado: ${newProduct.name} con stock ${lineQuantity} ${lineUnit}`,
-          );
-        }
+        await this.processConfirmedLine(tx, albaran, line, tenantId);
       }
 
       this.logger.log(
@@ -434,6 +102,366 @@ export class AlbaranStockService {
         await this.generateSupplierHints(tx, albaran, confirmedLines, tenantId);
       }
     });
+  }
+
+  /**
+   * Asienta una línea añadida a mano a un albarán YA confirmado (p. ej. una
+   * tasa que el OCR no leyó): mismos efectos que tuvo cada línea al confirmar
+   * (oferta/preferencia, histórico, pactos, lote, movimiento y stock — lo que
+   * aplique según el artículo), pero sin el chequeo de idempotencia por
+   * albarán, que aquí siempre encontraría los movimientos de la confirmación
+   * y no haría nada. Lo llama AlbaranesService.addLine dentro de su misma
+   * transacción (creación de la línea + totales + asiento van a una).
+   */
+  async processAddedLine(
+    tx: any,
+    albaran: any,
+    line: any,
+    tenantId: string,
+  ): Promise<void> {
+    await this.processConfirmedLine(tx, albaran, line, tenantId);
+  }
+
+  /**
+   * Efectos de una línea confirmada sobre artículo, precios y stock. Es el
+   * cuerpo de cada iteración de processStockOnConfirmation, extraído para
+   * reutilizarlo al añadir líneas a un albarán ya confirmado.
+   */
+  private async processConfirmedLine(
+    tx: any,
+    albaran: any,
+    line: any,
+    tenantId: string,
+  ): Promise<void> {
+    const lineQuantity = Number(line.quantity);
+    let lineUnitPrice = Number(line.unitPrice);
+    // Opt-in del usuario: si activó "aplicar descuento al coste" y la línea
+    // trae el importe neto del papel (con descuento), el coste real por
+    // unidad es totalPrice/qty, no el bruto. Sin descuento o sin opt-in,
+    // comportamiento idéntico al anterior (precio bruto).
+    if (
+      albaran.applyDiscountToCost &&
+      line.totalPrice !== null &&
+      lineQuantity > 0
+    ) {
+      lineUnitPrice = Number(line.totalPrice) / lineQuantity;
+    }
+    const lineUnit = line.unit || "kilo";
+
+    if (line.matchedProductId) {
+      // Existing product - update price and stock
+      const product = await tx.product.findFirst({
+        where: { id: line.matchedProductId, tenantId },
+      });
+
+      if (!product) {
+        this.logger.warn(
+          `Producto ${line.matchedProductId} no encontrado, omitiendo línea`,
+        );
+        return;
+      }
+
+      // Producto sin proveedor: hereda el del albarán. Solo se rellena
+      // cuando está vacío — nunca se pisa un proveedor ya asignado.
+      if (!product.supplierId && albaran.supplierId) {
+        await tx.product.update({
+          where: { id: product.id },
+          data: { supplierId: albaran.supplierId },
+        });
+        this.logger.log(
+          `Proveedor ${albaran.supplierId} asignado a producto sin proveedor: ${product.name}`,
+        );
+      }
+
+      const currentPrice = Number(product.purchasePrice);
+
+      // Un artículo creado inline durante la revisión de ESTE albarán ya
+      // guarda purchasePrice POR FORMATO (el formulario convierte el
+      // precio de la línea cuando el papel factura por unidad: "72 ud ×
+      // 1,3221" con caja de 24 → 31,73 €/caja). El precio de línea llega
+      // en la base del papel (por unidad): volcarlo en crudo pisaría
+      // 31,73 con 1,3221 y dejaría el €/ud dividido entre 24. Se detecta
+      // ese alta inline (artículo nacido con este albarán cuyo precio
+      // plano coincide con línea × formato) y se lleva el precio de línea
+      // a la misma base de formato. Para cualquier otro artículo el
+      // comportamiento es idéntico al anterior.
+      const grossLinePrice = Number(line.unitPrice);
+      const createdInlineFromThisAlbaran =
+        product.unitSize > 1 &&
+        grossLinePrice > 0 &&
+        product.createdAt >= albaran.createdAt &&
+        Math.abs(currentPrice - grossLinePrice * product.unitSize) <=
+          Math.max(0.01, currentPrice * 0.005);
+      const offerLinePrice = createdInlineFromThisAlbaran
+        ? lineUnitPrice * product.unitSize
+        : lineUnitPrice;
+
+      if (albaran.supplierId) {
+        // Upsert de la oferta de ESTE proveedor: toda compra confirmada
+        // lo marca preferente (regla de negocio — el último proveedor al
+        // que se le compró rige el coste/escandallos), pisando cualquier
+        // estrella manual anterior. Se llama siempre, no solo cuando
+        // cambia el precio plano, para que un proveedor distinto al
+        // preferente actual tome la estrella aunque el precio coincida.
+        const offer = await this.productSupplierOffersService.upsertOffer(
+          product.id,
+          albaran.supplierId,
+          tenantId,
+          { purchasePrice: offerLinePrice, netPrice: offerLinePrice },
+          tx,
+          albaran.id,
+          true,
+        );
+
+        if (offerLinePrice !== currentPrice) {
+          const percentageChange =
+            currentPrice > 0
+              ? Math.abs(((offerLinePrice - currentPrice) / currentPrice) * 100)
+              : 100;
+          if (percentageChange > 10) {
+            await this.notifyPriceChange(
+              tenantId,
+              product.name,
+              currentPrice,
+              offerLinePrice,
+              percentageChange,
+              product.id,
+            );
+          }
+        }
+      } else if (offerLinePrice !== currentPrice) {
+        // Fallback legacy: albarán sin proveedor asignado, no se puede
+        // crear una oferta (supplierId es obligatorio en el modelo).
+        const percentageChange =
+          currentPrice > 0
+            ? Math.abs(((offerLinePrice - currentPrice) / currentPrice) * 100)
+            : 100;
+
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            previousPurchasePrice: currentPrice,
+            purchasePrice: offerLinePrice,
+            netPrice: offerLinePrice,
+          },
+        });
+
+        await tx.productPriceHistory.create({
+          data: {
+            tenantId,
+            productId: product.id,
+            supplierId: null,
+            albaranId: albaran.id,
+            previousPrice: currentPrice,
+            newPrice: offerLinePrice,
+            // Esta rama no toca unitSize (solo purchasePrice/netPrice), así
+            // que antes/después es el mismo — se snapshotea igual para que
+            // el frontend pueda calcular €/kg normalizado con datos completos.
+            previousUnitSize: product.unitSize,
+            newUnitSize: product.unitSize,
+          },
+        });
+
+        if (percentageChange > 10) {
+          await this.notifyPriceChange(
+            tenantId,
+            product.name,
+            currentPrice,
+            offerLinePrice,
+            percentageChange,
+            product.id,
+          );
+        }
+      }
+
+      // Control de precios pactados (módulo Compras): se evalúa en TODA
+      // entrega con proveedor, no solo cuando cambia el precio plano del
+      // producto — un pacto se compara contra cada recepción, incluso si
+      // el precio coincide con el vigente (que puede venir de la oferta
+      // preferente de OTRO proveedor). No-op si no hay oferta o pacto.
+      if (albaran.supplierId) {
+        const offerForDeviation = await tx.productSupplierOffer.findFirst({
+          where: { productId: product.id, supplierId: albaran.supplierId },
+        });
+        if (offerForDeviation) {
+          await this.priceAgreementService.evaluateAndRecord(
+            tenantId,
+            offerForDeviation.id,
+            offerLinePrice,
+            {
+              albaranId: albaran.id,
+              productName: product.name,
+              supplierName: albaran.supplier?.name ?? "Proveedor",
+              albaranLabel: albaran.internalNumber,
+            },
+            tx,
+          );
+        }
+      }
+
+      // Producto sin stock (cargo de servicio: portes, logística...): la
+      // línea sí cuenta en el total del albarán y en precio/oferta
+      // (arriba), pero no genera lote ni movimiento/registro de stock —
+      // no es inventario físico.
+      if (!product.tracksInventory) {
+        this.logger.log(
+          `${product.name}: sin stock (tracksInventory=false), omitiendo Lot/StockMovement/Stock`,
+        );
+      } else {
+        // Lote (si la línea trae número de lote)
+        const lot = line.lot
+          ? await this.lotService.createLotFromReception(tx, {
+              tenantId,
+              productId: product.id,
+              albaranLineId: line.id,
+              lotNumber: line.lot,
+              quantity: lineQuantity,
+              warehouseId: albaran.warehouseId,
+              supplierId: albaran.supplierId,
+            })
+          : null;
+
+        if (lot) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { lot: line.lot },
+          });
+        }
+
+        // Create stock movement
+        await tx.stockMovement.create({
+          data: {
+            productId: product.id,
+            warehouseId: albaran.warehouseId,
+            lotId: lot?.id,
+            type: "ENTRANCE",
+            quantity: lineQuantity,
+            unit: normalizeUnit(lineUnit),
+            reason: `Entrada desde albarán ${albaran.internalNumber} (${albaran.id})`,
+          },
+        });
+
+        // Upsert stock
+        const existingStock = await tx.stock.findFirst({
+          where: {
+            productId: product.id,
+            warehouseId: albaran.warehouseId || null,
+            tenantId,
+          },
+        });
+
+        if (existingStock) {
+          await tx.stock.update({
+            where: { id: existingStock.id },
+            data: { quantity: { increment: lineQuantity } },
+          });
+        } else {
+          await tx.stock.create({
+            data: {
+              tenantId,
+              productId: product.id,
+              warehouseId: albaran.warehouseId,
+              quantity: lineQuantity,
+            },
+          });
+        }
+
+        this.logger.log(
+          `Stock actualizado: ${product.name} +${lineQuantity} ${lineUnit}`,
+        );
+      }
+    } else {
+      // NUEVO product - create product, update line, and add stock
+      const newProduct = await tx.product.create({
+        data: {
+          tenantId,
+          name: line.description,
+          description: `Creado desde albarán ${albaran.internalNumber}`,
+          purchaseFormat: lineUnit,
+          referenceUnit: normalizeUnit(lineUnit),
+          unitsPerFormat: 1,
+          referenceUnitSize: 1,
+          unitSize: 1,
+          purchasePrice: lineUnitPrice,
+          netPrice: lineUnitPrice,
+          // El IVA de la línea del albarán (sin él, el default 10 %).
+          iva: Number(line.vatPercent ?? 10),
+          supplierId: albaran.supplierId,
+          wastePercentage: 0,
+          yieldFactor: 1.0,
+          allergens: [],
+          lot: line.lot || null,
+        },
+      });
+
+      // Update line with new product
+      await tx.albaranLine.update({
+        where: { id: line.id },
+        data: {
+          matchedProductId: newProduct.id,
+          matchStatus: LineMatchStatus.MATCH_ALTO,
+        },
+      });
+
+      // Lote (si la línea trae número de lote)
+      const newProductLot = line.lot
+        ? await this.lotService.createLotFromReception(tx, {
+            tenantId,
+            productId: newProduct.id,
+            albaranLineId: line.id,
+            lotNumber: line.lot,
+            quantity: lineQuantity,
+            warehouseId: albaran.warehouseId,
+            supplierId: albaran.supplierId,
+          })
+        : null;
+
+      // Create stock movement
+      await tx.stockMovement.create({
+        data: {
+          productId: newProduct.id,
+          warehouseId: albaran.warehouseId,
+          lotId: newProductLot?.id,
+          type: "ENTRANCE",
+          quantity: lineQuantity,
+          unit: normalizeUnit(lineUnit),
+          reason: `Entrada desde albarán ${albaran.internalNumber} (${albaran.id})`,
+        },
+      });
+
+      // Create stock record
+      await tx.stock.create({
+        data: {
+          tenantId,
+          productId: newProduct.id,
+          warehouseId: albaran.warehouseId,
+          quantity: lineQuantity,
+        },
+      });
+
+      // Oferta preferente inicial del producto recién creado. Sin este
+      // bloque, el artículo nacía con Product.supplierId plano pero SIN
+      // ninguna fila en ProductSupplierOffer; la pestaña "Proveedor y
+      // Stock" del modal de edición (y el módulo Compras) leen offers, no
+      // el campo plano, así que aparecía "sin proveedor" al editarlo
+      // pese a que el listado sí lo mostraba. Patrón idéntico al del
+      // producto existente (bloque if line.matchedProductId más arriba).
+      if (albaran.supplierId) {
+        await this.productSupplierOffersService.upsertOffer(
+          newProduct.id,
+          albaran.supplierId,
+          tenantId,
+          { purchasePrice: lineUnitPrice, netPrice: lineUnitPrice },
+          tx,
+          albaran.id,
+          true,
+        );
+      }
+
+      this.logger.log(
+        `Producto creado: ${newProduct.name} con stock ${lineQuantity} ${lineUnit}`,
+      );
+    }
   }
 
   /**

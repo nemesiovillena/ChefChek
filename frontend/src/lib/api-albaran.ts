@@ -382,10 +382,11 @@ export async function checkAlbaranDuplicate(
   return json.data ?? null;
 }
 
-/** Add a manual line to an existing albarán */
+/** Add a manual line to an existing albarán. En uno CONFIRMADO exige
+ *  matchedProductId: la línea nace confirmada y asienta stock/precios. */
 export async function addAlbaranLine(
   albaranId: string,
-  data: { description: string; quantity: number; unit: string; unitPrice: number; vatPercent?: number; lot?: string },
+  data: { description: string; quantity: number; unit: string; unitPrice: number; vatPercent?: number; lot?: string; matchedProductId?: string },
 ): Promise<{ success: boolean; data: AlbaranLine }> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines`, {
     method: 'POST',
