@@ -54,7 +54,7 @@ export default function TabNutricion({ nutritionalData, setNutritionalData }: Ta
             <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
             <input
               type="number"
-              step="0.01"
+              step="any"
               min="0"
               value={nutritionalData[key]}
               onChange={(e) => update(key, e.target.value)}

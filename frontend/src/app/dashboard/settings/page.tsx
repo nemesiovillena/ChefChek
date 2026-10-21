@@ -671,7 +671,7 @@ function CostingConfigForm({
           type="number"
           min={0}
           max={100}
-          step={0.1}
+          step="any"
           value={targetCostPercentage}
           onChange={(e) => setTargetCostPercentage(e.target.value)}
           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -685,7 +685,7 @@ function CostingConfigForm({
           type="number"
           min={0.1}
           max={100}
-          step={0.1}
+          step="any"
           value={theoreticalPriceMultiplier}
           onChange={(e) => setTheoreticalPriceMultiplier(e.target.value)}
           className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"

@@ -102,7 +102,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                     <span className="text-[11px] text-indigo-600 font-semibold uppercase">Precio</span>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       value={product.price || ''}
                       onChange={(e) => updateField(i, 'price', parseFloat(e.target.value) || 0)}
                       className="w-16 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"

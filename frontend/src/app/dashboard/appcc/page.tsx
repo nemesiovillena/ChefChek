@@ -331,7 +331,7 @@ export default function AppccPage() {
                       value={measurementValue}
                       onChange={(e) => setMeasurementValue(e.target.value)}
                       type="number"
-                      step="0.1"
+                      step="any"
                       placeholder="-18.5"
                     />
                   </div>

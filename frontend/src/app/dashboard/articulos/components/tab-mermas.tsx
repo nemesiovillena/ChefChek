@@ -67,7 +67,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto ({unit})</label>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0"
             value={formData.grossWeight}
             onChange={(e) => update('grossWeight', e.target.value)}
@@ -79,7 +79,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">Peso Neto ({unit})</label>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0"
             value={formData.netWeight}
             onChange={(e) => update('netWeight', e.target.value)}
@@ -91,7 +91,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
           <label className="block text-sm font-medium text-gray-700 mb-1">Merma (%)</label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             max="100"
             value={hasYieldData ? effectiveWaste!.toFixed(2) : formData.wastePercentage}
