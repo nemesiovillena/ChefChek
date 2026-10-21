@@ -18,20 +18,15 @@ import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Search, ChevronLeft, ChevronRight, FileUp, FileText, Archive, X } from 'lucide-react';
 
 /**
- * Lunes de la semana anterior en YYYY-MM-DD: frontera de la ventana de dos
- * semanas (semana actual + anterior) que muestra la pestaña Activos. Todo lo
- * anterior vive en Archivados.
+ * Hoy hace dos meses en YYYY-MM-DD: frontera de la ventana que muestra la
+ * pestaña Activos. Todo lo anterior vive en Archivados.
  */
-function startOfPreviousWeek(): string {
+function startOfTwoMonthWindow(): string {
   const now = new Date();
-  const daysSinceMonday = (now.getDay() + 6) % 7;
-  const mondayLastWeek = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - daysSinceMonday - 7,
-  );
+  // Date normaliza el desbordamiento (31 dic → 31 oct; 31 abr → 1 may)
+  const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${mondayLastWeek.getFullYear()}-${pad(mondayLastWeek.getMonth() + 1)}-${pad(mondayLastWeek.getDate())}`;
+  return `${twoMonthsAgo.getFullYear()}-${pad(twoMonthsAgo.getMonth() + 1)}-${pad(twoMonthsAgo.getDate())}`;
 }
 
 /**
@@ -51,7 +46,7 @@ export default function AlbaranesPage() {
   const handleAlbaranDelete = () => {
     void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
   };
-  const cutoffDate = startOfPreviousWeek();
+  const cutoffDate = startOfTwoMonthWindow();
   const statusCounts = useAlbaranStatusCounts(cutoffDate);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,16 +86,19 @@ export default function AlbaranesPage() {
     const timer = setTimeout(() => {
       const archived = activeTab === 'archivados';
       const pending = !archived && statusView === 'pendientes';
-      // Activos queda acotado a la ventana de dos semanas: el "Desde" del
+      // Activos queda acotado a la ventana de dos meses: el "Desde" del
       // usuario solo puede estrecharla, nunca adelantarla. Pendientes y
-      // Archivados no usan la ventana.
+      // Archivados no usan la ventana, y buscar tampoco: quien busca un número
+      // o proveedor concreto debe encontrarlo aunque sea antiguo (el aviso de
+      // duplicado al subir mira todo el histórico).
+      const searching = searchTerm.trim() !== '';
       const windowFrom = dateFrom && dateFrom > cutoffDate ? dateFrom : cutoffDate;
       setFilters({
         search: searchTerm,
         pending: pending || undefined,
         status: !archived && statusView === 'confirmados' ? 'CONFIRMADO' : undefined,
         olderThan: archived ? cutoffDate : undefined,
-        dateFrom: archived || pending ? dateFrom || undefined : windowFrom,
+        dateFrom: archived || pending || searching ? dateFrom || undefined : windowFrom,
         dateTo: dateTo || undefined,
       });
     }, 300);
@@ -225,10 +223,12 @@ export default function AlbaranesPage() {
       {/* Qué se está viendo: evita que los antiguos parezcan "desaparecidos" */}
       <p className="text-xs text-gray-500 mb-6">
         {activeTab === 'archivados'
-          ? 'Albaranes con más de dos semanas y los archivados manualmente'
+          ? 'Albaranes con más de dos meses y los archivados manualmente'
           : statusView === 'pendientes'
             ? 'Pendientes y revisados sin confirmar, de cualquier fecha'
-            : 'Semana actual y anterior — los albaranes más antiguos están en Archivados'}
+            : searchTerm.trim()
+              ? 'Buscando en todas las fechas'
+              : 'Últimos dos meses — los albaranes más antiguos están en Archivados'}
       </p>
 
       {/* Filters */}
@@ -296,7 +296,7 @@ export default function AlbaranesPage() {
           {activeTab === 'archivados' ? (
             <>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes archivados</h3>
-              <p className="text-gray-600">Los albaranes con más de dos semanas y los que archives aparecerán aquí</p>
+              <p className="text-gray-600">Los albaranes con más de dos meses y los que archives aparecerán aquí</p>
             </>
           ) : (
             <>
