@@ -47,7 +47,7 @@ export class AlbaranQueryDto {
 
   /**
    * Vista Archivados: albaranes con estado ARCHIVADO o con fecha anterior a
-   * esta (límite de la ventana de dos semanas, calculado por el cliente).
+   * esta (límite de la ventana de dos meses, calculado por el cliente).
    */
   @ApiPropertyOptional({
     description: "Archivados por estado + anteriores a esta fecha",
