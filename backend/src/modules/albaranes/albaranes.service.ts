@@ -172,7 +172,7 @@ export class AlbaranesService {
     }
     if (query.olderThan) {
       // Vista Archivados: archivados por estado + todos los anteriores a la
-      // ventana de dos semanas que marca el cliente. Se expresa como AND para
+      // ventana de dos meses que marca el cliente. Se expresa como AND para
       // no chocar con el OR que añade la búsqueda.
       where.AND = [
         {
