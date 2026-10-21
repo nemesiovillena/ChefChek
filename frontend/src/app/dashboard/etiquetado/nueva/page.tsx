@@ -21,7 +21,9 @@ import {
   type LabelType,
   type StorageCondition,
 } from '@/hooks/use-food-labels';
+import { useConservationDefaults } from '@/hooks/use-conservation-defaults';
 import ConservationFieldset, {
+  conditionDefaultsPatch,
   EMPTY_CONSERVATION,
   type ConservationValue,
 } from '@/components/conservation-fieldset';
@@ -49,16 +51,6 @@ const num = (s: string): number | undefined => {
   if (s.trim() === '') return undefined;
   const n = parseFloat(s.replace(',', '.'));
   return Number.isFinite(n) ? n : undefined;
-};
-
-/**
- * Valores por defecto de temperatura / vida útil al elegir una condición de
- * conservación en el formulario de etiqueta. Solo se aplican cuando el usuario
- * cambia la condición a mano, para ahorrar tecleo; siguen siendo editables.
- */
-const CONDITION_DEFAULTS: Record<string, Partial<ConservationValue>> = {
-  FROZEN: { storageTempMin: '-15', shelfLifeFrozenDays: '90' },
-  REFRIGERATED: { storageTempMin: '2', shelfLifeDays: '5' },
 };
 
 function conservationFromConfig(c: {
@@ -108,6 +100,7 @@ export default function NuevaEtiquetaPage() {
   const [portions, setPortions] = useState('');
   const [notes, setNotes] = useState('');
   const [freeze, setFreeze] = useState(false);
+  const { data: conservationDefaults } = useConservationDefaults();
   const [conservation, setConservation] = useState<ConservationValue>(EMPTY_CONSERVATION);
   const [conservationTouched, setConservationTouched] = useState(false);
   const [pickedResponsible, setResponsible] = useState<ResponsibleValue>({});
@@ -590,7 +583,7 @@ export default function NuevaEtiquetaPage() {
                     setConservation({
                       ...effectiveConservation,
                       storageCondition: 'FROZEN',
-                      ...CONDITION_DEFAULTS.FROZEN,
+                      ...conditionDefaultsPatch('FROZEN', conservationDefaults),
                     });
                   }
                 }}
@@ -607,14 +600,8 @@ export default function NuevaEtiquetaPage() {
             value={effectiveConservation}
             onChange={(patch) => {
               setConservationTouched(true);
-              const next = { ...effectiveConservation, ...patch };
-              if (
-                patch.storageCondition !== undefined &&
-                patch.storageCondition !== effectiveConservation.storageCondition
-              ) {
-                Object.assign(next, CONDITION_DEFAULTS[patch.storageCondition] ?? {});
-              }
-              setConservation(next);
+              // El fieldset ya trae los defaults de Ajustes al cambiar la condición.
+              setConservation({ ...effectiveConservation, ...patch });
               if (patch.storageCondition !== undefined) {
                 // La condición manda sobre el checkbox: solo «Congelado» congela
                 // (sella frozenAt y calcula el consumo preferente congelado).
