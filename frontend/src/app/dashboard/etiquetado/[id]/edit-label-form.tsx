@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import ConservationFieldset, {
   ConservationValue,
+  conditionDefaultsPatch,
 } from '@/components/conservation-fieldset';
+import { useConservationDefaults } from '@/hooks/use-conservation-defaults';
 import ResponsibleField, {
   type ResponsibleValue,
 } from '@/components/responsible-field';
@@ -38,11 +40,6 @@ function num(s: string): number | undefined {
   const n = parseFloat(s.replace(',', '.'));
   return Number.isFinite(n) ? n : undefined;
 }
-
-const CONDITION_DEFAULTS: Record<string, Partial<ConservationValue>> = {
-  FROZEN: { storageTempMin: '-15', shelfLifeFrozenDays: '90' },
-  REFRIGERATED: { storageTempMin: '2', shelfLifeDays: '5' },
-};
 
 const fieldClass =
   'mt-1 block w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base text-[var(--on-surface)]';
@@ -85,6 +82,7 @@ export default function EditLabelForm({
 
   const [preparedAt, setPreparedAt] = useState(initial.preparedAt);
   const [freeze, setFreeze] = useState(initial.freeze);
+  const { data: conservationDefaults } = useConservationDefaults();
   const [frozenAt, setFrozenAt] = useState(initial.frozenAt);
   const [cons, setCons] = useState<ConservationValue>(initial.cons);
   const [pinUseBy, setPinUseBy] = useState(false);
@@ -197,18 +195,14 @@ export default function EditLabelForm({
       <ConservationFieldset
         value={cons}
         onChange={(patch) => {
-          const next = { ...cons, ...patch };
+          // El fieldset ya trae los defaults de Ajustes al cambiar la condición.
           if (
             patch.storageCondition !== undefined &&
             patch.storageCondition !== cons.storageCondition
           ) {
-            Object.assign(
-              next,
-              CONDITION_DEFAULTS[patch.storageCondition] ?? {},
-            );
             setFreeze(patch.storageCondition === 'FROZEN');
           }
-          setCons(next);
+          setCons({ ...cons, ...patch });
         }}
         shelfLifeLabel={
           label.labelType === 'ELABORATED'
@@ -227,7 +221,7 @@ export default function EditLabelForm({
               setCons({
                 ...cons,
                 storageCondition: 'FROZEN',
-                ...CONDITION_DEFAULTS.FROZEN,
+                ...conditionDefaultsPatch('FROZEN', conservationDefaults),
               });
             }
           }}

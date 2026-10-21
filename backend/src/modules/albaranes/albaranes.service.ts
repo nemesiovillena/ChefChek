@@ -204,6 +204,11 @@ export class AlbaranesService {
         { albaranNumber: { contains: query.search, mode: "insensitive" } },
         { internalNumber: { contains: query.search, mode: "insensitive" } },
         { notes: { contains: query.search, mode: "insensitive" } },
+        {
+          supplier: {
+            name: { contains: query.search, mode: "insensitive" },
+          },
+        },
       ];
     }
 

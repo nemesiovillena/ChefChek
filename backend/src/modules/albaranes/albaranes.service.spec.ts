@@ -186,7 +186,7 @@ describe("AlbaranesService", () => {
       );
       const { where } = prisma.albaran.findMany.mock.calls[0][0];
       expect(where.AND).toHaveLength(1);
-      expect(where.OR).toHaveLength(3);
+      expect(where.OR).toHaveLength(4);
     });
 
     it("filters PENDIENTE and REVISADO when pending is requested, ignoring status", async () => {
@@ -217,7 +217,10 @@ describe("AlbaranesService", () => {
       const { where, skip, take } = prisma.albaran.findMany.mock.calls[0][0];
       expect(where.supplierId).toBe("s1");
       expect(where.status).toBe(AlbaranStatus.REVISADO);
-      expect(where.OR).toHaveLength(3);
+      expect(where.OR).toHaveLength(4);
+      expect(where.OR).toContainEqual({
+        supplier: { name: { contains: "foo", mode: "insensitive" } },
+      });
       expect(where.date.gte).toEqual(new Date("2024-01-01"));
       expect(where.date.lte).toEqual(new Date("2024-02-01"));
       expect(skip).toBe(5);

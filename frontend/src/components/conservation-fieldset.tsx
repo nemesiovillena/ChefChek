@@ -1,6 +1,9 @@
 'use client';
 
-import { useConservationDefaults } from '@/hooks/use-conservation-defaults';
+import {
+  useConservationDefaults,
+  type ConservationDefaults,
+} from '@/hooks/use-conservation-defaults';
 
 /**
  * Campos de conservación / vida útil compartidos por el modal de Receta y el de
@@ -39,6 +42,31 @@ export const EMPTY_CONSERVATION: ConservationValue = {
   storageTempMax: '',
 };
 
+/**
+ * Valores que se autorrellenan al elegir una condición, según los defaults del
+ * tenant (Ajustes). Vacío si la condición no tiene defaults o aún no cargaron.
+ */
+export function conditionDefaultsPatch(
+  condition: string,
+  defaults: ConservationDefaults | undefined,
+): Partial<ConservationValue> {
+  if (condition === 'REFRIGERATED' && defaults) {
+    return {
+      storageTempMin: String(defaults.refrigerated.tempMin),
+      storageTempMax: String(defaults.refrigerated.tempMax),
+      shelfLifeDays: String(defaults.refrigerated.shelfLifeDays),
+    };
+  }
+  if (condition === 'FROZEN' && defaults) {
+    return {
+      storageTempMin: String(defaults.frozen.tempMin),
+      storageTempMax: String(defaults.frozen.tempMax),
+      shelfLifeFrozenDays: String(defaults.frozen.shelfLifeDays),
+    };
+  }
+  return {};
+}
+
 interface ConservationFieldsetProps {
   value: ConservationValue;
   onChange: (patch: Partial<ConservationValue>) => void;
@@ -60,17 +88,10 @@ export default function ConservationFieldset({
     onChange({ [field]: v });
 
   const handleConditionChange = (condition: string) => {
-    const patch: Partial<ConservationValue> = { storageCondition: condition };
-    if (condition === 'REFRIGERATED' && defaults) {
-      patch.storageTempMin = String(defaults.refrigerated.tempMin);
-      patch.storageTempMax = String(defaults.refrigerated.tempMax);
-      patch.shelfLifeDays = String(defaults.refrigerated.shelfLifeDays);
-    } else if (condition === 'FROZEN' && defaults) {
-      patch.storageTempMin = String(defaults.frozen.tempMin);
-      patch.storageTempMax = String(defaults.frozen.tempMax);
-      patch.shelfLifeFrozenDays = String(defaults.frozen.shelfLifeDays);
-    }
-    onChange(patch);
+    onChange({
+      storageCondition: condition,
+      ...conditionDefaultsPatch(condition, defaults),
+    });
   };
 
   return (
