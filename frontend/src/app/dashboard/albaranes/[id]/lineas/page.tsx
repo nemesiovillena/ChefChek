@@ -568,12 +568,15 @@ export default function AlbaranLineasPage() {
         </Card>
       ) : (
         <>
-          {/* Add manual line button + form */}
-          {(albaran.status === 'PENDIENTE' || albaran.status === 'REVISADO') && (
+          {/* Add manual line button + form. También en CONFIRMADO (tasa o
+              cargo que el OCR no leyó): ahí el formulario exige el artículo
+              porque la línea nace asentada. */}
+          {albaran.status !== 'ARCHIVADO' && (
             <div className="mt-4">
               {showAddLine ? (
                 <AddLineForm
                   albaranId={id}
+                  albaranStatus={albaran.status}
                   onSuccess={() => { setShowAddLine(false); refetch(); }}
                   onCancel={() => setShowAddLine(false)}
                 />

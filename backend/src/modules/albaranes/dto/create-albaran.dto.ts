@@ -68,6 +68,14 @@ export class CreateAlbaranLineDto {
   @IsNumber()
   @Min(0)
   lineAmount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Artículo vinculado. Obligatorio al añadir la línea a un albarán ya confirmado: la línea nace confirmada y asienta stock/precios.",
+  })
+  @IsOptional()
+  @IsString()
+  matchedProductId?: string;
 }
 
 export class CreateAlbaranDto {

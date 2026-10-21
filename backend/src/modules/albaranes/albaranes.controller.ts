@@ -178,7 +178,10 @@ export class AlbaranesController {
   }
 
   @Post(":id/lines")
-  @ApiOperation({ summary: "Añadir línea manual al albarán" })
+  @ApiOperation({
+    summary:
+      "Añadir línea manual al albarán (en uno confirmado exige artículo y asienta stock/precios al crearla)",
+  })
   @ApiResponse({ status: 201, description: "Línea añadida" })
   async addLine(
     @Param("id") id: string,
