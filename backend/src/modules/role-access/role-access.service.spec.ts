@@ -265,6 +265,37 @@ describe("RoleAccessService", () => {
       ).toBe(false);
     });
 
+    it("el puesto no le quita Almacén, pero sí lo demás", async () => {
+      prisma.sictedJobAssignment.findFirst.mockResolvedValue({
+        profileId: "pos-cocina",
+      });
+      prisma.configuration.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.key.startsWith === "positionAccess.pos-cocina."
+            ? ["albaranes", "compras", "escandallos", "recipes.drinks"].map(
+                (k) => ({
+                  key: `positionAccess.pos-cocina.${k}`,
+                  value: "false",
+                }),
+              )
+            : [],
+        ),
+      );
+      const map = await service.getSectionMapForUserRole(
+        tenantId,
+        "USER_CUINER",
+        userId,
+      );
+      expect(map?.albaranes).toBe(true);
+      expect(map?.compras).toBe(true);
+      expect(map?.escandallos).toBe(false);
+      expect(map?.["recipes.drinks"]).toBe(false);
+      // Un USER corriente con el mismo puesto sigue sin Albaranes.
+      expect(
+        await service.isSectionAllowed(tenantId, "USER", "albaranes", userId),
+      ).toBe(false);
+    });
+
     it("devuelve su mapa en getSectionMapForUserRole y null para ADMIN", async () => {
       const map = await service.getSectionMapForUserRole(
         tenantId,

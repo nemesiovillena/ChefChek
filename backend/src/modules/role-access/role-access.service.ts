@@ -94,13 +94,21 @@ export class RoleAccessService {
       return map;
     }
     // El puesto solo resta: lo que su puesto oculta, no se ve aunque el rol lo
-    // permita. Sin puesto vigente no cambia nada.
+    // permita. Sin puesto vigente no cambia nada. Excepción: las secciones que
+    // un rol derivado da siempre (todo Almacén en USER_CUINER) no las quita el
+    // puesto; así un cocinero con ese rol conserva su puesto (y sus hojas
+    // SICTED) sin perder el almacén.
+    const roleGuaranteed = new Set(
+      (role && DERIVED_SECTION_ROLES[role]?.alwaysAllowed) || [],
+    );
     const denied = await this.getDeniedSectionsForUserPosition(
       tenantId,
       userId,
     );
     for (const key of denied) {
-      map[key] = false;
+      if (!roleGuaranteed.has(key)) {
+        map[key] = false;
+      }
     }
     return map;
   }
