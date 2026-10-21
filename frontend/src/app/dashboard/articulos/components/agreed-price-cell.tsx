@@ -50,7 +50,7 @@ export function AgreedPriceCell({ agreedPrice, currentPrice, isSaving, onSave, r
         <>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0"
             autoFocus
             value={input}

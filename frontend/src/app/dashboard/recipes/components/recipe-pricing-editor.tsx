@@ -76,7 +76,7 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (con IVA)</label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min={0}
             value={sellingPriceWithVatInput}
             onChange={(e) => setSellingPriceWithVatInput(e.target.value)}

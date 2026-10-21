@@ -1519,7 +1519,7 @@ export default function RecipesPage() {
                                   </div>
                                   <input
                                     type="number"
-                                    step="0.001"
+                                    step="any"
                                     min="0"
                                     placeholder="Cant."
                                     value={ingredient.quantity}
@@ -1539,7 +1539,7 @@ export default function RecipesPage() {
                                   </select>
                                   <input
                                     type="number"
-                                    step="0.01"
+                                    step="any"
                                     min="0"
                                     max="100"
                                     title={
@@ -1627,7 +1627,7 @@ export default function RecipesPage() {
                                 </div>
                                 <input
                                   type="number"
-                                  step="0.001"
+                                  step="any"
                                   min="0"
                                   placeholder="Cantidad"
                                   value={sub.quantity}
