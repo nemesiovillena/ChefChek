@@ -113,7 +113,7 @@ function SictedSupplierIncidentForm({ onSaved, onCancel }: { onSaved: () => void
         </select>
         <input
           type="number"
-          step="0.1"
+          step="any"
           value={form.productTemperature ?? ''}
           onChange={(e) => set('productTemperature', e.target.value === '' ? undefined : Number(e.target.value))}
           placeholder="Temperatura del producto (°C)"

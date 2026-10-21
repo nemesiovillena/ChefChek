@@ -135,7 +135,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             <label className="block text-sm font-medium text-gray-700 mb-1">{unitLabels.size}</label>
             <input
               type="number"
-              step="0.001"
+              step="any"
               min="0.001"
               value={formData.referenceUnitSize}
               onChange={(e) => update('referenceUnitSize', e.target.value)}
@@ -148,7 +148,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra (&euro;)</label>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0"
             value={formData.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
@@ -188,7 +188,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           <label className="block text-sm font-medium text-gray-700 mb-1">% Descuento <span className="text-gray-400">(opcional)</span></label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             max="100"
             value={formData.discountPercentage}
@@ -202,7 +202,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           <label className="block text-sm font-medium text-gray-700 mb-1">% IVA</label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             max="100"
             value={formData.iva}

@@ -15,7 +15,7 @@ export class UpdateCaptureIngredientDto {
   matchedProductId?: string | null;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 3 })
+  @IsNumber()
   @IsPositive()
   quantity?: number | null;
 

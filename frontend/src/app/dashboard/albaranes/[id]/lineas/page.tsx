@@ -703,7 +703,7 @@ export default function AlbaranLineasPage() {
                                 field="quantity"
                                 value={line.quantity}
                                 type="number"
-                                step="0.01"
+                                step="any"
                                 className="font-medium"
                                 onSave={refetch}
                               />
@@ -732,7 +732,7 @@ export default function AlbaranLineasPage() {
                               field="unitPrice"
                               value={line.unitPrice}
                               type="number"
-                              step="0.001"
+                              step="any"
                               format={(v) => formatCurrency(Number(v))}
                               onSave={refetch}
                             />

@@ -85,7 +85,7 @@ function OfferFormatFields({
           <label className="block text-xs font-medium text-gray-500 mb-0.5">Cantidad/ud</label>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0.001"
             value={value.referenceUnitSize}
             onChange={(e) => update('referenceUnitSize', e.target.value)}
@@ -98,7 +98,7 @@ function OfferFormatFields({
           <label className="block text-xs font-medium text-gray-500 mb-0.5">Precio €</label>
           <input
             type="number"
-            step="0.001"
+            step="any"
             min="0"
             value={value.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
@@ -225,7 +225,7 @@ export default function TabProveedorStock({
           <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             value={formData.minimumStock}
             onChange={(e) => update('minimumStock', e.target.value)}
@@ -237,7 +237,7 @@ export default function TabProveedorStock({
           <label className="block text-sm font-medium text-gray-700 mb-1">Stock máximo</label>
           <input
             type="number"
-            step="0.01"
+            step="any"
             min="0"
             value={formData.maximumStock}
             onChange={(e) => update('maximumStock', e.target.value)}

@@ -261,7 +261,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={line.quantity || ''}
                   onChange={(e) => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
                   className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
@@ -286,7 +286,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                 <input
                   type="number"
                   min="0"
-                  step="0.001"
+                  step="any"
                   value={line.price || ''}
                   onChange={(e) => updateLine(line.id, { price: parseFloat(e.target.value) || 0 })}
                   className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
