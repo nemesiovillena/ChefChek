@@ -70,16 +70,23 @@ export function getDisplayTotals(
 /**
  * Descuadre entre el total del papel y el que sale de las líneas. null si
  * cuadra o si no hay total del papel con el que comparar.
+ *
+ * Hay proveedores (Frutas Candela) cuyo albarán no trae total ni IVA: el OCR
+ * guarda entonces como «total» la suma de importes sin IVA. Si ese total
+ * coincide con la base de las líneas y no se leyó IVA, es la base, no un
+ * descuadre (misma regla que el envío a Cuiner, cuiner-export.service.ts).
  */
 export function getTotalMismatch(
-  albaran: Pick<Albaran, 'total' | 'lines'>,
+  albaran: Pick<Albaran, 'total' | 'lines'> & { vatTotal?: number | null },
 ): { computed: number; paper: number } | null {
   const lines = albaran.lines ?? [];
   if (!(albaran.total > 0) || lines.length === 0) return null;
-  const computed = computeTotalFromLines(lines);
-  return Math.abs(computed - albaran.total) > TOTAL_MISMATCH_TOLERANCE
-    ? { computed, paper: albaran.total }
-    : null;
+  const totals = computeTotalsFromLines(lines);
+  if (Math.abs(totals.total - albaran.total) <= TOTAL_MISMATCH_TOLERANCE) return null;
+  const paperIsBaseOnly =
+    !(Number(albaran.vatTotal) > 0) &&
+    Math.abs(totals.base - albaran.total) <= TOTAL_MISMATCH_TOLERANCE;
+  return paperIsBaseOnly ? null : { computed: totals.total, paper: albaran.total };
 }
 
 /**
