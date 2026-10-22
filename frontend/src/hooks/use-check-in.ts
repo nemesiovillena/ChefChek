@@ -5,6 +5,7 @@ import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
+  AgreementExtraction,
   InspectionLink,
   InspectionLinkInput,
   IntegrityResult,
@@ -145,6 +146,24 @@ export function useApplyAgreementPreset() {
     mutationFn: async (agreementKey) =>
       (await apiClient.post(`${BASE}/settings/agreement`, { agreementKey })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.settings }),
+  });
+}
+
+// Leer un convenio de decenas de páginas con la IA tarda; el servidor corta a ~170 s.
+const AGREEMENT_EXTRACT_TIMEOUT_MS = 180_000;
+
+/** Lee los PDF del convenio con la IA y devuelve la propuesta. No guarda nada. */
+export function useExtractAgreement() {
+  return useMutation<AgreementExtraction, Error, File[]>({
+    mutationFn: async (files) => {
+      const formData = new FormData();
+      files.forEach((file) => formData.append('files', file));
+      return (
+        await apiClient.post<AgreementExtraction>(`${BASE}/settings/agreement/extract`, formData, {
+          timeout: AGREEMENT_EXTRACT_TIMEOUT_MS,
+        })
+      ).data;
+    },
   });
 }
 

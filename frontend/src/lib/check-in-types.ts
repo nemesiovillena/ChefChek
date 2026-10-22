@@ -67,6 +67,15 @@ export interface AgreementParams {
   overtimeYearlyCap: number;
 }
 
+/**
+ * Propuesta leída del convenio por la IA. Solo trae los campos que el
+ * convenio fija, cada uno con dónde aparece (artículo/página).
+ */
+export interface AgreementExtraction {
+  agreementName: string | null;
+  fields: { [K in keyof AgreementParams]?: { value: AgreementParams[K]; source: string | null } };
+}
+
 export interface CheckInSettings extends AgreementParams {
   agreementKey: string;
   breaksCountAsWork: boolean;
