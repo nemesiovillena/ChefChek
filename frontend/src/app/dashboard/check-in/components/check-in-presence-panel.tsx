@@ -2,22 +2,17 @@
 
 import { MapPinOff } from 'lucide-react';
 import { usePresence } from '@/hooks/use-check-in';
-import { GEOFENCE_LABELS, STATUS_LABELS, formatTime } from '@/lib/check-in-punch';
+import { GEOFENCE_LABELS, STATUS_DOT, STATUS_LABELS, formatTime } from '@/lib/check-in-punch';
 import type { PresenceEntry, WorkStatus } from '@/lib/check-in-types';
 import { cardCls } from './check-in-form-styles';
 
 const ORDER: WorkStatus[] = ['IN', 'ON_BREAK', 'OUT'];
-const DOT: Record<WorkStatus, string> = {
-  IN: 'bg-[var(--primary)]',
-  ON_BREAK: 'bg-amber-500',
-  OUT: 'bg-[var(--outline-variant)]',
-};
 
 function Row({ entry }: { entry: PresenceEntry }) {
   const warning = entry.lastPunch ? GEOFENCE_LABELS[entry.lastPunch.geofenceStatus] : null;
   return (
     <li className="flex items-center gap-3 py-2">
-      <span className={`h-3 w-3 shrink-0 rounded-full ${DOT[entry.status]}`} aria-hidden />
+      <span className={`h-3 w-3 shrink-0 rounded-full ${STATUS_DOT[entry.status]}`} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{entry.name}</span>
         <span className="block truncate text-sm text-[var(--on-surface-variant)]">
@@ -51,7 +46,7 @@ export function CheckInPresencePanel() {
       <div className="mb-3 flex flex-wrap gap-4 text-sm">
         {ORDER.map((status) => (
           <span key={status} className="flex items-center gap-2">
-            <span className={`h-3 w-3 rounded-full ${DOT[status]}`} aria-hidden />
+            <span className={`h-3 w-3 rounded-full ${STATUS_DOT[status]}`} aria-hidden />
             {STATUS_LABELS[status]}: <strong>{count(status)}</strong>
           </span>
         ))}
