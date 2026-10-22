@@ -127,6 +127,18 @@ describe("E2E - RRHH: Mi espacio y solicitudes", () => {
     await makeUser("me-shared@test.com", "ADMIN", tenantId, true);
     await makeUser("me-other-admin@test.com", "ADMIN", otherTenantId);
     martaUserId = marta.id;
+    // El puesto que ve cada persona es el de Empleados → Puestos.
+    const cook = await prisma.sictedJobProfile.create({
+      data: { tenantId, title: "Cocinera" },
+    });
+    await prisma.sictedJobAssignment.create({
+      data: {
+        tenantId,
+        profileId: cook.id,
+        userId: marta.id,
+        userName: marta.name,
+      },
+    });
 
     const center = await prisma.location.create({
       data: { tenantId, name: "Restaurante", isDefault: true, timezone: "UTC" },
@@ -177,6 +189,12 @@ describe("E2E - RRHH: Mi espacio y solicitudes", () => {
       where: { tenantId: { in: ids } },
     });
     await prisma.employee.deleteMany({ where: { tenantId: { in: ids } } });
+    await prisma.sictedJobAssignment.deleteMany({
+      where: { tenantId: { in: ids } },
+    });
+    await prisma.sictedJobProfile.deleteMany({
+      where: { tenantId: { in: ids } },
+    });
     await prisma.configuration.deleteMany({ where: { tenantId: { in: ids } } });
     await prisma.session.deleteMany({
       where: { user: { tenantId: { in: ids } } },

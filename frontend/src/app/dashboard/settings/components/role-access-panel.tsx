@@ -52,7 +52,7 @@ export function RoleAccessPanel() {
       <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
         Para limitar por puesto (Cocina, Barra, Sala…), ve a{' '}
         <Link href="/dashboard/users" className="text-[var(--primary)] underline">
-          Equipo → Puestos
+          Empleados → Puestos
         </Link>
         .
       </p>

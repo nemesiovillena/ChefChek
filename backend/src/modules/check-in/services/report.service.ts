@@ -5,6 +5,7 @@ import {
   AdjustmentsService,
 } from "./adjustments.service";
 import { MonthTotals, WorkdaysService, fullName } from "./workdays.service";
+import { currentPositionTitles } from "../../users/current-position-titles";
 
 /** Datos del registro de jornada de una persona en un mes, listos para exportar. */
 export interface WorkdayReport {
@@ -73,6 +74,13 @@ export class ReportService {
           where: { timesheetId: sheet.id },
         })
       : null;
+    // Puesto vigente de su cuenta en Empleados → Puestos.
+    const positionTitle =
+      (employee.userId &&
+        (
+          await currentPositionTitles(this.prisma, tenantId, [employee.userId])
+        ).get(employee.userId)) ||
+      null;
 
     // Correcciones del mes: las que añaden un fichaje en él o actúan sobre uno suyo.
     const prefix = `${year}-${String(month).padStart(2, "0")}`;
@@ -108,7 +116,7 @@ export class ReportService {
         name: fullName(employee),
         nationalId: employee.nationalId,
         socialSecurityNumber: employee.socialSecurityNumber,
-        jobTitle: employee.jobTitle,
+        jobTitle: positionTitle,
         weeklyHours: employee.weeklyHours,
       },
       year,

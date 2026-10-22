@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { UserLaborDataTab } from './user-labor-data-tab';
+import { useTeamPositions } from '@/hooks/use-team-positions';
 
 export type UserModalTab = 'datos' | 'laboral';
 
@@ -66,6 +67,10 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
   const updateMutation = useUpdateUser();
   const uploadAvatarMutation = useUploadUserAvatar();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Al crear, el puesto es obligatorio (también en cuentas compartidas). Al
+  // editar se cambia desde el desplegable de la lista.
+  const positions = useTeamPositions();
+  const [positionId, setPositionId] = useState('');
 
   const [formData, setFormData] = useState(() => ({
     email: targetUser?.email ?? '',
@@ -123,6 +128,10 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
       addNotification({ type: 'error', title: 'Error', message: 'La contraseña debe tener al menos 4 caracteres' });
       return;
     }
+    if (!targetUser && !positionId) {
+      addNotification({ type: 'error', title: 'Falta el puesto', message: 'Elige un puesto. Si no encaja ninguno, créalo en la pestaña Puestos.' });
+      return;
+    }
     if (!targetUser && !currentTenantId) {
       addNotification({ type: 'error', title: 'Error', message: 'No se pudo determinar el tenant actual' });
       return;
@@ -159,12 +168,14 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
         await createMutation.mutateAsync({
           tenantId: currentTenantId as string,
           password: formData.password,
+          positionId,
           ...commonData,
         });
         addNotification({ type: 'success', title: 'Usuario creado', message: 'Usuario creado correctamente' });
       }
       // La ficha de Fichar copia nombre y estado de la cuenta.
       queryClient.invalidateQueries({ queryKey: ['check-in'] });
+      queryClient.invalidateQueries({ queryKey: ['team-positions'] });
       onSaved?.();
       onClose();
     } catch (error: unknown) {
@@ -182,7 +193,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
       <div className="relative top-8 mx-auto p-6 border w-full max-w-2xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {targetUser ? 'Editar Usuario' : 'Crear Usuario'}
+            {targetUser ? 'Editar persona' : 'Nueva persona'}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -256,6 +267,27 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 )}
               </select>
             </div>
+            {!targetUser && (
+              <div>
+                <label htmlFor="new-user-position" className={labelClass}>Puesto *</label>
+                <select
+                  id="new-user-position"
+                  required
+                  value={positionId}
+                  onChange={(e) => setPositionId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="" disabled>
+                    {positions.isLoading ? 'Cargando…' : 'Elige un puesto'}
+                  </option>
+                  {positions.data?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

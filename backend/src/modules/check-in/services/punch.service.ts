@@ -28,6 +28,7 @@ import {
   isAllowedTransition,
   statusAfter,
 } from "./punch-state.util";
+import { currentPositionTitles } from "../../users/current-position-titles";
 
 /** Sesión desde la que se ficha. */
 export interface PunchActor {
@@ -644,6 +645,11 @@ export class PunchService {
       employees.map((e) => e.id),
       new Date(Date.now() - STATUS_WINDOW_MS),
     );
+    const titles = await currentPositionTitles(
+      this.prisma,
+      tenantId,
+      employees.map((e) => e.userId),
+    );
     // Último fichaje real de cada empleado, para mostrar dónde y cómo fichó.
     const recent = await this.prisma.timePunch.findMany({
       where: {
@@ -666,7 +672,7 @@ export class PunchService {
       return {
         id: employee.id,
         name: fullName(employee),
-        jobTitle: employee.jobTitle,
+        jobTitle: (employee.userId && titles.get(employee.userId)) || null,
         section: employee.section,
         // Puede identificarse en el kiosco: con la contraseña de su cuenta
         // de Equipo o, si no tiene cuenta, con el PIN de la ficha.

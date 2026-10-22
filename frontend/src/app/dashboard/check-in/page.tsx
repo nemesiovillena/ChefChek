@@ -64,7 +64,7 @@ export default function CheckInPage() {
               <FileText className="h-4 w-4" /> Informes
             </Link>
             <Link
-              href="/dashboard/check-in/empleados"
+              href="/dashboard/users"
               className={secondaryBtnCls}
             >
               <Users className="h-4 w-4" /> Empleados

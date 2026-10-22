@@ -14,6 +14,13 @@ export class SaveTeamPositionDto {
   title: string;
 }
 
+/** Puesto nuevo; `copyFromId` = «igual que» otro puesto (qué ve y áreas). */
+export class CreateTeamPositionDto extends SaveTeamPositionDto {
+  @IsOptional()
+  @IsString()
+  copyFromId?: string;
+}
+
 /** Puesto vigente de una persona; `null` o ausente = sin puesto. */
 export class SetUserPositionDto {
   @IsOptional()
