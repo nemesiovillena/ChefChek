@@ -24,6 +24,11 @@ import { ReportService } from "./services/report.service";
 import { ReportExportService } from "./services/report-export.service";
 import { IntegrityService } from "./services/integrity.service";
 import { InspectionLinksService } from "./services/inspection-links.service";
+import { AiAssistantModule } from "../ai-assistant/ai-assistant.module";
+import { AiAssistantConfigModule } from "../ai-assistant/config/ai-assistant-config.module";
+import { RecipeCaptureConfigModule } from "../recipe-capture/config/recipe-capture-config.module";
+import { RecipeCaptureCompletionService } from "../recipe-capture/recipe-capture-completion.service";
+import { AgreementExtractionService } from "./services/agreement-extraction.service";
 
 /**
  * Módulo Check-In (control horario): fichas de empleado, PIN de kiosco,
@@ -35,9 +40,18 @@ import { InspectionLinksService } from "./services/inspection-links.service";
  * LocationsService se provee aquí directamente (solo depende de Prisma) para
  * gestionar centros sin arrastrar todo ComprasModule ni exigir que el tenant
  * tenga Compras activo.
+ *
+ * La lectura del convenio con IA usa la misma IA que la Captura de recetas
+ * (con el Asistente IA de respaldo): RecipeCaptureCompletionService.
  */
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    AiAssistantModule,
+    AiAssistantConfigModule,
+    RecipeCaptureConfigModule,
+  ],
   controllers: [
     EmployeesController,
     CheckInConfigurationController,
@@ -63,6 +77,8 @@ import { InspectionLinksService } from "./services/inspection-links.service";
     ReportExportService,
     IntegrityService,
     InspectionLinksService,
+    RecipeCaptureCompletionService,
+    AgreementExtractionService,
     CheckInManagerGuard,
   ],
   exports: [
