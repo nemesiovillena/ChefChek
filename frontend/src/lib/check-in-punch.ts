@@ -21,6 +21,13 @@ export const STATUS_LABELS: Record<WorkStatus, string> = {
   ON_BREAK: 'En pausa',
 };
 
+/** Color del círculo de estado: verde trabajando, ámbar en pausa, gris fuera. */
+export const STATUS_DOT: Record<WorkStatus, string> = {
+  IN: 'bg-green-500',
+  ON_BREAK: 'bg-amber-500',
+  OUT: 'bg-[var(--outline-variant)]',
+};
+
 export const GEOFENCE_LABELS: Record<PunchGeofenceStatus, string | null> = {
   INSIDE: null,
   OFF: null,

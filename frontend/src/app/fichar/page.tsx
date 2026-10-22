@@ -21,12 +21,13 @@ import {
 import {
   PUNCH_ACTION_LABELS,
   PUNCH_LABELS,
+  STATUS_DOT,
   STATUS_LABELS,
   formatTime,
   getDevicePosition,
   newPunchId,
 } from '@/lib/check-in-punch';
-import type { KioskEmployee, KioskState, PunchType, WorkStatus } from '@/lib/check-in-types';
+import type { KioskEmployee, KioskState, PunchType } from '@/lib/check-in-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,11 +79,6 @@ function subscribeClock(callback: () => void) {
   return () => window.clearInterval(timer);
 }
 
-const DOT: Record<WorkStatus, string> = {
-  IN: 'bg-[var(--primary)]',
-  ON_BREAK: 'bg-amber-500',
-  OUT: 'bg-[var(--outline-variant)]',
-};
 const bigBtn =
   'flex min-h-[72px] items-center justify-center gap-2 rounded-2xl px-4 text-xl font-semibold disabled:opacity-40';
 
@@ -499,7 +495,7 @@ function Kiosk() {
             >
               <span className="text-center leading-tight">{employee.name}</span>
               <span className="flex items-center gap-2 text-sm font-normal text-[var(--on-surface-variant)]">
-                <span className={`h-3 w-3 rounded-full ${DOT[employee.status]}`} aria-hidden />
+                <span className={`h-3 w-3 rounded-full ${STATUS_DOT[employee.status]}`} aria-hidden />
                 {STATUS_LABELS[employee.status]}
               </span>
             </button>
