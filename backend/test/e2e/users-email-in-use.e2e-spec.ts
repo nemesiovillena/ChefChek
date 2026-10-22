@@ -15,6 +15,7 @@ describe("E2E - Usuarios: email ya usado", () => {
   let prisma: PrismaService;
   let tenantId: string;
   let sessionId: string;
+  let positionId: string;
 
   // Slug único por ejecución: el borrado de tenants es lógico y un slug fijo
   // chocaría en la siguiente pasada.
@@ -45,6 +46,7 @@ describe("E2E - Usuarios: email ya usado", () => {
       email: userEmail,
       password: "1047",
       name: "Pruebas",
+      positionId,
     });
 
   beforeAll(async () => {
@@ -67,6 +69,11 @@ describe("E2E - Usuarios: email ya usado", () => {
         data: { name: "Usuarios email E2E", slug, isActive: true },
       })
     ).id;
+    positionId = (
+      await prisma.sictedJobProfile.create({
+        data: { tenantId, title: "Cocinero" },
+      })
+    ).id;
     await prisma.user.create({
       data: {
         email: adminEmail,
@@ -87,7 +94,9 @@ describe("E2E - Usuarios: email ya usado", () => {
   afterAll(async () => {
     // SQL directo: borrado físico, también de los usuarios ya eliminados.
     await prisma.$executeRaw`DELETE FROM "sessions" WHERE "userId" IN (SELECT "id" FROM "users" WHERE "tenantId" = ${tenantId})`;
+    await prisma.$executeRaw`DELETE FROM "sicted_job_assignments" WHERE "tenantId" = ${tenantId}`;
     await prisma.$executeRaw`DELETE FROM "users" WHERE "tenantId" = ${tenantId}`;
+    await prisma.$executeRaw`DELETE FROM "sicted_job_profiles" WHERE "tenantId" = ${tenantId}`;
     await prisma.$executeRaw`DELETE FROM "tenants" WHERE "id" = ${tenantId}`;
     await app.close();
   });

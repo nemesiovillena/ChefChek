@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { currentPositionTitles } from "./current-position-titles";
 
 /**
  * Puestos de trabajo gestionados desde Equipo, con o sin SICTED activo.
@@ -47,12 +48,51 @@ export class TeamPositionsService {
     );
   }
 
-  async create(tenantId: string, title: string) {
+  /**
+   * Crea un puesto. Con `copyFromId` nace «igual que» otro: mismas áreas de
+   * hojas (así sale en el «Quién» de la misma cuenta compartida) y mismo
+   * «qué ve». Después se puede ajustar por separado.
+   */
+  async create(
+    tenantId: string,
+    title: string,
+    copyFromId?: string,
+    editorId?: string,
+  ) {
     const clean = await this.assertUniqueTitle(tenantId, title);
-    return this.prisma.sictedJobProfile.create({
-      data: { tenantId, title: clean },
+    const source = copyFromId
+      ? await this.prisma.sictedJobProfile.findFirst({
+          where: { id: copyFromId, tenantId, archivedAt: null },
+          select: { id: true, areas: true },
+        })
+      : null;
+    if (copyFromId && !source) {
+      throw new NotFoundException("Puesto de origen no encontrado");
+    }
+    const created = await this.prisma.sictedJobProfile.create({
+      data: { tenantId, title: clean, areas: source?.areas ?? [] },
       select: { id: true, title: true },
     });
+    if (source && editorId) {
+      const access = await this.roleAccess.getPositionAccess(
+        tenantId,
+        source.id,
+      );
+      if (Object.keys(access).length > 0) {
+        await this.roleAccess.updatePositionAccess(
+          tenantId,
+          created.id,
+          editorId,
+          access,
+        );
+      }
+    }
+    return created;
+  }
+
+  /** Nombre del puesto vigente de cada cuenta (sin puesto = no aparece). */
+  currentTitles(tenantId: string, userIds: string[]) {
+    return currentPositionTitles(this.prisma, tenantId, userIds);
   }
 
   async rename(tenantId: string, id: string, title: string) {

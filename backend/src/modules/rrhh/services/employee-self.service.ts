@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { Employee } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { currentPositionTitles } from "../../users/current-position-titles";
 
 /** Campos de la cuenta y de la ficha que el empleado puede proponer cambiar. */
 export const USER_DATA_FIELDS = [
@@ -58,7 +59,7 @@ export class EmployeeSelfService {
 
   /** Mis datos: lo personal y lo laboral que me afecta. Nunca el coste hora. */
   async getProfile(tenantId: string, employee: Employee) {
-    const [user, locations] = await Promise.all([
+    const [user, locations, titles] = await Promise.all([
       this.prisma.user.findFirst({
         where: { id: employee.userId as string, tenantId },
       }),
@@ -66,7 +67,10 @@ export class EmployeeSelfService {
         where: { tenantId, employeeId: employee.id },
         include: { location: { select: { name: true } } },
       }),
+      currentPositionTitles(this.prisma, tenantId, [employee.userId]),
     ]);
+    const positionTitle =
+      (employee.userId && titles.get(employee.userId)) || null;
     return {
       employeeId: employee.id,
       name: `${employee.firstName} ${employee.lastName}`.trim(),
@@ -81,7 +85,7 @@ export class EmployeeSelfService {
         socialSecurityNumber: employee.socialSecurityNumber,
       },
       job: {
-        jobTitle: employee.jobTitle,
+        jobTitle: positionTitle,
         section: employee.section,
         contractType: employee.contractType,
         weeklyHours: employee.weeklyHours,

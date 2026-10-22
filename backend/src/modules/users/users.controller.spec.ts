@@ -72,6 +72,7 @@ describe("UsersController", () => {
         tenantId: "tenant-1",
         email: "newuser@test.com",
         password: "password123",
+        positionId: "pos-1",
         name: "New User",
         role: "USER",
       };
@@ -107,6 +108,7 @@ describe("UsersController", () => {
         tenantId: "different-tenant",
         email: "user@test.com",
         password: "password123",
+        positionId: "pos-1",
         name: "User",
       };
 
@@ -124,6 +126,7 @@ describe("UsersController", () => {
         tenantId: "tenant-1",
         email: "existing@test.com",
         password: "password123",
+        positionId: "pos-1",
         name: "Existing User",
       };
 
@@ -141,6 +144,7 @@ describe("UsersController", () => {
         tenantId: "tenant-1",
         email: "user@test.com",
         password: "password123",
+        positionId: "pos-1",
         name: "User",
       };
 
