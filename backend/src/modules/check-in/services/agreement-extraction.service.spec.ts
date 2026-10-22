@@ -69,6 +69,41 @@ describe("parseAgreementExtraction", () => {
     expect(result.fields.weeklyHours?.value).toBe(40);
   });
 
+  it("combina una lista con un objeto por documento: gana el primer valor válido", () => {
+    const result = parseAgreementExtraction(
+      JSON.stringify([
+        {
+          isAgreement: true,
+          agreementName: "Convenio de Hostelería de Alicante",
+          annualHours: { value: 1796.63, source: "Art. 21" },
+          minRestBetweenShiftsHours: { value: null, source: null },
+        },
+        {
+          isAgreement: true,
+          agreementName: "VI Acuerdo Laboral de Hostelería",
+          annualHours: { value: 1826, source: "Art. 9" },
+          minRestBetweenShiftsHours: { value: 12, source: "Art. 10" },
+        },
+        { isAgreement: false },
+      ]),
+    );
+
+    expect(result.agreementName).toBe("Convenio de Hostelería de Alicante");
+    expect(result.fields).toEqual({
+      annualHours: { value: 1796.63, source: "Art. 21" },
+      minRestBetweenShiftsHours: { value: 12, source: "Art. 10" },
+    });
+  });
+
+  it("lee una lista aunque venga con texto alrededor", () => {
+    const result = parseAgreementExtraction(
+      '```json\n[{"weeklyHours": {"value": 40, "source": "Art. 5"}}, {"vacationDays": {"value": 31, "source": "Art. 7"}}]\n```',
+    );
+
+    expect(result.fields.weeklyHours?.value).toBe(40);
+    expect(result.fields.vacationDays?.value).toBe(31);
+  });
+
   it.each([
     ["sin JSON", "no puedo leerlo"],
     ["JSON roto", "{ weeklyHours: "],
