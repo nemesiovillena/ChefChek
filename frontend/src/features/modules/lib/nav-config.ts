@@ -66,7 +66,6 @@ export const NAV_GROUPS: NavSection[] = [
         icon: 'travel_explore',
       },
       { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
-      { label: 'Equipo', href: '/dashboard/users', moduleId: 'sala', icon: 'groups' },
       {
         label: 'Notificaciones de Sala',
         href: '/dashboard/sala-notificaciones',
@@ -109,6 +108,8 @@ export const NAV_GROUPS: NavSection[] = [
   {
     title: 'Personal',
     items: [
+      // Siempre disponible (sin módulo): personas, cuentas y puestos.
+      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, personalAccountOnly: true },
       { label: 'Mi espacio', href: '/dashboard/mi-espacio', moduleId: 'rrhh', icon: 'person', personalAccountOnly: true },
       { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
       { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
@@ -117,7 +118,6 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, personalAccountOnly: true },
       { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
-      { label: 'Empleados', href: '/dashboard/check-in/empleados', moduleId: 'check-in', icon: 'badge', managerOnly: true, personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
     ],
   },
@@ -173,7 +173,6 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/menus', moduleId: 'menus' },
   { prefix: '/dashboard/compras', moduleId: 'compras' },
   { prefix: '/dashboard/proveedores', moduleId: 'proveedores' },
-  { prefix: '/dashboard/users', moduleId: 'sala' },
   { prefix: '/dashboard/sala-notificaciones', moduleId: 'sala-notificaciones' },
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },

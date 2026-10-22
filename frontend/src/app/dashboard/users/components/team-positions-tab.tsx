@@ -198,12 +198,16 @@ export function TeamPositionsTab() {
   const sections = useAccessSections();
   const create = useCreateTeamPosition();
   const [newTitle, setNewTitle] = useState('');
+  // «Igual que…»: el puesto nuevo copia lo que ve y sus áreas de hojas, así
+  // sale en el «Quién» de la misma cuenta compartida (Cocina, Sala…).
+  const [copyFromId, setCopyFromId] = useState('');
 
   async function handleCreate() {
     if (!newTitle.trim()) return;
     try {
-      await create.mutateAsync(newTitle);
+      await create.mutateAsync({ title: newTitle, copyFromId: copyFromId || undefined });
       setNewTitle('');
+      setCopyFromId('');
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo crear el puesto', message: errorMessage(err, '') });
     }
@@ -212,10 +216,12 @@ export function TeamPositionsTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--on-surface-variant)]">
-        Crea los puestos del local (Cocina, Barra, Sala 1, Terraza…) y elige qué ve cada uno. Asigna el puesto a cada
-        persona en la pestaña Personas. Son los mismos puestos que usa SICTED.
+        Crea los puestos del local (Ayudante de cocina, Freganchín, Barra…) y elige qué ve cada uno. Todas las personas
+        y cuentas compartidas necesitan un puesto; si no encaja ninguno, crea uno (p. ej. Administración). «Igual que»
+        copia lo que ve otro puesto y sus áreas, y así aparece en el «Quién» de la misma cuenta compartida. Son los
+        mismos puestos que usa SICTED.
       </p>
-      <div className="flex max-w-xl gap-2">
+      <div className="flex max-w-2xl flex-wrap gap-2">
         <input
           className={inputCls}
           placeholder="Nuevo puesto (p. ej. Barra)"
@@ -223,6 +229,19 @@ export function TeamPositionsTab() {
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
         />
+        <select
+          aria-label="Igual que"
+          className={`${inputCls} sm:max-w-[220px]`}
+          value={copyFromId}
+          onChange={(e) => setCopyFromId(e.target.value)}
+        >
+          <option value="">Empezar vacío</option>
+          {positions.data?.map((p) => (
+            <option key={p.id} value={p.id}>
+              Igual que {p.title}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={handleCreate}

@@ -9,6 +9,10 @@ import { useUsers, useUpdateUser, useDeleteUser, User } from '@/hooks/use-users'
 import { Pencil, Trash2, UserRound } from 'lucide-react';
 import UserModal from './components/user-modal';
 import { TeamPositionsTab } from './components/team-positions-tab';
+import { CheckInEmployeesWithoutAccount } from './components/check-in-employees-without-account';
+import { useEmployees } from '@/hooks/use-check-in';
+import { useModules } from '@/features/modules/hooks/use-modules';
+import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { useSetUserPosition, useTeamPositions } from '@/hooks/use-team-positions';
 import PageContainer from '@/components/shared/page-container';
 import PageHeader from '@/components/shared/page-header';
@@ -54,6 +58,18 @@ function UserPositionSelect({ userId }: { userId: string }) {
   );
 }
 
+/** Horas de contrato de la ficha de Fichar (solo se monta con Fichar activo). */
+function CheckInHoursCell({ userId }: { userId: string }) {
+  const { data: employees } = useEmployees(true);
+  const employee = employees?.find((e) => e.userId === userId);
+  if (!employees) return null;
+  return (
+    <span className="text-sm text-[var(--on-surface-variant)]">
+      {employee ? `${employee.weeklyHours} h/sem` : 'Sin ficha'}
+    </span>
+  );
+}
+
 /** Tarjeta de contexto para el diálogo de borrado: ancla la confirmación al usuario real. */
 function UserContextCard({ targetUser }: { targetUser: User }) {
   const meta = [targetUser.role, targetUser.email].filter(Boolean).join(' · ');
@@ -76,13 +92,37 @@ function UserContextCard({ targetUser }: { targetUser: User }) {
 }
 
 export default function UsersPage() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  // Datos personales: solo responsables desde su cuenta personal. El
+  // contenido (y sus peticiones) solo se monta para ellos.
+  if (!canManageCheckIn(user)) {
+    return (
+      <PageContainer>
+        <p className="pt-8 text-[var(--on-surface-variant)]">
+          Empleados es solo para responsables, desde su cuenta personal.
+        </p>
+      </PageContainer>
+    );
+  }
+  return <EmployeesContent />;
+}
+
+function EmployeesContent() {
   const { user, tenantId, isLoading, isAuthenticated, refreshUser } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
 
   const { data: usersData, isLoading: usersLoading } = useUsers();
-  const users: User[] = Array.isArray(usersData?.data) ? usersData.data : [];
+  const allUsers: User[] = Array.isArray(usersData?.data) ? usersData.data : [];
+  // Personas primero; las cuentas compartidas (dispositivos) al final.
+  const users = [...allUsers].sort((a, b) => Number(!!a.isSharedAccount) - Number(!!b.isSharedAccount));
+  const positions = useTeamPositions();
+  const withPosition = new Set(positions.data?.flatMap((p) => p.users.map((u) => u.id)) ?? []);
+  const withoutPosition = positions.data ? users.filter((u) => u.isActive && !withPosition.has(u.id)) : [];
+  const { isEnabled } = useModules();
+  const checkInOn = isEnabled('check-in');
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
 
@@ -164,21 +204,21 @@ export default function UsersPage() {
     <div className="w-full">
       <PageContainer>
         <PageHeader
-          title="Gestión de usuarios"
+          title="Empleados"
           actions={
             view === 'personas' ? (
               <button
                 onClick={handleCreate}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                Crear usuario
+                Nueva persona
               </button>
             ) : undefined
           }
         />
 
         {/* role="tablist" en un <div>: globals.css oculta los <nav> no fijos. */}
-        <div role="tablist" aria-label="Equipo" className="mb-4 flex gap-2">
+        <div role="tablist" aria-label="Empleados" className="mb-4 flex gap-2">
           {(['personas', 'puestos'] as const).map((v) => (
             <button
               key={v}
@@ -199,6 +239,14 @@ export default function UsersPage() {
 
         {view === 'puestos' && <TeamPositionsTab />}
 
+        {view === 'personas' && withoutPosition.length > 0 && (
+          <div role="status" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            <strong>{withoutPosition.length === 1 ? '1 persona sin puesto' : `${withoutPosition.length} personas sin puesto`}:</strong>{' '}
+            {withoutPosition.map((u) => u.name).join(', ')}. Todas necesitan uno (también las cuentas compartidas). Si no
+            encaja ninguno, créalo en Puestos (p. ej. Administración).
+          </div>
+        )}
+
         <div className={view === 'personas' ? tableCardClass : 'hidden'}>
           <div className={tableScrollClass}>
             <table className={tableClass}>
@@ -208,6 +256,7 @@ export default function UsersPage() {
                   <th className={thBaseClass}>Email</th>
                   <th className={thBaseClass}>Rol</th>
                   <th className={thBaseClass}>Puesto</th>
+                  {checkInOn && <th className={thBaseClass}>Contrato</th>}
                   <th className={thBaseClass}>Estado</th>
                   <th className={thBaseClass}>Fecha de creación</th>
                   <th className={thActionsClass}>Acciones</th>
@@ -216,13 +265,13 @@ export default function UsersPage() {
               <tbody className={tbodyClass}>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={checkInOn ? 8 : 7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       Cargando...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={checkInOn ? 8 : 7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       No se encontraron usuarios
                     </td>
                   </tr>
@@ -242,7 +291,7 @@ export default function UsersPage() {
                           <div className="min-w-0">
                             <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
                             {targetUser.isSharedAccount && (
-                              <div className="text-xs text-[var(--on-surface-variant)]">Cuenta compartida</div>
+                              <div className="text-xs text-[var(--on-surface-variant)]">Cuenta compartida (dispositivo)</div>
                             )}
                           </div>
                         </div>
@@ -258,6 +307,11 @@ export default function UsersPage() {
                       <td className="px-3 py-3 whitespace-nowrap">
                         <UserPositionSelect userId={targetUser.id} />
                       </td>
+                      {checkInOn && (
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          {!targetUser.isSharedAccount && <CheckInHoursCell userId={targetUser.id} />}
+                        </td>
+                      )}
                       <td className="px-3 py-3 whitespace-nowrap">
                         <button
                           onClick={() => handleToggleStatus(targetUser)}
@@ -298,6 +352,9 @@ export default function UsersPage() {
             </table>
           </div>
         </div>
+        {view === 'personas' && checkInOn && !usersLoading && (
+          <CheckInEmployeesWithoutAccount accountIds={new Set(allUsers.map((u) => u.id))} />
+        )}
       </PageContainer>
 
       <UserModal
