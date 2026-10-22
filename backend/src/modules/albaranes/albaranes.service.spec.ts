@@ -819,6 +819,42 @@ describe("AlbaranesService", () => {
       });
     });
 
+    it("keeps the paper totals when the albarán was read from paper (OCR)", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          ocrRawData: { total_amount: 75.34 },
+          lines: [
+            {
+              ...confirmedLine,
+              quantity: 1,
+              unitPrice: 29.28,
+              lineAmount: 29.28,
+            },
+          ],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+      offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
+
+      // Neto del papel con el «Dto. Fijo» restado: la línea pasa a cuadrar
+      // con el total impreso, que no debe moverse.
+      await service.correctConfirmedLinePrice(
+        "alb-1",
+        "l1",
+        { unitPrice: "29.28", totalPrice: "15.52" } as any,
+        "t1",
+      );
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ totalPrice: 15.52 }),
+        }),
+      );
+      expect(prisma.albaran.update).not.toHaveBeenCalled();
+    });
+
     it("subtracts a returned container from the albaran totals using paper net", async () => {
       prisma.albaran.findFirst.mockResolvedValue(
         albaran({
@@ -1234,7 +1270,10 @@ describe("AlbaranesService", () => {
       });
 
       it("crea la línea nacida confirmada, asienta stock/precios y no toca los totales del papel", async () => {
-        const alb = confirmedAlbaran();
+        const alb = {
+          ...confirmedAlbaran(),
+          ocrRawData: { total_amount: 255.55 },
+        };
         prisma.albaran.findFirst.mockResolvedValue(alb);
         const createdLine = {
           id: "l-tasa",
@@ -1273,6 +1312,34 @@ describe("AlbaranesService", () => {
           "t1",
         );
         expect(res).toEqual({ success: true, data: createdLine });
+      });
+
+      it("en un albarán manual (sin papel) suma la línea a los totales", async () => {
+        prisma.albaran.findFirst.mockResolvedValue(confirmedAlbaran());
+        prisma.albaranLine.create.mockResolvedValue({ id: "l-new" });
+
+        await service.addLine(
+          "alb-1",
+          {
+            description: "Tasa",
+            quantity: 1,
+            unitPrice: 1.4,
+            vatPercent: 21,
+            matchedProductId: "prod-1",
+          } as any,
+          "t1",
+        );
+
+        // 1,4 € con IVA al 21 %: 0,29 € de IVA (redondeo a 2 decimales).
+        expect(prisma.albaran.update).toHaveBeenCalledWith({
+          where: { id: "alb-1" },
+          data: {
+            grossAmount: { increment: 1.4 },
+            base: { increment: 1.4 },
+            vatTotal: { increment: 0.29 },
+            total: { increment: 1.69 },
+          },
+        });
       });
     });
   });

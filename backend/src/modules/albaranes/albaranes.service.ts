@@ -32,6 +32,16 @@ import {
 /** Albaranes por confirmar: su stock y precios todavía no se han aplicado. */
 const PENDING_STATUSES = [AlbaranStatus.PENDIENTE, AlbaranStatus.REVISADO];
 
+/**
+ * El albarán trae total leído del papel (OCR). Ese total es el del documento
+ * del proveedor: corregir o añadir líneas en confirmado no debe moverlo. Los
+ * albaranes manuales no tienen papel y su total sigue a las líneas.
+ */
+function hasPaperTotal(albaran: { ocrRawData?: unknown }): boolean {
+  const raw = albaran.ocrRawData as { total_amount?: unknown } | null;
+  return Number(raw?.total_amount) > 0;
+}
+
 @Injectable()
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
@@ -470,10 +480,10 @@ export class AlbaranesService {
         },
       });
 
-      // Totales del albarán: se ajustan por la diferencia de esta línea en
-      // vez de re-sumar todas, para no pisar los totales del papel (OCR) con
-      // descuentos que las líneas no reflejan. La línea aporta su neto del
-      // papel si lo tiene; si no, el bruto qty × precio.
+      // Totales del albarán: si vienen del papel (OCR) mandan y no se tocan;
+      // corregir la línea es lo que la hace cuadrar con ellos. En los
+      // manuales no hay papel: se ajustan por la diferencia de esta línea.
+      // La línea aporta su neto del papel si lo tiene; si no, qty × precio.
       const oldLineAmount = Number(
         line.lineAmount ?? quantity * Number(line.unitPrice),
       );
@@ -485,7 +495,7 @@ export class AlbaranesService {
       const grossDelta = round2(newLineAmount - oldLineAmount);
       const baseDelta = round2(newBase - oldBase);
       const vatDelta = round2(baseDelta * (Number(line.vatPercent) / 100));
-      if (baseDelta !== 0 || grossDelta !== 0) {
+      if (!hasPaperTotal(albaran) && (baseDelta !== 0 || grossDelta !== 0)) {
         await tx.albaran.update({
           where: { id: albaranId },
           data: {
@@ -1126,8 +1136,9 @@ export class AlbaranesService {
    * con artículo vinculado —no hay revisión pendiente sobre un documento
    * asentado— y en la misma transacción se asientan sus efectos (oferta,
    * histórico, lote, movimiento y stock, lo que aplique según el artículo).
-   * Los totales del albarán NO se tocan: son los del papel, que ya incluían
-   * la línea que faltaba; añadirla es lo que hace cuadrar las líneas con ellos.
+   * Si el albarán trae total del papel, ese total no se toca: ya incluía la
+   * línea que faltaba y añadirla es lo que hace cuadrar las líneas con él.
+   * En los manuales no hay papel y los totales suman la línea nueva.
    * La conciliación del pedido vinculado no se re-ejecuta: una línea que no
    * estaba en el papel al confirmar no pertenece a ninguna línea del pedido.
    */
@@ -1166,6 +1177,8 @@ export class AlbaranesService {
     const unitPrice = Number(dto.unitPrice) || 0;
     const vatPercent = Number(dto.vatPercent) || 10;
     const lineAmount = quantity * unitPrice;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const vatDelta = round2(lineAmount * (vatPercent / 100));
 
     return this.prisma.$transaction(async (tx) => {
       const line = await tx.albaranLine.create({
@@ -1188,6 +1201,18 @@ export class AlbaranesService {
           confidence: 1.0,
         },
       });
+
+      if (!hasPaperTotal(albaran)) {
+        await tx.albaran.update({
+          where: { id: albaran.id },
+          data: {
+            grossAmount: { increment: round2(lineAmount) },
+            base: { increment: round2(lineAmount) },
+            vatTotal: { increment: vatDelta },
+            total: { increment: round2(lineAmount + vatDelta) },
+          },
+        });
+      }
 
       await this.stockService.processAddedLine(tx, albaran, line, tenantId);
 
