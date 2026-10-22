@@ -29,6 +29,13 @@ const mockPrismaService = {
   tenant: {
     findUnique: jest.fn(),
   },
+  sictedJobProfile: {
+    findFirst: jest.fn(),
+  },
+  sictedJobAssignment: {
+    create: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const mockEmployeeSync = {
@@ -69,7 +76,13 @@ describe("UsersService", () => {
       name: "Test User",
       role: "USER" as const,
       isActive: true,
+      positionId: "pos-1",
     };
+
+    beforeEach(() => {
+      prisma.sictedJobProfile.findFirst.mockResolvedValue({ id: "pos-1" });
+      prisma.$transaction.mockImplementation((fn: any) => fn(prisma));
+    });
 
     const mockTenant = {
       id: "tenant-id",
@@ -103,6 +116,33 @@ describe("UsersService", () => {
       expect(result.success).toBe(true);
       expect(result.data.email).toBe("user@test.com");
       expect(result.message).toBe("User created successfully");
+    });
+
+    it("asigna el puesto elegido en la misma operación", async () => {
+      prisma.tenant.findUnique.mockResolvedValue(mockTenant);
+      (bcrypt.hash as jest.Mock).mockResolvedValue("hashed-password");
+      prisma.user.create.mockResolvedValue(mockUser);
+
+      await service.create(createUserDto, "tenant-id");
+
+      expect(prisma.sictedJobAssignment.create).toHaveBeenCalledWith({
+        data: {
+          tenantId: "tenant-id",
+          profileId: "pos-1",
+          userId: "user-id",
+          userName: "Test User",
+        },
+      });
+    });
+
+    it("no crea la cuenta sin un puesto vigente del restaurante", async () => {
+      prisma.tenant.findUnique.mockResolvedValue(mockTenant);
+      prisma.sictedJobProfile.findFirst.mockResolvedValue(null);
+
+      await expect(service.create(createUserDto, "tenant-id")).rejects.toThrow(
+        "Elige un puesto",
+      );
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
 
     it("should throw ForbiddenException if tenantId does not match requestTenantId", async () => {
@@ -181,6 +221,7 @@ describe("UsersService", () => {
         email: "user@test.com",
         password: "password123",
         name: "Test User",
+        positionId: "pos-1",
       };
 
       prisma.tenant.findUnique.mockResolvedValue(mockTenant);
@@ -201,6 +242,7 @@ describe("UsersService", () => {
         password: "password123",
         name: "Test User",
         role: "USER" as const,
+        positionId: "pos-1",
       };
 
       prisma.tenant.findUnique.mockResolvedValue(mockTenant);

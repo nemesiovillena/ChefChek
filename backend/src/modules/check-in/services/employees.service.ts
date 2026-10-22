@@ -7,6 +7,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CreateEmployeeDto, UpdateEmployeeDto } from "../dto/employee.dto";
+import { currentPositionTitles } from "../../users/current-position-titles";
 
 const EMPLOYEE_INCLUDE = {
   user: { select: { id: true, name: true, email: true } },
@@ -31,11 +32,26 @@ export class EmployeesService {
       include: EMPLOYEE_INCLUDE,
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
-    return employees.map(toEmployeeView);
+    return this.toViews(tenantId, employees);
+  }
+
+  /** Fichas listas para enviar, con el puesto vigente de su cuenta. */
+  private async toViews(tenantId: string, employees: EmployeeWithRelations[]) {
+    const titles = await currentPositionTitles(
+      this.prisma,
+      tenantId,
+      employees.map((e) => e.userId),
+    );
+    return employees.map((e) =>
+      toEmployeeView(e, (e.userId && titles.get(e.userId)) || null),
+    );
   }
 
   async getOne(tenantId: string, id: string) {
-    return toEmployeeView(await this.findOwned(tenantId, id));
+    const [view] = await this.toViews(tenantId, [
+      await this.findOwned(tenantId, id),
+    ]);
+    return view;
   }
 
   /**
@@ -136,7 +152,8 @@ export class EmployeesService {
       },
       include: EMPLOYEE_INCLUDE,
     });
-    return toEmployeeView(employee);
+    const [view] = await this.toViews(tenantId, [employee]);
+    return view;
   }
 
   async update(tenantId: string, id: string, dto: UpdateEmployeeDto) {
@@ -205,7 +222,8 @@ export class EmployeesService {
         include: EMPLOYEE_INCLUDE,
       });
     });
-    return toEmployeeView(employee);
+    const [view] = await this.toViews(tenantId, [employee]);
+    return view;
   }
 
   private async findOwned(tenantId: string, id: string) {
@@ -318,7 +336,14 @@ function pickDefaultLocation(
 }
 
 /** Vista pública: nunca expone el hash del PIN ni los contadores de bloqueo. */
-function toEmployeeView(employee: EmployeeWithRelations) {
+/**
+ * `jobTitle` es el puesto vigente de la cuenta (Empleados → Puestos), no el
+ * texto antiguo de la ficha, que ya no se edita.
+ */
+function toEmployeeView(
+  employee: EmployeeWithRelations,
+  positionTitle: string | null,
+) {
   const {
     pinHash,
     pinFailedAttempts: _attempts,
@@ -328,6 +353,7 @@ function toEmployeeView(employee: EmployeeWithRelations) {
   } = employee;
   return {
     ...rest,
+    jobTitle: positionTitle,
     hasPin: pinHash !== null,
     // Con cuenta de Equipo se identifica con esa contraseña, no con PIN.
     usesAccountPassword: employee.userId !== null,

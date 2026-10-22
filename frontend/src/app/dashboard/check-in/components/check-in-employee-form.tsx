@@ -19,7 +19,6 @@ interface FormState {
   lastName: string;
   nationalId: string;
   socialSecurityNumber: string;
-  jobTitle: string;
   section: string;
   contractType: string;
   weeklyHours: string;
@@ -41,7 +40,6 @@ function initialState(employee: Employee | null, centers: WorkCenter[]): FormSta
     lastName: employee?.lastName ?? '',
     nationalId: employee?.nationalId ?? '',
     socialSecurityNumber: employee?.socialSecurityNumber ?? '',
-    jobTitle: employee?.jobTitle ?? '',
     section: employee?.section ?? '',
     contractType: employee?.contractType ?? '',
     weeklyHours: String(employee?.weeklyHours ?? 40),
@@ -67,7 +65,6 @@ function toPayload(form: FormState): EmployeeInput {
     lastName: form.lastName.trim(),
     nationalId: form.nationalId.trim(),
     socialSecurityNumber: form.socialSecurityNumber.trim(),
-    jobTitle: form.jobTitle.trim(),
     section: form.section.trim(),
     contractType: form.contractType.trim(),
     weeklyHours: Number(form.weeklyHours) || 0,
@@ -250,7 +247,13 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embe
         {!linkedToAccount && field('Apellidos *', 'lastName', { autoComplete: 'off' })}
         {field('DNI / NIE', 'nationalId', { autoComplete: 'off' })}
         {field('Nº Seguridad Social', 'socialSecurityNumber', { autoComplete: 'off', inputMode: 'numeric' })}
-        {field('Puesto', 'jobTitle')}
+        <div className="block">
+          <span className={labelCls}>Puesto</span>
+          <p className="min-h-[44px] py-2 text-[var(--on-surface)]">
+            {employee?.jobTitle ?? 'Sin puesto'}
+            <span className="block text-xs text-[var(--on-surface-variant)]">Se cambia en Empleados → Personas.</span>
+          </p>
+        </div>
         {field('Sección', 'section', { placeholder: 'Cocina, Sala, Barra…' })}
         {field('Tipo de contrato', 'contractType', { placeholder: 'Indefinido, fijo discontinuo…' })}
         {field('Horas semanales pactadas', 'weeklyHours', { type: 'number', min: 0, max: 60, step: 0.5 })}

@@ -32,18 +32,13 @@ import { BunnyStorageService } from "../../common/bunny/bunny-storage.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
-import { ModuleGuard, RequireModule } from "../../guards/module.guard";
-import {
-  SectionAccessGuard,
-  RequireSection,
-} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 
 @ApiTags("Users")
 @Controller("api/v1/users")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
-@RequireModule("sala")
-@RequireSection("sala")
+// Empleados: siempre disponible (no depende de ningún módulo) y solo para
+// responsables, por protección de datos personales.
+@UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -84,7 +79,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles("ADMIN", "USER", "VIEWER")
+  @Roles("ADMIN")
   @ApiOperation({ summary: "Listar todos los usuarios del tenant" })
   @ApiQuery({
     name: "page",
@@ -112,7 +107,7 @@ export class UsersController {
   }
 
   @Get(":id")
-  @Roles("ADMIN", "USER", "VIEWER")
+  @Roles("ADMIN")
   @ApiOperation({ summary: "Obtener un usuario por ID" })
   @ApiParam({ name: "id", description: "ID del usuario" })
   @ApiResponse({ status: 200, description: "Usuario encontrado" })

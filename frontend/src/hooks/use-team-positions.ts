@@ -34,15 +34,21 @@ export function useAccessSections() {
   });
 }
 
+/** Refresca puestos y fichas de Fichar (la ficha muestra el puesto vigente). */
 function useInvalidatePositions() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: [POSITIONS_KEY] });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: [POSITIONS_KEY] }),
+      queryClient.invalidateQueries({ queryKey: ['check-in'] }),
+    ]);
 }
 
 export function useCreateTeamPosition() {
   const invalidate = useInvalidatePositions();
-  return useMutation<unknown, Error, string>({
-    mutationFn: async (title) => (await apiClient.post(BASE_URL, { title })).data,
+  return useMutation<unknown, Error, { title: string; copyFromId?: string }>({
+    mutationFn: async ({ title, copyFromId }) =>
+      (await apiClient.post(BASE_URL, { title, ...(copyFromId ? { copyFromId } : {}) })).data,
     onSuccess: invalidate,
   });
 }

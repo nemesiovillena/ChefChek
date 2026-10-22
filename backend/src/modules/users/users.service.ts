@@ -35,6 +35,7 @@ export class UsersService {
       whatsapp,
       payrollEmail,
       isSharedAccount = false,
+      positionId,
     } = createUserDto;
 
     if ((role as string) === "SUPERADMIN") {
@@ -63,41 +64,63 @@ export class UsersService {
 
     await this.assertEmailFree(tenantId, email);
 
+    // Toda persona (y cuenta compartida) entra con su puesto vigente.
+    const position = positionId
+      ? await this.prisma.sictedJobProfile.findFirst({
+          where: { id: positionId, tenantId, archivedAt: null },
+          select: { id: true },
+        })
+      : null;
+    if (!position) {
+      throw new BadRequestException("Elige un puesto");
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await this.prisma.user.create({
-      data: {
-        tenantId,
-        email,
-        passwordHash: hashedPassword,
-        name,
-        role,
-        isActive,
-        avatarUrl,
-        street,
-        city,
-        phone,
-        whatsapp,
-        payrollEmail,
-        isSharedAccount,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        avatarUrl: true,
-        street: true,
-        city: true,
-        phone: true,
-        whatsapp: true,
-        payrollEmail: true,
-        isSharedAccount: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          tenantId,
+          email,
+          passwordHash: hashedPassword,
+          name,
+          role,
+          isActive,
+          avatarUrl,
+          street,
+          city,
+          phone,
+          whatsapp,
+          payrollEmail,
+          isSharedAccount,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          isActive: true,
+          avatarUrl: true,
+          street: true,
+          city: true,
+          phone: true,
+          whatsapp: true,
+          payrollEmail: true,
+          isSharedAccount: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      await tx.sictedJobAssignment.create({
+        data: {
+          tenantId,
+          profileId: position.id,
+          userId: created.id,
+          userName: created.name,
+        },
+      });
+      return created;
     });
 
     await this.employeeSync.onAccountCreated({ ...user, tenantId });

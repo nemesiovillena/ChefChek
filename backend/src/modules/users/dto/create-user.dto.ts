@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsOptional,
   MinLength,
+  IsNotEmpty,
 } from "class-validator";
 
 /** Mínimo de caracteres de la contraseña de un usuario del restaurante. */
@@ -59,6 +60,11 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   isSharedAccount?: boolean;
+
+  /** Puesto de la persona (también de las cuentas compartidas). Obligatorio. */
+  @IsString()
+  @IsNotEmpty({ message: "Elige un puesto" })
+  positionId: string;
 }
 
 export class UpdateUserDto {

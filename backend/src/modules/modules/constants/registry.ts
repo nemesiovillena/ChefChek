@@ -92,10 +92,11 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
   {
     id: "sala",
-    name: "Equipo",
-    description: "Gestión de equipo y producción en sala",
+    name: "Empleados",
+    // Empleados y puestos no se pueden apagar: toda cuenta pasa por aquí.
+    description: "Personas, cuentas y puestos del restaurante",
     dependencies: [],
-    alwaysActive: false,
+    alwaysActive: true,
     defaultEnabled: true,
   },
   {

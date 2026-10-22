@@ -42,8 +42,49 @@ describe("TeamPositionsService", () => {
     prisma.sictedJobProfile.findFirst.mockResolvedValue(null);
     await service.create(tenantId, "  Sala   2 ");
     expect(prisma.sictedJobProfile.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { tenantId, title: "Sala 2" } }),
+      expect.objectContaining({
+        data: { tenantId, title: "Sala 2", areas: [] },
+      }),
     );
+  });
+
+  it("«igual que» otro puesto copia sus áreas y lo que ve", async () => {
+    prisma.sictedJobProfile.findFirst
+      .mockResolvedValueOnce(null) // nombre libre
+      .mockResolvedValueOnce({ id: "p-coc", areas: ["Cocina", "Almacén"] });
+    prisma.sictedJobProfile.create.mockResolvedValue({
+      id: "p-ayu",
+      title: "Ayudante de cocina",
+    });
+    roleAccess.getPositionAccess.mockResolvedValue({ "recipes.drinks": false });
+
+    await service.create(tenantId, "Ayudante de cocina", "p-coc", "editor");
+
+    expect(prisma.sictedJobProfile.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          tenantId,
+          title: "Ayudante de cocina",
+          areas: ["Cocina", "Almacén"],
+        },
+      }),
+    );
+    expect(roleAccess.updatePositionAccess).toHaveBeenCalledWith(
+      tenantId,
+      "p-ayu",
+      "editor",
+      { "recipes.drinks": false },
+    );
+  });
+
+  it("«igual que» un puesto que no existe no crea nada", async () => {
+    prisma.sictedJobProfile.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    await expect(
+      service.create(tenantId, "Freganchín", "p-x", "editor"),
+    ).rejects.toThrow(NotFoundException);
+    expect(prisma.sictedJobProfile.create).not.toHaveBeenCalled();
   });
 
   it("cambiar de puesto cierra el vigente y abre el nuevo", async () => {

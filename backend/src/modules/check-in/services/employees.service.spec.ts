@@ -183,7 +183,8 @@ describe("EmployeesService", () => {
     });
     expect(updated.firstName).toBe("Ana");
     expect(updated.lastName).toBe("López Mora");
-    expect(updated.jobTitle).toBe("Cocinera");
+    // El puesto es el vigente en Empleados → Puestos, no el texto de la ficha.
+    expect(updated.jobTitle).toBe("Jefe de cocina");
   });
 
   it("sin cuenta el nombre se edita en la propia ficha", async () => {

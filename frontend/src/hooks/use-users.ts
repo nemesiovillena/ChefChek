@@ -32,9 +32,11 @@ export interface CreateUserData {
   whatsapp?: string;
   payrollEmail?: string;
   isSharedAccount?: boolean;
+  /** Puesto obligatorio al crear (Empleados → Puestos). */
+  positionId?: string;
 }
 
-export interface UpdateUserData extends Partial<Omit<CreateUserData, 'tenantId'>> {
+export interface UpdateUserData extends Partial<Omit<CreateUserData, 'tenantId' | 'positionId'>> {
   id: string;
 }
 

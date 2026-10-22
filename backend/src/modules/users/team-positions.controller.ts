@@ -13,14 +13,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AuthGuard } from "../../guards/auth.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
-import { ModuleGuard, RequireModule } from "../../guards/module.guard";
-import {
-  RequireSection,
-  SectionAccessGuard,
-} from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { TeamPositionsService } from "./team-positions.service";
 import {
+  CreateTeamPositionDto,
   SaveTeamPositionDto,
   SetUserPositionDto,
   UpdatePositionAccessDto,
@@ -30,9 +26,7 @@ import {
 @ApiTags("Equipo · Puestos")
 @ApiBearerAuth()
 @Controller("api/v1/team/positions")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
-@RequireModule("sala")
-@RequireSection("sala")
+@UseGuards(AuthGuard, TenantGuard, RolesGuard)
 @Roles("ADMIN")
 export class TeamPositionsController {
   constructor(private readonly positions: TeamPositionsService) {}
@@ -44,9 +38,17 @@ export class TeamPositionsController {
   }
 
   @Post()
-  @ApiOperation({ summary: "Crear un puesto" })
-  create(@Req() req: any, @Body() dto: SaveTeamPositionDto) {
-    return this.positions.create(req.tenantId, dto.title);
+  @ApiOperation({
+    summary:
+      "Crear un puesto (opcional: igual que otro, copia lo que ve y sus áreas)",
+  })
+  create(@Req() req: any, @Body() dto: CreateTeamPositionDto) {
+    return this.positions.create(
+      req.tenantId,
+      dto.title,
+      dto.copyFromId,
+      req.user.id,
+    );
   }
 
   @Patch(":id")

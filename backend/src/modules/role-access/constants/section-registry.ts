@@ -86,7 +86,6 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     moduleId: "technical-sheets",
     defaultAllowed: true,
   },
-  { key: "sala", label: "Equipo", moduleId: "sala", defaultAllowed: true },
   {
     key: "sala-notificaciones",
     label: "Notificaciones de Sala",
