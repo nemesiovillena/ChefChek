@@ -231,22 +231,11 @@ export class FoodLabelService {
 
     if (dto.labelType === "HANDLED") {
       if (supplierLotNumber) {
-        try {
-          return await this.prisma.foodLabel.create({
-            data: { ...commonData, lotNumber: supplierLotNumber },
-            include: FOOD_LABEL_INCLUDE,
-          });
-        } catch (err) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === "P2002"
-          ) {
-            throw new ConflictException(
-              `Ya existe una etiqueta con el lote "${supplierLotNumber}" para este tenant. Si es una corrección, edita la etiqueta existente; si es otra porción del mismo lote, ajusta el nº de lote (p.ej. "${supplierLotNumber}-2").`,
-            );
-          }
-          throw err;
-        }
+        return this.createHandledWithSupplierLot(
+          commonData,
+          tenantId,
+          supplierLotNumber,
+        );
       }
       if (!purchaseDate) {
         throw new BadRequestException(
@@ -288,6 +277,61 @@ export class FoodLabelService {
     }
     throw new ConflictException(
       "No se pudo asignar un nº de lote libre; reinténtalo.",
+    );
+  }
+
+  /**
+   * HANDLED con lote de proveedor. Hay proveedores que repiten el mismo nº de
+   * lote en cada entrega (p.ej. Romeu), así que si ese lote ya tiene etiqueta
+   * la nueva sale como `LOTE-2`, `LOTE-3`…: el sufijo indica que el lote se
+   * repite y mantiene `@@unique([tenantId, lotNumber])`.
+   */
+  private async createHandledWithSupplierLot(
+    commonData: Omit<Prisma.FoodLabelUncheckedCreateInput, "lotNumber">,
+    tenantId: string,
+    supplierLotNumber: string,
+  ) {
+    const isDupLot = (err: unknown) =>
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002";
+    const createWith = (lotNumber: string) =>
+      this.prisma.foodLabel.create({
+        data: { ...commonData, lotNumber },
+        include: FOOD_LABEL_INCLUDE,
+      });
+
+    try {
+      return await createWith(supplierLotNumber);
+    } catch (err) {
+      if (!isDupLot(err)) {
+        throw err;
+      }
+    }
+
+    // Siguiente sufijo libre a partir de los ya usados (incluidas anuladas).
+    const used = await this.prisma.foodLabel.findMany({
+      where: { tenantId, lotNumber: { startsWith: `${supplierLotNumber}-` } },
+      select: { lotNumber: true },
+    });
+    const maxSuffix = used.reduce((max, { lotNumber }) => {
+      const tail = lotNumber.slice(supplierLotNumber.length + 1);
+      return /^\d+$/.test(tail) ? Math.max(max, Number(tail)) : max;
+    }, 1);
+
+    const maxRetries = this.lotNumberService.maxRetries;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await createWith(
+          `${supplierLotNumber}-${maxSuffix + 1 + attempt}`,
+        );
+      } catch (err) {
+        if (!isDupLot(err)) {
+          throw err;
+        }
+      }
+    }
+    throw new ConflictException(
+      `No se pudo asignar un nº de etiqueta libre para el lote "${supplierLotNumber}"; reinténtalo.`,
     );
   }
 
