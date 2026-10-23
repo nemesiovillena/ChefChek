@@ -10,6 +10,7 @@ import type { Absence } from '@/lib/turnos-types';
 import { cardCls, errorMessage, primaryBtnCls } from '../../check-in/components/check-in-form-styles';
 import type { YearMonth } from '../../check-in/components/check-in-month-picker';
 import { AbsenceForm } from './absence-form';
+import { AbsenceJustifyForm } from './absence-justify-form';
 import { formatDays, formatRange } from './absence-format';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -25,6 +26,7 @@ export function AbsenceCalendarTab({ period }: { period: YearMonth }) {
   const cancel = useCancelAbsence();
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Absence | null>(null);
+  const [justifying, setJustifying] = useState(false);
 
   const daysInMonth = new Date(period.year, period.month, 0).getDate();
   const prefix = `${period.year}-${pad(period.month)}-`;
@@ -104,7 +106,10 @@ export function AbsenceCalendarTab({ period }: { period: YearMonth }) {
                       {absence ? (
                         <button
                           type="button"
-                          onClick={() => setSelected(absence)}
+                          onClick={() => {
+                            setSelected(absence);
+                            setJustifying(false);
+                          }}
                           title={`${absence.type.name}${absence.status === 'PENDING' ? ' (pendiente)' : ''}`}
                           aria-label={`${person.name}, ${absence.type.name}, día ${Number(date.slice(8))}`}
                           className="block h-7 w-full rounded"
@@ -149,14 +154,29 @@ export function AbsenceCalendarTab({ period }: { period: YearMonth }) {
             {selected.status === 'PENDING' ? 'pendiente de aprobar' : `aprobada por ${selected.decidedByName ?? '—'}`}
           </p>
           {selected.note && <p className="text-sm text-[var(--on-surface-variant)]">Nota: {selected.note}</p>}
-          <div className="flex gap-2">
-            <button type="button" onClick={() => handleCancel(selected)} disabled={cancel.isPending} className="min-h-[40px] px-2 text-sm underline">
-              Cancelar esta ausencia
-            </button>
-            <button type="button" onClick={() => setSelected(null)} className="min-h-[40px] px-2 text-sm underline">
-              Cerrar
-            </button>
-          </div>
+          {justifying ? (
+            <AbsenceJustifyForm
+              key={selected.id}
+              absence={selected}
+              types={types}
+              onDone={(justified) => {
+                setJustifying(false);
+                if (justified) setSelected(justified);
+              }}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setJustifying(true)} className="min-h-[40px] px-2 text-sm font-medium underline">
+                Justificar
+              </button>
+              <button type="button" onClick={() => handleCancel(selected)} disabled={cancel.isPending} className="min-h-[40px] px-2 text-sm underline">
+                Cancelar esta ausencia
+              </button>
+              <button type="button" onClick={() => setSelected(null)} className="min-h-[40px] px-2 text-sm underline">
+                Cerrar
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -34,6 +34,7 @@ import {
   CreateAbsenceDto,
   CreateHolidayDto,
   DecideAbsenceDto,
+  JustifyAbsenceDto,
   SaveAbsenceTypeDto,
   SaveLeaveBalanceDto,
   YearQueryDto,
@@ -183,6 +184,18 @@ export class TurnosController {
     return this.absences.cancel(req.tenantId, id, actorOf(req), {
       note: dto.note,
     });
+  }
+
+  /** Cambiar el tipo de una ausencia (justificarla). Queda constancia. */
+  @Post("absences/:id/justify")
+  @Roles(CHECK_IN_MANAGER_ROLE)
+  @UseGuards(CheckInManagerGuard)
+  async justify(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: JustifyAbsenceDto,
+  ) {
+    return this.absences.justify(req.tenantId, id, dto, actorOf(req));
   }
 
   @Get("balances")

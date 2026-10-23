@@ -112,6 +112,15 @@ export function useCancelAbsence() {
   });
 }
 
+/** Pasa una ausencia a otro tipo; la original queda cancelada en el historial. */
+export function useJustifyAbsence() {
+  const invalidate = useInvalidateTurnos();
+  return useMutation<Absence, Error, { id: string; absenceTypeId: string; note?: string }>({
+    mutationFn: async ({ id, ...data }) => (await apiClient.post(`${BASE}/absences/${id}/justify`, data)).data,
+    onSuccess: invalidate,
+  });
+}
+
 export function useBalances(year: number) {
   return useApiQuery<LeaveBalance[]>([...ROOT, 'balances', String(year)], `${BASE}/balances?year=${year}`);
 }
