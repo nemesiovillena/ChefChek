@@ -8,7 +8,7 @@ import {
 import { Absence, AbsenceStatus, AbsenceType, Employee } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CheckInSettingsService } from "../../check-in/services/check-in-settings.service";
-import { CreateAbsenceDto } from "../dto/absence.dto";
+import { CreateAbsenceDto, JustifyAbsenceDto } from "../dto/absence.dto";
 import { countAbsenceDays, formatDate, parseDate } from "./absence-days.util";
 import { AbsenceTypesService } from "./absence-types.service";
 import { HolidaysService } from "./holidays.service";
@@ -140,6 +140,68 @@ export class AbsencesService {
       throw new ConflictException("Esta solicitud ya está resuelta.");
     }
     return this.toView(tenantId, await this.findOwned(tenantId, id));
+  }
+
+  /**
+   * Justificar: cambia el tipo de una ausencia activa (p. ej. de «Ausencia no
+   * justificada» a «Baja médica»). No se edita la fila: la original queda
+   * cancelada con una nota que dice a qué tipo pasó, y se crea otra con las
+   * mismas fechas, ya aprobada. Así el historial conserva lo que hubo antes.
+   */
+  async justify(
+    tenantId: string,
+    id: string,
+    dto: JustifyAbsenceDto,
+    manager: Actor,
+  ) {
+    const original = await this.findOwned(tenantId, id);
+    if (!ACTIVE.includes(original.status)) {
+      throw new ConflictException("Esta ausencia ya no está activa.");
+    }
+    const type = await this.types.findOwned(tenantId, dto.absenceTypeId);
+    if (!type.isActive) {
+      throw new BadRequestException("Ese tipo de ausencia está desactivado.");
+    }
+    if (type.id === original.absenceTypeId) {
+      throw new BadRequestException("Elige un tipo distinto del actual.");
+    }
+    const note = dto.note?.trim() || null;
+    const now = new Date();
+    const created = await this.prisma.$transaction(async (tx) => {
+      // Estado en el where: si otra persona la cancela a la vez, no se duplica.
+      const result = await tx.absence.updateMany({
+        where: { id, tenantId, status: { in: ACTIVE } },
+        data: {
+          status: AbsenceStatus.CANCELLED,
+          decidedByUserId: manager.id,
+          decidedByName: manager.name,
+          decidedAt: now,
+          decisionNote: `Justificada como «${type.name}»${note ? `: ${note}` : ""}`,
+        },
+      });
+      if (result.count === 0) {
+        throw new ConflictException("Esta ausencia ya no está activa.");
+      }
+      return tx.absence.create({
+        data: {
+          tenantId,
+          employeeId: original.employeeId,
+          absenceTypeId: type.id,
+          startDate: original.startDate,
+          endDate: original.endDate,
+          halfDay: original.halfDay,
+          status: AbsenceStatus.APPROVED,
+          note: note ?? original.note,
+          requestedByUserId: manager.id,
+          requestedByName: manager.name,
+          decidedByUserId: manager.id,
+          decidedByName: manager.name,
+          decidedAt: now,
+        },
+        include: INCLUDE,
+      });
+    });
+    return this.toView(tenantId, created);
   }
 
   /**
