@@ -451,7 +451,7 @@ describe("FoodLabelService", () => {
       expect(result.purchaseDate).toBeNull();
     });
 
-    it("rejects with a clear message when the supplier lot number is already used (e.g. after void+recreate)", async () => {
+    it("adds the next free suffix when the supplier lot number already has a label (supplier repeats lots)", async () => {
       mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
       mockPrisma.lot.findFirst.mockResolvedValue({
         id: "lot2",
@@ -465,15 +465,57 @@ describe("FoodLabelService", () => {
         code: "P2002",
         clientVersion: "test",
       });
-      mockPrisma.foodLabel.create.mockRejectedValueOnce(p2002);
+      mockPrisma.foodLabel.findMany.mockResolvedValueOnce([
+        { lotNumber: "L-777-2" },
+        { lotNumber: "L-777-X" },
+      ]);
+      mockPrisma.foodLabel.create
+        .mockRejectedValueOnce(p2002)
+        .mockRejectedValueOnce(p2002)
+        .mockImplementationOnce(({ data }: any) => ({ id: "fl9", ...data }));
 
-      await expect(
-        service.create(TENANT, USER, {
-          labelType: "HANDLED",
-          productId: "p2",
-          sourceLotId: "lot2",
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourceLotId: "lot2",
+      });
+
+      // L-777 y L-777-2 ocupadas; L-777-3 choca (carrera) → L-777-4.
+      expect(result.lotNumber).toBe("L-777-4");
+      expect(result.sourceLotId).toBe("lot2");
+      expect(mockPrisma.foodLabel.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenantId: TENANT, lotNumber: { startsWith: "L-777-" } },
         }),
-      ).rejects.toBeInstanceOf(ConflictException);
+      );
+    });
+
+    it("uses suffix -2 when only the bare supplier lot is taken", async () => {
+      mockPrisma.product.findFirst.mockResolvedValue(rodaballo);
+      mockPrisma.lot.findFirst.mockResolvedValue({
+        id: "lot2",
+        lotNumber: "121125",
+        expiryDate: null,
+        productId: "p2",
+        receivedAt: new Date("2026-10-21T00:00:00.000Z"),
+        supplier: { name: "Romeu" },
+      });
+      const p2002 = new Prisma.PrismaClientKnownRequestError("unique", {
+        code: "P2002",
+        clientVersion: "test",
+      });
+      mockPrisma.foodLabel.findMany.mockResolvedValueOnce([]);
+      mockPrisma.foodLabel.create
+        .mockRejectedValueOnce(p2002)
+        .mockImplementationOnce(({ data }: any) => ({ id: "fl10", ...data }));
+
+      const result: any = await service.create(TENANT, USER, {
+        labelType: "HANDLED",
+        productId: "p2",
+        sourceLotId: "lot2",
+      });
+
+      expect(result.lotNumber).toBe("121125-2");
     });
   });
 
