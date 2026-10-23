@@ -57,6 +57,17 @@ export class CancelAbsenceDto {
   note?: string;
 }
 
+/** Justificar: pasar una ausencia activa a otro tipo, con nota opcional. */
+export class JustifyAbsenceDto {
+  @IsString()
+  absenceTypeId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
 export class AbsenceRangeQueryDto {
   @Matches(DATE, { message: "from debe ser AAAA-MM-DD." })
   from: string;
