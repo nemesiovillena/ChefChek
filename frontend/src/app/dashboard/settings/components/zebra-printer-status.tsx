@@ -14,6 +14,7 @@ import {
 import { preparePrinterForDailyUse } from '@/lib/zebra-printer-setup';
 import {
   getPreferredZebraDeviceUid,
+  pickWindowsQueue,
   setPreferredZebraDeviceUid,
 } from '@/hooks/use-food-labels';
 
@@ -45,14 +46,23 @@ export function ZebraPrinterStatus() {
 
   // Se comprueba sola al abrir Ajustes (y con "Comprobar"): así, tras apagar
   // el PC o la impresora, no parece que la configuración se haya perdido.
-  // Si aún no hay ninguna guardada y solo hay una Zebra, se guarda esa.
+  // Si existe la cola de Windows de la Zebra se guarda esa (es la que usan las
+  // etiquetas: aguanta apagar/encender); si no, y solo hay una Zebra, esa.
   const probe = useQuery({
     queryKey: ['zebra-printers'],
     queryFn: async () => {
       const found = await listZebraPrinters();
-      if (!getPreferredZebraDeviceUid() && found.length === 1) {
-        setPreferredZebraDeviceUid(found[0].uid);
-        setSavedUid(found[0].uid);
+      const current = getPreferredZebraDeviceUid();
+      const queue = pickWindowsQueue(found, current);
+      const toSave =
+        queue && queue.uid !== current
+          ? queue.uid
+          : !current && found.length === 1
+            ? found[0].uid
+            : null;
+      if (toSave) {
+        setPreferredZebraDeviceUid(toSave);
+        setSavedUid(toSave);
       }
       return found;
     },
@@ -117,9 +127,9 @@ export function ZebraPrinterStatus() {
   };
 
   /**
-   * Un solo uso (idempotente): activa el auto-calibrado al encender + guarda
-   * la config de media troquelada. Con esto, apagar la impresora (o el PC) y
-   * encender deja la impresora lista — sin el ritual manual de FEED cada día.
+   * Un solo uso (idempotente): deja fijada la calibración corta al encender +
+   * la media troquelada. Con esto, apagar y encender la impresora la deja
+   * lista — sin el ritual manual de FEED cada día.
    */
   const preparePrinter = async () => {
     setPreparing(true);
@@ -128,22 +138,13 @@ export function ZebraPrinterStatus() {
       if (!device) {
         throw new Error('No hay ninguna impresora seleccionada.');
       }
-      const result = await preparePrinterForDailyUse(device);
-      if (result === 'auto-calibrate-on') {
-        addNotification({
-          type: 'success',
-          title: 'Impresora preparada',
-          message:
-            'Calibrará sola al encender. Apágala y enciéndela una vez: sacará unas etiquetas midiendo el rollo y quedará lista. Ya no hace falta calibrar a mano cada mañana.',
-        });
-      } else {
-        addNotification({
-          type: 'warning',
-          title: 'Configuración guardada, sin auto-calibrado',
-          message:
-            'Esta impresora no admite calibrar al encender. Si las etiquetas descuadran, usa el botón FEED como se indica abajo.',
-        });
-      }
+      await preparePrinterForDailyUse(device);
+      addNotification({
+        type: 'success',
+        title: 'Impresora preparada',
+        message:
+          'Calibrará sola al encender. Apágala y enciéndela una vez: sacará 1-3 etiquetas midiendo el rollo y quedará lista. Si sigue descuadrando, usa el botón FEED como se indica abajo.',
+      });
     } catch (e: unknown) {
       addNotification({
         type: 'error',
@@ -162,10 +163,12 @@ export function ZebraPrinterStatus() {
         <h3 className="text-sm font-semibold">Impresora Zebra (Browser Print)</h3>
       </div>
       <p className="text-xs text-gray-500 mb-1">
-        Las etiquetas térmicas se envían directas por USB con{' '}
+        Las etiquetas térmicas se envían con{' '}
         <span className="font-medium">Zebra Browser Print</span> (app oficial de
-        Zebra, gratuita, para Windows/macOS). Instálala en el PC que imprime y
-        pulsa &quot;Comprobar&quot;.
+        Zebra, gratuita, para Windows/macOS) a la cola de Windows de la Zebra
+        (conexión «driver»): se puede encender la impresora en cualquier momento
+        y, si está apagada, la etiqueta sale al encenderla. Instálala en el PC
+        que imprime y pulsa &quot;Comprobar&quot;.
       </p>
       <a
         href="https://www.zebra.com/us/en/support-downloads/software/printer-software/browser-print.html"
@@ -312,8 +315,8 @@ export function ZebraPrinterStatus() {
       )}
       {/* La calibración REMOTA (~JC) dejó la impresora en error en una ZD220d
           real (commit cdf522f) — nunca se envía desde la app. "Preparar
-          impresora" activa en cambio el auto-calibrado del propio firmware al
-          encender (SGD media.power_up_action), que es el camino seguro. */}
+          impresora" fija en cambio la calibración corta al encender (^MFS,S),
+          que hace el propio firmware. */}
       <div className="rounded-md border border-gray-200 p-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-gray-400">
         <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
           ¿Descuadran las etiquetas o salen en blanco de más?

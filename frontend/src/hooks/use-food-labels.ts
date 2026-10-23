@@ -558,7 +558,27 @@ const SAVED_ZEBRA_NOT_CONNECTED =
   'La impresora de etiquetas está apagada o todavía arrancando. Enciéndela, espera a la luz verde fija y vuelve a imprimir. Si has cambiado de impresora, guárdala en Configuración → Etiquetas.';
 
 /**
+ * Cola de Windows de la Zebra (`connection: "driver"`), si Browser Print la ve.
+ *
+ * Es la vía preferida: Windows reconecta el USB solo cuando la impresora se
+ * enciende después del PC, y si está apagada el trabajo espera en la cola y
+ * sale al encenderla. La conexión USB directa de Browser Print, en cambio, se
+ * queda rota tras apagar/encender ("Error writing to port") hasta reabrir
+ * Browser Print. Si hay varias colas, manda la guardada en Ajustes.
+ */
+export function pickWindowsQueue(
+  devices: ZebraDevice[],
+  preferredUid: string | null,
+): ZebraDevice | undefined {
+  const queues = devices.filter((d) => d.connection === 'driver');
+  return queues.find((d) => d.uid === preferredUid) ?? queues[0];
+}
+
+/**
  * Impresora a la que van las etiquetas.
+ *
+ * Primero la cola de Windows de la Zebra (ver `pickWindowsQueue`). Sin cola
+ * (p. ej. macOS), se usa la conexión USB directa:
  *
  * Con una impresora guardada en Ajustes solo se imprime en esa: se espera unos
  * segundos a que aparezca (la encienden justo para imprimir) y, si no, se avisa.
@@ -571,6 +591,9 @@ const SAVED_ZEBRA_NOT_CONNECTED =
  */
 async function resolveZebraDevice(): Promise<ZebraDevice> {
   const preferredUid = getPreferredZebraDeviceUid();
+  // Si Browser Print no contesta, el error (con cómo arreglarlo) sube tal cual.
+  const queue = pickWindowsQueue(await listZebraPrinters(), preferredUid);
+  if (queue) return queue;
   if (preferredUid) {
     const deadline = Date.now() + ZEBRA_POWER_UP_WAIT_MS;
     for (;;) {
