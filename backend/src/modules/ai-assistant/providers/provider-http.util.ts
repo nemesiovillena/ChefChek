@@ -27,6 +27,12 @@ const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** Esperas entre intentos (ms); su longitud fija el nº de reintentos. */
 const DEFAULT_RETRY_DELAYS_MS = [500, 1_200];
+/**
+ * Esperas para peticiones con adjuntos (PDF, fotos): pocas y más largas. Un 503
+ * de saturación vuelve en ~1 s sin gastar tokens, así que reenviar el archivo
+ * cuesta poco; sin reintento, un solo 503 tumbaba la captura de un PDF.
+ */
+export const HEAVY_REQUEST_RETRY_DELAYS_MS = [2_000, 5_000];
 /** Tope al `Retry-After` que devuelva el proveedor, para no bloquear al usuario. */
 const MAX_RETRY_AFTER_MS = 5_000;
 
@@ -42,11 +48,11 @@ export interface PostJsonOptions {
 /** Timeout y reintentos de una llamada según sus `ChatOptions`. */
 export function toPostJsonOptions(options?: {
   timeoutMs?: number;
-  noRetry?: boolean;
+  retryDelaysMs?: number[];
 }): PostJsonOptions {
   return {
     ...(options?.timeoutMs ? { timeoutMs: options.timeoutMs } : {}),
-    ...(options?.noRetry ? { retryDelaysMs: [] } : {}),
+    ...(options?.retryDelaysMs ? { retryDelaysMs: options.retryDelaysMs } : {}),
   };
 }
 

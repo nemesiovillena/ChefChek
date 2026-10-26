@@ -65,12 +65,14 @@ export class AssistantCompletionService {
   /**
    * Igual que `complete` pero con una config ya resuelta. Lo usan los módulos
    * que tienen su propia config de IA (p. ej. captura de recetas) y solo caen a
-   * la del asistente como respaldo.
+   * la del asistente como respaldo. `settingsLocation` es la pantalla donde se
+   * configuró esa config, para que el mensaje de error mande al sitio correcto.
    */
   async completeWith(
     config: AiAssistantConfigResolved,
     messages: ChatMessage[],
     options?: ChatOptions,
+    settingsLocation?: string,
   ): Promise<ProviderChatResult> {
     try {
       return await this.adapters[config.provider].chat(
@@ -86,7 +88,9 @@ export class AssistantCompletionService {
         `complete falló (provider=${config.provider}, model=${config.model}): ${e?.message ?? e}`,
         e?.stack,
       );
-      throw new AssistantCompletionError(toUserFacingProviderError(e));
+      throw new AssistantCompletionError(
+        toUserFacingProviderError(e, settingsLocation),
+      );
     }
   }
 }
