@@ -995,6 +995,7 @@ export default function RecipesPage() {
                   <th className={thBaseClass}>Alérgenos</th>
                   <th className={thBaseClass}>Raciones</th>
                   {canViewCost && renderSortableHeader('Costo/Ración', 'costPerUnit')}
+                  {canViewCost && <th className={thBaseClass}>PVP</th>}
                   <th className={thBaseClass}>Estado</th>
                   <th className={thActionsClass}>Acciones</th>
                 </tr>
@@ -1002,7 +1003,7 @@ export default function RecipesPage() {
               <tbody className={tbodyClass}>
                 {sortedRecipes.length === 0 ? (
                   <tr>
-                    <td colSpan={canViewCost ? 7 : 6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    <td colSpan={canViewCost ? 8 : 6} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
                       No hay recetas
                     </td>
                   </tr>
@@ -1067,6 +1068,11 @@ export default function RecipesPage() {
                       {canViewCost && (
                         <td className={tdBaseClass}>
                           {formatEuro(costPerPortionOf(recipe))}
+                        </td>
+                      )}
+                      {canViewCost && (
+                        <td className={tdBaseClass}>
+                          {recipe.sellingPriceWithVat != null ? formatEuro(recipe.sellingPriceWithVat) : '—'}
                         </td>
                       )}
                       <td className="px-3 py-3 whitespace-nowrap">
