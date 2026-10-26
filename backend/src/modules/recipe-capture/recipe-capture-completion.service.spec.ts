@@ -1,7 +1,9 @@
+import { ASSISTANT_SETTINGS_LOCATION } from "../ai-assistant/provider-error-message.util";
 import { BadRequestException } from "@nestjs/common";
 import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
 import {
   RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE,
+  RECIPE_CAPTURE_SETTINGS_LOCATION,
   RecipeCaptureCompletionService,
 } from "./recipe-capture-completion.service";
 
@@ -44,6 +46,7 @@ describe("RecipeCaptureCompletionService", () => {
       capture,
       [{ role: "user", content: "hola" }],
       undefined,
+      RECIPE_CAPTURE_SETTINGS_LOCATION,
     );
     // Con captura configurada ni se consulta la del asistente.
     expect(assistantConfig.resolveForRequest).not.toHaveBeenCalled();
@@ -60,6 +63,7 @@ describe("RecipeCaptureCompletionService", () => {
       assistant,
       [{ role: "user", content: "x" }],
       undefined,
+      ASSISTANT_SETTINGS_LOCATION,
     );
   });
 

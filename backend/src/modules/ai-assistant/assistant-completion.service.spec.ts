@@ -121,4 +121,23 @@ describe("AssistantCompletionService", () => {
       expect(error.message).not.toContain("sk-abc");
     },
   );
+
+  it("manda a la pantalla donde se configuró el modelo usado", async () => {
+    openai.chat.mockRejectedValue(
+      new Error("Gemini respondió 503: overloaded"),
+    );
+
+    const error = await service
+      .completeWith(
+        { provider: "openai", model: "m", apiKey: "k" } as any,
+        [{ role: "user", content: "x" }],
+        undefined,
+        "Configuración → Captura de recetas",
+      )
+      .catch((e) => e);
+
+    expect(error.message).toContain("saturado");
+    expect(error.message).toContain("Configuración → Captura de recetas");
+    expect(error.message).not.toContain("Asistente IA");
+  });
 });

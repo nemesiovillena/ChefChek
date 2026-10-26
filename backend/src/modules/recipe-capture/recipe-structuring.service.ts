@@ -4,6 +4,7 @@ import {
   ChatMessage,
 } from "../ai-assistant/providers/provider-adapter.interface";
 import { RecipeCaptureCompletionService } from "./recipe-capture-completion.service";
+import { HEAVY_REQUEST_RETRY_DELAYS_MS } from "../ai-assistant/providers/provider-http.util";
 
 /** Unidades que admite una captura; al pasar a Recetas `ud` se guarda como `units`. */
 export const CAPTURE_UNITS = ["g", "kg", "ml", "l", "ud"] as const;
@@ -131,8 +132,10 @@ export class RecipeStructuringService {
     const base = {
       timeoutMs: TIMEOUT_MS,
       jsonMode: true,
-      // Un adjunto son varios MB por petición: no reenviarlo.
-      noRetry: Boolean(input.attachment),
+      // Con adjunto (varios MB) se reintenta menos y esperando más.
+      ...(input.attachment
+        ? { retryDelaysMs: HEAVY_REQUEST_RETRY_DELAYS_MS }
+        : {}),
     };
 
     let result = await this.completion.complete(tenantId, messages, {

@@ -1,3 +1,4 @@
+import { HEAVY_REQUEST_RETRY_DELAYS_MS } from "../../ai-assistant/providers/provider-http.util";
 import {
   AgreementExtractionError,
   AgreementExtractionService,
@@ -140,7 +141,10 @@ describe("AgreementExtractionService", () => {
     const [tenantId, messages, options] = completion.complete.mock.calls[0];
     expect(tenantId).toBe("tenant-1");
     expect(messages[1].attachments).toEqual([attachment]);
-    expect(options).toMatchObject({ jsonMode: true, noRetry: true });
+    expect(options).toMatchObject({
+      jsonMode: true,
+      retryDelaysMs: HEAVY_REQUEST_RETRY_DELAYS_MS,
+    });
   });
 
   it("avisa si la respuesta llega cortada", async () => {

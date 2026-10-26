@@ -41,8 +41,12 @@ export interface ChatOptions {
   timeoutMs?: number;
   /** Pide JSON válido como salida donde el proveedor lo admite. */
   jsonMode?: boolean;
-  /** No reenviar la petición si falla (cuerpos grandes, llamadas caras). */
-  noRetry?: boolean;
+  /**
+   * Esperas (ms) entre reintentos ante saturación del proveedor (429/5xx); su
+   * longitud fija el nº de reintentos. Sin él, las del chat. Las peticiones con
+   * adjuntos usan `HEAVY_REQUEST_RETRY_DELAYS_MS`.
+   */
+  retryDelaysMs?: number[];
 }
 
 export interface ToolSchema {

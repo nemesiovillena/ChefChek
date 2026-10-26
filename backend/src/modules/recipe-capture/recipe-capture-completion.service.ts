@@ -3,6 +3,7 @@ import {
   AssistantCompletionError,
   AssistantCompletionService,
 } from "../ai-assistant/assistant-completion.service";
+import { ASSISTANT_SETTINGS_LOCATION } from "../ai-assistant/provider-error-message.util";
 import { AiAssistantConfigService } from "../ai-assistant/config/ai-assistant-config.service";
 import { AiAssistantConfigResolved } from "../ai-assistant/config/dto/ai-assistant-config.dto";
 import {
@@ -11,6 +12,9 @@ import {
   ProviderChatResult,
 } from "../ai-assistant/providers/provider-adapter.interface";
 import { RecipeCaptureConfigService } from "./config/recipe-capture-config.service";
+
+export const RECIPE_CAPTURE_SETTINGS_LOCATION =
+  "Configuración → Captura de recetas";
 
 export const RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE =
   "Configura el modelo de IA de la captura de recetas en Configuración → Captura de recetas (proveedor, modelo y API key).";
@@ -30,19 +34,24 @@ export class RecipeCaptureCompletionService {
     private readonly completion: AssistantCompletionService,
   ) {}
 
-  /** Config efectiva: la de captura o, como respaldo, la del asistente. */
-  private async resolve(
+  /** Config efectiva (la de captura o, como respaldo, la del asistente) y la
+   *  pantalla donde se cambia. */
+  private async resolveWithLocation(
     tenantId: string,
-  ): Promise<AiAssistantConfigResolved | null> {
-    return (
-      (await this.captureConfig.resolveForRequest(tenantId)) ??
-      (await this.assistantConfig.resolveForRequest(tenantId))
-    );
+  ): Promise<{ config: AiAssistantConfigResolved; location: string } | null> {
+    const own = await this.captureConfig.resolveForRequest(tenantId);
+    if (own) {
+      return { config: own, location: RECIPE_CAPTURE_SETTINGS_LOCATION };
+    }
+    const fallback = await this.assistantConfig.resolveForRequest(tenantId);
+    return fallback
+      ? { config: fallback, location: ASSISTANT_SETTINGS_LOCATION }
+      : null;
   }
 
   /** Lanza 400 con un mensaje accionable si no hay IA utilizable. */
   async assertConfigured(tenantId: string): Promise<void> {
-    if (!(await this.resolve(tenantId))) {
+    if (!(await this.resolveWithLocation(tenantId))) {
       throw new BadRequestException(RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE);
     }
   }
@@ -52,10 +61,15 @@ export class RecipeCaptureCompletionService {
     messages: ChatMessage[],
     options?: ChatOptions,
   ): Promise<ProviderChatResult> {
-    const config = await this.resolve(tenantId);
-    if (!config) {
+    const resolved = await this.resolveWithLocation(tenantId);
+    if (!resolved) {
       throw new AssistantCompletionError(RECIPE_CAPTURE_NOT_CONFIGURED_MESSAGE);
     }
-    return this.completion.completeWith(config, messages, options);
+    return this.completion.completeWith(
+      resolved.config,
+      messages,
+      options,
+      resolved.location,
+    );
   }
 }

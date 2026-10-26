@@ -1,5 +1,9 @@
 import { BadGatewayException } from "@nestjs/common";
-import { postJsonWithRetry } from "./provider-http.util";
+import {
+  HEAVY_REQUEST_RETRY_DELAYS_MS,
+  postJsonWithRetry,
+  toPostJsonOptions,
+} from "./provider-http.util";
 
 /** Sin esperas reales entre intentos. Longitud 2 => hasta 3 intentos. */
 const NO_WAIT = { retryDelaysMs: [0, 0] };
@@ -153,5 +157,20 @@ describe("postJsonWithRetry", () => {
     expect(data).toEqual({ done: true });
     expect(sleepSpy).toHaveBeenCalledWith(expect.any(Function), 2000);
     sleepSpy.mockRestore();
+  });
+});
+
+describe("toPostJsonOptions", () => {
+  it("sin opciones usa las esperas por defecto del chat", () => {
+    expect(toPostJsonOptions()).toEqual({});
+  });
+
+  it("pasa las esperas pedidas (adjuntos: pocos reintentos y más espaciados)", () => {
+    expect(
+      toPostJsonOptions({
+        timeoutMs: 120_000,
+        retryDelaysMs: HEAVY_REQUEST_RETRY_DELAYS_MS,
+      }),
+    ).toEqual({ timeoutMs: 120_000, retryDelaysMs: [2_000, 5_000] });
   });
 });
