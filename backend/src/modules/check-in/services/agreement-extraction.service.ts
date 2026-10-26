@@ -4,6 +4,7 @@ import {
   ChatAttachment,
   ChatMessage,
 } from "../../ai-assistant/providers/provider-adapter.interface";
+import { HEAVY_REQUEST_RETRY_DELAYS_MS } from "../../ai-assistant/providers/provider-http.util";
 import { RecipeCaptureCompletionService } from "../../recipe-capture/recipe-capture-completion.service";
 import { LaborAgreementParams } from "../constants/labor-agreement-presets";
 
@@ -121,8 +122,8 @@ export class AgreementExtractionService {
       timeoutMs: TIMEOUT_MS,
       jsonMode: true,
       maxOutputTokens: MAX_OUTPUT_TOKENS,
-      // Los adjuntos son varios MB por petición: no reenviarlos.
-      noRetry: true,
+      // Adjuntos de varios MB: pocos reintentos y esperando más.
+      retryDelaysMs: HEAVY_REQUEST_RETRY_DELAYS_MS,
     });
     if (result.truncated) {
       throw new AgreementExtractionError(TOO_LONG);

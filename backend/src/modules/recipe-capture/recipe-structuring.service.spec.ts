@@ -1,3 +1,4 @@
+import { HEAVY_REQUEST_RETRY_DELAYS_MS } from "../ai-assistant/providers/provider-http.util";
 import {
   parseStructuredRecipe,
   RecipeStructuringError,
@@ -149,11 +150,10 @@ describe("RecipeStructuringService", () => {
       maxOutputTokens: 8192,
       timeoutMs: 120_000,
       jsonMode: true,
-      noRetry: false,
     });
   });
 
-  it("envía foto o PDF como adjunto y sin reintento", async () => {
+  it("envía foto o PDF como adjunto, con reintentos espaciados", async () => {
     completion.complete.mockResolvedValue({ content: JSON.stringify(valid) });
     const attachment = { mimeType: "application/pdf", dataBase64: "AAA" };
 
@@ -162,7 +162,7 @@ describe("RecipeStructuringService", () => {
     const [, messages, options] = completion.complete.mock.calls[0];
     expect(messages[1].attachments).toEqual([attachment]);
     expect(messages[1].content).toContain("JSON");
-    expect(options.noRetry).toBe(true);
+    expect(options.retryDelaysMs).toEqual(HEAVY_REQUEST_RETRY_DELAYS_MS);
   });
 
   it("avisa de que la receta es demasiado larga si el proveedor cortó la respuesta", async () => {

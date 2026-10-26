@@ -235,7 +235,7 @@ describe("AnthropicProviderAdapter", () => {
       expect(result.truncated).toBe(true);
     });
 
-    it("no reintenta cuando se pide noRetry", async () => {
+    it("no reintenta si se piden cero esperas", async () => {
       const fetchMock = jest.fn().mockResolvedValue({
         ok: false,
         status: 503,
@@ -251,7 +251,7 @@ describe("AnthropicProviderAdapter", () => {
           [{ role: "user", content: "hola" }],
           [],
           {
-            noRetry: true,
+            retryDelaysMs: [],
           },
         ),
       ).rejects.toThrow();
