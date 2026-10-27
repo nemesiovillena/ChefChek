@@ -6,8 +6,10 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
+  calculateNetPrice,
   calculateProductCostPerUnit,
   calculateSubRecipeCost,
+  wasteYieldFactor,
 } from "../../common/utils/product-costing.util";
 import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
@@ -193,6 +195,8 @@ export class RecipesService {
       }
     }
 
+    await this.applyIngredientWasteToProducts(tenantId, ingredients);
+
     // Calcular costos iniciales
     const costBreakdown = await this.calculateCost(
       tenantId,
@@ -240,7 +244,6 @@ export class RecipesService {
             productId: ing.productId,
             quantity: ing.quantity,
             unit: ing.unit,
-            wastePercentageOverride: ing.wastePercentageOverride,
             note: ing.note,
           })),
         },
@@ -558,6 +561,10 @@ export class RecipesService {
       }
     }
 
+    if (ingredients) {
+      await this.applyIngredientWasteToProducts(tenantId, ingredients);
+    }
+
     // Recalcular costos si hay cambios en ingredientes
     let totalCost = recipe.totalCost;
 
@@ -635,7 +642,6 @@ export class RecipesService {
           productId: ing.productId,
           quantity: ing.quantity,
           unit: ing.unit,
-          wastePercentageOverride: ing.wastePercentageOverride,
           note: ing.note,
         })),
       });
@@ -726,7 +732,6 @@ export class RecipesService {
         productId: ing.productId,
         quantity: ing.quantity,
         unit: ing.unit,
-        wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
         note: ing.note ?? undefined,
       })),
       subRecipes: originalRecipe.subRecipes?.map((sub) => ({
@@ -755,6 +760,80 @@ export class RecipesService {
     };
   }
 
+  /**
+   * Reescribe totalCost/totalCostPerUnit guardados de todas las recetas
+   * activas con los precios y mermas actuales. Las recetas padre costean sus
+   * sub-recetas con esos campos guardados, así que se recorren de menor a
+   * mayor profundidad (primero las que no usan sub-recetas). SQL crudo en la
+   * escritura para no tocar updatedAt: no es una edición del usuario.
+   * Uso puntual tras cambiar la fórmula de coste (no hay endpoint).
+   */
+  async recalculateStoredCosts(): Promise<{
+    updated: number;
+    failed: string[];
+  }> {
+    const recipes = await this.prisma.recipe.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        tenantId: true,
+        name: true,
+        portions: true,
+        portionSize: true,
+        ingredients: {
+          select: { productId: true, quantity: true, unit: true },
+        },
+        subRecipes: {
+          select: { subRecipeId: true, quantity: true, unit: true },
+        },
+      },
+    });
+    const byId = new Map(recipes.map((r) => [r.id, r]));
+    const depth = new Map<string, number>();
+    const depthOf = (id: string, seen: Set<string>): number => {
+      const known = depth.get(id);
+      if (known !== undefined) {
+        return known;
+      }
+      const recipe = byId.get(id);
+      if (!recipe || seen.has(id)) {
+        return 0;
+      }
+      seen.add(id);
+      const d = recipe.subRecipes.reduce(
+        (max, sub) => Math.max(max, depthOf(sub.subRecipeId, seen) + 1),
+        0,
+      );
+      depth.set(id, d);
+      return d;
+    };
+    recipes.forEach((r) => depthOf(r.id, new Set()));
+    recipes.sort((a, b) => (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0));
+
+    let updated = 0;
+    const failed: string[] = [];
+    for (const recipe of recipes) {
+      try {
+        const { totalCost, costPerUnit } = await this.calculateCost(
+          recipe.tenantId,
+          recipe.ingredients,
+          recipe.subRecipes,
+          recipe.portions,
+          recipe.portionSize,
+        );
+        await this.prisma.$executeRaw`
+          UPDATE recipes
+          SET "totalCost" = ${totalCost}, "totalCostPerUnit" = ${costPerUnit}
+          WHERE id = ${recipe.id}
+        `;
+        updated += 1;
+      } catch (error) {
+        failed.push(`${recipe.name}: ${(error as Error).message}`);
+      }
+    }
+    return { updated, failed };
+  }
+
   private async calculateCost(
     tenantId: string,
     ingredients: any[],
@@ -780,7 +859,8 @@ export class RecipesService {
              "purchasePrice"::float8 AS "purchasePrice",
              "unitSize"::float8       AS "unitSize",
              "referenceUnit",
-             "discountPercentage"::float8 AS "discountPercentage"
+             "discountPercentage"::float8 AS "discountPercentage",
+             "wastePercentage"::float8 AS "wastePercentage"
       FROM products
       WHERE id = ANY(${productIds}::text[])
         AND "tenantId" = ${tenantId}
@@ -790,6 +870,7 @@ export class RecipesService {
       unitSize: number;
       referenceUnit: string;
       discountPercentage: number;
+      wastePercentage: number;
     }>;
     const productMap = new Map<string, any>(
       products.map((p: any) => [p.id, p]),
@@ -943,6 +1024,64 @@ export class RecipesService {
     };
   }
 
+  /**
+   * La merma que se escribe en una línea de receta es la del artículo: se
+   * guarda en Product (una sola merma por artículo), porque la merma suele
+   * descubrirse al hacer la receta y así queda para todas. Mismos campos
+   * derivados que ProductsService.update: yieldFactor y netPrice; si el
+   * artículo tiene prueba de rendimiento (peso bruto), el peso neto se
+   * reajusta para que la prueba no devuelva la merma vieja al editarlo.
+   */
+  private async applyIngredientWasteToProducts(
+    tenantId: string,
+    ingredients: Array<{
+      productId: string;
+      wastePercentageOverride?: number | null;
+    }>,
+  ): Promise<void> {
+    const wanted = new Map<string, number>();
+    for (const ing of ingredients) {
+      const waste = ing.wastePercentageOverride;
+      if (waste !== undefined && waste !== null && waste >= 0 && waste < 100) {
+        wanted.set(ing.productId, waste);
+      }
+    }
+    if (wanted.size === 0) {
+      return;
+    }
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: [...wanted.keys()] }, tenantId },
+      select: {
+        id: true,
+        wastePercentage: true,
+        purchasePrice: true,
+        profitMargin: true,
+        grossWeight: true,
+      },
+    });
+    for (const product of products) {
+      const waste = wanted.get(product.id)!;
+      if (Math.abs((product.wastePercentage ?? 0) - waste) < 0.005) {
+        continue;
+      }
+      await this.prisma.product.update({
+        where: { id: product.id },
+        data: {
+          wastePercentage: waste,
+          yieldFactor: wasteYieldFactor(waste),
+          netPrice: calculateNetPrice(
+            product.purchasePrice ?? 0,
+            waste,
+            product.profitMargin ?? 0,
+          ),
+          ...(product.grossWeight && product.grossWeight > 0
+            ? { netWeight: product.grossWeight * wasteYieldFactor(waste) }
+            : {}),
+        },
+      });
+    }
+  }
+
   private async formatRecipeResponse(
     recipe: any,
     includeCost = true,
@@ -950,16 +1089,12 @@ export class RecipesService {
     const ingredients: IngredientResponse[] =
       recipe.ingredients?.map((ing: any) => {
         const product = ing.product;
-        // La merma manual de la receta (wastePercentageOverride) siempre
-        // manda sobre la del artículo cuando está fijada — permite corregir
-        // la línea sin tener que ir a editar el artículo. hasArticleWaste
-        // solo indica si el artículo trae una propia (para la UI).
-        const articleWastePercentage = product?.wastePercentage ?? 0;
-        const hasArticleWaste = articleWastePercentage > 0;
-        const wastePercentage =
-          ing.wastePercentageOverride ?? articleWastePercentage;
-        const yieldFactor =
-          wastePercentage > 0 ? (100 - wastePercentage) / 100 : 1;
+        // Una sola merma por artículo. La cantidad de la línea es peso
+        // NETO (lo que va al plato); el bruto es lo que hay que comprar.
+        // hasArticleWaste solo indica a la UI si el artículo trae merma.
+        const wastePercentage = product?.wastePercentage ?? 0;
+        const hasArticleWaste = wastePercentage > 0;
+        const yieldFactor = wasteYieldFactor(wastePercentage);
         const unitSize = product?.unitSize > 0 ? product.unitSize : 1;
         // Mismo descuento fijo del proveedor que calculateProductCostPerUnit:
         // el precio de referencia mostrado debe ser el efectivo (bruto × dto),
@@ -980,12 +1115,12 @@ export class RecipesService {
           cost: product
             ? ing.quantity * calculateProductCostPerUnit(product, ing.unit)
             : 0,
-          grossWeight: ing.quantity,
-          netWeight: ing.quantity * yieldFactor,
+          grossWeight: ing.quantity / yieldFactor,
+          netWeight: ing.quantity,
           yieldPercentage,
           wastePercentage,
           hasArticleWaste,
-          wastePercentageOverride: ing.wastePercentageOverride ?? null,
+          wastePercentageOverride: null,
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
           referenceUnit: product?.referenceUnit || "kilo",

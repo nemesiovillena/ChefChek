@@ -540,7 +540,7 @@ export default function RecipesPage() {
     setIngredients(ingredients.filter((_, i) => i !== index));
   };
 
-  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number | undefined) => {
+  const handleIngredientChange = (index: number, field: keyof RecipeIngredient, value: string | number | null | undefined) => {
     const newIngredients = [...ingredients];
     newIngredients[index] = { ...newIngredients[index], [field]: value };
     setIngredients(newIngredients);
@@ -563,10 +563,11 @@ export default function RecipesPage() {
       unit: ingredientUnitFor(product.referenceUnit) ?? newIngredients[index].unit,
       hasArticleWaste,
       wastePercentage: product.wastePercentage,
-      // Prefill con la merma del artículo (editable/sobreescribible después);
-      // si el artículo no trae ninguna, se deja lo que hubiera escrito el usuario.
+      // Con merma en el artículo el campo la muestra sin marcarla como cambio.
+      // Si el artículo no trae ninguna, se deja lo que hubiera escrito el
+      // usuario (al guardar se graba en el artículo).
       wastePercentageOverride: hasArticleWaste
-        ? product.wastePercentage
+        ? undefined
         : newIngredients[index].wastePercentageOverride,
     };
     setIngredients(newIngredients);
@@ -673,7 +674,8 @@ export default function RecipesPage() {
     try {
       if (selectedRecipe) {
         await updateRecipeMutation.mutateAsync({ id: selectedRecipe.id, ...recipeData });
-        invalidateQueries([['recipe-cost', selectedRecipe.id], ['recipe-options']]);
+        // ['products']: la merma escrita en la receta se guarda en el artículo.
+        invalidateQueries([['recipe-cost', selectedRecipe.id], ['recipe-options'], ['products']]);
         addNotification({
           type: 'success',
           title: 'Receta actualizada',
@@ -681,7 +683,7 @@ export default function RecipesPage() {
         });
       } else {
         const createdRecipe = await createRecipeMutation.mutateAsync(recipeData);
-        invalidateQueries([['recipe-options']]);
+        invalidateQueries([['recipe-options'], ['products']]);
         // Se pasa a la pestaña de la receta creada para que se vea al momento.
         if (canViewDrinks) setKind(isDrink ? 'drink' : 'food');
         // Si el filtro de categoría activo excluiría la receta recién creada
@@ -756,13 +758,13 @@ export default function RecipesPage() {
       storageTempMax: recipe.storageTempMax?.toString() ?? '',
     });
     setElaborationSteps(parseSteps(recipe.elaboration));
-    // El backend solo persiste wastePercentageOverride cuando se fijó
-    // explícitamente; para que el campo muestre algo editable desde ya
-    // (en vez de vacío) se prefilla con la merma efectiva ya calculada.
+    // La merma es del artículo: se carga sin valor propio (undefined) y el
+    // campo muestra la del artículo. Rellenarla aquí la reenviaba al guardar
+    // y pisaba en el artículo cualquier cambio hecho desde entonces.
     setIngredients(
       recipe.ingredients.map((ing) => ({
         ...ing,
-        wastePercentageOverride: ing.wastePercentageOverride ?? ing.wastePercentage,
+        wastePercentageOverride: ing.wastePercentageOverride ?? undefined,
       })),
     );
     setSubRecipes(
@@ -1555,16 +1557,24 @@ export default function RecipesPage() {
                                     max="100"
                                     title={
                                       ingredient.hasArticleWaste
-                                        ? 'Merma % del artículo — puedes sobreescribirla solo para esta receta'
-                                        : 'Merma % manual de esta receta (el artículo no tiene una definida)'
+                                        ? 'Merma % del artículo — si la cambias aquí, se guarda en el artículo para todas sus recetas'
+                                        : 'El artículo no tiene merma — la que pongas aquí se guarda en el artículo'
                                     }
                                     placeholder="Merma %"
-                                    value={ingredient.wastePercentageOverride ?? ''}
+                                    // Una sola merma por artículo: undefined = sin tocar (se
+                                    // muestra la del artículo); un número se guarda en el
+                                    // artículo al guardar la receta; null = el usuario vació
+                                    // el campo (no cambia el artículo, deja escribir otra).
+                                    value={
+                                      ingredient.wastePercentageOverride === undefined && ingredient.hasArticleWaste
+                                        ? (ingredient.wastePercentage ?? '')
+                                        : (ingredient.wastePercentageOverride ?? '')
+                                    }
                                     onChange={(e) =>
                                       handleIngredientChange(
                                         index,
                                         'wastePercentageOverride',
-                                        e.target.value === '' ? undefined : parseFloat(e.target.value),
+                                        e.target.value === '' ? null : parseFloat(e.target.value),
                                       )
                                     }
                                     className={`w-full text-sm ${m3InputBase}`}

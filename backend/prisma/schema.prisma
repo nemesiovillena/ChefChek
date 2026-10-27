@@ -500,8 +500,8 @@ model RecipeIngredient {
   quantity  Float
   unit      String
 
-  // Merma (%) manual de esta línea, solo usada cuando el artículo no trae
-  // la suya propia (Product.wastePercentage === 0)
+  // Legado, ya no se escribe ni se lee: la merma es una sola por artículo
+  // (Product.wastePercentage). La que llega en la receta se guarda allí.
   wastePercentageOverride Float?
 
   // Nota libre de la línea (ej. "para el mascarpone" / "para el café") para

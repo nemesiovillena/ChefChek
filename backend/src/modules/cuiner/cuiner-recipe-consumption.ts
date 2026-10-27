@@ -1,6 +1,7 @@
 import {
   getUnitMeta,
   getUnitToReferenceFactor,
+  wasteYieldFactor,
 } from "../../common/utils/product-costing.util";
 
 /**
@@ -15,7 +16,9 @@ import {
  *  - Sub-receta en kg/L/cl/g/ml/ud → cantidad en unidad de rendimiento
  *    (kg y L ×1000, cl ×10) / rendimiento total (raciones × peso ración).
  *  - Ingrediente → cantidad × factor a la unidad de referencia del artículo
- *    (getUnitToReferenceFactor) / unitSize = formatos de compra.
+ *    (getUnitToReferenceFactor) / unitSize = formatos de compra. La cantidad
+ *    de la receta es peso neto: se divide por (1 − merma) para descontar lo
+ *    que realmente sale del almacén.
  */
 
 export interface ConsumptionProduct {
@@ -26,6 +29,8 @@ export interface ConsumptionProduct {
   tracksInventory: boolean;
   /** kg o L de una pieza (zamburiña 0,04): puente para vender por unidades. */
   avgUnitWeight?: number | null;
+  /** Merma (%) del artículo: la receta lleva peso neto, el stock baja en bruto. */
+  wastePercentage?: number | null;
 }
 
 export interface ConsumptionRecipe {
@@ -97,9 +102,10 @@ export function explodeRecipe(
         continue;
       }
       const refQty =
-        ing.quantity *
-        fraction *
-        getUnitToReferenceFactor(ing.unit, product.referenceUnit);
+        (ing.quantity *
+          fraction *
+          getUnitToReferenceFactor(ing.unit, product.referenceUnit)) /
+        wasteYieldFactor(product.wastePercentage);
       const unitSize = product.unitSize > 0 ? product.unitSize : 1;
       formats.set(
         product.id,

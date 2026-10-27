@@ -9,9 +9,9 @@ export interface RecipeIngredient {
   productName?: string;
   quantity: number;
   unit: string;
-  /** Merma (%) manual de esta línea; solo se envía/usa cuando el artículo no trae la suya propia */
+  /** Merma (%) escrita en la receta: al guardar se graba en el artículo (una sola merma por artículo). Sin valor no cambia el artículo */
   wastePercentageOverride?: number | null;
-  /** Merma (%) efectiva (del artículo si la tiene, si no la manual) — solo lectura, la calcula el backend */
+  /** Merma (%) del artículo — solo lectura, la devuelve el backend */
   wastePercentage?: number;
   /** true si la merma viene del artículo (Product.wastePercentage > 0) — solo lectura */
   hasArticleWaste?: boolean;

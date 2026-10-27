@@ -5,6 +5,8 @@ import { formatEuro } from '@/lib/utils';
 import { formatUnitSymbol } from '@/lib/unit-symbols';
 
 const formatPercent = (value: number, decimals = 1) => `${value.toFixed(decimals)}%`;
+// Hasta 3 decimales sin ceros sobrantes: 0,47 kg brutos de 0,4 kg limpios.
+const formatWeight = (value: number) => Number(value.toFixed(3));
 
 export function IngredientsTable({ costData }: { costData: RecipeCost }) {
   return (
@@ -33,10 +35,10 @@ export function IngredientsTable({ costData }: { costData: RecipeCost }) {
                     <div className="text-xs font-normal text-gray-400 dark:text-gray-500">{ingredient.note}</div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.grossWeight} {formatUnitSymbol(ingredient.unit)}</td>
+                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatWeight(ingredient.grossWeight)} {formatUnitSymbol(ingredient.unit)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.yieldPercentage, 0)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatPercent(ingredient.wastePercentage, 0)}</td>
-                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ingredient.netWeight.toFixed(2)} {formatUnitSymbol(ingredient.unit)}</td>
+                <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatWeight(ingredient.netWeight)} {formatUnitSymbol(ingredient.unit)}</td>
                 <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatEuro(ingredient.realPrice)}/{ingredient.referenceUnit}</td>
                 <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100 text-right font-medium whitespace-nowrap">{formatEuro(ingredient.cost)}</td>
               </tr>
