@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
+import { calculateNetPrice } from "../../common/utils/product-costing.util";
 import {
   getReferencePrice,
   referencePriceChanged,
@@ -1957,10 +1958,7 @@ export class ProductsService {
     wastePercentage: number,
     profitMargin: number,
   ): number {
-    const priceAfterWaste =
-      purchasePrice - (purchasePrice * wastePercentage) / 100;
-    const netPrice = priceAfterWaste * (1 + profitMargin / 100);
-    return Math.round(netPrice * 100) / 100;
+    return calculateNetPrice(purchasePrice, wastePercentage, profitMargin);
   }
 
   private calculateYieldFactor(wastePercentage: number): number {
