@@ -52,7 +52,7 @@ export class ReportsController {
     private readonly links: InspectionLinksService,
   ) {}
 
-  /** Registro de jornada de un mes: de una persona o de todo el equipo. */
+  /** Registro de jornada de un mes o una semana: de una persona o de todo el equipo. */
   @Get("reports/workdays")
   async downloadWorkdays(
     @Req() req: any,

@@ -4,20 +4,6 @@ import PDFDocument from "pdfkit";
 import { IntegrityResult } from "./integrity.service";
 import { WorkdayReport } from "./report.service";
 
-const MONTHS = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
 const PUNCH_LABELS: Record<string, string> = {
   IN: "Entrada",
   OUT: "Salida",
@@ -144,10 +130,10 @@ export class ReportExportService {
     summary.addRow([
       "Empleado",
       "DNI/NIE",
-      "Mes",
+      "Periodo",
       "Días trabajados",
       "Horas trabajadas",
-      "Horas pactadas del mes",
+      "Horas pactadas",
       "Exceso estimado",
       "Días con incidencia",
       "Hoja aprobada",
@@ -157,7 +143,7 @@ export class ReportExportService {
       summary.addRow([
         report.employee.name,
         report.employee.nationalId ?? "",
-        `${MONTHS[report.month - 1]} ${report.year}`,
+        report.period.label,
         report.totals.daysWorked,
         hhmm(report.totals.workedMinutes),
         hhmm(report.totals.expectedMinutes),
@@ -281,7 +267,7 @@ export class ReportExportService {
       .fontSize(9)
       .font("Helvetica")
       .text(
-        `${MONTHS[report.month - 1]} de ${report.year} · Art. 34.9 del Estatuto de los Trabajadores`,
+        `${report.period.label} · Art. 34.9 del Estatuto de los Trabajadores`,
       );
     doc.moveDown(0.6);
 
@@ -367,7 +353,13 @@ export class ReportExportService {
       ]);
     }
     if (report.days.length === 0) {
-      drawRow(["", "Sin fichajes este mes", "", "", ""]);
+      drawRow([
+        "",
+        `Sin fichajes ${report.period.kind === "week" ? "esta semana" : "este mes"}`,
+        "",
+        "",
+        "",
+      ]);
     }
 
     doc.moveDown(0.8).fontSize(9);
@@ -375,7 +367,7 @@ export class ReportExportService {
     field("Días trabajados", String(report.totals.daysWorked));
     field("Total de horas trabajadas", hhmm(report.totals.workedMinutes));
     field(
-      "Horas pactadas del mes / exceso estimado",
+      `Horas pactadas ${report.period.ofThe} / exceso estimado`,
       `${hhmm(report.totals.expectedMinutes)} / ${hhmm(report.totals.overtimeMinutes)}`,
     );
     if (report.totals.incidenceCount > 0) {
@@ -388,7 +380,7 @@ export class ReportExportService {
     if (report.corrections.length > 0) {
       doc.moveDown(0.6);
       ensure(40);
-      doc.font("Helvetica-Bold").text("Correcciones del mes");
+      doc.font("Helvetica-Bold").text(`Correcciones ${report.period.ofThe}`);
       doc.font("Helvetica").fontSize(8);
       for (const c of report.corrections) {
         const what =
@@ -416,7 +408,9 @@ export class ReportExportService {
               (report.approval.acknowledgedAt
                 ? `Conformidad de la persona trabajadora registrada el ${dateTime(report.approval.acknowledgedAt, report.timezone)}.`
                 : "Sin conformidad registrada de la persona trabajadora.")
-          : "Mes sin aprobar: los datos pueden cambiar si se registran correcciones.",
+          : report.period.kind === "week"
+            ? "Informe semanal: la hoja se aprueba por meses; los datos pueden cambiar si se registran correcciones."
+            : "Mes sin aprobar: los datos pueden cambiar si se registran correcciones.",
         left,
         doc.y,
         { width },

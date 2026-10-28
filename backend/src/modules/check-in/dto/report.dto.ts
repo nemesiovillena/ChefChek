@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -28,7 +29,12 @@ export class ReportQueryDto {
   @IsIn(REPORT_FORMATS)
   format: ReportFormat;
 
-  /** Sin él, el informe incluye a todas las personas con fichajes ese mes. */
+  /** Lunes (AAAA-MM-DD): informe de esa semana en vez del mes entero. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  weekStart?: string;
+
+  /** Sin él, el informe incluye a todas las personas con fichajes en el periodo. */
   @IsOptional()
   @IsString()
   employeeId?: string;
