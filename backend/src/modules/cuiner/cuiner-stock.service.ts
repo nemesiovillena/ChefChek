@@ -377,6 +377,7 @@ export class CuinerStockService {
         unitSize: true,
         tracksInventory: true,
         avgUnitWeight: true,
+        wastePercentage: true,
         purchaseFormat: true,
       },
     });

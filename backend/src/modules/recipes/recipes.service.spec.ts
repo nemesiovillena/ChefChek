@@ -36,22 +36,25 @@ describe("RecipesService", () => {
     product: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
+      update: jest.fn(),
     },
     // calculateCost usa $queryRaw (SQL crudo) para leer los productos fuera
     // del middleware de soft-delete; se mockea aquí en lugar de product.findMany.
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
   };
 
   const tenantId = "test-tenant-id";
   const recipeId = "test-recipe-id";
 
-  // Precio de referencia: 10 €/kg (purchasePrice ÷ unitSize, sin mermas)
+  // Precio de referencia: 10 €/kg (purchasePrice ÷ unitSize, sin mermas;
+  // los casos con merma están en "merma del artículo")
   const mockProduct = {
     id: "product-1",
     name: "Test Product",
     purchasePrice: 10,
     netPrice: 9,
-    wastePercentage: 10,
+    wastePercentage: 0,
     purchaseUnit: "Kilogramo",
     storageUnit: "Kilogramos",
     recipeUnit: "Gramos",
@@ -1079,6 +1082,173 @@ describe("RecipesService", () => {
       const result = await service.duplicate(tenantId, recipeId);
 
       expect(result.name).toContain("(Copia)");
+    });
+  });
+
+  describe("merma del artículo", () => {
+    // Lomo limpio: 15 % de merma, 20 €/kg de compra.
+    const lomo = {
+      ...mockProduct,
+      id: "lomo",
+      purchasePrice: 20,
+      wastePercentage: 15,
+      yieldFactor: 0.85,
+      profitMargin: 0,
+      grossWeight: null,
+    };
+
+    it("la cantidad es peso neto: el coste y el peso bruto se dividen por (1 − merma)", async () => {
+      mockPrismaService.$queryRaw.mockResolvedValue([lomo]);
+      mockPrismaService.recipe.findFirst.mockResolvedValue({
+        ...mockRecipe,
+        portions: 1,
+        portionSize: 400,
+        ingredients: [
+          {
+            id: "i1",
+            productId: "lomo",
+            quantity: 0.4,
+            unit: "kg",
+            product: lomo,
+          },
+        ],
+        subRecipes: [],
+      });
+
+      const result = await service.calculateRecipeCost(tenantId, recipeId);
+
+      // 0,4 kg limpios ÷ 0,85 = 0,4706 kg comprados × 20 €/kg = 9,41 €
+      expect(result.totalCost).toBeCloseTo((0.4 / 0.85) * 20);
+      const line = result.ingredients[0];
+      expect(line.netWeight).toBeCloseTo(0.4);
+      expect(line.grossWeight).toBeCloseTo(0.4 / 0.85);
+      expect(line.cost).toBeCloseTo((0.4 / 0.85) * 20);
+      expect(line.wastePercentage).toBe(15);
+    });
+
+    it("la merma escrita en la receta se guarda en el artículo, no en la línea", async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { ...lomo, wastePercentage: 0 },
+      ]);
+      mockPrismaService.$queryRaw.mockResolvedValue([lomo]);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        name: "Entrecot",
+        portions: 1,
+        portionSize: 400,
+        ingredients: [
+          {
+            productId: "lomo",
+            quantity: 0.4,
+            unit: "kg",
+            wastePercentageOverride: 12,
+          },
+        ],
+      } as CreateRecipeDto);
+
+      expect(mockPrismaService.product.update).toHaveBeenCalledWith({
+        where: { id: "lomo" },
+        data: expect.objectContaining({
+          wastePercentage: 12,
+          yieldFactor: 0.88,
+          netPrice: 17.6,
+        }),
+      });
+      const line =
+        mockPrismaService.recipe.create.mock.calls.at(-1)[0].data.ingredients
+          .create[0];
+      expect(line).not.toHaveProperty("wastePercentageOverride");
+    });
+
+    it("no reescribe el artículo si la merma no cambia", async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([lomo]);
+      mockPrismaService.$queryRaw.mockResolvedValue([lomo]);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        name: "Entrecot",
+        ingredients: [
+          {
+            productId: "lomo",
+            quantity: 0.4,
+            unit: "kg",
+            wastePercentageOverride: 15,
+          },
+        ],
+      } as CreateRecipeDto);
+
+      expect(mockPrismaService.product.update).not.toHaveBeenCalled();
+    });
+
+    it("con prueba de rendimiento reajusta el peso neto del artículo a la nueva merma", async () => {
+      mockPrismaService.product.findMany.mockResolvedValue([
+        { ...lomo, grossWeight: 2 },
+      ]);
+      mockPrismaService.$queryRaw.mockResolvedValue([lomo]);
+      mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
+
+      await service.create(tenantId, {
+        name: "Entrecot",
+        ingredients: [
+          {
+            productId: "lomo",
+            quantity: 0.4,
+            unit: "kg",
+            wastePercentageOverride: 20,
+          },
+        ],
+      } as CreateRecipeDto);
+
+      const data = mockPrismaService.product.update.mock.calls[0][0].data;
+      expect(data.netWeight).toBeCloseTo(1.6);
+    });
+  });
+
+  describe("recalculateStoredCosts", () => {
+    it("recalcula primero las sub-recetas y después los platos que las usan", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([
+        {
+          id: "plato",
+          tenantId,
+          name: "Plato",
+          portions: 1,
+          portionSize: 400,
+          ingredients: [],
+          subRecipes: [{ subRecipeId: "salsa", quantity: 1, unit: "raciones" }],
+        },
+        {
+          id: "salsa",
+          tenantId,
+          name: "Salsa",
+          portions: 10,
+          portionSize: 100,
+          ingredients: [{ productId: "product-1", quantity: 1, unit: "kg" }],
+          subRecipes: [],
+        },
+      ]);
+      mockPrismaService.$queryRaw.mockImplementation((strings: string[]) =>
+        Promise.resolve(
+          strings.join("").includes("FROM recipes")
+            ? [
+                {
+                  id: "salsa",
+                  totalCost: 10,
+                  totalCostPerUnit: 0.01,
+                  portions: 10,
+                },
+              ]
+            : [mockProduct],
+        ),
+      );
+
+      const result = await service.recalculateStoredCosts();
+
+      expect(result).toEqual({ updated: 2, failed: [] });
+      const ids = mockPrismaService.$executeRaw.mock.calls.map((c) => c.at(-1));
+      expect(ids).toEqual(["salsa", "plato"]);
+      // Salsa: 1 kg × 10 €/kg = 10 €
+      expect(mockPrismaService.$executeRaw.mock.calls[0][1]).toBeCloseTo(10);
     });
   });
 

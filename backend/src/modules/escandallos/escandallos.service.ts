@@ -342,9 +342,8 @@ export class EscandallosService {
     for (const ingredient of recipe.ingredients) {
       const product = ingredient.product;
       // Mismo precio rector que recetas y fichas técnicas: precio de
-      // referencia del artículo (sin dividir por yieldFactor, la cantidad
-      // ya es el peso bruto realmente comprado/usado). wastageCost queda a
-      // 0: la merma ya no se carga como coste extra, solo es informativa.
+      // referencia del artículo ÷ (1 − merma), porque la cantidad es peso
+      // neto. wastageCost queda a 0: la merma ya va dentro de unitCost.
       const unitCost = calculateProductCostPerUnit(product, ingredient.unit);
       const ingredientCost = ingredient.quantity * unitCost;
       const wastageCost = 0;

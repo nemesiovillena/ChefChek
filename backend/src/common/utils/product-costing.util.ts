@@ -2,12 +2,22 @@
  * Cálculo de coste de artículos compartido entre recetas y fichas técnicas.
  * El precio rector del escandallo es el precio de referencia del artículo
  * (purchasePrice ÷ unitSize → €/kg, €/L o €/ud, igual que getReferencePrice
- * en el frontend). La cantidad de la receta es el peso bruto (tal como se
- * compra/usa), así que NO se corrige por yieldFactor aquí: dividir por la
- * merma duplicaría su efecto, porque el peso bruto ya es la cantidad real
- * pagada. yieldFactor solo se usa para los campos informativos (Peso Neto,
- * Precio Real) en recipes.service.ts, nunca como base de coste.
+ * en el frontend). La cantidad de la receta es el PESO NETO (lo que va al
+ * plato, ya limpio), así que el coste se corrige por la merma del artículo:
+ * para tener 400 g limpios con un 15 % de merma hay que comprar 400 ÷ 0,85.
+ * Una sola merma por artículo (Product.wastePercentage).
  */
+
+/**
+ * Fracción aprovechable del artículo (1 − merma). Merma fuera de (0, 100)
+ * se trata como sin merma para no dividir por 0 ni dar costes negativos.
+ */
+export function wasteYieldFactor(
+  wastePercentage: number | null | undefined,
+): number {
+  const waste = Number(wastePercentage ?? 0);
+  return waste > 0 && waste < 100 ? (100 - waste) / 100 : 1;
+}
 
 /**
  * Alias de unidades por categoría (peso/volumen/unidad), con su factor hacia
@@ -66,6 +76,21 @@ export function getUnitToReferenceFactor(
 }
 
 /**
+ * Precio neto legado del artículo: compra − merma, más margen. Compartido
+ * por artículos y recetas (la receta puede fijar la merma del artículo).
+ */
+export function calculateNetPrice(
+  purchasePrice: number,
+  wastePercentage: number,
+  profitMargin: number,
+): number {
+  const priceAfterWaste =
+    purchasePrice - (purchasePrice * wastePercentage) / 100;
+  const netPrice = priceAfterWaste * (1 + profitMargin / 100);
+  return Math.round(netPrice * 100) / 100;
+}
+
+/**
  * Metadatos de una unidad (categoría de magnitud y factor hacia la base de
  * su categoría: kg / l / ud). null si no se reconoce ("Caja 6und", texto
  * libre del formato de compra…). Fuente única: UNIT_ALIASES.
@@ -85,7 +110,8 @@ export function formatUnitSymbol(unit: string): string {
 }
 
 /**
- * Costo del ingrediente por unidad usada en la receta (€/g, €/ml o €/ud).
+ * Costo del ingrediente por unidad NETA usada en la receta (€/g, €/ml o €/ud):
+ * precio de referencia ÷ (1 − merma), porque la cantidad es peso limpio.
  *
  * El descuento fijo del proveedor (`discountPercentage`) se aplica sobre el
  * precio de referencia bruto: el coste efectivo es el bruto × (1 − dto/100).
@@ -99,6 +125,7 @@ export function calculateProductCostPerUnit(
     unitSize: number;
     referenceUnit: string;
     discountPercentage?: number | null;
+    wastePercentage?: number | null;
   },
   ingredientUnit: string,
 ): number {
@@ -107,7 +134,7 @@ export function calculateProductCostPerUnit(
   const referencePrice = (product.purchasePrice / unitSize) * discountFactor;
 
   return (
-    referencePrice *
+    (referencePrice / wasteYieldFactor(product.wastePercentage)) *
     getUnitToReferenceFactor(ingredientUnit, product.referenceUnit)
   );
 }

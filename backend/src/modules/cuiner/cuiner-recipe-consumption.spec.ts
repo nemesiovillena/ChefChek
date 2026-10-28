@@ -100,6 +100,17 @@ describe("explodeRecipe", () => {
     expect(formats.get("carne")).toBeCloseTo(-0.036);
   });
 
+  it("la receta lleva peso neto: con merma el stock baja en peso bruto", () => {
+    const conMerma = new Map(products);
+    conMerma.set(
+      "carne",
+      product({ id: "carne", unitSize: 5, wastePercentage: 10 }),
+    );
+    const { formats } = explodeRecipe("burger", 1, recipes, conMerma);
+    // 180 g limpios ÷ 0,9 = 200 g de una pieza de 5 kg
+    expect(formats.get("carne")).toBeCloseTo(0.04);
+  });
+
   it("ignora artículos sin control de stock", () => {
     const { formats } = explodeRecipe("burger", 1, recipes, products);
     expect(formats.has("portes")).toBe(false);
