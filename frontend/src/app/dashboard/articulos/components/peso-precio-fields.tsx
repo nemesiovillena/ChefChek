@@ -160,27 +160,41 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           {/* Bloque (flex, no inline-flex): dentro de la tabla de líneas del
               albarán la celda lleva whitespace-nowrap y un selector en línea se
               quedaba a la derecha del input, tapado por el campo siguiente. */}
+          {/* El selector dice A QUÉ corresponde el precio escrito, no en qué
+              unidad se muestra el de referencia (ese siempre va por unidad de
+              referencia). Por eso se pregunta en forma de frase y se enseña
+              debajo la equivalencia de las dos cifras. */}
           {onPriceBasisChange && (
-            <div
-              role="group"
-              aria-label="Base del precio de compra"
-              className="mt-1.5 flex w-fit overflow-hidden rounded-md border border-gray-300 text-xs"
-            >
-              {(['unit', 'format'] as const).map((b) => (
-                <button
-                  key={b}
-                  type="button"
-                  onClick={() => onPriceBasisChange(b)}
-                  aria-pressed={basis === b}
-                  className={`px-2.5 py-1 transition-colors ${
-                    basis === b
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                  }`}
-                >
-                  por {b === 'unit' ? unitNoun : formatNoun}
-                </button>
-              ))}
+            <div className="mt-1.5">
+              <span className="block text-xs text-gray-500 mb-1">Este precio es lo que cuesta:</span>
+              <div
+                role="group"
+                aria-label="A qué corresponde el precio de compra"
+                className="flex w-fit overflow-hidden rounded-md border border-gray-300 text-xs"
+              >
+                {(['unit', 'format'] as const).map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    onClick={() => onPriceBasisChange(b)}
+                    aria-pressed={basis === b}
+                    className={`px-2.5 py-1 transition-colors ${
+                      basis === b
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+                    }`}
+                  >
+                    {b === 'unit' ? `1 ${unitNoun}` : `1 ${formatNoun}`}
+                  </button>
+                ))}
+              </div>
+              {price > 0 && calculatedUnitSize !== 1 && (
+                <span className="block text-xs text-gray-500 mt-1">
+                  {basis === 'unit'
+                    ? `= ${formatEuro(price * calculatedUnitSize)} por ${formatNoun}`
+                    : `= ${formatEuro(refPrice)} por ${unitNoun}`}
+                </span>
+              )}
             </div>
           )}
         </div>
