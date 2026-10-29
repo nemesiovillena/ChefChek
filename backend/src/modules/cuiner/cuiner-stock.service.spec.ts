@@ -21,6 +21,7 @@ function makePrisma(opts: {
   warehouseId?: string | null;
   claimedCount?: number;
   existingStock?: boolean;
+  extraMaps?: Record<string, unknown>[];
 }) {
   const lines = opts.lines ?? [
     line("l1"), // hamburguesa ×2 → receta
@@ -51,6 +52,7 @@ function makePrisma(opts: {
       findMany: jest.fn(async () => [
         { tipo: "P", producto: "00002", recipeId: "burger", productId: null },
         { tipo: "P", producto: "00099", recipeId: null, productId: "agua" },
+        ...(opts.extraMaps ?? []),
       ]),
     },
     cuinerDish: {
@@ -207,7 +209,12 @@ describe("CuinerStockService.apply", () => {
   it("descuenta un movimiento por artículo y marca las líneas", async () => {
     const prisma = makePrisma({});
     const result = await serviceWith(prisma).apply("t1");
-    expect(result).toEqual({ applied: 3, unmapped: 1, movements: 2 });
+    expect(result).toEqual({
+      applied: 3,
+      unmapped: 1,
+      ignored: 0,
+      movements: 2,
+    });
 
     expect(prisma.stockMovement.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -272,6 +279,7 @@ describe("CuinerStockService.apply", () => {
     expect(await serviceWith(prisma).apply("t1")).toEqual({
       applied: 0,
       unmapped: 0,
+      ignored: 0,
       movements: 0,
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -292,6 +300,43 @@ describe("CuinerStockService.requeueUnmapped", () => {
         ],
       },
       data: { status: "PENDIENTE" },
+    });
+  });
+});
+
+describe("CuinerStockService (plato «No descontar»)", () => {
+  const opts = {
+    lines: [
+      line("l1", { producto: "00672", unidades: 1 }), // CALAMARES ROMANA a 0 €
+      line("l2", { tipo: "I", producto: "00144", unidades: 1 }), // DOBLE → receta
+    ],
+    extraMaps: [
+      {
+        tipo: "P",
+        producto: "00672",
+        recipeId: null,
+        productId: null,
+        noStock: true,
+      },
+      { tipo: "I", producto: "00144", recipeId: "burger", productId: null },
+    ],
+  };
+
+  it("no descuenta ni lo lista como sin enlazar", async () => {
+    const preview = await serviceWith(makePrisma(opts)).preview("t1");
+    expect(preview.linesToApply).toBe(1);
+    expect(preview.linesUnmapped).toBe(0);
+    expect(preview.unmappedDishes).toEqual([]);
+    expect(preview.consumption.map((c) => c.productId)).toEqual(["carne"]);
+  });
+
+  it("cierra sus líneas como IGNORADA al aplicar", async () => {
+    const prisma = makePrisma(opts);
+    const res = await serviceWith(prisma).apply("t1");
+    expect(res).toMatchObject({ applied: 1, unmapped: 0, ignored: 1 });
+    expect(prisma.cuinerSaleLine.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["l1"] }, tenantId: "t1", status: "PENDIENTE" },
+      data: { status: "IGNORADA" },
     });
   });
 });

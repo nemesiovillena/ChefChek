@@ -158,6 +158,7 @@ export function useSetCuinerDishMap() {
       recipeId?: string | null;
       productId?: string | null;
       servingMeasureId?: string | null;
+      noStock?: boolean;
     }) => (await apiClient.put(`${BASE_URL}/maps/dishes`, input)).data,
     onSuccess: invalidate,
   });

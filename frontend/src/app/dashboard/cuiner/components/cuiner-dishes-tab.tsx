@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Link2, Loader2, X } from 'lucide-react';
+import { Ban, Link2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
 import { useRecipeOptions } from '@/hooks/use-recipes';
@@ -263,7 +263,8 @@ export function CuinerDishesTab() {
         </Button>
       </div>
       <p className="mb-2 text-sm text-gray-600 dark:text-zinc-400">
-        Ordenados por unidades vendidas. Los platos sin enlazar no descuentan stock en ChefChek.
+        Ordenados por unidades vendidas. Los platos sin enlazar no descuentan stock en ChefChek. Usa «No descontar»
+        en platos a 0 € cuyo tamaño va en un extra (ración, doble): enlaza el extra y deja de salir aquí.
       </p>
 
       {isLoading && <Loader2 className="mx-auto my-8 h-6 w-6 animate-spin text-gray-400" />}
@@ -291,7 +292,12 @@ export function CuinerDishesTab() {
                     />
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
-                      {dish.mapped ? (
+                      {dish.mapped?.kind === 'none' ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          <Ban className="h-3.5 w-3.5" />
+                          No descuenta stock
+                        </span>
+                      ) : dish.mapped ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                           <Link2 className="h-3.5 w-3.5" />
                           {dish.mapped.kind === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek'}: {dish.mapped.name}
@@ -308,14 +314,27 @@ export function CuinerDishesTab() {
                         <span className="text-sm text-gray-500">Sin enlazar</span>
                       )}
                       <Button type="button" size="sm" variant="outline" onClick={() => setEditing(key)}>
-                        {dish.mapped ? 'Cambiar' : 'Enlazar'}
+                        {dish.mapped && dish.mapped.kind !== 'none' ? 'Cambiar' : 'Enlazar'}
                       </Button>
+                      {dish.mapped?.kind !== 'none' && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          title="Para platos a 0 € cuyo tamaño va en un extra (ración, doble): no descuenta y deja de salir sin enlazar"
+                          onClick={() =>
+                            save(() => setMap.mutateAsync({ tipo: dish.tipo, producto: dish.producto, noStock: true }))
+                          }
+                        >
+                          No descontar
+                        </Button>
+                      )}
                       {dish.mapped && (
                         <Button
                           type="button"
                           size="sm"
                           variant="ghost"
-                          aria-label="Quitar enlace"
+                          aria-label={dish.mapped.kind === 'none' ? 'Volver a sin enlazar' : 'Quitar enlace'}
                           onClick={() => save(() => deleteMap.mutateAsync({ tipo: dish.tipo, producto: dish.producto }))}
                         >
                           <X className="h-3.5 w-3.5" />
