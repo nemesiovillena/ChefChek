@@ -73,7 +73,7 @@ export default function AlbaranLineasPage() {
   // el key-reset (remonta el diálogo y rehidrata los drafts en cada apertura).
   const [correction, setCorrection] = useState<{ line: AlbaranLine; seq: number } | null>(null);
 
-  // Albaran status transition (Marcar Revisado / Confirmar desde esta pestaña)
+  // Albaran status transition (Mercancía recibida / Confirmar desde esta pestaña)
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
 
@@ -939,7 +939,7 @@ export default function AlbaranLineasPage() {
                     <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
                     <p className="text-sm text-green-800">
                       {albaran.status === 'PENDIENTE'
-                        ? 'Todas las líneas están revisadas. Puedes marcar el albarán como revisado.'
+                        ? 'Todas las líneas están revisadas. Puedes marcar la mercancía como recibida.'
                         : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
                     </p>
                   </div>
@@ -957,7 +957,7 @@ export default function AlbaranLineasPage() {
                     ) : (
                       <CheckCircle className="mr-2 h-4 w-4" />
                     )}
-                    {albaran.status === 'PENDIENTE' ? 'Marcar Revisado' : 'Confirmar Albarán'}
+                    {albaran.status === 'PENDIENTE' ? 'Mercancía recibida' : 'Confirmar Albarán'}
                   </Button>
                 </div>
               </div>
