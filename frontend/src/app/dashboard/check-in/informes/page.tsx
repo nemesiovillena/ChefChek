@@ -25,7 +25,6 @@ import {
   secondaryBtnCls,
 } from '../components/check-in-form-styles';
 import { CheckInMonthPicker, currentYearMonth, type YearMonth } from '../components/check-in-month-picker';
-import { CheckInWeekPicker, currentWeekStart } from '../components/check-in-week-picker';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,10 +35,16 @@ const monthLabel = (year: number, month: number) => `${MONTH_NAMES[month - 1]} $
 const toInput = ({ year, month }: YearMonth) => `${year}-${String(month).padStart(2, '0')}`;
 const fromInput = (value: string): YearMonth => ({ year: Number(value.slice(0, 4)), month: Number(value.slice(5, 7)) });
 
-type PeriodMode = 'month' | 'week';
+/** Hoy en hora local como AAAA-MM-DD (para <input type="date">). */
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+type PeriodMode = 'month' | 'range';
 const PERIOD_MODES: { id: PeriodMode; label: string }[] = [
   { id: 'month', label: 'Mes' },
-  { id: 'week', label: 'Semana' },
+  { id: 'range', label: 'Fechas' },
 ];
 
 const FORMATS: { format: ReportFormat; label: string; icon: typeof FileText }[] = [
@@ -48,23 +53,28 @@ const FORMATS: { format: ReportFormat; label: string; icon: typeof FileText }[] 
   { format: 'csv', label: 'CSV', icon: Download },
 ];
 
-/** Descarga del registro de jornada de un mes o una semana, de todo el equipo o de una persona. */
+/** Descarga del registro de jornada de un mes o de un rango de fechas, de todo el equipo o de una persona. */
 function DownloadCard() {
   const notify = useNotification();
   const { data: employees } = useEmployees(true);
   const [mode, setMode] = useState<PeriodMode>('month');
   const [period, setPeriod] = useState<YearMonth>(currentYearMonth);
-  const [weekStart, setWeekStart] = useState(currentWeekStart);
+  // Por defecto, del día 1 del mes en curso a hoy.
+  const [rangeFrom, setRangeFrom] = useState(() => `${todayIso().slice(0, 8)}01`);
+  const [rangeTo, setRangeTo] = useState(todayIso);
   const [employeeId, setEmployeeId] = useState('');
   const [busy, setBusy] = useState<ReportFormat | null>(null);
 
+  const rangeInvalid = mode === 'range' && (!rangeFrom || !rangeTo || rangeTo < rangeFrom);
+
   async function handleDownload(format: ReportFormat) {
+    if (rangeInvalid) return;
     setBusy(format);
     try {
-      // En modo semana, year/month son los del lunes (mes de referencia).
+      // Con fechas, year/month son los de la fecha de inicio (mes de referencia).
       const query =
-        mode === 'week'
-          ? { year: Number(weekStart.slice(0, 4)), month: Number(weekStart.slice(5, 7)), weekStart }
+        mode === 'range'
+          ? { year: Number(rangeFrom.slice(0, 4)), month: Number(rangeFrom.slice(5, 7)), from: rangeFrom, to: rangeTo }
           : period;
       await downloadWorkdayReport({ ...query, format, employeeId: employeeId || undefined });
     } catch (err) {
@@ -80,7 +90,7 @@ function DownloadCard() {
         <h3 className="text-lg font-semibold">Registro de jornada</h3>
         <p className="text-sm text-[var(--on-surface-variant)]">
           El documento que pide la Inspección de Trabajo: jornadas de cada día con sus horas de entrada y salida, las
-          correcciones con su motivo y los totales del mes o de la semana. El PDF trae espacio para firmas.
+          correcciones con su motivo y los totales del mes o de las fechas que elijas. El PDF trae espacio para firmas.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
@@ -106,7 +116,29 @@ function DownloadCard() {
           {mode === 'month' ? (
             <CheckInMonthPicker value={period} onChange={setPeriod} />
           ) : (
-            <CheckInWeekPicker value={weekStart} onChange={setWeekStart} />
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="block">
+                <span className={labelCls}>Desde</span>
+                <input
+                  type="date"
+                  value={rangeFrom}
+                  max={rangeTo || todayIso()}
+                  onChange={(e) => setRangeFrom(e.target.value)}
+                  className={inputCls}
+                />
+              </label>
+              <label className="block">
+                <span className={labelCls}>Hasta</span>
+                <input
+                  type="date"
+                  value={rangeTo}
+                  min={rangeFrom}
+                  max={todayIso()}
+                  onChange={(e) => setRangeTo(e.target.value)}
+                  className={inputCls}
+                />
+              </label>
+            </div>
           )}
         </div>
         <label className="block min-w-[220px] flex-1">
@@ -122,13 +154,16 @@ function DownloadCard() {
           </select>
         </label>
       </div>
+      {rangeInvalid && (
+        <p className="text-sm text-[var(--error)]">La fecha «Hasta» no puede ser anterior a «Desde».</p>
+      )}
       <div className="flex flex-wrap gap-2">
         {FORMATS.map(({ format, label, icon: Icon }, index) => (
           <button
             key={format}
             type="button"
             onClick={() => handleDownload(format)}
-            disabled={busy !== null}
+            disabled={busy !== null || rangeInvalid}
             className={index === 0 ? primaryBtnCls : secondaryBtnCls}
           >
             {busy === format ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}

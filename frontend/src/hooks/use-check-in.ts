@@ -428,8 +428,9 @@ export async function downloadWorkdayReport(params: {
   month: number;
   format: ReportFormat;
   employeeId?: string;
-  /** Lunes (AAAA-MM-DD): informe de esa semana en vez del mes. */
-  weekStart?: string;
+  /** Rango de fechas (AAAA-MM-DD, ambas incluidas) en vez del mes. */
+  from?: string;
+  to?: string;
 }) {
   const response = await apiClient.get<Blob>(`${BASE}/reports/workdays`, { params, responseType: 'blob' });
   const disposition = String(response.headers['content-disposition'] ?? '');

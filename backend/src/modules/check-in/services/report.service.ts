@@ -22,25 +22,29 @@ const MONTHS = [
   "diciembre",
 ];
 
+/** Máximo de días de un informe por fechas (un año). */
+export const MAX_RANGE_DAYS = 366;
+
 /**
- * Periodo del informe: un mes natural o, con `weekStart` (lunes AAAA-MM-DD),
- * la semana de lunes a domingo. year/month siguen indicando el mes de
- * referencia (el del lunes).
+ * Periodo del informe: un mes natural o, con `from` y `to` (AAAA-MM-DD, ambas
+ * incluidas), un rango de fechas libre. year/month siguen indicando el mes de
+ * referencia (el de `from`).
  */
 export interface ReportPeriodQuery {
   year: number;
   month: number;
-  weekStart?: string;
+  from?: string;
+  to?: string;
 }
 
 export interface ReportPeriod {
-  kind: "month" | "week";
+  kind: "month" | "range";
   /** Fechas locales AAAA-MM-DD, ambas incluidas. */
   from: string;
   to: string;
-  /** "octubre de 2026" o "semana del 26 de octubre al 1 de noviembre de 2026". */
+  /** "octubre de 2026" o "del 26 de octubre al 1 de noviembre de 2026". */
   label: string;
-  /** Para los textos: "del mes" / "de la semana". */
+  /** Para los textos: "del mes" / "del periodo". */
   ofThe: string;
 }
 
@@ -104,7 +108,7 @@ export class ReportService {
         }),
         this.workdays.getPeriod(tenantId, employeeId, period.from, period.to),
         this.adjustments.listAllForEmployee(tenantId, employeeId),
-        // La hoja se aprueba por meses: un informe semanal no la arrastra.
+        // La hoja se aprueba por meses: un informe por fechas no la arrastra.
         isMonth
           ? this.prisma.timesheet.findFirst({
               where: { tenantId, employeeId, year, month },
@@ -209,11 +213,14 @@ export class ReportService {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** "2026-10-26" + 6 -> "2026-11-01" (fechas de calendario, sin zona). */
-function addDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+/** Días naturales entre dos fechas AAAA-MM-DD, ambas incluidas. */
+function daysBetween(from: string, to: string): number {
+  return (
+    Math.round(
+      (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+        86_400_000,
+    ) + 1
+  );
 }
 
 /** "2026-11-01" -> "1 de noviembre". */
@@ -221,26 +228,53 @@ function dayAndMonth(date: string): string {
   return `${Number(date.slice(8, 10))} de ${MONTHS[Number(date.slice(5, 7)) - 1]}`;
 }
 
+/** Comprueba que es una fecha de calendario real ("2026-02-30" no lo es). */
+function isRealDate(date: string): boolean {
+  const d = new Date(`${date}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === date;
+}
+
+/** "del 3 al 17 de octubre de 2026", "del 20 de diciembre de 2025 al 5 de enero de 2026". */
+function rangeLabel(from: string, to: string): string {
+  if (from === to) {
+    return `${dayAndMonth(from)} de ${from.slice(0, 4)}`;
+  }
+  const sameYear = from.slice(0, 4) === to.slice(0, 4);
+  const sameMonth = sameYear && from.slice(5, 7) === to.slice(5, 7);
+  const start = sameMonth
+    ? String(Number(from.slice(8, 10)))
+    : sameYear
+      ? dayAndMonth(from)
+      : `${dayAndMonth(from)} de ${from.slice(0, 4)}`;
+  return `del ${start} al ${dayAndMonth(to)} de ${to.slice(0, 4)}`;
+}
+
 export function resolvePeriod({
   year,
   month,
-  weekStart,
+  from,
+  to,
 }: ReportPeriodQuery): ReportPeriod {
-  if (weekStart) {
-    if (new Date(`${weekStart}T00:00:00Z`).getUTCDay() !== 1) {
-      throw new BadRequestException("La semana debe empezar en lunes.");
+  if (from || to) {
+    if (!from || !to || !isRealDate(from) || !isRealDate(to)) {
+      throw new BadRequestException("Indica las fechas de inicio y de fin.");
     }
-    const to = addDays(weekStart, 6);
+    if (to < from) {
+      throw new BadRequestException(
+        "La fecha de fin no puede ser anterior a la de inicio.",
+      );
+    }
+    if (daysBetween(from, to) > MAX_RANGE_DAYS) {
+      throw new BadRequestException(
+        "El periodo no puede pasar de un año. Divídelo en varios informes.",
+      );
+    }
     return {
-      kind: "week",
-      from: weekStart,
+      kind: "range",
+      from,
       to,
-      label: `semana del ${
-        weekStart.slice(5, 7) === to.slice(5, 7)
-          ? Number(weekStart.slice(8, 10))
-          : dayAndMonth(weekStart)
-      } al ${dayAndMonth(to)} de ${to.slice(0, 4)}`,
-      ofThe: "de la semana",
+      label: rangeLabel(from, to),
+      ofThe: "del periodo",
     };
   }
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();

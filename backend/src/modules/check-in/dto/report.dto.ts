@@ -29,10 +29,17 @@ export class ReportQueryDto {
   @IsIn(REPORT_FORMATS)
   format: ReportFormat;
 
-  /** Lunes (AAAA-MM-DD): informe de esa semana en vez del mes entero. */
+  /**
+   * Rango de fechas (AAAA-MM-DD, ambas incluidas) en vez del mes entero. Van
+   * juntas; year/month siguen siendo el mes de referencia (el de `from`).
+   */
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
-  weekStart?: string;
+  from?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  to?: string;
 
   /** Sin él, el informe incluye a todas las personas con fichajes en el periodo. */
   @IsOptional()
