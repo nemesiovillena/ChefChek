@@ -355,7 +355,7 @@ export class ReportExportService {
     if (report.days.length === 0) {
       drawRow([
         "",
-        `Sin fichajes ${report.period.kind === "week" ? "esta semana" : "este mes"}`,
+        `Sin fichajes ${report.period.kind === "range" ? "en estas fechas" : "este mes"}`,
         "",
         "",
         "",
@@ -408,8 +408,8 @@ export class ReportExportService {
               (report.approval.acknowledgedAt
                 ? `Conformidad de la persona trabajadora registrada el ${dateTime(report.approval.acknowledgedAt, report.timezone)}.`
                 : "Sin conformidad registrada de la persona trabajadora.")
-          : report.period.kind === "week"
-            ? "Informe semanal: la hoja se aprueba por meses; los datos pueden cambiar si se registran correcciones."
+          : report.period.kind === "range"
+            ? "Informe por fechas: la hoja se aprueba por meses; los datos pueden cambiar si se registran correcciones."
             : "Mes sin aprobar: los datos pueden cambiar si se registran correcciones.",
         left,
         doc.y,
