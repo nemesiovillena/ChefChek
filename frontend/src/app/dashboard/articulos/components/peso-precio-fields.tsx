@@ -91,6 +91,12 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
     formData.referenceUnit ||
     'unidad';
   const formatNoun = formData.purchaseFormat.trim() || 'formato';
+  // Contenido del formato a la vista («Bandeja (0,3 kg)»): sin él, «1 Unidades»
+  // no dice cuánto pesa lo que cuesta ese precio.
+  const formatContent = `${calculatedUnitSize.toLocaleString('es-ES', { maximumFractionDigits: 3 })} ${unitLabels.total}`;
+  // Con formato de 1 kilo/litro/unidad las dos bases dan la misma cifra: el
+  // selector solo confundiría.
+  const showBasisSelector = !!onPriceBasisChange && Math.abs(calculatedUnitSize - 1) > 0.0005;
 
   return (
     <div className="space-y-4">
@@ -164,7 +170,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
               unidad se muestra el de referencia (ese siempre va por unidad de
               referencia). Por eso se pregunta en forma de frase y se enseña
               debajo la equivalencia de las dos cifras. */}
-          {onPriceBasisChange && (
+          {showBasisSelector && onPriceBasisChange && (
             <div className="mt-1.5">
               <span className="block text-xs text-gray-500 mb-1">Este precio es lo que cuesta:</span>
               <div
@@ -184,11 +190,11 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
                         : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
                     }`}
                   >
-                    {b === 'unit' ? `1 ${unitNoun}` : `1 ${formatNoun}`}
+                    {b === 'unit' ? `1 ${unitNoun}` : `${formatNoun} (${formatContent})`}
                   </button>
                 ))}
               </div>
-              {price > 0 && calculatedUnitSize !== 1 && (
+              {price > 0 && (
                 <span className="block text-xs text-gray-500 mt-1">
                   {basis === 'unit'
                     ? `= ${formatEuro(price * calculatedUnitSize)} por ${formatNoun}`
