@@ -121,19 +121,20 @@ export class AlbaranStatusService {
     to: AlbaranStatus,
     lines: any[],
   ): Promise<void> {
-    if (to === AlbaranStatus.REVISADO) {
-      // All lines must be confirmed or rejected
+    // REVISADO = mercancía recibida: no exige haber revisado las líneas.
+
+    if (to === AlbaranStatus.CONFIRMADO) {
+      // Las líneas pendientes no entrarían en stock: hay que confirmarlas o
+      // rechazarlas antes.
       const pending = lines.filter(
         (l) => l.lineStatus === LineStatus.PENDIENTE,
       );
       if (pending.length > 0) {
         throw new BadRequestException(
-          `No se puede revisar: ${pending.length} línea(s) pendiente(s) de confirmar/rechazar`,
+          `No se puede confirmar: ${pending.length} línea(s) pendiente(s) de confirmar/rechazar`,
         );
       }
-    }
 
-    if (to === AlbaranStatus.CONFIRMADO) {
       const confirmedLines = lines.filter(
         (l) => l.lineStatus === LineStatus.CONFIRMADO,
       );

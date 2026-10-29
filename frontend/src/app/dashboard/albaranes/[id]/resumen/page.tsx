@@ -204,7 +204,7 @@ export default function AlbaranResumenPage() {
   const getNextStatusAction = (status: AlbaranStatus): { label: string; nextStatus: AlbaranStatus; icon: typeof CheckCircle } | null => {
     switch (status) {
       case 'PENDIENTE':
-        return { label: 'Marcar Revisado', nextStatus: 'REVISADO', icon: Eye };
+        return { label: 'Mercancía recibida', nextStatus: 'REVISADO', icon: Eye };
       case 'REVISADO':
         return { label: 'Confirmar', nextStatus: 'CONFIRMADO', icon: CheckCircle };
       case 'CONFIRMADO':
