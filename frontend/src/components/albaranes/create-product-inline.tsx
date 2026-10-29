@@ -121,18 +121,42 @@ export function CreateProductInline({
   // calculan igual (qty × unitPrice) — nunca detectaba el descuento real.
   const parsedPrice = parseFloat(formData.purchasePrice);
   const lineQuantity = Number(line.quantity) || 0;
-  const lineSubtotal =
-    !Number.isNaN(parsedPrice) && parsedPrice >= 0 ? lineQuantity * parsedPrice : null;
   const grossTotal = Number(line.lineAmount) || 0;
   const originalTotal = line.totalPrice !== null ? Number(line.totalPrice) : grossTotal;
   const discountPct =
     line.totalPrice !== null && grossTotal > 0 && originalTotal < grossTotal
       ? Math.round((1 - originalTotal / grossTotal) * 1000) / 10
       : 0;
+
+  // La cantidad del papel puede venir en unidades ("24 ud × 0,88") o en
+  // formatos ("1 caja × 21,12"). Con precio por unidad y un formato de
+  // varias unidades, la lectura en cajas multiplica por el contenido del
+  // formato. Se muestra la lectura que cuadra con el total del papel; si
+  // ninguna cuadra, se asume cantidad en cajas (lo habitual en el papel).
+  const hasPrice = !Number.isNaN(parsedPrice) && parsedPrice >= 0;
+  const formatPrice = hasPrice
+    ? toFormatPrice(
+        parsedPrice,
+        parseInt(formData.unitsPerFormat) || 1,
+        parseFloat(formData.referenceUnitSize) || 1,
+      )
+    : 0;
+  const matchesTotal = (v: number) => originalTotal > 0 && Math.abs(v - originalTotal) < 0.01;
+  const sameUnitSubtotal = lineQuantity * parsedPrice;
+  const formatSubtotal = lineQuantity * formatPrice;
+  const quantityInFormats =
+    hasPrice &&
+    priceBasis === 'unit' &&
+    formatPrice !== parsedPrice &&
+    !matchesTotal(sameUnitSubtotal);
+  const lineSubtotal = !hasPrice ? null : quantityInFormats ? formatSubtotal : sameUnitSubtotal;
+  const subtotalPrice = quantityInFormats ? formatPrice : parsedPrice;
+  const subtotalUnitLabel =
+    quantityInFormats || priceBasis === 'format'
+      ? formData.purchaseFormat || 'formato'
+      : formData.referenceUnit;
   const subtotalMatches =
-    lineSubtotal !== null && originalTotal > 0
-      ? Math.abs(lineSubtotal - originalTotal) < 0.01
-      : null;
+    lineSubtotal !== null && originalTotal > 0 ? matchesTotal(lineSubtotal) : null;
   const fmtEuro = (v: number) =>
     v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -264,11 +288,8 @@ export function CreateProductInline({
           <div className="text-gray-600 dark:text-gray-300">
             Subtotal línea:{' '}
             <span className="font-semibold text-gray-800 dark:text-gray-100">
-              {lineQuantity.toLocaleString('es-ES')}{' '}
-              {priceBasis === 'format'
-                ? formData.purchaseFormat || 'formato'
-                : formData.referenceUnit}{' '}
-              × {fmtEuro(parsedPrice)} € = {fmtEuro(lineSubtotal)} €
+              {lineQuantity.toLocaleString('es-ES')} {subtotalUnitLabel}{' '}
+              × {fmtEuro(subtotalPrice)} € = {fmtEuro(lineSubtotal)} €
             </span>
           </div>
           {subtotalMatches !== null && (
