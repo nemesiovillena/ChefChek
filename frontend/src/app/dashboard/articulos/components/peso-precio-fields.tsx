@@ -154,9 +154,9 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             onChange={(e) => update('purchasePrice', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
-          {/* Base del precio: solo cuando el llamador la gestiona (crear desde
-              línea de albarán, donde el precio viene del papel y puede ser por
-              unidad o por formato según cómo facture el proveedor). */}
+          {/* Base del precio: solo cuando el llamador la gestiona (línea de
+              albarán y modal de Artículos). El llamador convierte a precio por
+              formato al guardar. */}
           {/* Bloque (flex, no inline-flex): dentro de la tabla de líneas del
               albarán la celda lleva whitespace-nowrap y un selector en línea se
               quedaba a la derecha del input, tapado por el campo siguiente. */}
@@ -218,7 +218,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
           <span className="text-sm text-indigo-700">
             Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kilo'}</strong>
           </span>
-          {unitsPerFormat > 1 && (
+          {calculatedUnitSize !== 1 && (
             <span className="text-xs text-indigo-500">
               Total: {calculatedUnitSize} {unitLabels.total} por formato
               {basis === 'unit' && onPriceBasisChange

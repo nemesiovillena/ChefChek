@@ -186,6 +186,19 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
     () => (initialTab && TABS.some((t) => t.id === initialTab) ? initialTab : 'formato-precio'),
   );
   const [formData, setFormData] = useState(() => deriveFormData(article));
+  // Base del precio tecleado. Al crear se suele saber el €/kilo («el kilo a
+  // 5,57»); al editar, el campo trae el precio guardado, que es por formato.
+  const [priceBasis, setPriceBasis] = useState<'unit' | 'format'>(() => (article ? 'format' : 'unit'));
+  // El modelo guarda purchasePrice POR FORMATO (referencePrice = purchasePrice
+  // / unitSize). Con base «por unidad» se escala por el contenido del formato
+  // (5,57 €/kg × caja de 4 kg = 22,28 €/caja). Redondeo para quitar ruido de
+  // coma flotante (5,57 × 4 = 22,280000000000001).
+  const formatPurchasePrice = (() => {
+    const entered = parseFloat(formData.purchasePrice);
+    if (priceBasis === 'format' || isNaN(entered)) return formData.purchasePrice;
+    const content = (parseInt(formData.unitsPerFormat) || 1) * (parseFloat(formData.referenceUnitSize) || 1);
+    return String(Math.round(entered * content * 10000) / 10000);
+  })();
   // Aviso advisory de duplicados por nombre (no bloquea). Al editar excluye el propio id.
   const { matches: rawDuplicateMatches } = useProductNameCheck(formData.name, article?.id);
   // Descartes locales inmediatos: el backend ya no volverá a devolver estos
@@ -239,7 +252,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
       ? Object.fromEntries(Object.entries(nutritionalData).filter(([, v]) => v).map(([k, v]) => [k, parseFloat(v)]))
       : undefined;
 
-    const parsedPrice = parseFloat(formData.purchasePrice);
+    const parsedPrice = parseFloat(formatPurchasePrice);
     // `formData.purchasePrice` se congela al abrir el modal (key={article?.id},
     // sin refetch mientras está abierto) y NO se sincroniza con los precios en
     // vivo de "Proveedor y Stock". El backend reenvía cualquier purchasePrice
@@ -448,6 +461,8 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                 formData={formData}
                 setFormData={(data) => setFormData({ ...formData, ...data })}
                 tree={tree}
+                priceBasis={priceBasis}
+                onPriceBasisChange={setPriceBasis}
               />
               <div className="mt-4 grid gap-1 sm:max-w-xs">
                 <label htmlFor="avg-unit-weight" className="text-sm font-medium text-gray-700">
@@ -527,7 +542,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
               formData={formData}
               setFormData={(data) => setFormData({ ...formData, ...data })}
               currentStock={article?.stocks?.[0]?.quantity}
-              basePurchasePrice={formData.purchasePrice}
+              basePurchasePrice={formatPurchasePrice}
               baseReferenceUnit={formData.referenceUnit}
               onSupplierCreated={(supplier) => {
                 setAddedSuppliers((prev) => [...prev, supplier]);
