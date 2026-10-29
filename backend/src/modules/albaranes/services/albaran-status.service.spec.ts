@@ -85,13 +85,28 @@ describe("AlbaranStatusService", () => {
       expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
     });
 
-    it("throws BadRequest on REVISADO when a line is still PENDIENTE", async () => {
+    it("allows PENDIENTE -> REVISADO with lines still PENDIENTE (mercancía recibida)", async () => {
       prisma.albaran.findFirst.mockResolvedValue(
         buildAlbaran({ lines: [{ lineStatus: LineStatus.PENDIENTE }] }),
       );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
+      await service.transitionStatus("alb-1", "t1", AlbaranStatus.REVISADO);
+      expect(prisma.albaran.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { status: AlbaranStatus.REVISADO } }),
+      );
+    });
+
+    it("throws BadRequest on CONFIRMADO when a line is still PENDIENTE", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({
+          status: AlbaranStatus.REVISADO,
+          lines: [{ lineStatus: LineStatus.PENDIENTE }],
+        }),
+      );
       await expect(
-        service.transitionStatus("alb-1", "t1", AlbaranStatus.REVISADO),
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
       ).rejects.toThrow(BadRequestException);
+      expect(prisma.albaran.updateMany).not.toHaveBeenCalled();
     });
 
     it("throws BadRequest on CONFIRMADO when a confirmed line lacks a product", async () => {
