@@ -25,6 +25,7 @@ import {
   secondaryBtnCls,
 } from '../components/check-in-form-styles';
 import { CheckInMonthPicker, currentYearMonth, type YearMonth } from '../components/check-in-month-picker';
+import { CheckInWeekPicker, currentWeekStart } from '../components/check-in-week-picker';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,24 +36,37 @@ const monthLabel = (year: number, month: number) => `${MONTH_NAMES[month - 1]} $
 const toInput = ({ year, month }: YearMonth) => `${year}-${String(month).padStart(2, '0')}`;
 const fromInput = (value: string): YearMonth => ({ year: Number(value.slice(0, 4)), month: Number(value.slice(5, 7)) });
 
+type PeriodMode = 'month' | 'week';
+const PERIOD_MODES: { id: PeriodMode; label: string }[] = [
+  { id: 'month', label: 'Mes' },
+  { id: 'week', label: 'Semana' },
+];
+
 const FORMATS: { format: ReportFormat; label: string; icon: typeof FileText }[] = [
   { format: 'pdf', label: 'PDF', icon: FileText },
   { format: 'xlsx', label: 'Excel', icon: FileSpreadsheet },
   { format: 'csv', label: 'CSV', icon: Download },
 ];
 
-/** Descarga del registro de jornada del mes, de todo el equipo o de una persona. */
+/** Descarga del registro de jornada de un mes o una semana, de todo el equipo o de una persona. */
 function DownloadCard() {
   const notify = useNotification();
   const { data: employees } = useEmployees(true);
+  const [mode, setMode] = useState<PeriodMode>('month');
   const [period, setPeriod] = useState<YearMonth>(currentYearMonth);
+  const [weekStart, setWeekStart] = useState(currentWeekStart);
   const [employeeId, setEmployeeId] = useState('');
   const [busy, setBusy] = useState<ReportFormat | null>(null);
 
   async function handleDownload(format: ReportFormat) {
     setBusy(format);
     try {
-      await downloadWorkdayReport({ ...period, format, employeeId: employeeId || undefined });
+      // En modo semana, year/month son los del lunes (mes de referencia).
+      const query =
+        mode === 'week'
+          ? { year: Number(weekStart.slice(0, 4)), month: Number(weekStart.slice(5, 7)), weekStart }
+          : period;
+      await downloadWorkdayReport({ ...query, format, employeeId: employeeId || undefined });
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo generar el informe', message: errorMessage(err) });
     } finally {
@@ -66,11 +80,35 @@ function DownloadCard() {
         <h3 className="text-lg font-semibold">Registro de jornada</h3>
         <p className="text-sm text-[var(--on-surface-variant)]">
           El documento que pide la Inspección de Trabajo: jornadas de cada día con sus horas de entrada y salida, las
-          correcciones con su motivo y los totales del mes. El PDF trae espacio para firmas.
+          correcciones con su motivo y los totales del mes o de la semana. El PDF trae espacio para firmas.
         </p>
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <CheckInMonthPicker value={period} onChange={setPeriod} />
+        <div className="flex flex-wrap items-center gap-3">
+          <div role="tablist" aria-label="Periodo" className="flex gap-1 rounded-xl bg-[var(--surface-container)] p-1">
+            {PERIOD_MODES.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={mode === id}
+                onClick={() => setMode(id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  mode === id
+                    ? 'bg-[var(--primary)] text-primary-foreground'
+                    : 'text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === 'month' ? (
+            <CheckInMonthPicker value={period} onChange={setPeriod} />
+          ) : (
+            <CheckInWeekPicker value={weekStart} onChange={setWeekStart} />
+          )}
+        </div>
         <label className="block min-w-[220px] flex-1">
           <span className={labelCls}>Persona</span>
           <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={inputCls}>

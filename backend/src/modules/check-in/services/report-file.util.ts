@@ -11,7 +11,7 @@ const CONTENT_TYPES: Record<ReportFormat, string> = {
 };
 
 /**
- * Genera el registro de jornada de un mes en el formato pedido y lo envía
+ * Genera el registro de jornada de un mes (o una semana) en el formato pedido y lo envía
  * como descarga. Compartido por la ruta de gerencia y la del enlace de
  * inspección: mismo documento en ambos casos.
  */
@@ -28,13 +28,14 @@ export async function sendWorkdayReport(
     month: number;
     format: ReportFormat;
     employeeId?: string;
+    /** Lunes de la semana; sin él, el mes entero. */
+    weekStart?: string;
   },
 ) {
-  const { tenantId, year, month, format, employeeId } = params;
+  const { tenantId, year, month, format, employeeId, weekStart } = params;
   const reports = await deps.reports.buildMany(
     tenantId,
-    year,
-    month,
+    { year, month, weekStart },
     employeeId,
   );
   let buffer: Buffer;
@@ -48,7 +49,9 @@ export async function sendWorkdayReport(
       await deps.integrity.verify(tenantId),
     );
   }
-  const name = `registro-jornada-${year}-${String(month).padStart(2, "0")}.${format}`;
+  const name = weekStart
+    ? `registro-jornada-semana-${weekStart}.${format}`
+    : `registro-jornada-${year}-${String(month).padStart(2, "0")}.${format}`;
   res.set({
     "Content-Type": CONTENT_TYPES[format],
     "Content-Disposition": `attachment; filename="${name}"`,

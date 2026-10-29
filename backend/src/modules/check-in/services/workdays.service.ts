@@ -35,7 +35,7 @@ export interface WorkdayPunchView {
 export interface MonthTotals {
   workedMinutes: number;
   breakMinutes: number;
-  /** Jornada pactada del mes: horas semanales × días del mes / 7. */
+  /** Jornada pactada del periodo: horas semanales × días del periodo / 7. */
   expectedMinutes: number;
   overtimeMinutes: number;
   daysWorked: number;
@@ -210,16 +210,30 @@ export class WorkdaysService {
     const pad = (n: number) => String(n).padStart(2, "0");
     const from = `${year}-${pad(month)}-01`;
     const to = `${year}-${pad(month)}-${pad(daysInMonth)}`;
+    const result = await this.getPeriod(tenantId, employeeId, from, to, now);
+    return { ...result, year, month };
+  }
+
+  /**
+   * Jornadas y totales entre dos fechas locales (ambas incluidas). La
+   * jornada pactada se prorratea por los días naturales del periodo.
+   */
+  async getPeriod(
+    tenantId: string,
+    employeeId: string,
+    from: string,
+    to: string,
+    now: Date = new Date(),
+  ) {
     const result = await this.getWorkdays(tenantId, employeeId, from, to, now);
+    const periodDays =
+      Math.round(
+        (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+          DAY_MS,
+      ) + 1;
     return {
       ...result,
-      year,
-      month,
-      totals: monthTotals(
-        result.days,
-        result.employee.weeklyHours,
-        daysInMonth,
-      ),
+      totals: monthTotals(result.days, result.employee.weeklyHours, periodDays),
     };
   }
 }
