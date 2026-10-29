@@ -97,6 +97,11 @@ export class SetDishMapDto {
   @ValidateIf((_, v) => v !== null)
   @IsString()
   servingMeasureId?: string | null;
+
+  /** Plato que no descuenta stock (cabecera a 0 € con el tamaño en un modificador). */
+  @IsOptional()
+  @IsBoolean()
+  noStock?: boolean;
 }
 
 export class SetDishMapsBulkDto {

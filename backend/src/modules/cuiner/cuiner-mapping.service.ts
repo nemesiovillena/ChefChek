@@ -235,7 +235,13 @@ export class CuinerMappingService {
   private async validateDishMap(tenantId: string, dto: SetDishMapDto) {
     const hasRecipe = Boolean(dto.recipeId);
     const hasProduct = Boolean(dto.productId);
-    if (hasRecipe === hasProduct) {
+    const noStock = dto.noStock === true;
+    if (noStock && (hasRecipe || hasProduct || dto.servingMeasureId)) {
+      throw new BadRequestException(
+        "Un plato que no descuenta no se enlaza con receta ni artículo",
+      );
+    }
+    if (!noStock && hasRecipe === hasProduct) {
       throw new BadRequestException(
         "Enlaza el plato con una receta o con un artículo, no con ambos",
       );
@@ -245,7 +251,9 @@ export class CuinerMappingService {
         "La medida solo se usa al enlazar con un artículo de venta directa",
       );
     }
-    if (hasRecipe) {
+    if (noStock) {
+      // Sin destino que validar: solo se comprueba que el plato existe.
+    } else if (hasRecipe) {
       const recipe = await this.prisma.recipe.findFirst({
         where: { id: dto.recipeId as string, tenantId, deletedAt: null },
         select: { id: true },
@@ -294,6 +302,7 @@ export class CuinerMappingService {
       recipeId: dto.recipeId ?? null,
       productId: dto.productId ?? null,
       servingMeasureId: hasProduct ? (dto.servingMeasureId ?? null) : null,
+      noStock,
     };
     return { key, data };
   }

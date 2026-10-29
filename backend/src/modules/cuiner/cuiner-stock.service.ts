@@ -28,6 +28,8 @@ export interface SalesConsumptionPlan {
   pendingLines: number;
   appliedLineIds: string[];
   unmappedLineIds: string[];
+  /** Líneas de platos marcados «No descontar»: se cierran sin tocar stock. */
+  ignoredLineIds: string[];
   /** Formatos de compra a descontar por artículo (negativo = devolución). */
   consumption: {
     productId: string;
@@ -59,7 +61,7 @@ export class CuinerStockService {
 
   async preview(tenantId: string) {
     const plan = await this.buildPlan(tenantId);
-    const { appliedLineIds, unmappedLineIds, ...rest } = plan;
+    const { appliedLineIds, unmappedLineIds, ignoredLineIds, ...rest } = plan;
     return {
       ...rest,
       linesToApply: appliedLineIds.length,
@@ -80,8 +82,12 @@ export class CuinerStockService {
     // almacén), el mismo en el que suman los albaranes confirmados sin almacén.
     const warehouseId = config.warehouseId ?? null;
     const plan = await this.buildPlan(tenantId);
-    if (plan.appliedLineIds.length === 0 && plan.unmappedLineIds.length === 0) {
-      return { applied: 0, unmapped: 0, movements: 0 };
+    if (
+      plan.appliedLineIds.length === 0 &&
+      plan.unmappedLineIds.length === 0 &&
+      plan.ignoredLineIds.length === 0
+    ) {
+      return { applied: 0, unmapped: 0, ignored: 0, movements: 0 };
     }
 
     const products = await this.prisma.product.findMany({
@@ -117,6 +123,14 @@ export class CuinerStockService {
             status: CuinerSaleStatus.PENDIENTE,
           },
           data: { status: CuinerSaleStatus.SIN_MAPEO },
+        });
+        await tx.cuinerSaleLine.updateMany({
+          where: {
+            id: { in: plan.ignoredLineIds },
+            tenantId,
+            status: CuinerSaleStatus.PENDIENTE,
+          },
+          data: { status: CuinerSaleStatus.IGNORADA },
         });
 
         const movementIds: string[] = [];
@@ -174,6 +188,7 @@ export class CuinerStockService {
     return {
       applied: plan.appliedLineIds.length,
       unmapped: plan.unmappedLineIds.length,
+      ignored: plan.ignoredLineIds.length,
       movements,
     };
   }
@@ -223,6 +238,7 @@ export class CuinerStockService {
       pendingLines,
       appliedLineIds: [],
       unmappedLineIds: [],
+      ignoredLineIds: [],
       consumption: [],
       unmappedDishes: [],
       warnings: [],
@@ -271,6 +287,10 @@ export class CuinerStockService {
 
     for (const line of lines) {
       const map = mapByKey.get(`${line.tipo}-${line.producto}`);
+      if (map?.noStock) {
+        plan.ignoredLineIds.push(line.id);
+        continue;
+      }
       const recipe = map?.recipeId ? recipes.get(map.recipeId) : undefined;
       const product = map?.productId ? products.get(map.productId) : undefined;
       if (!recipe && !product) {
