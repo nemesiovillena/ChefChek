@@ -3964,6 +3964,9 @@ model CuinerDishMap {
   // Medida que consume cada venta del artículo (chupito 4 cl, caña 20 cl).
   // Sin medida: 1 unidad de referencia del artículo (botellín, lata).
   servingMeasureId String?
+  // Plato contenedor (precio 0, el tamaño va en un modificador): marcado a
+  // propósito para que sus ventas no descuenten nada ni salgan sin enlazar.
+  noStock   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

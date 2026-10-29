@@ -253,24 +253,27 @@ export class CuinerOverviewService {
         nombre: d.nombre,
         sold: soldByCode.get(d.producto) ?? 0,
         mapped: map
-          ? map.recipeId
-            ? {
-                kind: "recipe" as const,
-                id: map.recipeId,
-                name: recipeName.get(map.recipeId) ?? "(receta eliminada)",
-              }
-            : {
-                kind: "product" as const,
-                id: map.productId as string,
-                name:
-                  productById.get(map.productId as string)?.name ??
-                  "(artículo eliminado)",
-                referenceUnit:
-                  productById.get(map.productId as string)?.referenceUnit ?? "",
-                servingMeasure: map.servingMeasureId
-                  ? (measureById.get(map.servingMeasureId) ?? null)
-                  : null,
-              }
+          ? map.noStock
+            ? { kind: "none" as const }
+            : map.recipeId
+              ? {
+                  kind: "recipe" as const,
+                  id: map.recipeId,
+                  name: recipeName.get(map.recipeId) ?? "(receta eliminada)",
+                }
+              : {
+                  kind: "product" as const,
+                  id: map.productId as string,
+                  name:
+                    productById.get(map.productId as string)?.name ??
+                    "(artículo eliminado)",
+                  referenceUnit:
+                    productById.get(map.productId as string)?.referenceUnit ??
+                    "",
+                  servingMeasure: map.servingMeasureId
+                    ? (measureById.get(map.servingMeasureId) ?? null)
+                    : null,
+                }
           : null,
       };
     });

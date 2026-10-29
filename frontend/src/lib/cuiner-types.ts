@@ -65,6 +65,8 @@ export interface CuinerDishRow {
   sold: number;
   mapped:
     | { kind: 'recipe'; id: string; name: string }
+    /** Marcado «No descontar»: sus ventas no tocan el stock. */
+    | { kind: 'none' }
     | {
         kind: 'product';
         id: string;
