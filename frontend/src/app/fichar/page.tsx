@@ -24,7 +24,6 @@ import {
   STATUS_DOT,
   STATUS_LABELS,
   formatTime,
-  getDevicePosition,
   newPunchId,
 } from '@/lib/check-in-punch';
 import type { KioskEmployee, KioskState, PunchType } from '@/lib/check-in-types';
@@ -151,8 +150,7 @@ function PunchPad({
         await saveOffline();
         return;
       }
-      // El kiosco es fijo: no merece la pena esperar mucho por la ubicación.
-      const position = await getDevicePosition(3000);
+      // El kiosco es fijo dentro del local: no se pide la ubicación.
       const saved = await record.mutateAsync({
         id,
         type,
@@ -160,7 +158,6 @@ function PunchPad({
         pin: fullPin,
         locationId: centerId,
         deviceTime,
-        ...(position ?? {}),
       });
       onDone({ name: employee.name, type, time: formatTime(saved.occurredAt) });
     } catch (err) {

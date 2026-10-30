@@ -55,12 +55,22 @@ export function resolveGeofence(
   centers: GeofenceCenter[],
   point: GeoPoint | null,
   fallbackId: string | null,
+  checkLocation = true,
 ): GeofenceResult {
   const fallback =
     centers.find((c) => c.id === fallbackId) ?? centers[0] ?? null;
   if (!fallback) {
     return {
       center: null,
+      status: PunchGeofenceStatus.OFF,
+      distanceM: null,
+      blocked: false,
+    };
+  }
+
+  if (!checkLocation) {
+    return {
+      center: fallback,
       status: PunchGeofenceStatus.OFF,
       distanceM: null,
       blocked: false,
