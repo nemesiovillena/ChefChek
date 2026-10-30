@@ -427,4 +427,30 @@ describe("E2E - Check-In fichaje sin conexión", () => {
     expect(saved!.occurredAt.toISOString()).toBe(old);
     expect(saved!.needsReview).toBe(true);
   });
+
+  it("sin permiso personal, lo fichado sin conexión se guarda para revisar", async () => {
+    await prisma.employee.update({
+      where: { id: workerEmployeeId },
+      data: { allowPersonalPunch: false },
+    });
+    try {
+      const id = randomUUID();
+      const results = await sync(workerSession, [
+        { id, type: "IN", deviceTime: minutesAgo(2) },
+        { id: randomUUID(), type: "OUT", deviceTime: minutesAgo(1) },
+      ]);
+      for (const result of results) {
+        expect(result.status).toBe("FLAGGED");
+        expect(result.detail).toContain("SIN_PERMISO");
+      }
+      expect(
+        await prisma.timePunch.findUnique({ where: { id } }),
+      ).toMatchObject({ needsReview: true });
+    } finally {
+      await prisma.employee.update({
+        where: { id: workerEmployeeId },
+        data: { allowPersonalPunch: true },
+      });
+    }
+  });
 });

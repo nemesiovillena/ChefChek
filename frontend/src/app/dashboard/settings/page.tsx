@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api-client';
 import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2, MessageSquare } from 'lucide-react';
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { RoleAccessPanel } from './components/role-access-panel';
+import { PersonalPunchAccessPanel } from './components/personal-punch-access-panel';
 import { CheckInConfigSection } from './components/check-in-config-section';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
@@ -594,6 +595,11 @@ export default function SettingsPage() {
         {/* Permisos por rol (OWNER/ADMIN): qué apartados ven USER y VIEWER */}
         <div id="permisos" className="scroll-mt-40 mt-6">
           <RoleAccessPanel />
+        </div>
+
+        {/* Quién puede fichar desde su propia cuenta (el resto, solo en el kiosco) */}
+        <div id="fichar-cuenta" className="scroll-mt-40 mt-6">
+          <PersonalPunchAccessPanel />
         </div>
       </div>
     </div>
