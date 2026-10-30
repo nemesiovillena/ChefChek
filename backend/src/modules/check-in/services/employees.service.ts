@@ -10,7 +10,7 @@ import { CreateEmployeeDto, UpdateEmployeeDto } from "../dto/employee.dto";
 import { currentPositionTitles } from "../../users/current-position-titles";
 
 const EMPLOYEE_INCLUDE = {
-  user: { select: { id: true, name: true, email: true } },
+  user: { select: { id: true, name: true, email: true, role: true } },
   locations: { select: { locationId: true } },
 } satisfies Prisma.EmployeeInclude;
 
@@ -218,6 +218,7 @@ export class EmployeesService {
           hireDate: dto.hireDate,
           terminationDate: dto.terminationDate,
           isActive: dto.isActive,
+          allowPersonalPunch: dto.allowPersonalPunch,
         },
         include: EMPLOYEE_INCLUDE,
       });

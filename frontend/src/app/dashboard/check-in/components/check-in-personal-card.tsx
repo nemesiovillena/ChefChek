@@ -283,6 +283,16 @@ export function CheckInPersonalCard() {
       </div>
     );
   }
+  if (state.canPunch === false) {
+    return (
+      <div className={cardCls}>
+        <p className="font-medium">Ficha en la pantalla del local</p>
+        <p className="text-sm text-[var(--on-surface-variant)]">
+          Tu cuenta no tiene permiso para fichar desde aquí. Puedes consultar tu registro de jornada.
+        </p>
+      </div>
+    );
+  }
   if (state.pendingLegalTexts.length > 0) return <LegalAckGate texts={state.pendingLegalTexts} />;
   return <PunchPanel state={state} userId={user.id} />;
 }

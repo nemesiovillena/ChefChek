@@ -467,6 +467,46 @@ describe("E2E - Check-In fichaje", () => {
     });
   });
 
+  it("sin permiso personal no ficha desde su cuenta, pero sí en el kiosco", async () => {
+    const admin = api(adminSession);
+    const path = `/api/v1/check-in/employees/${personalEmployeeId}`;
+    expect(
+      (await admin.patch(path, { allowPersonalPunch: false })).status,
+    ).toBe(200);
+    try {
+      const me = body(await api(workerSession).get("/api/v1/check-in/me"));
+      expect(me).toMatchObject({ canPunch: false, allowedTypes: [] });
+
+      const denied = await punch(workerSession, {
+        type: "IN",
+        locationId: centerId,
+        ...INSIDE,
+      });
+      expect(denied.status).toBe(403);
+
+      const kiosk = body(
+        await api(kioskSession).get(
+          `/api/v1/check-in/kiosk?locationId=${centerId}`,
+        ),
+      );
+      const worker = kiosk.employees.find(
+        (e: any) => e.id === personalEmployeeId,
+      );
+      const ok = await punch(kioskSession, {
+        type: worker.allowedTypes[0],
+        employeeId: personalEmployeeId,
+        locationId: centerId,
+        pin: "TestPass123!",
+      });
+      expect(ok.status).toBe(201);
+    } finally {
+      await admin.patch(path, { allowPersonalPunch: true });
+    }
+    expect(
+      body(await api(workerSession).get("/api/v1/check-in/me")).canPunch,
+    ).toBe(true);
+  });
+
   it("la clave se bloquea tras tres fallos seguidos", async () => {
     const base = {
       type: "OUT",

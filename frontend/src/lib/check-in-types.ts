@@ -22,7 +22,9 @@ export interface Employee {
   /** Con cuenta de Equipo ficha con esa contraseña, no con PIN. */
   usesAccountPassword?: boolean;
   pinLocked: boolean;
-  user: { id: string; name: string; email: string } | null;
+  /** Puede fichar desde su propia cuenta; si no, solo en el kiosco. */
+  allowPersonalPunch: boolean;
+  user: { id: string; name: string; email: string; role?: string } | null;
 }
 
 export interface EmployeeInput {
@@ -41,6 +43,7 @@ export interface EmployeeInput {
   hireDate?: string | null;
   terminationDate?: string | null;
   isActive?: boolean;
+  allowPersonalPunch?: boolean;
 }
 
 export interface LinkableUser {
@@ -204,6 +207,8 @@ export interface OwnCheckInState {
   readiness: CheckInReadiness;
   isSharedAccount: boolean;
   employee: { id: string; name: string; isActive: boolean } | null;
+  /** false si gerencia no le deja fichar desde su cuenta (solo en el kiosco). Falta en copias viejas. */
+  canPunch?: boolean;
   status: WorkStatus | null;
   since?: string | null;
   allowedTypes: PunchType[];
