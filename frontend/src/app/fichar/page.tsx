@@ -568,7 +568,14 @@ function PersonalScreen({ canOpenKiosk, onOpenKiosk }: { canOpenKiosk: boolean; 
 
 function FicharScreen() {
   const { user } = useAuth();
-  const [kioskMode, setKioskMode] = useState(false);
+  // Gerencia puede entrar directa al kiosco con /fichar?modo=kiosco (para ver
+  // quién está dentro). Solo se monta en cliente, tras ProtectedRoute.
+  const [kioskMode, setKioskMode] = useState(
+    () =>
+      canManageCheckIn(user) &&
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('modo') === 'kiosco',
+  );
   // Una cuenta compartida siempre es kiosco; una personal ficha por sí misma.
   if (user?.isSharedAccount || kioskMode) return <Kiosk />;
   return <PersonalScreen canOpenKiosk={canManageCheckIn(user)} onOpenKiosk={() => setKioskMode(true)} />;

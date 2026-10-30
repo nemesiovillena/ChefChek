@@ -41,13 +41,17 @@ export interface PunchActor {
 const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
   `${employee.firstName} ${employee.lastName}`.trim();
 
+const PERSONAL_PUNCH_DENIED =
+  "Tu cuenta no tiene permiso para fichar. Ficha en la pantalla del local.";
+
 /** Motivos por los que un fichaje queda marcado para que gerencia lo revise. */
 export type ReviewReason =
   | "PIN"
   | "SECUENCIA"
   | "FUERA_DE_ZONA"
   | "RELOJ"
-  | "TARDIO";
+  | "TARDIO"
+  | "SIN_PERMISO";
 
 export type SyncStatus = "ACCEPTED" | "DUPLICATE" | "FLAGGED" | "REJECTED";
 
@@ -164,6 +168,10 @@ export class PunchService {
       if (!allowBreaks) {
         throw new BadRequestException("Las pausas no están activadas.");
       }
+    }
+
+    if (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) {
+      throw new ForbiddenException(PERSONAL_PUNCH_DENIED);
     }
 
     let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
@@ -298,6 +306,11 @@ export class PunchService {
     }
 
     const review: ReviewReason[] = [];
+    // Hecho sin conexión cuando ya no tenía permiso (o justo antes de
+    // perderlo): se guarda igualmente para no perder jornada, y gerencia decide.
+    if (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) {
+      review.push("SIN_PERMISO");
+    }
     let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
     if (source === PunchSource.KIOSK) {
       pinStatus = (await this.verifyOfflinePin(tenantId, employee.id, item))
@@ -529,6 +542,7 @@ export class PunchService {
         readiness,
         isSharedAccount: actor.isSharedAccount,
         employee: null,
+        canPunch: false,
         status: null,
         allowedTypes: [],
         allowBreaks,
@@ -558,9 +572,13 @@ export class PunchService {
         name: fullName(employee),
         isActive: employee.isActive,
       },
+      canPunch: employee.allowPersonalPunch,
       status,
       since: last?.occurredAt ?? null,
-      allowedTypes: allowedNextTypes(status, allowBreaks),
+      // Sin permiso no se ofrece ningún botón; el estado y el registro siguen visibles.
+      allowedTypes: employee.allowPersonalPunch
+        ? allowedNextTypes(status, allowBreaks)
+        : [],
       allowBreaks,
       display,
       recentPunches: recentPunches.map(toPunchView),

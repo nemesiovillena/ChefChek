@@ -57,6 +57,9 @@ export default function CheckInPage() {
         </Link>
         {canManage && (
           <>
+            <Link href="/fichar?modo=kiosco" className={secondaryBtnCls}>
+              <MonitorSmartphone className="h-4 w-4" /> Kiosco
+            </Link>
             <Link
               href="/dashboard/check-in/informes"
               className={secondaryBtnCls}
