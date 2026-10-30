@@ -41,6 +41,8 @@ export interface PunchActor {
 const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
   `${employee.firstName} ${employee.lastName}`.trim();
 
+const MAX_USABLE_ACCURACY_M = 500;
+
 const PERSONAL_PUNCH_DENIED =
   "Tu cuenta no tiene permiso para fichar. Ficha en la pantalla del local.";
 
@@ -750,7 +752,10 @@ export class PunchService {
     tenantId: string,
     employee: Employee,
     source: PunchSource,
-    dto: Pick<CreatePunchDto, "latitude" | "longitude" | "locationId">,
+    dto: Pick<
+      CreatePunchDto,
+      "latitude" | "longitude" | "accuracyM" | "locationId"
+    >,
   ) {
     const assigned = await this.prisma.location.findMany({
       where: {
@@ -767,11 +772,6 @@ export class PunchService {
         geofenceMode: true,
       },
     });
-    const point: GeoPoint | null =
-      dto.latitude !== undefined && dto.longitude !== undefined
-        ? { latitude: dto.latitude, longitude: dto.longitude }
-        : null;
-
     if (source === PunchSource.KIOSK) {
       const center = assigned.find((c) => c.id === dto.locationId);
       if (!center) {
@@ -779,8 +779,20 @@ export class PunchService {
           "Este empleado no está asignado a este centro.",
         );
       }
-      return resolveGeofence([center], point, center.id);
+      // El kiosco es un aparato fijo dentro del local: no se comprueba la
+      // ubicación. Un PC sin GPS la estima por la red con kilómetros de error
+      // y marcaba como «fuera de zona» a todo el que fichaba en él.
+      return resolveGeofence([center], null, center.id, false);
     }
+
+    // Una ubicación con un error mayor que este no dice si está dentro o
+    // fuera: cuenta como «no disponible», nunca como fuera de zona.
+    const precise =
+      dto.accuracyM === undefined || dto.accuracyM <= MAX_USABLE_ACCURACY_M;
+    const point: GeoPoint | null =
+      precise && dto.latitude !== undefined && dto.longitude !== undefined
+        ? { latitude: dto.latitude, longitude: dto.longitude }
+        : null;
     return resolveGeofence(assigned, point, employee.defaultLocationId);
   }
 }

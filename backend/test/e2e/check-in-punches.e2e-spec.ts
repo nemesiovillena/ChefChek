@@ -326,6 +326,17 @@ describe("E2E - Check-In fichaje", () => {
     expect(noGps.status).toBe(201);
     expect(body(noGps).geofenceStatus).toBe("UNAVAILABLE");
 
+    // Una ubicación con kilómetros de error (PC sin GPS) tampoco bloquea ni
+    // cuenta como fuera de zona.
+    const vague = await punch(workerSession, {
+      type: "OUT",
+      ...OUTSIDE,
+      accuracyM: 50000,
+    });
+    expect(vague.status).toBe(201);
+    expect(body(vague).geofenceStatus).toBe("UNAVAILABLE");
+    await punch(workerSession, { type: "IN", ...INSIDE });
+
     await prisma.location.update({
       where: { id: centerId },
       data: { geofenceMode: "WARN" },
@@ -404,13 +415,20 @@ describe("E2E - Check-In fichaje", () => {
       await prisma.timePunch.count({ where: { employeeId: kioskEmployeeId } }),
     ).toBe(0);
 
-    const ok = await punch(kioskSession, { ...base, pin: "4821" });
+    // El kiosco está en el local: aunque el aparato mande una ubicación
+    // lejana, no se comprueba.
+    const ok = await punch(kioskSession, {
+      ...base,
+      pin: "4821",
+      ...OUTSIDE,
+    });
     expect(ok.status).toBe(201);
     expect(body(ok)).toMatchObject({
       employeeId: kioskEmployeeId,
       source: "KIOSK",
       pinStatus: "VERIFIED",
       locationId: centerId,
+      geofenceStatus: "OFF",
     });
   });
 
