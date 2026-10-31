@@ -268,6 +268,15 @@ export default function AlbaranLineasPage() {
   /** Whether a line can be edited (only PENDIENTE lines) */
   const isEditable = (line: AlbaranLine) => line.lineStatus === 'PENDIENTE';
 
+  /** Cantidad y unidad: también en líneas ya ✓ mientras el albarán no esté
+   *  confirmado. Confirmar la línea solo marca el vínculo; stock, lote y coste
+   *  se asientan al confirmar el albarán, así que corregir el peso o las
+   *  unidades leídas (manuscritos) antes de eso no deja nada descuadrado. */
+  const canEditQuantity = (line: AlbaranLine) =>
+    line.lineStatus !== 'RECHAZADO' &&
+    albaran?.status !== 'CONFIRMADO' &&
+    albaran?.status !== 'ARCHIVADO';
+
   /** Corrección de precio: solo en albaranes confirmados, líneas confirmadas
    *  con artículo vinculado (sin artículo no hay coste que re-sincronizar). */
   const canCorrectPrice = (line: AlbaranLine) =>
@@ -698,7 +707,7 @@ export default function AlbaranLineasPage() {
                           )}
                         </TableCell>
                         <TableCell className={MOBILE_CELL} data-label="Cantidad">
-                          {isEditable(line) ? (
+                          {canEditQuantity(line) ? (
                             <div className="flex items-center gap-1">
                               <EditableLineCell
                                 albaranId={id}
