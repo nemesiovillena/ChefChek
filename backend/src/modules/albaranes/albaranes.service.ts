@@ -20,6 +20,7 @@ import {
   UpdateAlbaranLineDto,
   CorrectAlbaranLinePriceDto,
   CorrectAlbaranLineVatDto,
+  CorrectAlbaranLineQuantityDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 import {
@@ -507,73 +508,231 @@ export class AlbaranesService {
         });
       }
 
-      // Devolución/abono (coste ≤ 0): no es un precio de compra. Solo se
-      // corrige el importe de la línea; oferta, coste del artículo,
-      // escandallos, histórico y pedido conservan el último precio real.
-      if (effectivePrice <= 0) {
-        return updatedLine;
-      }
+      await this.resyncCorrectedLineCost(tx, {
+        albaranId,
+        supplierId,
+        purchaseOrderId: albaran.purchaseOrderId,
+        productId,
+        effectivePrice,
+        unitPrice,
+        tenantId,
+      });
 
-      if (supplierId) {
-        // Reusa el pipeline de la confirmación: upsert de oferta + preferencia
-        // + sync del artículo + fila de histórico con traza al albarán.
-        await this.productSupplierOffersService.upsertOffer(
-          productId,
-          supplierId,
-          tenantId,
-          { purchasePrice: effectivePrice, netPrice: effectivePrice },
-          tx,
-          albaranId,
-          true,
-        );
-      } else {
-        // Albarán sin proveedor (raro): fallback plano, igual que en la
-        // confirmación — no existe oferta donde escribir.
-        const product = await tx.product.findFirst({
-          where: { id: productId, tenantId },
-        });
-        if (!product) {
-          throw new NotFoundException("Artículo no encontrado");
+      return updatedLine;
+    });
+  }
+
+  /**
+   * Corrige la cantidad de una línea de un albarán YA confirmado (peso o
+   * unidades mal leídos, típico en manuscritos). La confirmación dio entrada a
+   * la cantidad vieja: se ajusta la diferencia en stock y lote, y el importe de
+   * la línea. El coste solo cambia si se aplica el descuento al coste (neto del
+   * papel / cantidad). La cantidad recibida del pedido vinculado no se toca:
+   * la conciliación la convirtió a la unidad del pedido al confirmar.
+   */
+  async correctConfirmedLineQuantity(
+    albaranId: string,
+    lineId: string,
+    dto: CorrectAlbaranLineQuantityDto,
+    tenantId: string,
+  ) {
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    if (albaran.status !== AlbaranStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se pueden corregir cantidades de albaranes confirmados",
+      );
+    }
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+    if (line.lineStatus !== LineStatus.CONFIRMADO) {
+      throw new BadRequestException(
+        "Solo se pueden corregir líneas confirmadas",
+      );
+    }
+
+    // Negativa se admite (envases devueltos); 0 no: eso es rechazar la línea.
+    const quantity = parseFloat(dto.quantity);
+    if (!Number.isFinite(quantity) || quantity === 0) {
+      throw new BadRequestException("Cantidad no válida");
+    }
+
+    const cuinerExport = await this.prisma.cuinerAlbaranExport.findUnique({
+      where: { albaranId },
+      select: { status: true },
+    });
+    if (cuinerExport?.status === CuinerExportStatus.ENVIADO) {
+      throw new BadRequestException(
+        "Este albarán ya está en Cuiner: corrige la cantidad allí",
+      );
+    }
+    if (cuinerExport?.status === CuinerExportStatus.PENDIENTE) {
+      throw new BadRequestException(
+        "Este albarán está en cola de envío a Cuiner: espera a que termine antes de corregir la cantidad",
+      );
+    }
+
+    const oldQuantity = Number(line.quantity);
+    if (quantity === oldQuantity) {
+      return line;
+    }
+    const unitPrice = Number(line.unitPrice);
+    const totalPrice =
+      line.totalPrice !== null ? Number(line.totalPrice) : null;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updatedLine = await tx.albaranLine.update({
+        where: { id: lineId },
+        data: { quantity, lineAmount: quantity * unitPrice },
+      });
+
+      // Totales: mismo criterio que la corrección de precio. Con total del
+      // papel mandan los del papel; si la línea trae su neto del papel, ese
+      // neto no cambia con la cantidad y la base tampoco.
+      if (!hasPaperTotal(albaran)) {
+        const round2 = (n: number) => Math.round(n * 100) / 100;
+        const grossDelta = round2((quantity - oldQuantity) * unitPrice);
+        const baseDelta = totalPrice !== null ? 0 : grossDelta;
+        const vatDelta = round2(baseDelta * (Number(line.vatPercent) / 100));
+        if (grossDelta !== 0 || baseDelta !== 0) {
+          await tx.albaran.update({
+            where: { id: albaranId },
+            data: {
+              grossAmount: { increment: grossDelta },
+              base: { increment: baseDelta },
+              vatTotal: { increment: vatDelta },
+              total: { increment: round2(baseDelta + vatDelta) },
+            },
+          });
         }
-        const currentPrice = Number(product.purchasePrice);
-        await tx.product.update({
-          where: { id: product.id },
-          data: {
-            previousPurchasePrice: currentPrice,
-            purchasePrice: effectivePrice,
-            netPrice: effectivePrice,
-          },
-        });
-        await tx.productPriceHistory.create({
-          data: {
-            tenantId,
-            productId: product.id,
-            supplierId: null,
-            albaranId,
-            previousPrice: currentPrice,
-            newPrice: effectivePrice,
-            previousUnitSize: product.unitSize,
-            newUnitSize: product.unitSize,
-          },
-        });
       }
 
-      // Pedido vinculado: re-vuelca el precio recibido en su formato de
-      // compra (misma conversión que la conciliación: unitPrice × uds/formato).
-      if (albaran.purchaseOrderId) {
-        const product = await tx.product.findFirst({
-          where: { id: productId, tenantId },
-          select: { unitsPerFormat: true },
-        });
-        const unitsPerFormat = Math.max(product?.unitsPerFormat ?? 1, 1);
-        await tx.purchaseOrderLine.updateMany({
-          where: { orderId: albaran.purchaseOrderId, productId },
-          data: { receivedPrice: unitPrice * unitsPerFormat },
+      await this.stockService.applyQuantityCorrection(
+        tx,
+        albaran,
+        line,
+        oldQuantity,
+        quantity,
+        tenantId,
+      );
+
+      // Coste por neto del papel: el neto es fijo, así que el €/unidad cambia.
+      if (
+        line.matchedProductId &&
+        albaran.applyDiscountToCost &&
+        totalPrice !== null &&
+        quantity > 0
+      ) {
+        await this.resyncCorrectedLineCost(tx, {
+          albaranId,
+          supplierId: albaran.supplierId,
+          purchaseOrderId: albaran.purchaseOrderId,
+          productId: line.matchedProductId,
+          effectivePrice: totalPrice / quantity,
+          unitPrice,
+          tenantId,
         });
       }
 
       return updatedLine;
     });
+  }
+
+  /**
+   * Re-sincroniza lo que la confirmación asentó con un coste ya corregido:
+   * oferta del proveedor (preferente), coste del artículo, histórico y precio
+   * recibido del pedido vinculado. Compartido por las correcciones de precio
+   * y de cantidad.
+   */
+  private async resyncCorrectedLineCost(
+    tx: any,
+    params: {
+      albaranId: string;
+      supplierId: string | null;
+      purchaseOrderId: string | null;
+      productId: string;
+      effectivePrice: number;
+      unitPrice: number;
+      tenantId: string;
+    },
+  ): Promise<void> {
+    const {
+      albaranId,
+      supplierId,
+      purchaseOrderId,
+      productId,
+      effectivePrice,
+      unitPrice,
+      tenantId,
+    } = params;
+
+    // Devolución/abono (coste ≤ 0): no es un precio de compra. Solo se
+    // corrige el importe de la línea; oferta, coste del artículo,
+    // escandallos, histórico y pedido conservan el último precio real.
+    if (effectivePrice <= 0) {
+      return;
+    }
+
+    if (supplierId) {
+      // Reusa el pipeline de la confirmación: upsert de oferta + preferencia
+      // + sync del artículo + fila de histórico con traza al albarán.
+      await this.productSupplierOffersService.upsertOffer(
+        productId,
+        supplierId,
+        tenantId,
+        { purchasePrice: effectivePrice, netPrice: effectivePrice },
+        tx,
+        albaranId,
+        true,
+      );
+    } else {
+      // Albarán sin proveedor (raro): fallback plano, igual que en la
+      // confirmación — no existe oferta donde escribir.
+      const product = await tx.product.findFirst({
+        where: { id: productId, tenantId },
+      });
+      if (!product) {
+        throw new NotFoundException("Artículo no encontrado");
+      }
+      const currentPrice = Number(product.purchasePrice);
+      await tx.product.update({
+        where: { id: product.id },
+        data: {
+          previousPurchasePrice: currentPrice,
+          purchasePrice: effectivePrice,
+          netPrice: effectivePrice,
+        },
+      });
+      await tx.productPriceHistory.create({
+        data: {
+          tenantId,
+          productId: product.id,
+          supplierId: null,
+          albaranId,
+          previousPrice: currentPrice,
+          newPrice: effectivePrice,
+          previousUnitSize: product.unitSize,
+          newUnitSize: product.unitSize,
+        },
+      });
+    }
+
+    // Pedido vinculado: re-vuelca el precio recibido en su formato de
+    // compra (misma conversión que la conciliación: unitPrice × uds/formato).
+    if (purchaseOrderId) {
+      const product = await tx.product.findFirst({
+        where: { id: productId, tenantId },
+        select: { unitsPerFormat: true },
+      });
+      const unitsPerFormat = Math.max(product?.unitsPerFormat ?? 1, 1);
+      await tx.purchaseOrderLine.updateMany({
+        where: { orderId: purchaseOrderId, productId },
+        data: { receivedPrice: unitPrice * unitsPerFormat },
+      });
+    }
   }
 
   /**

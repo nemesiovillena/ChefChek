@@ -138,6 +138,15 @@ export class CorrectAlbaranLinePriceDto {
   totalPrice?: string | null;
 }
 
+export class CorrectAlbaranLineQuantityDto {
+  @ApiProperty({
+    description: "Cantidad corregida de la línea (peso o unidades)",
+  })
+  @Transform(numberAsString)
+  @IsString()
+  quantity: string;
+}
+
 export class CorrectAlbaranLineVatDto {
   @ApiProperty({ description: "Tipo de IVA corregido de la línea (%)" })
   @Transform(numberAsString)
