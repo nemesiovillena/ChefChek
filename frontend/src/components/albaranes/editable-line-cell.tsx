@@ -111,7 +111,11 @@ export function EditableLineCell({
             {suffix && <span className="text-gray-400">{suffix}</span>}
             <Pencil
               className={`h-3 w-3 transition-opacity group-hover:opacity-100 ${
-                variant === 'correction' ? 'text-amber-500 opacity-70' : 'text-gray-300 opacity-0'
+                variant === 'correction'
+                  ? 'text-amber-500 opacity-70'
+                  : // En táctil (iPad) no hay hover: el lápiz debe verse
+                    // siempre o parece que el valor no se puede editar.
+                    'text-gray-300 opacity-0 [@media(hover:none)]:text-gray-400 [@media(hover:none)]:opacity-100'
               }`}
             />
           </>
