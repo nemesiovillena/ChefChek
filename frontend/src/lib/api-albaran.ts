@@ -285,6 +285,23 @@ export async function correctLineVat(
   return response.json();
 }
 
+export async function correctLineQuantity(
+  albaranId: string,
+  lineId: string,
+  quantity: number
+): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/correct-quantity`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ quantity }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error correcting quantity' }));
+    throw new Error(errorMessage(error, 'Error al corregir la cantidad'));
+  }
+  return response.json();
+}
+
 // Match line to product
 export async function matchLine(albaranId: string, lineId: string, productId: string): Promise<AlbaranLine> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/match`, {

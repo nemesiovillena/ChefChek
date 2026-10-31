@@ -45,6 +45,7 @@ describe("AlbaranesService", () => {
   };
   const stockService = {
     processAddedLine: jest.fn().mockResolvedValue(undefined),
+    applyQuantityCorrection: jest.fn().mockResolvedValue(undefined),
   };
   const supplierMatching = {
     matchSupplier: jest.fn(),
@@ -964,6 +965,162 @@ describe("AlbaranesService", () => {
             newPrice: 8.9,
           }),
         }),
+      );
+    });
+  });
+
+  describe("correctConfirmedLineQuantity", () => {
+    const confirmedLine = {
+      id: "l1",
+      lineStatus: "CONFIRMADO",
+      matchedProductId: "p1",
+      quantity: 11.2,
+      unit: "kg",
+      unitPrice: 1.6,
+      vatPercent: 4,
+      totalPrice: null,
+    };
+
+    beforeEach(() => {
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+      );
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue(null);
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+    });
+
+    it("rechaza albaranes que no están confirmados", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.REVISADO, lines: [confirmedLine] }),
+      );
+
+      await expect(
+        service.correctConfirmedLineQuantity(
+          "alb-1",
+          "l1",
+          { quantity: "12" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza cantidad 0", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO, lines: [confirmedLine] }),
+      );
+
+      await expect(
+        service.correctConfirmedLineQuantity(
+          "alb-1",
+          "l1",
+          { quantity: "0" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("rechaza si el albarán ya está en Cuiner", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO, lines: [confirmedLine] }),
+      );
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue({
+        status: "ENVIADO",
+      });
+
+      await expect(
+        service.correctConfirmedLineQuantity(
+          "alb-1",
+          "l1",
+          { quantity: "12" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("actualiza línea, ajusta stock por la diferencia y no toca el coste", async () => {
+      const alb = albaran({
+        status: AlbaranStatus.CONFIRMADO,
+        supplierId: "s1",
+        ocrRawData: { total_amount: 176.7 },
+        lines: [confirmedLine],
+      });
+      prisma.albaran.findFirst.mockResolvedValue(alb);
+
+      await service.correctConfirmedLineQuantity(
+        "alb-1",
+        "l1",
+        { quantity: "12.5" } as any,
+        "t1",
+      );
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: { quantity: 12.5, lineAmount: 12.5 * 1.6 },
+      });
+      expect(stockService.applyQuantityCorrection).toHaveBeenCalledWith(
+        prisma,
+        alb,
+        confirmedLine,
+        11.2,
+        12.5,
+        "t1",
+      );
+      // Total del papel: los totales del albarán no se mueven
+      expect(prisma.albaran.update).not.toHaveBeenCalled();
+      // Sin descuento al coste: oferta y coste intactos
+      expect(offersService.upsertOffer).not.toHaveBeenCalled();
+    });
+
+    it("ajusta totales del albarán manual por la diferencia", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO, lines: [confirmedLine] }),
+      );
+
+      await service.correctConfirmedLineQuantity(
+        "alb-1",
+        "l1",
+        { quantity: "12.2" } as any,
+        "t1",
+      );
+
+      // +1 kg × 1,60 € = +1,60 base; IVA 4 % = +0,06
+      expect(prisma.albaran.update).toHaveBeenCalledWith({
+        where: { id: "alb-1" },
+        data: {
+          grossAmount: { increment: 1.6 },
+          base: { increment: 1.6 },
+          vatTotal: { increment: 0.06 },
+          total: { increment: 1.66 },
+        },
+      });
+    });
+
+    it("con descuento al coste recalcula el coste con el neto del papel", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          supplierId: "s1",
+          applyDiscountToCost: true,
+          lines: [{ ...confirmedLine, quantity: 10, totalPrice: 15 }],
+        }),
+      );
+      offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
+
+      await service.correctConfirmedLineQuantity(
+        "alb-1",
+        "l1",
+        { quantity: "12" } as any,
+        "t1",
+      );
+
+      expect(offersService.upsertOffer).toHaveBeenCalledWith(
+        "p1",
+        "s1",
+        "t1",
+        { purchasePrice: 1.25, netPrice: 1.25 },
+        expect.anything(),
+        "alb-1",
+        true,
       );
     });
   });

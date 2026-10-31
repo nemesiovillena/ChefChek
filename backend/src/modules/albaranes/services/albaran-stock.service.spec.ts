@@ -1327,4 +1327,68 @@ describe("AlbaranStockService", () => {
       });
     });
   });
+
+  describe("applyQuantityCorrection", () => {
+    const makeTx = () => ({
+      product: { findFirst: jest.fn() },
+      lot: { findUnique: jest.fn(), update: jest.fn() },
+      stockMovement: { create: jest.fn() },
+      stock: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
+    });
+    const alb = {
+      id: mockAlbaranId,
+      internalNumber: "ALB-0256",
+      warehouseId: mockWarehouseId,
+    };
+    const line = { id: "line-1", matchedProductId: mockProductId, unit: "kg" };
+
+    it("apunta solo la diferencia en movimiento, stock y lote", async () => {
+      const tx = makeTx();
+      tx.product.findFirst.mockResolvedValue({
+        id: mockProductId,
+        tracksInventory: true,
+      });
+      tx.lot.findUnique.mockResolvedValue({ id: "lot-1" });
+      tx.stock.findFirst.mockResolvedValue({ id: "stock-1" });
+
+      await service.applyQuantityCorrection(
+        tx,
+        alb,
+        line,
+        11.2,
+        10,
+        mockTenantId,
+      );
+
+      expect(tx.lot.update).toHaveBeenCalledWith({
+        where: { id: "lot-1" },
+        data: { quantity: 10 },
+      });
+      const movement = tx.stockMovement.create.mock.calls[0][0].data;
+      expect(movement).toMatchObject({
+        productId: mockProductId,
+        lotId: "lot-1",
+        type: "ADJUSTMENT",
+        unit: "kilo",
+      });
+      expect(movement.quantity).toBeCloseTo(-1.2);
+      expect(
+        tx.stock.update.mock.calls[0][0].data.quantity.increment,
+      ).toBeCloseTo(-1.2);
+    });
+
+    it("no toca stock en artículos sin inventario", async () => {
+      const tx = makeTx();
+      tx.product.findFirst.mockResolvedValue({
+        id: mockProductId,
+        tracksInventory: false,
+      });
+
+      await service.applyQuantityCorrection(tx, alb, line, 1, 2, mockTenantId);
+
+      expect(tx.stockMovement.create).not.toHaveBeenCalled();
+      expect(tx.stock.update).not.toHaveBeenCalled();
+      expect(tx.stock.create).not.toHaveBeenCalled();
+    });
+  });
 });

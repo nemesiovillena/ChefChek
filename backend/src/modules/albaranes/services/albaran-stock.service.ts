@@ -123,6 +123,77 @@ export class AlbaranStockService {
   }
 
   /**
+   * Corrección de cantidad en una línea de un albarán YA confirmado (peso o
+   * unidades mal leídos): la confirmación dio entrada a la cantidad vieja, así
+   * que se apunta solo la diferencia — movimiento ADJUSTMENT con signo, stock
+   * del almacén y cantidad del lote de esa línea. Artículos sin inventario
+   * (portes, tasas) no tienen nada que ajustar.
+   */
+  async applyQuantityCorrection(
+    tx: any,
+    albaran: { id: string; internalNumber: string; warehouseId: string | null },
+    line: { id: string; matchedProductId: string | null; unit: string | null },
+    oldQuantity: number,
+    newQuantity: number,
+    tenantId: string,
+  ): Promise<void> {
+    const delta = newQuantity - oldQuantity;
+    if (delta === 0 || !line.matchedProductId) {
+      return;
+    }
+    const product = await tx.product.findFirst({
+      where: { id: line.matchedProductId, tenantId },
+      select: { id: true, tracksInventory: true },
+    });
+    if (!product?.tracksInventory) {
+      return;
+    }
+
+    const lot = await tx.lot.findUnique({ where: { albaranLineId: line.id } });
+    if (lot) {
+      await tx.lot.update({
+        where: { id: lot.id },
+        data: { quantity: newQuantity },
+      });
+    }
+
+    await tx.stockMovement.create({
+      data: {
+        productId: product.id,
+        warehouseId: albaran.warehouseId,
+        lotId: lot?.id,
+        type: "ADJUSTMENT",
+        quantity: delta,
+        unit: normalizeUnit(line.unit || "kilo"),
+        reason: `Corrección de cantidad en albarán ${albaran.internalNumber} (${albaran.id}): ${oldQuantity} → ${newQuantity}`,
+      },
+    });
+
+    const existingStock = await tx.stock.findFirst({
+      where: {
+        productId: product.id,
+        warehouseId: albaran.warehouseId || null,
+        tenantId,
+      },
+    });
+    if (existingStock) {
+      await tx.stock.update({
+        where: { id: existingStock.id },
+        data: { quantity: { increment: delta } },
+      });
+    } else {
+      await tx.stock.create({
+        data: {
+          tenantId,
+          productId: product.id,
+          warehouseId: albaran.warehouseId,
+          quantity: delta,
+        },
+      });
+    }
+  }
+
+  /**
    * Efectos de una línea confirmada sobre artículo, precios y stock. Es el
    * cuerpo de cada iteración de processStockOnConfirmation, extraído para
    * reutilizarlo al añadir líneas a un albarán ya confirmado.

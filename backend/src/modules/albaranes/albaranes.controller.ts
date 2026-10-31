@@ -43,6 +43,7 @@ import {
   MatchLineDto,
   CorrectAlbaranLinePriceDto,
   CorrectAlbaranLineVatDto,
+  CorrectAlbaranLineQuantityDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
 
@@ -269,6 +270,30 @@ export class AlbaranesController {
   ) {
     const tenantId = req.user?.tenantId;
     return this.albaranesService.correctConfirmedLinePrice(
+      id,
+      lineId,
+      dto,
+      tenantId,
+    );
+  }
+
+  @Put(":id/lines/:lineId/correct-quantity")
+  @ApiOperation({
+    summary:
+      "Corregir la cantidad de una línea confirmada y ajustar stock y lote",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Cantidad corregida; stock, lote e importe ajustados",
+  })
+  async correctLineQuantity(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: CorrectAlbaranLineQuantityDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.correctConfirmedLineQuantity(
       id,
       lineId,
       dto,
