@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion, correctLineVat } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion, correctLineVat, correctLineQuantity } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -290,7 +290,13 @@ export default function AlbaranLineasPage() {
   const canCorrectVat = (line: AlbaranLine) =>
     albaran?.status === 'CONFIRMADO' && line.lineStatus !== 'RECHAZADO';
 
-  const handleVatCorrected = () => {
+  /** Corrección de cantidad: en albaranes confirmados, líneas confirmadas
+   *  (son las que dieron entrada a stock). Ajusta stock y lote por la
+   *  diferencia en el servidor. */
+  const canCorrectQuantity = (line: AlbaranLine) =>
+    albaran?.status === 'CONFIRMADO' && line.lineStatus === 'CONFIRMADO';
+
+  const handleLineCorrected = () => {
     void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
     // La tarjeta de envío a Cuiner recalcula el total con el IVA nuevo.
     void queryClient.invalidateQueries({ queryKey: ['cuiner', 'albaran', id] });
@@ -729,6 +735,28 @@ export default function AlbaranLineasPage() {
                                 onSave={refetch}
                               />
                             </div>
+                          ) : canCorrectQuantity(line) ? (
+                            <div className="flex items-center gap-1">
+                              <EditableLineCell
+                                albaranId={id}
+                                lineId={line.id}
+                                field="quantity"
+                                value={line.quantity}
+                                type="number"
+                                className="font-medium"
+                                variant="correction"
+                                onSubmit={(v) => correctLineQuantity(id, line.id, Number(v))}
+                                onSave={handleLineCorrected}
+                                onError={(err) =>
+                                  addNotification({
+                                    type: 'error',
+                                    title: 'No se pudo corregir la cantidad',
+                                    message: err instanceof Error ? err.message : 'Error al corregir la cantidad',
+                                  })
+                                }
+                              />
+                              <span className="text-gray-500">{line.unit}</span>
+                            </div>
                           ) : (
                             <>
                               <span className="font-medium">{line.quantity}</span>
@@ -795,7 +823,7 @@ export default function AlbaranLineasPage() {
                               suffix="%"
                               variant="correction"
                               onSubmit={(v) => correctLineVat(id, line.id, Number(v))}
-                              onSave={handleVatCorrected}
+                              onSave={handleLineCorrected}
                               onError={(err) =>
                                 addNotification({
                                   type: 'error',
