@@ -60,7 +60,7 @@ export default function DashboardPage() {
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
   const { isEnabled, modules } = useModules();
-  const { canSee } = useSectionAccess();
+  const { canSee, canEnter } = useSectionAccess();
   // Cards de módulo: solo cuando ya se sabe que el módulo está activo (isEnabled
   // devuelve true mientras carga, pensado para el menú) — si no, la card se
   // pinta un instante y su consulta da 403 en tenants sin ese módulo.
@@ -71,6 +71,8 @@ export default function DashboardPage() {
   const canSeePrepTasks = canSeeProduction || canSee('production.tasks');
   const canSeeRecipes = canSee('recipes');
   const canSeeCompras = canSee('compras');
+  // Pedidos pendientes y acceso a Compras: también con el permiso de pedidos.
+  const canEnterCompras = canEnter('compras');
   const canSeeCosts = canSee('recipes.cost');
   const canSeeEtiquetado = moduleOn('etiquetado') && canSee('etiquetado');
   const canLabel = moduleOn('etiquetado') && canSee('etiquetado.emit');
@@ -612,13 +614,13 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-gutter mt-stack-xl xl:hidden">
         {canSeePrepTasks && renderPrepTasksBoard(false)}
         {salaNotificacionesEnabled && renderSalaTasksBoard(false)}
-        {canSeeCompras && pedidosPendientesCard}
+        {canEnterCompras && pedidosPendientesCard}
         {canSeeAlerts && renderNotificacionesCard(false)}
         {canSeeEtiquetado && caducidadesAlertCard}
         {canSeeSicted && <SictedDashboardCard />}
         {canSeeRecipes && recetasCard}
         {canSeeEtiquetado && etiquetadoCard}
-        {canSeeCompras && comprasCard}
+        {canEnterCompras && comprasCard}
       </div>
 
       {/* Bento Grid Content (solo xl / escritorio ≥1280px). grid-rows minmax(0,1fr): si hay
@@ -635,7 +637,7 @@ export default function DashboardPage() {
       <div className="hidden xl:grid xl:grid-cols-12 gap-gutter mt-stack-md xl:flex-1 xl:grid-rows-[minmax(0,1fr)]">
         {/* Key Indicators Column */}
         <div className="md:col-span-4 md:flex md:flex-col md:gap-gutter">
-          {canSeeCompras && pedidosPendientesCard}
+          {canEnterCompras && pedidosPendientesCard}
           {salaNotificacionesEnabled && renderSalaTasksBoard(true)}
           {canSeeAlerts && renderNotificacionesCard(true)}
         </div>

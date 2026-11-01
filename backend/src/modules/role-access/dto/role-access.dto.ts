@@ -15,3 +15,9 @@ export class UpdateRoleAccessDto {
   @IsObject()
   VIEWER?: SectionFlagMap;
 }
+
+/** Permisos por persona: `{ access: { "compras-pedidos": true } }`. */
+export class UpdateUserAccessDto {
+  @IsObject()
+  access: SectionFlagMap;
+}

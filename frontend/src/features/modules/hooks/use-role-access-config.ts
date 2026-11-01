@@ -1,5 +1,7 @@
 'use client';
 
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import { useApiMutation, useApiQuery, useInvalidateQueries } from '@/hooks/use-api';
 import type { RoleAccessConfig, SectionAccessMap } from '../api/role-access-api';
 
@@ -29,4 +31,24 @@ export function useUpdateRoleAccess() {
       },
     },
   );
+}
+
+/** Permisos concedidos a una persona: `{ 'compras-pedidos': true }`. OWNER/ADMIN. */
+export function useUserAccess(userId: string | undefined, enabled: boolean) {
+  return useApiQuery<SectionAccessMap>(
+    ['role-access-user', userId ?? ''],
+    `/v1/role-access/users/${userId}`,
+    { enabled: enabled && !!userId },
+  );
+}
+
+export function useUpdateUserAccess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, access }: { userId: string; access: SectionAccessMap }) =>
+      (await apiClient.put<SectionAccessMap>(`/v1/role-access/users/${userId}`, { access })).data,
+    onSuccess: (_data, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['role-access-user', userId] });
+    },
+  });
 }

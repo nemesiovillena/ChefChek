@@ -34,6 +34,7 @@ import { PriceDeviationPanel } from './components/price-deviation-panel';
 import { CatalogosTab } from './components/catalogos-tab';
 import { ProgramacionesTab } from './components/programaciones-tab';
 import { AnaliticaTab } from './components/analitica-tab';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -56,6 +57,9 @@ const TABS: { id: TabId; label: string; icon: typeof ShoppingCart }[] = [
   { id: 'locales', label: 'Locales', icon: MapPin },
 ];
 
+/** Pestañas que abre el permiso por persona «compras-pedidos». */
+const PEDIDOS_ONLY_TABS: ReadonlySet<TabId> = new Set(['pedidos', 'listas', 'programaciones']);
+
 /** Qué sprint del plan activa cada pestaña aún no funcional. */
 const PENDING_TABS: Partial<Record<TabId, string>> = {};
 
@@ -63,6 +67,9 @@ export default function ComprasPage() {
   const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('pedidos');
+  // Sin Compras entero (solo el permiso de pedidos): solo sus tres pestañas.
+  const { canSee } = useSectionAccess();
+  const visibleTabs = canSee('compras') ? TABS : TABS.filter((t) => PEDIDOS_ONLY_TABS.has(t.id));
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push('/login');
@@ -96,7 +103,7 @@ export default function ComprasPage() {
         aria-label="Secciones de compras"
         className="mb-6 flex gap-1 overflow-x-auto rounded-2xl bg-[var(--surface-container)] p-1"
       >
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {visibleTabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             role="tab"
