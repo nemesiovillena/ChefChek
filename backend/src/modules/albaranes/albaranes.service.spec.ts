@@ -1328,6 +1328,57 @@ describe("AlbaranesService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it("vincula el artículo elegido al añadir la línea en un albarán sin confirmar", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.REVISADO, lines: [] }),
+      );
+      prisma.product.findFirst.mockResolvedValue({ id: "p-punto-verde" });
+      prisma.albaranLine.create.mockResolvedValue({
+        id: "l9",
+        lineAmount: 0.5,
+        vatPercent: 21,
+      });
+
+      await service.addLine(
+        "alb-1",
+        {
+          description: "Punto verde",
+          quantity: 1,
+          unitPrice: 0.5,
+          matchedProductId: "p-punto-verde",
+        } as any,
+        "t1",
+      );
+
+      expect(prisma.product.findFirst).toHaveBeenCalledWith({
+        where: { id: "p-punto-verde", tenantId: "t1" },
+        select: { id: true },
+      });
+      expect(prisma.albaranLine.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          matchedProductId: "p-punto-verde",
+          matchStatus: "MATCH_ALTO",
+          confidence: 1.0,
+        }),
+      });
+    });
+
+    it("rechaza un artículo elegido que no es del tenant", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.PENDIENTE, lines: [] }),
+      );
+      prisma.product.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addLine(
+          "alb-1",
+          { description: "x", matchedProductId: "otro" } as any,
+          "t1",
+        ),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.albaranLine.create).not.toHaveBeenCalled();
+    });
+
     it("creates the line and recalculates albaran totals", async () => {
       const existingLine = { lineAmount: 100, vatPercent: 10 };
       prisma.albaran.findFirst.mockResolvedValue(

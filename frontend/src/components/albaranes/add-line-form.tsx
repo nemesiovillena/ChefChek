@@ -42,9 +42,9 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
   const [selectedProduct, setSelectedProduct] = useState<{ id: string; name: string } | null>(null);
   const { products, loading: searching, search, setSearch } = useProductSearch();
 
-  // Aviso advisory de duplicados por nombre (mismo criterio que Artículos).
-  // La línea sigue siendo texto libre: solo informa para que el usuario sepa
-  // que el producto ya existe y pueda cancelar y usarlo en su lugar.
+  // Aviso de artículos con nombre parecido (mismo criterio que Artículos).
+  // Cada coincidencia se puede pulsar para vincular la línea a ese artículo
+  // al crearla, sin tener que añadirla como texto y emparejarla después.
   const { matches: duplicateNameMatches } = useProductNameCheck(description);
 
   const handleSelectProduct = (product: { id: string; name: string }) => {
@@ -161,22 +161,45 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
             placeholder="Nombre del producto"
             className="h-8 text-sm"
           />
-          {duplicateNameMatches.length > 0 && (
+          {!isConfirmed && selectedProduct && (
+            <div className="mt-1 flex items-center gap-2 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-sm">
+              <Package className="h-4 w-4 text-indigo-600 shrink-0" />
+              <span className="flex-1 truncate">
+                <span className="text-xs text-indigo-600">Artículo: </span>
+                <span className="font-medium text-indigo-900">{selectedProduct.name}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedProduct(null)}
+                className="rounded p-0.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700"
+                title="Quitar artículo"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          {!selectedProduct && duplicateNameMatches.length > 0 && (
             <div role="status" className="mt-1 flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
               <svg className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
-              <span>
-                <span className="font-medium">Posible duplicado.</span> Ya existe:{' '}
-                {duplicateNameMatches.slice(0, 3).map((m, idx) => (
-                  <span key={m.id}>
-                    <span className="font-semibold">«{m.name}»</span>
-                    {!m.isActive && <span className="italic"> (inactivo)</span>}
-                    {idx < Math.min(duplicateNameMatches.length, 3) - 1 ? ', ' : ''}
-                  </span>
-                ))}
-                {duplicateNameMatches.length > 3 ? ` y ${duplicateNameMatches.length - 3} más.` : '.'}
-              </span>
+              <div className="flex-1">
+                <span className="font-medium">Ya existe.</span> Pulsa el artículo para usarlo:
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {duplicateNameMatches.slice(0, 5).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => handleSelectProduct({ id: m.id, name: m.name })}
+                      className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-white px-2.5 py-1 font-semibold text-amber-900 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-200"
+                    >
+                      <Package className="h-3 w-3 shrink-0" />
+                      {m.name}
+                      {!m.isActive && <span className="font-normal italic">(inactivo)</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
