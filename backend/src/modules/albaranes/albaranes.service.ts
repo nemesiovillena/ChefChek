@@ -1256,6 +1256,21 @@ export class AlbaranesService {
     const vatPercent = Number(dto.vatPercent) || 10;
     const lineAmount = quantity * unitPrice;
 
+    // Artículo elegido al añadir la línea (p. ej. desde el aviso «ya existe»):
+    // nace vinculada, como si se hubiera emparejado a mano. Sigue PENDIENTE
+    // de revisión igual que el resto de líneas del albarán sin confirmar.
+    let matchedProductId: string | null = null;
+    if (dto.matchedProductId) {
+      const product = await this.prisma.product.findFirst({
+        where: { id: dto.matchedProductId, tenantId },
+        select: { id: true },
+      });
+      if (!product) {
+        throw new NotFoundException("Artículo no encontrado");
+      }
+      matchedProductId = product.id;
+    }
+
     const line = await this.prisma.albaranLine.create({
       data: {
         albaranId,
@@ -1267,6 +1282,9 @@ export class AlbaranesService {
         lineAmount,
         articleNumber: dto.articleNumber || null,
         lot: dto.lot || null,
+        ...(matchedProductId
+          ? { matchedProductId, matchStatus: "MATCH_ALTO", confidence: 1.0 }
+          : {}),
         // Añadida al final del documento, detrás de las líneas existentes
         lineOrder: albaran.lines.length,
       },
