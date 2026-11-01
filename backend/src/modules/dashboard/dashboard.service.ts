@@ -6,6 +6,7 @@ import {
   toMadridParts,
 } from "../compras/services/purchase-schedule.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { PurchaseListScopeService } from "../role-access/purchase-list-scope.service";
 import { EtiquetadoConfigService } from "../etiquetado/services/etiquetado-config.service";
 import {
   DashboardQueryDto,
@@ -22,6 +23,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roleAccess: RoleAccessService,
+    private readonly purchaseListScope: PurchaseListScopeService,
     private readonly etiquetadoConfig: EtiquetadoConfigService,
   ) {}
 
@@ -159,11 +161,25 @@ export class DashboardService {
     // Productos con stock bajo
     const lowStockItems = lowStockCount;
 
+    // Quien solo pide con sus listas ve únicamente lo de los proveedores de
+    // esas listas (y las programaciones de esas listas).
+    const purchaseScope = await this.purchaseListScope.resolve(tenantId, {
+      id: userId,
+      role,
+    });
+    const orderScope = purchaseScope
+      ? { supplierId: { in: purchaseScope.supplierIds } }
+      : {};
+    const scheduleScope = purchaseScope
+      ? { listId: { in: purchaseScope.listIds } }
+      : {};
+
     // Pedidos de compra pendientes de recepción (enviados o recibidos parcialmente)
     const pendingOrders = await this.prisma.purchaseOrder.count({
       where: {
         tenantId,
         status: { in: ["ENVIADO", "RECIBIDO_PARCIAL"] },
+        ...orderScope,
       },
     });
 
@@ -176,6 +192,7 @@ export class DashboardService {
         tenantId,
         status: "BORRADOR",
         events: { some: { type: "SCHEDULED_GENERATION" } },
+        ...orderScope,
       },
     });
 
@@ -188,6 +205,7 @@ export class DashboardService {
         tenantId,
         status: "BORRADOR",
         events: { some: { type: "SCHEDULED_GENERATION" } },
+        ...orderScope,
       },
       orderBy: { createdAt: "asc" },
       include: {
@@ -238,7 +256,7 @@ export class DashboardService {
       // programado aparezca en el dashboard desde que se crea la programación
       // (no solo cuando el cron ya lo ha materializado en un BORRADOR).
       const schedules = await this.prisma.purchaseSchedule.findMany({
-        where: { tenantId, enabled: true },
+        where: { tenantId, enabled: true, ...scheduleScope },
         select: {
           daysOfWeek: true,
           timeOfDay: true,

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RoleAccessController } from "./role-access.controller";
+import { PurchaseListScopeService } from "./purchase-list-scope.service";
 import { RoleAccessService } from "./role-access.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -17,7 +18,10 @@ describe("RoleAccessController", () => {
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [RoleAccessController],
-      providers: [{ provide: RoleAccessService, useValue: service }],
+      providers: [
+        { provide: RoleAccessService, useValue: service },
+        { provide: PurchaseListScopeService, useValue: {} },
+      ],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })

@@ -11,7 +11,13 @@ import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { UserLaborDataTab } from './user-labor-data-tab';
 import { useTeamPositions } from '@/hooks/use-team-positions';
-import { useUpdateUserAccess, useUserAccess } from '@/features/modules/hooks/use-role-access-config';
+import {
+  useUpdateUserAccess,
+  useUpdateUserPurchaseLists,
+  useUserAccess,
+  useUserPurchaseLists,
+} from '@/features/modules/hooks/use-role-access-config';
+import { PedidosListsPicker } from './pedidos-lists-picker';
 
 const MANAGER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -103,6 +109,12 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
   const [pedidosAccessEdit, setPedidosAccessEdit] = useState<boolean | null>(null);
   const pedidosAccess = pedidosAccessEdit ?? savedPedidosAccess;
   const showPedidosAccess = canGrantPedidos && formData.role === 'USER' && userAccess.isSuccess;
+  // Listas con las que puede pedir: limitan lo que ve en Pedidos/Listas/Programaciones.
+  const userLists = useUserPurchaseLists(targetUser?.id, canGrantPedidos);
+  const updateUserLists = useUpdateUserPurchaseLists();
+  const savedListIds = userLists.data?.listIds ?? [];
+  const [listIdsEdit, setListIdsEdit] = useState<string[] | null>(null);
+  const pedidosListIds = listIdsEdit ?? savedListIds;
   const [samePhoneForWhatsapp, setSamePhoneForWhatsapp] = useState(
     () => !!targetUser && !!targetUser.phone && targetUser.phone === targetUser.whatsapp,
   );
@@ -185,6 +197,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
             userId: targetUser.id,
             access: { 'compras-pedidos': pedidosAccess },
           });
+        }
+        if (showPedidosAccess && listIdsEdit !== null) {
+          await updateUserLists.mutateAsync({ userId: targetUser.id, listIds: listIdsEdit });
         }
         addNotification({ type: 'success', title: 'Usuario actualizado', message: 'Usuario actualizado correctamente' });
       } else {
@@ -356,6 +371,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                   Ve Almacén → Compras solo con Pedidos, Listas y Programaciones, aunque su puesto oculte Compras.
                 </span>
               </label>
+            </div>
+          )}
+          {showPedidosAccess && pedidosAccess && userLists.isSuccess && (
+            <div className="ml-7">
+              <PedidosListsPicker value={pedidosListIds} onChange={setListIdsEdit} />
             </div>
           )}
 
