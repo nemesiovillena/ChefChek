@@ -24,6 +24,7 @@ import { UpdateFoodLabelDto } from "../dto/update-food-label.dto";
 import { FreezeFoodLabelDto } from "../dto/freeze-food-label.dto";
 import { ListFoodLabelsDto } from "../dto/list-food-labels.dto";
 import { EtiquetadoConfigService } from "./etiquetado-config.service";
+import { PortionLedgerService } from "../../raciones/services/portion-ledger.service";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -59,6 +60,7 @@ export class FoodLabelService {
     private readonly prisma: PrismaService,
     private readonly lotNumberService: LotNumberService,
     private readonly etiquetadoConfig: EtiquetadoConfigService,
+    private readonly portionLedger: PortionLedgerService,
   ) {}
 
   /**
@@ -105,6 +107,7 @@ export class FoodLabelService {
 
   async create(tenantId: string, user: SessionUser, dto: CreateFoodLabelDto) {
     const label = await this.createLabel(tenantId, user, dto);
+    await this.portionLedger.recordLabelIn(tenantId, label, user);
     const warningDays =
       await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
     return this.withExpiry(label, warningDays);
@@ -197,6 +200,17 @@ export class FoodLabelService {
             responsibleName: dto.responsibleName,
           });
 
+    // Contador de raciones: si la receta/artículo lo tiene, las raciones son
+    // obligatorias y la etiqueta entra con todas ellas disponibles.
+    const portionCounterId = await this.portionLedger.counterForNewLabel(
+      tenantId,
+      {
+        recipeId: dto.labelType === "ELABORATED" ? base.entityId : null,
+        productId: dto.labelType === "HANDLED" ? base.entityId : null,
+      },
+      dto.portions,
+    );
+
     const commonData: Omit<Prisma.FoodLabelUncheckedCreateInput, "lotNumber"> =
       {
         tenantId,
@@ -220,6 +234,8 @@ export class FoodLabelService {
         quantity: dto.quantity ?? null,
         quantityUnit: dto.quantityUnit ?? null,
         portions: dto.portions ?? null,
+        portionCounterId,
+        portionsRemaining: portionCounterId ? (dto.portions ?? null) : null,
         allergens: base.allergens,
         notes: dto.notes ?? null,
         createdByUserId: user.id,
@@ -487,7 +503,12 @@ export class FoodLabelService {
     return label;
   }
 
-  async void(tenantId: string, id: string, reason: string | undefined) {
+  async void(
+    tenantId: string,
+    id: string,
+    reason: string | undefined,
+    user?: SessionUser,
+  ) {
     const label = await this.prisma.foodLabel.findFirst({
       where: { id, tenantId },
       select: { id: true, voidedAt: true },
@@ -498,11 +519,26 @@ export class FoodLabelService {
     if (label.voidedAt) {
       throw new ConflictException("La etiqueta ya está anulada");
     }
-    return this.prisma.foodLabel.update({
-      where: { id },
-      data: { voidedAt: new Date(), voidReason: reason?.trim() || null },
-      include: FOOD_LABEL_INCLUDE,
-    });
+    const { updated, counterIds } = await this.prisma.$transaction(
+      async (tx) => {
+        // Primero salen las raciones, así la etiqueta devuelta ya va a 0.
+        const counterIds = await this.portionLedger.releaseLabels(
+          tx,
+          tenantId,
+          [id],
+          "VOID",
+          user ?? { id: "system" },
+        );
+        const updated = await tx.foodLabel.update({
+          where: { id },
+          data: { voidedAt: new Date(), voidReason: reason?.trim() || null },
+          include: FOOD_LABEL_INCLUDE,
+        });
+        return { updated, counterIds };
+      },
+    );
+    await this.portionLedger.refreshAlerts(tenantId, counterIds);
+    return updated;
   }
 
   /**
@@ -518,20 +554,37 @@ export class FoodLabelService {
     ids: string[],
     disposition: RetiredDisposition,
   ) {
-    const { count } = await this.prisma.foodLabel.updateMany({
-      where: {
+    const { count, counterIds } = await this.prisma.$transaction(async (tx) => {
+      // Solo las que se retiran ahora: sus raciones salen del contador.
+      const active = await tx.foodLabel.findMany({
+        where: { tenantId, id: { in: ids }, voidedAt: null, retiredAt: null },
+        select: { id: true },
+      });
+      const activeIds = active.map((l) => l.id);
+      const { count } = await tx.foodLabel.updateMany({
+        where: {
+          tenantId,
+          id: { in: activeIds },
+          voidedAt: null,
+          retiredAt: null,
+        },
+        data: {
+          retiredAt: new Date(),
+          retiredDisposition: disposition,
+          retiredByUserId: user.id,
+          retiredByName: user.name?.trim() || "—",
+        },
+      });
+      const counterIds = await this.portionLedger.releaseLabels(
+        tx,
         tenantId,
-        id: { in: ids },
-        voidedAt: null,
-        retiredAt: null,
-      },
-      data: {
-        retiredAt: new Date(),
-        retiredDisposition: disposition,
-        retiredByUserId: user.id,
-        retiredByName: user.name?.trim() || "—",
-      },
+        activeIds,
+        "RETIRE",
+        user,
+      );
+      return { count, counterIds };
     });
+    await this.portionLedger.refreshAlerts(tenantId, counterIds);
     return { retired: count };
   }
 
@@ -578,17 +631,31 @@ export class FoodLabelService {
         },
       },
     };
-    const updated = await this.prisma.foodLabel.update({
-      where: { id },
-      data: {
-        retiredAt: null,
-        retiredDisposition: null,
-        retiredByUserId: null,
-        retiredByName: null,
-        editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+    const { updated, counterId } = await this.prisma.$transaction(
+      async (tx) => {
+        const counterId = await this.portionLedger.restoreLabel(
+          tx,
+          tenantId,
+          id,
+          user,
+        );
+        const updated = await tx.foodLabel.update({
+          where: { id },
+          data: {
+            retiredAt: null,
+            retiredDisposition: null,
+            retiredByUserId: null,
+            retiredByName: null,
+            editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+          },
+          include: FOOD_LABEL_INCLUDE,
+        });
+        return { updated, counterId };
       },
-      include: FOOD_LABEL_INCLUDE,
-    });
+    );
+    if (counterId) {
+      await this.portionLedger.refreshAlerts(tenantId, [counterId]);
+    }
     const warningDays =
       await this.etiquetadoConfig.getExpiryWarningDays(tenantId);
     return this.withExpiry(updated, warningDays);
@@ -720,18 +787,38 @@ export class FoodLabelService {
       changes,
     };
 
-    return this.prisma.foodLabel.update({
-      where: { id },
-      data: {
-        ...next,
-        editedAt: new Date(),
-        editedByUserId: user.id,
-        editedByName: user.name?.trim() || "—",
-        editCount: { increment: 1 },
-        editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+    const { updated, counterId } = await this.prisma.$transaction(
+      async (tx) => {
+        // Raciones corregidas: el contador se mueve por la diferencia.
+        const counterId =
+          "portions" in changes
+            ? await this.portionLedger.onLabelPortionsEdited(
+                tx,
+                tenantId,
+                label,
+                next.portions,
+                user,
+              )
+            : null;
+        const updated = await tx.foodLabel.update({
+          where: { id },
+          data: {
+            ...next,
+            editedAt: new Date(),
+            editedByUserId: user.id,
+            editedByName: user.name?.trim() || "—",
+            editCount: { increment: 1 },
+            editLog: [...priorLog, entry] as Prisma.InputJsonValue,
+          },
+          include: FOOD_LABEL_INCLUDE,
+        });
+        return { updated, counterId };
       },
-      include: FOOD_LABEL_INCLUDE,
-    });
+    );
+    if (counterId) {
+      await this.portionLedger.refreshAlerts(tenantId, [counterId]);
+    }
+    return updated;
   }
 
   /**
