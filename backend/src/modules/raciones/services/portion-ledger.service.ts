@@ -90,6 +90,39 @@ export class PortionLedgerService {
     return counter.id;
   }
 
+  /**
+   * Para el formulario de etiqueta: contador activo de la receta/artículo y
+   * sus raciones disponibles, o null si no cuenta.
+   */
+  async counterSummary(
+    tenantId: string,
+    target: { recipeId?: string | null; productId?: string | null },
+  ): Promise<{ id: string; name: string; available: number } | null> {
+    if (!target.recipeId && !target.productId) {
+      return null;
+    }
+    if (!(await this.isEnabled(tenantId))) {
+      return null;
+    }
+    const counter = await this.prisma.portionCounter.findFirst({
+      where: {
+        tenantId,
+        active: true,
+        ...(target.recipeId
+          ? { recipeId: target.recipeId }
+          : { productId: target.productId }),
+      },
+      select: { id: true, name: true },
+    });
+    if (!counter) {
+      return null;
+    }
+    return {
+      ...counter,
+      available: await this.available(this.prisma, counter.id),
+    };
+  }
+
   /** Registra la entrada de una etiqueta recién emitida (ya con sus raciones). */
   async recordLabelIn(
     tenantId: string,

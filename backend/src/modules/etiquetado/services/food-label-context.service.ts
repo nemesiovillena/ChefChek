@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { PortionLedgerService } from "../../raciones/services/portion-ledger.service";
 import { StorageCondition } from "../constants/storage-condition.constant";
 
 export interface ConservationConfig {
@@ -42,7 +43,10 @@ export interface ProductPurchase {
  */
 @Injectable()
 export class FoodLabelContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly portionLedger: PortionLedgerService,
+  ) {}
 
   async forRecipe(tenantId: string, recipeId: string) {
     const recipe = await this.prisma.recipe.findFirst({
@@ -96,6 +100,10 @@ export class FoodLabelContextService {
         subRecipeId: s.subRecipeId,
         name: s.subRecipe.name,
       })),
+      // Contador de raciones: si lo hay, las raciones son obligatorias.
+      portionCounter: await this.portionLedger.counterSummary(tenantId, {
+        recipeId: recipe.id,
+      }),
     };
   }
 
@@ -157,6 +165,9 @@ export class FoodLabelContextService {
       lots,
       purchases,
       manufacturerExpiryCandidate: lots[0]?.expiryDate ?? null,
+      portionCounter: await this.portionLedger.counterSummary(tenantId, {
+        productId: product.id,
+      }),
     };
   }
 
