@@ -221,6 +221,26 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
   { key: "sprint", label: "Sprint", defaultAllowed: true },
   { key: "papelera", label: "Papelera", defaultAllowed: true },
   { key: "backups", label: "Copias de seguridad", defaultAllowed: true },
+
+  // ── Gestión ─────────────────────────────────────────────────────────────
+  {
+    // Ver el buzón del restaurante. Gerencia lo ve siempre; el resto
+    // solo si se marca en su ficha. SUPERADMIN nunca (CorreoAccessGuard).
+    key: "correo",
+    label: "Correo del restaurante",
+    moduleId: "correo",
+    defaultAllowed: false,
+    perUserOnly: true,
+  },
+  {
+    // Redactar, responder y reenviar desde el buzón. Aparte de verlo: se
+    // puede leer sin poder escribir en nombre del restaurante.
+    key: "correo.enviar",
+    label: "Enviar correo del restaurante",
+    moduleId: "correo",
+    defaultAllowed: false,
+    perUserOnly: true,
+  },
 ];
 
 /** Roles whose access is configurable. ADMIN and above always see everything. */

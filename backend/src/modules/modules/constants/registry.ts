@@ -262,6 +262,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: false,
   },
+  {
+    id: "correo",
+    name: "Correo del restaurante",
+    description:
+      "Buzón del restaurante: leer y enviar correo desde ChefChek (gerencia y las personas autorizadas)",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
 ];
 
 /**

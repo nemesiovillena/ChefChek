@@ -15,6 +15,31 @@ import { useUpdateUserAccess, useUserAccess } from '@/features/modules/hooks/use
 
 const MANAGER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
+/** Permisos que se conceden a una persona concreta (sección `perUserOnly` del backend). */
+const PER_USER_GRANTS = [
+  {
+    key: 'compras-pedidos',
+    module: 'compras',
+    roles: ['USER'],
+    label: 'Puede hacer pedidos a proveedores',
+    hint: 'Ve Almacén → Compras solo con Pedidos, Listas y Programaciones, aunque su puesto oculte Compras.',
+  },
+  {
+    key: 'correo',
+    module: 'correo',
+    roles: ['USER', 'VIEWER', 'USER_CUINER'],
+    label: 'Puede ver el correo del restaurante',
+    hint: 'Bandeja del buzón del restaurante (Personal → Correo).',
+  },
+  {
+    key: 'correo.enviar',
+    module: 'correo',
+    roles: ['USER', 'VIEWER', 'USER_CUINER'],
+    label: 'Puede enviar correo del restaurante',
+    hint: 'Redactar, responder y reenviar en nombre del restaurante. Necesita también «Puede ver el correo».',
+  },
+];
+
 export type UserModalTab = 'datos' | 'laboral';
 
 interface UserModalProps {
@@ -90,19 +115,27 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
   }));
   const [avatarUrl, setAvatarUrl] = useState(() => targetUser?.avatarUrl ?? '');
 
-  // Permiso por persona «Pedidos, listas y programaciones»: para un USER cuyo
-  // puesto oculta Compras. Solo lo gestiona la gerencia y se guarda con el resto.
-  const canGrantPedidos =
-    !!targetUser &&
-    modules !== null &&
-    isEnabled('compras') &&
-    MANAGER_ROLES.includes(currentUser?.role ?? '');
-  const userAccess = useUserAccess(targetUser?.id, canGrantPedidos);
+  // Permisos por persona: los concede la gerencia en la ficha y se guardan con
+  // el resto (también al crear). Cada uno solo aplica a ciertos roles.
+  const canGrantAccess = modules !== null && MANAGER_ROLES.includes(currentUser?.role ?? '');
+  const grantsForRole = PER_USER_GRANTS.filter(
+    (g) => canGrantAccess && isEnabled(g.module) && g.roles.includes(formData.role),
+  );
+  const userAccess = useUserAccess(
+    targetUser?.id,
+    !!targetUser && canGrantAccess && PER_USER_GRANTS.some((g) => isEnabled(g.module)),
+  );
   const updateUserAccess = useUpdateUserAccess();
-  const savedPedidosAccess = userAccess.data?.['compras-pedidos'] ?? false;
-  const [pedidosAccessEdit, setPedidosAccessEdit] = useState<boolean | null>(null);
-  const pedidosAccess = pedidosAccessEdit ?? savedPedidosAccess;
-  const showPedidosAccess = canGrantPedidos && formData.role === 'USER' && userAccess.isSuccess;
+  const [accessEdits, setAccessEdits] = useState<Record<string, boolean>>({});
+  const savedAccess = (key: string) => userAccess.data?.[key] ?? false;
+  const accessValue = (key: string) => accessEdits[key] ?? savedAccess(key);
+  // Al editar, esperar a conocer lo guardado para no pisarlo
+  const visibleGrants = targetUser && !userAccess.isSuccess ? [] : grantsForRole;
+  const changedAccess = Object.fromEntries(
+    visibleGrants
+      .filter((g) => accessValue(g.key) !== savedAccess(g.key))
+      .map((g) => [g.key, accessValue(g.key)]),
+  );
   const [samePhoneForWhatsapp, setSamePhoneForWhatsapp] = useState(
     () => !!targetUser && !!targetUser.phone && targetUser.phone === targetUser.whatsapp,
   );
@@ -180,21 +213,31 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
           ...commonData,
           ...(formData.password ? { password: formData.password } : {}),
         });
-        if (showPedidosAccess && pedidosAccess !== savedPedidosAccess) {
-          await updateUserAccess.mutateAsync({
-            userId: targetUser.id,
-            access: { 'compras-pedidos': pedidosAccess },
-          });
+        if (Object.keys(changedAccess).length > 0) {
+          await updateUserAccess.mutateAsync({ userId: targetUser.id, access: changedAccess });
         }
         addNotification({ type: 'success', title: 'Usuario actualizado', message: 'Usuario actualizado correctamente' });
       } else {
-        await createMutation.mutateAsync({
+        const created = await createMutation.mutateAsync({
           tenantId: currentTenantId as string,
           password: formData.password,
           positionId,
           ...commonData,
         });
         addNotification({ type: 'success', title: 'Usuario creado', message: 'Usuario creado correctamente' });
+        // La persona ya existe: si fallan los permisos, avisar sin cerrar el
+        // alta como fallida (reintentar daría «email duplicado»).
+        if (Object.keys(changedAccess).length > 0 && created?.id) {
+          try {
+            await updateUserAccess.mutateAsync({ userId: created.id, access: changedAccess });
+          } catch {
+            addNotification({
+              type: 'warning',
+              title: 'Permisos sin guardar',
+              message: 'La persona se creó, pero no se guardaron sus permisos. Ábrela y vuelve a marcarlos.',
+            });
+          }
+        }
       }
       // La ficha de Fichar copia nombre y estado de la cuenta.
       queryClient.invalidateQueries({ queryKey: ['check-in'] });
@@ -341,23 +384,21 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
             </label>
           </div>
 
-          {showPedidosAccess && (
-            <div className="flex items-start gap-3">
+          {visibleGrants.map((grant) => (
+            <div key={grant.key} className="flex items-start gap-3">
               <input
                 type="checkbox"
-                id="pedidosAccess"
-                checked={pedidosAccess}
-                onChange={(e) => setPedidosAccessEdit(e.target.checked)}
+                id={`access-${grant.key}`}
+                checked={accessValue(grant.key)}
+                onChange={(e) => setAccessEdits((prev) => ({ ...prev, [grant.key]: e.target.checked }))}
                 className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
               />
-              <label htmlFor="pedidosAccess" className="text-sm text-gray-700 dark:text-gray-300">
-                Puede hacer pedidos a proveedores
-                <span className="block text-xs text-gray-500">
-                  Ve Almacén → Compras solo con Pedidos, Listas y Programaciones, aunque su puesto oculte Compras.
-                </span>
+              <label htmlFor={`access-${grant.key}`} className="text-sm text-gray-700 dark:text-gray-300">
+                {grant.label}
+                <span className="block text-xs text-gray-500">{grant.hint}</span>
               </label>
             </div>
-          )}
+          ))}
 
           {/* Foto */}
           <div>

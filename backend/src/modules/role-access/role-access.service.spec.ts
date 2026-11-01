@@ -375,6 +375,79 @@ describe("RoleAccessService", () => {
     });
   });
 
+  describe("permisos por persona (correo del restaurante)", () => {
+    /** Persona con puesto que oculta casi todo; el correo solo se concede en su ficha. */
+    function withCorreoGrant(granted: boolean | null) {
+      prisma.sictedJobAssignment.findFirst.mockResolvedValue({
+        profileId: "pos-camarero",
+      });
+      prisma.configuration.findMany.mockImplementation(({ where }: any) => {
+        const prefix = where.key.startsWith;
+        if (prefix === "positionAccess.pos-camarero.") {
+          return Promise.resolve([
+            { key: "positionAccess.pos-camarero.compras", value: "false" },
+          ]);
+        }
+        if (prefix === `userAccess.${userId}.` && granted !== null) {
+          return Promise.resolve([
+            { key: `userAccess.${userId}.correo`, value: String(granted) },
+          ]);
+        }
+        return Promise.resolve([]);
+      });
+    }
+
+    it.each(["USER", "VIEWER", "USER_CUINER"])(
+      "%s sin el permiso no ve el correo",
+      async (role) => {
+        withCorreoGrant(null);
+        expect(
+          await service.isSectionAllowed(tenantId, role, "correo", userId),
+        ).toBe(false);
+      },
+    );
+
+    it.each(["USER", "VIEWER", "USER_CUINER"])(
+      "%s con el permiso lo ve aunque su puesto sea restrictivo",
+      async (role) => {
+        withCorreoGrant(true);
+        expect(
+          await service.isSectionAllowed(tenantId, role, "correo", userId),
+        ).toBe(true);
+      },
+    );
+
+    it("el módulo correo desactivado manda sobre el permiso", async () => {
+      withCorreoGrant(true);
+      modules.getModules.mockResolvedValue(
+        allModulesEnabled.map((m) =>
+          m.id === "correo" ? { ...m, enabled: false } : m,
+        ),
+      );
+      expect(
+        await service.isSectionAllowed(tenantId, "USER", "correo", userId),
+      ).toBe(false);
+    });
+
+    it("ver el correo no da permiso para enviar", async () => {
+      withCorreoGrant(true);
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "USER",
+          "correo.enviar",
+          userId,
+        ),
+      ).toBe(false);
+    });
+
+    it("ADMIN lo ve siempre", async () => {
+      expect(
+        await service.isSectionAllowed(tenantId, "ADMIN", "correo", userId),
+      ).toBe(true);
+    });
+  });
+
   describe("permisos por persona (compras-pedidos)", () => {
     /** Camarero: el puesto oculta Compras; a esta persona se le concede «compras-pedidos». */
     function withCamareroGrantedPedidos(granted = true) {
@@ -460,6 +533,8 @@ describe("RoleAccessService", () => {
     it("getUserAccess devuelve el permiso apagado si no hay fila", async () => {
       expect(await service.getUserAccess(tenantId, userId)).toEqual({
         "compras-pedidos": false,
+        correo: false,
+        "correo.enviar": false,
       });
     });
 

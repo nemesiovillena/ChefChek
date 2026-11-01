@@ -23,6 +23,8 @@ export enum EntityType {
   WAREHOUSE = "Warehouse",
   CATEGORY = "Category",
   DOCUMENT = "Document",
+  /** Apertura de un correo o descarga de un adjunto del buzón del restaurante. */
+  MAIL_MESSAGE = "MailMessage",
 }
 
 export interface AuditLogOptions {

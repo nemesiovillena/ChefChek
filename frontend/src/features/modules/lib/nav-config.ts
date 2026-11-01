@@ -33,6 +33,11 @@ export interface NavItem {
   personalAccountOnly?: boolean;
   /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner). */
   extraRoles?: string[];
+  /**
+   * Roles que nunca ven el elemento ni pueden abrir su ruta, aunque el módulo y
+   * la sección lo permitan (p. ej. SUPERADMIN en el correo del restaurante).
+   */
+  hiddenForRoles?: string[];
 }
 
 /** The section key that gates a nav item (falls back to its moduleId). */
@@ -119,6 +124,8 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
+      // Buzón del restaurante (leer y enviar): gerencia y personas autorizadas en su ficha.
+      { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: 'mail', hiddenForRoles: ['SUPERADMIN'] },
     ],
   },
   {
@@ -182,7 +189,18 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/mi-espacio', moduleId: 'rrhh' },
   { prefix: '/dashboard/rrhh', moduleId: 'rrhh' },
   { prefix: '/dashboard/cuiner', moduleId: 'cuiner' },
+  { prefix: '/dashboard/correo', moduleId: 'correo' },
 ];
+
+/** ¿La ruta pertenece a un elemento del menú vetado para este rol (`hiddenForRoles`)? */
+export function isPathHiddenForRole(pathname: string, role: string | undefined): boolean {
+  if (!role) return false;
+  return NAV_GROUPS.some((group) =>
+    group.items.some(
+      (item) => item.hiddenForRoles?.includes(role) && pathname.startsWith(item.href),
+    ),
+  );
+}
 
 /** Returns the moduleId governing a pathname, or undefined if transversal. */
 export function moduleForPath(pathname: string): string | undefined {
