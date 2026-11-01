@@ -24,10 +24,16 @@ export interface SectionDefinition {
   /** Parent section key for sub-capabilities. */
   parent?: string;
   /**
-   * Default when no explicit config row exists. Always `true`: the feature only
-   * ever subtracts access. Kept explicit for readability.
+   * Default when no explicit config row exists. `true` for every section the
+   * role/position config can restrict (that config only subtracts access).
+   * `false` only for per-person grants (`perUserOnly`).
    */
   defaultAllowed: boolean;
+  /**
+   * Permiso que solo se concede por persona (`userAccess.{userId}.{key}`): no
+   * sale en los permisos por rol ni por puesto, y el puesto no lo quita.
+   */
+  perUserOnly?: boolean;
 }
 
 export const SECTION_REGISTRY: SectionDefinition[] = [
@@ -99,6 +105,15 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     label: "Compras",
     moduleId: "compras",
     defaultAllowed: true,
+  },
+  {
+    // Para quien hace pedidos sin ver el resto de Compras (catálogos, precios
+    // pactados, analítica, locales). Se activa en la ficha de la persona.
+    key: "compras-pedidos",
+    label: "Pedidos, listas y programaciones",
+    moduleId: "compras",
+    defaultAllowed: false,
+    perUserOnly: true,
   },
   {
     key: "albaranes",
@@ -241,6 +256,16 @@ export const SECTION_BYPASS_ROLES = ["SUPERADMIN", "OWNER", "ADMIN"];
 
 export const SECTION_KEYS: ReadonlySet<string> = new Set(
   SECTION_REGISTRY.map((s) => s.key),
+);
+
+/** Secciones que el rol y el puesto pueden configurar (todas menos las por persona). */
+export const CONFIGURABLE_SECTION_KEYS: ReadonlySet<string> = new Set(
+  SECTION_REGISTRY.filter((s) => !s.perUserOnly).map((s) => s.key),
+);
+
+/** Secciones que se conceden por persona. */
+export const PER_USER_SECTION_KEYS: ReadonlySet<string> = new Set(
+  SECTION_REGISTRY.filter((s) => s.perUserOnly).map((s) => s.key),
 );
 
 export function findSection(key: string): SectionDefinition | undefined {

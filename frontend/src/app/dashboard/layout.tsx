@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { modules, refetch, isEnabled } = useModules();
-  const { map: sectionAccess, refetch: refetchSections, canSee } = useSectionAccess();
+  const { map: sectionAccess, refetch: refetchSections, canSee, canEnter } = useSectionAccess();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === 'undefined') return true;
     const savedTheme = localStorage.getItem('theme');
@@ -70,10 +70,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     const section = sectionForPath(pathname);
-    if (section && !canSee(section)) {
+    if (section && !canEnter(section)) {
       router.replace('/dashboard');
     }
-  }, [pathname, modules, sectionAccess, isEnabled, canSee, router]);
+  }, [pathname, modules, sectionAccess, isEnabled, canEnter, router]);
 
   // React to a 403 from a disabled module or a hidden section (dispatched by
   // api-client): just refresh the module/section state. Redirecting is left to
@@ -133,14 +133,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         items: group.items.filter(
           (item) =>
             isEnabled(item.moduleId) &&
-            canSee(sectionKeyForItem(item)) &&
+            canEnter(sectionKeyForItem(item)) &&
             (!item.managerOnly ||
               NAV_MANAGER_ROLES.includes(user?.role ?? '') ||
               (item.extraRoles?.includes(user?.role ?? '') ?? false)) &&
             (!item.personalAccountOnly || user?.isSharedAccount !== true),
         ),
       })).filter((group) => group.items.length > 0),
-    [isEnabled, canSee, user?.role, user?.isSharedAccount],
+    [isEnabled, canEnter, user?.role, user?.isSharedAccount],
   );
 
   if (isLoading) {
@@ -370,7 +370,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sleek, Compact Bottom Nav Shell for Mobile */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-16 px-2 pb-safe bg-surface-container-high/95 backdrop-blur-md border-t border-border/80 shadow-lg md:hidden">
         {MOBILE_NAV.filter(
-          (item) => isEnabled(item.moduleId) && canSee(sectionKeyForItem(item)),
+          (item) => isEnabled(item.moduleId) && canEnter(sectionKeyForItem(item)),
         ).map((item) => (
           <Link
             key={item.href}

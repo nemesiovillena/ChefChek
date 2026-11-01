@@ -83,7 +83,16 @@ import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import {
   SectionAccessGuard,
   RequireSection,
+  RequireSectionAny,
 } from "../../guards/section-access.guard";
+
+/**
+ * Pedidos, listas y programaciones (con sus buscadores y la lista de locales)
+ * se abren con Compras entero o con el permiso por persona «compras-pedidos».
+ * El resto de Compras (catálogos, facturas, desviaciones, analítica…) exige
+ * la sección completa.
+ */
+const PEDIDOS_SECTIONS = ["compras", "compras-pedidos"];
 
 @ApiTags("Compras")
 @ApiBearerAuth()
@@ -173,6 +182,7 @@ export class ComprasController {
 
   @Get("product-options")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Artículos para los selectores de Compras (catálogo del proveedor o búsqueda)",
@@ -191,6 +201,7 @@ export class ComprasController {
 
   @Get("supplier-options")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary: "Proveedores activos para los selectores de Compras",
   })
@@ -203,6 +214,7 @@ export class ComprasController {
 
   @Get("listas")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar listas de compra" })
   async findAllLists(@Req() req: any) {
     const data = await this.purchaseListService.findAll(req.tenantId);
@@ -211,6 +223,7 @@ export class ComprasController {
 
   @Post("listas")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Crear lista de compra" })
   async createList(@Req() req: any, @Body() dto: CreatePurchaseListDto) {
     const data = await this.purchaseListService.create(req.tenantId, dto);
@@ -219,6 +232,7 @@ export class ComprasController {
 
   @Get("listas/:id")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de una lista de compra" })
   async findOneList(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseListService.findOne(req.tenantId, id);
@@ -227,6 +241,7 @@ export class ComprasController {
 
   @Patch("listas/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Actualizar lista (items reemplaza el checklist)" })
   async updateList(
     @Req() req: any,
@@ -239,6 +254,7 @@ export class ComprasController {
 
   @Delete("listas/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Eliminar (soft) una lista de compra" })
   async removeList(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseListService.remove(req.tenantId, id);
@@ -247,6 +263,7 @@ export class ComprasController {
 
   @Post("listas/:id/generar-pedido")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Generar pedido BORRADOR desde la lista (cantidades sugeridas por stock mín/máx si no se envía selección)",
@@ -269,6 +286,7 @@ export class ComprasController {
 
   @Get("pedidos")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar pedidos (paginado y filtrable)" })
   async findAllOrders(@Req() req: any, @Query() query: PurchaseOrdersQueryDto) {
     return this.purchaseOrderService.findAll(req.tenantId, query);
@@ -276,6 +294,7 @@ export class ComprasController {
 
   @Post("pedidos")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Crear pedido manual (BORRADOR)" })
   async createOrder(@Req() req: any, @Body() dto: CreatePurchaseOrderDto) {
     const data = await this.purchaseOrderService.create(
@@ -288,6 +307,7 @@ export class ComprasController {
 
   @Get("pedidos/pendientes-recepcion")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Pedidos enviados/parciales de un proveedor cercanos a una fecha, para vincular un albarán",
@@ -307,6 +327,7 @@ export class ComprasController {
 
   @Get("pedidos/:id")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de pedido con líneas y eventos" })
   async findOneOrder(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseOrderService.findOne(req.tenantId, id);
@@ -315,6 +336,7 @@ export class ComprasController {
 
   @Get("pedidos/:id/envio")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary: "Vista previa de envío: texto, canales del proveedor y wa.me",
   })
@@ -328,6 +350,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/enviar")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Enviar pedido: EMAIL envía vía SMTP con PDF adjunto; WHATSAPP/PHONE/WEB registran el envío manual",
@@ -349,6 +372,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/programar")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Programar pedidos recurrentes como este: copia sus artículos a una lista nueva y crea una programación (BORRADOR + notificación en el día/hora elegidos, nunca envía)",
@@ -373,6 +397,7 @@ export class ComprasController {
 
   @Get("pedidos/:id/pdf")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "PDF del pedido" })
   async getOrderPdf(@Req() req: any, @Param("id") id: string, @Res() res: any) {
     const order = await this.purchaseOrderService.findOne(req.tenantId, id);
@@ -387,6 +412,7 @@ export class ComprasController {
 
   @Patch("pedidos/:id/estado")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Transicionar estado del pedido" })
   @ApiResponse({ status: 400, description: "Transición no válida" })
   async transitionOrder(
@@ -406,6 +432,7 @@ export class ComprasController {
 
   @Post("pedidos/:id/incidencias")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Reportar una incidencia/error del pedido (texto + foto opcional); no cambia el estado",
@@ -473,6 +500,7 @@ export class ComprasController {
 
   @Patch("pedidos/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Editar pedido (solo BORRADOR o PENDIENTE_ENVIO)" })
   @ApiResponse({
     status: 400,
@@ -489,6 +517,7 @@ export class ComprasController {
 
   @Delete("pedidos/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Eliminar (soft) pedido BORRADOR o CANCELADO" })
   @ApiResponse({ status: 400, description: "Estado no eliminable" })
   async removeOrder(@Req() req: any, @Param("id") id: string) {
@@ -770,6 +799,7 @@ export class ComprasController {
 
   @Get("programaciones")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar programaciones de pedidos" })
   async findAllPurchaseSchedules(@Req() req: any) {
     const data = await this.purchaseScheduleService.findAll(req.tenantId);
@@ -778,6 +808,7 @@ export class ComprasController {
 
   @Get("programaciones/:id")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de una programación" })
   async findOnePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
     const data = await this.purchaseScheduleService.findOne(req.tenantId, id);
@@ -786,6 +817,7 @@ export class ComprasController {
 
   @Post("programaciones")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary:
       "Crear una programación: genera BORRADOR + notificación en el día/hora configurados, nunca envía",
@@ -804,6 +836,7 @@ export class ComprasController {
 
   @Patch("programaciones/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({
     summary: "Actualizar días/hora/local/activación de una programación",
   })
@@ -822,6 +855,7 @@ export class ComprasController {
 
   @Delete("programaciones/:id")
   @Roles("ADMIN", "USER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Eliminar una programación" })
   async removePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
     await this.purchaseScheduleService.remove(req.tenantId, id);
@@ -893,6 +927,7 @@ export class ComprasController {
 
   @Get("locales")
   @Roles("ADMIN", "USER", "VIEWER")
+  @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar locales del tenant" })
   @ApiResponse({ status: 200, description: "Listado de locales" })
   async findAllLocations(@Req() req: any) {

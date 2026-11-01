@@ -26,6 +26,9 @@ describe("RoleAccessService", () => {
       sictedJobAssignment: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({ id: "user-2" }),
+      },
     };
     modules = {
       getModules: jest.fn().mockResolvedValue(allModulesEnabled),
@@ -146,11 +149,14 @@ describe("RoleAccessService", () => {
   });
 
   describe("getRoleSectionMap", () => {
-    it("returns every section allowed when there is no config", async () => {
+    it("returns every section at its default when there is no config", async () => {
       const map = await service.getRoleSectionMap(tenantId, "USER");
       for (const section of SECTION_REGISTRY) {
-        expect(map[section.key]).toBe(true);
+        expect(map[section.key]).toBe(section.defaultAllowed);
       }
+      // Solo los permisos por persona salen apagados por defecto.
+      expect(map["compras"]).toBe(true);
+      expect(map["compras-pedidos"]).toBe(false);
     });
 
     it("honours an explicit false row", async () => {
@@ -366,6 +372,127 @@ describe("RoleAccessService", () => {
       expect(config.sections.find((s) => s.key === "papelera")).toBeDefined();
       expect(config.USER).toBeDefined();
       expect(config.VIEWER).toBeDefined();
+    });
+  });
+
+  describe("permisos por persona (compras-pedidos)", () => {
+    /** Camarero: el puesto oculta Compras; a esta persona se le concede «compras-pedidos». */
+    function withCamareroGrantedPedidos(granted = true) {
+      prisma.sictedJobAssignment.findFirst.mockResolvedValue({
+        profileId: "pos-camarero",
+      });
+      prisma.configuration.findMany.mockImplementation(({ where }: any) => {
+        const prefix = where.key.startsWith;
+        if (prefix === "positionAccess.pos-camarero.") {
+          return Promise.resolve([
+            { key: "positionAccess.pos-camarero.compras", value: "false" },
+          ]);
+        }
+        if (prefix === `userAccess.${userId}.`) {
+          return Promise.resolve([
+            {
+              key: `userAccess.${userId}.compras-pedidos`,
+              value: String(granted),
+            },
+          ]);
+        }
+        return Promise.resolve([]);
+      });
+    }
+
+    it("la persona con el permiso entra a pedidos aunque su puesto oculte Compras", async () => {
+      withCamareroGrantedPedidos();
+      const map = await service.getSectionMapForUserRole(
+        tenantId,
+        "USER",
+        userId,
+      );
+      expect(map?.["compras"]).toBe(false);
+      expect(map?.["compras-pedidos"]).toBe(true);
+    });
+
+    it("sin el permiso no entra", async () => {
+      withCamareroGrantedPedidos(false);
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "USER",
+          "compras-pedidos",
+          userId,
+        ),
+      ).toBe(false);
+    });
+
+    it("el módulo Compras desactivado manda sobre el permiso", async () => {
+      withCamareroGrantedPedidos();
+      modules.getModules.mockResolvedValue(
+        allModulesEnabled.map((m) =>
+          m.id === "compras" ? { ...m, enabled: false } : m,
+        ),
+      );
+      expect(
+        await service.isSectionAllowed(
+          tenantId,
+          "USER",
+          "compras-pedidos",
+          userId,
+        ),
+      ).toBe(false);
+    });
+
+    it("no sale en los permisos por rol ni se puede configurar por rol o puesto", async () => {
+      const config = await service.getRoleAccessConfig(tenantId);
+      expect(
+        config.sections.find((s) => s.key === "compras-pedidos"),
+      ).toBeUndefined();
+      await expect(
+        service.updateRoleAccess(tenantId, userId, {
+          USER: { "compras-pedidos": true },
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.updatePositionAccess(tenantId, "pos-camarero", userId, {
+          "compras-pedidos": true,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("getUserAccess devuelve el permiso apagado si no hay fila", async () => {
+      expect(await service.getUserAccess(tenantId, userId)).toEqual({
+        "compras-pedidos": false,
+      });
+    });
+
+    it("updateUserAccess guarda la fila de la persona", async () => {
+      await service.updateUserAccess(tenantId, "user-2", userId, {
+        "compras-pedidos": true,
+      });
+      expect(prisma.configuration.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            tenantId_key: {
+              tenantId,
+              key: "userAccess.user-2.compras-pedidos",
+            },
+          },
+          update: { value: "true", updatedBy: userId },
+        }),
+      );
+    });
+
+    it("updateUserAccess rechaza secciones que no son por persona", async () => {
+      await expect(
+        service.updateUserAccess(tenantId, "user-2", userId, { compras: true }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("updateUserAccess rechaza una persona de otro tenant", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(
+        service.updateUserAccess(tenantId, "otro", userId, {
+          "compras-pedidos": true,
+        }),
+      ).rejects.toThrow("Usuario no encontrado");
     });
   });
 });
