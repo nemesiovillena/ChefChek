@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardService } from "./dashboard.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { PurchaseListScopeService } from "../role-access/purchase-list-scope.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import { EtiquetadoConfigService } from "../etiquetado/services/etiquetado-config.service";
 
@@ -98,6 +99,11 @@ describe("DashboardService", () => {
           useValue: (mockRoleAccess = {
             isSectionAllowed: jest.fn().mockResolvedValue(true),
           }),
+        },
+        {
+          // Sin límite de listas: ve todos los pedidos.
+          provide: PurchaseListScopeService,
+          useValue: { resolve: jest.fn().mockResolvedValue(null) },
         },
         {
           provide: EtiquetadoConfigService,

@@ -1,4 +1,4 @@
-import { IsObject, IsOptional } from "class-validator";
+import { IsArray, IsObject, IsOptional, IsString } from "class-validator";
 
 /**
  * Partial map of section-key -> boolean for a role. Unknown keys are rejected
@@ -20,4 +20,11 @@ export class UpdateRoleAccessDto {
 export class UpdateUserAccessDto {
   @IsObject()
   access: SectionFlagMap;
+}
+
+/** Listas de compra asignadas a una persona: `{ listIds: ["..."] }`. */
+export class UpdateUserPurchaseListsDto {
+  @IsArray()
+  @IsString({ each: true })
+  listIds: string[];
 }

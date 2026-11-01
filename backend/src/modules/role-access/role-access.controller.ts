@@ -12,15 +12,20 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { RoleAccessService } from "./role-access.service";
+import { PurchaseListScopeService } from "./purchase-list-scope.service";
 import {
   UpdateRoleAccessDto,
   UpdateUserAccessDto,
+  UpdateUserPurchaseListsDto,
 } from "./dto/role-access.dto";
 
 @Controller("api/v1/role-access")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class RoleAccessController {
-  constructor(private readonly roleAccessService: RoleAccessService) {}
+  constructor(
+    private readonly roleAccessService: RoleAccessService,
+    private readonly purchaseListScope: PurchaseListScopeService,
+  ) {}
 
   /** Full config (both role columns + section list). OWNER/ADMIN only. */
   @Get()
@@ -76,5 +81,33 @@ export class RoleAccessController {
       req.user.id,
       dto.access,
     );
+  }
+
+  /** Listas de compra con las que la persona puede hacer pedidos. OWNER/ADMIN. */
+  @Get("users/:userId/purchase-lists")
+  @Roles("ADMIN")
+  async getUserPurchaseLists(@Req() req: any, @Param("userId") userId: string) {
+    const listIds = await this.purchaseListScope.getAssignedListIds(
+      req.tenantId,
+      userId,
+    );
+    return { listIds };
+  }
+
+  /** Sustituye las listas asignadas: `{ listIds: [...] }`. OWNER/ADMIN. */
+  @Put("users/:userId/purchase-lists")
+  @Roles("ADMIN")
+  async updateUserPurchaseLists(
+    @Req() req: any,
+    @Param("userId") userId: string,
+    @Body() dto: UpdateUserPurchaseListsDto,
+  ) {
+    const listIds = await this.purchaseListScope.setAssignedListIds(
+      req.tenantId,
+      userId,
+      req.user.id,
+      dto.listIds,
+    );
+    return { listIds };
   }
 }

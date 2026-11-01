@@ -52,3 +52,27 @@ export function useUpdateUserAccess() {
     },
   });
 }
+
+/** Listas de compra con las que la persona puede hacer pedidos. OWNER/ADMIN. */
+export function useUserPurchaseLists(userId: string | undefined, enabled: boolean) {
+  return useApiQuery<{ listIds: string[] }>(
+    ['role-access-user-lists', userId ?? ''],
+    `/v1/role-access/users/${userId}/purchase-lists`,
+    { enabled: enabled && !!userId },
+  );
+}
+
+export function useUpdateUserPurchaseLists() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, listIds }: { userId: string; listIds: string[] }) =>
+      (
+        await apiClient.put<{ listIds: string[] }>(`/v1/role-access/users/${userId}/purchase-lists`, {
+          listIds,
+        })
+      ).data,
+    onSuccess: (_data, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['role-access-user-lists', userId] });
+    },
+  });
+}
