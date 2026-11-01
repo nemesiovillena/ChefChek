@@ -11,6 +11,9 @@ import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { UserLaborDataTab } from './user-labor-data-tab';
 import { useTeamPositions } from '@/hooks/use-team-positions';
+import { useUpdateUserAccess, useUserAccess } from '@/features/modules/hooks/use-role-access-config';
+
+const MANAGER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
 export type UserModalTab = 'datos' | 'laboral';
 
@@ -86,6 +89,20 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
     payrollEmail: targetUser?.payrollEmail ?? '',
   }));
   const [avatarUrl, setAvatarUrl] = useState(() => targetUser?.avatarUrl ?? '');
+
+  // Permiso por persona «Pedidos, listas y programaciones»: para un USER cuyo
+  // puesto oculta Compras. Solo lo gestiona la gerencia y se guarda con el resto.
+  const canGrantPedidos =
+    !!targetUser &&
+    modules !== null &&
+    isEnabled('compras') &&
+    MANAGER_ROLES.includes(currentUser?.role ?? '');
+  const userAccess = useUserAccess(targetUser?.id, canGrantPedidos);
+  const updateUserAccess = useUpdateUserAccess();
+  const savedPedidosAccess = userAccess.data?.['compras-pedidos'] ?? false;
+  const [pedidosAccessEdit, setPedidosAccessEdit] = useState<boolean | null>(null);
+  const pedidosAccess = pedidosAccessEdit ?? savedPedidosAccess;
+  const showPedidosAccess = canGrantPedidos && formData.role === 'USER' && userAccess.isSuccess;
   const [samePhoneForWhatsapp, setSamePhoneForWhatsapp] = useState(
     () => !!targetUser && !!targetUser.phone && targetUser.phone === targetUser.whatsapp,
   );
@@ -163,6 +180,12 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
           ...commonData,
           ...(formData.password ? { password: formData.password } : {}),
         });
+        if (showPedidosAccess && pedidosAccess !== savedPedidosAccess) {
+          await updateUserAccess.mutateAsync({
+            userId: targetUser.id,
+            access: { 'compras-pedidos': pedidosAccess },
+          });
+        }
         addNotification({ type: 'success', title: 'Usuario actualizado', message: 'Usuario actualizado correctamente' });
       } else {
         await createMutation.mutateAsync({
@@ -184,7 +207,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
     }
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending || updateUserAccess.isPending;
   const inputClass = 'w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
@@ -317,6 +340,24 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               </span>
             </label>
           </div>
+
+          {showPedidosAccess && (
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="pedidosAccess"
+                checked={pedidosAccess}
+                onChange={(e) => setPedidosAccessEdit(e.target.checked)}
+                className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              />
+              <label htmlFor="pedidosAccess" className="text-sm text-gray-700 dark:text-gray-300">
+                Puede hacer pedidos a proveedores
+                <span className="block text-xs text-gray-500">
+                  Ve Almacén → Compras solo con Pedidos, Listas y Programaciones, aunque su puesto oculte Compras.
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Foto */}
           <div>

@@ -1,9 +1,14 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { ModulesService } from "../modules/modules.service";
 import {
   SECTION_REGISTRY,
-  SECTION_KEYS,
+  CONFIGURABLE_SECTION_KEYS,
+  PER_USER_SECTION_KEYS,
   SECTION_BYPASS_ROLES,
   DERIVED_SECTION_ROLES,
   ROLE_ACCESS_ROLES,
@@ -16,6 +21,8 @@ const CONFIG_PREFIX = "roleAccess.";
 const CONFIG_CATEGORY = "ROLE_ACCESS";
 /** Permisos por puesto: `positionAccess.{puestoId}.{sección}` = "true"/"false". */
 const POSITION_PREFIX = "positionAccess.";
+/** Permisos por persona: `userAccess.{userId}.{sección}` = "true"/"false". */
+const USER_PREFIX = "userAccess.";
 
 export interface RoleAccessConfigResponse {
   sections: {
@@ -72,9 +79,10 @@ export class RoleAccessService {
         map[section.key] = false;
         continue;
       }
-      map[section.key] = explicit.has(section.key)
-        ? (explicit.get(section.key) as boolean)
-        : section.defaultAllowed;
+      map[section.key] =
+        !section.perUserOnly && explicit.has(section.key)
+          ? (explicit.get(section.key) as boolean)
+          : section.defaultAllowed;
     }
     return map;
   }
@@ -109,6 +117,22 @@ export class RoleAccessService {
       if (!roleGuaranteed.has(key)) {
         map[key] = false;
       }
+    }
+    // Lo concedido a la persona suma después del puesto (el puesto no lo
+    // quita), salvo que el módulo de la sección esté desactivado.
+    const granted = await this.getUserAccess(tenantId, userId);
+    for (const [key, allowed] of Object.entries(granted)) {
+      if (!allowed) {
+        continue;
+      }
+      const section = SECTION_REGISTRY.find((s) => s.key === key);
+      if (
+        section?.moduleId &&
+        !(await this.isModuleEnabled(tenantId, section.moduleId))
+      ) {
+        continue;
+      }
+      map[key] = true;
     }
     return map;
   }
@@ -179,7 +203,7 @@ export class RoleAccessService {
     );
 
     const sections = SECTION_REGISTRY.filter(
-      (s) => !s.moduleId || enabledModules.has(s.moduleId),
+      (s) => !s.perUserOnly && (!s.moduleId || enabledModules.has(s.moduleId)),
     ).map((s) => ({
       key: s.key,
       label: s.label,
@@ -208,7 +232,7 @@ export class RoleAccessService {
       }
 
       for (const [sectionKey, value] of Object.entries(flags)) {
-        if (!SECTION_KEYS.has(sectionKey)) {
+        if (!CONFIGURABLE_SECTION_KEYS.has(sectionKey)) {
           throw new BadRequestException(`Unknown section key: '${sectionKey}'`);
         }
         if (typeof value !== "boolean") {
@@ -268,7 +292,7 @@ export class RoleAccessService {
     const access: Record<string, boolean> = {};
     for (const row of rows) {
       const key = row.key.slice(prefix.length);
-      if (SECTION_KEYS.has(key)) {
+      if (CONFIGURABLE_SECTION_KEYS.has(key)) {
         access[key] = row.value === "true";
       }
     }
@@ -283,7 +307,7 @@ export class RoleAccessService {
     flags: Record<string, unknown>,
   ): Promise<Record<string, boolean>> {
     for (const [sectionKey, value] of Object.entries(flags)) {
-      if (!SECTION_KEYS.has(sectionKey)) {
+      if (!CONFIGURABLE_SECTION_KEYS.has(sectionKey)) {
         throw new BadRequestException(`Unknown section key: '${sectionKey}'`);
       }
       if (typeof value !== "boolean") {
@@ -306,5 +330,69 @@ export class RoleAccessService {
       });
     }
     return this.getPositionAccess(tenantId, positionId);
+  }
+
+  // ── Permisos por persona ────────────────────────────────────────────────
+
+  /** Lo concedido a una persona: `{ 'compras-pedidos': true }` (sin fila = no concedido). */
+  async getUserAccess(
+    tenantId: string,
+    userId: string,
+  ): Promise<Record<string, boolean>> {
+    const prefix = `${USER_PREFIX}${userId}.`;
+    const rows = await this.prisma.configuration.findMany({
+      where: { tenantId, key: { startsWith: prefix } },
+    });
+    const access: Record<string, boolean> = {};
+    for (const key of PER_USER_SECTION_KEYS) {
+      access[key] = false;
+    }
+    for (const row of rows) {
+      const key = row.key.slice(prefix.length);
+      if (PER_USER_SECTION_KEYS.has(key)) {
+        access[key] = row.value === "true";
+      }
+    }
+    return access;
+  }
+
+  /** Concede o retira permisos por persona. Solo claves por persona del registro. */
+  async updateUserAccess(
+    tenantId: string,
+    targetUserId: string,
+    editorId: string,
+    flags: Record<string, unknown>,
+  ): Promise<Record<string, boolean>> {
+    const target = await this.prisma.user.findFirst({
+      where: { id: targetUserId, tenantId },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new NotFoundException("Usuario no encontrado");
+    }
+    for (const [sectionKey, value] of Object.entries(flags)) {
+      if (!PER_USER_SECTION_KEYS.has(sectionKey)) {
+        throw new BadRequestException(`Unknown section key: '${sectionKey}'`);
+      }
+      if (typeof value !== "boolean") {
+        throw new BadRequestException(
+          `Value for '${sectionKey}' must be a boolean`,
+        );
+      }
+      const key = `${USER_PREFIX}${targetUserId}.${sectionKey}`;
+      await this.prisma.configuration.upsert({
+        where: { tenantId_key: { tenantId, key } },
+        create: {
+          tenantId,
+          key,
+          value: String(value),
+          category: CONFIG_CATEGORY,
+          description: `User access for ${targetUserId}: ${sectionKey}`,
+          updatedBy: editorId,
+        },
+        update: { value: String(value), updatedBy: editorId },
+      });
+    }
+    return this.getUserAccess(tenantId, targetUserId);
   }
 }

@@ -1,10 +1,21 @@
-import { Body, Controller, Get, Put, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Put,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { RoleAccessService } from "./role-access.service";
-import { UpdateRoleAccessDto } from "./dto/role-access.dto";
+import {
+  UpdateRoleAccessDto,
+  UpdateUserAccessDto,
+} from "./dto/role-access.dto";
 
 @Controller("api/v1/role-access")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
@@ -41,6 +52,29 @@ export class RoleAccessController {
       req.tenantId,
       req.user.id,
       dto,
+    );
+  }
+
+  /** Permisos concedidos a una persona (p. ej. «compras-pedidos»). OWNER/ADMIN. */
+  @Get("users/:userId")
+  @Roles("ADMIN")
+  async getUserAccess(@Req() req: any, @Param("userId") userId: string) {
+    return this.roleAccessService.getUserAccess(req.tenantId, userId);
+  }
+
+  /** Concede o retira permisos por persona: `{ access: { "compras-pedidos": true } }`. OWNER/ADMIN. */
+  @Put("users/:userId")
+  @Roles("ADMIN")
+  async updateUserAccess(
+    @Req() req: any,
+    @Param("userId") userId: string,
+    @Body() dto: UpdateUserAccessDto,
+  ) {
+    return this.roleAccessService.updateUserAccess(
+      req.tenantId,
+      userId,
+      req.user.id,
+      dto.access,
     );
   }
 }

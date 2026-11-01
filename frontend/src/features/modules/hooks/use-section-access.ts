@@ -10,6 +10,15 @@ import { fetchMySectionAccess, type SectionAccessMap } from '../api/role-access-
  * reload after the OWNER changes the config.
  */
 let cache: SectionAccessMap | null = null;
+
+/**
+ * Permisos por persona que abren solo una parte de una sección. Con
+ * «compras-pedidos» se entra a Compras, pero solo a Pedidos, Listas y
+ * Programaciones (el servidor bloquea el resto).
+ */
+const PARTIAL_SECTIONS: Record<string, string[]> = {
+  compras: ['compras-pedidos'],
+};
 let inflight: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -66,6 +75,11 @@ interface UseSectionAccessResult {
    * loading, and for any key absent from the map (ADMIN+ get an empty map).
    */
   canSee: (sectionKey?: string) => boolean;
+  /**
+   * Como `canSee`, pero también true si un permiso parcial abre parte de la
+   * sección (para el menú, la entrada por URL y los accesos del inicio).
+   */
+  canEnter: (sectionKey?: string) => boolean;
 }
 
 export function useSectionAccess(): UseSectionAccessResult {
@@ -84,5 +98,13 @@ export function useSectionAccess(): UseSectionAccessResult {
     [map],
   );
 
-  return { map, refetch: refetchSectionAccess, canSee };
+  const canEnter = useCallback(
+    (sectionKey?: string) =>
+      canSee(sectionKey) ||
+      (!!sectionKey &&
+        (PARTIAL_SECTIONS[sectionKey] ?? []).some((key) => map?.[key] === true)),
+    [canSee, map],
+  );
+
+  return { map, refetch: refetchSectionAccess, canSee, canEnter };
 }
