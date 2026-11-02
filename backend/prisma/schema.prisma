@@ -2971,6 +2971,13 @@ model FoodLabel {
   editedByName           String?
   editCount              Int       @default(0)
   editLog                Json?
+  // Contador de raciones (módulo `raciones`): solo si al emitir la etiqueta
+  // su receta o artículo tenía contador. Las ventas y ajustes la gastan FIFO.
+  portionCounterId       String?
+  portionsRemaining      Float?
+  // «Siguen disponibles»: el usuario confirma que las raciones de una etiqueta
+  // caducada siguen sirviendo. La caducidad nunca las descuenta sola.
+  portionsExpiryAckAt    DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
@@ -2987,6 +2994,7 @@ model FoodLabel {
   @@index([tenantId, retiredAt])
   @@index([recipeId])
   @@index([productId])
+  @@index([portionCounterId])
   @@map("food_labels")
 }
 
@@ -4287,4 +4295,91 @@ model SchedulePublication {
 
   @@index([tenantId, locationId, weekStart])
   @@map("schedule_publications")
+}
+
+// ─── Contador de raciones (módulo `raciones`) ───────────────────────────────
+// Raciones disponibles de un plato controlado (solomillo, lubina…). El
+// disponible = unlabeledPortions + Σ FoodLabel.portionsRemaining de sus
+// etiquetas activas: no se guarda un total aparte para que no se descuadre.
+
+model PortionCounter {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  name               String
+  // Qué etiquetas suman: las de esta receta (elaborado) o este artículo
+  // (manipulado). Exactamente uno de los dos.
+  recipeId           String?
+  productId          String?
+  minPortions        Float     @default(0)
+  // Raciones contadas a mano sin etiqueta (recuento); se gastan las primeras.
+  unlabeledPortions  Float     @default(0)
+  // Aviso de mínimo/agotado ya enviado; se limpia al volver a superarlo.
+  belowMinNotifiedAt DateTime?
+  outNotifiedAt      DateTime?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  dishes    PortionCounterDish[]
+  movements PortionMovement[]
+
+  @@unique([tenantId, recipeId])
+  @@unique([tenantId, productId])
+  @@index([tenantId])
+  @@map("portion_counters")
+}
+
+// Plato de Cuiner (CuinerSaleLine.tipo + producto) que gasta raciones de un
+// contador. Independiente de CuinerDishMap, que descuenta almacén.
+model PortionCounterDish {
+  id              String   @id @default(cuid())
+  tenantId        String
+  counterId       String
+  tipo            String
+  producto        String
+  // Raciones que gasta cada unidad vendida (media ración = 0,5).
+  portionsPerSale Float    @default(1)
+  createdAt       DateTime @default(now())
+
+  counter PortionCounter @relation(fields: [counterId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, tipo, producto])
+  @@index([counterId])
+  @@map("portion_counter_dishes")
+}
+
+enum PortionMovementType {
+  LABEL_IN
+  LABEL_EDIT
+  SALE
+  RETIRE
+  UNRETIRE
+  VOID
+  ADJUST
+  RECOUNT
+}
+
+// Registro de cada cambio de raciones: historial y auditoría (quién, cuándo).
+model PortionMovement {
+  id               String              @id @default(cuid())
+  tenantId         String
+  counterId        String
+  // Etiqueta afectada; null = raciones sin etiqueta (recuento) o faltante.
+  foodLabelId      String?
+  type             PortionMovementType
+  quantity         Float // + entra, − sale
+  // Venta sin raciones suficientes: se vendió más de lo etiquetado/contado.
+  shortfall        Boolean             @default(false)
+  cuinerSaleLineId String?
+  reason           String?
+  userId           String?
+  userName         String?
+  createdAt        DateTime            @default(now())
+
+  counter PortionCounter @relation(fields: [counterId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, counterId, createdAt])
+  @@index([foodLabelId])
+  @@index([cuinerSaleLineId])
+  @@map("portion_movements")
 }

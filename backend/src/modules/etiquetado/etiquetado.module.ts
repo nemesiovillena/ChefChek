@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { CoreModule } from "../core/core.module";
+import { RacionesModule } from "../raciones/raciones.module";
 import { EtiquetadoController } from "./etiquetado.controller";
 import { EtiquetadoPublicController } from "./etiquetado-public.controller";
 import { FoodLabelService } from "./services/food-label.service";
@@ -12,7 +13,7 @@ import { LotNumberService } from "./services/lot-number.service";
 import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
 
 @Module({
-  imports: [PrismaModule, AuthModule, CoreModule],
+  imports: [PrismaModule, AuthModule, CoreModule, RacionesModule],
   controllers: [EtiquetadoController, EtiquetadoPublicController],
   providers: [
     FoodLabelService,

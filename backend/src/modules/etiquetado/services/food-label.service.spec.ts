@@ -5,6 +5,7 @@ import { FoodLabelService } from "./food-label.service";
 import { LotNumberService } from "./lot-number.service";
 import { EtiquetadoConfigService } from "./etiquetado-config.service";
 import { PrismaService } from "../../../common/services/prisma.service";
+import { PortionLedgerService } from "../../raciones/services/portion-ledger.service";
 
 describe("FoodLabelService", () => {
   let service: FoodLabelService;
@@ -24,7 +25,21 @@ describe("FoodLabelService", () => {
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    // Array de operaciones o callback interactivo (recibe el propio mock como tx).
+    $transaction: jest.fn((arg: unknown) =>
+      typeof arg === "function"
+        ? (arg as (tx: unknown) => Promise<unknown>)(mockPrisma)
+        : Promise.all(arg as Promise<unknown>[]),
+    ),
+  };
+
+  const mockPortionLedger = {
+    counterForNewLabel: jest.fn().mockResolvedValue(null),
+    recordLabelIn: jest.fn(),
+    onLabelPortionsEdited: jest.fn().mockResolvedValue(null),
+    releaseLabels: jest.fn().mockResolvedValue([]),
+    restoreLabel: jest.fn().mockResolvedValue(null),
+    refreshAlerts: jest.fn(),
   };
 
   const mockLotNumber = {
@@ -43,12 +58,17 @@ describe("FoodLabelService", () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     mockEtiquetadoConfig.getExpiryWarningDays.mockResolvedValue(5);
+    mockPortionLedger.counterForNewLabel.mockResolvedValue(null);
+    mockPortionLedger.onLabelPortionsEdited.mockResolvedValue(null);
+    mockPortionLedger.releaseLabels.mockResolvedValue([]);
+    mockPortionLedger.restoreLabel.mockResolvedValue(null);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FoodLabelService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: LotNumberService, useValue: mockLotNumber },
         { provide: EtiquetadoConfigService, useValue: mockEtiquetadoConfig },
+        { provide: PortionLedgerService, useValue: mockPortionLedger },
       ],
     }).compile();
     service = module.get(FoodLabelService);
@@ -547,7 +567,13 @@ describe("FoodLabelService", () => {
 
   describe("retire / unretire", () => {
     it("retires only active labels of the tenant and records who and how", async () => {
+      // fl3 ya estaba retirada o es de otro tenant: no entra.
+      mockPrisma.foodLabel.findMany.mockResolvedValue([
+        { id: "fl1" },
+        { id: "fl2" },
+      ]);
       mockPrisma.foodLabel.updateMany.mockResolvedValue({ count: 2 });
+      mockPortionLedger.releaseLabels.mockResolvedValue(["pc1"]);
       const result = await service.retire(
         TENANT,
         USER,
@@ -555,13 +581,30 @@ describe("FoodLabelService", () => {
         "DISCARDED",
       );
       expect(result).toEqual({ retired: 2 });
-      const call = mockPrisma.foodLabel.updateMany.mock.calls[0][0];
-      expect(call.where).toEqual({
+      expect(mockPrisma.foodLabel.findMany.mock.calls[0][0].where).toEqual({
         tenantId: TENANT,
         id: { in: ["fl1", "fl2", "fl3"] },
         voidedAt: null,
         retiredAt: null,
       });
+      const call = mockPrisma.foodLabel.updateMany.mock.calls[0][0];
+      expect(call.where).toEqual({
+        tenantId: TENANT,
+        id: { in: ["fl1", "fl2"] },
+        voidedAt: null,
+        retiredAt: null,
+      });
+      // Las raciones que quedaban en esas etiquetas salen del contador.
+      expect(mockPortionLedger.releaseLabels).toHaveBeenCalledWith(
+        mockPrisma,
+        TENANT,
+        ["fl1", "fl2"],
+        "RETIRE",
+        USER,
+      );
+      expect(mockPortionLedger.refreshAlerts).toHaveBeenCalledWith(TENANT, [
+        "pc1",
+      ]);
       expect(call.data).toMatchObject({
         retiredDisposition: "DISCARDED",
         retiredByUserId: "u1",

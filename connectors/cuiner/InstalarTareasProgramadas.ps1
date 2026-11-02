@@ -6,7 +6,8 @@
 .DESCRIPTION
   Crea dos tareas que se ejecutan como SYSTEM (el único, junto a los
   administradores, que puede leer C:\ChefChekConector\secrets):
-    - "ChefChek Conector - Ventas":   cada 30 minutos.
+    - "ChefChek Conector - Ventas":   cada 5 minutos (Cuiner escribe cada
+      ticket al cobrarlo; el contador de raciones lo descuenta en minutos).
     - "ChefChek Conector - Albaranes": cada 5 minutos (escribe en Cuiner los
       albaranes enviados con «Enviar a Cuiner»; en simulación no escribe).
     - "ChefChek Conector - Catalogo": una vez al día a las 09:00 (después de
@@ -49,7 +50,7 @@ foreach ($name in $Tasks.Keys) {
     -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Script`" -Task $task" `
     -WorkingDirectory $Base
   if ($task -eq 'sales' -or $task -eq 'albaranes') {
-    $minutes = $(if ($task -eq 'sales') { 30 } else { 5 })
+    $minutes = 5
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(5) `
       -RepetitionInterval (New-TimeSpan -Minutes $minutes) -RepetitionDuration (New-TimeSpan -Days 3650)
   } else {
