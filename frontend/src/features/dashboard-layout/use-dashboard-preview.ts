@@ -4,12 +4,19 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth.context';
 import { useApiQuery } from '@/hooks/use-api';
 import { PARTIAL_SECTIONS } from '@/features/modules/hooks/use-section-access';
-import { DASHBOARD_WIDGETS, type DashboardLayout } from './dashboard-widgets';
+import {
+  DASHBOARD_MAX_COLS,
+  DASHBOARD_MAX_ROWS,
+  DASHBOARD_WIDGETS,
+  type DashboardLayout,
+  type DashboardWidgetSlot,
+} from './dashboard-widgets';
 
 const MANAGER_ROLES = ['OWNER', 'ADMIN'];
 const WIDGET_IDS = new Set<string>(DASHBOARD_WIDGETS.map((w) => w.id));
 
 export interface DashboardPreview {
+  deviceId: string;
   layout: DashboardLayout;
   isLoading: boolean;
   canSee: (sectionKey?: string) => boolean;
@@ -21,9 +28,26 @@ export function dashboardPreviewUrl(deviceId: string, layout: DashboardLayout): 
   const params = new URLSearchParams({
     preview: deviceId,
     title: layout.title,
-    widgets: layout.widgets.join(','),
+    // `id:ancho:alto` por card, separadas por comas.
+    widgets: layout.widgets.map((w) => `${w.id}:${w.cols}:${w.rows}`).join(','),
   });
   return `/dashboard?${params.toString()}`;
+}
+
+const clamp = (raw: string | undefined, max: number) => {
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= max ? n : 1;
+};
+
+/** `id:ancho:alto,…` → slots válidos (ids desconocidos fuera, tamaños fuera de rango → 1). */
+function parseWidgets(value: string | null): DashboardWidgetSlot[] {
+  return (value ?? '')
+    .split(',')
+    .map((part) => {
+      const [id, cols, rows] = part.split(':');
+      return { id, cols: clamp(cols, DASHBOARD_MAX_COLS), rows: clamp(rows, DASHBOARD_MAX_ROWS) };
+    })
+    .filter((w) => WIDGET_IDS.has(w.id));
 }
 
 /**
@@ -50,9 +74,10 @@ export function useDashboardPreview(): DashboardPreview | null {
     canSee(key) || (!!key && (PARTIAL_SECTIONS[key] ?? []).some((k) => map[k] === true));
 
   return {
+    deviceId: deviceId as string,
     layout: {
       title: params.get('title')?.trim() || 'Vista previa',
-      widgets: (params.get('widgets') ?? '').split(',').filter((id) => WIDGET_IDS.has(id)),
+      widgets: parseWidgets(params.get('widgets')),
     },
     isLoading,
     canSee,

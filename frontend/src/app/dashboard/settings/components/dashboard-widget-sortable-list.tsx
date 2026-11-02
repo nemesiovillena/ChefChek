@@ -19,40 +19,45 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Switch } from '@/components/ui/switch';
-import { DASHBOARD_WIDGETS } from '@/features/dashboard-layout/dashboard-widgets';
-
-const LABELS = new Map<string, string>(DASHBOARD_WIDGETS.map((w) => [w.id, w.label]));
+import {
+  DASHBOARD_WIDGETS,
+  WIDGET_LABELS,
+  newSlot,
+  type DashboardWidgetSlot,
+} from '@/features/dashboard-layout/dashboard-widgets';
+import { WidgetSizePicker } from '@/features/dashboard-layout/widget-size-picker';
 
 /**
  * Cards de una pantalla: arriba las visibles, en el orden en que se pintan
- * (se arrastran por el asa); debajo las ocultas. Al activar una, entra al
- * final de las visibles.
+ * (se arrastran por el asa) y con su tamaño; debajo las ocultas. Al activar
+ * una, entra al final de las visibles con tamaño 1×1.
  */
 export function DashboardWidgetSortableList({
   widgets,
   onChange,
 }: {
-  widgets: string[];
-  onChange: (widgets: string[]) => void;
+  widgets: DashboardWidgetSlot[];
+  onChange: (widgets: DashboardWidgetSlot[]) => void;
 }) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-  const hidden = DASHBOARD_WIDGETS.map((w) => w.id).filter((id) => !widgets.includes(id));
+  const ids = widgets.map((w) => w.id);
+  const hidden = DASHBOARD_WIDGETS.map((w) => w.id).filter((id) => !ids.includes(id));
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return;
-    const from = widgets.indexOf(String(active.id));
-    const to = widgets.indexOf(String(over.id));
+    const from = ids.indexOf(String(active.id));
+    const to = ids.indexOf(String(over.id));
     if (from !== -1 && to !== -1) onChange(arrayMove(widgets, from, to));
   };
 
   return (
     <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-[var(--outline-variant)]">
       <p className="bg-[var(--surface-container-low)] px-3 py-1.5 text-xs uppercase tracking-wide text-[var(--on-surface-variant)]">
-        Visibles · arrastra para ordenar
+        Visibles · arrastra para ordenar · ancho × alto
       </p>
       {widgets.length === 0 ? (
         <p className="px-3 py-3 text-sm text-[var(--on-surface-variant)]">
@@ -60,10 +65,15 @@ export function DashboardWidgetSortableList({
         </p>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={widgets} strategy={verticalListSortingStrategy}>
+          <SortableContext items={ids} strategy={verticalListSortingStrategy}>
             <ul className="divide-y divide-[var(--outline-variant)]">
-              {widgets.map((id) => (
-                <SortableWidgetRow key={id} id={id} onHide={() => onChange(widgets.filter((w) => w !== id))} />
+              {widgets.map((slot) => (
+                <SortableWidgetRow
+                  key={slot.id}
+                  slot={slot}
+                  onResize={(next) => onChange(widgets.map((w) => (w.id === slot.id ? next : w)))}
+                  onHide={() => onChange(widgets.filter((w) => w.id !== slot.id))}
+                />
               ))}
             </ul>
           </SortableContext>
@@ -79,8 +89,8 @@ export function DashboardWidgetSortableList({
             {hidden.map((id) => (
               <li key={id}>
                 <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 py-2 pl-11 pr-3 text-[var(--on-surface-variant)]">
-                  {LABELS.get(id)}
-                  <Switch checked={false} onCheckedChange={() => onChange([...widgets, id])} />
+                  {WIDGET_LABELS.get(id)}
+                  <Switch checked={false} onCheckedChange={() => onChange([...widgets, newSlot(id)])} />
                 </label>
               </li>
             ))}
@@ -91,9 +101,18 @@ export function DashboardWidgetSortableList({
   );
 }
 
-function SortableWidgetRow({ id, onHide }: { id: string; onHide: () => void }) {
+function SortableWidgetRow({
+  slot,
+  onResize,
+  onHide,
+}: {
+  slot: DashboardWidgetSlot;
+  onResize: (slot: DashboardWidgetSlot) => void;
+  onHide: () => void;
+}) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+    useSortable({ id: slot.id });
+  const label = WIDGET_LABELS.get(slot.id);
 
   return (
     <li
@@ -109,13 +128,14 @@ function SortableWidgetRow({ id, onHide }: { id: string; onHide: () => void }) {
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        aria-label={`Mover ${LABELS.get(id)}`}
+        aria-label={`Mover ${label}`}
         className="flex h-8 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded text-[var(--on-surface-variant)] active:cursor-grabbing"
       >
         <span className="material-symbols-outlined text-[20px]">drag_indicator</span>
       </button>
-      <span className="flex-1">{LABELS.get(id)}</span>
-      <Switch checked onCheckedChange={onHide} aria-label={`Ocultar ${LABELS.get(id)}`} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <WidgetSizePicker slot={slot} onChange={onResize} />
+      <Switch checked onCheckedChange={onHide} aria-label={`Ocultar ${label}`} />
     </li>
   );
 }

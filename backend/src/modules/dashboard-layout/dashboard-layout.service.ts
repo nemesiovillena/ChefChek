@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
-import { DASHBOARD_WIDGET_ID_SET } from "./dashboard-widgets";
+import { type DashboardWidgetSlot, toWidgetSlot } from "./dashboard-widgets";
 import { UpdateDashboardLayoutDto } from "./dto/update-dashboard-layout.dto";
 
 /** Una fila de `configurations` por dispositivo: `dashboardLayout.{userId}` = JSON. */
@@ -14,8 +14,8 @@ const CONFIG_CATEGORY = "DASHBOARD_LAYOUT";
 
 export interface DashboardLayout {
   title: string;
-  /** Cards visibles, en el orden en que se pintan. */
-  widgets: string[];
+  /** Cards visibles con su tamaño, en el orden en que se pintan. */
+  widgets: DashboardWidgetSlot[];
 }
 
 export interface SharedDeviceLayout {
@@ -86,18 +86,21 @@ export class DashboardLayoutService {
     dto: UpdateDashboardLayoutDto,
   ): Promise<DashboardLayout> {
     await this.assertSharedDevice(tenantId, deviceId);
-    const unknown = dto.widgets.filter((w) => !DASHBOARD_WIDGET_ID_SET.has(w));
-    if (unknown.length > 0) {
-      throw new BadRequestException(`Card desconocida: ${unknown.join(", ")}`);
+    const widgets: DashboardWidgetSlot[] = [];
+    for (const raw of dto.widgets) {
+      const slot = toWidgetSlot(raw);
+      if (!slot) {
+        throw new BadRequestException(`Card no válida: ${JSON.stringify(raw)}`);
+      }
+      if (!widgets.some((w) => w.id === slot.id)) {
+        widgets.push(slot);
+      }
     }
     const title = dto.title.trim();
     if (!title) {
       throw new BadRequestException("El título no puede estar vacío");
     }
-    const layout: DashboardLayout = {
-      title,
-      widgets: [...new Set(dto.widgets)],
-    };
+    const layout: DashboardLayout = { title, widgets };
     const key = `${KEY_PREFIX}${deviceId}`;
     const value = JSON.stringify(layout);
     await this.prisma.configuration.upsert({
@@ -171,10 +174,9 @@ function parseLayout(value: string): DashboardLayout | null {
     }
     return {
       title: raw.title,
-      widgets: raw.widgets.filter(
-        (w): w is string =>
-          typeof w === "string" && DASHBOARD_WIDGET_ID_SET.has(w),
-      ),
+      widgets: (raw.widgets as unknown[])
+        .map(toWidgetSlot)
+        .filter((w): w is DashboardWidgetSlot => w !== null),
     };
   } catch {
     return null;

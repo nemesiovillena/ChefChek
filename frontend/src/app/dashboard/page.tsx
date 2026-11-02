@@ -32,9 +32,11 @@ import { SictedDashboardCard } from './sicted-dashboard-card';
 import { RacionesDashboardCard } from './raciones-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
-import { useMyDashboardLayout } from '@/features/dashboard-layout/use-dashboard-layout';
-import { useDashboardPreview } from '@/features/dashboard-layout/use-dashboard-preview';
-import { DEFAULT_DASHBOARD_TITLE } from '@/features/dashboard-layout/dashboard-widgets';
+import { useMyDashboardLayout, useSaveDeviceLayout } from '@/features/dashboard-layout/use-dashboard-layout';
+import { ConfiguredDashboardGrid } from './configured-dashboard-grid';
+import { useNotification } from '@/components/notification-system';
+import { dashboardPreviewUrl, useDashboardPreview } from '@/features/dashboard-layout/use-dashboard-preview';
+import { DEFAULT_DASHBOARD_TITLE, type DashboardLayout } from '@/features/dashboard-layout/dashboard-widgets';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -78,9 +80,14 @@ export default function DashboardPage() {
   // dashboard completo de siempre. Mientras carga no se pinta ninguna card
   // para que la pantalla de Sala no enseñe un instante las de cocina.
   const ownLayout = useMyDashboardLayout();
-  const layout = preview ? preview.layout : ownLayout.layout;
+  // Vista previa: lo que el administrador mueve o redimensiona encima de la
+  // pantalla, hasta que lo guarda (null = tal cual llegó del editor).
+  const [previewEdits, setPreviewEdits] = useState<DashboardLayout | null>(null);
+  const savePreview = useSaveDeviceLayout();
+  const notify = useNotification();
+  const layout = preview ? (previewEdits ?? preview.layout) : ownLayout.layout;
   const layoutLoading = preview ? preview.isLoading : ownLayout.isLoading;
-  const showWidget = (id: string) => !layoutLoading && (!layout || layout.widgets.includes(id));
+  const showWidget = (id: string) => !layoutLoading && (!layout || layout.widgets.some((w) => w.id === id));
   const salaNotificacionesEnabled =
     moduleOn('sala-notificaciones') && canSee('sala-notificaciones') && showWidget('sala-notificaciones');
   // Producción oculta pero "ver tareas" activo → board de solo lectura.
@@ -630,11 +637,13 @@ export default function DashboardPage() {
 
   // Cards de un dispositivo configurado, por id (el botón Crear orden va en la
   // cabecera). Cada una sigue exigiendo su permiso.
-  const configuredCards: Record<string, ReactNode> = {
-    'prep-tasks': showPrepTasks && renderPrepTasksBoard(false),
-    'sala-notificaciones': salaNotificacionesEnabled && renderSalaTasksBoard(false),
+  // fill: la card llena su celda de la rejilla (escritorio) y sus listas
+  // muestran lo que cabe; false: alto natural (móvil).
+  const renderConfiguredCard = (id: string, fill: boolean): ReactNode => ({
+    'prep-tasks': showPrepTasks && renderPrepTasksBoard(fill),
+    'sala-notificaciones': salaNotificacionesEnabled && renderSalaTasksBoard(fill),
     'pedidos-pendientes': showPedidos && pedidosPendientesCard,
-    alertas: showAlerts && renderNotificacionesCard(false),
+    alertas: showAlerts && renderNotificacionesCard(fill),
     caducidades: showCaducidades && caducidadesAlertCard,
     sicted: showSicted && <SictedDashboardCard />,
     recetas: showRecetas && recetasCard,
@@ -642,7 +651,7 @@ export default function DashboardPage() {
     compras: showCompras && comprasCard,
     raciones: showRaciones && <RacionesDashboardCard />,
     fichar: showFichar && ficharCard,
-  };
+  })[id];
 
   return (
     <>
@@ -668,14 +677,41 @@ export default function DashboardPage() {
         las cards. Sin pb propio en xl: el margen inferior es el del
         layout. */}
     <div className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md${
-      layout ? '' : ' xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]'
+      // Pantalla configurada: cabe entera en el alto de la pantalla desde md.
+      layout ? ' md:flex md:flex-col md:h-[calc(100dvh-6rem)]' : ' xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]'
     }`}>
       {preview && (
-        <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-md">
+        <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-sm md:shrink-0">
           <p className="font-label-md text-label-md text-primary">
             <span className="material-symbols-outlined mr-1 align-middle text-[18px]">visibility</span>
-            Vista previa: así verá el inicio el dispositivo, con lo marcado en el editor (aunque no esté guardado).
+            Vista previa del dispositivo: arrastra las cards para ordenarlas y cambia su tamaño (ancho × alto).
+            {previewEdits && <span className="ml-1 text-error">Cambios sin guardar.</span>}
           </p>
+          <div className="flex items-center gap-stack-md">
+          <button
+            type="button"
+            disabled={!previewEdits || savePreview.isPending}
+            onClick={async () => {
+              if (!previewEdits) return;
+              try {
+                await savePreview.mutateAsync({ userId: preview.deviceId, layout: previewEdits });
+              } catch (e) {
+                notify({
+                  type: 'error',
+                  title: 'No se pudo guardar',
+                  message: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+                });
+                return;
+              }
+              notify({ type: 'success', title: 'Pantalla guardada', message: previewEdits.title });
+              setPreviewEdits(null);
+              // Lo guardado pasa a ser la nueva base de la vista previa.
+              router.replace(dashboardPreviewUrl(preview.deviceId, previewEdits));
+            }}
+            className="rounded-lg bg-primary px-stack-lg py-1.5 font-label-md text-label-md text-primary-foreground disabled:opacity-40 cursor-pointer"
+          >
+            {savePreview.isPending ? 'Guardando…' : 'Guardar en el dispositivo'}
+          </button>
           <button
             type="button"
             // Abierta desde el editor se cierra; si se llegó por enlace, vuelve a Configuración.
@@ -687,6 +723,7 @@ export default function DashboardPage() {
           >
             Cerrar vista previa
           </button>
+          </div>
         </div>
       )}
       {/* Header Section */}
@@ -701,16 +738,14 @@ export default function DashboardPage() {
       </section>
 
       {layoutLoading ? null : layout ? (
-        // Dispositivo con pantalla configurada: las cards elegidas, en su
-        // orden, en la vista apilada (2 columnas en escritorio ancho). El
-        // bento de abajo está ajustado a mano para el juego completo de
-        // cards y no admite huecos arbitrarios.
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-gutter mt-stack-xl items-start">
-          {layout.widgets.map((id) => {
-            const card = configuredCards[id];
-            return card ? <div key={id}>{card}</div> : null;
-          })}
-        </div>
+        // Dispositivo con pantalla configurada: sus cards, en su orden y a su
+        // tamaño (el bento de abajo está ajustado a mano para el juego
+        // completo de cards y no admite huecos arbitrarios).
+        <ConfiguredDashboardGrid
+          slots={layout.widgets}
+          renderCard={renderConfiguredCard}
+          onChange={preview ? (widgets) => setPreviewEdits({ ...layout, widgets }) : undefined}
+        />
       ) : (
       <>
 
