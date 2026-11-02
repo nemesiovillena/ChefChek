@@ -46,6 +46,8 @@ export interface DashboardLayout {
 export interface SharedDeviceLayout {
   userId: string;
   name: string;
+  /** device = dispositivo compartido; admin = cuenta de administración (OWNER/ADMIN). */
+  kind: 'device' | 'admin';
   /** null = sin configurar: ve el dashboard completo. */
   layout: DashboardLayout | null;
 }
@@ -87,6 +89,25 @@ export const DASHBOARD_TEMPLATES: { name: string; layout: DashboardLayout }[] = 
         slot('recetas'),
         slot('etiquetado'),
         slot('compras'),
+        slot('crear-orden'),
+      ],
+    },
+  },
+  {
+    name: 'Administración',
+    // Gestión primero: pedidos, alertas y compras a la vista.
+    layout: {
+      title: 'Administración',
+      widgets: [
+        slot('alertas', 1, 2),
+        slot('prep-tasks', 2, 2),
+        slot('pedidos-pendientes'),
+        slot('caducidades'),
+        slot('sala-notificaciones'),
+        slot('sicted', 2),
+        slot('raciones'),
+        slot('compras'),
+        slot('recetas'),
         slot('crear-orden'),
       ],
     },

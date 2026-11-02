@@ -684,7 +684,7 @@ export default function DashboardPage() {
         <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-sm md:shrink-0">
           <p className="font-label-md text-label-md text-primary">
             <span className="material-symbols-outlined mr-1 align-middle text-[18px]">visibility</span>
-            Vista previa del dispositivo: arrastra las cards para ordenarlas y cambia su tamaño (ancho × alto).
+            Vista previa: arrastra las cards para ordenarlas y cambia su tamaño (ancho × alto).
             {previewEdits && <span className="ml-1 text-error">Cambios sin guardar.</span>}
           </p>
           <div className="flex items-center gap-stack-md">

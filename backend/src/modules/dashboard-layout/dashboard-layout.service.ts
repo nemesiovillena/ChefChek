@@ -3,12 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import type { UserRole } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import { type DashboardWidgetSlot, toWidgetSlot } from "./dashboard-widgets";
 import { UpdateDashboardLayoutDto } from "./dto/update-dashboard-layout.dto";
 
-/** Una fila de `configurations` por dispositivo: `dashboardLayout.{userId}` = JSON. */
+/** Una fila de `configurations` por cuenta: `dashboardLayout.{userId}` = JSON. */
 const KEY_PREFIX = "dashboardLayout.";
 const CONFIG_CATEGORY = "DASHBOARD_LAYOUT";
 
@@ -18,9 +19,23 @@ export interface DashboardLayout {
   widgets: DashboardWidgetSlot[];
 }
 
+/**
+ * Cuentas con inicio configurable: los dispositivos compartidos y la
+ * administración (OWNER/ADMIN). El resto de cuentas personales ven el inicio
+ * completo.
+ */
+const CONFIGURABLE_ACCOUNT = {
+  OR: [
+    { isSharedAccount: true },
+    { role: { in: ["OWNER", "ADMIN"] as UserRole[] } },
+  ],
+};
+
 export interface SharedDeviceLayout {
   userId: string;
   name: string;
+  /** device = dispositivo compartido; admin = cuenta de administración. */
+  kind: "device" | "admin";
   /** null = sin configurar: el dispositivo ve el dashboard completo. */
   layout: DashboardLayout | null;
 }
@@ -44,7 +59,7 @@ export class DashboardLayoutService {
     userId: string,
   ): Promise<DashboardLayout | null> {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, tenantId, isSharedAccount: true },
+      where: { id: userId, tenantId, ...CONFIGURABLE_ACCOUNT },
       select: { id: true },
     });
     if (!user) {
@@ -59,8 +74,8 @@ export class DashboardLayoutService {
   /** Dispositivos compartidos activos con su pantalla (para Configuración). */
   async listSharedDevices(tenantId: string): Promise<SharedDeviceLayout[]> {
     const devices = await this.prisma.user.findMany({
-      where: { tenantId, isSharedAccount: true, isActive: true },
-      select: { id: true, name: true },
+      where: { tenantId, isActive: true, ...CONFIGURABLE_ACCOUNT },
+      select: { id: true, name: true, isSharedAccount: true },
       orderBy: { name: "asc" },
     });
     const rows = await this.prisma.configuration.findMany({
@@ -74,6 +89,7 @@ export class DashboardLayoutService {
       return {
         userId: d.id,
         name: d.name,
+        kind: d.isSharedAccount ? ("device" as const) : ("admin" as const),
         layout: value ? parseLayout(value) : null,
       };
     });
@@ -128,11 +144,11 @@ export class DashboardLayoutService {
     deviceId: string,
   ): Promise<Record<string, boolean>> {
     const device = await this.prisma.user.findFirst({
-      where: { id: deviceId, tenantId, isSharedAccount: true },
+      where: { id: deviceId, tenantId, ...CONFIGURABLE_ACCOUNT },
       select: { id: true, role: true },
     });
     if (!device) {
-      throw new NotFoundException("Dispositivo compartido no encontrado");
+      throw new NotFoundException("Cuenta sin pantalla configurable");
     }
     return (
       (await this.roleAccess.getSectionMapForUserRole(
@@ -156,11 +172,11 @@ export class DashboardLayoutService {
     userId: string,
   ): Promise<void> {
     const device = await this.prisma.user.findFirst({
-      where: { id: userId, tenantId, isSharedAccount: true },
+      where: { id: userId, tenantId, ...CONFIGURABLE_ACCOUNT },
       select: { id: true },
     });
     if (!device) {
-      throw new NotFoundException("Dispositivo compartido no encontrado");
+      throw new NotFoundException("Cuenta sin pantalla configurable");
     }
   }
 }

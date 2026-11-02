@@ -37,7 +37,23 @@ describe("DashboardLayoutService", () => {
   });
 
   describe("getForUser", () => {
-    it("cuenta personal: null (dashboard completo)", async () => {
+    it("solo dispositivos compartidos y administración son configurables", async () => {
+      await service.getForUser(tenantId, "ana");
+      expect(prisma.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "ana",
+            tenantId,
+            OR: [
+              { isSharedAccount: true },
+              { role: { in: ["OWNER", "ADMIN"] } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("cuenta personal sin administración: null (dashboard completo)", async () => {
       prisma.user.findFirst.mockResolvedValue(null);
       await expect(service.getForUser(tenantId, "ana")).resolves.toBeNull();
       expect(prisma.configuration.findUnique).not.toHaveBeenCalled();
@@ -147,7 +163,7 @@ describe("DashboardLayoutService", () => {
       ).rejects.toThrow(NotFoundException);
       expect(prisma.user.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: "ana", tenantId, isSharedAccount: true },
+          where: expect.objectContaining({ id: "ana", tenantId }),
         }),
       );
     });
@@ -155,8 +171,9 @@ describe("DashboardLayoutService", () => {
 
   it("listSharedDevices: une cada dispositivo con su pantalla", async () => {
     prisma.user.findMany.mockResolvedValue([
-      { id: "cocina", name: "Cocina" },
-      { id: "sala", name: "Sala" },
+      { id: "cocina", name: "Cocina", isSharedAccount: true },
+      { id: "nemesio", name: "Nemesio", isSharedAccount: false },
+      { id: "sala", name: "Sala", isSharedAccount: true },
     ]);
     prisma.configuration.findMany.mockResolvedValue([
       {
@@ -165,10 +182,12 @@ describe("DashboardLayoutService", () => {
       },
     ]);
     await expect(service.listSharedDevices(tenantId)).resolves.toEqual([
-      { userId: "cocina", name: "Cocina", layout: null },
+      { userId: "cocina", name: "Cocina", kind: "device", layout: null },
+      { userId: "nemesio", name: "Nemesio", kind: "admin", layout: null },
       {
         userId: "sala",
         name: "Sala",
+        kind: "device",
         layout: {
           title: "Sala",
           widgets: [{ id: "sicted", cols: 1, rows: 1 }],
