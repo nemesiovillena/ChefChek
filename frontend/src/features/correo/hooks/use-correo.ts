@@ -1,6 +1,6 @@
 'use client';
 
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 
 /**
@@ -32,6 +32,8 @@ export interface MailSummary {
   seen: boolean;
   hasAttachments: boolean;
   size: number;
+  /** Alguien del equipo lo abrió en ChefChek (no cambia su estado en Outlook). */
+  openedInChefchek?: boolean;
 }
 
 export interface MailListPage {
@@ -137,6 +139,22 @@ export function useRefreshMailbox() {
     },
     onSettled: () => queryClient.resetQueries({ queryKey: ['correo'] }),
   });
+}
+
+/** Pinta el correo como abierto en la lista al momento, sin esperar a recargarla. */
+export function useMarkOpenedInList() {
+  const queryClient = useQueryClient();
+  return (folder: string | null, uid: number) => {
+    queryClient.setQueryData<InfiniteData<MailListPage>>(['correo', 'messages', folder], (data) =>
+      data && {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((m) => (m.uid === uid ? { ...m, openedInChefchek: true } : m)),
+        })),
+      },
+    );
+  };
 }
 
 export function useMailMessage(folder: string | null, uid: number | null, uidValidity: string | null) {

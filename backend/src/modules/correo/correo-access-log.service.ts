@@ -25,6 +25,31 @@ export interface MailAccessEntry {
 export class CorreoAccessLogService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * De los correos dados (`carpeta:uidValidity:uid`), cuáles ha abierto alguien
+   * del equipo en ChefChek. Sale del registro de accesos, no del buzón: abrir
+   * aquí no marca el correo como leído en Outlook ni en el móvil.
+   */
+  async openedEntityIds(
+    tenantId: string,
+    entityIds: string[],
+  ): Promise<Set<string>> {
+    if (entityIds.length === 0) {
+      return new Set();
+    }
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        tenantId,
+        entityType: EntityType.MAIL_MESSAGE,
+        action: AuditAction.VIEW,
+        entityId: { in: entityIds },
+      },
+      select: { entityId: true },
+      distinct: ["entityId"],
+    });
+    return new Set(rows.map((r) => r.entityId));
+  }
+
   async list(
     tenantId: string,
     cursor?: string,

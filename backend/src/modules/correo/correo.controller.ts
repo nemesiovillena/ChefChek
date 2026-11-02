@@ -159,16 +159,24 @@ export class CorreoController {
     @Query("uidValidity") uidValidity?: string,
     @Query("fresh") fresh?: string,
   ) {
-    const data = await this.mailbox.listMessages(
-      req.tenantId,
-      requireFolder(folder),
-      {
-        beforeUid: beforeUid ? parseUid(beforeUid, "beforeUid") : undefined,
-        uidValidity: uidValidity || undefined,
-        fresh: fresh === "1",
+    const f = requireFolder(folder);
+    const data = await this.mailbox.listMessages(req.tenantId, f, {
+      beforeUid: beforeUid ? parseUid(beforeUid, "beforeUid") : undefined,
+      uidValidity: uidValidity || undefined,
+      fresh: fresh === "1",
+    });
+    const ids = data.messages.map((m) => `${f}:${data.uidValidity}:${m.uid}`);
+    const opened = await this.accessLog.openedEntityIds(req.tenantId, ids);
+    return {
+      success: true,
+      data: {
+        ...data,
+        messages: data.messages.map((m, i) => ({
+          ...m,
+          openedInChefchek: opened.has(ids[i]),
+        })),
       },
-    );
-    return { success: true, data };
+    };
   }
 
   @Get("messages/:uid")

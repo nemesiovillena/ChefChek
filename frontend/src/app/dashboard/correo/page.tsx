@@ -11,6 +11,7 @@ import {
   useMailMessage,
   useMailMessages,
   useRefreshMailbox,
+  useMarkOpenedInList,
   type MailDetail,
   type SendMode,
 } from '@/features/correo/hooks/use-correo';
@@ -53,6 +54,7 @@ export default function CorreoPage() {
   const uidValidity = pages[0]?.uidValidity ?? null;
   const detail = useMailMessage(folder, selectedUid, uidValidity);
   const refresh = useRefreshMailbox();
+  const markOpened = useMarkOpenedInList();
   const isSentFolder = folders.data?.find((f) => f.path === folder)?.specialUse === '\\Sent';
 
   const selectFolder = (path: string) => {
@@ -148,7 +150,10 @@ export default function CorreoPage() {
                 messages={pages.flatMap((p) => p.messages)}
                 selectedUid={selectedUid}
                 showRecipients={isSentFolder}
-                onSelect={setSelectedUid}
+                onSelect={(uid) => {
+                  setSelectedUid(uid);
+                  markOpened(folder, uid);
+                }}
                 hasMore={!!messages.hasNextPage}
                 loadingMore={messages.isFetchingNextPage}
                 onLoadMore={() => messages.fetchNextPage()}
