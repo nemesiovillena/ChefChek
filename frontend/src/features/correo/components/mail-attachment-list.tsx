@@ -1,19 +1,29 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Eye, Loader2, X } from 'lucide-react';
+import { Download, Eye, FileInput, Loader2, X } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
-import { downloadMailPart, isPreviewableImage, previewMailImage, type MailDetail } from '../hooks/use-correo';
+import {
+  canBecomeAlbaran,
+  downloadMailPart,
+  isPreviewableImage,
+  previewMailImage,
+  type MailDetail,
+  type MailPart,
+} from '../hooks/use-correo';
+import { MailToAlbaranDialog } from './mail-to-albaran-dialog';
 import { fileSize } from './mail-format';
 
 /**
  * Adjuntos: siempre se descargan como archivo (nunca se abren en una pestaña).
  * Solo las imágenes png/jpeg/gif/webp tienen vista previa, dentro de un <img>.
+ * Con permiso de albaranes, un PDF o imagen se puede «Pasar a albarán» sin descargarlo.
  */
-export function MailAttachmentList({ detail }: { detail: MailDetail }) {
+export function MailAttachmentList({ detail, canAlbaran }: { detail: MailDetail; canAlbaran: boolean }) {
   const notify = useNotification();
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  const [toAlbaran, setToAlbaran] = useState<MailPart | null>(null);
   const attachments = detail.attachments.filter((a) => !a.inline || !isPreviewableImage(a.contentType));
   if (attachments.length === 0) return null;
 
@@ -65,9 +75,19 @@ export function MailAttachmentList({ detail }: { detail: MailDetail }) {
             >
               {busy === a.part ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             </button>
+            {canAlbaran && canBecomeAlbaran(a) && (
+              <button
+                type="button"
+                onClick={() => setToAlbaran(a)}
+                className="flex min-h-[40px] items-center gap-1 border-l border-[var(--outline-variant)] px-3 text-sm font-medium text-[var(--primary)]"
+              >
+                <FileInput className="h-4 w-4" /> Pasar a albarán
+              </button>
+            )}
           </li>
         ))}
       </ul>
+      {toAlbaran && <MailToAlbaranDialog detail={detail} attachment={toAlbaran} onClose={() => setToAlbaran(null)} />}
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 pb-28 md:pb-4" onClick={closePreview}>
           <button type="button" aria-label="Cerrar" className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white" onClick={closePreview}>

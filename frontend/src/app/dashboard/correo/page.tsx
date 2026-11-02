@@ -21,6 +21,7 @@ import { MailAccessLogTable } from '@/features/correo/components/mail-access-log
 import { MailComposeDialog } from '@/features/correo/components/mail-compose-dialog';
 import { MailFolderList } from '@/features/correo/components/mail-folder-list';
 import { MailMessageList } from '@/features/correo/components/mail-message-list';
+import { useModules } from '@/features/modules/hooks/use-modules';
 import { MailListPager } from '@/features/correo/components/mail-list-pager';
 import { MailMessageReader } from '@/features/correo/components/mail-message-reader';
 
@@ -43,6 +44,8 @@ export default function CorreoPage() {
   const isManager = MANAGER_ROLES.includes(user?.role ?? '');
   const accessReady = map !== null && canSee('correo');
   const canSend = map !== null && canSee('correo.enviar');
+  const { isEnabled } = useModules();
+  const canAlbaran = map !== null && canSee('albaranes') && isEnabled('albaranes');
 
   const [tab, setTab] = useState<Tab>('bandeja');
   const [folderChoice, setFolderChoice] = useState<string | null>(null);
@@ -198,6 +201,7 @@ export default function CorreoPage() {
               loading={detail.isLoading}
               error={detail.error ? errorText(detail.error) : null}
               canSend={canSend}
+              canAlbaran={canAlbaran}
               onBack={() => setSelectedUid(null)}
               onCompose={compose}
             />

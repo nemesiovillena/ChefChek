@@ -96,6 +96,8 @@ export interface OriginalAttachment {
 export interface MailPartDownload {
   buffer: Buffer;
   filename: string;
+  /** Tipo que declara el correo (puede venir genérico: application/octet-stream). */
+  contentType: string;
   messageId?: string;
   subject: string;
   from: string;
@@ -409,6 +411,7 @@ export class CorreoMailboxService {
         return {
           buffer: Buffer.concat(chunks),
           filename: info.filename,
+          contentType: info.contentType,
           messageId: env.messageId || undefined,
           subject: env.subject || "(sin asunto)",
           from: env.from?.[0]?.address || env.from?.[0]?.name || "",
