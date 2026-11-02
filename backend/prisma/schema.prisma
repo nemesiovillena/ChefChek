@@ -3520,7 +3520,7 @@ model Employee {
   jobTitle             String?
   section              String? // cocina, sala, barra... texto libre
   contractType         String?
-  weeklyHours          Float     @default(40)
+  weeklyHours          Float? // horas pactadas; null = sin pactar todavía
   hourlyCost           Float?
   defaultLocationId    String?
   hireDate             DateTime?

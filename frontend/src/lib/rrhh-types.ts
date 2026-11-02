@@ -34,7 +34,7 @@ export interface OwnProfile {
     jobTitle: string | null;
     section: string | null;
     contractType: string | null;
-    weeklyHours: number;
+    weeklyHours: number | null;
     hireDate: string | null;
     centers: string[];
   };

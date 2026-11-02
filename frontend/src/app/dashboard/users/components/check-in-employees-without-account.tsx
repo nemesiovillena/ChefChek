@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { KeyRound, UserRound } from 'lucide-react';
 import { useCheckInSettings, useEmployees, useWorkCenters } from '@/hooks/use-check-in';
 import type { Employee } from '@/lib/check-in-types';
+import { formatWeeklyHours } from '@/lib/check-in-punch';
 import { CheckInEmployeeForm } from '@/app/dashboard/check-in/components/check-in-employee-form';
 
 const rowCls =
@@ -71,7 +72,7 @@ export function CheckInEmployeesWithoutAccount({ accountIds }: { accountIds: Set
                 {!e.isActive && ' (baja)'}
               </span>
               <span className="block truncate text-sm text-[var(--on-surface-variant)]">
-                {[e.userId ? 'Cuenta eliminada' : 'Sin cuenta: solo kiosco', `${e.weeklyHours} h/sem`].join(' · ')}
+                {[e.userId ? 'Cuenta eliminada' : 'Sin cuenta: solo kiosco', formatWeeklyHours(e.weeklyHours, ' h/sem')].join(' · ')}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-1 text-xs text-[var(--on-surface-variant)]">

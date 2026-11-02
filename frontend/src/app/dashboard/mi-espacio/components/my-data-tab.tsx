@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { Loader2, Pencil, Send } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
+import { formatWeeklyHours } from '@/lib/check-in-punch';
 import { useCreateOwnRequest, useOwnProfile, useOwnRequests } from '@/hooks/use-rrhh';
 import { PERSONAL_DATA_LABELS, type OwnProfile, type PersonalDataField } from '@/lib/rrhh-types';
 import {
@@ -130,7 +131,7 @@ export function MyDataTab() {
           <Row label="Puesto" value={job.jobTitle} />
           <Row label="Sección" value={job.section} />
           <Row label="Contrato" value={job.contractType} />
-          <Row label="Horas semanales" value={`${job.weeklyHours} h`} />
+          <Row label="Horas semanales" value={formatWeeklyHours(job.weeklyHours)} />
           <Row label="Fecha de alta" value={job.hireDate ? new Date(job.hireDate).toLocaleDateString('es-ES', { timeZone: 'UTC' }) : null} />
           <Row label="Centros" value={job.centers.join(', ')} />
         </dl>

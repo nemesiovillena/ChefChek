@@ -36,8 +36,11 @@ const dateTime = (instant: Date, timezone: string) =>
 /** "2026-10-05" -> "05/10/2026" */
 const dayLabel = (date: string) => date.split("-").reverse().join("/");
 /** 510 -> "8:30" */
-const hhmm = (minutes: number) =>
-  `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+// Null solo llega en jornada pactada / exceso cuando la ficha no tiene horas.
+const hhmm = (minutes: number | null) =>
+  minutes === null
+    ? "Sin pactar"
+    : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
 
 type ReportDay = WorkdayReport["days"][number];
 
@@ -303,7 +306,12 @@ export class ReportExportService {
     );
     field(
       "Puesto y jornada pactada",
-      [report.employee.jobTitle, `${report.employee.weeklyHours} h semanales`]
+      [
+        report.employee.jobTitle,
+        report.employee.weeklyHours === null
+          ? "horas sin pactar"
+          : `${report.employee.weeklyHours} h semanales`,
+      ]
         .filter(Boolean)
         .join(" · "),
     );

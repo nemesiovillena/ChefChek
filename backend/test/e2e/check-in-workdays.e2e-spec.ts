@@ -16,6 +16,7 @@ describe("E2E - Check-In jornadas, correcciones y hojas de horas", () => {
   let prisma: PrismaService;
   const slug = "e2e-check-in-workdays";
   let tenantId: string;
+  let noHoursEmployeeId: string;
   let workerEmployeeId: string;
   let adminSession: string;
   let workerSession: string;
@@ -164,6 +165,12 @@ describe("E2E - Check-In jornadas, correcciones y hojas de horas", () => {
       });
     workerEmployeeId = (await employee("Marta", worker.id)).id;
     await employee("Otro", other.id);
+    // Ficha sin horas pactadas (como las nuevas): su mes no se puede aprobar.
+    noHoursEmployeeId = (
+      await prisma.employee.create({
+        data: { tenantId, firstName: "Sinhoras", lastName: "Prueba" },
+      })
+    ).id;
 
     adminSession = await login("cw-admin@test.com");
     workerSession = await login("cw-worker@test.com");
@@ -313,6 +320,20 @@ describe("E2E - Check-In jornadas, correcciones y hojas de horas", () => {
     );
     expect(res.status).toBe(400);
     expect(await prisma.timesheet.count({ where: { tenantId } })).toBe(0);
+  });
+
+  it("sin horas pactadas no se aprueba el mes", async () => {
+    const res = await api(adminSession).post(
+      "/api/v1/check-in/timesheets/approve",
+      { employeeId: noHoursEmployeeId, year, month },
+    );
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("horas semanales pactadas");
+    expect(
+      await prisma.timesheet.count({
+        where: { employeeId: noHoursEmployeeId },
+      }),
+    ).toBe(0);
   });
 
   it("solo gerencia decide; al aprobar cambia la jornada y el original sigue intacto", async () => {

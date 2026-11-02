@@ -10,7 +10,8 @@ export interface Employee {
   jobTitle: string | null;
   section: string | null;
   contractType: string | null;
-  weeklyHours: number;
+  /** Null = horas sin pactar todavía. */
+  weeklyHours: number | null;
   hourlyCost: number | null;
   defaultLocationId: string | null;
   locationIds: string[];
@@ -35,7 +36,7 @@ export interface EmployeeInput {
   jobTitle?: string;
   section?: string;
   contractType?: string;
-  weeklyHours?: number;
+  weeklyHours?: number | null;
   hourlyCost?: number | null;
   userId?: string | null;
   defaultLocationId?: string | null;
@@ -301,8 +302,9 @@ export interface Workday {
 export interface MonthTotals {
   workedMinutes: number;
   breakMinutes: number;
-  expectedMinutes: number;
-  overtimeMinutes: number;
+  /** Null cuando la persona no tiene horas pactadas. */
+  expectedMinutes: number | null;
+  overtimeMinutes: number | null;
   daysWorked: number;
   incidenceCount: number;
 }
@@ -319,7 +321,7 @@ export interface ApprovedTimesheet extends MonthTotals {
 export interface MonthState {
   year: number;
   month: number;
-  employee: { id: string; name: string; weeklyHours: number };
+  employee: { id: string; name: string; weeklyHours: number | null };
   timezone: string;
   days: Workday[];
   totals: MonthTotals;
