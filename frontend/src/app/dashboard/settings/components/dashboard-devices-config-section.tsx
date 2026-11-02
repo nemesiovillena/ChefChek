@@ -34,6 +34,33 @@ export function DashboardDevicesConfigSection() {
   return <DashboardDevicesList />;
 }
 
+const GROUPS: { kind: SharedDeviceLayout['kind']; label: string }[] = [
+  { kind: 'device', label: 'Dispositivos compartidos' },
+  { kind: 'admin', label: 'Administración' },
+];
+
+function AccountRow({ device, onEdit }: { device: SharedDeviceLayout; onEdit: () => void }) {
+  return (
+    <li className="flex min-h-[44px] items-center justify-between gap-3 px-3 py-2">
+      <span className="min-w-0">
+        <span className="block truncate text-[var(--on-surface)]">{device.name}</span>
+        <span className="block truncate text-xs text-[var(--on-surface-variant)]">
+          {device.layout
+            ? `«${device.layout.title}» · ${device.layout.widgets.length} cards`
+            : 'Inicio completo (sin configurar)'}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={onEdit}
+        className="shrink-0 rounded-lg border border-[var(--outline-variant)] px-3 py-1.5 text-sm text-[var(--on-surface)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+      >
+        Configurar
+      </button>
+    </li>
+  );
+}
+
 function DashboardDevicesList() {
   const { data: devices, isLoading } = useSharedDeviceLayouts(true);
   const [editing, setEditing] = useState<SharedDeviceLayout | null>(null);
@@ -42,41 +69,35 @@ function DashboardDevicesList() {
     <section className="rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-5">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--on-surface)]">
         <MonitorSmartphone className="h-5 w-5 text-[var(--primary)]" />
-        Pantallas de dispositivos
+        Pantallas de inicio
       </h2>
       <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
-        Elige qué muestra el inicio de cada dispositivo compartido y con qué título. Las cuentas
-        personales ven siempre el inicio completo.
+        Elige qué muestra el inicio de cada dispositivo compartido y de la administración, con qué
+        título y a qué tamaño. El resto de cuentas personales ven siempre el inicio completo.
       </p>
 
       {isLoading ? (
         <div className="py-6 text-sm text-[var(--on-surface-variant)]">Cargando…</div>
       ) : !devices || devices.length === 0 ? (
         <div className="py-6 text-sm text-[var(--on-surface-variant)]">
-          No hay dispositivos compartidos. Se crean en Equipo.
+          No hay dispositivos compartidos ni cuentas de administración.
         </div>
       ) : (
-        <ul className="mt-4 divide-y divide-[var(--outline-variant)] rounded-xl border border-[var(--outline-variant)]">
-          {devices.map((device) => (
-            <li key={device.userId} className="flex min-h-[44px] items-center justify-between gap-3 px-3 py-2">
-              <span className="min-w-0">
-                <span className="block truncate text-[var(--on-surface)]">{device.name}</span>
-                <span className="block truncate text-xs text-[var(--on-surface-variant)]">
-                  {device.layout
-                    ? `«${device.layout.title}» · ${device.layout.widgets.length} cards`
-                    : 'Inicio completo (sin configurar)'}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setEditing(device)}
-                className="shrink-0 rounded-lg border border-[var(--outline-variant)] px-3 py-1.5 text-sm text-[var(--on-surface)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
-              >
-                Configurar
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {GROUPS.map(({ kind, label }) => {
+            const accounts = devices.filter((d) => d.kind === kind);
+            return accounts.length === 0 ? null : (
+              <div key={kind} className="mt-4">
+                <p className="mb-1 text-xs uppercase tracking-wide text-[var(--on-surface-variant)]">{label}</p>
+                <ul className="divide-y divide-[var(--outline-variant)] rounded-xl border border-[var(--outline-variant)]">
+                  {accounts.map((device) => (
+                    <AccountRow key={device.userId} device={device} onEdit={() => setEditing(device)} />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </>
       )}
 
       <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
