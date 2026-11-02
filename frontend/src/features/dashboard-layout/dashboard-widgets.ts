@@ -15,6 +15,8 @@ export const DASHBOARD_WIDGETS = [
   { id: 'etiquetado', label: 'Etiquetado' },
   { id: 'compras', label: 'Compras' },
   { id: 'crear-orden', label: 'Botón «Crear orden de producción»' },
+  { id: 'raciones', label: 'Raciones' },
+  { id: 'fichar', label: 'Fichar' },
 ] as const;
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number]['id'];
@@ -32,6 +34,11 @@ export interface SharedDeviceLayout {
   layout: DashboardLayout | null;
 }
 
+/** Cards de la pantalla completa (sin configurar): Raciones y Fichar solo salen en pantallas configuradas. */
+export const FULL_DASHBOARD_WIDGETS: string[] = DASHBOARD_WIDGETS.map((w) => w.id).filter(
+  (id) => id !== 'raciones' && id !== 'fichar',
+);
+
 /** Título del dashboard cuando el dispositivo no tiene configuración. */
 export const DEFAULT_DASHBOARD_TITLE = 'Cocina Principal';
 
@@ -39,10 +46,11 @@ export const DEFAULT_DASHBOARD_TITLE = 'Cocina Principal';
 export const DASHBOARD_TEMPLATES: { name: string; layout: DashboardLayout }[] = [
   {
     name: 'Cocina',
-    layout: { title: 'Cocina', widgets: DASHBOARD_WIDGETS.map((w) => w.id) },
+    // Lo de siempre más Raciones; se ficha en el kiosco.
+    layout: { title: 'Cocina', widgets: DASHBOARD_WIDGETS.map((w) => w.id).filter((id) => id !== 'fichar') },
   },
   {
     name: 'Sala',
-    layout: { title: 'Sala', widgets: ['sala-notificaciones', 'sicted'] },
+    layout: { title: 'Sala', widgets: ['sala-notificaciones', 'raciones', 'sicted', 'fichar'] },
   },
 ];

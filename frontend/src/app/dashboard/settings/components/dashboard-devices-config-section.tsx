@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   DASHBOARD_TEMPLATES,
   DASHBOARD_WIDGETS,
+  FULL_DASHBOARD_WIDGETS,
   type DashboardLayout,
   type SharedDeviceLayout,
 } from '@/features/dashboard-layout/dashboard-widgets';
@@ -95,7 +96,7 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
   const reset = useResetDeviceLayout();
   // Sin configurar: se parte de lo que ve hoy (todo) con su nombre de título.
   const [draft, setDraft] = useState<DashboardLayout>(
-    device.layout ?? { title: device.name, widgets: DASHBOARD_WIDGETS.map((w) => w.id) },
+    device.layout ?? { title: device.name, widgets: [...FULL_DASHBOARD_WIDGETS] },
   );
   const busy = save.isPending || reset.isPending;
 

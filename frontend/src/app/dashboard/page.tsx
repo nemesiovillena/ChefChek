@@ -29,6 +29,7 @@ import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
 import { SictedDashboardCard } from './sicted-dashboard-card';
+import { RacionesDashboardCard } from './raciones-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { useMyDashboardLayout } from '@/features/dashboard-layout/use-dashboard-layout';
@@ -99,6 +100,9 @@ export default function DashboardPage() {
   const showEtiquetado = canSeeEtiquetado && showWidget('etiquetado');
   const showCompras = canEnterCompras && showWidget('compras');
   const showCrearOrden = canSeeProduction && showWidget('crear-orden');
+  // Solo en pantallas configuradas (el bento por defecto no las incluye).
+  const showRaciones = !!layout && moduleOn('raciones') && canSee('raciones') && showWidget('raciones');
+  const showFichar = !!layout && moduleOn('check-in') && canSee('check-in') && showWidget('fichar');
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
   const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
@@ -582,6 +586,27 @@ export default function DashboardPage() {
     </div>
   );
 
+  // Fichar en este mismo dispositivo: /fichar abre el kiosco en las cuentas compartidas.
+  const ficharCard = (
+    <div
+      onClick={() => router.push('/fichar')}
+      className="group tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex items-center justify-between gap-stack-md border border-border cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+    >
+      <div className="flex items-center gap-stack-md">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
+          <span className="material-symbols-outlined text-[22px]">badge</span>
+        </span>
+        <div>
+          <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Fichar</h5>
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Entrada, pausas y salida</p>
+        </div>
+      </div>
+      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">
+        arrow_forward
+      </span>
+    </div>
+  );
+
   const crearOrdenButton = (extraClassName: string) => (
     <button
       onClick={() => router.push('/dashboard/production')}
@@ -604,6 +629,8 @@ export default function DashboardPage() {
     recetas: showRecetas && recetasCard,
     etiquetado: showEtiquetado && etiquetadoCard,
     compras: showCompras && comprasCard,
+    raciones: showRaciones && <RacionesDashboardCard />,
+    fichar: showFichar && ficharCard,
   };
 
   return (
