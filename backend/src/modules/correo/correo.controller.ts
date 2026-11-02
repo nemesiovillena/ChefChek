@@ -32,7 +32,11 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { CorreoAccessGuard } from "./correo-access.guard";
 import { CorreoAccessLogService } from "./correo-access-log.service";
 import { CorreoConfigService } from "./correo-config.service";
-import { CorreoMailboxService } from "./correo-mailbox.service";
+import {
+  CorreoMailboxService,
+  PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+} from "./correo-mailbox.service";
 import {
   CorreoSendService,
   MAX_UPLOAD_BYTES,
@@ -151,19 +155,27 @@ export class CorreoController {
   }
 
   @Get("messages")
-  @ApiOperation({ summary: "Lista de correos (50, por cursor beforeUid)" })
+  @ApiOperation({
+    summary: "Lista de correos (10/20/50, por cursor beforeUid)",
+  })
   async getMessages(
     @Req() req: any,
     @Query("folder") folder?: string,
     @Query("beforeUid") beforeUid?: string,
     @Query("uidValidity") uidValidity?: string,
     @Query("fresh") fresh?: string,
+    @Query("limit") limitRaw?: string,
   ) {
     const f = requireFolder(folder);
+    const limit = Number(limitRaw ?? PAGE_SIZE);
+    if (!(PAGE_SIZE_OPTIONS as readonly number[]).includes(limit)) {
+      throw new BadRequestException("Tamaño de página no válido.");
+    }
     const data = await this.mailbox.listMessages(req.tenantId, f, {
       beforeUid: beforeUid ? parseUid(beforeUid, "beforeUid") : undefined,
       uidValidity: uidValidity || undefined,
       fresh: fresh === "1",
+      limit,
     });
     const ids = data.messages.map((m) => `${f}:${data.uidValidity}:${m.uid}`);
     const opened = await this.accessLog.openedEntityIds(req.tenantId, ids);

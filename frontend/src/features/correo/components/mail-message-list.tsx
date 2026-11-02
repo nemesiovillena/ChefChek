@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, Loader2, Paperclip } from 'lucide-react';
+import { Eye, Paperclip } from 'lucide-react';
 import type { MailSummary } from '../hooks/use-correo';
 import { senderLabel, shortDate } from './mail-format';
 
@@ -10,9 +10,8 @@ interface Props {
   /** En «Enviados» interesa a quién se envió, no quién lo envió. */
   showRecipients: boolean;
   onSelect: (uid: number) => void;
-  hasMore: boolean;
-  loadingMore: boolean;
-  onLoadMore: () => void;
+  /** Paginador (tamaño y flechas) que va al pie de la lista. */
+  footer: React.ReactNode;
 }
 
 /**
@@ -29,7 +28,7 @@ function subjectTone(m: MailSummary): string {
   return m.seen ? 'text-[var(--on-surface-variant)]' : 'font-semibold text-[var(--on-surface)]';
 }
 
-export function MailMessageList({ messages, selectedUid, showRecipients, onSelect, hasMore, loadingMore, onLoadMore }: Props) {
+export function MailMessageList({ messages, selectedUid, showRecipients, onSelect, footer }: Props) {
   if (messages.length === 0) {
     return <p className="p-6 text-center text-sm text-[var(--on-surface-variant)]">No hay correos en esta carpeta.</p>;
   }
@@ -64,17 +63,7 @@ export function MailMessageList({ messages, selectedUid, showRecipients, onSelec
           </li>
         ))}
       </ul>
-      {hasMore && (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={loadingMore}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 text-sm font-medium text-[var(--primary)] disabled:opacity-50"
-        >
-          {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
-          Cargar más
-        </button>
-      )}
+      {footer}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   useMailMessages,
   useRefreshMailbox,
   useMarkOpenedInList,
+  type MailPageSize,
   type MailDetail,
   type SendMode,
 } from '@/features/correo/hooks/use-correo';
@@ -20,6 +21,7 @@ import { MailAccessLogTable } from '@/features/correo/components/mail-access-log
 import { MailComposeDialog } from '@/features/correo/components/mail-compose-dialog';
 import { MailFolderList } from '@/features/correo/components/mail-folder-list';
 import { MailMessageList } from '@/features/correo/components/mail-message-list';
+import { MailListPager } from '@/features/correo/components/mail-list-pager';
 import { MailMessageReader } from '@/features/correo/components/mail-message-reader';
 
 export const dynamic = 'force-dynamic';
@@ -45,11 +47,13 @@ export default function CorreoPage() {
   const [tab, setTab] = useState<Tab>('bandeja');
   const [folderChoice, setFolderChoice] = useState<string | null>(null);
   const [selectedUid, setSelectedUid] = useState<number | null>(null);
+  const [pageSize, setPageSize] = useState<MailPageSize>(10);
+  const [pageIndex, setPageIndex] = useState(0);
   const [draft, setDraft] = useState<ComposeDraft | null>(null);
 
   const folders = useMailFolders(accessReady);
   const folder = folderChoice ?? folders.data?.[0]?.path ?? null;
-  const messages = useMailMessages(folder, accessReady);
+  const messages = useMailMessages(folder, accessReady, pageSize);
   const pages = messages.data?.pages ?? [];
   const uidValidity = pages[0]?.uidValidity ?? null;
   const detail = useMailMessage(folder, selectedUid, uidValidity);
@@ -60,7 +64,21 @@ export default function CorreoPage() {
   const selectFolder = (path: string) => {
     setFolderChoice(path);
     setSelectedUid(null);
+    setPageIndex(0);
   };
+  const changePageSize = (size: MailPageSize) => {
+    setPageSize(size);
+    setPageIndex(0);
+  };
+  // Las páginas ya cargadas se reutilizan; solo se pide al servidor la siguiente
+  const nextPage = async () => {
+    if (pageIndex + 1 >= pages.length) {
+      const res = await messages.fetchNextPage();
+      if (res.isError) return;
+    }
+    setPageIndex((i) => i + 1);
+  };
+  const currentPage = pages[Math.min(pageIndex, Math.max(pages.length - 1, 0))];
   const compose = (mode: SendMode, d?: MailDetail) =>
     setDraft(d ? draftFrom(d, mode, d.mailboxAddress) : emptyDraft());
 
@@ -95,7 +113,11 @@ export default function CorreoPage() {
             <button
               type="button"
               disabled={!folder || refresh.isPending}
-              onClick={() => folder && refresh.mutate(folder)}
+              onClick={() => {
+                if (!folder) return;
+                setPageIndex(0);
+                refresh.mutate({ folder, pageSize });
+              }}
               className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 text-sm disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${refresh.isPending ? 'animate-spin' : ''}`} /> Actualizar
@@ -147,16 +169,25 @@ export default function CorreoPage() {
               <p className="p-6 text-sm text-[var(--error)]">{errorText(messages.error)}</p>
             ) : (
               <MailMessageList
-                messages={pages.flatMap((p) => p.messages)}
+                messages={currentPage?.messages ?? []}
                 selectedUid={selectedUid}
                 showRecipients={isSentFolder}
                 onSelect={(uid) => {
                   setSelectedUid(uid);
                   markOpened(folder, uid);
                 }}
-                hasMore={!!messages.hasNextPage}
-                loadingMore={messages.isFetchingNextPage}
-                onLoadMore={() => messages.fetchNextPage()}
+                footer={
+                  <MailListPager
+                    pageSize={pageSize}
+                    onPageSize={changePageSize}
+                    pageIndex={pageIndex}
+                    canPrev={pageIndex > 0}
+                    canNext={pageIndex + 1 < pages.length || !!messages.hasNextPage}
+                    loading={messages.isFetchingNextPage}
+                    onPrev={() => setPageIndex((i) => Math.max(0, i - 1))}
+                    onNext={nextPage}
+                  />
+                }
               />
             )}
           </div>

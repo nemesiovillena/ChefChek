@@ -28,6 +28,8 @@ import { OriginalForReply } from "./mail-reply-builder";
  * (EXAMINE): nada de lo que se haga aquí marca un correo como leído.
  */
 export const PAGE_SIZE = 50;
+/** Tamaños de página que puede pedir la pantalla (10 de entrada). */
+export const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 export const MAX_MESSAGE_BYTES = 15 * 1024 * 1024;
 const MAX_ENCODED_PART_BYTES = Math.ceil(MAX_MESSAGE_BYTES * 1.4);
 const MAX_INLINE_IMAGES_BYTES = 5 * 1024 * 1024;
@@ -146,15 +148,16 @@ export function toFolders(list: ListResponse[]): MailFolder[] {
     });
 }
 
-/** Lista de UIDs (desc) → página de 50 anteriores a `beforeUid`. */
+/** Lista de UIDs (desc) → página de `size` anteriores a `beforeUid`. */
 export function pageUids(
   uids: number[],
   beforeUid?: number,
+  size: number = PAGE_SIZE,
 ): { page: number[]; nextBeforeUid: number | null } {
   const sorted = [...uids].sort((a, b) => b - a);
   const filtered = beforeUid ? sorted.filter((u) => u < beforeUid) : sorted;
-  const page = filtered.slice(0, PAGE_SIZE);
-  const hasMore = filtered.length > PAGE_SIZE;
+  const page = filtered.slice(0, size);
+  const hasMore = filtered.length > size;
   return { page, nextBeforeUid: hasMore ? page[page.length - 1] : null };
 }
 
@@ -206,9 +209,15 @@ export class CorreoMailboxService {
   async listMessages(
     tenantId: string,
     folder: string,
-    opts: { beforeUid?: number; uidValidity?: string; fresh?: boolean } = {},
+    opts: {
+      beforeUid?: number;
+      uidValidity?: string;
+      fresh?: boolean;
+      limit?: number;
+    } = {},
   ): Promise<MailListPage> {
-    const cacheKey = `${tenantId}\u0000${folder}`;
+    const limit = opts.limit ?? PAGE_SIZE;
+    const cacheKey = `${tenantId}\u0000${folder}\u0000${limit}`;
     const isFirstPage = !opts.beforeUid;
     if (isFirstPage && !opts.fresh) {
       const cached = this.firstPageCache.get(cacheKey);
@@ -230,7 +239,7 @@ export class CorreoMailboxService {
           throw new ConflictException(MAILBOX_CHANGED);
         }
         const uids = (await client.search({ all: true }, { uid: true })) || [];
-        const { page, nextBeforeUid } = pageUids(uids, opts.beforeUid);
+        const { page, nextBeforeUid } = pageUids(uids, opts.beforeUid, limit);
         const messages: MailSummary[] = [];
         if (page.length > 0) {
           for await (const msg of client.fetch(
@@ -511,7 +520,12 @@ export class CorreoMailboxService {
         return false;
       }
       await client.append(sent.path, raw, ["\\Seen"]);
-      this.firstPageCache.delete(`${tenantId}\u0000${sent.path}`);
+      const prefix = `${tenantId}\u0000${sent.path}\u0000`;
+      for (const key of this.firstPageCache.keys()) {
+        if (key.startsWith(prefix)) {
+          this.firstPageCache.delete(key);
+        }
+      }
       return true;
     });
   }

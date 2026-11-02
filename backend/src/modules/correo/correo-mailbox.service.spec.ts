@@ -235,3 +235,24 @@ describe("estructura MIME y descarga", () => {
     ]);
   });
 });
+
+describe("tamaño de página", () => {
+  it("pageUids respeta el tamaño pedido", () => {
+    const uids = Array.from({ length: 25 }, (_, i) => i + 1);
+    const { page, nextBeforeUid } = pageUids(uids, undefined, 10);
+    expect(page).toEqual([25, 24, 23, 22, 21, 20, 19, 18, 17, 16]);
+    expect(nextBeforeUid).toBe(16);
+  });
+
+  it("la caché de la primera página es distinta para cada tamaño", async () => {
+    const client = fakeClient({
+      uids: Array.from({ length: 30 }, (_, i) => i + 1),
+    });
+    const { service, imap } = serviceWith(client);
+    const ten = await service.listMessages(tenantId, "INBOX", { limit: 10 });
+    const twenty = await service.listMessages(tenantId, "INBOX", { limit: 20 });
+    expect(ten.messages).toHaveLength(10);
+    expect(twenty.messages).toHaveLength(20);
+    expect(imap.withClient).toHaveBeenCalledTimes(2);
+  });
+});

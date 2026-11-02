@@ -112,12 +112,17 @@ export function useMailFolders(enabled: boolean) {
   });
 }
 
-export function useMailMessages(folder: string | null, enabled: boolean) {
+/** Cuántos correos se ven por página (10 de entrada). */
+export const MAIL_PAGE_SIZES = [10, 20, 50] as const;
+export type MailPageSize = (typeof MAIL_PAGE_SIZES)[number];
+
+export function useMailMessages(folder: string | null, enabled: boolean, pageSize: MailPageSize) {
   return useInfiniteQuery({
-    queryKey: ['correo', 'messages', folder],
+    queryKey: ['correo', 'messages', folder, pageSize],
     queryFn: ({ pageParam }) =>
       get<MailListPage>(`${BASE}/messages`, {
         folder: folder ?? undefined,
+        limit: pageSize,
         beforeUid: pageParam?.beforeUid,
         uidValidity: pageParam?.uidValidity,
       }),
@@ -133,9 +138,9 @@ export function useMailMessages(folder: string | null, enabled: boolean) {
 export function useRefreshMailbox() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (folder: string) => {
+    mutationFn: async ({ folder, pageSize }: { folder: string; pageSize: MailPageSize }) => {
       await get(`${BASE}/folders`, { fresh: 1 });
-      await get(`${BASE}/messages`, { folder, fresh: 1 });
+      await get(`${BASE}/messages`, { folder, limit: pageSize, fresh: 1 });
     },
     onSettled: () => queryClient.resetQueries({ queryKey: ['correo'] }),
   });
@@ -145,7 +150,8 @@ export function useRefreshMailbox() {
 export function useMarkOpenedInList() {
   const queryClient = useQueryClient();
   return (folder: string | null, uid: number) => {
-    queryClient.setQueryData<InfiniteData<MailListPage>>(['correo', 'messages', folder], (data) =>
+    // Prefijo sin tamaño de página: marca el correo en todas las variantes cacheadas
+    queryClient.setQueriesData<InfiniteData<MailListPage>>({ queryKey: ['correo', 'messages', folder] }, (data) =>
       data && {
         ...data,
         pages: data.pages.map((page) => ({
