@@ -307,7 +307,12 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
-      {/* Escritorio: flex-basis 0px (no flex-1) para que la lista no aporte
+      {/* scrollbar-gutter estable (aquí y en Tareas de Prep.): con barras que
+          ocupan sitio (Windows, Mac con ratón), si la barra aparecía al
+          desbordar, el texto se estrechaba, la fila crecía, cabía una menos,
+          la barra se iba y volvía a caber otra: la lista parpadeaba sin parar
+          entre N y N+1 filas. Reservando el hueco, el ancho no cambia.
+          Escritorio: flex-basis 0px (no flex-1) para que la lista no aporte
           alto intrínseco y no infle el bento (bug real: la card llegó a
           ~1880px con 20 avisos); el alto real lo da la columna. Móvil: max-h-80
           defensivo. overflow-y-auto solo como red si ni una fila cabe. */}
@@ -315,7 +320,7 @@ export default function DashboardPage() {
         ref={fillContainer ? notifListRef : undefined}
         key={fillContainer ? (filteredNotifications.length === 0 ? 'empty' : 'rows') : undefined}
         className={`space-y-stack-sm px-stack-lg pb-stack-lg${
-          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' max-h-80'
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto [scrollbar-gutter:stable]' : ' max-h-80'
         }`}
       >
         {filteredNotifications.length === 0 ? (
@@ -380,7 +385,7 @@ export default function DashboardPage() {
         // fallback, así que el panel no aporta altura intrínseca y el sobrante
         // real se resuelve con overflow-y-auto en vez de crecer la card.
         className={`divide-y divide-surface-variant${
-          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' flex-1'
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto [scrollbar-gutter:stable]' : ' flex-1'
         }`}
       >
         {kpisLoading ? (
