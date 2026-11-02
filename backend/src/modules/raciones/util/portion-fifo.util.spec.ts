@@ -1,4 +1,8 @@
-import { allocateFifo, thresholdState } from "./portion-fifo.util";
+import {
+  allocateFifo,
+  portionsForSale,
+  thresholdState,
+} from "./portion-fifo.util";
 
 describe("allocateFifo", () => {
   it("gasta primero las raciones sin etiqueta y luego la etiqueta más antigua", () => {
@@ -57,5 +61,21 @@ describe("thresholdState", () => {
   it("ok por encima del mínimo o sin mínimo", () => {
     expect(thresholdState(4, 3)).toBe("ok");
     expect(thresholdState(1, 0)).toBe("ok");
+  });
+});
+
+describe("portionsForSale", () => {
+  it("multiplica las unidades vendidas por las raciones de cada venta", () => {
+    expect(portionsForSale(3, 1, false)).toBe(3);
+    expect(portionsForSale(2, 0.5, false)).toBe(1);
+  });
+
+  it("al peso cuenta una pieza por línea, sean los kilos que sean", () => {
+    expect(portionsForSale(0.88, 1, true)).toBe(1);
+    expect(portionsForSale(1.275, 1, true)).toBe(1);
+  });
+
+  it("al peso, una devolución devuelve la pieza", () => {
+    expect(portionsForSale(-0.9, 1, true)).toBe(-1);
   });
 });

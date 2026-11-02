@@ -105,6 +105,7 @@ export class PortionCounterService {
           tipo: d.tipo,
           producto: d.producto,
           portionsPerSale: d.portionsPerSale,
+          perPiece: d.perPiece,
           name: dishNames.get(`${d.tipo}|${d.producto}`) ?? null,
         })),
       };
@@ -238,6 +239,7 @@ export class PortionCounterService {
         tipo: dto.tipo,
         producto: dto.producto,
         portionsPerSale: dto.portionsPerSale ?? 1,
+        perPiece: dto.perPiece ?? false,
       },
     });
   }

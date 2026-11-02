@@ -10,6 +10,7 @@ import { NotificationsService } from "../../core/notifications.service";
 import { ModulesService } from "../../modules/modules.service";
 import {
   allocateFifo,
+  portionsForSale,
   roundPortions,
   thresholdState,
 } from "../util/portion-fifo.util";
@@ -418,7 +419,11 @@ export class PortionLedgerService {
             continue;
           }
           const dish = dishByKey.get(`${line.tipo}|${line.producto}`)!;
-          const portions = roundPortions(line.unidades * dish.portionsPerSale);
+          const portions = portionsForSale(
+            line.unidades,
+            dish.portionsPerSale,
+            dish.perPiece,
+          );
           if (portions === 0) {
             continue;
           }
