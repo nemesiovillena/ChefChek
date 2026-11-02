@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 import { DASHBOARD_WIDGET_ID_SET } from "./dashboard-widgets";
 import { UpdateDashboardLayoutDto } from "./dto/update-dashboard-layout.dto";
 
@@ -32,7 +33,10 @@ export interface SharedDeviceLayout {
  */
 @Injectable()
 export class DashboardLayoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly roleAccess: RoleAccessService,
+  ) {}
 
   /** Pantalla del usuario autenticado; null si no es un dispositivo configurado. */
   async getForUser(
@@ -109,6 +113,31 @@ export class DashboardLayoutService {
       update: { value, updatedBy: editorId },
     });
     return layout;
+  }
+
+  /**
+   * Secciones que ve el dispositivo (rol + puesto + persona), para que la
+   * vista previa del administrador enseñe las mismas cards que el dispositivo.
+   * Vacío = lo ve todo.
+   */
+  async getDeviceSections(
+    tenantId: string,
+    deviceId: string,
+  ): Promise<Record<string, boolean>> {
+    const device = await this.prisma.user.findFirst({
+      where: { id: deviceId, tenantId, isSharedAccount: true },
+      select: { id: true, role: true },
+    });
+    if (!device) {
+      throw new NotFoundException("Dispositivo compartido no encontrado");
+    }
+    return (
+      (await this.roleAccess.getSectionMapForUserRole(
+        tenantId,
+        device.role,
+        device.id,
+      )) ?? {}
+    );
   }
 
   /** Quita la configuración: el dispositivo vuelve al dashboard completo. */

@@ -16,6 +16,7 @@ import {
   useSaveDeviceLayout,
   useSharedDeviceLayouts,
 } from '@/features/dashboard-layout/use-dashboard-layout';
+import { dashboardPreviewUrl } from '@/features/dashboard-layout/use-dashboard-preview';
 import { DashboardWidgetSortableList } from './dashboard-widget-sortable-list';
 
 const MANAGER_ROLES = ['OWNER', 'ADMIN'];
@@ -161,7 +162,17 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
         >
           Restablecer (ver todo)
         </button>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            // Pestaña nueva: el editor sigue abierto con lo marcado.
+            onClick={() =>
+              window.open(dashboardPreviewUrl(device.userId, { ...draft, title: draft.title.trim() }), '_blank')
+            }
+            className="rounded-lg border border-[var(--outline-variant)] px-4 py-2 text-sm text-[var(--on-surface)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          >
+            Vista previa
+          </button>
           <button
             type="button"
             onClick={onDone}

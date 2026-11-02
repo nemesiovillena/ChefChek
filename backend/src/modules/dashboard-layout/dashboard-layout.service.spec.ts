@@ -2,10 +2,12 @@ import { Test } from "@nestjs/testing";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { DashboardLayoutService } from "./dashboard-layout.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RoleAccessService } from "../role-access/role-access.service";
 
 describe("DashboardLayoutService", () => {
   let service: DashboardLayoutService;
   let prisma: any;
+  let roleAccess: any;
   const tenantId = "tenant-1";
 
   beforeEach(async () => {
@@ -21,10 +23,14 @@ describe("DashboardLayoutService", () => {
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    roleAccess = {
+      getSectionMapForUserRole: jest.fn().mockResolvedValue({ recipes: false }),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         DashboardLayoutService,
         { provide: PrismaService, useValue: prisma },
+        { provide: RoleAccessService, useValue: roleAccess },
       ],
     }).compile();
     service = moduleRef.get(DashboardLayoutService);
@@ -126,6 +132,35 @@ describe("DashboardLayoutService", () => {
         layout: { title: "Sala", widgets: ["sicted"] },
       },
     ]);
+  });
+
+  describe("getDeviceSections", () => {
+    it("usa rol, puesto y permisos del dispositivo", async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: "sala", role: "USER" });
+      await expect(
+        service.getDeviceSections(tenantId, "sala"),
+      ).resolves.toEqual({ recipes: false });
+      expect(roleAccess.getSectionMapForUserRole).toHaveBeenCalledWith(
+        tenantId,
+        "USER",
+        "sala",
+      );
+    });
+
+    it("rol sin restricciones (null) → todo visible", async () => {
+      prisma.user.findFirst.mockResolvedValue({ id: "x", role: "ADMIN" });
+      roleAccess.getSectionMapForUserRole.mockResolvedValue(null);
+      await expect(service.getDeviceSections(tenantId, "x")).resolves.toEqual(
+        {},
+      );
+    });
+
+    it("solo cuentas compartidas", async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.getDeviceSections(tenantId, "ana")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
   });
 
   it("reset borra la fila del dispositivo", async () => {
