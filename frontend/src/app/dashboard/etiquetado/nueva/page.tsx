@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Printer, Save, X } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useAuth } from '@/contexts/auth.context';
 import { useRecipeOptions } from '@/hooks/use-recipes';
+import { fmtPortions } from '@/hooks/use-raciones';
 import { foldAccents } from '@/lib/utils';
 import {
   useRecipePrepContext,
@@ -151,6 +152,11 @@ export default function NuevaEtiquetaPage() {
   const productCtx = useProductPrepContext(labelType === 'HANDLED' ? productId : null);
 
   const ctxConservation = recipeCtx.data?.conservation ?? productCtx.data?.conservation;
+  // Contador de raciones del plato: si lo hay, las raciones son obligatorias
+  // (también en artículos manipulados) y suman a las disponibles.
+  const portionCounter =
+    (labelType === 'ELABORATED' ? recipeCtx.data?.portionCounter : productCtx.data?.portionCounter) ??
+    null;
   const effectiveConservation: ConservationValue = useMemo(() => {
     if (conservationTouched) return conservation;
     return ctxConservation ? conservationFromConfig(ctxConservation) : EMPTY_CONSERVATION;
@@ -207,6 +213,15 @@ export default function NuevaEtiquetaPage() {
         message: freeze
           ? 'Indica los días de vida útil de congelado (en Conservación y vida útil).'
           : 'Indica los días de vida útil (en Conservación y vida útil) o configúralos en la receta/artículo.',
+      });
+      return;
+    }
+
+    if (portionCounter && !(num(portions) && num(portions)! > 0)) {
+      addNotification({
+        type: 'error',
+        title: 'Faltan las raciones',
+        message: `${portionCounter.name} lleva contador: indica cuántas raciones salen de esta etiqueta.`,
       });
       return;
     }
@@ -540,20 +555,30 @@ export default function NuevaEtiquetaPage() {
                   (ej. 2,5 kg). Opcional.
                 </span>
               </label>
-              {labelType === 'ELABORATED' && (
+              {(labelType === 'ELABORATED' || portionCounter) && (
                 <label>
-                  <span className={labelClass}>Raciones</span>
+                  <span className={labelClass}>
+                    Raciones{portionCounter && <span className="text-error"> *</span>}
+                  </span>
                   <input
                     className={`${fieldClass} h-10`}
                     inputMode="decimal"
                     value={portions}
                     onChange={(e) => setPortions(e.target.value)}
-                    placeholder={recipeCtx.data?.portions?.toString() ?? ''}
+                    placeholder={labelType === 'ELABORATED' ? (recipeCtx.data?.portions?.toString() ?? '') : 'ej. 6'}
                   />
-                  <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
-                    Nº de platos que rinde lo preparado (ej. 8). Si preparaste
-                    más cantidad que la receta, ajústalo. Opcional.
-                  </span>
+                  {portionCounter ? (
+                    <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                      Obligatorio: suma al contador de raciones. Ahora hay{' '}
+                      {fmtPortions(portionCounter.available)}
+                      {num(portions) ? ` → quedarán ${fmtPortions(portionCounter.available + num(portions)!)}` : ''}.
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
+                      Nº de platos que rinde lo preparado (ej. 8). Si preparaste
+                      más cantidad que la receta, ajústalo. Opcional.
+                    </span>
+                  )}
                 </label>
               )}
             </div>

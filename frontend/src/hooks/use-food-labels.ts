@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import {
@@ -137,6 +137,14 @@ export interface RecipePrepContext {
     availableLots: PrepContextLot[];
   }>;
   subRecipes: Array<{ subRecipeId: string; name: string }>;
+  /** Contador de raciones de la receta: si lo hay, las raciones son obligatorias. */
+  portionCounter?: PrepPortionCounter | null;
+}
+
+export interface PrepPortionCounter {
+  id: string;
+  name: string;
+  available: number;
 }
 
 /** Compra confirmada de un artículo sin nº de lote (típico de Makro). */
@@ -157,6 +165,7 @@ export interface ProductPrepContext {
   lots: PrepContextLot[];
   purchases: ProductPurchase[];
   manufacturerExpiryCandidate: string | null;
+  portionCounter?: PrepPortionCounter | null;
 }
 
 export interface CreateFoodLabelInput {
@@ -226,6 +235,15 @@ export interface ResponsibleOption {
 }
 
 export const FOOD_LABELS_KEY = ['food-labels'];
+
+/**
+ * Tras cambiar etiquetas: refresca etiquetas y el contador de raciones (sus
+ * raciones suman, se retiran o se corrigen con la etiqueta).
+ */
+function invalidateLabels(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+  qc.invalidateQueries({ queryKey: ['raciones'] });
+}
 
 export function useFoodLabels(query: FoodLabelListQuery) {
   const params = new URLSearchParams();
@@ -297,7 +315,7 @@ export function useCreateFoodLabel() {
       const res = await apiClient.post<FoodLabel>('/v1/etiquetado/labels', input);
       return res.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+    onSuccess: () => invalidateLabels(qc),
   });
 }
 
@@ -317,7 +335,7 @@ export function useUpdateFoodLabel() {
       );
       return res.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+    onSuccess: () => invalidateLabels(qc),
   });
 }
 
@@ -331,7 +349,7 @@ export function useVoidFoodLabel() {
       );
       return res.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY }),
+    onSuccess: () => invalidateLabels(qc),
   });
 }
 
@@ -363,7 +381,7 @@ export function useFreezeFoodLabel() {
       return res.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      invalidateLabels(qc);
       qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
     },
   });
@@ -390,7 +408,7 @@ export function useRetireFoodLabels() {
       return res.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      invalidateLabels(qc);
       qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
     },
   });
@@ -406,7 +424,7 @@ export function useUnretireFoodLabel() {
       return res.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: FOOD_LABELS_KEY });
+      invalidateLabels(qc);
       qc.invalidateQueries({ queryKey: ['dashboard-kpis'] });
     },
   });
