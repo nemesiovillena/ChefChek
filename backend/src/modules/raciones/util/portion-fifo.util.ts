@@ -10,6 +10,18 @@
 /** Redondeo a centésimas: evita restos tipo 0,30000000000000004. */
 export const roundPortions = (n: number): number => Math.round(n * 100) / 100;
 
+/**
+ * Raciones que gasta una línea de venta de Cuiner. Si el plato se vende al
+ * peso (`perPiece`), las unidades son kilos: la línea cuenta como una pieza
+ * (o −1 si es una devolución), pese lo que pese.
+ */
+export const portionsForSale = (
+  unidades: number,
+  portionsPerSale: number,
+  perPiece: boolean,
+): number =>
+  roundPortions((perPiece ? Math.sign(unidades) : unidades) * portionsPerSale);
+
 export interface PortionSource {
   /** null = raciones sin etiqueta del contador. */
   labelId: string | null;

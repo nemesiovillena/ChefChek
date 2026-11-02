@@ -139,6 +139,9 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
                             ×{fmtPortions(d.portionsPerSale)}
                           </span>
                         )}
+                        {d.perPiece && (
+                          <span className="text-xs text-[var(--on-surface-variant)]">por pieza</span>
+                        )}
                         <button
                           type="button"
                           aria-label={`Quitar ${d.name ?? d.producto}`}

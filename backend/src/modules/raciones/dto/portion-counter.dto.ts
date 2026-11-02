@@ -68,6 +68,11 @@ export class LinkPortionDishDto {
   @Min(0.01)
   @Max(100)
   portionsPerSale?: number;
+
+  /** Cuiner lo vende al peso: cada venta resta una pieza, no los kilos. */
+  @IsOptional()
+  @IsBoolean()
+  perPiece?: boolean;
 }
 
 export class AdjustPortionsDto {

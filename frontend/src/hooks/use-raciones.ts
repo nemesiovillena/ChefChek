@@ -12,6 +12,8 @@ export interface PortionDish {
   tipo: string;
   producto: string;
   portionsPerSale: number;
+  /** Cuiner lo vende al peso: cada venta resta una pieza. */
+  perPiece: boolean;
   name: string | null;
 }
 
@@ -171,7 +173,7 @@ export function useUpdatePortionCounter() {
 
 export function useLinkPortionDish() {
   return usePortionMutation(
-    ({ id, ...input }: { id: string; tipo: string; producto: string; portionsPerSale?: number }) =>
+    ({ id, ...input }: { id: string; tipo: string; producto: string; portionsPerSale?: number; perPiece?: boolean }) =>
       apiClient.post(`/v1/raciones/${id}/dishes`, input),
   );
 }
