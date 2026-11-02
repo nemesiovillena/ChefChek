@@ -132,7 +132,7 @@ export default function CorreoPage() {
             ))}
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[14rem,22rem,1fr]">
+        <div className="grid gap-4 lg:grid-cols-[14rem_22rem_1fr]">
           <div className={selectedUid ? 'hidden lg:block' : ''}>
             <MailFolderList folders={folders.data ?? []} selected={folder} onSelect={selectFolder} />
           </div>

@@ -50,7 +50,7 @@ export function MailMessageReader({ detail, loading, error, canSend, onBack, onC
           <ArrowLeft className="h-4 w-4" /> Volver
         </button>
         <div className="text-lg font-semibold text-[var(--on-surface)]">{detail.subject}</div>
-        <dl className="grid grid-cols-[auto,1fr] gap-x-2 text-sm text-[var(--on-surface-variant)]">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-sm text-[var(--on-surface-variant)]">
           <dt>De:</dt>
           <dd className="break-all text-[var(--on-surface)]">{fullAddresses(detail.from)}</dd>
           <dt>Para:</dt>
