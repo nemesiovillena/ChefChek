@@ -144,3 +144,11 @@ Verificación: Red Team ya verificó con evidencia; comprobados además `AuditAc
 - Revisión de código: [code-reviewer-261101-2330-buzon-correo-leer-enviar-report.md](../reports/code-reviewer-261101-2330-buzon-correo-leer-enviar-report.md). Aplicados H1 (timeout de envío 180 s + aviso «puede que se haya enviado»), H2 (nombres UTF-8 de multer), M1 (breaker re-comprobado tras la cola), M2 (tope tras login no abre el breaker), M3 (alta con permisos fallidos avisa sin dar el alta por fallida).
 - Pendiente (LOW, aceptados por ahora): cancelar petición de detalle al cambiar de correo; índice `audit_logs(tenantId, entityType, createdAt)` (requiere migración); rangos IP reservados extra; CCO no visible en copia de Enviados; imágenes inline al reenviar.
 - Fase 5 pendiente: prueba con buzón real, matriz de permisos en navegador, PR.
+
+## Siguiente (PR aparte, tras mergear #500): adjunto del correo → albarán del pedido
+Decidido 2026-11-02:
+- Botón «Pasar a albarán» en adjuntos PDF/imagen. Servidor coge la parte del buzón (sin descarga en el navegador) y llama a `AlbaranesService.createFromUpload(files, tenantId, undefined, undefined, purchaseOrderId)` → IA con la key guardada del tenant → navegar al albarán para revisar.
+- Elegir pedido: primero los abiertos del proveedor cuyo `Supplier.email` coincide con el remitente; si no, todos los abiertos.
+- Solo albarán con IA: el PDF original NO se guarda (`Albaran.originalFileUrl` sigue sin usar).
+- Facturas por correo: se tratan igual que albaranes (la IA lee las líneas). `InvoicesSection` (Oficina) fuera.
+- Permiso: probablemente `correo` + permiso de albaranes; confirmar al planificar.
