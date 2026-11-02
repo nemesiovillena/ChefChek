@@ -4339,6 +4339,9 @@ model PortionCounterDish {
   producto        String
   // Raciones que gasta cada unidad vendida (media ración = 0,5).
   portionsPerSale Float    @default(1)
+  // Plato que Cuiner vende al peso (chuletón, parpatana): las unidades de la
+  // venta son kilos, así que cada línea cuenta como una pieza.
+  perPiece        Boolean  @default(false)
   createdAt       DateTime @default(now())
 
   counter PortionCounter @relation(fields: [counterId], references: [id], onDelete: Cascade)

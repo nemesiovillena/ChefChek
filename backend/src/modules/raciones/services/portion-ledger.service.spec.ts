@@ -277,6 +277,20 @@ describe("PortionLedgerService", () => {
       expect(db.labels.find((l) => l.id === "nueva").portionsRemaining).toBe(2);
     });
 
+    it("un plato vendido al peso resta una pieza por venta, no los kilos", async () => {
+      db.dishes[0].perPiece = true;
+      db.labels.push(label("a", 1, 4));
+      db.saleLines.push({
+        id: "chuleton",
+        tipo: "P",
+        producto: "00403",
+        unidades: 0.88,
+        createdAt: new Date(),
+      });
+      await ledger.applySales(T);
+      expect(db.labels[0].portionsRemaining).toBe(3);
+    });
+
     it("con el módulo desactivado no hace nada", async () => {
       modules.isModuleEnabled.mockResolvedValue(false);
       db.saleLines.push({

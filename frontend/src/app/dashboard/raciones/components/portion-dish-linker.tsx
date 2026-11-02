@@ -10,13 +10,15 @@ const fieldClass =
 
 /**
  * Buscador de platos de Cuiner para enlazarlos al contador. Cada venta del
- * plato gasta `portionsPerSale` raciones (media ración = 0,5).
+ * plato gasta `portionsPerSale` raciones (media ración = 0,5). Si Cuiner lo
+ * vende al peso, cada venta cuenta como una pieza en vez de por kilos.
  */
 export function PortionDishLinker({ counterId }: { counterId: string }) {
   const addNotification = useNotification();
   const link = useLinkPortionDish();
   const [search, setSearch] = useState('');
   const [perSale, setPerSale] = useState('1');
+  const [perPiece, setPerPiece] = useState(false);
   const term = search.trim();
   const { data: options = [], isFetching } = useCuinerDishSearch(term, term.length >= 2);
 
@@ -27,10 +29,11 @@ export function PortionDishLinker({ counterId }: { counterId: string }) {
       return;
     }
     try {
-      await link.mutateAsync({ id: counterId, tipo, producto, portionsPerSale });
+      await link.mutateAsync({ id: counterId, tipo, producto, portionsPerSale, perPiece });
       addNotification({ type: 'success', title: 'Plato enlazado', message: `${nombre}: sus ventas descuentan raciones.` });
       setSearch('');
       setPerSale('1');
+      setPerPiece(false);
     } catch (err) {
       addNotification({ type: 'error', title: 'No se pudo enlazar', message: (err as Error).message });
     }
@@ -58,6 +61,20 @@ export function PortionDishLinker({ counterId }: { counterId: string }) {
           />
         </label>
       </div>
+      <label className="mt-2 flex min-h-[44px] items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={perPiece}
+          onChange={(e) => setPerPiece(e.target.checked)}
+          className="h-5 w-5"
+        />
+        <span>
+          Se vende al peso
+          <span className="block text-xs text-[var(--on-surface-variant)]">
+            Cada venta resta una pieza, pese lo que pese (chuletón, parpatana…).
+          </span>
+        </span>
+      </label>
       {term.length >= 2 && (
         <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-[var(--outline-variant)]">
           {isFetching && options.length === 0 ? (
