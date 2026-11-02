@@ -5,10 +5,8 @@ import { MonitorSmartphone } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
 import {
   DASHBOARD_TEMPLATES,
-  DASHBOARD_WIDGETS,
   FULL_DASHBOARD_WIDGETS,
   type DashboardLayout,
   type SharedDeviceLayout,
@@ -18,6 +16,7 @@ import {
   useSaveDeviceLayout,
   useSharedDeviceLayouts,
 } from '@/features/dashboard-layout/use-dashboard-layout';
+import { DashboardWidgetSortableList } from './dashboard-widget-sortable-list';
 
 const MANAGER_ROLES = ['OWNER', 'ADMIN'];
 const TITLE_MAX_LENGTH = 40;
@@ -100,12 +99,6 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
   );
   const busy = save.isPending || reset.isPending;
 
-  const toggle = (id: string) =>
-    setDraft((d) => ({
-      ...d,
-      widgets: d.widgets.includes(id) ? d.widgets.filter((w) => w !== id) : [...d.widgets, id],
-    }));
-
   async function run(action: () => Promise<unknown>, done: string) {
     try {
       await action();
@@ -154,16 +147,10 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
         ))}
       </div>
 
-      <ul className="divide-y divide-[var(--outline-variant)] rounded-xl border border-[var(--outline-variant)]">
-        {DASHBOARD_WIDGETS.map((w) => (
-          <li key={w.id}>
-            <label className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3 py-2 text-[var(--on-surface)]">
-              {w.label}
-              <Switch checked={draft.widgets.includes(w.id)} onCheckedChange={() => toggle(w.id)} />
-            </label>
-          </li>
-        ))}
-      </ul>
+      <DashboardWidgetSortableList
+        widgets={draft.widgets}
+        onChange={(widgets) => setDraft((d) => ({ ...d, widgets }))}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
