@@ -212,8 +212,14 @@ export function CheckInMonthView({
       <div className={`${cardCls} space-y-4`}>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Stat label="Trabajado" value={formatMinutes(totals.workedMinutes)} />
-          <Stat label="Jornada pactada del mes" value={formatMinutes(totals.expectedMinutes)} />
-          <Stat label="Exceso (estimado)" value={formatMinutes(totals.overtimeMinutes)} />
+          <Stat
+            label="Jornada pactada del mes"
+            value={totals.expectedMinutes === null ? 'Sin pactar' : formatMinutes(totals.expectedMinutes)}
+          />
+          <Stat
+            label="Exceso (estimado)"
+            value={totals.overtimeMinutes === null ? '—' : formatMinutes(totals.overtimeMinutes)}
+          />
           {totals.incidenceCount > 0 ? (
             <button
               type="button"

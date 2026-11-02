@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/core';
 import { AlertTriangle, Plus } from 'lucide-react';
 import type { Shift, WeekSchedule } from '@/lib/turnos-types';
+import { formatWeeklyHours } from '@/lib/check-in-punch';
 import { formatEuros, formatHours, formatWeekday } from './week-utils';
 
 /** Fila de turnos sin asignar. */
@@ -211,7 +212,8 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
                   .filter((employee) => (employee.section ?? '') === section)
                   .map((employee) => {
                     const planned = weekMinutes(employee.id);
-                    const over = planned > employee.weeklyHours * 60;
+                    // Sin horas pactadas no hay tope: nunca sale en rojo.
+                    const over = employee.weeklyHours !== null && planned > employee.weeklyHours * 60;
                     const alerts = employeeAlerts(employee.id);
                     return (
                       <tr key={employee.id}>
@@ -230,7 +232,7 @@ export function ScheduleGrid({ schedule, selectedShiftId, onSelectShift, onAddSh
                             )}
                           </span>
                           <span className={`block text-xs font-normal ${over ? 'text-[var(--error)]' : 'text-[var(--on-surface-variant)]'}`}>
-                            {formatHours(planned)} / {employee.weeklyHours} h
+                            {formatHours(planned)} / {formatWeeklyHours(employee.weeklyHours)}
                           </span>
                         </th>
                         {schedule.days.map((date) => {

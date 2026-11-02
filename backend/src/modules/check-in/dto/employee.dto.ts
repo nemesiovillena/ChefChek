@@ -56,7 +56,7 @@ export class CreateEmployeeDto {
   @IsNumber()
   @Min(0)
   @Max(60)
-  weeklyHours?: number;
+  weeklyHours?: number | null; // null = sin pactar
 
   @IsOptional()
   @IsNumber()
@@ -136,7 +136,7 @@ export class UpdateEmployeeDto {
   @IsNumber()
   @Min(0)
   @Max(60)
-  weeklyHours?: number;
+  weeklyHours?: number | null; // null = sin pactar
 
   @IsOptional()
   @IsNumber()

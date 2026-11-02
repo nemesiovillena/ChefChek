@@ -90,6 +90,10 @@ export function formatMinutes(total: number): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${String(minutes).padStart(2, '0')} min`;
 }
 
+/** Horas semanales pactadas de una ficha: null -> "Sin pactar". */
+export const formatWeeklyHours = (hours: number | null, unit = ' h') =>
+  hours === null ? 'Sin pactar' : `${hours}${unit}`;
+
 /** Hora de un instante en la zona horaria del centro. */
 export const formatTimeIn = (iso: string, timezone: string) =>
   new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: timezone });

@@ -25,7 +25,7 @@ export interface RuleShift {
 export interface RuleEmployee {
   id: string;
   name: string;
-  weeklyHours: number;
+  weeklyHours: number | null; // null = sin pactar: no hay tope que vigilar
   /** Horas extra ya aprobadas en el año, en minutos. */
   overtimeYearMinutes: number;
 }
@@ -170,9 +170,12 @@ export function evaluateScheduleRules(
       });
     }
 
-    // Horas de la semana frente a las pactadas.
+    // Horas de la semana frente a las pactadas (si están pactadas).
     const weekMinutes = inWeek.reduce((sum, s) => sum + s.workMinutes, 0);
-    if (weekMinutes > employee.weeklyHours * 60) {
+    if (
+      employee.weeklyHours !== null &&
+      weekMinutes > employee.weeklyHours * 60
+    ) {
       alerts.push({
         code: "HORAS_SEMANALES",
         employeeId: employee.id,

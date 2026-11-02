@@ -375,7 +375,7 @@ export class ShiftsService {
   private async weekAlerts(
     tenantId: string,
     monday: Date,
-    employees: { id: string; name: string; weeklyHours: number }[],
+    employees: { id: string; name: string; weeklyHours: number | null }[],
   ) {
     const employeeIds = employees.map((e) => e.id);
     const [settings, shifts, timesheets] = await Promise.all([

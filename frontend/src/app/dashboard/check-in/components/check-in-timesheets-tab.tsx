@@ -48,7 +48,10 @@ function Row({ row, period, onOpen }: { row: TimesheetRow; period: YearMonth; on
           </span>
           <span className="block text-sm text-[var(--on-surface-variant)]">
             {formatMinutes(row.totals.workedMinutes)} en {row.totals.daysWorked} día
-            {row.totals.daysWorked === 1 ? '' : 's'} · exceso estimado {formatMinutes(row.totals.overtimeMinutes)}
+            {row.totals.daysWorked === 1 ? '' : 's'} ·{' '}
+            {row.totals.overtimeMinutes === null
+              ? 'horas sin pactar'
+              : `exceso estimado ${formatMinutes(row.totals.overtimeMinutes)}`}
           </span>
         </button>
 

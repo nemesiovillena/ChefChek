@@ -147,6 +147,14 @@ describe("evaluateScheduleRules", () => {
         }),
       ).toEqual(["HORAS_SEMANALES"]);
     });
+
+    it("sin horas pactadas no hay tope que avisar", () => {
+      expect(
+        codes(weekdays("18:00"), {
+          employees: [{ ...ANA, weeklyHours: null }],
+        }),
+      ).toEqual([]);
+    });
   });
 
   describe("descanso semanal", () => {

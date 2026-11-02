@@ -58,7 +58,7 @@ export interface WorkdayReport {
     nationalId: string | null;
     socialSecurityNumber: string | null;
     jobTitle: string | null;
-    weeklyHours: number;
+    weeklyHours: number | null;
   };
   year: number;
   month: number;
