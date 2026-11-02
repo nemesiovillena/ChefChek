@@ -313,3 +313,65 @@ export async function previewMailImage(
   const data = await fetchPart(folder, uid, uidValidity, attachment.part);
   return URL.createObjectURL(new Blob([data], { type: attachment.contentType.toLowerCase() }));
 }
+
+// ── Adjunto → albarán ────────────────────────────────────────────────────
+
+export interface AlbaranOrderOption {
+  id: string;
+  orderNumber: string;
+  status: 'ENVIADO' | 'RECIBIDO_PARCIAL';
+  supplierName: string;
+  sentAt: string | null;
+  expectedTotal: number;
+  /** El proveedor del pedido es quien envía el correo. */
+  fromSender: boolean;
+}
+
+/** Pedidos abiertos que pueden recibir el albarán; primero los del remitente. */
+export function useAlbaranOrders(sender: MailAddress | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['correo', 'albaran-orders', sender?.address ?? '', sender?.name ?? ''],
+    queryFn: () =>
+      get<AlbaranOrderOption[]>(`${BASE}/albaran/orders`, {
+        from: sender?.address || undefined,
+        fromName: sender?.name || undefined,
+      }),
+    enabled,
+    ...QUERY_DEFAULTS,
+  });
+}
+
+/** La IA tarda en leer un PDF largo: margen amplio para no cortar uno que el servidor sí crea. */
+const ALBARAN_TIMEOUT_MS = 180_000;
+
+export interface AttachmentToAlbaranInput {
+  detail: Pick<MailDetail, 'folder' | 'uid' | 'uidValidity'>;
+  part: string;
+  purchaseOrderId?: string;
+}
+
+export function useAttachmentToAlbaran() {
+  const queryClient = useQueryClient();
+  return useMutation<{ albaranId: string }, Error, AttachmentToAlbaranInput>({
+    mutationFn: async ({ detail, part, purchaseOrderId }) =>
+      (
+        await apiClient.post<{ albaranId: string }>(
+          `${BASE}/messages/${detail.uid}/parts/${part}/albaran`,
+          { folder: detail.folder, uidValidity: detail.uidValidity, purchaseOrderId },
+          { ...NO_RETRY, timeout: ALBARAN_TIMEOUT_MS },
+        )
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['correo', 'access-log'] });
+      queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+    },
+  });
+}
+
+/** Adjuntos que la IA de albaranes sabe leer (el servidor lo vuelve a comprobar por los bytes). */
+export function canBecomeAlbaran(part: Pick<MailPart, 'contentType' | 'filename'>): boolean {
+  return (
+    /^(application\/pdf|image\/(png|jpe?g|webp))$/i.test(part.contentType) ||
+    (/^application\/octet-stream$/i.test(part.contentType) && /\.(pdf|png|jpe?g|webp)$/i.test(part.filename))
+  );
+}

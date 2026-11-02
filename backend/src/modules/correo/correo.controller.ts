@@ -23,6 +23,7 @@ import {
 } from "../../common/services/audit.service";
 import { Roles } from "../../decorators/roles.decorator";
 import { AuthGuard } from "../../guards/auth.guard";
+import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import {
   RequireSection,
@@ -31,6 +32,7 @@ import {
 import { TenantGuard } from "../../guards/tenant.guard";
 import { CorreoAccessGuard } from "./correo-access.guard";
 import { CorreoAccessLogService } from "./correo-access-log.service";
+import { CorreoAlbaranService } from "./correo-albaran.service";
 import { CorreoConfigService } from "./correo-config.service";
 import {
   CorreoMailboxService,
@@ -42,6 +44,7 @@ import {
   MAX_UPLOAD_BYTES,
   UploadedMailFile,
 } from "./correo-send.service";
+import { AttachmentToAlbaranDto } from "./dto/attachment-to-albaran.dto";
 import { ImapConfigDto } from "./dto/imap-config.dto";
 import { SendMailDto } from "./dto/send-mail.dto";
 import { ImapClientService } from "./imap-client.service";
@@ -102,6 +105,7 @@ export class CorreoController {
     private readonly accessLog: CorreoAccessLogService,
     private readonly sender: CorreoSendService,
     private readonly audit: AuditService,
+    private readonly albaranFromMail: CorreoAlbaranService,
   ) {}
 
   // ── Configuración (gerencia) ──────────────────────────────────────────
@@ -289,6 +293,66 @@ export class CorreoController {
     });
     this.mailbox.clearCache(req.tenantId);
     return { success: true, data: { savedToSent: result.savedToSent } };
+  }
+
+  // ── Adjunto → albarán (también exige el módulo y la sección de albaranes) ──
+
+  @Get("albaran/orders")
+  @UseGuards(ModuleGuard)
+  @RequireModule("albaranes")
+  @RequireSection("albaranes")
+  @ApiOperation({
+    summary:
+      "Pedidos abiertos para recibir un albarán del correo (primero los del remitente)",
+  })
+  async albaranOrders(
+    @Req() req: any,
+    @Query("from") from?: string,
+    @Query("fromName") fromName?: string,
+  ) {
+    const data = await this.albaranFromMail.openOrders(req.tenantId, {
+      address: from?.slice(0, 320),
+      name: fromName?.slice(0, 200),
+    });
+    return { success: true, data };
+  }
+
+  @Post("messages/:uid/parts/:part/albaran")
+  @UseGuards(ModuleGuard)
+  @RequireModule("albaranes")
+  @RequireSection("albaranes")
+  @ApiOperation({
+    summary:
+      "Crear un albarán (lectura con IA) a partir de un adjunto, sin descargarlo",
+  })
+  async attachmentToAlbaran(
+    @Req() req: any,
+    @Param("uid") uidRaw: string,
+    @Param("part") part: string,
+    @Body() dto: AttachmentToAlbaranDto,
+  ) {
+    const f = requireFolder(dto.folder);
+    const uid = parseUid(uidRaw);
+    if (!MAIL_PART_PATTERN.test(part)) {
+      throw new BadRequestException("Parte del mensaje no válida.");
+    }
+    const { albaranId, file } = await this.albaranFromMail.createFromAttachment(
+      req.tenantId,
+      {
+        folder: f,
+        uid,
+        uidValidity: dto.uidValidity,
+        part,
+        purchaseOrderId: dto.purchaseOrderId || undefined,
+      },
+    );
+    await this.logAccess(req, `${f}:${dto.uidValidity}:${uid}`, {
+      messageId: file.messageId,
+      subject: file.subject,
+      from: file.from,
+      part,
+    });
+    return { success: true, data: { albaranId } };
   }
 
   private async logAccess(

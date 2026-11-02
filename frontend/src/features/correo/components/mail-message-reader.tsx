@@ -12,6 +12,8 @@ interface Props {
   loading: boolean;
   error: string | null;
   canSend: boolean;
+  /** Puede pasar adjuntos a albarán (módulo y sección de albaranes). */
+  canAlbaran: boolean;
   onBack: () => void;
   onCompose: (mode: SendMode, detail: MailDetail) => void;
 }
@@ -23,7 +25,7 @@ const actionBtn =
  * Lector: el cuerpo va en un iframe `sandbox` sin `allow-scripts` ni
  * `allow-same-origin`; solo se permiten ventanas nuevas para los enlaces.
  */
-export function MailMessageReader({ detail, loading, error, canSend, onBack, onCompose }: Props) {
+export function MailMessageReader({ detail, loading, error, canSend, canAlbaran, onBack, onCompose }: Props) {
   // Se reinicia al cambiar de correo (la clave del componente es el uid)
   const [showImages, setShowImages] = useState(false);
   const srcdoc = useMemo(
@@ -98,7 +100,7 @@ export function MailMessageReader({ detail, loading, error, canSend, onBack, onC
           className="min-h-[60vh] w-full flex-1 bg-white"
         />
       )}
-      <MailAttachmentList detail={detail} />
+      <MailAttachmentList detail={detail} canAlbaran={canAlbaran} />
     </div>
   );
 }
