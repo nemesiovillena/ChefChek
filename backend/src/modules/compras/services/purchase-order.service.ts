@@ -56,7 +56,12 @@ export class PurchaseOrderService {
     private readonly numberService: PurchaseOrderNumberService,
   ) {}
 
-  async findAll(tenantId: string, query: PurchaseOrdersQueryDto) {
+  /** `onlySupplierIds`: limita a esos proveedores (quien solo pide con sus listas). */
+  async findAll(
+    tenantId: string,
+    query: PurchaseOrdersQueryDto,
+    onlySupplierIds?: string[],
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
 
@@ -70,6 +75,9 @@ export class PurchaseOrderService {
 
     const where = {
       tenantId,
+      ...(onlySupplierIds
+        ? { AND: [{ supplierId: { in: onlySupplierIds } }] }
+        : {}),
       ...statusFilter,
       ...(query.supplierId ? { supplierId: query.supplierId } : {}),
       ...(query.locationId ? { locationId: query.locationId } : {}),

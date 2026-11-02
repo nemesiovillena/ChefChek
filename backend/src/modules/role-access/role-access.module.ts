@@ -2,6 +2,7 @@ import { Module, Global } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { RoleAccessController } from "./role-access.controller";
 import { RoleAccessService } from "./role-access.service";
+import { PurchaseListScopeService } from "./purchase-list-scope.service";
 
 /**
  * Global so SectionAccessGuard (registered in GuardsModule) can inject
@@ -12,7 +13,7 @@ import { RoleAccessService } from "./role-access.service";
 @Module({
   imports: [AuthModule],
   controllers: [RoleAccessController],
-  providers: [RoleAccessService],
-  exports: [RoleAccessService],
+  providers: [RoleAccessService, PurchaseListScopeService],
+  exports: [RoleAccessService, PurchaseListScopeService],
 })
 export class RoleAccessModule {}

@@ -1,7 +1,13 @@
+import { PortionLedgerService } from "../raciones/services/portion-ledger.service";
 import { CuinerSaleStatus } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { SaleLineDto } from "./dto/cuiner.dto";
+
+/** El contador de raciones se prueba aparte; aquí solo debe no estorbar. */
+const ledgerStub = {
+  applySales: jest.fn().mockResolvedValue(0),
+} as unknown as PortionLedgerService;
 
 const line = (over: Partial<SaleLineDto> = {}): SaleLineDto => ({
   idVentasCab: 100,
@@ -36,7 +42,7 @@ function makePrisma(existing: { idVentasCab: number; linea: number }[] = []) {
 }
 
 const service = (prisma: ReturnType<typeof makePrisma>) =>
-  new CuinerSalesService(prisma as unknown as PrismaService);
+  new CuinerSalesService(prisma as unknown as PrismaService, ledgerStub);
 
 describe("CuinerSalesService.ingest (ventas en curso)", () => {
   it("guarda base, IVA e invitación de cada línea", async () => {

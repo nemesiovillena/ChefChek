@@ -1,3 +1,4 @@
+import { PortionLedgerService } from "../raciones/services/portion-ledger.service";
 import { BadRequestException, UnauthorizedException } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
@@ -6,6 +7,11 @@ import {
 } from "./cuiner-config.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
+
+/** El contador de raciones se prueba aparte; aquí solo debe no estorbar. */
+const ledgerStub = {
+  applySales: jest.fn().mockResolvedValue(0),
+} as unknown as PortionLedgerService;
 
 const storedConfig = {
   id: "c1",
@@ -107,7 +113,10 @@ describe("CuinerConfigService", () => {
 describe("CuinerSalesService.ingest", () => {
   it("inserta sin duplicar, ignora anuladas y el cursor solo avanza", async () => {
     const prisma = makePrisma();
-    const service = new CuinerSalesService(prisma as unknown as PrismaService);
+    const service = new CuinerSalesService(
+      prisma as unknown as PrismaService,
+      ledgerStub,
+    );
     const result = await service.ingest("t1", {
       cursor: 3341487,
       lines: [

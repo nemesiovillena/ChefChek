@@ -10,6 +10,8 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { NotificationsService } from "./notifications.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { PurchaseListScopeService } from "../role-access/purchase-list-scope.service";
+import { PrismaService } from "../../common/services/prisma.service";
 import { Roles } from "../../decorators/roles.decorator";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -24,7 +26,39 @@ export class AlertsController {
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly roleAccess: RoleAccessService,
+    private readonly purchaseListScope: PurchaseListScopeService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Quien solo pide con sus listas no recibe avisos de pedidos de otros
+   * proveedores. Devuelve los ids de pedido que no debe ver.
+   */
+  private async hiddenOrderIds(
+    req: any,
+    alerts: { entityType: string | null; entityId: string | null }[],
+  ): Promise<Set<string>> {
+    const orderIds = alerts
+      .filter((a) => a.entityType === "PURCHASE_ORDER" && a.entityId)
+      .map((a) => a.entityId as string);
+    if (orderIds.length === 0) {
+      return new Set();
+    }
+    const scope = await this.purchaseListScope.resolve(req.tenantId, req.user);
+    if (!scope) {
+      return new Set();
+    }
+    const visible = await this.prisma.purchaseOrder.findMany({
+      where: {
+        tenantId: req.tenantId,
+        id: { in: orderIds },
+        supplierId: { in: scope.supplierIds },
+      },
+      select: { id: true },
+    });
+    const visibleIds = new Set(visible.map((o) => o.id));
+    return new Set(orderIds.filter((id) => !visibleIds.has(id)));
+  }
 
   @Get()
   @Roles("ADMIN", "USER", "VIEWER")
@@ -46,19 +80,30 @@ export class AlertsController {
       !canViewCosts,
     );
 
+    const hidden = await this.hiddenOrderIds(req, result.data);
+
     return {
       ...result,
-      data: result.data.map((alert) => ({
-        id: alert.id,
-        type: alert.severity,
-        title: alert.title ?? alert.type,
-        message: alert.message,
-        createdAt: alert.createdAt,
-        tenantId: alert.tenantId,
-        read: alert.isRead,
-        entityType: alert.entityType ?? undefined,
-        entityId: alert.entityId ?? undefined,
-      })),
+      data: result.data
+        .filter(
+          (alert) =>
+            !(
+              alert.entityType === "PURCHASE_ORDER" &&
+              alert.entityId &&
+              hidden.has(alert.entityId)
+            ),
+        )
+        .map((alert) => ({
+          id: alert.id,
+          type: alert.severity,
+          title: alert.title ?? alert.type,
+          message: alert.message,
+          createdAt: alert.createdAt,
+          tenantId: alert.tenantId,
+          read: alert.isRead,
+          entityType: alert.entityType ?? undefined,
+          entityId: alert.entityId ?? undefined,
+        })),
     };
   }
 

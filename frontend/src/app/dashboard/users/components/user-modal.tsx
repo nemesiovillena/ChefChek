@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useNotification } from '@/components/notification-system';
 import { useCreateUser, useUpdateUser, useUploadUserAvatar, User } from '@/hooks/use-users';
@@ -11,7 +11,13 @@ import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { UserLaborDataTab } from './user-labor-data-tab';
 import { useTeamPositions } from '@/hooks/use-team-positions';
-import { useUpdateUserAccess, useUserAccess } from '@/features/modules/hooks/use-role-access-config';
+import {
+  useUpdateUserAccess,
+  useUpdateUserPurchaseLists,
+  useUserAccess,
+  useUserPurchaseLists,
+} from '@/features/modules/hooks/use-role-access-config';
+import { PedidosListsPicker } from './pedidos-lists-picker';
 
 const MANAGER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -136,6 +142,14 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
       .filter((g) => accessValue(g.key) !== savedAccess(g.key))
       .map((g) => [g.key, accessValue(g.key)]),
   );
+  // Listas con las que puede pedir: limitan lo que ve en Pedidos/Listas/Programaciones.
+  const canGrantPedidos = !!targetUser && canGrantAccess && isEnabled('compras');
+  const canEditPedidosLists = canGrantPedidos && formData.role === 'USER' && userAccess.isSuccess;
+  const userLists = useUserPurchaseLists(targetUser?.id, canGrantPedidos);
+  const updateUserLists = useUpdateUserPurchaseLists();
+  const savedListIds = userLists.data?.listIds ?? [];
+  const [listIdsEdit, setListIdsEdit] = useState<string[] | null>(null);
+  const pedidosListIds = listIdsEdit ?? savedListIds;
   const [samePhoneForWhatsapp, setSamePhoneForWhatsapp] = useState(
     () => !!targetUser && !!targetUser.phone && targetUser.phone === targetUser.whatsapp,
   );
@@ -215,6 +229,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
         });
         if (Object.keys(changedAccess).length > 0) {
           await updateUserAccess.mutateAsync({ userId: targetUser.id, access: changedAccess });
+        }
+        if (canEditPedidosLists && listIdsEdit !== null) {
+          await updateUserLists.mutateAsync({ userId: targetUser.id, listIds: listIdsEdit });
         }
         addNotification({ type: 'success', title: 'Usuario actualizado', message: 'Usuario actualizado correctamente' });
       } else {
@@ -385,7 +402,8 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
           </div>
 
           {visibleGrants.map((grant) => (
-            <div key={grant.key} className="flex items-start gap-3">
+            <Fragment key={grant.key}>
+            <div className="flex items-start gap-3">
               <input
                 type="checkbox"
                 id={`access-${grant.key}`}
@@ -398,6 +416,12 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 <span className="block text-xs text-gray-500">{grant.hint}</span>
               </label>
             </div>
+            {grant.key === 'compras-pedidos' && canEditPedidosLists && accessValue(grant.key) && userLists.isSuccess && (
+              <div className="ml-7">
+                <PedidosListsPicker value={pedidosListIds} onChange={setListIdsEdit} />
+              </div>
+            )}
+            </Fragment>
           ))}
 
           {/* Foto */}
