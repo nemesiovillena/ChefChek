@@ -33,6 +33,7 @@ import { RacionesDashboardCard } from './raciones-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { useMyDashboardLayout } from '@/features/dashboard-layout/use-dashboard-layout';
+import { useDashboardPreview } from '@/features/dashboard-layout/use-dashboard-preview';
 import { DEFAULT_DASHBOARD_TITLE } from '@/features/dashboard-layout/dashboard-widgets';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
@@ -63,7 +64,10 @@ export default function DashboardPage() {
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
   const { isEnabled, modules } = useModules();
-  const { canSee, canEnter } = useSectionAccess();
+  const ownAccess = useSectionAccess();
+  // Vista previa de un dispositivo (administración): sus permisos y su pantalla.
+  const preview = useDashboardPreview();
+  const { canSee, canEnter } = preview ?? ownAccess;
   // Cards de módulo: solo cuando ya se sabe que el módulo está activo (isEnabled
   // devuelve true mientras carga, pensado para el menú) — si no, la card se
   // pinta un instante y su consulta da 403 en tenants sin ese módulo.
@@ -73,7 +77,9 @@ export default function DashboardPage() {
   // configuración (cuentas personales y dispositivos sin configurar) se ve el
   // dashboard completo de siempre. Mientras carga no se pinta ninguna card
   // para que la pantalla de Sala no enseñe un instante las de cocina.
-  const { layout, isLoading: layoutLoading } = useMyDashboardLayout();
+  const ownLayout = useMyDashboardLayout();
+  const layout = preview ? preview.layout : ownLayout.layout;
+  const layoutLoading = preview ? preview.isLoading : ownLayout.isLoading;
   const showWidget = (id: string) => !layoutLoading && (!layout || layout.widgets.includes(id));
   const salaNotificacionesEnabled =
     moduleOn('sala-notificaciones') && canSee('sala-notificaciones') && showWidget('sala-notificaciones');
@@ -664,6 +670,25 @@ export default function DashboardPage() {
     <div className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md${
       layout ? '' : ' xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]'
     }`}>
+      {preview && (
+        <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-md">
+          <p className="font-label-md text-label-md text-primary">
+            <span className="material-symbols-outlined mr-1 align-middle text-[18px]">visibility</span>
+            Vista previa: así verá el inicio el dispositivo, con lo marcado en el editor (aunque no esté guardado).
+          </p>
+          <button
+            type="button"
+            // Abierta desde el editor se cierra; si se llegó por enlace, vuelve a Configuración.
+            onClick={() => {
+              window.close();
+              router.push('/dashboard/settings#pantallas');
+            }}
+            className="font-label-md text-label-md text-secondary underline cursor-pointer"
+          >
+            Cerrar vista previa
+          </button>
+        </div>
+      )}
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>

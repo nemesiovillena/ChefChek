@@ -35,6 +35,13 @@ export class DashboardLayoutController {
     return this.service.listSharedDevices(req.tenantId);
   }
 
+  /** Secciones del dispositivo, para la vista previa. OWNER/ADMIN. */
+  @Get("devices/:userId/sections")
+  @Roles("ADMIN")
+  async deviceSections(@Req() req: any, @Param("userId") userId: string) {
+    return this.service.getDeviceSections(req.tenantId, userId);
+  }
+
   @Put("devices/:userId")
   @Roles("ADMIN")
   async update(
