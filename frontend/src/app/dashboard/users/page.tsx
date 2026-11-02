@@ -116,8 +116,10 @@ function EmployeesContent() {
 
   const { data: usersData, isLoading: usersLoading } = useUsers();
   const allUsers: User[] = Array.isArray(usersData?.data) ? usersData.data : [];
-  // Personas primero; las cuentas compartidas (dispositivos) al final.
-  const users = [...allUsers].sort((a, b) => Number(!!a.isSharedAccount) - Number(!!b.isSharedAccount));
+  const users = allUsers;
+  // Las cuentas compartidas (dispositivos) no son personas: van en su propia tabla.
+  const people = users.filter((u) => !u.isSharedAccount);
+  const devices = users.filter((u) => u.isSharedAccount);
   const positions = useTeamPositions();
   const withPosition = new Set(positions.data?.flatMap((p) => p.users.map((u) => u.id)) ?? []);
   const withoutPosition = positions.data ? users.filter((u) => u.isActive && !withPosition.has(u.id)) : [];
@@ -200,6 +202,109 @@ function EmployeesContent() {
     }
   };
 
+  // Tabla de cuentas: personas (con su contrato de Fichar) o dispositivos compartidos.
+  const renderTable = (rows: User[], showContract: boolean, emptyText: string) => {
+    const colSpan = showContract ? 8 : 7;
+    return (
+      <div className={tableCardClass}>
+        <div className={tableScrollClass}>
+          <table className={tableClass}>
+            <thead className={theadClass}>
+              <tr>
+                <th className={thBaseClass}>Usuario</th>
+                <th className={thBaseClass}>Email</th>
+                <th className={thBaseClass}>Rol</th>
+                <th className={thBaseClass}>Puesto</th>
+                {showContract && <th className={thBaseClass}>Contrato</th>}
+                <th className={thBaseClass}>Estado</th>
+                <th className={thBaseClass}>Fecha de creación</th>
+                <th className={thActionsClass}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody className={tbodyClass}>
+              {usersLoading || rows.length === 0 ? (
+                <tr>
+                  <td colSpan={colSpan} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
+                    {usersLoading ? 'Cargando...' : emptyText}
+                  </td>
+                </tr>
+              ) : (
+                rows.map((targetUser) => (
+              <tr key={targetUser.id} className={trHoverClass}>
+                <td className="px-3 py-3 max-w-[220px]">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-container-high)] text-xs font-medium text-[var(--on-surface-variant)]">
+                      {targetUser.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={targetUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        getInitials(targetUser.name) || <UserRound className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-3 py-3 max-w-[220px]">
+                  <div className="truncate text-sm text-[var(--on-surface)]" title={targetUser.email}>{targetUser.email}</div>
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                    {targetUser.role.replace('_', ' ')}
+                  </span>
+                </td>
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <UserPositionSelect userId={targetUser.id} />
+                </td>
+                {showContract && (
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <CheckInHoursCell userId={targetUser.id} />
+                  </td>
+                )}
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <button
+                    onClick={() => handleToggleStatus(targetUser)}
+                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
+                      targetUser.isActive
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                    }`}
+                  >
+                    {targetUser.isActive ? 'Activo' : 'Desactivado'}
+                  </button>
+                </td>
+                <td className={tdBaseClass}>
+                  {new Date(targetUser.createdAt).toLocaleDateString()}
+                </td>
+                <td className={tdActionsClass}>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => handleEdit(targetUser)}
+                      className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
+                      title="Editar usuario"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(targetUser)}
+                      className="text-[var(--on-surface-variant)] hover:text-red-600 transition-colors"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="w-full">
       <PageContainer>
@@ -247,111 +352,18 @@ function EmployeesContent() {
           </div>
         )}
 
-        <div className={view === 'personas' ? tableCardClass : 'hidden'}>
-          <div className={tableScrollClass}>
-            <table className={tableClass}>
-              <thead className={theadClass}>
-                <tr>
-                  <th className={thBaseClass}>Usuario</th>
-                  <th className={thBaseClass}>Email</th>
-                  <th className={thBaseClass}>Rol</th>
-                  <th className={thBaseClass}>Puesto</th>
-                  {checkInOn && <th className={thBaseClass}>Contrato</th>}
-                  <th className={thBaseClass}>Estado</th>
-                  <th className={thBaseClass}>Fecha de creación</th>
-                  <th className={thActionsClass}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody className={tbodyClass}>
-                {usersLoading ? (
-                  <tr>
-                    <td colSpan={checkInOn ? 8 : 7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
-                      Cargando...
-                    </td>
-                  </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td colSpan={checkInOn ? 8 : 7} className="px-6 py-4 text-center text-[var(--on-surface-variant)]">
-                      No se encontraron usuarios
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((targetUser) => (
-                    <tr key={targetUser.id} className={trHoverClass}>
-                      <td className="px-3 py-3 max-w-[220px]">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-container-high)] text-xs font-medium text-[var(--on-surface-variant)]">
-                            {targetUser.avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={targetUser.avatarUrl} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              getInitials(targetUser.name) || <UserRound className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium text-[var(--on-surface)]" title={targetUser.name}>{targetUser.name}</div>
-                            {targetUser.isSharedAccount && (
-                              <div className="text-xs text-[var(--on-surface-variant)]">Cuenta compartida (dispositivo)</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 max-w-[220px]">
-                        <div className="truncate text-sm text-[var(--on-surface)]" title={targetUser.email}>{targetUser.email}</div>
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {targetUser.role.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <UserPositionSelect userId={targetUser.id} />
-                      </td>
-                      {checkInOn && (
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          {!targetUser.isSharedAccount && <CheckInHoursCell userId={targetUser.id} />}
-                        </td>
-                      )}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <button
-                          onClick={() => handleToggleStatus(targetUser)}
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
-                            targetUser.isActive
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                          }`}
-                        >
-                          {targetUser.isActive ? 'Activo' : 'Desactivado'}
-                        </button>
-                      </td>
-                      <td className={tdBaseClass}>
-                        {new Date(targetUser.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className={tdActionsClass}>
-                        <div className="flex items-center justify-end gap-3">
-                          <button
-                            onClick={() => handleEdit(targetUser)}
-                            className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
-                            title="Editar usuario"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(targetUser)}
-                            className="text-[var(--on-surface-variant)] hover:text-red-600 transition-colors"
-                            title="Eliminar usuario"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {view === 'personas' && renderTable(people, checkInOn, 'No se encontraron personas')}
+        {view === 'personas' && !usersLoading && devices.length > 0 && (
+          <section className="mt-8 space-y-3">
+            <div>
+              <h3 className="font-semibold text-[var(--on-surface)]">Dispositivos compartidos</h3>
+              <p className="text-sm text-[var(--on-surface-variant)]">
+                Tablets u ordenadores que usa todo el equipo. No son personas: desde ellos se elige quién hace cada tarea y se ficha en el kiosco.
+              </p>
+            </div>
+            {renderTable(devices, false, '')}
+          </section>
+        )}
         {view === 'personas' && checkInOn && !usersLoading && (
           <CheckInEmployeesWithoutAccount accountIds={new Set(allUsers.map((u) => u.id))} />
         )}
