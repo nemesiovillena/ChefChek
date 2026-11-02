@@ -51,12 +51,29 @@ describe("DashboardLayoutService", () => {
       prisma.configuration.findUnique.mockResolvedValue({
         value: JSON.stringify({
           title: "Sala",
-          widgets: ["sala-notificaciones", "card-retirada", "sicted"],
+          widgets: [
+            { id: "sala-notificaciones", cols: 2, rows: 2 },
+            { id: "card-retirada", cols: 1, rows: 1 },
+            { id: "sicted", cols: 1, rows: 1 },
+          ],
         }),
       });
       await expect(service.getForUser(tenantId, "sala")).resolves.toEqual({
         title: "Sala",
-        widgets: ["sala-notificaciones", "sicted"],
+        widgets: [
+          { id: "sala-notificaciones", cols: 2, rows: 2 },
+          { id: "sicted", cols: 1, rows: 1 },
+        ],
+      });
+    });
+
+    it("formato antiguo (solo ids): cards de 1×1", async () => {
+      prisma.configuration.findUnique.mockResolvedValue({
+        value: JSON.stringify({ title: "Sala", widgets: ["sicted"] }),
+      });
+      await expect(service.getForUser(tenantId, "sala")).resolves.toEqual({
+        title: "Sala",
+        widgets: [{ id: "sicted", cols: 1, rows: 1 }],
       });
     });
 
@@ -70,11 +87,18 @@ describe("DashboardLayoutService", () => {
     it("guarda título recortado y cards sin repetir, en orden", async () => {
       const layout = await service.update(tenantId, "sala", "admin", {
         title: "  Sala ",
-        widgets: ["sicted", "sala-notificaciones", "sicted"],
+        widgets: [
+          { id: "sicted", cols: 3, rows: 1 },
+          { id: "sala-notificaciones", cols: 2, rows: 2 },
+          { id: "sicted", cols: 1, rows: 1 },
+        ],
       });
       expect(layout).toEqual({
         title: "Sala",
-        widgets: ["sicted", "sala-notificaciones"],
+        widgets: [
+          { id: "sicted", cols: 3, rows: 1 },
+          { id: "sala-notificaciones", cols: 2, rows: 2 },
+        ],
       });
       const call = prisma.configuration.upsert.mock.calls[0][0];
       expect(call.where.tenantId_key).toEqual({
@@ -88,10 +112,26 @@ describe("DashboardLayoutService", () => {
       await expect(
         service.update(tenantId, "sala", "admin", {
           title: "Sala",
-          widgets: ["inventada"],
+          widgets: [{ id: "inventada", cols: 1, rows: 1 }],
         }),
       ).rejects.toThrow(BadRequestException);
       expect(prisma.configuration.upsert).not.toHaveBeenCalled();
+    });
+
+    it("rechaza tamaños fuera de 1-3 de ancho y 1-2 de alto", async () => {
+      for (const bad of [
+        { id: "sicted", cols: 4, rows: 1 },
+        { id: "sicted", cols: 1, rows: 3 },
+        { id: "sicted", cols: 0, rows: 1 },
+        { id: "sicted", cols: 1.5, rows: 1 },
+      ]) {
+        await expect(
+          service.update(tenantId, "sala", "admin", {
+            title: "Sala",
+            widgets: [bad],
+          }),
+        ).rejects.toThrow(BadRequestException);
+      }
     });
 
     it("rechaza título vacío", async () => {
@@ -129,7 +169,10 @@ describe("DashboardLayoutService", () => {
       {
         userId: "sala",
         name: "Sala",
-        layout: { title: "Sala", widgets: ["sicted"] },
+        layout: {
+          title: "Sala",
+          widgets: [{ id: "sicted", cols: 1, rows: 1 }],
+        },
       },
     ]);
   });

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   DASHBOARD_TEMPLATES,
   FULL_DASHBOARD_WIDGETS,
+  cloneLayout,
   type DashboardLayout,
   type SharedDeviceLayout,
 } from '@/features/dashboard-layout/dashboard-widgets';
@@ -96,7 +97,7 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
   const reset = useResetDeviceLayout();
   // Sin configurar: se parte de lo que ve hoy (todo) con su nombre de título.
   const [draft, setDraft] = useState<DashboardLayout>(
-    device.layout ?? { title: device.name, widgets: [...FULL_DASHBOARD_WIDGETS] },
+    cloneLayout(device.layout ?? { title: device.name, widgets: FULL_DASHBOARD_WIDGETS }),
   );
   const busy = save.isPending || reset.isPending;
 
@@ -140,7 +141,7 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
           <button
             key={t.name}
             type="button"
-            onClick={() => setDraft({ ...t.layout, widgets: [...t.layout.widgets] })}
+            onClick={() => setDraft(cloneLayout(t.layout))}
             className="rounded-full border border-[var(--outline-variant)] px-3 py-1 hover:border-[var(--primary)] hover:text-[var(--primary)]"
           >
             {t.name}
