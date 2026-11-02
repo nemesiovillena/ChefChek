@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -29,8 +29,14 @@ import { PostponeTaskDialog } from './production/tasks/postpone-task-dialog';
 import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
 import { SictedDashboardCard } from './sicted-dashboard-card';
+import { RacionesDashboardCard } from './raciones-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
+import { useMyDashboardLayout, useSaveDeviceLayout } from '@/features/dashboard-layout/use-dashboard-layout';
+import { ConfiguredDashboardGrid } from './configured-dashboard-grid';
+import { useNotification } from '@/components/notification-system';
+import { dashboardPreviewUrl, useDashboardPreview } from '@/features/dashboard-layout/use-dashboard-preview';
+import { DEFAULT_DASHBOARD_TITLE, type DashboardLayout } from '@/features/dashboard-layout/dashboard-widgets';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -60,12 +66,30 @@ export default function DashboardPage() {
   const reorderTasks = useReorderProductionTasks();
   const [postponingTask, setPostponingTask] = useState<UpcomingProductionTask | null>(null);
   const { isEnabled, modules } = useModules();
-  const { canSee, canEnter } = useSectionAccess();
+  const ownAccess = useSectionAccess();
+  // Vista previa de un dispositivo (administración): sus permisos y su pantalla.
+  const preview = useDashboardPreview();
+  const { canSee, canEnter } = preview ?? ownAccess;
   // Cards de módulo: solo cuando ya se sabe que el módulo está activo (isEnabled
   // devuelve true mientras carga, pensado para el menú) — si no, la card se
   // pinta un instante y su consulta da 403 en tenants sin ese módulo.
   const moduleOn = (moduleId: string) => modules !== null && isEnabled(moduleId);
-  const salaNotificacionesEnabled = moduleOn('sala-notificaciones') && canSee('sala-notificaciones');
+  // Pantalla del dispositivo compartido (Configuración → Pantallas de
+  // dispositivos): solo resta cards a lo que ya permiten los permisos. Sin
+  // configuración (cuentas personales y dispositivos sin configurar) se ve el
+  // dashboard completo de siempre. Mientras carga no se pinta ninguna card
+  // para que la pantalla de Sala no enseñe un instante las de cocina.
+  const ownLayout = useMyDashboardLayout();
+  // Vista previa: lo que el administrador mueve o redimensiona encima de la
+  // pantalla, hasta que lo guarda (null = tal cual llegó del editor).
+  const [previewEdits, setPreviewEdits] = useState<DashboardLayout | null>(null);
+  const savePreview = useSaveDeviceLayout();
+  const notify = useNotification();
+  const layout = preview ? (previewEdits ?? preview.layout) : ownLayout.layout;
+  const layoutLoading = preview ? preview.isLoading : ownLayout.isLoading;
+  const showWidget = (id: string) => !layoutLoading && (!layout || layout.widgets.some((w) => w.id === id));
+  const salaNotificacionesEnabled =
+    moduleOn('sala-notificaciones') && canSee('sala-notificaciones') && showWidget('sala-notificaciones');
   // Producción oculta pero "ver tareas" activo → board de solo lectura.
   const canSeeProduction = canSee('production');
   const canSeePrepTasks = canSeeProduction || canSee('production.tasks');
@@ -79,6 +103,19 @@ export default function DashboardPage() {
   const canSeeSicted = moduleOn('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
+  // Lo que pinta el dashboard: permiso Y pantalla del dispositivo.
+  const showPrepTasks = canSeePrepTasks && showWidget('prep-tasks');
+  const showPedidos = canEnterCompras && showWidget('pedidos-pendientes');
+  const showAlerts = canSeeAlerts && showWidget('alertas');
+  const showCaducidades = canSeeEtiquetado && showWidget('caducidades');
+  const showSicted = canSeeSicted && showWidget('sicted');
+  const showRecetas = canSeeRecipes && showWidget('recetas');
+  const showEtiquetado = canSeeEtiquetado && showWidget('etiquetado');
+  const showCompras = canEnterCompras && showWidget('compras');
+  const showCrearOrden = canSeeProduction && showWidget('crear-orden');
+  // Solo en pantallas configuradas (el bento por defecto no las incluye).
+  const showRaciones = !!layout && moduleOn('raciones') && canSee('raciones') && showWidget('raciones');
+  const showFichar = !!layout && moduleOn('check-in') && canSee('check-in') && showWidget('fichar');
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
   const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
@@ -277,7 +314,12 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
-      {/* Escritorio: flex-basis 0px (no flex-1) para que la lista no aporte
+      {/* scrollbar-gutter estable (aquí y en Tareas de Prep.): con barras que
+          ocupan sitio (Windows, Mac con ratón), si la barra aparecía al
+          desbordar, el texto se estrechaba, la fila crecía, cabía una menos,
+          la barra se iba y volvía a caber otra: la lista parpadeaba sin parar
+          entre N y N+1 filas. Reservando el hueco, el ancho no cambia.
+          Escritorio: flex-basis 0px (no flex-1) para que la lista no aporte
           alto intrínseco y no infle el bento (bug real: la card llegó a
           ~1880px con 20 avisos); el alto real lo da la columna. Móvil: max-h-80
           defensivo. overflow-y-auto solo como red si ni una fila cabe. */}
@@ -285,7 +327,7 @@ export default function DashboardPage() {
         ref={fillContainer ? notifListRef : undefined}
         key={fillContainer ? (filteredNotifications.length === 0 ? 'empty' : 'rows') : undefined}
         className={`space-y-stack-sm px-stack-lg pb-stack-lg${
-          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' max-h-80'
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto [scrollbar-gutter:stable]' : ' max-h-80'
         }`}
       >
         {filteredNotifications.length === 0 ? (
@@ -350,7 +392,7 @@ export default function DashboardPage() {
         // fallback, así que el panel no aporta altura intrínseca y el sobrante
         // real se resuelve con overflow-y-auto en vez de crecer la card.
         className={`divide-y divide-surface-variant${
-          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto' : ' flex-1'
+          fillContainer ? ' flex-[1_1_0px] min-h-0 overflow-y-auto [scrollbar-gutter:stable]' : ' flex-1'
         }`}
       >
         {kpisLoading ? (
@@ -562,6 +604,27 @@ export default function DashboardPage() {
     </div>
   );
 
+  // Fichar en este mismo dispositivo: /fichar abre el kiosco en las cuentas compartidas.
+  const ficharCard = (
+    <div
+      onClick={() => router.push('/fichar')}
+      className="group tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex items-center justify-between gap-stack-md border border-border cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+    >
+      <div className="flex items-center gap-stack-md">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
+          <span className="material-symbols-outlined text-[22px]">badge</span>
+        </span>
+        <div>
+          <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Fichar</h5>
+          <p className="font-label-sm text-label-sm text-on-surface-variant">Entrada, pausas y salida</p>
+        </div>
+      </div>
+      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">
+        arrow_forward
+      </span>
+    </div>
+  );
+
   const crearOrdenButton = (extraClassName: string) => (
     <button
       onClick={() => router.push('/dashboard/production')}
@@ -571,6 +634,24 @@ export default function DashboardPage() {
       CREAR ORDEN PRODUCCIÓN
     </button>
   );
+
+  // Cards de un dispositivo configurado, por id (el botón Crear orden va en la
+  // cabecera). Cada una sigue exigiendo su permiso.
+  // fill: la card llena su celda de la rejilla (escritorio) y sus listas
+  // muestran lo que cabe; false: alto natural (móvil).
+  const renderConfiguredCard = (id: string, fill: boolean): ReactNode => ({
+    'prep-tasks': showPrepTasks && renderPrepTasksBoard(fill),
+    'sala-notificaciones': salaNotificacionesEnabled && renderSalaTasksBoard(fill),
+    'pedidos-pendientes': showPedidos && pedidosPendientesCard,
+    alertas: showAlerts && renderNotificacionesCard(fill),
+    caducidades: showCaducidades && caducidadesAlertCard,
+    sicted: showSicted && <SictedDashboardCard />,
+    recetas: showRecetas && recetasCard,
+    etiquetado: showEtiquetado && etiquetadoCard,
+    compras: showCompras && comprasCard,
+    raciones: showRaciones && <RacionesDashboardCard />,
+    fichar: showFichar && ficharCard,
+  })[id];
 
   return (
     <>
@@ -595,15 +676,78 @@ export default function DashboardPage() {
         dentro del alto (border-box); restarlo otra vez dejaba un hueco bajo
         las cards. Sin pb propio en xl: el margen inferior es el del
         layout. */}
-    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]">
+    <div className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md${
+      // Pantalla configurada: cabe entera en el alto de la pantalla desde md.
+      layout ? ' md:flex md:flex-col md:h-[calc(100dvh-6rem)]' : ' xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]'
+    }`}>
+      {preview && (
+        <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-sm md:shrink-0">
+          <p className="font-label-md text-label-md text-primary">
+            <span className="material-symbols-outlined mr-1 align-middle text-[18px]">visibility</span>
+            Vista previa: arrastra las cards para ordenarlas y cambia su tamaño (ancho × alto).
+            {previewEdits && <span className="ml-1 text-error">Cambios sin guardar.</span>}
+          </p>
+          <div className="flex items-center gap-stack-md">
+          <button
+            type="button"
+            disabled={!previewEdits || savePreview.isPending}
+            onClick={async () => {
+              if (!previewEdits) return;
+              try {
+                await savePreview.mutateAsync({ userId: preview.deviceId, layout: previewEdits });
+              } catch (e) {
+                notify({
+                  type: 'error',
+                  title: 'No se pudo guardar',
+                  message: e instanceof Error ? e.message : 'Inténtalo de nuevo.',
+                });
+                return;
+              }
+              notify({ type: 'success', title: 'Pantalla guardada', message: previewEdits.title });
+              setPreviewEdits(null);
+              // Lo guardado pasa a ser la nueva base de la vista previa.
+              router.replace(dashboardPreviewUrl(preview.deviceId, previewEdits));
+            }}
+            className="rounded-lg bg-primary px-stack-lg py-1.5 font-label-md text-label-md text-primary-foreground disabled:opacity-40 cursor-pointer"
+          >
+            {savePreview.isPending ? 'Guardando…' : 'Guardar en el dispositivo'}
+          </button>
+          <button
+            type="button"
+            // Abierta desde el editor se cierra; si se llegó por enlace, vuelve a Configuración.
+            onClick={() => {
+              window.close();
+              router.push('/dashboard/settings#pantallas');
+            }}
+            className="font-label-md text-label-md text-secondary underline cursor-pointer"
+          >
+            Cerrar vista previa
+          </button>
+          </div>
+        </div>
+      )}
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
-          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal</h2>
+          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">
+            {layoutLoading ? '\u00a0' : (layout?.title ?? DEFAULT_DASHBOARD_TITLE)}
+          </h2>
         </div>
-        {canSeeProduction && crearOrdenButton('hidden md:flex')}
+        {showCrearOrden && crearOrdenButton('hidden md:flex')}
       </section>
+
+      {layoutLoading ? null : layout ? (
+        // Dispositivo con pantalla configurada: sus cards, en su orden y a su
+        // tamaño (el bento de abajo está ajustado a mano para el juego
+        // completo de cards y no admite huecos arbitrarios).
+        <ConfiguredDashboardGrid
+          slots={layout.widgets}
+          renderCard={renderConfiguredCard}
+          onChange={preview ? (widgets) => setPreviewEdits({ ...layout, widgets }) : undefined}
+        />
+      ) : (
+      <>
 
       {/* Vista apilada (móvil y también tablet / portátiles hasta 1279px):
           Tareas pendientes, Notificaciones de Sala, Pedidos Pendientes,
@@ -702,6 +846,8 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
     {postponingTask && (
       <PostponeTaskDialog

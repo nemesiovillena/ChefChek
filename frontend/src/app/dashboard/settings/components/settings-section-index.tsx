@@ -36,6 +36,7 @@ export const SETTINGS_SECTIONS: SettingsSectionLink[] = [
   { id: 'modulos', label: 'Módulos' },
   { id: 'check-in', label: 'Check-in', moduleId: 'check-in', managerOnly: true },
   { id: 'permisos', label: 'Permisos por rol', managerOnly: true },
+  { id: 'pantallas', label: 'Pantallas de inicio', managerOnly: true },
 ];
 
 const MANAGER_ROLES = ['OWNER', 'ADMIN'];

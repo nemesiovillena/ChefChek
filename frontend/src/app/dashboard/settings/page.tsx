@@ -10,6 +10,7 @@ import { Key, Eye, EyeOff, Check, AlertTriangle, Percent, Sparkles, CheckCircle2
 import { ModuleListWidget } from '@/features/modules/components/module-list-widget';
 import { RoleAccessPanel } from './components/role-access-panel';
 import { PersonalPunchAccessPanel } from './components/personal-punch-access-panel';
+import { DashboardDevicesConfigSection } from './components/dashboard-devices-config-section';
 import { CheckInConfigSection } from './components/check-in-config-section';
 import { useCostingConfig, useUpdateCostingConfig } from '@/hooks/use-costing-config';
 import { usePurchaseOrderConfig, useUpdatePurchaseOrderConfig } from '@/hooks/use-purchase-order-config';
@@ -606,6 +607,11 @@ export default function SettingsPage() {
         {/* Quién puede fichar desde su propia cuenta (el resto, solo en el kiosco) */}
         <div id="fichar-cuenta" className="scroll-mt-40 mt-6">
           <PersonalPunchAccessPanel />
+        </div>
+
+        {/* Inicio de cada dispositivo compartido: título y cards (OWNER/ADMIN) */}
+        <div id="pantallas" className="scroll-mt-40 mt-6">
+          <DashboardDevicesConfigSection />
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ let cache: SectionAccessMap | null = null;
  * «compras-pedidos» se entra a Compras, pero solo a Pedidos, Listas y
  * Programaciones (el servidor bloquea el resto).
  */
-const PARTIAL_SECTIONS: Record<string, string[]> = {
+export const PARTIAL_SECTIONS: Record<string, string[]> = {
   compras: ['compras-pedidos'],
 };
 let inflight: Promise<void> | null = null;
