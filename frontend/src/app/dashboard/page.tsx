@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -31,6 +31,8 @@ import { SalaTaskRow } from './sala-task-row';
 import { SictedDashboardCard } from './sicted-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
+import { useMyDashboardLayout } from '@/features/dashboard-layout/use-dashboard-layout';
+import { DEFAULT_DASHBOARD_TITLE } from '@/features/dashboard-layout/dashboard-widgets';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import {
   useWebSocketNotifications,
@@ -65,7 +67,15 @@ export default function DashboardPage() {
   // devuelve true mientras carga, pensado para el menú) — si no, la card se
   // pinta un instante y su consulta da 403 en tenants sin ese módulo.
   const moduleOn = (moduleId: string) => modules !== null && isEnabled(moduleId);
-  const salaNotificacionesEnabled = moduleOn('sala-notificaciones') && canSee('sala-notificaciones');
+  // Pantalla del dispositivo compartido (Configuración → Pantallas de
+  // dispositivos): solo resta cards a lo que ya permiten los permisos. Sin
+  // configuración (cuentas personales y dispositivos sin configurar) se ve el
+  // dashboard completo de siempre. Mientras carga no se pinta ninguna card
+  // para que la pantalla de Sala no enseñe un instante las de cocina.
+  const { layout, isLoading: layoutLoading } = useMyDashboardLayout();
+  const showWidget = (id: string) => !layoutLoading && (!layout || layout.widgets.includes(id));
+  const salaNotificacionesEnabled =
+    moduleOn('sala-notificaciones') && canSee('sala-notificaciones') && showWidget('sala-notificaciones');
   // Producción oculta pero "ver tareas" activo → board de solo lectura.
   const canSeeProduction = canSee('production');
   const canSeePrepTasks = canSeeProduction || canSee('production.tasks');
@@ -79,6 +89,16 @@ export default function DashboardPage() {
   const canSeeSicted = moduleOn('sicted') && canSee('sicted');
   // Card de notificaciones/alertas: mayormente avisos de precio y compras.
   const canSeeAlerts = canSeeCosts || canSeeCompras;
+  // Lo que pinta el dashboard: permiso Y pantalla del dispositivo.
+  const showPrepTasks = canSeePrepTasks && showWidget('prep-tasks');
+  const showPedidos = canEnterCompras && showWidget('pedidos-pendientes');
+  const showAlerts = canSeeAlerts && showWidget('alertas');
+  const showCaducidades = canSeeEtiquetado && showWidget('caducidades');
+  const showSicted = canSeeSicted && showWidget('sicted');
+  const showRecetas = canSeeRecipes && showWidget('recetas');
+  const showEtiquetado = canSeeEtiquetado && showWidget('etiquetado');
+  const showCompras = canEnterCompras && showWidget('compras');
+  const showCrearOrden = canSeeProduction && showWidget('crear-orden');
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
   const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
@@ -572,6 +592,20 @@ export default function DashboardPage() {
     </button>
   );
 
+  // Cards de un dispositivo configurado, por id (el botón Crear orden va en la
+  // cabecera). Cada una sigue exigiendo su permiso.
+  const configuredCards: Record<string, ReactNode> = {
+    'prep-tasks': showPrepTasks && renderPrepTasksBoard(false),
+    'sala-notificaciones': salaNotificacionesEnabled && renderSalaTasksBoard(false),
+    'pedidos-pendientes': showPedidos && pedidosPendientesCard,
+    alertas: showAlerts && renderNotificacionesCard(false),
+    caducidades: showCaducidades && caducidadesAlertCard,
+    sicted: showSicted && <SictedDashboardCard />,
+    recetas: showRecetas && recetasCard,
+    etiquetado: showEtiquetado && etiquetadoCard,
+    compras: showCompras && comprasCard,
+  };
+
   return (
     <>
     {/* Por debajo de xl (1280px) el dashboard usa la vista apilada de una
@@ -595,15 +629,33 @@ export default function DashboardPage() {
         dentro del alto (border-box); restarlo otra vez dejaba un hueco bajo
         las cards. Sin pb propio en xl: el margen inferior es el del
         layout. */}
-    <div className="px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]">
+    <div className={`px-margin-mobile md:px-margin-desktop max-w-container-max-width mx-auto pb-24 md:pb-0 pt-8 md:pt-stack-md${
+      layout ? '' : ' xl:flex xl:flex-col xl:h-[calc(100dvh-6rem)]'
+    }`}>
       {/* Header Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-stack-md md:shrink-0">
         <div>
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">Vista General de Servicio</span>
-          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Cocina Principal</h2>
+          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">
+            {layoutLoading ? '\u00a0' : (layout?.title ?? DEFAULT_DASHBOARD_TITLE)}
+          </h2>
         </div>
-        {canSeeProduction && crearOrdenButton('hidden md:flex')}
+        {showCrearOrden && crearOrdenButton('hidden md:flex')}
       </section>
+
+      {layoutLoading ? null : layout ? (
+        // Dispositivo con pantalla configurada: las cards elegidas, en su
+        // orden, en la vista apilada (2 columnas en escritorio ancho). El
+        // bento de abajo está ajustado a mano para el juego completo de
+        // cards y no admite huecos arbitrarios.
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-gutter mt-stack-xl items-start">
+          {layout.widgets.map((id) => {
+            const card = configuredCards[id];
+            return card ? <div key={id}>{card}</div> : null;
+          })}
+        </div>
+      ) : (
+      <>
 
       {/* Vista apilada (móvil y también tablet / portátiles hasta 1279px):
           Tareas pendientes, Notificaciones de Sala, Pedidos Pendientes,
@@ -702,6 +754,8 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
     {postponingTask && (
       <PostponeTaskDialog
