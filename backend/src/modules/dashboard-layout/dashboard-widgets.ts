@@ -15,6 +15,8 @@ export const DASHBOARD_WIDGET_IDS = [
   "etiquetado",
   "compras",
   "crear-orden",
+  "raciones",
+  "fichar",
 ] as const;
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
