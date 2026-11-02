@@ -186,7 +186,7 @@ export class EtiquetadoController {
     @Param("id") id: string,
     @Body() dto: VoidFoodLabelDto,
   ) {
-    return this.foodLabels.void(req.tenantId, id, dto.reason);
+    return this.foodLabels.void(req.tenantId, id, dto.reason, req.user);
   }
 
   /** Congela una etiqueta ya emitida (cualquier día, si no había caducado). */

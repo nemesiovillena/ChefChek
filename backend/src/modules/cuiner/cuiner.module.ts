@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
+import { RacionesModule } from "../raciones/raciones.module";
 import { CuinerController } from "./cuiner.controller";
 import { CuinerConnectorController } from "./cuiner-connector.controller";
 import { CuinerBulkLinkService } from "./cuiner-bulk-link.service";
@@ -17,7 +18,7 @@ import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
 import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, RacionesModule],
   controllers: [CuinerController, CuinerConnectorController],
   providers: [
     CuinerBulkLinkService,

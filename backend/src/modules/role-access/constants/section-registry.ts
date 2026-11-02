@@ -171,6 +171,18 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     parent: "etiquetado",
     defaultAllowed: true,
   },
+  {
+    key: "raciones",
+    label: "Contador de raciones",
+    moduleId: "raciones",
+    defaultAllowed: true,
+  },
+  {
+    key: "raciones.manage",
+    label: "Gestionar contadores, ajustes y recuento",
+    parent: "raciones",
+    defaultAllowed: true,
+  },
 
   // ── Calidad ─────────────────────────────────────────────────────────────
   // Módulo separado de APPCC (activación independiente); el motor de

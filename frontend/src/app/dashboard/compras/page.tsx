@@ -124,7 +124,10 @@ export default function ComprasPage() {
       {activeTab === 'pedidos' ? (
         <PedidosTab />
       ) : activeTab === 'listas' ? (
-        <ListasTab canManage={canManage || user?.role === 'USER' || user?.role === 'USER_CUINER'} />
+        <ListasTab
+          canManage={canManage || user?.role === 'USER' || user?.role === 'USER_CUINER'}
+          canCreateOrDelete={canSee('compras')}
+        />
       ) : activeTab === 'precios' ? (
         <PriceDeviationPanel canManage={canManage} />
       ) : activeTab === 'catalogos' ? (

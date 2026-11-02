@@ -36,6 +36,7 @@ import { ScheduleOrderDialog } from '../../components/schedule-order-dialog';
 import { ReceptionSection } from '../../components/reception-section';
 import { openOrderPdf } from '@/hooks/use-order-sending';
 import { useUpdateProduct } from '@/hooks/use-products';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 
 const euro = new Intl.NumberFormat('es-ES', {
   style: 'currency',
@@ -137,6 +138,8 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const confirm = useConfirm();
   const addNotification = useNotification();
   const { user } = useAuth();
+  const { canSee } = useSectionAccess();
+  const canSeeFullCompras = canSee('compras');
   const updateMut = useUpdatePurchaseOrder();
   const updateProductMut = useUpdateProduct();
   const transitionMut = useTransitionPurchaseOrder();
@@ -188,7 +191,9 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const canSend =
     canManageOrder &&
     (order.status === 'BORRADOR' || order.status === 'PENDIENTE_ENVIO');
+  // Programar desde un pedido crea una lista nueva: solo con Compras completo.
   const canSchedule =
+    canSeeFullCompras &&
     !!user?.role &&
     SCHEDULE_ROLES.includes(user.role) &&
     (order.lines ?? []).length > 0;

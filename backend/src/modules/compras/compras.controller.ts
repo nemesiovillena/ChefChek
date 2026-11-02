@@ -85,6 +85,7 @@ import {
   RequireSection,
   RequireSectionAny,
 } from "../../guards/section-access.guard";
+import { PurchaseListScopeService } from "../role-access/purchase-list-scope.service";
 
 /**
  * Pedidos, listas y programaciones (con sus buscadores y la lista de locales)
@@ -119,7 +120,22 @@ export class ComprasController {
     private readonly purchaseAnalyticsService: PurchaseAnalyticsService,
     private readonly mailService: MailService,
     private readonly bunny: BunnyStorageService,
+    private readonly purchaseListScope: PurchaseListScopeService,
   ) {}
+
+  /** Alcance de quien entra solo con «compras-pedidos»; null = sin límite. */
+  private scopeOf(req: any) {
+    return this.purchaseListScope.resolve(req.tenantId, req.user);
+  }
+
+  /** Comprueba que el pedido entra en el alcance de la persona (si no, 404). */
+  private async assertOrderScope(req: any, orderId: string) {
+    await this.purchaseListScope.assertOrder(
+      req.tenantId,
+      await this.scopeOf(req),
+      orderId,
+    );
+  }
 
   // ── Texto fijo del pedido al proveedor (generado desde lista) ──
 
@@ -192,9 +208,14 @@ export class ComprasController {
     @Query("supplierId") supplierId?: string,
     @Query("search") search?: string,
   ) {
+    const scope = await this.scopeOf(req);
+    if (scope && supplierId && !scope.supplierIds.includes(supplierId)) {
+      return { success: true, data: [] };
+    }
     const data = await this.purchaseListService.productOptions(req.tenantId, {
       supplierId,
       search,
+      supplierIds: scope?.supplierIds,
     });
     return { success: true, data };
   }
@@ -206,7 +227,11 @@ export class ComprasController {
     summary: "Proveedores activos para los selectores de Compras",
   })
   async supplierOptions(@Req() req: any) {
-    const data = await this.purchaseListService.supplierOptions(req.tenantId);
+    const scope = await this.scopeOf(req);
+    const all = await this.purchaseListService.supplierOptions(req.tenantId);
+    const data = scope
+      ? all.filter((s) => scope.supplierIds.includes(s.id))
+      : all;
     return { success: true, data };
   }
 
@@ -217,7 +242,9 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar listas de compra" })
   async findAllLists(@Req() req: any) {
-    const data = await this.purchaseListService.findAll(req.tenantId);
+    const scope = await this.scopeOf(req);
+    const all = await this.purchaseListService.findAll(req.tenantId);
+    const data = scope ? all.filter((l) => scope.listIds.includes(l.id)) : all;
     return { success: true, data };
   }
 
@@ -226,6 +253,10 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Crear lista de compra" })
   async createList(@Req() req: any, @Body() dto: CreatePurchaseListDto) {
+    this.purchaseListScope.assertUnrestricted(
+      await this.scopeOf(req),
+      "Solo gerencia puede crear listas de compra",
+    );
     const data = await this.purchaseListService.create(req.tenantId, dto);
     return { success: true, data };
   }
@@ -235,6 +266,7 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de una lista de compra" })
   async findOneList(@Req() req: any, @Param("id") id: string) {
+    this.purchaseListScope.assertList(await this.scopeOf(req), id);
     const data = await this.purchaseListService.findOne(req.tenantId, id);
     return { success: true, data };
   }
@@ -248,6 +280,7 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: UpdatePurchaseListDto,
   ) {
+    this.purchaseListScope.assertList(await this.scopeOf(req), id);
     const data = await this.purchaseListService.update(req.tenantId, id, dto);
     return { success: true, data };
   }
@@ -257,6 +290,10 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Eliminar (soft) una lista de compra" })
   async removeList(@Req() req: any, @Param("id") id: string) {
+    this.purchaseListScope.assertUnrestricted(
+      await this.scopeOf(req),
+      "Solo gerencia puede eliminar listas de compra",
+    );
     const data = await this.purchaseListService.remove(req.tenantId, id);
     return { success: true, data };
   }
@@ -273,6 +310,7 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: GenerateOrderDto,
   ) {
+    this.purchaseListScope.assertList(await this.scopeOf(req), id);
     const data = await this.purchaseListService.generateOrder(
       req.tenantId,
       id,
@@ -289,7 +327,12 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar pedidos (paginado y filtrable)" })
   async findAllOrders(@Req() req: any, @Query() query: PurchaseOrdersQueryDto) {
-    return this.purchaseOrderService.findAll(req.tenantId, query);
+    const scope = await this.scopeOf(req);
+    return this.purchaseOrderService.findAll(
+      req.tenantId,
+      query,
+      scope?.supplierIds,
+    );
   }
 
   @Post("pedidos")
@@ -297,6 +340,10 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Crear pedido manual (BORRADOR)" })
   async createOrder(@Req() req: any, @Body() dto: CreatePurchaseOrderDto) {
+    this.purchaseListScope.assertUnrestricted(
+      await this.scopeOf(req),
+      "Haz el pedido desde una de tus listas",
+    );
     const data = await this.purchaseOrderService.create(
       req.tenantId,
       req.user?.id,
@@ -317,6 +364,10 @@ export class ComprasController {
     @Query("supplierId") supplierId: string,
     @Query("date") date?: string,
   ) {
+    const scope = await this.scopeOf(req);
+    if (!this.purchaseListScope.hasSupplier(scope, supplierId)) {
+      return { success: true, data: [] };
+    }
     const data = await this.orderReconciliationService.suggestOrders(
       req.tenantId,
       supplierId,
@@ -330,6 +381,7 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de pedido con líneas y eventos" })
   async findOneOrder(@Req() req: any, @Param("id") id: string) {
+    await this.assertOrderScope(req, id);
     const data = await this.purchaseOrderService.findOne(req.tenantId, id);
     return { success: true, data };
   }
@@ -341,6 +393,7 @@ export class ComprasController {
     summary: "Vista previa de envío: texto, canales del proveedor y wa.me",
   })
   async getSendPreview(@Req() req: any, @Param("id") id: string) {
+    await this.assertOrderScope(req, id);
     const data = await this.orderSendingService.getSendPreview(
       req.tenantId,
       id,
@@ -361,6 +414,7 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: SendOrderDto,
   ) {
+    await this.assertOrderScope(req, id);
     const data = await this.orderSendingService.send(
       req.tenantId,
       id,
@@ -386,6 +440,10 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: SchedulePurchaseOrderDto,
   ) {
+    this.purchaseListScope.assertUnrestricted(
+      await this.scopeOf(req),
+      "Solo gerencia puede programar pedidos nuevos desde un pedido",
+    );
     const data = await this.purchaseScheduleService.createFromOrder(
       req.tenantId,
       req.user?.id,
@@ -400,6 +458,7 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "PDF del pedido" })
   async getOrderPdf(@Req() req: any, @Param("id") id: string, @Res() res: any) {
+    await this.assertOrderScope(req, id);
     const order = await this.purchaseOrderService.findOne(req.tenantId, id);
     const pdf = await this.purchaseOrderPdfService.generate(req.tenantId, id);
     res.set({
@@ -420,6 +479,7 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: TransitionPurchaseOrderDto,
   ) {
+    await this.assertOrderScope(req, id);
     const data = await this.purchaseOrderStatusService.transition(
       req.tenantId,
       id,
@@ -447,6 +507,7 @@ export class ComprasController {
     @Body("description") description: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    await this.assertOrderScope(req, id);
     if (!description || description.trim().length < 10) {
       throw new BadRequestException(
         "Describe el error (mínimo 10 caracteres).",
@@ -511,6 +572,7 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: UpdatePurchaseOrderDto,
   ) {
+    await this.assertOrderScope(req, id);
     const data = await this.purchaseOrderService.update(req.tenantId, id, dto);
     return { success: true, data };
   }
@@ -521,6 +583,7 @@ export class ComprasController {
   @ApiOperation({ summary: "Eliminar (soft) pedido BORRADOR o CANCELADO" })
   @ApiResponse({ status: 400, description: "Estado no eliminable" })
   async removeOrder(@Req() req: any, @Param("id") id: string) {
+    await this.assertOrderScope(req, id);
     const data = await this.purchaseOrderService.remove(req.tenantId, id);
     return { success: true, data };
   }
@@ -802,7 +865,11 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Listar programaciones de pedidos" })
   async findAllPurchaseSchedules(@Req() req: any) {
-    const data = await this.purchaseScheduleService.findAll(req.tenantId);
+    const scope = await this.scopeOf(req);
+    const all = await this.purchaseScheduleService.findAll(req.tenantId);
+    const data = scope
+      ? all.filter((p) => scope.listIds.includes(p.listId))
+      : all;
     return { success: true, data };
   }
 
@@ -811,6 +878,11 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Detalle de una programación" })
   async findOnePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
+    await this.purchaseListScope.assertSchedule(
+      req.tenantId,
+      await this.scopeOf(req),
+      id,
+    );
     const data = await this.purchaseScheduleService.findOne(req.tenantId, id);
     return { success: true, data };
   }
@@ -826,6 +898,11 @@ export class ComprasController {
     @Req() req: any,
     @Body() dto: CreatePurchaseScheduleDto,
   ) {
+    const scope = await this.scopeOf(req);
+    this.purchaseListScope.assertList(scope, dto.listId);
+    if (!this.purchaseListScope.hasSupplier(scope, dto.supplierId)) {
+      throw new BadRequestException("El proveedor no es el de tu lista");
+    }
     const data = await this.purchaseScheduleService.create(
       req.tenantId,
       req.user?.id,
@@ -845,6 +922,11 @@ export class ComprasController {
     @Param("id") id: string,
     @Body() dto: UpdatePurchaseScheduleDto,
   ) {
+    await this.purchaseListScope.assertSchedule(
+      req.tenantId,
+      await this.scopeOf(req),
+      id,
+    );
     const data = await this.purchaseScheduleService.update(
       req.tenantId,
       id,
@@ -858,6 +940,11 @@ export class ComprasController {
   @RequireSectionAny(...PEDIDOS_SECTIONS)
   @ApiOperation({ summary: "Eliminar una programación" })
   async removePurchaseSchedule(@Req() req: any, @Param("id") id: string) {
+    await this.purchaseListScope.assertSchedule(
+      req.tenantId,
+      await this.scopeOf(req),
+      id,
+    );
     await this.purchaseScheduleService.remove(req.tenantId, id);
     return { success: true };
   }

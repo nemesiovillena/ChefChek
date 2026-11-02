@@ -61,6 +61,7 @@ import { OcrConfigModule } from "./modules/ocr-config/ocr-config.module";
 import { AiAssistantModule } from "./modules/ai-assistant/ai-assistant.module";
 import { RoleAccessModule } from "./modules/role-access/role-access.module";
 import { EtiquetadoModule } from "./modules/etiquetado/etiquetado.module";
+import { RacionesModule } from "./modules/raciones/raciones.module";
 import { ConservationDefaultsModule } from "./modules/conservation-defaults/conservation-defaults.module";
 import { CuinerModule } from "./modules/cuiner/cuiner.module";
 import { RecipeCaptureModule } from "./modules/recipe-capture/recipe-capture.module";
@@ -117,6 +118,7 @@ import { CorreoModule } from "./modules/correo/correo.module";
     SuperadminModule,
     BackupModule,
     EtiquetadoModule,
+    RacionesModule,
     ChecklistsModule,
     SictedModule,
     CheckInModule,

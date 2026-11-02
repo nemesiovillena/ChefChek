@@ -26,7 +26,18 @@ import {
 } from '@/hooks/use-purchase-lists';
 import { ProductSearchInput } from './product-search-input';
 
-export function ListasTab({ canManage }: { canManage: boolean }) {
+/**
+ * `canManage`: editar el checklist y generar pedidos. `canCreateOrDelete`:
+ * crear y borrar listas, solo con Compras completo (quien pide con sus listas
+ * asignadas no puede).
+ */
+export function ListasTab({
+  canManage,
+  canCreateOrDelete,
+}: {
+  canManage: boolean;
+  canCreateOrDelete: boolean;
+}) {
   const { data: lists, isLoading, error } = usePurchaseLists();
   const { data: suppliers } = useCompraSupplierOptions();
   const createMut = useCreatePurchaseList();
@@ -100,7 +111,7 @@ export function ListasTab({ canManage }: { canManage: boolean }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
       <aside className="space-y-4">
-        {canManage && (
+        {canManage && canCreateOrDelete && (
           <div className="space-y-2 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)] p-4">
             <h2 className="text-sm font-semibold text-[var(--on-surface)]">Nueva lista</h2>
             <input
@@ -171,6 +182,7 @@ export function ListasTab({ canManage }: { canManage: boolean }) {
           key={list.id}
           list={list}
           canManage={canManage}
+          canDelete={canCreateOrDelete}
           pendingCatalog={
             pendingCatalog?.listId === list.id ? pendingCatalog.products : undefined
           }
@@ -200,11 +212,13 @@ function sortRowsByName(rows: EditorRow[]): EditorRow[] {
 function ListEditor({
   list,
   canManage,
+  canDelete,
   pendingCatalog,
   onSaved,
 }: {
   list: PurchaseList;
   canManage: boolean;
+  canDelete: boolean;
   /** Catálogo recién traído para una lista creada sin guardar todavía. */
   pendingCatalog?: SupplierCatalogProduct[];
   onSaved: () => void;
@@ -402,7 +416,7 @@ function ListEditor({
             {list.location?.name ? ` · Local: ${list.location.name}` : ''}
           </p>
         </div>
-        {canManage && (
+        {canManage && canDelete && (
           <button
             onClick={handleDelete}
             className="flex items-center gap-1 rounded-xl px-3 py-2 text-sm text-[var(--error)] hover:bg-[var(--error-container)]"

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { CuinerSaleStatus } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
+import { PortionLedgerService } from "../raciones/services/portion-ledger.service";
 import {
   SaleLineDto,
   UploadSalesDto,
@@ -22,7 +23,10 @@ const amountsOf = (line: SaleLineDto) => ({
  */
 @Injectable()
 export class CuinerSalesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly portionLedger: PortionLedgerService,
+  ) {}
 
   async ingest(tenantId: string, dto: UploadSalesDto) {
     const rows = dto.lines.map((line) => ({
@@ -52,6 +56,12 @@ export class CuinerSalesService {
         data: { lastVentasCabId: dto.cursor },
       }),
     ]);
+
+    // Contador de raciones: descuenta lo cobrado de los platos enlazados.
+    // No lanza: si falla, la siguiente ingesta lo reintenta.
+    if (created.count > 0) {
+      await this.portionLedger.applySales(tenantId);
+    }
 
     const config = await this.prisma.cuinerConfig.findUniqueOrThrow({
       where: { tenantId },

@@ -60,13 +60,15 @@ export class PurchaseListService {
    */
   async productOptions(
     tenantId: string,
-    filters: { supplierId?: string; search?: string },
+    filters: { supplierId?: string; search?: string; supplierIds?: string[] },
   ) {
     const supplierId = filters.supplierId?.trim();
     const term = filters.search?.trim();
     if (!supplierId && !term) {
       return [];
     }
+    // Búsqueda limitada a varios proveedores (quien solo pide con sus listas).
+    const limitTo = filters.supplierIds;
     const contains = { contains: term, mode: "insensitive" as const };
     return this.prisma.product.findMany({
       where: {
@@ -79,6 +81,18 @@ export class PurchaseListService {
                 OR: [
                   { supplierId },
                   { supplierOffers: { some: { supplierId, deletedAt: null } } },
+                ],
+              }
+            : {},
+          limitTo
+            ? {
+                OR: [
+                  { supplierId: { in: limitTo } },
+                  {
+                    supplierOffers: {
+                      some: { supplierId: { in: limitTo }, deletedAt: null },
+                    },
+                  },
                 ],
               }
             : {},
