@@ -86,6 +86,13 @@ interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retryCount?: number;
 }
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** No reintentar los 5xx (p. ej. el buzón IMAP: cada reintento es un login más). */
+    noRetry?: boolean;
+  }
+}
+
 // Response interceptor
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -152,7 +159,7 @@ apiClient.interceptors.response.use(
     }
 
     // Handle 5xx errors - retry up to 3 times
-    if (error.response?.status && error.response.status >= 500 && originalRequest && !originalRequest._retry) {
+    if (error.response?.status && error.response.status >= 500 && originalRequest && !originalRequest._retry && !originalRequest.noRetry) {
       originalRequest._retry = true;
       const retryCount = originalRequest._retryCount || 0;
 

@@ -70,6 +70,7 @@ import { SictedModule } from "./modules/sicted/sicted.module";
 import { CheckInModule } from "./modules/check-in/check-in.module";
 import { TurnosModule } from "./modules/turnos/turnos.module";
 import { RrhhModule } from "./modules/rrhh/rrhh.module";
+import { CorreoModule } from "./modules/correo/correo.module";
 
 @Module({
   imports: [
@@ -123,6 +124,7 @@ import { RrhhModule } from "./modules/rrhh/rrhh.module";
     CheckInModule,
     TurnosModule,
     RrhhModule,
+    CorreoModule,
   ],
   controllers: [
     TenantsController,
