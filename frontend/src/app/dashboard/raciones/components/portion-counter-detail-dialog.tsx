@@ -6,9 +6,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
 import {
   MOVEMENT_LABEL,
@@ -154,7 +156,10 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
                     ))}
                   </ul>
                 )}
-                <PortionDishLinker counterId={counter.id} />
+                <PortionDishLinker
+                  counterId={counter.id}
+                  linkedKeys={new Set(counter.dishes.map((d) => `${d.tipo}|${d.producto}`))}
+                />
 
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="text-sm">
@@ -211,6 +216,11 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
             </section>
           </div>
         )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} className="min-h-[44px]">
+            Cerrar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
