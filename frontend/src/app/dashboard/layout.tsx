@@ -16,6 +16,7 @@ import {
   MOBILE_NAV,
   moduleForPath,
   sectionForPath,
+  isPathHiddenForRole,
   sectionKeyForItem,
 } from '@/features/modules/lib/nav-config';
 
@@ -72,8 +73,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const section = sectionForPath(pathname);
     if (section && !canEnter(section)) {
       router.replace('/dashboard');
+      return;
     }
-  }, [pathname, modules, sectionAccess, isEnabled, canEnter, router]);
+    if (isPathHiddenForRole(pathname, user?.role)) {
+      router.replace('/dashboard');
+    }
+  }, [pathname, modules, sectionAccess, isEnabled, canEnter, router, user?.role]);
 
   // React to a 403 from a disabled module or a hidden section (dispatched by
   // api-client): just refresh the module/section state. Redirecting is left to
@@ -137,7 +142,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             (!item.managerOnly ||
               NAV_MANAGER_ROLES.includes(user?.role ?? '') ||
               (item.extraRoles?.includes(user?.role ?? '') ?? false)) &&
-            (!item.personalAccountOnly || user?.isSharedAccount !== true),
+            (!item.personalAccountOnly || user?.isSharedAccount !== true) &&
+            !item.hiddenForRoles?.includes(user?.role ?? ''),
         ),
       })).filter((group) => group.items.length > 0),
     [isEnabled, canEnter, user?.role, user?.isSharedAccount],

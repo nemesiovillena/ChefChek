@@ -17,6 +17,7 @@ import { useOcrConfig, useUpdateOcrConfig } from '@/hooks/use-ocr-config';
 import { useAiAssistantConfig } from '@/hooks/use-ai-assistant-config';
 import { useRecipeCaptureConfig } from '@/hooks/use-recipe-capture-config';
 import { SmtpConfigSection } from './components/smtp-config-section';
+import { MailInboxConfigSection } from './components/mail-inbox-config-section';
 import { AiAssistantConfigSection } from './components/ai-assistant-config-section';
 import { RecipeCaptureConfigSection } from './components/recipe-capture-config-section';
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
@@ -449,6 +450,11 @@ export default function SettingsPage() {
         {/* SMTP para envío de pedidos (módulo Compras) */}
         <div id="correo" className="scroll-mt-40 mb-6 mt-6">
           <SmtpConfigSection />
+        </div>
+
+        {/* Buzón del restaurante (módulo correo): leer y enviar desde Personal → Correo */}
+        <div id="correo-restaurante" className="scroll-mt-40 mb-6">
+          <MailInboxConfigSection />
         </div>
 
         {/* Asistente IA "Chefchek" */}
