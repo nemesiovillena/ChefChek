@@ -125,8 +125,6 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
-      // Buzón del restaurante (leer y enviar): gerencia y personas autorizadas en su ficha.
-      { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: 'mail', hiddenForRoles: ['SUPERADMIN'] },
     ],
   },
   {
@@ -141,6 +139,8 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Herramientas',
     items: [
       { label: 'Asistente IA', href: '/dashboard/asistente', moduleId: 'asistente-ia', icon: 'smart_toy' },
+      // Buzón del restaurante (leer y enviar): gerencia y personas autorizadas en su ficha.
+      { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: 'mail', hiddenForRoles: ['SUPERADMIN'] },
       { label: 'Sprint', href: '/dashboard/sprint-tracker', sectionKey: 'sprint', icon: 'track_changes' },
       { label: 'Papelera', href: '/dashboard/papelera', sectionKey: 'papelera', icon: 'delete' },
       { label: 'Copias de Seguridad', href: '/dashboard/backups', sectionKey: 'backups', icon: 'cloud_sync' },
