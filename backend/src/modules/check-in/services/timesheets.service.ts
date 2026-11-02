@@ -116,6 +116,13 @@ export class TimesheetsService {
         "Hay jornadas con incidencias o sin cerrar este mes. Corrígelas antes de aprobar.",
       );
     }
+    // La hoja aprobada es una foto fija con la jornada pactada: sin horas no se aprueba.
+    const { expectedMinutes, overtimeMinutes } = state.totals;
+    if (expectedMinutes === null || overtimeMinutes === null) {
+      throw new BadRequestException(
+        `${state.employee.name} no tiene horas semanales pactadas. Rellénalas en su ficha (Datos laborales) antes de aprobar.`,
+      );
+    }
     const previous = await this.findLatest(tenantId, employeeId, year, month);
     if (previous && !reopenReason?.trim()) {
       throw new BadRequestException(
@@ -132,6 +139,8 @@ export class TimesheetsService {
           month,
           version: (previous?.version ?? 0) + 1,
           ...state.totals,
+          expectedMinutes,
+          overtimeMinutes,
           detail: state.days as unknown as Prisma.InputJsonValue,
           reopenReason: previous ? reopenReason?.trim() : null,
           approvedByUserId: manager.id,

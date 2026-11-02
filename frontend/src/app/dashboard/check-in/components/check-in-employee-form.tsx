@@ -42,7 +42,7 @@ function initialState(employee: Employee | null, centers: WorkCenter[]): FormSta
     socialSecurityNumber: employee?.socialSecurityNumber ?? '',
     section: employee?.section ?? '',
     contractType: employee?.contractType ?? '',
-    weeklyHours: String(employee?.weeklyHours ?? 40),
+    weeklyHours: employee?.weeklyHours == null ? '' : String(employee.weeklyHours),
     hourlyCost: employee?.hourlyCost != null ? String(employee.hourlyCost) : '',
     userId: employee?.userId ?? '',
     // Una ficha sin centro (p. ej. importada antes de crear el centro) parte
@@ -67,7 +67,8 @@ function toPayload(form: FormState): EmployeeInput {
     socialSecurityNumber: form.socialSecurityNumber.trim(),
     section: form.section.trim(),
     contractType: form.contractType.trim(),
-    weeklyHours: Number(form.weeklyHours) || 0,
+    // Vacío = sin pactar (no se inventa un 40).
+    weeklyHours: form.weeklyHours.trim() === '' ? null : Number(form.weeklyHours),
     hourlyCost: form.hourlyCost === '' ? null : Number(form.hourlyCost),
     userId: form.userId || null,
     defaultLocationId: form.defaultLocationId || null,
@@ -256,7 +257,7 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embe
         </div>
         {field('Sección', 'section', { placeholder: 'Cocina, Sala, Barra…' })}
         {field('Tipo de contrato', 'contractType', { placeholder: 'Indefinido, fijo discontinuo…' })}
-        {field('Horas semanales pactadas', 'weeklyHours', { type: 'number', min: 0, max: 60, step: 0.5 })}
+        {field('Horas semanales pactadas', 'weeklyHours', { type: 'number', min: 0, max: 60, step: 0.5, placeholder: 'Sin pactar' })}
         {field('Coste por hora (€)', 'hourlyCost', { type: 'number', min: 0, step: 0.01 })}
         {field('Fecha de alta', 'hireDate', { type: 'date' })}
       </div>

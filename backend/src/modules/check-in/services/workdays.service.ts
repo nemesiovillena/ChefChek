@@ -35,9 +35,9 @@ export interface WorkdayPunchView {
 export interface MonthTotals {
   workedMinutes: number;
   breakMinutes: number;
-  /** Jornada pactada del periodo: horas semanales × días del periodo / 7. */
-  expectedMinutes: number;
-  overtimeMinutes: number;
+  /** Jornada pactada del periodo: horas semanales × días del periodo / 7. Null = horas sin pactar. */
+  expectedMinutes: number | null;
+  overtimeMinutes: number | null;
   daysWorked: number;
   /** Días con incidencia (sin salida, secuencia) o con la jornada aún abierta. */
   incidenceCount: number;
@@ -247,18 +247,25 @@ function localDay(instant: Date, timezone: string): string {
   }).format(instant);
 }
 
+/** Totales del mes; sin horas pactadas no hay jornada esperada ni exceso. */
 export function monthTotals(
   days: Workday[],
-  weeklyHours: number,
+  weeklyHours: number | null,
   daysInMonth: number,
 ): MonthTotals {
   const workedMinutes = days.reduce((sum, d) => sum + d.workedMinutes, 0);
-  const expectedMinutes = Math.round((weeklyHours * 60 * daysInMonth) / 7);
+  const expectedMinutes =
+    weeklyHours === null
+      ? null
+      : Math.round((weeklyHours * 60 * daysInMonth) / 7);
   return {
     workedMinutes,
     breakMinutes: days.reduce((sum, d) => sum + d.breakMinutes, 0),
     expectedMinutes,
-    overtimeMinutes: Math.max(0, workedMinutes - expectedMinutes),
+    overtimeMinutes:
+      expectedMinutes === null
+        ? null
+        : Math.max(0, workedMinutes - expectedMinutes),
     daysWorked: days.filter((d) => d.workedMinutes > 0).length,
     incidenceCount: days.filter((d) => d.incidences.length > 0 || d.open)
       .length,

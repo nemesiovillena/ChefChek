@@ -11,6 +11,7 @@ import UserModal from './components/user-modal';
 import { TeamPositionsTab } from './components/team-positions-tab';
 import { CheckInEmployeesWithoutAccount } from './components/check-in-employees-without-account';
 import { useEmployees } from '@/hooks/use-check-in';
+import { formatWeeklyHours } from '@/lib/check-in-punch';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { useSetUserPosition, useTeamPositions } from '@/hooks/use-team-positions';
@@ -65,7 +66,7 @@ function CheckInHoursCell({ userId }: { userId: string }) {
   if (!employees) return null;
   return (
     <span className="text-sm text-[var(--on-surface-variant)]">
-      {employee ? `${employee.weeklyHours} h/sem` : 'Sin ficha'}
+      {employee ? formatWeeklyHours(employee.weeklyHours, ' h/sem') : 'Sin ficha'}
     </span>
   );
 }
@@ -358,7 +359,7 @@ function EmployeesContent() {
             <div>
               <h3 className="font-semibold text-[var(--on-surface)]">Dispositivos compartidos</h3>
               <p className="text-sm text-[var(--on-surface-variant)]">
-                Tablets u ordenadores que usa todo el equipo. No son personas: desde ellos se elige quién hace cada tarea y se ficha en el kiosco.
+                Cuentas para las tablets u ordenadores que usa todo el equipo; no son personas. Al iniciar sesión con una de ellas en la tablet, la app pide quién hace cada tarea y Fichar abre el kiosco.
               </p>
             </div>
             {renderTable(devices, false, '')}

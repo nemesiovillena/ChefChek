@@ -146,7 +146,7 @@ export interface WeekSchedule {
   weekStart: string;
   days: string[];
   location: { id: string; name: string };
-  employees: { id: string; name: string; section: string | null; weeklyHours: number }[];
+  employees: { id: string; name: string; section: string | null; weeklyHours: number | null }[];
   shifts: Shift[];
   absences: {
     id: string;
