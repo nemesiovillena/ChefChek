@@ -166,6 +166,8 @@ export interface RecipesQuery {
   category?: string;
   /** Pestaña: comida (por defecto en el servidor) o bebida. */
   kind?: 'food' | 'drink';
+  /** Primera letra del nombre (abecedario A–Z + Ñ). */
+  letter?: string;
   sortBy?: 'name' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
   page?: number;
@@ -178,6 +180,7 @@ function buildRecipesQueryString(query?: RecipesQuery): string {
   if (query.search) params.set('search', query.search);
   if (query.category) params.set('category', query.category);
   if (query.kind) params.set('kind', query.kind);
+  if (query.letter) params.set('letter', query.letter);
   if (query.sortBy) params.set('sortBy', query.sortBy);
   if (query.sortOrder) params.set('sortOrder', query.sortOrder);
   if (query.page) params.set('page', String(query.page));
@@ -195,6 +198,19 @@ export function useRecipes(query?: RecipesQuery) {
   return useApiQuery<PaginatedResponse<Recipe>>(
     ['recipes', JSON.stringify(query ?? {})],
     `/v1/recipes${buildRecipesQueryString(query)}`
+  );
+}
+
+/**
+ * Letras del abecedario que tienen recetas con los filtros actuales (pestaña,
+ * búsqueda, categoría). El abecedario del listado atenúa las demás.
+ */
+export function useRecipeInitials(
+  query: Pick<RecipesQuery, 'search' | 'category' | 'kind'>,
+) {
+  return useApiQuery<string[]>(
+    ['recipes', 'initials', JSON.stringify(query)],
+    `/v1/recipes/initials${buildRecipesQueryString(query)}`
   );
 }
 

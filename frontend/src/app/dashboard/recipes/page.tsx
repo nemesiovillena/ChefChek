@@ -7,6 +7,7 @@ import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
   useRecipes,
+  useRecipeInitials,
   useRecipeOptions,
   Recipe,
   useCreateRecipe,
@@ -17,12 +18,19 @@ import {
   RecipeIngredient,
 } from '@/hooks/use-recipes';
 import { processImageForUpload } from '@/lib/image-processing';
+import { RecipeAlphabetBar } from './components/recipe-alphabet-bar';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string; note?: string };
 
 // Unidades de ingrediente/sub-receta con peso conocido, convertidas a gramos
 // (densidad=1 para l/ml/cl — misma convención que calculateSubRecipeCost en
 // backend). "units"/"raciones" no tienen peso conocido en el sistema.
+/** Misma regla que el backend: tildes cuentan como su vocal; Ñ es letra propia. */
+function nameStartsWithLetter(name: string, letter: string): boolean {
+  const first = name.trimStart().charAt(0).toUpperCase();
+  return first === 'Ñ' ? letter === 'Ñ' : first.normalize('NFD').charAt(0) === letter;
+}
+
 const KNOWN_WEIGHT_UNIT_FACTORS: Record<string, number> = { kg: 1000, g: 1, l: 1000, ml: 1, cl: 10 };
 import ElaborationStepEditor, {
   ElaborationStep,
@@ -199,6 +207,8 @@ export default function RecipesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
+  // Abecedario táctil (monitor de cocina sin teclado): primera letra del nombre.
+  const [selectedLetter, setSelectedLetter] = useState('');
   // Pestañas Comida / Bebidas. Sin permiso de bebidas siempre es comida.
   const [kind, setKind] = useState<'food' | 'drink'>('food');
   const [isDrink, setIsDrink] = useState(false);
@@ -229,10 +239,17 @@ export default function RecipesPage() {
     search: debouncedSearch || undefined,
     category: selectedCategory || undefined,
     kind: canViewDrinks ? kind : 'food',
+    letter: selectedLetter || undefined,
     sortBy: 'name',
     sortOrder: sortField === 'name' ? sortDirection : 'asc',
     page,
     pageSize,
+  });
+  // Mismos filtros que el listado salvo la letra: qué letras tienen recetas.
+  const { data: availableLetters } = useRecipeInitials({
+    search: debouncedSearch || undefined,
+    category: selectedCategory || undefined,
+    kind: canViewDrinks ? kind : 'food',
   });
   const recipes: Recipe[] = useMemo(() => recipesData?.data ?? [], [recipesData]);
   const totalItems = recipesData?.total ?? 0;
@@ -693,6 +710,11 @@ export default function RecipesPage() {
           setSelectedCategory('');
           setPage(1);
         }
+        // Igual con la letra del abecedario.
+        if (selectedLetter && !nameStartsWithLetter(createdRecipe.name, selectedLetter)) {
+          setSelectedLetter('');
+          setPage(1);
+        }
         // Igual con la búsqueda activa: si el nombre o la descripción de la
         // receta no la matchean (mismo contains insensitive que el backend),
         // se limpia para que sea visible sin recargar.
@@ -908,12 +930,13 @@ export default function RecipesPage() {
             </div>
             <button
               type="button"
-              disabled={!searchTerm && !selectedCategory}
+              disabled={!searchTerm && !selectedCategory && !selectedLetter}
               onClick={() => {
                 if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
                 setSearchTerm('');
                 setDebouncedSearch('');
                 setSelectedCategory('');
+                setSelectedLetter('');
                 setPage(1);
               }}
               className="px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] mt-1 md:mt-0 font-medium text-sm select-none
@@ -928,6 +951,12 @@ export default function RecipesPage() {
             </button>
           </div>
         </div>
+
+        <RecipeAlphabetBar
+          selected={selectedLetter}
+          available={availableLetters}
+          onSelect={(letter) => { setSelectedLetter(letter); setPage(1); }}
+        />
 
         <div className="mb-6">
           <PaginationControls

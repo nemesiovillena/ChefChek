@@ -535,6 +535,58 @@ describe("RecipesService", () => {
     });
   });
 
+  describe("filtro por primera letra", () => {
+    beforeEach(() => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+      mockPrismaService.recipe.count.mockResolvedValue(0);
+    });
+
+    it("la A incluye las variantes con tilde y se suma a la búsqueda", async () => {
+      await service.findAll(
+        tenantId,
+        { letter: "A", search: "salsa" },
+        true,
+        "ADMIN",
+      );
+
+      const where =
+        mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
+      const prefixes = where.AND[0].OR.map((c: any) => c.name.startsWith);
+      expect(prefixes).toEqual(expect.arrayContaining(["A", "Á"]));
+      expect(where.OR).toBeDefined(); // la búsqueda sigue aplicándose
+    });
+
+    it("la N no incluye la Ñ", async () => {
+      await service.findAll(tenantId, { letter: "N" }, true, "ADMIN");
+
+      const where =
+        mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
+      expect(where.AND[0].OR.map((c: any) => c.name.startsWith)).toEqual(["N"]);
+    });
+
+    it("findInitials devuelve las letras presentes en orden de abecedario", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([
+        { name: "Ñoquis" },
+        { name: "ácido cítrico" },
+        { name: "Natillas" },
+        { name: "  Zumo" },
+        { name: "7 especias" },
+      ]);
+
+      const letters = await service.findInitials(
+        tenantId,
+        { kind: "food" },
+        "USER",
+      );
+
+      expect(letters).toEqual(["A", "N", "Ñ", "Z"]);
+      const where =
+        mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
+      expect(where.isActive).toBe(true);
+      expect(where.isDrink).toBe(false);
+    });
+  });
+
   describe("findAllOptions", () => {
     it("should compute pricePerKgOrL from persisted totalCostPerUnit × 1000", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([
