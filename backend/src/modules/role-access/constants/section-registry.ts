@@ -173,7 +173,7 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
   },
   {
     key: "raciones",
-    label: "Contador de raciones",
+    label: "Contador de platos",
     moduleId: "raciones",
     defaultAllowed: true,
   },

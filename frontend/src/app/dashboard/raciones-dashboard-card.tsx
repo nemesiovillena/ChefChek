@@ -39,7 +39,7 @@ export function RacionesDashboardCard() {
             <span className="material-symbols-outlined text-[22px]">set_meal</span>
           </span>
           <div>
-            <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Raciones</h5>
+            <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Contador de platos</h5>
             <p className="font-label-sm text-label-sm text-on-surface-variant">Lo que queda de cada plato</p>
           </div>
         </div>

@@ -67,7 +67,7 @@ export default function RacionesPage() {
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">
             Cocina y sala
           </span>
-          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Raciones</h2>
+          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Contador de platos</h2>
           <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
             {data?.salesReceivedUntil
               ? `Ventas de Cuiner cobradas hasta ${fmtDateTime(data.salesReceivedUntil)}. Lo pedido sin cobrar aún no descuenta.`

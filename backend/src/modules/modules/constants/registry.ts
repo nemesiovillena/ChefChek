@@ -210,7 +210,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
   {
     id: "raciones",
-    name: "Contador de raciones",
+    name: "Contador de platos",
     description:
       "Raciones disponibles de cada plato: suben al etiquetar, bajan con las ventas de Cuiner y avisan cuando quedan pocas",
     dependencies: ["etiquetado"],
