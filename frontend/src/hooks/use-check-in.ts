@@ -73,6 +73,9 @@ function useInvalidateEmployees() {
   return () => {
     qc.invalidateQueries({ queryKey: KEYS.employees });
     qc.invalidateQueries({ queryKey: KEYS.linkableUsers });
+    // «En activo» de la ficha también activa/desactiva la cuenta (Personas).
+    qc.invalidateQueries({ queryKey: ['users'] });
+    qc.invalidateQueries({ queryKey: KEYS.presence });
   };
 }
 

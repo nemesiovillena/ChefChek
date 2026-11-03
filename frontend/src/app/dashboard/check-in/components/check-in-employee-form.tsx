@@ -312,7 +312,16 @@ export function CheckInEmployeeForm({ employee, centers, pinLength, onDone, embe
             <input
               type="checkbox"
               checked={form.isActive}
-              onChange={(e) => set('isActive', e.target.checked)}
+              onChange={(e) => {
+                const active = e.target.checked;
+                set('isActive', active);
+                // Es el mismo interruptor que en Personas: desactivar pone
+                // hoy como fecha de baja (si no hay otra) y reactivar la quita.
+                set(
+                  'terminationDate',
+                  active ? '' : form.terminationDate || new Date().toLocaleDateString('sv-SE'),
+                );
+              }}
               className="h-5 w-5"
             />
             En activo

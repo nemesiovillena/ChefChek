@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { ModulesService } from "../../modules/modules.service";
 import { resolveFallbackLocationIds, splitFullName } from "./employees.service";
+import { terminationDateOnActiveChange } from "./termination-date-on-active-change.util";
 
 /** Lo que la ficha necesita saber de la cuenta de Equipo. */
 export interface AccountSnapshot {
@@ -75,9 +76,24 @@ export class EmployeeAccountSyncService {
       });
       return;
     }
-    await this.prisma.employee.updateMany({
+    const employee = await this.prisma.employee.findUnique({
       where: { userId: account.id },
-      data: { ...splitFullName(account.name), isActive: account.isActive },
+      select: { id: true, isActive: true, terminationDate: true },
+    });
+    if (!employee) {
+      return;
+    }
+    await this.prisma.employee.update({
+      where: { id: employee.id },
+      data: {
+        ...splitFullName(account.name),
+        isActive: account.isActive,
+        terminationDate: terminationDateOnActiveChange(
+          employee.isActive,
+          account.isActive,
+          employee.terminationDate,
+        ),
+      },
     });
   }
 
