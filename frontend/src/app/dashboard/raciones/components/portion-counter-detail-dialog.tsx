@@ -84,7 +84,7 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{counter.name}</DialogTitle>
+          <DialogTitle className="pr-8">{counter.name}</DialogTitle>
           <DialogDescription>
             {fmtPortions(data?.available ?? counter.available)} raciones disponibles
             {counter.unlabeledPortions > 0 &&

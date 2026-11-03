@@ -87,7 +87,7 @@ export function PortionAdjustDialog({ counter, mode, onClose }: Props) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="pr-8">
             {mode === 'recount' ? 'Recuento' : 'Ajustar'} · {counter.name}
           </DialogTitle>
           <DialogDescription>
