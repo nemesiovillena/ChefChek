@@ -85,7 +85,7 @@ export class PortionLedgerService {
     }
     if (!(portions && portions > 0)) {
       throw new BadRequestException(
-        `«${counter.name}» lleva contador de raciones: indica cuántas raciones salen de esta etiqueta.`,
+        `«${counter.name}» lleva contador de platos: indica cuántas raciones salen de esta etiqueta.`,
       );
     }
     return counter.id;
@@ -172,7 +172,7 @@ export class PortionLedgerService {
     }
     if (!(newPortions && newPortions > 0)) {
       throw new BadRequestException(
-        "Esta etiqueta lleva contador de raciones: las raciones no pueden quedar vacías.",
+        "Esta etiqueta lleva contador de platos: las raciones no pueden quedar vacías.",
       );
     }
     const delta = roundPortions(newPortions - (label.portions ?? 0));
