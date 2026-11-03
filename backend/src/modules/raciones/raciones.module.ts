@@ -4,6 +4,7 @@ import { AuthModule } from "../auth/auth.module";
 import { CoreModule } from "../core/core.module";
 import { RacionesController } from "./raciones.controller";
 import { PortionCounterService } from "./services/portion-counter.service";
+import { PortionCuinerSyncService } from "./services/portion-cuiner-sync.service";
 import { PortionLedgerService } from "./services/portion-ledger.service";
 
 /**
@@ -13,7 +14,11 @@ import { PortionLedgerService } from "./services/portion-ledger.service";
 @Module({
   imports: [PrismaModule, AuthModule, CoreModule],
   controllers: [RacionesController],
-  providers: [PortionLedgerService, PortionCounterService],
-  exports: [PortionLedgerService],
+  providers: [
+    PortionLedgerService,
+    PortionCounterService,
+    PortionCuinerSyncService,
+  ],
+  exports: [PortionLedgerService, PortionCuinerSyncService],
 })
 export class RacionesModule {}

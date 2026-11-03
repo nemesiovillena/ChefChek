@@ -12,6 +12,8 @@
       albaranes enviados con «Enviar a Cuiner»; en simulación no escribe).
     - "ChefChek Conector - Catalogo": una vez al día a las 09:00 (después de
       la importación de cintas de las 08:00).
+    - "ChefChek Conector - Contador": cada minuto (Contador de platos del TPV:
+      ChefChek y Cuiner siempre con las mismas raciones).
   -Desinstalar elimina ambas tareas. No borra la carpeta C:\ChefChekConector
   ni toca SQL Server: el servidor queda como estaba antes de instalar.
 #>
@@ -25,6 +27,7 @@ $Tasks = @{
   'ChefChek Conector - Ventas'   = 'sales'
   'ChefChek Conector - Catalogo' = 'catalog'
   'ChefChek Conector - Albaranes' = 'albaranes'
+  'ChefChek Conector - Contador' = 'contador'
 }
 
 if ($Desinstalar) {
@@ -49,8 +52,8 @@ foreach ($name in $Tasks.Keys) {
   $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$Script`" -Task $task" `
     -WorkingDirectory $Base
-  if ($task -eq 'sales' -or $task -eq 'albaranes') {
-    $minutes = 5
+  if ($task -eq 'sales' -or $task -eq 'albaranes' -or $task -eq 'contador') {
+    $minutes = $(if ($task -eq 'contador') { 1 } else { 5 })
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(5) `
       -RepetitionInterval (New-TimeSpan -Minutes $minutes) -RepetitionDuration (New-TimeSpan -Days 3650)
   } else {

@@ -16,6 +16,8 @@ import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
+import { PortionCuinerSyncDto } from "../raciones/dto/portion-cuiner-sync.dto";
+import { PortionCuinerSyncService } from "../raciones/services/portion-cuiner-sync.service";
 import {
   BootstrapCursorDto,
   ExportResultDto,
@@ -43,6 +45,7 @@ export class CuinerConnectorController {
     private readonly mappingService: CuinerMappingService,
     private readonly exportService: CuinerExportService,
     private readonly salesService: CuinerSalesService,
+    private readonly portionSync: PortionCuinerSyncService,
   ) {}
 
   @Get("config")
@@ -123,6 +126,23 @@ export class CuinerConnectorController {
       throw new ForbiddenException("El conector está en modo simulación");
     }
     return this.exportService.recordResult(req.tenantId, exportId, dto);
+  }
+
+  /** Contador de platos en vivo: lo pendiente de escribir en Cuiner. */
+  @Get("portions/sync")
+  portionsPending(@Req() req: ConnectorRequest) {
+    this.assertEnabled(req);
+    return this.portionSync.getPending(req.tenantId);
+  }
+
+  /** Resultado de lo escrito en Cuiner + historial nuevo y foto del contador. */
+  @Post("portions/sync")
+  portionsSync(
+    @Req() req: ConnectorRequest,
+    @Body() dto: PortionCuinerSyncDto,
+  ) {
+    this.assertEnabled(req);
+    return this.portionSync.ingest(req.tenantId, dto);
   }
 
   private assertEnabled(req: ConnectorRequest): void {
