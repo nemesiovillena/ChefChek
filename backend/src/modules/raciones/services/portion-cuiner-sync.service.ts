@@ -4,6 +4,10 @@ import { NotificationsService } from "../../core/notifications.service";
 import { PortionCuinerSyncDto } from "../dto/portion-cuiner-sync.dto";
 import { roundPortions } from "../util/portion-fifo.util";
 import { PortionLedgerService } from "./portion-ledger.service";
+import {
+  counterLoadSource,
+  PortionSettingsService,
+} from "./portion-settings.service";
 
 /**
  * Enlace en vivo con el Contador de platos de Cuiner (PostgreSQL del TPV).
@@ -20,6 +24,7 @@ export class PortionCuinerSyncService {
     private readonly prisma: PrismaService,
     private readonly ledger: PortionLedgerService,
     private readonly notifications: NotificationsService,
+    private readonly settings: PortionSettingsService,
   ) {}
 
   async getPending(tenantId: string) {
@@ -152,10 +157,7 @@ export class PortionCuinerSyncService {
           id: true,
           name: true,
           cuinerMismatchNotifiedAt: true,
-          dishes: {
-            where: { tipo: "P" },
-            select: { producto: true, perPiece: true },
-          },
+          dishes: { select: { tipo: true, producto: true, perPiece: true } },
         },
       }),
       this.prisma.portionCuinerPush.groupBy({
@@ -168,9 +170,12 @@ export class PortionCuinerSyncService {
       pending.map((p) => [p.counterId, p._sum.quantity ?? 0]),
     );
     const now = new Date();
+    const settings = await this.settings.get(tenantId);
 
     for (const counter of counters) {
+      const source = counterLoadSource(settings, counter.dishes);
       const values = counter.dishes
+        .filter((d) => d.tipo === "P")
         .map((d) => {
           const s = byPlato.get(d.producto);
           if (!s) {
@@ -188,7 +193,15 @@ export class PortionCuinerSyncService {
       const expected = roundPortions(
         available - (pendingBy.get(counter.id) ?? 0),
       );
-      const mismatch = cuiner !== null && Math.abs(expected - cuiner) > 0.001;
+      let mismatch = cuiner !== null && Math.abs(expected - cuiner) > 0.001;
+      if (mismatch && source === "TPV") {
+        // Se carga en el TPV: manda Cuiner y ChefChek se iguala, sin aviso.
+        await this.ledger.alignToCuiner(tenantId, counter.id, cuiner!);
+        mismatch = false;
+      } else if (source === "CHEFCHEK") {
+        // Solo en ChefChek: Cuiner no se carga desde aquí; no es un descuadre.
+        mismatch = false;
+      }
 
       let notifiedAt = counter.cuinerMismatchNotifiedAt;
       if (mismatch && !notifiedAt) {

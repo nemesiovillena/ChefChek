@@ -2,6 +2,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { PortionCuinerSyncService } from "./portion-cuiner-sync.service";
 import { PortionLedgerService } from "./portion-ledger.service";
+import { PortionSettingsService } from "./portion-settings.service";
 
 describe("PortionCuinerSyncService", () => {
   const T = "t1";
@@ -11,6 +12,7 @@ describe("PortionCuinerSyncService", () => {
   let available: number;
   let prisma: any;
   let ledger: any;
+  let source: string;
   let notifications: { createNotification: jest.Mock };
   let sync: PortionCuinerSyncService;
 
@@ -19,11 +21,12 @@ describe("PortionCuinerSyncService", () => {
       id: "pc1",
       name: "Solomillo",
       cuinerMismatchNotifiedAt: null,
-      dishes: [{ producto: "00745", perPiece: false }],
+      dishes: [{ tipo: "P", producto: "00745", perPiece: false }],
     };
     pushes = [];
     config = { portionCursor: 100 };
     available = 12;
+    source = "BOTH";
     prisma = {
       cuinerConfig: {
         findUnique: jest.fn(async () => config),
@@ -68,6 +71,9 @@ describe("PortionCuinerSyncService", () => {
     ledger = {
       isEnabled: jest.fn().mockResolvedValue(true),
       available: jest.fn(async () => available),
+      alignToCuiner: jest.fn(async (_t, _id, target) => {
+        available = target;
+      }),
       applyCuinerRegistro: jest.fn(async (_t, _from, to) => {
         config.portionCursor = to;
         return { applied: 0, cursor: to };
@@ -78,6 +84,14 @@ describe("PortionCuinerSyncService", () => {
       prisma as PrismaService,
       ledger as unknown as PortionLedgerService,
       notifications as unknown as NotificationsService,
+      {
+        get: jest.fn(async () => ({
+          loadSource: source,
+          effectiveSource: source,
+          doubleLoadHours: 12,
+          live: true,
+        })),
+      } as unknown as PortionSettingsService,
     );
   });
 
@@ -150,5 +164,21 @@ describe("PortionCuinerSyncService", () => {
     const res = await sync.ingest(T, { baseline: 43040 });
     expect(res).toEqual({ cursor: 43040 });
     expect(ledger.applyCuinerRegistro).not.toHaveBeenCalled();
+  });
+
+  it("«En el TPV»: si no cuadra, ChefChek se iguala a Cuiner sin avisar", async () => {
+    source = "TPV";
+    await sync.ingest(T, snapshot(9));
+    expect(ledger.alignToCuiner).toHaveBeenCalledWith(T, "pc1", 9);
+    expect(notifications.createNotification).not.toHaveBeenCalled();
+    expect(counter.cuinerMismatchNotifiedAt).toBeNull();
+  });
+
+  it("«Solo en ChefChek»: guarda lo de Cuiner pero no lo trata como descuadre", async () => {
+    source = "CHEFCHEK";
+    await sync.ingest(T, snapshot(3));
+    expect(counter.cuinerAvailable).toBe(3);
+    expect(ledger.alignToCuiner).not.toHaveBeenCalled();
+    expect(notifications.createNotification).not.toHaveBeenCalled();
   });
 });

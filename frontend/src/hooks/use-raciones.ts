@@ -32,6 +32,8 @@ export interface PortionCounter {
   cuinerAvailable: number | null;
   /** ChefChek y Cuiner no coinciden: hay que revisarlo. */
   cuinerMismatch: boolean;
+  /** Dónde se carga: TPV = solo en Cuiner, ChefChek solo lo muestra. */
+  loadSource: PortionLoadSource;
   dishes: PortionDish[];
 }
 
@@ -126,6 +128,36 @@ export interface CuinerDishOption {
 }
 
 export const RACIONES_KEY = ['raciones'];
+
+/** Configuración → Contador de platos: dónde se cargan las raciones. */
+export type PortionLoadSource = 'CHEFCHEK' | 'TPV' | 'BOTH';
+
+export interface PortionSettings {
+  loadSource: PortionLoadSource;
+  /** Lo que se aplica: sin TPV enlazado en vivo, siempre CHEFCHEK. */
+  effectiveSource: PortionLoadSource;
+  doubleLoadHours: number;
+  /** TPV (Cuiner) enlazado en vivo. */
+  live: boolean;
+}
+
+export function usePortionSettings(enabled = true) {
+  return useApiQuery<PortionSettings>([...RACIONES_KEY, 'settings'], '/v1/raciones/settings', {
+    enabled,
+  });
+}
+
+export function useUpdatePortionSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { loadSource?: PortionLoadSource; doubleLoadHours?: number }) =>
+      apiClient.put('/v1/raciones/settings', input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: RACIONES_KEY });
+      qc.invalidateQueries({ queryKey: ['etiquetado-prep-context'] });
+    },
+  });
+}
 
 /** Se refresca cada minuto: las ventas de Cuiner entran solas. */
 export function usePortionOverview(enabled = true) {

@@ -5,6 +5,7 @@ import { CoreModule } from "../core/core.module";
 import { RacionesController } from "./raciones.controller";
 import { PortionCounterService } from "./services/portion-counter.service";
 import { PortionCuinerSyncService } from "./services/portion-cuiner-sync.service";
+import { PortionSettingsService } from "./services/portion-settings.service";
 import { PortionLedgerService } from "./services/portion-ledger.service";
 
 /**
@@ -18,6 +19,7 @@ import { PortionLedgerService } from "./services/portion-ledger.service";
     PortionLedgerService,
     PortionCounterService,
     PortionCuinerSyncService,
+    PortionSettingsService,
   ],
   exports: [PortionLedgerService, PortionCuinerSyncService],
 })

@@ -16,6 +16,10 @@ import {
   PortionLedgerService,
   activeLabelWhere,
 } from "./portion-ledger.service";
+import {
+  counterLoadSource,
+  PortionSettingsService,
+} from "./portion-settings.service";
 
 /** Faltantes (vendido sin etiquetar) que se muestran para revisar. */
 const SHORTFALL_WINDOW_MS = 7 * 86_400_000;
@@ -30,6 +34,7 @@ export class PortionCounterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: PortionLedgerService,
+    private readonly settings: PortionSettingsService,
   ) {}
 
   /** Pantalla «Raciones»: contadores con su disponible y lo que hay que revisar. */
@@ -40,6 +45,7 @@ export class PortionCounterService {
       orderBy: { name: "asc" },
     });
     const ids = counters.map((c) => c.id);
+    const settings = await this.settings.get(tenantId);
 
     const [labelSums, expiredLabels, shortfalls, lastSale, dishNames] =
       await Promise.all([
@@ -103,6 +109,8 @@ export class PortionCounterService {
         // Lo que marca el Contador de platos de Cuiner y si no cuadra.
         cuinerAvailable: c.cuinerAvailable,
         cuinerMismatch: c.active && c.cuinerMismatchNotifiedAt !== null,
+        // TPV = se carga en Cuiner; ChefChek no deja recontar ni ajustar.
+        loadSource: counterLoadSource(settings, c.dishes),
         dishes: c.dishes.map((d) => ({
           id: d.id,
           tipo: d.tipo,
