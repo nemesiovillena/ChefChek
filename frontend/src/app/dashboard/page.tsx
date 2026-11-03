@@ -375,7 +375,7 @@ export default function DashboardPage() {
     const listPhase = kpisLoading ? 'loading' : allPrepTasks.length === 0 ? 'empty' : 'rows';
 
     return (
-    <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border">
+    <div className="tonal-layer-2 rounded-xl overflow-hidden h-full flex flex-col border border-border @container">
       <div className="p-stack-lg border-b border-surface-variant flex justify-between items-center bg-surface-container-low">
         <h3 className="font-headline-md text-headline-md text-primary">Tareas de Prep. Próximas</h3>
         <span className="font-label-sm text-label-sm text-on-surface-variant px-stack-md py-1 bg-surface-variant rounded-full">
