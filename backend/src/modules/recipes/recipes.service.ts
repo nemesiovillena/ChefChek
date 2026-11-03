@@ -15,6 +15,12 @@ import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { RecipesQueryDto } from "./dto/recipes-query.dto";
 import {
+  RecipeInitialLetter,
+  RECIPE_INITIAL_LETTERS,
+  recipeInitialLetter,
+  recipeNameStartsWithWhere,
+} from "./recipe-initial-letter";
+import {
   RecipeResponse,
   IngredientResponse,
   SubRecipeResponse,
@@ -273,25 +279,17 @@ export class RecipesService {
     return this.formatRecipeResponse(recipe);
   }
 
-  async findAll(
+  /**
+   * Filtros comunes del listado (pestaña, activas según rol, búsqueda y
+   * categoría). Sin la letra: la comparten `findAll` y `findInitials`.
+   */
+  private buildListWhere(
     tenantId: string,
-    query?: RecipesQueryDto,
-    includeCost = true,
-    role?: string,
-    canViewDrinks = true,
-  ): Promise<{
-    data: RecipeResponse[];
-    meta: { total: number; page: number; limit: number; totalPages: number };
-  }> {
-    const {
-      search,
-      category,
-      kind = "food",
-      sortBy = "name",
-      sortOrder = "asc",
-      page = 1,
-      limit = 20,
-    } = query ?? {};
+    query: RecipesQueryDto | undefined,
+    role: string | undefined,
+    canViewDrinks: boolean,
+  ): any {
+    const { search, category, kind = "food" } = query ?? {};
 
     const where: any = {
       tenantId,
@@ -326,6 +324,51 @@ export class RecipesService {
           categoryId: category,
         },
       };
+    }
+
+    return where;
+  }
+
+  /**
+   * Letras del abecedario con al menos una receta bajo los filtros actuales
+   * (sin contar la letra elegida). El abecedario atenúa el resto.
+   */
+  async findInitials(
+    tenantId: string,
+    query?: RecipesQueryDto,
+    role?: string,
+    canViewDrinks = true,
+  ): Promise<RecipeInitialLetter[]> {
+    const recipes = await this.prisma.recipe.findMany({
+      where: this.buildListWhere(tenantId, query, role, canViewDrinks),
+      select: { name: true },
+    });
+    const present = new Set(recipes.map((r) => recipeInitialLetter(r.name)));
+    return RECIPE_INITIAL_LETTERS.filter((l) => present.has(l));
+  }
+
+  async findAll(
+    tenantId: string,
+    query?: RecipesQueryDto,
+    includeCost = true,
+    role?: string,
+    canViewDrinks = true,
+  ): Promise<{
+    data: RecipeResponse[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const {
+      letter,
+      sortBy = "name",
+      sortOrder = "asc",
+      page = 1,
+      limit = 20,
+    } = query ?? {};
+
+    const where = this.buildListWhere(tenantId, query, role, canViewDrinks);
+    if (letter) {
+      // AND: `search` ya ocupa el OR de nivel superior.
+      where.AND = [recipeNameStartsWithWhere(letter)];
     }
 
     const skip = (page - 1) * limit;

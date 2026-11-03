@@ -1,5 +1,6 @@
 import { IsIn, IsNumber, IsOptional, IsString } from "class-validator";
 import { Type } from "class-transformer";
+import { RECIPE_INITIAL_LETTERS } from "../recipe-initial-letter";
 
 export class RecipesQueryDto {
   @IsOptional()
@@ -9,6 +10,12 @@ export class RecipesQueryDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  /** Primera letra del nombre (abecedario A–Z + Ñ del listado). */
+  @IsOptional()
+  @IsString()
+  @IsIn([...RECIPE_INITIAL_LETTERS])
+  letter?: string;
 
   /** Pestaña del listado: recetas de comida (por defecto) o de bebida. */
   @IsOptional()
