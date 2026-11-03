@@ -26,6 +26,7 @@ export const SETTINGS_SECTIONS: SettingsSectionLink[] = [
   { id: 'etiquetas', label: 'Etiquetas', moduleId: 'etiquetado' },
   { id: 'conservacion', label: 'Conservación' },
   { id: 'sicted', label: 'SICTED', moduleId: 'sicted' },
+  { id: 'contador-platos', label: 'Contador de platos', moduleId: 'raciones', managerOnly: true },
   { id: 'ocr', label: 'Motor de extracción (OCR)' },
   { id: 'correo', label: 'Correo de envío (SMTP)' },
   { id: 'correo-restaurante', label: 'Correo del restaurante', moduleId: 'correo', managerOnly: true },

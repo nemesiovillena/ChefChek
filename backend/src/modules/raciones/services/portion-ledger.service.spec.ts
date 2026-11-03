@@ -3,6 +3,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ModulesService } from "../../modules/modules.service";
 import { PortionLedgerService } from "./portion-ledger.service";
+import { PortionSettingsService } from "./portion-settings.service";
 
 /**
  * Prisma en memoria mínimo: lo justo para el reparto FIFO, las ventas y los
@@ -17,6 +18,7 @@ function makeDb() {
     saleLines: [] as any[],
     pushes: [] as any[],
     config: null as any,
+    settings: [] as { key: string; value: string }[],
   };
   const matchLabel = (l: any, where: any) =>
     (where.portionCounterId === undefined ||
@@ -101,9 +103,28 @@ function makeDb() {
           where.cuinerSaleLineId?.in.includes(m.cuinerSaleLineId),
         ),
       ),
+      findFirst: jest.fn(async ({ where }: any) => {
+        const types = where.type?.in ?? [where.type];
+        const hits = db.movements.filter(
+          (m) =>
+            m.counterId === where.counterId &&
+            m.quantity > 0 &&
+            types.includes(m.type) &&
+            (where.cuinerRegistroId?.not !== null ||
+              (m.cuinerRegistroId !== null &&
+                m.cuinerRegistroId !== undefined)),
+        );
+        return hits.length
+          ? { ...hits[hits.length - 1], createdAt: new Date() }
+          : null;
+      }),
     },
     portionCounterDish: {
-      findMany: jest.fn(async () => db.dishes),
+      findMany: jest.fn(async ({ where }: any = {}) =>
+        where?.counterId
+          ? db.dishes.filter((d) => d.counterId === where.counterId)
+          : db.dishes,
+      ),
       count: jest.fn(
         async ({ where }: any) =>
           db.dishes.filter(
@@ -113,6 +134,9 @@ function makeDb() {
               !!d.perPiece === where.perPiece,
           ).length,
       ),
+    },
+    configuration: {
+      findMany: jest.fn(async () => db.settings),
     },
     cuinerConfig: {
       findUnique: jest.fn(async () => db.config),
@@ -169,6 +193,7 @@ describe("PortionLedgerService", () => {
       prisma as PrismaService,
       modules as unknown as ModulesService,
       notifications as unknown as NotificationsService,
+      new PortionSettingsService(prisma as PrismaService),
     );
   });
 
@@ -389,7 +414,7 @@ describe("PortionLedgerService", () => {
       expect(db.movements).toHaveLength(0);
     });
 
-    it("ignora lo que escribió ChefChek y las cargas de platos por piezas", async () => {
+    it("ignora lo que escribió ChefChek; en platos por piezas cuenta piezas", async () => {
       db.dishes[0].perPiece = true;
       await ledger.applyCuinerRegistro(T, 100, 103, [
         row(101, "Stock", 3, { cajero: "ChefChek" }),
@@ -397,6 +422,7 @@ describe("PortionLedgerService", () => {
         row(103, "Salida", 0.85),
       ]);
       expect(db.movements.map((m) => [m.type, m.quantity])).toEqual([
+        ["CUINER_LOAD", 19],
         ["ORDER", -1],
       ]);
     });
@@ -410,13 +436,55 @@ describe("PortionLedgerService", () => {
       ]);
     });
 
-    it("sin enlace en vivo, o si Cuiner lo lleva por piezas, no encola nada", async () => {
+    it("sin enlace en vivo no encola nada", async () => {
       db.config.portionCursor = null;
       await ledger.adjust(T, "pc1", 1, "x", { id: "u1" });
-      db.config.portionCursor = 100;
+      expect(db.pushes).toHaveLength(0);
+    });
+
+    it("un plato por piezas se carga solo en el TPV: ni etiqueta ni recuento", async () => {
       db.dishes[0].perPiece = true;
+      await expect(
+        ledger.counterForNewLabel(T, { productId: "p1" }, undefined),
+      ).resolves.toBeNull();
+      await expect(
+        ledger.recount(T, "pc1", 9, undefined, { id: "u1" }),
+      ).rejects.toThrow("se carga en el Contador de platos de Cuiner");
+      expect(db.pushes).toHaveLength(0);
+    });
+
+    it("«En el TPV»: la etiqueta no suma y no se puede ajustar", async () => {
+      db.settings.push({ key: "RACIONES_LOAD_SOURCE", value: "TPV" });
+      await expect(
+        ledger.counterForNewLabel(T, { productId: "p1" }, 4),
+      ).resolves.toBeNull();
+      await expect(
+        ledger.adjust(T, "pc1", 2, "x", { id: "u1" }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("«Solo en ChefChek»: las cargas del TPV no cuentan, los pedidos sí", async () => {
+      db.settings.push({ key: "RACIONES_LOAD_SOURCE", value: "CHEFCHEK" });
+      await ledger.applyCuinerRegistro(T, 100, 102, [
+        row(101, "Stock", 4, { cajero: "KDS:Cocina" }),
+        row(102, "Salida", 1),
+      ]);
+      expect(db.movements.map((m) => [m.type, m.quantity])).toEqual([
+        ["ORDER", -1],
+      ]);
       await ledger.adjust(T, "pc1", 1, "x", { id: "u1" });
       expect(db.pushes).toHaveLength(0);
+    });
+
+    it("«En los dos»: carga en ChefChek y en Cuiner seguidas → aviso de carga doble", async () => {
+      await ledger.recount(T, "pc1", 15, undefined, { id: "u1", name: "Ana" });
+      await ledger.applyCuinerRegistro(T, 100, 101, [
+        row(101, "Stock", 10, { cajero: "KDS:Cocina", mesa: null }),
+      ]);
+      const titles = notifications.createNotification.mock.calls.map(
+        (c: any[]) => c[1].title,
+      );
+      expect(titles).toContain("¿Carga doble? Solomillo");
     });
 
     it("con enlace en vivo, lo cobrado no vuelve a descontar", async () => {

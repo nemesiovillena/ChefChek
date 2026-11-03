@@ -17,8 +17,8 @@ export const CUINER_CHEFCHEK_CAJERO = "ChefChek";
 /**
  * Qué supone en raciones una fila del historial de Cuiner. Salida = pedido
  * (unidades > 0), Borrado = anulación (unidades < 0), Stock = carga en Cuiner.
- * Las cargas de platos que Cuiner lleva por piezas con peso no se copian: se
- * cargan a mano en los dos sitios y la comparación avisa si no cuadran.
+ * En platos que Cuiner lleva por piezas con peso, una carga cuenta piezas.
+ * Si la carga cuenta o no lo decide quien llama (Configuración).
  */
 export function cuinerRegistroChange(
   row: CuinerRegistroRow,
@@ -46,7 +46,8 @@ export function cuinerRegistroChange(
       reason: where ? `${what} en Cuiner · ${where}` : `${what} en Cuiner`,
     };
   }
-  if (row.operacion === "Stock" && !dish.perPiece) {
+  // En platos por piezas con peso, Stock = piezas cargadas (cada una un lote).
+  if (row.operacion === "Stock") {
     const delta = roundPortions(row.unidades * dish.portionsPerSale);
     return delta === 0
       ? null

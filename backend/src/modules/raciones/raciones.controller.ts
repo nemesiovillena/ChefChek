@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -19,6 +20,9 @@ import {
   RequireSection,
   SectionAccessGuard,
 } from "../../guards/section-access.guard";
+import { Roles } from "../../decorators/roles.decorator";
+import { UpdatePortionSettingsDto } from "./dto/portion-settings.dto";
+import { PortionSettingsService } from "./services/portion-settings.service";
 import {
   AdjustPortionsDto,
   CreatePortionCounterDto,
@@ -47,7 +51,20 @@ export class RacionesController {
   constructor(
     private readonly counters: PortionCounterService,
     private readonly ledger: PortionLedgerService,
+    private readonly settings: PortionSettingsService,
   ) {}
+
+  /** Configuración → Contador de platos: dónde se cargan las raciones. */
+  @Get("settings")
+  getSettings(@Req() req: any) {
+    return this.settings.get(req.tenantId);
+  }
+
+  @Put("settings")
+  @Roles("ADMIN")
+  updateSettings(@Req() req: any, @Body() dto: UpdatePortionSettingsDto) {
+    return this.settings.update(req.tenantId, dto, req.user.id);
+  }
 
   @Get()
   overview(@Req() req: any) {
