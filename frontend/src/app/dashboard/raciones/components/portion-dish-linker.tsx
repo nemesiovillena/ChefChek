@@ -92,8 +92,8 @@ export function PortionDishLinker({
             className={fieldClass}
           />
         </label>
-        <label className="w-24 text-sm">
-          <span className="text-[var(--on-surface-variant)]">Raciones/venta</span>
+        <label className="w-28 text-sm">
+          <span className="whitespace-nowrap text-[var(--on-surface-variant)]">Raciones/venta</span>
           <input
             inputMode="decimal"
             value={perSale}
