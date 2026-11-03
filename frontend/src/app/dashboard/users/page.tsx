@@ -10,7 +10,9 @@ import { Pencil, Trash2, UserRound } from 'lucide-react';
 import UserModal from './components/user-modal';
 import { TeamPositionsTab } from './components/team-positions-tab';
 import { CheckInEmployeesWithoutAccount } from './components/check-in-employees-without-account';
-import { useEmployees } from '@/hooks/use-check-in';
+import { useEmployees, usePresence } from '@/hooks/use-check-in';
+import { useQueryClient } from '@tanstack/react-query';
+import { UserActiveSwitch } from './components/user-active-switch';
 import { formatWeeklyHours } from '@/lib/check-in-punch';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
@@ -119,7 +121,10 @@ function EmployeesContent() {
   const allUsers: User[] = Array.isArray(usersData?.data) ? usersData.data : [];
   const users = allUsers;
   // Las cuentas compartidas (dispositivos) no son personas: van en su propia tabla.
-  const people = users.filter((u) => !u.isSharedAccount);
+  // Los desactivados siguen en la lista, al final y atenuados.
+  const people = users
+    .filter((u) => !u.isSharedAccount)
+    .sort((a, b) => Number(b.isActive) - Number(a.isActive));
   const devices = users.filter((u) => u.isSharedAccount);
   const positions = useTeamPositions();
   const withPosition = new Set(positions.data?.flatMap((p) => p.users.map((u) => u.id)) ?? []);
@@ -127,6 +132,9 @@ function EmployeesContent() {
   const { isEnabled } = useModules();
   const checkInOn = isEnabled('check-in');
   const updateMutation = useUpdateUser();
+  const queryClient = useQueryClient();
+  // Para avisar si alguien sigue fichado dentro cuando se le desactiva.
+  const presence = usePresence(checkInOn);
   const deleteMutation = useDeleteUser();
 
   const [showModal, setShowModal] = useState(false);
@@ -170,8 +178,32 @@ function EmployeesContent() {
       addNotification({ type: 'warning', title: 'Acción no permitida', message: 'No puedes desactivar tu propio usuario.' });
       return;
     }
+    if (targetUser.isActive) {
+      const working = presence.data?.find((p) => p.userId === targetUser.id && p.status !== 'OUT');
+      const ok = await confirm({
+        title: `Desactivar a ${targetUser.name}`,
+        description: targetUser.isSharedAccount
+          ? 'El dispositivo no podrá entrar en la app hasta que lo vuelvas a activar.'
+          : 'No podrá entrar en la app ni fichar, y deja de aparecer en el kiosco, Turnos y los listados. Se guarda hoy como fecha de baja. Sus fichajes y su puesto se conservan para cuando lo reactives.',
+        confirmText: 'Desactivar',
+        variant: 'destructive',
+        children: working ? (
+          <p className="rounded-lg bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+            Está fichado dentro
+            {working.since
+              ? ` desde las ${new Date(working.since).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`
+              : ''}
+            . Al desactivarlo ya no podrá fichar la salida: corrígela después en Fichar → Hojas de horas.
+          </p>
+        ) : undefined,
+      });
+      if (!ok) return;
+    }
     try {
       await updateMutation.mutateAsync({ id: targetUser.id, isActive: !targetUser.isActive });
+      // Kiosco, presencia, fichas y puestos dependen del estado de la cuenta.
+      queryClient.invalidateQueries({ queryKey: ['check-in'] });
+      queryClient.invalidateQueries({ queryKey: ['team-positions'] });
       addNotification({
         type: 'success',
         title: 'Estado actualizado',
@@ -231,7 +263,7 @@ function EmployeesContent() {
                 </tr>
               ) : (
                 rows.map((targetUser) => (
-              <tr key={targetUser.id} className={trHoverClass}>
+              <tr key={targetUser.id} className={`${trHoverClass} ${targetUser.isActive ? '' : 'opacity-60'}`}>
                 <td className="px-3 py-3 max-w-[220px]">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-container-high)] text-xs font-medium text-[var(--on-surface-variant)]">
@@ -264,16 +296,12 @@ function EmployeesContent() {
                   </td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap">
-                  <button
-                    onClick={() => handleToggleStatus(targetUser)}
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
-                      targetUser.isActive
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                    }`}
-                  >
-                    {targetUser.isActive ? 'Activo' : 'Desactivado'}
-                  </button>
+                  <UserActiveSwitch
+                    name={targetUser.name}
+                    active={targetUser.isActive}
+                    disabled={targetUser.id === user?.id || updateMutation.isPending}
+                    onToggle={() => handleToggleStatus(targetUser)}
+                  />
                 </td>
                 <td className={tdBaseClass}>
                   {new Date(targetUser.createdAt).toLocaleDateString()}

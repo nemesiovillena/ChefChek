@@ -19,7 +19,7 @@ describe("TeamPositionsService", () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         create: jest.fn().mockResolvedValue({}),
       },
-      user: { findFirst: jest.fn() },
+      user: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((arg: any) =>
         Array.isArray(arg) ? Promise.all(arg) : arg(prisma),
       ),
@@ -124,5 +124,24 @@ describe("TeamPositionsService", () => {
         where: { tenantId, profileId: "p1", until: null },
       }),
     );
+  });
+
+  it("la lista de puestos marca a las personas desactivadas", async () => {
+    prisma.sictedJobProfile.findMany.mockResolvedValue([
+      {
+        id: "p1",
+        title: "Cocina",
+        assignments: [
+          { userId: "u1", userName: "Ana" },
+          { userId: "u2", userName: "Luis" },
+        ],
+      },
+    ]);
+    prisma.user.findMany.mockResolvedValue([{ id: "u2" }]);
+    const [position] = await service.list(tenantId);
+    expect(position.users).toEqual([
+      { id: "u1", name: "Ana", isActive: true },
+      { id: "u2", name: "Luis", isActive: false },
+    ]);
   });
 });

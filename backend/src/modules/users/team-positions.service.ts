@@ -38,11 +38,25 @@ export class TeamPositionsService {
       },
       orderBy: { title: "asc" },
     });
+    // Quien está desactivado conserva su puesto (vuelve con él al reactivarlo):
+    // se marca para que la pestaña Puestos no lo muestre mientras tanto.
+    const inactive = new Set(
+      (
+        await this.prisma.user.findMany({
+          where: { tenantId, isActive: false },
+          select: { id: true },
+        })
+      ).map((u) => u.id),
+    );
     return Promise.all(
       positions.map(async (p) => ({
         id: p.id,
         title: p.title,
-        users: p.assignments.map((a) => ({ id: a.userId, name: a.userName })),
+        users: p.assignments.map((a) => ({
+          id: a.userId,
+          name: a.userName,
+          isActive: !inactive.has(a.userId),
+        })),
         access: await this.roleAccess.getPositionAccess(tenantId, p.id),
       })),
     );

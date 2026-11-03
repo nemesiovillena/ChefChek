@@ -12,7 +12,8 @@ import { fetchRoleAccessConfig, type RoleAccessSection } from '@/features/module
 export interface TeamPosition {
   id: string;
   title: string;
-  users: { id: string; name: string }[];
+  /** isActive=false: persona desactivada (conserva el puesto, no se muestra). */
+  users: { id: string; name: string; isActive: boolean }[];
   access: Record<string, boolean>;
 }
 

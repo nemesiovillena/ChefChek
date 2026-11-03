@@ -8,11 +8,21 @@ const ACCOUNT = {
   isSharedAccount: false,
 };
 
-function makeService({ moduleEnabled = true, hasEmployee = false } = {}) {
+function makeService({
+  moduleEnabled = true,
+  hasEmployee = false,
+  linked = { id: "e1", isActive: true, terminationDate: null } as {
+    id: string;
+    isActive: boolean;
+    terminationDate: Date | null;
+  } | null,
+} = {}) {
   const prisma: any = {
     employee: {
       findFirst: jest.fn(async () => (hasEmployee ? { id: "e1" } : null)),
+      findUnique: jest.fn(async () => linked),
       create: jest.fn(async ({ data }: any) => data),
+      update: jest.fn(async ({ data }: any) => data),
       updateMany: jest.fn(async () => ({ count: 1 })),
     },
     location: {
@@ -63,17 +73,50 @@ describe("EmployeeAccountSyncService", () => {
     expect(prisma.employee.create).not.toHaveBeenCalled();
   });
 
-  it("copia nombre y estado a la ficha cuando cambia la cuenta", async () => {
+  it("copia nombre y estado a la ficha y pone la fecha de baja al desactivar", async () => {
     const { service, prisma } = makeService();
     await service.onAccountUpdated({
       ...ACCOUNT,
       name: "Marta Ruiz",
       isActive: false,
     });
-    expect(prisma.employee.updateMany).toHaveBeenCalledWith({
-      where: { userId: "u1" },
-      data: { firstName: "Marta", lastName: "Ruiz", isActive: false },
+    const { where, data } = prisma.employee.update.mock.calls[0][0];
+    expect(where).toEqual({ id: "e1" });
+    expect(data).toMatchObject({
+      firstName: "Marta",
+      lastName: "Ruiz",
+      isActive: false,
     });
+    expect(data.terminationDate).toBeInstanceOf(Date);
+  });
+
+  it("al reactivar la cuenta borra la fecha de baja de la ficha", async () => {
+    const { service, prisma } = makeService({
+      linked: {
+        id: "e1",
+        isActive: false,
+        terminationDate: new Date("2026-10-01"),
+      },
+    });
+    await service.onAccountUpdated(ACCOUNT);
+    expect(prisma.employee.update.mock.calls[0][0].data).toMatchObject({
+      isActive: true,
+      terminationDate: null,
+    });
+  });
+
+  it("un cambio de nombre no toca la fecha de baja", async () => {
+    const { service, prisma } = makeService();
+    await service.onAccountUpdated({ ...ACCOUNT, name: "Marta R." });
+    expect(
+      prisma.employee.update.mock.calls[0][0].data.terminationDate,
+    ).toBeUndefined();
+  });
+
+  it("sin ficha vinculada no hace nada", async () => {
+    const { service, prisma } = makeService({ linked: null });
+    await service.onAccountUpdated(ACCOUNT);
+    expect(prisma.employee.update).not.toHaveBeenCalled();
   });
 
   it("desvincula la ficha si la cuenta pasa a ser compartida", async () => {

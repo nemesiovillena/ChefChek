@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CreateEmployeeDto, UpdateEmployeeDto } from "../dto/employee.dto";
 import { currentPositionTitles } from "../../users/current-position-titles";
+import { terminationDateOnActiveChange } from "./termination-date-on-active-change.util";
 
 const EMPLOYEE_INCLUDE = {
   user: { select: { id: true, name: true, email: true, role: true } },
@@ -156,7 +157,12 @@ export class EmployeesService {
     return view;
   }
 
-  async update(tenantId: string, id: string, dto: UpdateEmployeeDto) {
+  async update(
+    tenantId: string,
+    id: string,
+    dto: UpdateEmployeeDto,
+    actorUserId?: string,
+  ) {
     const current = await this.findOwned(tenantId, id);
 
     // Con cuenta vinculada el nombre es el de Equipo: se copia al vincular y
@@ -169,6 +175,14 @@ export class EmployeesService {
       );
     } else if (linkedUserId) {
       name = {};
+    }
+
+    if (
+      dto.isActive === false &&
+      linkedUserId &&
+      linkedUserId === actorUserId
+    ) {
+      throw new BadRequestException("No puedes desactivarte a ti mismo.");
     }
 
     const replaceLocations =
@@ -201,6 +215,18 @@ export class EmployeesService {
           })),
         });
       }
+      // «En activo» de la ficha y el interruptor de Personas son el mismo
+      // estado: la cuenta vinculada se activa o desactiva con la ficha.
+      if (
+        linkedUserId &&
+        dto.isActive !== undefined &&
+        dto.isActive !== current.isActive
+      ) {
+        await tx.user.update({
+          where: { id: linkedUserId },
+          data: { isActive: dto.isActive },
+        });
+      }
       return tx.employee.update({
         where: { id },
         data: {
@@ -216,7 +242,12 @@ export class EmployeesService {
           hourlyCost: dto.hourlyCost,
           defaultLocationId,
           hireDate: dto.hireDate,
-          terminationDate: dto.terminationDate,
+          terminationDate: terminationDateOnActiveChange(
+            current.isActive,
+            dto.isActive,
+            current.terminationDate,
+            dto.terminationDate,
+          ),
           isActive: dto.isActive,
           allowPersonalPunch: dto.allowPersonalPunch,
         },
