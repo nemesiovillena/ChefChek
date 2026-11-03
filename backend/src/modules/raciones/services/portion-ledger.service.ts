@@ -18,6 +18,11 @@ import {
   cuinerRegistroChange,
   type CuinerRegistroRow,
 } from "../util/cuiner-registro-change.util";
+import {
+  counterLoadSource,
+  PortionLoadSource,
+  PortionSettingsService,
+} from "./portion-settings.service";
 
 type Tx = Prisma.TransactionClient;
 
@@ -30,6 +35,13 @@ export interface PortionActor {
 const SALES_LOOKBACK_MS = 7 * 86_400_000;
 
 export const RACIONES_MODULE_ID = "raciones";
+
+/** Cargas hechas en ChefChek (para detectar una posible carga doble). */
+const CHEFCHEK_LOAD_TYPES: PortionMovementType[] = [
+  PortionMovementType.LABEL_IN,
+  PortionMovementType.RECOUNT,
+  PortionMovementType.ADJUST,
+];
 
 /** Cambios hechos en ChefChek: con el enlace en vivo se llevan a Cuiner. */
 const CHEFCHEK_ORIGIN = new Set<PortionMovementType>([
@@ -58,7 +70,42 @@ export class PortionLedgerService {
     private readonly prisma: PrismaService,
     private readonly modules: ModulesService,
     private readonly notifications: NotificationsService,
+    private readonly settings: PortionSettingsService,
   ) {}
+
+  /** Cómo se carga este contador según Configuración → Contador de platos. */
+  async loadSourceOf(
+    client: Tx | PrismaService,
+    tenantId: string,
+    counterId: string,
+  ): Promise<PortionLoadSource> {
+    const [settings, dishes] = await Promise.all([
+      this.settings.get(tenantId, client),
+      client.portionCounterDish.findMany({
+        where: { counterId },
+        select: { tipo: true, perPiece: true },
+      }),
+    ]);
+    return counterLoadSource(settings, dishes);
+  }
+
+  /** Los contadores que se cargan en el TPV no admiten cargas desde ChefChek. */
+  private async assertLoadableHere(
+    client: Tx | PrismaService,
+    tenantId: string,
+    counterId: string,
+  ) {
+    if ((await this.loadSourceOf(client, tenantId, counterId)) !== "TPV") {
+      return;
+    }
+    const counter = await client.portionCounter.findUniqueOrThrow({
+      where: { id: counterId },
+      select: { name: true },
+    });
+    throw new BadRequestException(
+      `«${counter.name}» se carga en el Contador de platos de Cuiner; ChefChek solo lo muestra.`,
+    );
+  }
 
   private async lock(tx: Tx, tenantId: string) {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`raciones:${tenantId}`}))`;
@@ -95,7 +142,11 @@ export class PortionLedgerService {
       },
       select: { id: true, name: true },
     });
-    if (!counter) {
+    // Se carga en el TPV: la etiqueta solo sirve de trazabilidad.
+    if (
+      !counter ||
+      (await this.loadSourceOf(this.prisma, tenantId, counter.id)) === "TPV"
+    ) {
       return null;
     }
     if (!(portions && portions > 0)) {
@@ -130,7 +181,10 @@ export class PortionLedgerService {
       },
       select: { id: true, name: true },
     });
-    if (!counter) {
+    if (
+      !counter ||
+      (await this.loadSourceOf(this.prisma, tenantId, counter.id)) === "TPV"
+    ) {
       return null;
     }
     return {
@@ -301,6 +355,7 @@ export class PortionLedgerService {
     await this.prisma.$transaction(async (tx) => {
       await this.lock(tx, tenantId);
       await this.loadCounter(tx, tenantId, counterId);
+      await this.assertLoadableHere(tx, tenantId, counterId);
       if (amount < 0) {
         const available = await this.available(tx, counterId);
         if (-amount > available) {
@@ -332,6 +387,7 @@ export class PortionLedgerService {
     await this.prisma.$transaction(async (tx) => {
       await this.lock(tx, tenantId);
       await this.loadCounter(tx, tenantId, counterId);
+      await this.assertLoadableHere(tx, tenantId, counterId);
       const before = await this.available(tx, counterId);
       const delta = roundPortions(actual - before);
       if (delta === 0) {
@@ -476,6 +532,7 @@ export class PortionLedgerService {
     rows: CuinerRegistroRow[],
   ): Promise<{ applied: number; cursor: number | null }> {
     const touched = new Set<string>();
+    const doubleChecks: { counterId: string; quantity: number }[] = [];
     let applied = 0;
     const cursor = await this.prisma.$transaction(
       async (tx) => {
@@ -488,9 +545,17 @@ export class PortionLedgerService {
           return config?.portionCursor ?? null;
         }
         const dishes = await tx.portionCounterDish.findMany({
-          where: { tenantId, tipo: "P", counter: { active: true } },
+          where: { tenantId, counter: { active: true } },
         });
-        const dishByPlato = new Map(dishes.map((d) => [d.producto, d]));
+        const dishByPlato = new Map(
+          dishes.filter((d) => d.tipo === "P").map((d) => [d.producto, d]),
+        );
+        const settings = await this.settings.get(tenantId, tx);
+        const sourceOf = (counterId: string) =>
+          counterLoadSource(
+            settings,
+            dishes.filter((d) => d.counterId === counterId),
+          );
         const ordered = rows
           .filter((r) => r.id > cursorFrom && r.id <= cursorTo)
           .sort((a, b) => a.id - b.id);
@@ -500,11 +565,29 @@ export class PortionLedgerService {
           if (!dish || !change) {
             continue;
           }
+          const source = sourceOf(dish.counterId);
+          // «Solo en ChefChek»: lo cargado en el TPV no cuenta aquí.
+          if (
+            change.type === PortionMovementType.CUINER_LOAD &&
+            source === "CHEFCHEK"
+          ) {
+            continue;
+          }
           await this.applyDelta(tx, tenantId, dish.counterId, change.delta, {
             type: change.type,
             reason: change.reason,
             cuinerRegistroId: row.id,
           });
+          if (
+            change.type === PortionMovementType.CUINER_LOAD &&
+            change.delta > 0 &&
+            source === "BOTH"
+          ) {
+            doubleChecks.push({
+              counterId: dish.counterId,
+              quantity: change.delta,
+            });
+          }
           touched.add(dish.counterId);
           applied++;
         }
@@ -517,7 +600,95 @@ export class PortionLedgerService {
       { timeout: 30_000 },
     );
     await this.refreshAlerts(tenantId, [...touched]);
+    for (const check of doubleChecks) {
+      await this.warnIfDoubleLoad(
+        tenantId,
+        check.counterId,
+        "TPV",
+        check.quantity,
+      );
+    }
     return { applied, cursor };
+  }
+
+  /**
+   * «Se carga en el TPV»: ChefChek se iguala a lo que marca Cuiner. Queda en
+   * el historial como un movimiento de Cuiner (no se vuelve a escribir allí).
+   */
+  async alignToCuiner(tenantId: string, counterId: string, target: number) {
+    await this.prisma.$transaction(async (tx) => {
+      await this.lock(tx, tenantId);
+      const before = await this.available(tx, counterId);
+      const delta = roundPortions(Math.max(0, target) - before);
+      if (delta === 0) {
+        return;
+      }
+      await this.applyDelta(tx, tenantId, counterId, delta, {
+        type: PortionMovementType.CUINER_LOAD,
+        reason: `Igualado al Contador de platos de Cuiner: ${before} → ${roundPortions(Math.max(0, target))}`,
+      });
+    });
+    await this.refreshAlerts(tenantId, [counterId]);
+  }
+
+  /**
+   * «En los dos»: si el mismo contador recibe una carga desde ChefChek y otra
+   * desde el TPV dentro de la ventana configurada, puede ser la misma
+   * mercancía cargada dos veces. Avisa con las dos cargas.
+   */
+  async warnIfDoubleLoad(
+    tenantId: string,
+    counterId: string,
+    side: "CHEFCHEK" | "TPV",
+    quantity: number,
+  ) {
+    try {
+      const { doubleLoadHours } = await this.settings.get(tenantId);
+      const since = new Date(Date.now() - doubleLoadHours * 3_600_000);
+      const other = await this.prisma.portionMovement.findFirst({
+        where: {
+          tenantId,
+          counterId,
+          createdAt: { gte: since },
+          quantity: { gt: 0 },
+          ...(side === "TPV"
+            ? { type: { in: CHEFCHEK_LOAD_TYPES } }
+            : {
+                type: PortionMovementType.CUINER_LOAD,
+                cuinerRegistroId: { not: null },
+              }),
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!other) {
+        return;
+      }
+      const counter = await this.prisma.portionCounter.findUniqueOrThrow({
+        where: { id: counterId },
+        select: { name: true },
+      });
+      const hhmm = (d: Date) =>
+        new Intl.DateTimeFormat("es-ES", {
+          timeZone: "Europe/Madrid",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(d);
+      const otherWho = other.userName ?? other.reason ?? "";
+      const here = side === "TPV" ? "Cuiner" : "ChefChek";
+      const there = side === "TPV" ? "ChefChek" : "Cuiner";
+      await this.notifications.createNotification(tenantId, {
+        type: "PORTIONS_DOUBLE_LOAD",
+        title: `¿Carga doble? ${counter.name}`,
+        message: `Se han cargado +${roundPortions(quantity)} en ${here} ahora y +${other.quantity} en ${there} a las ${hhmm(other.createdAt)}${otherWho ? ` (${otherWho})` : ""}. Si es la misma mercancía, haz un recuento.`,
+        severity: "HIGH",
+        entityType: "portion-counter",
+        entityId: counterId,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Aviso de carga doble no enviado (${counterId}): ${(err as Error).message}`,
+      );
+    }
   }
 
   // ── Disponible y avisos ───────────────────────────────────────────────
@@ -762,22 +933,19 @@ export class PortionLedgerService {
     quantity: number,
     type: PortionMovementType,
   ) {
-    const config = await tx.cuinerConfig.findUnique({
-      where: { tenantId },
-      select: { enabled: true, portionCursor: true },
-    });
-    if (!config?.enabled || config.portionCursor === null) {
-      return;
-    }
-    const byPortion = await tx.portionCounterDish.count({
-      where: { counterId, tipo: "P", perPiece: false },
-    });
-    if (!byPortion) {
+    if ((await this.loadSourceOf(tx, tenantId, counterId)) !== "BOTH") {
       return;
     }
     await tx.portionCuinerPush.create({
       data: { tenantId, counterId, quantity, reason: type },
     });
+    if (quantity > 0 && CHEFCHEK_LOAD_TYPES.includes(type)) {
+      // Fuera de la transacción: el aviso no debe bloquear la etiqueta.
+      setImmediate(
+        () =>
+          void this.warnIfDoubleLoad(tenantId, counterId, "CHEFCHEK", quantity),
+      );
+    }
   }
 }
 

@@ -24,6 +24,7 @@ import { RecipeCaptureConfigSection } from './components/recipe-capture-config-s
 import { EtiquetadoConfigSection } from './components/etiquetado-config-section';
 import { ConservationDefaultsSection } from './components/conservation-defaults-section';
 import { SictedConfigSection } from './components/sicted-config-section';
+import { RacionesConfigSection } from './components/raciones-config-section';
 import { SettingsSectionIndex } from './components/settings-section-index';
 
 export const dynamic = 'force-dynamic';
@@ -400,6 +401,10 @@ export default function SettingsPage() {
 
         <div id="sicted" className="scroll-mt-40">
           <SictedConfigSection />
+        </div>
+
+        <div id="contador-platos" className="scroll-mt-40">
+          <RacionesConfigSection />
         </div>
 
         {/* Motor de extracción (OCR de albaranes) */}

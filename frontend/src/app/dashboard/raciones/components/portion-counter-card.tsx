@@ -83,7 +83,11 @@ export function PortionCounterCard({ counter, canManage, onOpen, onRecount, onAd
         </p>
       )}
 
-      {canManage && (
+      {counter.loadSource === 'TPV' ? (
+        <p className="mt-3 text-xs text-[var(--on-surface-variant)]">
+          Se carga en el Contador de platos de Cuiner; aquí solo se muestra.
+        </p>
+      ) : canManage && (
         <div className="mt-3 flex gap-2">
           <button
             type="button"
