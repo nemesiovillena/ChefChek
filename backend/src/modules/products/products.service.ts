@@ -17,6 +17,7 @@ import {
   UpdateProductDto,
   ProductsQueryDto,
 } from "./dto/create-product.dto";
+import { normalizeProductNameCase } from "../../common/utils/product-name-case.util";
 
 @Injectable()
 export class ProductsService {
@@ -107,6 +108,10 @@ export class ProductsService {
       referenceUnitSize: effectiveRefUnitSize,
       unitSize: calculatedUnitSize,
       ...productData,
+      // Nombres leídos en mayúsculas (albaranes) → «Primera en mayúscula».
+      ...(typeof productData.name === "string"
+        ? { name: normalizeProductNameCase(productData.name) }
+        : {}),
     };
 
     // imageUrl "" → null (mismo motivo que en update(): borrar/coherente).
@@ -2276,7 +2281,7 @@ export class ProductsService {
         const product = await tx.product.create({
           data: {
             tenantId: requestTenantId,
-            name: name.trim(),
+            name: normalizeProductNameCase(name),
             description,
             purchaseFormat,
             referenceUnit,

@@ -4305,6 +4305,18 @@ model SchedulePublication {
 // disponible = unlabeledPortions + Σ FoodLabel.portionsRemaining de sus
 // etiquetas activas: no se guarda un total aparte para que no se descuadre.
 
+// Nombres de artículo tal como estaban antes de pasarlos de MAYÚSCULAS a
+// «Primera en mayúscula» (migración 20261103170000). Solo para poder
+// deshacerlo; la aplicación no lo lee.
+model ProductNameCaseBackup {
+  productId  String   @id
+  tenantId   String
+  name       String
+  backedUpAt DateTime @default(now())
+
+  @@map("product_name_case_backups")
+}
+
 model PortionCounter {
   id                       String    @id @default(cuid())
   tenantId                 String
