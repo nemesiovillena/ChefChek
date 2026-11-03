@@ -5,6 +5,7 @@ import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
 import { LotService } from "./lot.service";
 import { ManualAlbaranDto } from "../dto/manual-albaran.dto";
+import { normalizeProductNameCase } from "../../../common/utils/product-name-case.util";
 
 /**
  * Alta manual de albarán: crea/actualiza productos, genera un Albarán en
@@ -140,7 +141,12 @@ export class ManualAlbaranService {
       } else {
         // Check if product with same name already exists
         const existingByName = await this.prisma.product.findFirst({
-          where: { tenantId, name: line.name },
+          // Sin distinguir mayúsculas: los artículos ya no se guardan en
+          // MAYÚSCULAS y la línea puede venir así.
+          where: {
+            tenantId,
+            name: { equals: line.name.trim(), mode: "insensitive" },
+          },
         });
 
         if (existingByName) {
@@ -184,7 +190,7 @@ export class ManualAlbaranService {
           const product = await this.prisma.product.create({
             data: {
               tenantId,
-              name: line.name,
+              name: normalizeProductNameCase(line.name),
               description: "",
               purchaseFormat: line.unit || "ud",
               referenceUnit: normalizedUnit,

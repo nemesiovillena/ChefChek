@@ -21,12 +21,6 @@ export class CreatePortionCounterDto {
   @IsString()
   productId?: string;
 
-  /** Por defecto, el nombre de la receta o del artículo. */
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  name?: string;
-
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -35,12 +29,6 @@ export class CreatePortionCounterDto {
 }
 
 export class UpdatePortionCounterDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
-  name?: string;
-
   @IsOptional()
   @IsNumber()
   @Min(0)

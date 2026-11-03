@@ -6,6 +6,7 @@ import {
   normalizeProductDescription,
   extractFirstSignificantWord,
 } from "../../common/utils/string-similarity";
+import { normalizeProductNameCase } from "../../common/utils/product-name-case.util";
 
 @Injectable()
 export class ProductRecognitionService {
@@ -180,7 +181,7 @@ export class ProductRecognitionService {
     await this.prisma.product.create({
       data: {
         tenantId,
-        name: productName,
+        name: normalizeProductNameCase(productName),
         description: "Producto pendiente de revisión - ingesta automática",
         purchaseFormat: "ud",
         referenceUnit: "ud",
