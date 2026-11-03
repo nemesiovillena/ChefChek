@@ -299,7 +299,9 @@ function EmployeesContent() {
                   <UserActiveSwitch
                     name={targetUser.name}
                     active={targetUser.isActive}
-                    disabled={targetUser.id === user?.id || updateMutation.isPending}
+                    // El propio usuario se ve normal; al pulsarlo, handleToggleStatus avisa
+                    // de que no puede desactivarse a sí mismo.
+                    disabled={updateMutation.isPending}
                     onToggle={() => handleToggleStatus(targetUser)}
                   />
                 </td>
