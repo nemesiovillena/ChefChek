@@ -463,7 +463,7 @@ export default function DashboardPage() {
     <div
       // flex-grow 3 frente al 2 de Alertas: Sala se lee entera aquí (con
       // scroll), así que se lleva más alto de la columna.
-      className={`tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border${
+      className={`tonal-layer-2 rounded-xl overflow-hidden flex flex-col border border-border @container${
         fillContainer ? ' flex-[3_1_0%] min-h-[200px]' : ''
       }`}
     >
