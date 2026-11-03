@@ -42,7 +42,10 @@ function RowBody({
 
   return (
     <>
-      <div className="flex items-center gap-stack-xs md:gap-stack-sm min-w-0 flex-1">
+      {/* Por ancho de la card (@container en el board), no de la pantalla: en
+          una card estrecha (p. ej. 1 columna de una pantalla configurada) el
+          nombre ocupa la línea entera y fecha y botones bajan a otra. */}
+      <div className="flex items-center gap-stack-xs @md:gap-stack-sm min-w-0 flex-1 basis-full @md:basis-auto">
         {showDragHandle && (
           <span
             title="Arrastrar para reordenar"
@@ -62,7 +65,7 @@ function RowBody({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-stack-xs md:gap-stack-lg shrink-0">
+      <div className="flex items-center gap-stack-sm @md:gap-stack-lg shrink-0 ml-auto">
         <div className="text-right shrink-0">
           {inProgress ? (
             <div className="flex flex-col items-end">
@@ -137,7 +140,7 @@ function SortableRow({
       onClick={onNavigate}
       {...attributes}
       {...listeners}
-      className={`p-stack-md md:p-stack-lg flex items-center gap-stack-sm hover:bg-surface-variant transition-colors cursor-grab active:cursor-grabbing select-none active:scale-[0.995] duration-100 ${
+      className={`p-stack-md @md:p-stack-lg flex flex-wrap @md:flex-nowrap items-center gap-stack-sm hover:bg-surface-variant transition-colors cursor-grab active:cursor-grabbing select-none active:scale-[0.995] duration-100 ${
         isDragging ? 'relative z-10 opacity-90 shadow-lg bg-surface-container-high' : ''
       }`}
     >
@@ -160,7 +163,7 @@ function ReadOnlyRow({
   completeDisabled,
 }: Pick<UpcomingTaskRowProps, 'task' | 'onComplete' | 'onLabel' | 'completeDisabled'>) {
   return (
-    <div className="p-stack-md md:p-stack-lg flex items-center gap-stack-sm select-none">
+    <div className="p-stack-md @md:p-stack-lg flex flex-wrap @md:flex-nowrap items-center gap-stack-sm select-none">
       <RowBody
         task={task}
         onComplete={onComplete}
