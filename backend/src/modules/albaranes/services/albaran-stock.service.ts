@@ -5,6 +5,7 @@ import { ProductSupplierOffersService } from "../../products/product-supplier-of
 import { PriceAgreementService } from "../../compras/services/price-agreement.service";
 import { LotService } from "./lot.service";
 import { LineStatus, LineMatchStatus } from "@prisma/client";
+import { normalizeProductNameCase } from "../../../common/utils/product-name-case.util";
 
 /**
  * Normaliza cualquier variante de unidad leída del OCR (kg, Kg, kilo, L,
@@ -446,7 +447,7 @@ export class AlbaranStockService {
       const newProduct = await tx.product.create({
         data: {
           tenantId,
-          name: line.description,
+          name: normalizeProductNameCase(line.description),
           description: `Creado desde albarán ${albaran.internalNumber}`,
           purchaseFormat: lineUnit,
           referenceUnit: normalizeUnit(lineUnit),

@@ -185,7 +185,8 @@ export class PortionCounterService {
       return await this.prisma.portionCounter.create({
         data: {
           tenantId,
-          name: dto.name?.trim() || source.name,
+          // Siempre el del artículo/receta: un trigger lo mantiene al día si se renombra.
+          name: source.name,
           recipeId: dto.recipeId ?? null,
           productId: dto.productId ?? null,
           minPortions: dto.minPortions ?? 0,
@@ -211,7 +212,6 @@ export class PortionCounterService {
     const updated = await this.prisma.portionCounter.update({
       where: { id: counterId },
       data: {
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
         ...(dto.minPortions !== undefined
           ? { minPortions: dto.minPortions }
           : {}),
