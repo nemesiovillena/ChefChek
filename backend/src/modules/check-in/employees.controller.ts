@@ -91,7 +91,7 @@ export class EmployeesController {
     @Param("id") id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
-    return this.employees.update(req.tenantId, id, dto);
+    return this.employees.update(req.tenantId, id, dto, req.user?.id);
   }
 
   @Put(":id/pin")

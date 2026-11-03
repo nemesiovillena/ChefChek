@@ -160,9 +160,8 @@ function PositionCard({ position, sections }: { position: TeamPosition; sections
             <span className="min-w-0">
               <span className="block font-medium text-[var(--on-surface)]">{position.title}</span>
               <span className="block text-sm text-[var(--on-surface-variant)]">
-                {position.users.length === 0
-                  ? 'Sin personas'
-                  : position.users.map((u) => u.name).join(', ')}
+                {/* Los desactivados conservan su puesto, pero no se muestran. */}
+                {activeNames(position.users) || 'Sin personas'}
                 {hidden > 0 && ` · oculta ${hidden} apartado${hidden === 1 ? '' : 's'}`}
               </span>
             </span>
@@ -266,4 +265,11 @@ export function TeamPositionsTab() {
       )}
     </div>
   );
+}
+
+function activeNames(users: { name: string; isActive: boolean }[]): string {
+  return users
+    .filter((u) => u.isActive)
+    .map((u) => u.name)
+    .join(', ');
 }

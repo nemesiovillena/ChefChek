@@ -691,6 +691,8 @@ export class PunchService {
       const lastEffective = effective.get(employee.id)?.at(-1);
       return {
         id: employee.id,
+        // Cuenta de Equipo (Personas avisa si alguien sigue fichado dentro).
+        userId: employee.userId,
         name: fullName(employee),
         jobTitle: (employee.userId && titles.get(employee.userId)) || null,
         section: employee.section,

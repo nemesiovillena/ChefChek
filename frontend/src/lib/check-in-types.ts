@@ -260,6 +260,7 @@ export interface KioskState {
 
 export interface PresenceEntry {
   id: string;
+  userId: string | null;
   name: string;
   jobTitle: string | null;
   section: string | null;

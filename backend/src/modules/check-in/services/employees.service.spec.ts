@@ -100,6 +100,11 @@ function makeService() {
             (u) => u.id === where.id && u.tenantId === where.tenantId,
           ) ?? null,
       ),
+      update: jest.fn(async ({ where, data }: any) => {
+        const user = users.find((u) => u.id === where.id);
+        Object.assign(user, data);
+        return user;
+      }),
     },
     location: {
       findFirst: jest.fn(
@@ -119,7 +124,7 @@ function makeService() {
     },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
-  return { service: new EmployeesService(prisma), employees };
+  return { service: new EmployeesService(prisma), employees, prisma };
 }
 
 const BASE = { firstName: "Luis", lastName: "García" };
@@ -185,6 +190,47 @@ describe("EmployeesService", () => {
     expect(updated.lastName).toBe("López Mora");
     // El puesto es el vigente en Empleados → Puestos, no el texto de la ficha.
     expect(updated.jobTitle).toBe("Jefe de cocina");
+  });
+
+  it("desactivar la ficha desactiva su cuenta y pone la fecha de baja", async () => {
+    const { service, prisma } = makeService();
+    const created = await service.create("t1", { ...BASE, userId: "u-free" });
+    const updated = await service.update("t1", created.id, {
+      isActive: false,
+    });
+    expect(updated.isActive).toBe(false);
+    expect(updated.terminationDate).toBeInstanceOf(Date);
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "u-free" },
+      data: { isActive: false },
+    });
+
+    const back = await service.update("t1", created.id, { isActive: true });
+    expect(back.isActive).toBe(true);
+    expect(back.terminationDate).toBeNull();
+    expect(prisma.user.update).toHaveBeenLastCalledWith({
+      where: { id: "u-free" },
+      data: { isActive: true },
+    });
+  });
+
+  it("respeta la fecha de baja que se indique al desactivar", async () => {
+    const { service } = makeService();
+    const created = await service.create("t1", BASE);
+    const date = new Date("2026-10-31T00:00:00.000Z");
+    const updated = await service.update("t1", created.id, {
+      isActive: false,
+      terminationDate: date,
+    });
+    expect(updated.terminationDate).toEqual(date);
+  });
+
+  it("no deja desactivar la ficha de la propia cuenta", async () => {
+    const { service } = makeService();
+    const created = await service.create("t1", { ...BASE, userId: "u-free" });
+    await expect(
+      service.update("t1", created.id, { isActive: false }, "u-free"),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("sin cuenta el nombre se edita en la propia ficha", async () => {

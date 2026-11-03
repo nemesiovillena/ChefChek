@@ -97,7 +97,8 @@ function ActionForm({ planId, onSaved, onCancel }: { planId: string; onSaved: ()
 function AttendanceForm({ actionId, planId, onClose }: { actionId: string; planId: string; onClose: () => void }) {
   const notify = useNotification();
   const { data: usersPage } = useUsers(1, 100);
-  const users = usersPage?.data ?? [];
+  // Solo personas en activo: ni desactivados ni dispositivos compartidos.
+  const users = (usersPage?.data ?? []).filter((u) => u.isActive && !u.isSharedAccount);
   const { data: existing } = useSictedAttendance(actionId);
   const record = useRecordSictedAttendance();
   const [attended, setAttended] = useState<Record<string, boolean>>({});
