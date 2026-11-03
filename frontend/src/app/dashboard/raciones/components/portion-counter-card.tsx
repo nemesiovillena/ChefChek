@@ -67,6 +67,12 @@ export function PortionCounterCard({ counter, canManage, onOpen, onRecount, onAd
         </span>
       )}
 
+      {counter.cuinerMismatch && (
+        <span className="mt-2 self-start rounded-full bg-error px-2.5 py-0.5 text-xs font-semibold text-on-error">
+          No cuadra: Cuiner marca {fmtPortions(counter.cuinerAvailable ?? 0)}
+        </span>
+      )}
+
       {counter.dishes.length === 0 ? (
         <p className="mt-2 text-xs text-[var(--on-surface-variant)]">
           Sin platos de Cuiner enlazados: las ventas no lo descuentan.

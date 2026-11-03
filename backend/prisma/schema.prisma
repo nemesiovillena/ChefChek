@@ -248,28 +248,28 @@ model Product {
   storageTempMin         Float? // °C
   storageTempMax         Float? // °C
 
-  tenant                  Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category                Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  supplier                Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recipeIngredients       RecipeIngredient[]
-  stockMovements          StockMovement[]
-  stocks                  Stock[]
-  purchaseFormats         PurchaseFormat[]
-  nutritionalInfo         NutritionalInfo?
-  albaranLines            AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
-  albaranLineSuggestions  AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
-  priceHistory            ProductPriceHistory[]
-  supplierOffers          ProductSupplierOffer[]
-  purchaseOrderLines      PurchaseOrderLine[]
-  purchaseListItems       PurchaseListItem[]
-  catalogImportLines      CatalogImportLine[]
-  lots                    Lot[]
-  supplierAliases         SupplierProductAlias[]
-  duplicateDismissals     ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
-  duplicateDismissedBy    ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
-  foodLabels              FoodLabel[]
+  tenant                   Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category                 Category?                   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  supplier                 Supplier?                   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recipeIngredients        RecipeIngredient[]
+  stockMovements           StockMovement[]
+  stocks                   Stock[]
+  purchaseFormats          PurchaseFormat[]
+  nutritionalInfo          NutritionalInfo?
+  albaranLines             AlbaranLine[]               @relation("AlbaranLineMatchedProduct")
+  albaranLineSuggestions   AlbaranLine[]               @relation("AlbaranLineSuggestedProduct")
+  priceHistory             ProductPriceHistory[]
+  supplierOffers           ProductSupplierOffer[]
+  purchaseOrderLines       PurchaseOrderLine[]
+  purchaseListItems        PurchaseListItem[]
+  catalogImportLines       CatalogImportLine[]
+  lots                     Lot[]
+  supplierAliases          SupplierProductAlias[]
+  duplicateDismissals      ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalProduct")
+  duplicateDismissedBy     ProductDuplicateDismissal[] @relation("ProductDuplicateDismissalDismissed")
+  foodLabels               FoodLabel[]
   recipeCaptureIngredients RecipeCaptureIngredient[]
-  foodLabelIngredientLots FoodLabelIngredientLot[]
+  foodLabelIngredientLots  FoodLabelIngredientLot[]
 
   @@index([tenantId])
   @@index([name])
@@ -584,21 +584,21 @@ enum RecipeCaptureSource {
 }
 
 model RecipeCapture {
-  id             String              @id @default(cuid())
-  tenantId       String
-  source         RecipeCaptureSource
-  sourceUrl      String? // solo source=URL
-  sourceFileName String? // solo source=ARCHIVO (etiqueta en el listado)
-  sourceText     String? // solo source=TEXTO: lo pegado, para no perderlo si falla
+  id                 String              @id @default(cuid())
+  tenantId           String
+  source             RecipeCaptureSource
+  sourceUrl          String? // solo source=URL
+  sourceFileName     String? // solo source=ARCHIVO (etiqueta en el listado)
+  sourceText         String? // solo source=TEXTO: lo pegado, para no perderlo si falla
   // solo source=ARCHIVO: el archivo, para poder reintentar si la IA falla.
   // Se guarda hasta que la captura se procesa con éxito (entonces se vacía).
   sourceFile         Bytes?
   sourceFileMimeType String?
   // Foto del plato (subida a nuestro almacenamiento), si se pudo obtener.
   imageUrl           String?
-  status         RecipeCaptureStatus @default(PROCESANDO)
-  errorMessage   String?
-  createdBy      String?
+  status             RecipeCaptureStatus @default(PROCESANDO)
+  errorMessage       String?
+  createdBy          String?
 
   // Receta normalizada (null mientras PROCESANDO/ERROR)
   name                   String?
@@ -3871,6 +3871,9 @@ model CuinerConfig {
   // Importación del histórico hacia atrás: tickets con Id_VentasCab < historyCursor ya enviados.
   historyCursor      Int?
   historyDone        Boolean    @default(false)
+  // Contador de platos en vivo: último id_es_registro del PostgreSQL del TPV
+  // ya aplicado. null = sin enlace en vivo (descuenta con las ventas cobradas).
+  portionCursor      Int?
   lastSeenAt         DateTime? // Último contacto del conector
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -3966,20 +3969,20 @@ model CuinerProductMap {
 }
 
 model CuinerDishMap {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tipo      String
-  producto  String
-  recipeId  String? // Receta que se descompone al vender el plato
-  productId String? // O artículo de venta directa (bebidas)
+  id               String   @id @default(cuid())
+  tenantId         String
+  tipo             String
+  producto         String
+  recipeId         String? // Receta que se descompone al vender el plato
+  productId        String? // O artículo de venta directa (bebidas)
   // Medida que consume cada venta del artículo (chupito 4 cl, caña 20 cl).
   // Sin medida: 1 unidad de referencia del artículo (botellín, lata).
   servingMeasureId String?
   // Plato contenedor (precio 0, el tamaño va en un modificador): marcado a
   // propósito para que sus ventas no descuenten nada ni salgan sin enlazar.
-  noStock   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  noStock          Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([tenantId, tipo, producto])
   @@index([tenantId, servingMeasureId])
@@ -4303,25 +4306,31 @@ model SchedulePublication {
 // etiquetas activas: no se guarda un total aparte para que no se descuadre.
 
 model PortionCounter {
-  id                 String    @id @default(cuid())
-  tenantId           String
-  name               String
+  id                       String    @id @default(cuid())
+  tenantId                 String
+  name                     String
   // Qué etiquetas suman: las de esta receta (elaborado) o este artículo
   // (manipulado). Exactamente uno de los dos.
-  recipeId           String?
-  productId          String?
-  minPortions        Float     @default(0)
+  recipeId                 String?
+  productId                String?
+  minPortions              Float     @default(0)
   // Raciones contadas a mano sin etiqueta (recuento); se gastan las primeras.
-  unlabeledPortions  Float     @default(0)
+  unlabeledPortions        Float     @default(0)
   // Aviso de mínimo/agotado ya enviado; se limpia al volver a superarlo.
-  belowMinNotifiedAt DateTime?
-  outNotifiedAt      DateTime?
-  active             Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  belowMinNotifiedAt       DateTime?
+  outNotifiedAt            DateTime?
+  // Lo que marca el Contador de platos de Cuiner en la última comparación.
+  cuinerAvailable          Float?
+  cuinerCheckedAt          DateTime?
+  // Aviso de «no cuadra con Cuiner» enviado; se limpia al volver a cuadrar.
+  cuinerMismatchNotifiedAt DateTime?
+  active                   Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  dishes    PortionCounterDish[]
-  movements PortionMovement[]
+  dishes       PortionCounterDish[]
+  movements    PortionMovement[]
+  cuinerPushes PortionCuinerPush[]
 
   @@unique([tenantId, recipeId])
   @@unique([tenantId, productId])
@@ -4360,6 +4369,10 @@ enum PortionMovementType {
   VOID
   ADJUST
   RECOUNT
+  // Pedido (o su anulación) en el TPV, leído del Contador de platos de Cuiner.
+  ORDER
+  // Raciones cargadas directamente en el Contador de platos de Cuiner.
+  CUINER_LOAD
 }
 
 // Registro de cada cambio de raciones: historial y auditoría (quién, cuándo).
@@ -4374,6 +4387,8 @@ model PortionMovement {
   // Venta sin raciones suficientes: se vendió más de lo etiquetado/contado.
   shortfall        Boolean             @default(false)
   cuinerSaleLineId String?
+  // Fila de es_registro (Contador de platos de Cuiner) que lo originó.
+  cuinerRegistroId Int?
   reason           String?
   userId           String?
   userName         String?
@@ -4385,4 +4400,25 @@ model PortionMovement {
   @@index([foodLabelId])
   @@index([cuinerSaleLineId])
   @@map("portion_movements")
+}
+
+// Cambio de raciones hecho en ChefChek pendiente de escribir en el Contador de
+// platos de Cuiner (lo recoge el conector del servidor de Cuiner).
+model PortionCuinerPush {
+  id        String    @id @default(cuid())
+  tenantId  String
+  counterId String
+  quantity  Float // + carga, − quita
+  reason    String?
+  // Plato de Cuiner donde se escribió.
+  plato     String?
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime  @default(now())
+
+  counter PortionCounter @relation(fields: [counterId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sentAt])
+  @@index([counterId])
+  @@map("portion_cuiner_pushes")
 }

@@ -28,6 +28,10 @@ export interface PortionCounter {
   available: number;
   activeLabels: number;
   state: PortionState;
+  /** Lo que marca el Contador de platos de Cuiner (enlace en vivo). */
+  cuinerAvailable: number | null;
+  /** ChefChek y Cuiner no coinciden: hay que revisarlo. */
+  cuinerMismatch: boolean;
   dishes: PortionDish[];
 }
 
@@ -54,6 +58,8 @@ export interface PortionOverview {
   expiredLabels: ExpiredPortionLabel[];
   shortfalls: PortionShortfall[];
   salesReceivedUntil: string | null;
+  /** Última comparación con Cuiner; null = sin enlace en vivo. */
+  cuinerCheckedAt: string | null;
 }
 
 export type PortionMovementType =
@@ -64,7 +70,9 @@ export type PortionMovementType =
   | 'UNRETIRE'
   | 'VOID'
   | 'ADJUST'
-  | 'RECOUNT';
+  | 'RECOUNT'
+  | 'ORDER'
+  | 'CUINER_LOAD';
 
 export const MOVEMENT_LABEL: Record<PortionMovementType, string> = {
   LABEL_IN: 'Etiqueta',
@@ -75,6 +83,8 @@ export const MOVEMENT_LABEL: Record<PortionMovementType, string> = {
   VOID: 'Etiqueta anulada',
   ADJUST: 'Ajuste',
   RECOUNT: 'Recuento',
+  ORDER: 'Pedido Cuiner',
+  CUINER_LOAD: 'Carga en Cuiner',
 };
 
 export interface PortionMovement {
