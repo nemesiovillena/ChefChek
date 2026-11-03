@@ -569,7 +569,7 @@ export default function NuevaEtiquetaPage() {
                   />
                   {portionCounter ? (
                     <span className="mt-1 block text-xs text-[var(--on-surface-variant)]">
-                      Obligatorio: suma al contador de raciones. Ahora hay{' '}
+                      Obligatorio: suma al contador de platos. Ahora hay{' '}
                       {fmtPortions(portionCounter.available)}
                       {num(portions) ? ` → quedarán ${fmtPortions(portionCounter.available + num(portions)!)}` : ''}.
                     </span>

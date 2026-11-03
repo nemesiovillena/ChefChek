@@ -15,7 +15,7 @@ export const DASHBOARD_WIDGETS = [
   { id: 'etiquetado', label: 'Etiquetado' },
   { id: 'compras', label: 'Compras' },
   { id: 'crear-orden', label: 'Botón «Crear orden de producción»' },
-  { id: 'raciones', label: 'Raciones' },
+  { id: 'raciones', label: 'Contador de platos' },
   { id: 'fichar', label: 'Fichar' },
 ] as const;
 

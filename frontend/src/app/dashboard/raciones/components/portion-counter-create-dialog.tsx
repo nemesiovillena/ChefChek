@@ -79,7 +79,7 @@ export function PortionCounterCreateDialog({ onClose, onCreated }: Props) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nuevo contador de raciones</DialogTitle>
+          <DialogTitle>Nuevo contador</DialogTitle>
           <DialogDescription>
             Sumarán las etiquetas de lo que elijas. Pescados y carnes que se racionan
             suelen ser <strong>artículos</strong>; los platos elaborados, <strong>recetas</strong>.
