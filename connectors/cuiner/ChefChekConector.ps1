@@ -12,9 +12,14 @@
     albaranes Escribe en Cuiner los albaranes que el usuario envió desde
              ChefChek. En modo simulación (DRY_RUN) ejecuta todo y hace
              ROLLBACK: valida permisos y datos sin dejar nada escrito.
-    all      catalog + sales + albaranes.
+    contador Enlaza el Contador de platos del TPV (PostgreSQL de Cuiner) con
+             ChefChek: escribe en Cuiner las cargas hechas en ChefChek y manda
+             el historial nuevo y lo que marca cada plato. Cada minuto.
+    all      catalog + sales + albaranes + contador.
 
-  Solo escribe en Cuiner la tarea 'albaranes', y únicamente en DocsCab,
+  En el PostgreSQL del TPV, 'contador' solo suma o resta raciones en es_stock
+  y lo apunta en es_registro (cajero «ChefChek»), igual que una carga del TPV.
+  Para SQL Server: solo escribe en Cuiner la tarea 'albaranes', y únicamente en DocsCab,
   DocsLin, DocsLinAux, DocsSumas (inserción) y el último precio de
   ArticulosProv. El login SQL no tiene permisos de borrado ni de otras tablas.
 
@@ -24,7 +29,7 @@
   por encima de un ticket aún inestable.
 
 .PARAMETER Task
-  check | catalog | sales | all
+  check | catalog | sales | albaranes | contador | all
 
 .PARAMETER ConfigPath
   JSON de configuración (ver config.example.json).
@@ -34,7 +39,7 @@
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('check', 'catalog', 'sales', 'albaranes', 'all')]
+  [ValidateSet('check', 'catalog', 'sales', 'albaranes', 'contador', 'all')]
   [string]$Task = 'all',
   [string]$ConfigPath = 'C:\ChefChekConector\config.json'
 )
@@ -55,7 +60,10 @@ function Read-Config {
   foreach ($key in 'apiUrl', 'tokenFile', 'sqlServer', 'database', 'sqlUser', 'sqlPasswordFile', 'logDir') {
     if (-not $cfg.$key) { throw "Falta '$key' en $Path" }
   }
-  $defaults = @{ salesStableMinutes = 30; ticketsPerBatch = 300; catalogChunk = 500; maxBatchesPerRun = 50; historyBatchesPerRun = 20 }
+  $defaults = @{ salesStableMinutes = 30; ticketsPerBatch = 300; catalogChunk = 500; maxBatchesPerRun = 50; historyBatchesPerRun = 20
+    # Contador de platos: PostgreSQL del TPV de Cuiner (solo en este servidor).
+    pgPsql = 'C:\Cuiner\pgsql\bin\psql.exe'; pgHost = 'localhost'; pgPort = 5432; pgUser = 'cuiner'; pgDatabase = 'cuiner'
+    pgPasswordFile = 'C:\ChefChekConector\secrets\cuiner-pg.txt'; portionRowsPerRun = 2000 }
   foreach ($k in $defaults.Keys) {
     if (-not ($cfg.PSObject.Properties.Name -contains $k)) {
       $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $defaults[$k]
@@ -127,6 +135,155 @@ function Get-Value {
   if ($v -is [DBNull]) { return $null }
   if ($v -is [string]) { return $v.Trim() }
   return $v
+}
+
+# ─── PostgreSQL del TPV (Contador de platos) ────────────────────────────────
+
+# Ejecuta un script SQL con el psql que trae Cuiner y devuelve su salida en
+# una línea (las consultas devuelven un único valor o JSON). Sin -Write la sesión es de solo
+# lectura: PostgreSQL rechaza cualquier escritura por error.
+function Invoke-Pg {
+  param($Cfg, [string]$Sql, [switch]$Write)
+  $tmpDir = Join-Path (Split-Path $Cfg.logDir -Parent) 'tmp'
+  New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+  $file = Join-Path $tmpDir ('pg-{0}.sql' -f [guid]::NewGuid().ToString('N'))
+  [System.IO.File]::WriteAllText($file, $Sql, (New-Object System.Text.UTF8Encoding $false))
+  $oldOut = [Console]::OutputEncoding
+  # PowerShell 5.1 convierte en excepción cualquier línea de stderr de psql
+  # (avisos incluidos): aquí manda el código de salida.
+  $ErrorActionPreference = 'Continue'
+  try {
+    $env:PGPASSWORD = (Get-Content -Path $Cfg.pgPasswordFile -Raw).Trim()
+    $env:PGCLIENTENCODING = 'UTF8'
+    $env:PGOPTIONS = $(if ($Write) { '' } else { '-c default_transaction_read_only=on' })
+    $env:PGAPPNAME = 'ChefChekConector'
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $out = & $Cfg.pgPsql -h $Cfg.pgHost -p $Cfg.pgPort -U $Cfg.pgUser -d $Cfg.pgDatabase -X -q -A -t -v ON_ERROR_STOP=1 -f $file 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL: $(($out | Out-String).Trim())" }
+    # json_agg parte el JSON en varias líneas (solo espacios entre elementos).
+    return ((@($out | ForEach-Object { "$_" } | Where-Object { $_.Trim() })) -join ' ')
+  } finally {
+    [Console]::OutputEncoding = $oldOut
+    Remove-Item Env:PGPASSWORD, Env:PGOPTIONS -ErrorAction SilentlyContinue
+    Remove-Item $file -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function ConvertTo-PgList {
+  param([string[]]$Values)
+  return (($Values | ForEach-Object { "'$_'" }) -join ',')
+}
+
+# Escribe en Cuiner lo que cambió en ChefChek para un contador: suma (o
+# resta) en el plato enlazado que tiene contador en Cuiner y lo apunta en
+# es_registro como una carga más, firmada «ChefChek». La marca (id del primer
+# pendiente) en 'mesa' evita escribirlo dos veces si falla el aviso a ChefChek.
+function Write-PortionPush {
+  param($Cfg, $Counter)
+  $marker = [string]$Counter.pushIds[0]
+  if ($marker -notmatch '^[a-z0-9]{10,40}$') { throw "Marca no válida: $marker" }
+  $q = [double]$Counter.pushQuantity
+  $values = @()
+  foreach ($d in @($Counter.dishes)) {
+    if ($d.perPiece -or [string]$d.producto -notmatch $CodePattern) { continue }
+    $units = $q / [double]$d.portionsPerSale
+    $values += ("('{0}',{1})" -f $d.producto, $units.ToString([Globalization.CultureInfo]::InvariantCulture))
+  }
+  if (-not $values) { throw 'El contador no tiene platos enlazados que Cuiner cuente por raciones.' }
+  $sql = @"
+BEGIN;
+WITH done AS (
+  SELECT plato FROM es_registro WHERE cajero = 'ChefChek' AND mesa = '$marker' LIMIT 1
+), cand(plato, units) AS (VALUES $($values -join ',')),
+target AS (
+  SELECT s.id_es_stock, s.plato, c.units FROM es_stock s JOIN cand c ON c.plato = s.plato
+  WHERE s.zona = '' AND NOT EXISTS (SELECT 1 FROM done)
+  ORDER BY s.stock DESC NULLS LAST LIMIT 1
+), upd AS (
+  UPDATE es_stock s SET stock = COALESCE(s.stock, 0) + t.units, consumo = COALESCE(s.consumo, 0)
+  FROM target t WHERE s.id_es_stock = t.id_es_stock RETURNING s.plato, t.units
+), ins AS (
+  INSERT INTO es_registro (fecha, zona, usuario, cajero, mesa, tipo, plato, operacion, unidades)
+  SELECT now()::timestamp, '', NULL, 'ChefChek', '$marker', NULL, plato, 'Stock', units FROM upd RETURNING plato
+)
+SELECT json_build_object('plato', COALESCE((SELECT plato FROM ins), (SELECT plato FROM done)));
+COMMIT;
+"@
+  $res = (Invoke-Pg -Cfg $Cfg -Sql $sql -Write) | ConvertFrom-Json
+  if (-not $res.plato) { throw 'Ningún plato enlazado tiene contador en el Contador de platos de Cuiner.' }
+  return [string]$res.plato
+}
+
+function Invoke-PortionSync {
+  param($Cfg, $Remote)
+  $pending = Invoke-ChefChekApi $Cfg 'GET' 'portions/sync'
+  if (-not $pending.active) { Write-Log 'Contador de platos: módulo desactivado en ChefChek'; return }
+
+  if ($null -eq $pending.cursor) {
+    # Primer enlace: se empieza en lo último de Cuiner, sin repasar el pasado.
+    $max = [int](Invoke-Pg $Cfg 'SELECT COALESCE(MAX(id_es_registro), 0) FROM es_registro;')
+    $res = Invoke-ChefChekApi $Cfg 'POST' 'portions/sync' @{ baseline = $max }
+    Write-Log ("Contador de platos: enlazado desde el movimiento {0} de Cuiner" -f $res.cursor)
+    return
+  }
+
+  # 1. Lo cambiado en ChefChek, a Cuiner.
+  $results = @()
+  foreach ($c in @($pending.counters)) {
+    $ids = @($c.pushIds)
+    if ($ids.Count -eq 0) { continue }
+    try {
+      $plato = $null
+      if ([double]$c.pushQuantity -ne 0) { $plato = Write-PortionPush $Cfg $c }
+      $results += @{ counterId = $c.id; ids = $ids; ok = $true; plato = $plato }
+      Write-Log ("Contador de platos: {0} {1} raciones en Cuiner ({2})" -f $c.name, $c.pushQuantity, $(if ($plato) { "plato $plato" } else { 'se compensan, nada que escribir' }))
+    } catch {
+      $results += @{ counterId = $c.id; ids = $ids; ok = $false; error = $_.Exception.Message }
+      Write-Log ("Contador de platos: {0} NO se pudo escribir en Cuiner: {1}" -f $c.name, $_.Exception.Message) 'ERROR'
+    }
+  }
+
+  # 2. Historial nuevo y foto del contador, en una sola lectura coherente.
+  $platos = @($pending.counters | ForEach-Object { @($_.dishes) } | ForEach-Object { [string]$_.producto } |
+    Where-Object { $_ -match $CodePattern } | Sort-Object -Unique)
+  $cursor = [int]$pending.cursor
+  $body = @{ pushResults = $results }
+  if ($platos.Count -gt 0) {
+    $list = ConvertTo-PgList $platos
+    $limit = [int]$Cfg.portionRowsPerRun
+    $sql = @"
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+WITH lim AS (
+  SELECT LEAST(COALESCE(MAX(id_es_registro), $cursor), $cursor + $limit) AS hasta, COALESCE(MAX(id_es_registro), $cursor) AS maximo FROM es_registro
+)
+SELECT json_build_object(
+  'hasta', (SELECT hasta FROM lim),
+  'completo', (SELECT hasta = maximo FROM lim),
+  'rows', COALESCE((SELECT json_agg(r ORDER BY r.id) FROM (
+      SELECT id_es_registro AS id, plato, operacion, unidades::float8 AS unidades, cajero, NULLIF(mesa, '') AS mesa
+      FROM es_registro WHERE id_es_registro > $cursor AND id_es_registro <= (SELECT hasta FROM lim)
+        AND zona = '' AND plato IN ($list)) r), '[]'::json),
+  'snapshot', COALESCE((SELECT json_agg(x) FROM (
+      SELECT p.plato,
+        (SELECT (s.stock - s.consumo)::float8 FROM es_stock s WHERE s.zona = '' AND s.plato = p.plato LIMIT 1) AS quedan,
+        (SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE COUNT(*) FILTER (WHERE l.consumido IS NOT TRUE) END
+           FROM es_lotes l WHERE l.zona = '' AND l.plato = p.plato)::float8 AS piezas
+      FROM unnest(ARRAY[$list]::text[]) AS p(plato)) x), '[]'::json)
+);
+COMMIT;
+"@
+    $read = (Invoke-Pg $Cfg $sql) | ConvertFrom-Json
+    $body.cursorFrom = $cursor
+    $body.cursorTo = [int]$read.hasta
+    $body.rows = @($read.rows)
+    $body.snapshot = @($read.snapshot)
+    $body.complete = [bool]$read.completo
+  }
+  $res = Invoke-ChefChekApi $Cfg 'POST' 'portions/sync' $body
+  $n = $(if ($body.ContainsKey('rows')) { @($body.rows).Count } else { 0 })
+  if ($n -gt 0 -or $results.Count -gt 0) {
+    Write-Log ("Contador de platos: {0} movimientos de Cuiner, {1} cargas de ChefChek, cursor {2}" -f $n, $results.Count, $res.cursor)
+  }
 }
 
 # ─── API ChefChek ───────────────────────────────────────────────────────────
@@ -459,9 +616,10 @@ Initialize-Log $cfg
 $conn = $null
 $exitCode = 0
 try {
-  Write-Log "Inicio tarea '$Task' (base $($cfg.database))"
+  if ($Task -ne 'contador') { Write-Log "Inicio tarea '$Task' (base $($cfg.database))" }
   $remote = Invoke-ChefChekApi $cfg 'GET' 'config'
-  $conn = New-SqlConnection $cfg
+  # El contador de platos solo usa el PostgreSQL del TPV: no abre SQL Server.
+  if ($Task -ne 'contador') { $conn = New-SqlConnection $cfg }
 
   if ($Task -eq 'check') {
     Invoke-Check $cfg $conn $remote
@@ -474,8 +632,9 @@ try {
       Invoke-HistorySync $cfg $conn $remote
     }
     if ($Task -in 'albaranes', 'all') { Invoke-AlbaranSync $cfg $conn $remote }
+    if ($Task -in 'contador', 'all') { Invoke-PortionSync $cfg $remote }
   }
-  Write-Log "Fin tarea '$Task'"
+  if ($Task -ne 'contador') { Write-Log "Fin tarea '$Task'" }
 } catch {
   Write-Log $_.Exception.Message 'ERROR'
   $exitCode = 1

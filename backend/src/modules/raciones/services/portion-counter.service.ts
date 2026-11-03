@@ -100,6 +100,9 @@ export class PortionCounterService {
         available,
         activeLabels: labels.count,
         state: c.active ? thresholdState(available, c.minPortions) : "ok",
+        // Lo que marca el Contador de platos de Cuiner y si no cuadra.
+        cuinerAvailable: c.cuinerAvailable,
+        cuinerMismatch: c.active && c.cuinerMismatchNotifiedAt !== null,
         dishes: c.dishes.map((d) => ({
           id: d.id,
           tipo: d.tipo,
@@ -112,6 +115,9 @@ export class PortionCounterService {
     });
 
     const nameById = new Map(counters.map((c) => [c.id, c.name]));
+    const checked = counters
+      .map((c) => c.cuinerCheckedAt?.getTime() ?? 0)
+      .reduce((a, b) => Math.max(a, b), 0);
     return {
       counters: items,
       expiredLabels,
@@ -121,6 +127,8 @@ export class PortionCounterService {
         counterName: nameById.get(s.counterId) ?? "—",
       })),
       salesReceivedUntil: lastSale?.createdAt ?? null,
+      // Última comparación con el Contador de platos de Cuiner (enlace en vivo).
+      cuinerCheckedAt: checked ? new Date(checked) : null,
     };
   }
 

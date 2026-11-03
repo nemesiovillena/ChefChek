@@ -14,6 +14,10 @@ import {
   roundPortions,
   thresholdState,
 } from "../util/portion-fifo.util";
+import {
+  cuinerRegistroChange,
+  type CuinerRegistroRow,
+} from "../util/cuiner-registro-change.util";
 
 type Tx = Prisma.TransactionClient;
 
@@ -26,6 +30,17 @@ export interface PortionActor {
 const SALES_LOOKBACK_MS = 7 * 86_400_000;
 
 export const RACIONES_MODULE_ID = "raciones";
+
+/** Cambios hechos en ChefChek: con el enlace en vivo se llevan a Cuiner. */
+const CHEFCHEK_ORIGIN = new Set<PortionMovementType>([
+  PortionMovementType.LABEL_IN,
+  PortionMovementType.LABEL_EDIT,
+  PortionMovementType.RETIRE,
+  PortionMovementType.UNRETIRE,
+  PortionMovementType.VOID,
+  PortionMovementType.ADJUST,
+  PortionMovementType.RECOUNT,
+]);
 
 /**
  * Libro de raciones. Toda variación de raciones pasa por aquí y deja un
@@ -137,16 +152,11 @@ export class PortionLedgerService {
     if (!label.portionCounterId || !label.portionsRemaining) {
       return;
     }
-    await this.prisma.portionMovement.create({
-      data: {
-        tenantId,
-        counterId: label.portionCounterId,
-        foodLabelId: label.id,
-        type: PortionMovementType.LABEL_IN,
-        quantity: label.portionsRemaining,
-        userId: actor.id,
-        userName: actor.name?.trim() || null,
-      },
+    await this.movement(this.prisma, tenantId, label.portionCounterId, {
+      type: PortionMovementType.LABEL_IN,
+      foodLabelId: label.id,
+      quantity: label.portionsRemaining,
+      actor,
     });
     await this.refreshAlerts(tenantId, [label.portionCounterId]);
   }
@@ -360,6 +370,15 @@ export class PortionLedgerService {
     if (!(await this.isEnabled(tenantId))) {
       return 0;
     }
+    // Enlace en vivo con el Contador de platos de Cuiner: ya descuenta al
+    // pedir (applyCuinerRegistro); lo cobrado no debe restar otra vez.
+    const live = await this.prisma.cuinerConfig.findUnique({
+      where: { tenantId },
+      select: { portionCursor: true },
+    });
+    if (live && live.portionCursor !== null) {
+      return 0;
+    }
     const dishes = await this.prisma.portionCounterDish.findMany({
       where: { tenantId, counter: { active: true } },
     });
@@ -439,6 +458,66 @@ export class PortionLedgerService {
     );
     await this.refreshAlerts(tenantId, [...touched]);
     return applied;
+  }
+
+  // ── Contador de platos de Cuiner en vivo ──────────────────────────────
+
+  /**
+   * Aplica el historial del Contador de platos de Cuiner (es_registro):
+   * pedidos y anulaciones descuentan al pedir; las cargas hechas en Cuiner
+   * suman. Lo que escribió ChefChek (cajero «ChefChek») ya está contado.
+   * Solo avanza si el lote empieza donde quedó el anterior: un lote repetido
+   * o desordenado no se aplica dos veces.
+   */
+  async applyCuinerRegistro(
+    tenantId: string,
+    cursorFrom: number,
+    cursorTo: number,
+    rows: CuinerRegistroRow[],
+  ): Promise<{ applied: number; cursor: number | null }> {
+    const touched = new Set<string>();
+    let applied = 0;
+    const cursor = await this.prisma.$transaction(
+      async (tx) => {
+        await this.lock(tx, tenantId);
+        const config = await tx.cuinerConfig.findUnique({
+          where: { tenantId },
+          select: { portionCursor: true },
+        });
+        if (!config || config.portionCursor !== cursorFrom) {
+          return config?.portionCursor ?? null;
+        }
+        const dishes = await tx.portionCounterDish.findMany({
+          where: { tenantId, tipo: "P", counter: { active: true } },
+        });
+        const dishByPlato = new Map(dishes.map((d) => [d.producto, d]));
+        const ordered = rows
+          .filter((r) => r.id > cursorFrom && r.id <= cursorTo)
+          .sort((a, b) => a.id - b.id);
+        for (const row of ordered) {
+          const dish = dishByPlato.get(row.plato);
+          const change = dish && cuinerRegistroChange(row, dish);
+          if (!dish || !change) {
+            continue;
+          }
+          await this.applyDelta(tx, tenantId, dish.counterId, change.delta, {
+            type: change.type,
+            reason: change.reason,
+            cuinerRegistroId: row.id,
+          });
+          touched.add(dish.counterId);
+          applied++;
+        }
+        await tx.cuinerConfig.update({
+          where: { tenantId },
+          data: { portionCursor: cursorTo },
+        });
+        return cursorTo;
+      },
+      { timeout: 30_000 },
+    );
+    await this.refreshAlerts(tenantId, [...touched]);
+    return { applied, cursor };
   }
 
   // ── Disponible y avisos ───────────────────────────────────────────────
@@ -554,13 +633,15 @@ export class PortionLedgerService {
     meta: {
       type: PortionMovementType;
       cuinerSaleLineId?: string;
+      cuinerRegistroId?: number;
       reason?: string;
       actor?: PortionActor;
     },
   ) {
     if (delta > 0) {
       const target =
-        meta.type === PortionMovementType.SALE
+        meta.type === PortionMovementType.SALE ||
+        meta.type === PortionMovementType.ORDER
           ? await tx.foodLabel.findFirst({
               where: activeLabelWhere(counterId),
               orderBy: [{ preparedAt: "desc" }, { createdAt: "desc" }],
@@ -630,8 +711,8 @@ export class PortionLedgerService {
     }
   }
 
-  private movement(
-    tx: Tx,
+  private async movement(
+    tx: Tx | PrismaService,
     tenantId: string,
     counterId: string,
     data: {
@@ -639,24 +720,63 @@ export class PortionLedgerService {
       quantity: number;
       foodLabelId?: string | null;
       cuinerSaleLineId?: string;
+      cuinerRegistroId?: number;
       shortfall?: boolean;
       reason?: string;
       actor?: PortionActor;
     },
   ) {
-    return tx.portionMovement.create({
+    const quantity = roundPortions(data.quantity);
+    const created = await tx.portionMovement.create({
       data: {
         tenantId,
         counterId,
         type: data.type,
-        quantity: roundPortions(data.quantity),
+        quantity,
         foodLabelId: data.foodLabelId ?? null,
         cuinerSaleLineId: data.cuinerSaleLineId ?? null,
+        cuinerRegistroId: data.cuinerRegistroId ?? null,
         shortfall: data.shortfall ?? false,
         reason: data.reason?.trim() || null,
         userId: data.actor?.id ?? null,
         userName: data.actor?.name?.trim() || null,
       },
+    });
+    // Un faltante no cambia lo disponible: no hay nada que llevar a Cuiner.
+    if (!data.shortfall && quantity !== 0 && CHEFCHEK_ORIGIN.has(data.type)) {
+      await this.queueCuinerPush(tx, tenantId, counterId, quantity, data.type);
+    }
+    return created;
+  }
+
+  /**
+   * Con el Contador de platos de Cuiner enlazado en vivo, lo que cambia en
+   * ChefChek se escribe también en Cuiner (lo hace el conector del servidor).
+   * Los platos que Cuiner lleva por piezas con peso no se pueden cargar desde
+   * fuera: esos se cargan a mano en los dos sitios y se comparan.
+   */
+  private async queueCuinerPush(
+    tx: Tx | PrismaService,
+    tenantId: string,
+    counterId: string,
+    quantity: number,
+    type: PortionMovementType,
+  ) {
+    const config = await tx.cuinerConfig.findUnique({
+      where: { tenantId },
+      select: { enabled: true, portionCursor: true },
+    });
+    if (!config?.enabled || config.portionCursor === null) {
+      return;
+    }
+    const byPortion = await tx.portionCounterDish.count({
+      where: { counterId, tipo: "P", perPiece: false },
+    });
+    if (!byPortion) {
+      return;
+    }
+    await tx.portionCuinerPush.create({
+      data: { tenantId, counterId, quantity, reason: type },
     });
   }
 }

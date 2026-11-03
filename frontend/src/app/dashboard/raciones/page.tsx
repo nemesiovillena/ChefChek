@@ -69,9 +69,11 @@ export default function RacionesPage() {
           </span>
           <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Contador de platos</h2>
           <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
-            {data?.salesReceivedUntil
-              ? `Ventas de Cuiner cobradas hasta ${fmtDateTime(data.salesReceivedUntil)}. Lo pedido sin cobrar aún no descuenta.`
-              : 'Aún no han llegado ventas de Cuiner.'}
+            {data?.cuinerCheckedAt
+              ? `Enlazado con el Contador de platos de Cuiner: descuenta al pedir. Comprobado a las ${fmtDateTime(data.cuinerCheckedAt)}.`
+              : data?.salesReceivedUntil
+                ? `Ventas de Cuiner cobradas hasta ${fmtDateTime(data.salesReceivedUntil)}. Lo pedido sin cobrar aún no descuenta.`
+                : 'Aún no han llegado ventas de Cuiner.'}
           </p>
         </div>
         {canManage && (

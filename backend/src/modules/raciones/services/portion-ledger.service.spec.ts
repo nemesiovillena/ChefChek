@@ -15,6 +15,8 @@ function makeDb() {
     movements: [] as any[],
     dishes: [] as any[],
     saleLines: [] as any[],
+    pushes: [] as any[],
+    config: null as any,
   };
   const matchLabel = (l: any, where: any) =>
     (where.portionCounterId === undefined ||
@@ -102,6 +104,25 @@ function makeDb() {
     },
     portionCounterDish: {
       findMany: jest.fn(async () => db.dishes),
+      count: jest.fn(
+        async ({ where }: any) =>
+          db.dishes.filter(
+            (d) =>
+              d.counterId === where.counterId &&
+              d.tipo === where.tipo &&
+              !!d.perPiece === where.perPiece,
+          ).length,
+      ),
+    },
+    cuinerConfig: {
+      findUnique: jest.fn(async () => db.config),
+      update: jest.fn(async ({ data }: any) => Object.assign(db.config, data)),
+    },
+    portionCuinerPush: {
+      create: jest.fn(async ({ data }: any) => {
+        db.pushes.push(data);
+        return data;
+      }),
     },
     cuinerSaleLine: {
       findMany: jest.fn(async () => db.saleLines),
@@ -302,6 +323,112 @@ describe("PortionLedgerService", () => {
       });
       await expect(ledger.applySales(T)).resolves.toBe(0);
       expect(db.movements).toHaveLength(0);
+    });
+  });
+
+  describe("Contador de platos de Cuiner en vivo", () => {
+    const dish = (over: Partial<any> = {}) => ({
+      tenantId: T,
+      counterId: "pc1",
+      tipo: "P",
+      producto: "00745",
+      portionsPerSale: 1,
+      perPiece: false,
+      createdAt: new Date(Date.now() - 3_600_000),
+      ...over,
+    });
+    const row = (
+      id: number,
+      operacion: string,
+      unidades: number,
+      over = {},
+    ) => ({
+      id,
+      plato: "00745",
+      operacion,
+      unidades,
+      cajero: "TPV1",
+      mesa: "4",
+      ...over,
+    });
+
+    beforeEach(() => {
+      db.counters.push(counter({ minPortions: 0, unlabeledPortions: 5 }));
+      db.dishes.push(dish());
+      db.config = { enabled: true, portionCursor: 100 };
+    });
+
+    it("descuenta al pedir, devuelve al anular y suma lo cargado en Cuiner", async () => {
+      const res = await ledger.applyCuinerRegistro(T, 100, 104, [
+        row(101, "Salida", 2),
+        row(102, "Borrado", -1),
+        row(103, "Stock", 4, { cajero: "KDS:Cocina", mesa: null }),
+        row(104, "Salida", 1, { plato: "99999" }),
+      ]);
+      expect(res).toEqual({ applied: 3, cursor: 104 });
+      expect(db.counters[0].unlabeledPortions).toBe(8);
+      expect(db.config.portionCursor).toBe(104);
+      expect(db.movements.map((m) => [m.type, m.quantity])).toEqual([
+        ["ORDER", -2],
+        ["ORDER", 1],
+        ["CUINER_LOAD", 4],
+      ]);
+      expect(db.movements[0]).toMatchObject({
+        cuinerRegistroId: 101,
+        reason: "Pedido en Cuiner · mesa 4 · TPV1",
+      });
+      // Lo que viene de Cuiner no se devuelve a Cuiner.
+      expect(db.pushes).toHaveLength(0);
+    });
+
+    it("no repite un lote que no empieza donde quedó el anterior", async () => {
+      const res = await ledger.applyCuinerRegistro(T, 90, 101, [
+        row(101, "Salida", 1),
+      ]);
+      expect(res).toEqual({ applied: 0, cursor: 100 });
+      expect(db.movements).toHaveLength(0);
+    });
+
+    it("ignora lo que escribió ChefChek y las cargas de platos por piezas", async () => {
+      db.dishes[0].perPiece = true;
+      await ledger.applyCuinerRegistro(T, 100, 103, [
+        row(101, "Stock", 3, { cajero: "ChefChek" }),
+        row(102, "Stock", 19, { cajero: "KDS:Cocina" }),
+        row(103, "Salida", 0.85),
+      ]);
+      expect(db.movements.map((m) => [m.type, m.quantity])).toEqual([
+        ["ORDER", -1],
+      ]);
+    });
+
+    it("lo que cambia en ChefChek queda pendiente de escribir en Cuiner", async () => {
+      await ledger.recount(T, "pc1", 9, undefined, { id: "u1" });
+      await ledger.adjust(T, "pc1", -2, "Se quemó", { id: "u1" });
+      expect(db.pushes.map((p) => [p.quantity, p.reason])).toEqual([
+        [4, "RECOUNT"],
+        [-2, "ADJUST"],
+      ]);
+    });
+
+    it("sin enlace en vivo, o si Cuiner lo lleva por piezas, no encola nada", async () => {
+      db.config.portionCursor = null;
+      await ledger.adjust(T, "pc1", 1, "x", { id: "u1" });
+      db.config.portionCursor = 100;
+      db.dishes[0].perPiece = true;
+      await ledger.adjust(T, "pc1", 1, "x", { id: "u1" });
+      expect(db.pushes).toHaveLength(0);
+    });
+
+    it("con enlace en vivo, lo cobrado no vuelve a descontar", async () => {
+      db.saleLines.push({
+        id: "s1",
+        tipo: "P",
+        producto: "00745",
+        unidades: 1,
+        createdAt: new Date(),
+      });
+      await expect(ledger.applySales(T)).resolves.toBe(0);
+      expect(db.counters[0].unlabeledPortions).toBe(5);
     });
   });
 });
