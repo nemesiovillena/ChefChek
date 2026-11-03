@@ -109,6 +109,27 @@ export class RecipesController {
     };
   }
 
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  @Get("initials")
+  @Roles("ADMIN", "USER", "VIEWER")
+  @ApiOperation({
+    summary:
+      "Letras del abecedario con recetas bajo los filtros del listado (para atenuar las vacías)",
+  })
+  async findInitials(@Req() req: any, @Query() query: RecipesQueryDto) {
+    const data = await this.recipesService.findInitials(
+      req.tenantId,
+      query,
+      req.user?.role,
+      await this.canViewDrinks(req),
+    );
+    return {
+      success: true,
+      data,
+      message: "Recipe initials retrieved successfully",
+    };
+  }
+
   @Get("options")
   @Roles("ADMIN", "USER", "VIEWER")
   @ApiOperation({
