@@ -85,6 +85,16 @@ export class AlbaranStatusService {
 
     this.logger.log(`Albarán ${albaranId}: ${albaran.status} → ${newStatus}`);
 
+    // «Mercancía recibida»: el pedido vinculado queda recibido ya, sin
+    // esperar a la confirmación de oficina.
+    if (newStatus === AlbaranStatus.REVISADO && albaran.purchaseOrderId) {
+      await this.markOrderReceived(
+        tenantId,
+        albaran.purchaseOrderId,
+        albaran.internalNumber,
+      );
+    }
+
     // Process stock on CONFIRMADO transition
     if (newStatus === AlbaranStatus.CONFIRMADO) {
       try {
@@ -114,6 +124,56 @@ export class AlbaranStatusService {
         throw err;
       }
     }
+  }
+
+  /**
+   * Mantiene el pedido al día cuando cambia el vínculo de un albarán aún sin
+   * confirmar: vincularlo con la mercancía ya recibida marca el pedido nuevo,
+   * y quitarlo (desvincular o borrar el albarán) reabre el anterior si solo
+   * estaba recibido por este albarán.
+   */
+  async syncOrderLink(
+    tenantId: string,
+    albaran: { status: AlbaranStatus; internalNumber: string },
+    previousOrderId: string | null,
+    nextOrderId: string | null,
+  ): Promise<void> {
+    if (previousOrderId === nextOrderId) {
+      return;
+    }
+    if (previousOrderId) {
+      await this.orderReconciliationService
+        .reopenIfReceivedOnlyOnArrival(tenantId, previousOrderId)
+        .catch((err) =>
+          this.logger.error(
+            `Pedido ${previousOrderId}: no se pudo reabrir tras quitar el albarán`,
+            err instanceof Error ? err.stack : undefined,
+          ),
+        );
+    }
+    if (nextOrderId && albaran.status === AlbaranStatus.REVISADO) {
+      await this.markOrderReceived(
+        tenantId,
+        nextOrderId,
+        albaran.internalNumber,
+      );
+    }
+  }
+
+  /** Un fallo del pedido no debe impedir marcar la mercancía como recibida. */
+  private async markOrderReceived(
+    tenantId: string,
+    orderId: string,
+    albaranLabel: string,
+  ) {
+    await this.orderReconciliationService
+      .markReceivedOnArrival(tenantId, orderId, albaranLabel)
+      .catch((err) =>
+        this.logger.error(
+          `Pedido ${orderId}: no se pudo marcar recibido (albarán ${albaranLabel})`,
+          err instanceof Error ? err.stack : undefined,
+        ),
+      );
   }
 
   private async validateTransition(

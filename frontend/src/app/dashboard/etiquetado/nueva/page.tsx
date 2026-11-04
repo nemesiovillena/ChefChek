@@ -119,7 +119,8 @@ export default function NuevaEtiquetaPage() {
     Record<string, string>
   >({});
   // HANDLED — origen del artículo: '' (lote a mano) | 'lot:<id>' (lote
-  // registrado) | 'purchase:<albaranLineId>' (compra sin lote).
+  // registrado o de albarán sin confirmar, ver `albaranLineId`) |
+  // 'purchase:<albaranLineId>' (compra sin lote).
   const [sourceRef, setSourceRef] = useState('');
   const [manualLot, setManualLot] = useState('');
   const [manufacturerExpiry, setManufacturerExpiry] = useState('');
@@ -251,13 +252,16 @@ export default function NuevaEtiquetaPage() {
       input.ingredientLots = (recipeCtx.data?.ingredients ?? []).map((ing) => {
         const raw = ingredientLots[ing.productId] ?? '';
         const isLinked = raw.startsWith('lot:');
+        const linkedLot = isLinked
+          ? ing.availableLots.find((l) => l.id === raw.slice(4))
+          : undefined;
         return {
           productId: ing.productId,
           productName: ing.productName,
-          lotId: isLinked ? raw.slice(4) : undefined,
+          // Lote de albarán sin confirmar: aún no hay Lot, va solo el nº.
+          lotId: linkedLot && !linkedLot.albaranLineId ? linkedLot.id : undefined,
           lotNumber: isLinked
-            ? (ing.availableLots.find((l) => l.id === raw.slice(4))
-                ?.lotNumber ?? '')
+            ? (linkedLot?.lotNumber ?? '')
             : raw === 'manual:'
               ? (manualIngredientLots[ing.productId] ?? '').trim()
               : raw,
@@ -267,13 +271,21 @@ export default function NuevaEtiquetaPage() {
       });
     } else {
       input.productId = productId ?? undefined;
-      input.sourceLotId = sourceRef.startsWith('lot:')
-        ? sourceRef.slice(4)
+      const sourceLot = sourceRef.startsWith('lot:')
+        ? productCtx.data?.lots.find((l) => l.id === sourceRef.slice(4))
         : undefined;
-      input.sourcePurchaseLineId = sourceRef.startsWith('purchase:')
-        ? sourceRef.slice(9)
-        : undefined;
-      input.lotNumber = sourceRef ? undefined : manualLot.trim() || undefined;
+      if (sourceLot?.albaranLineId) {
+        // Albarán con el pedido recibido, sin confirmar: aún no hay Lot. La
+        // línea aporta proveedor y fecha; el nº de lote va en texto.
+        input.sourcePurchaseLineId = sourceLot.albaranLineId;
+        input.lotNumber = sourceLot.lotNumber;
+      } else {
+        input.sourceLotId = sourceLot?.id;
+        input.sourcePurchaseLineId = sourceRef.startsWith('purchase:')
+          ? sourceRef.slice(9)
+          : undefined;
+        input.lotNumber = sourceRef ? undefined : manualLot.trim() || undefined;
+      }
       input.manufacturerExpiryDate = manufacturerExpiry
         ? new Date(manufacturerExpiry).toISOString()
         : undefined;
@@ -672,6 +684,7 @@ export default function NuevaEtiquetaPage() {
                             <option key={l.id} value={`lot:${l.id}`}>
                               {l.lotNumber}
                               {l.supplierName ? ` · ${l.supplierName}` : ''}
+                              {l.albaranLineId ? ' · sin confirmar' : ''}
                             </option>
                           ))}
                           <option value="manual:">Otro nº de lote…</option>
@@ -744,6 +757,7 @@ export default function NuevaEtiquetaPage() {
                         <option key={l.id} value={`lot:${l.id}`}>
                           {l.lotNumber}
                           {l.supplierName ? ` · ${l.supplierName}` : ''}
+                          {l.albaranLineId ? ' · sin confirmar' : ''}
                         </option>
                       ))}
                     </optgroup>

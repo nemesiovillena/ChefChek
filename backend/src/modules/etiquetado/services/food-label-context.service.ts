@@ -12,12 +12,19 @@ export interface ConservationConfig {
 }
 
 export interface AvailableLot {
+  /** Id del `Lot`, o de la línea de albarán si `albaranLineId` viene relleno. */
   id: string;
   lotNumber: string;
   receivedAt: string;
   expiryDate: string | null;
   supplierName: string | null;
   quantity: number;
+  /**
+   * Lote leído de un albarán con la mercancía recibida pero aún sin
+   * confirmar (oficina confirma después): todavía no existe el `Lot`. La
+   * etiqueta se crea con esta línea + el nº de lote en texto.
+   */
+  albaranLineId?: string;
 }
 
 /**
@@ -172,8 +179,10 @@ export class FoodLabelContextService {
   }
 
   /**
-   * Compras confirmadas del artículo cuya línea no generó un Lot (no traía nº
-   * de lote). Las que sí tienen lote ya salen en `lots`.
+   * Compras del artículo cuya línea no generó un Lot (no traía nº de lote).
+   * Las que sí tienen lote ya salen en `lots`. Incluye albaranes con la
+   * mercancía recibida y aún sin confirmar (REVISADO): cocina etiqueta en
+   * cuanto llega el género, oficina confirma después.
    */
   private async purchasesWithoutLot(
     tenantId: string,
@@ -183,11 +192,22 @@ export class FoodLabelContextService {
       where: {
         matchedProductId: productId,
         lotRecord: null,
-        albaran: {
-          tenantId,
-          deletedAt: null,
-          status: { in: ["CONFIRMADO", "ARCHIVADO"] },
-        },
+        OR: [
+          {
+            albaran: {
+              tenantId,
+              deletedAt: null,
+              status: { in: ["CONFIRMADO", "ARCHIVADO"] },
+            },
+          },
+          // Sin confirmar: solo las que no traen lote (las que sí, salen
+          // como lote en `lotsByProduct`) y no rechazadas.
+          {
+            albaran: { tenantId, deletedAt: null, status: "REVISADO" },
+            lineStatus: { not: "RECHAZADO" },
+            OR: [{ lot: null }, { lot: "" }],
+          },
+        ],
       },
       select: {
         id: true,
@@ -264,6 +284,48 @@ export class FoodLabelContextService {
       const list = map.get(lot.productId) ?? [];
       list.push(row);
       map.set(lot.productId, list);
+    }
+
+    // Lotes de albaranes con la mercancía recibida, sin confirmar: van
+    // delante (son lo último que ha entrado en cocina).
+    const pending = await this.prisma.albaranLine.findMany({
+      where: {
+        matchedProductId: { in: productIds },
+        lotRecord: null,
+        lineStatus: { not: "RECHAZADO" },
+        lot: { not: null },
+        NOT: { lot: "" },
+        albaran: { tenantId, deletedAt: null, status: "REVISADO" },
+      },
+      select: {
+        id: true,
+        matchedProductId: true,
+        lot: true,
+        quantity: true,
+        albaran: {
+          select: { date: true, supplier: { select: { name: true } } },
+        },
+      },
+      orderBy: { albaran: { date: "desc" } },
+    });
+    for (const line of [...pending].reverse()) {
+      const lotNumber = line.lot?.trim();
+      if (!lotNumber || !line.matchedProductId) {
+        continue;
+      }
+      const row: AvailableLot = {
+        id: line.id,
+        lotNumber,
+        receivedAt: line.albaran.date.toISOString(),
+        expiryDate: null,
+        supplierName: line.albaran.supplier?.name ?? null,
+        quantity: line.quantity,
+        albaranLineId: line.id,
+      };
+      map.set(line.matchedProductId, [
+        row,
+        ...(map.get(line.matchedProductId) ?? []),
+      ]);
     }
     return map;
   }

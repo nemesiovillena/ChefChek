@@ -8,17 +8,26 @@ describe("OrderReconciliationService", () => {
   let service: OrderReconciliationService;
 
   const prismaMock = {
-    albaran: { findFirst: jest.fn() },
+    albaran: { findFirst: jest.fn(), count: jest.fn() },
     purchaseOrder: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),
     },
-    purchaseOrderLine: { update: jest.fn(), findMany: jest.fn() },
+    purchaseOrderLine: {
+      update: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
     product: { findMany: jest.fn(), update: jest.fn() },
+    purchaseOrderEvent: { findFirst: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
-  const statusServiceMock = { transition: jest.fn() };
+  const statusServiceMock = {
+    transition: jest.fn(),
+    notifyPartialReception: jest.fn(),
+    reopenAsSent: jest.fn(),
+  };
 
   const tenantId = "t1";
 
@@ -699,8 +708,15 @@ describe("OrderReconciliationService", () => {
         { id: "l1", quantity: 10, receivedQuantity: 7, receivedPrice: 12 },
       ]);
 
+      // Lo cerró un usuario a mano: no se avisa de faltas.
+      prismaMock.purchaseOrderEvent.findFirst.mockResolvedValue({
+        userId: "u1",
+        payload: { from: "RECIBIDO_PARCIAL", to: "RECIBIDO" },
+      });
+
       await service.reconcileFromAlbaran("a2", tenantId);
 
+      expect(statusServiceMock.notifyPartialReception).not.toHaveBeenCalled();
       // Las cantidades/importes sí se acumulan (el stock ya está asentado)…
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
@@ -748,6 +764,118 @@ describe("OrderReconciliationService", () => {
 
       expect(prismaMock.purchaseOrderLine.update).toHaveBeenCalled();
       expect(statusServiceMock.transition).not.toHaveBeenCalled();
+    });
+
+    it("pedido RECIBIDO al llegar la mercancía + albarán confirmado con faltas → avisa sin tocar el estado", async () => {
+      prismaMock.albaran.findFirst.mockResolvedValue({
+        id: "a4",
+        purchaseOrderId: "o1",
+        lines: [
+          {
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: "p1",
+            quantity: 6,
+            unitPrice: 12,
+          },
+        ],
+      });
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        orderNumber: "PED-0011",
+        status: PurchaseOrderStatus.RECIBIDO,
+        lines: [
+          { id: "l1", productId: "p1", quantity: 10, receivedQuantity: null },
+        ],
+      });
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        { id: "l1", quantity: 10, receivedQuantity: 6, receivedPrice: 12 },
+      ]);
+      prismaMock.purchaseOrderEvent.findFirst.mockResolvedValue({
+        userId: null,
+        payload: { from: "ENVIADO", to: "RECIBIDO" },
+      });
+
+      await service.reconcileFromAlbaran("a4", tenantId);
+
+      expect(statusServiceMock.transition).not.toHaveBeenCalled();
+      expect(statusServiceMock.notifyPartialReception).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+      );
+    });
+  });
+
+  describe("markReceivedOnArrival", () => {
+    it.each([
+      PurchaseOrderStatus.ENVIADO,
+      PurchaseOrderStatus.RECIBIDO_PARCIAL,
+    ])("pedido %s → RECIBIDO como transición del sistema", async (status) => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        status,
+      });
+
+      await service.markReceivedOnArrival(tenantId, "o1", "ALB-0200");
+
+      expect(statusServiceMock.transition).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        PurchaseOrderStatus.RECIBIDO,
+        undefined,
+        "Mercancía recibida (albarán ALB-0200)",
+      );
+    });
+
+    it.each([
+      PurchaseOrderStatus.BORRADOR,
+      PurchaseOrderStatus.RECIBIDO,
+      PurchaseOrderStatus.CANCELADO,
+    ])("pedido %s → no se toca", async (status) => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        status,
+      });
+
+      await service.markReceivedOnArrival(tenantId, "o1", "ALB-0200");
+
+      expect(statusServiceMock.transition).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reopenIfReceivedOnlyOnArrival", () => {
+    beforeEach(() => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({ id: "o1" });
+    });
+
+    it("sin otro albarán ni cantidades recibidas → vuelve a ENVIADO", async () => {
+      prismaMock.albaran.count.mockResolvedValue(0);
+      prismaMock.purchaseOrderLine.findFirst.mockResolvedValue(null);
+
+      await service.reopenIfReceivedOnlyOnArrival(tenantId, "o1");
+
+      expect(statusServiceMock.reopenAsSent).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        expect.any(String),
+      );
+    });
+
+    it("con recepción real registrada → no se reabre", async () => {
+      prismaMock.albaran.count.mockResolvedValue(0);
+      prismaMock.purchaseOrderLine.findFirst.mockResolvedValue({ id: "l1" });
+
+      await service.reopenIfReceivedOnlyOnArrival(tenantId, "o1");
+
+      expect(statusServiceMock.reopenAsSent).not.toHaveBeenCalled();
+    });
+
+    it("con otro albarán vinculado → no se reabre", async () => {
+      prismaMock.albaran.count.mockResolvedValue(1);
+      prismaMock.purchaseOrderLine.findFirst.mockResolvedValue(null);
+
+      await service.reopenIfReceivedOnlyOnArrival(tenantId, "o1");
+
+      expect(statusServiceMock.reopenAsSent).not.toHaveBeenCalled();
     });
   });
 });
