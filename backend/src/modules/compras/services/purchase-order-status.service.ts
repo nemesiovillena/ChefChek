@@ -125,17 +125,79 @@ export class PurchaseOrderStatusService {
     // Aviso inmediato en la campana: no esperar a los 3 días de
     // StalePartialOrderAlertService, el usuario quiere verlo en cuanto pasa.
     if (newStatus === PurchaseOrderStatus.RECIBIDO_PARCIAL) {
-      await this.notificationsService.createNotification(tenantId, {
-        type: "PARTIAL_ORDER_RECEIVED",
-        severity: "WARNING",
-        title: "Recepción parcial",
-        message: `${order.orderNumber} (${order.supplier.name}) se ha recibido parcialmente. Revisa qué falta o cierra el pedido si el proveedor no completará el envío.`,
-        entityType: "PURCHASE_ORDER",
-        entityId: orderId,
+      await this.sendPartialReceptionNotification(tenantId, {
+        id: orderId,
+        orderNumber: order.orderNumber,
+        supplierName: order.supplier.name,
       });
     }
 
     return updated;
+  }
+
+  /**
+   * Aviso de faltas para un pedido que ya está RECIBIDO (quedó así al marcar
+   * «Mercancía recibida»), cuando al confirmar el albarán no cubre lo pedido.
+   */
+  async notifyPartialReception(tenantId: string, orderId: string) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenantId },
+      select: { orderNumber: true, supplier: { select: { name: true } } },
+    });
+    if (!order) {
+      return;
+    }
+    await this.sendPartialReceptionNotification(tenantId, {
+      id: orderId,
+      orderNumber: order.orderNumber,
+      supplierName: order.supplier.name,
+    });
+  }
+
+  private async sendPartialReceptionNotification(
+    tenantId: string,
+    order: { id: string; orderNumber: string; supplierName: string },
+  ) {
+    await this.notificationsService.createNotification(tenantId, {
+      type: "PARTIAL_ORDER_RECEIVED",
+      severity: "WARNING",
+      title: "Recepción parcial",
+      message: `${order.orderNumber} (${order.supplierName}) se ha recibido parcialmente. Revisa qué falta o cierra el pedido si el proveedor no completará el envío.`,
+      entityType: "PURCHASE_ORDER",
+      entityId: order.id,
+    });
+  }
+
+  /**
+   * RECIBIDO → ENVIADO, solo para el sistema: deshace el «recibido» que puso
+   * un albarán que luego se borró o desvinculó sin confirmarse. Fuera de
+   * VALID_TRANSITIONS a propósito: RECIBIDO no tiene salida para el usuario.
+   */
+  async reopenAsSent(tenantId: string, orderId: string, reason: string) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenantId, status: PurchaseOrderStatus.RECIBIDO },
+      select: { id: true },
+    });
+    if (!order) {
+      return;
+    }
+    await this.prisma.$transaction([
+      this.prisma.purchaseOrder.update({
+        where: { id: orderId },
+        data: { status: PurchaseOrderStatus.ENVIADO },
+      }),
+      this.prisma.purchaseOrderEvent.create({
+        data: {
+          orderId,
+          type: "STATUS_CHANGED",
+          payload: {
+            from: PurchaseOrderStatus.RECIBIDO,
+            to: PurchaseOrderStatus.ENVIADO,
+            reason,
+          },
+        },
+      }),
+    ]);
   }
 
   /**

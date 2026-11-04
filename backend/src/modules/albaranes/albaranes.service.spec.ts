@@ -42,6 +42,7 @@ describe("AlbaranesService", () => {
   };
   const statusService = {
     transitionStatus: jest.fn().mockResolvedValue(undefined),
+    syncOrderLink: jest.fn().mockResolvedValue(undefined),
   };
   const stockService = {
     processAddedLine: jest.fn().mockResolvedValue(undefined),

@@ -120,6 +120,11 @@ export interface PrepContextLot {
   expiryDate: string | null;
   supplierName: string | null;
   quantity: number;
+  /**
+   * Lote de un albarán con el pedido recibido y aún sin confirmar: no hay
+   * `Lot` todavía, se etiqueta con la línea del albarán + el nº de lote.
+   */
+  albaranLineId?: string;
 }
 
 export interface RecipePrepContext {

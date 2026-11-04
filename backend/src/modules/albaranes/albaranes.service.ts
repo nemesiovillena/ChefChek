@@ -287,7 +287,7 @@ export class AlbaranesService {
       );
     }
 
-    return this.prisma.albaran.update({
+    const updated = await this.prisma.albaran.update({
       where: { id },
       data: {
         supplierId: dto.supplierId,
@@ -300,6 +300,22 @@ export class AlbaranesService {
       },
       include: { lines: true, supplier: true, purchaseOrder: true },
     });
+
+    if (dto.purchaseOrderId !== undefined) {
+      await this.statusService.syncOrderLink(
+        tenantId,
+        albaran,
+        albaran.purchaseOrderId,
+        updated.purchaseOrderId,
+      );
+      // El estado del pedido puede haber cambiado: devolverlo fresco.
+      const fresh = await this.prisma.albaran.findFirst({
+        where: { id, tenantId },
+        include: { lines: true, supplier: true, purchaseOrder: true },
+      });
+      return fresh ?? updated;
+    }
+    return updated;
   }
 
   /**
@@ -923,7 +939,16 @@ export class AlbaranesService {
       );
     }
 
-    return this.prisma.albaran.delete({ where: { id } });
+    const deleted = await this.prisma.albaran.delete({ where: { id } });
+    if (albaran.purchaseOrderId) {
+      await this.statusService.syncOrderLink(
+        tenantId,
+        albaran,
+        albaran.purchaseOrderId,
+        null,
+      );
+    }
+    return deleted;
   }
 
   /** Create albaran from OCR upload */

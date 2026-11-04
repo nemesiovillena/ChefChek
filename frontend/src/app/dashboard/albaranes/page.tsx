@@ -225,7 +225,7 @@ export default function AlbaranesPage() {
         {activeTab === 'archivados'
           ? 'Albaranes con más de dos meses y los archivados manualmente'
           : statusView === 'pendientes'
-            ? 'Pendientes y revisados sin confirmar, de cualquier fecha'
+            ? 'Pendientes y recibidos sin confirmar, de cualquier fecha'
             : searchTerm.trim()
               ? 'Buscando en todas las fechas'
               : 'Últimos dos meses — los albaranes más antiguos están en Archivados'}
