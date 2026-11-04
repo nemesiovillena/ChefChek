@@ -201,7 +201,8 @@ interface EditorRow {
   productId: string;
   name: string;
   unitHint: string;
-  quantity: number;
+  /** null = sin cantidad todavía: el usuario la escribe sin borrar nada. */
+  quantity: number | null;
   checked: boolean;
 }
 
@@ -230,7 +231,7 @@ function ListEditor({
   const deleteMut = useDeletePurchaseList();
   const generateMut = useGenerateOrderFromList();
 
-  // Ningún artículo se marca al cargar y toda cantidad arranca en 1, tanto
+  // Ningún artículo se marca al cargar y toda cantidad arranca vacía, tanto
   // para catálogo pendiente como para una lista ya guardada: el usuario
   // elige a mano qué incluye en cada pedido y cuántas unidades, en lugar de
   // heredar la marca y las cantidades de la vez anterior. (defaultQuantity
@@ -243,14 +244,14 @@ function ListEditor({
             productId: p.id,
             name: p.name,
             unitHint: p.purchaseFormat || p.referenceUnit || '',
-            quantity: 1,
+            quantity: null,
             checked: false,
           }))
         : list.items.map((item) => ({
             productId: item.productId,
             name: item.product?.name ?? item.productId,
             unitHint: item.product?.purchaseFormat || item.product?.referenceUnit || '',
-            quantity: 1,
+            quantity: null,
             checked: false,
           })),
     ),
@@ -291,7 +292,8 @@ function ListEditor({
             .filter((r) => r.checked)
             .map((r) => ({
               productId: r.productId,
-              defaultQuantity: r.quantity,
+              // Sin cantidad → el backend guarda 1 (fallback del cron).
+              defaultQuantity: r.quantity ?? undefined,
             })),
           notes,
           additionalItems,
@@ -327,7 +329,7 @@ function ListEditor({
             productId: p.id,
             name: p.name,
             unitHint: p.purchaseFormat || p.referenceUnit || '',
-            quantity: 1,
+            quantity: null,
             checked: false,
           })),
         ]),
@@ -368,6 +370,15 @@ function ListEditor({
       });
       return;
     }
+    const missingQty = selection.filter((r) => !r.quantity || r.quantity <= 0);
+    if (withSelection && missingQty.length > 0) {
+      addNotification({
+        type: 'warning',
+        title: 'Falta la cantidad',
+        message: `Pon la cantidad de: ${missingQty.map((r) => r.name).join(', ')}`,
+      });
+      return;
+    }
     try {
       // Persiste notas/artículos nuevos si cambiaron, antes de generar (un
       // único PATCH). Así el borrador hereda siempre lo que se ve en pantalla.
@@ -384,7 +395,7 @@ function ListEditor({
           ? {
               items: selection.map((r) => ({
                 productId: r.productId,
-                quantity: r.quantity,
+                quantity: r.quantity as number,
               })),
             }
           : {}),
@@ -478,16 +489,20 @@ function ListEditor({
                 type="number"
                 min={0.001}
                 step="any"
-                value={row.quantity}
-                onChange={(e) =>
+                value={row.quantity ?? ''}
+                placeholder="Cant."
+                aria-label={`Cantidad de ${row.name}`}
+                onChange={(e) => {
+                  const quantity = e.target.value === '' ? null : Number(e.target.value);
+                  // Escribir una cantidad marca la fila: ahorra el toque del check.
                   setRows((prev) =>
                     prev.map((r, i) =>
                       i === index
-                        ? { ...r, quantity: Number(e.target.value) || 0 }
+                        ? { ...r, quantity, checked: quantity != null && quantity > 0 ? true : r.checked }
                         : r,
                     ),
-                  )
-                }
+                  );
+                }}
                 className="w-20 shrink-0 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-2 py-1 text-right text-base text-[var(--on-surface)] sm:w-24 sm:text-sm"
               />
               <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)] sm:w-20 sm:flex-none">
@@ -568,7 +583,7 @@ function ListEditor({
                   productId: product.id,
                   name: product.name,
                   unitHint: product.purchaseFormat || product.referenceUnit || '',
-                  quantity: 1,
+                  quantity: null,
                   checked: true,
                 },
               ]),

@@ -168,7 +168,18 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   const hasLinkedAlbaran = (order.albaranes ?? []).length > 0;
   const meta = ORDER_STATUS_META[order.status];
 
-  const [lines, setLines] = useState(
+  // quantity null = línea recién añadida sin cantidad (se escribe sin borrar un 1).
+  const [lines, setLines] = useState<
+    {
+      productId: string;
+      name: string;
+      unit: string;
+      articleFormat: string;
+      referenceUnit: string;
+      quantity: number | null;
+      expectedPrice?: number | null;
+    }[]
+  >(
     (order.lines ?? []).map((line) => ({
       productId: line.productId,
       name: line.product?.name ?? line.productId,
@@ -214,7 +225,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
     });
 
   const total = lines.reduce(
-    (sum, l) => sum + l.quantity * (l.expectedPrice ?? 0),
+    (sum, l) => sum + (l.quantity ?? 0) * (l.expectedPrice ?? 0),
     0,
   );
 
@@ -241,13 +252,22 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
   };
 
   const handleSave = async () => {
+    const missingQty = lines.filter((l) => !l.quantity || l.quantity <= 0);
+    if (missingQty.length > 0) {
+      addNotification({
+        type: 'warning',
+        title: 'Falta la cantidad',
+        message: `Pon la cantidad de: ${missingQty.map((l) => l.name).join(', ')}`,
+      });
+      return;
+    }
     try {
       await updateMut.mutateAsync({
         id: order.id,
         data: {
           lines: lines.map((l) => ({
             productId: l.productId,
-            quantity: l.quantity,
+            quantity: l.quantity as number,
             expectedPrice: l.expectedPrice ?? undefined,
             unit: l.unit || undefined,
           })),
@@ -464,9 +484,10 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                       type="number"
                       min={0.001}
                       step="any"
-                      value={line.quantity}
+                      value={line.quantity ?? ''}
+                      placeholder="Cant."
                       onChange={(e) => {
-                        const quantity = Number(e.target.value) || 0;
+                        const quantity = e.target.value === '' ? null : Number(e.target.value);
                         setLines((prev) =>
                           prev.map((l, i) => (i === index ? { ...l, quantity } : l)),
                         );
@@ -543,7 +564,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                   )}
                 </td>
                 <td className="px-4 py-2 text-right font-medium text-[var(--on-surface)]">
-                  {euro.format(line.quantity * (line.expectedPrice ?? 0))}
+                  {euro.format((line.quantity ?? 0) * (line.expectedPrice ?? 0))}
                 </td>
                 {isEditable && (
                   <td className="px-2 py-2">
@@ -594,7 +615,7 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
                 unit: product.purchaseFormat || product.referenceUnit || '',
                 articleFormat: product.purchaseFormat || '',
                 referenceUnit: product.referenceUnit || '',
-                quantity: 1,
+                quantity: null,
                 expectedPrice: null,
               },
             ]);
