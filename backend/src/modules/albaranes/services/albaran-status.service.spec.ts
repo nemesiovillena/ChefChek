@@ -17,7 +17,11 @@ describe("AlbaranStatusService", () => {
     albaran: { findFirst: jest.fn(), updateMany: jest.fn() },
   };
   const stockService = { processStockOnConfirmation: jest.fn() };
-  const reconciliationService = { reconcileFromAlbaran: jest.fn() };
+  const reconciliationService = {
+    reconcileFromAlbaran: jest.fn(),
+    markReceivedOnArrival: jest.fn().mockResolvedValue(undefined),
+    reopenIfReceivedOnlyOnArrival: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -83,6 +87,36 @@ describe("AlbaranStatusService", () => {
         data: { status: AlbaranStatus.REVISADO },
       });
       expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
+    });
+
+    it("PENDIENTE -> REVISADO con pedido vinculado marca el pedido recibido", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ purchaseOrderId: "po-1", internalNumber: "ALB-0200" }),
+      );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.transitionStatus("alb-1", "t1", AlbaranStatus.REVISADO);
+
+      expect(reconciliationService.markReceivedOnArrival).toHaveBeenCalledWith(
+        "t1",
+        "po-1",
+        "ALB-0200",
+      );
+      expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
+    });
+
+    it("un fallo al marcar el pedido no impide la mercancía recibida", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ purchaseOrderId: "po-1", internalNumber: "ALB-0200" }),
+      );
+      prisma.albaran.updateMany.mockResolvedValue({ count: 1 });
+      reconciliationService.markReceivedOnArrival.mockRejectedValueOnce(
+        new Error("boom"),
+      );
+
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.REVISADO),
+      ).resolves.toBeUndefined();
     });
 
     it("allows PENDIENTE -> REVISADO with lines still PENDIENTE (mercancía recibida)", async () => {
@@ -213,6 +247,37 @@ describe("AlbaranStatusService", () => {
       expect(prisma.albaran.updateMany).toHaveBeenLastCalledWith(
         expect.objectContaining({ data: { status: AlbaranStatus.REVISADO } }),
       );
+    });
+  });
+
+  describe("syncOrderLink", () => {
+    it("vincular un albarán ya recibido marca el pedido nuevo y reabre el anterior", async () => {
+      await service.syncOrderLink(
+        "t1",
+        { status: AlbaranStatus.REVISADO, internalNumber: "ALB-0200" },
+        "po-old",
+        "po-new",
+      );
+      expect(
+        reconciliationService.reopenIfReceivedOnlyOnArrival,
+      ).toHaveBeenCalledWith("t1", "po-old");
+      expect(reconciliationService.markReceivedOnArrival).toHaveBeenCalledWith(
+        "t1",
+        "po-new",
+        "ALB-0200",
+      );
+    });
+
+    it("vincular un albarán PENDIENTE no marca el pedido", async () => {
+      await service.syncOrderLink(
+        "t1",
+        { status: AlbaranStatus.PENDIENTE, internalNumber: "ALB-0200" },
+        null,
+        "po-new",
+      );
+      expect(
+        reconciliationService.markReceivedOnArrival,
+      ).not.toHaveBeenCalled();
     });
   });
 });

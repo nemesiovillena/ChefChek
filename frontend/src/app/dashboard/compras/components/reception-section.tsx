@@ -65,7 +65,7 @@ function isPriceMismatch(expected: number, received: number) {
 
 const ALBARAN_STATUS_META: Record<string, { label: string; className: string }> = {
   PENDIENTE: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
-  REVISADO: { label: 'Revisado', className: 'bg-blue-100 text-blue-800' },
+  REVISADO: { label: 'Pedido recibido', className: 'bg-blue-100 text-blue-800' },
   CONFIRMADO: { label: 'Confirmado', className: 'bg-green-100 text-green-800' },
   ARCHIVADO: { label: 'Archivado', className: 'bg-gray-100 text-gray-700' },
 };

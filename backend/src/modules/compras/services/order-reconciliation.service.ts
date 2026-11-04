@@ -63,6 +63,84 @@ export class OrderReconciliationService {
   }
 
   /**
+   * «Mercancía recibida» en el albarán: el pedido vinculado pasa a RECIBIDO
+   * en ese momento, sin esperar a que oficina confirme. No toca cantidades ni
+   * precios: eso lo hace `reconcileFromAlbaran` al confirmar (suma cantidades,
+   * así que no puede ejecutarse dos veces). Si al confirmar falta mercancía,
+   * se avisa allí. No-op si el pedido ya no admite recepción.
+   */
+  async markReceivedOnArrival(
+    tenantId: string,
+    orderId: string,
+    albaranLabel: string,
+  ) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenantId },
+      select: { id: true, status: true },
+    });
+    if (
+      !order ||
+      (order.status !== PurchaseOrderStatus.ENVIADO &&
+        order.status !== PurchaseOrderStatus.RECIBIDO_PARCIAL)
+    ) {
+      return;
+    }
+    await this.statusService.transition(
+      tenantId,
+      order.id,
+      PurchaseOrderStatus.RECIBIDO,
+      undefined, // transición del sistema, no de un usuario
+      `Mercancía recibida (albarán ${albaranLabel})`,
+    );
+  }
+
+  /**
+   * Deshace `markReceivedOnArrival` cuando el albarán que marcó el pedido se
+   * borra o se desvincula antes de confirmarse: sin esto el pedido quedaba
+   * RECIBIDO sin albarán y ya no se podía subir el bueno desde el pedido.
+   * Solo si no hubo recepción real (ninguna cantidad recibida) ni queda otro
+   * albarán vinculado.
+   */
+  async reopenIfReceivedOnlyOnArrival(tenantId: string, orderId: string) {
+    const order = await this.prisma.purchaseOrder.findFirst({
+      where: { id: orderId, tenantId, status: PurchaseOrderStatus.RECIBIDO },
+      select: { id: true },
+    });
+    if (!order) {
+      return;
+    }
+    const [linkedAlbaranes, receivedLine] = await Promise.all([
+      this.prisma.albaran.count({ where: { purchaseOrderId: orderId } }),
+      this.prisma.purchaseOrderLine.findFirst({
+        where: { orderId, receivedQuantity: { not: null } },
+        select: { id: true },
+      }),
+    ]);
+    if (linkedAlbaranes > 0 || receivedLine) {
+      return;
+    }
+    await this.statusService.reopenAsSent(
+      tenantId,
+      orderId,
+      "Albarán de la recepción borrado o desvinculado",
+    );
+  }
+
+  /**
+   * ¿Pasó el pedido a RECIBIDO por el sistema («Mercancía recibida» en el
+   * albarán) y no por un usuario cerrándolo a mano?
+   */
+  private async wasReceivedBySystem(orderId: string): Promise<boolean> {
+    const lastChange = await this.prisma.purchaseOrderEvent.findFirst({
+      where: { orderId, type: "STATUS_CHANGED" },
+      orderBy: { createdAt: "desc" },
+      select: { userId: true, payload: true },
+    });
+    const to = (lastChange?.payload as { to?: string } | null)?.to;
+    return to === PurchaseOrderStatus.RECIBIDO && !lastChange?.userId;
+  }
+
+  /**
    * Vuelca lo recibido en este albarán a las líneas del pedido vinculado y
    * recalcula el estado del pedido. No-op si el albarán no tiene
    * purchaseOrderId o si ninguna línea confirmada tiene contrapartida en el
@@ -317,6 +395,17 @@ export class OrderReconciliationService {
         undefined, // transición del sistema, no de un usuario
       );
     } else if (newStatus !== order.status) {
+      // El pedido quedó RECIBIDO al llegar la mercancía: si lo confirmado no
+      // cubre lo pedido, avisar de las faltas como haría la recepción parcial
+      // (el estado no se toca). Un cierre anticipado a mano (el usuario ya
+      // aceptó lo entregado) no avisa.
+      if (
+        order.status === PurchaseOrderStatus.RECIBIDO &&
+        newStatus === PurchaseOrderStatus.RECIBIDO_PARCIAL &&
+        (await this.wasReceivedBySystem(order.id))
+      ) {
+        await this.statusService.notifyPartialReception(tenantId, order.id);
+      }
       this.logger.log(
         `Albarán ${albaranId}: pedido ${order.orderNumber} en estado terminal ${order.status}, ` +
           `se acumula la recepción sin cambiar el estado`,
