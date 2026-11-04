@@ -44,7 +44,8 @@ REGLAS IMPORTANTES:
      subfila). Si la fila no imprime importe, null. Es la referencia: NO lo sustituyas por cantidad × precio.
    - discount_amount = importe en euros de un descuento que va en SUBFILA aparte (ver abajo), en positivo; null si no hay.
      Si el descuento va en una columna de la propia fila ("Dto.", "% Dto"), el importe impreso ya es el neto: printed_amount =
-     ese importe y discount_amount null.
+     ese importe y discount_amount null. Esa columna puede ir en euros por unidad (ej: 2 × 39,81, Dto. 19,91, Importe 39,81
+     → printed_amount 39.81, discount_amount null, total_price 39.81).
    - total_price = importe NETO sin IVA = printed_amount − discount_amount. unit_price es el precio de tarifa.
    - Descuento en SUBFILA debajo del artículo ("Dto. Fijo", "Dto. Promoción", "Descuento", "Rappel"...), con importe negativo
      (signo menos delante o DETRÁS: "16,47-" = -16.47): NO es una línea; va al discount_amount del artículo de encima
@@ -496,6 +497,13 @@ class AIExtractionService:
             discount = abs(float(product.get("discount_amount") or 0))
             printed = abs(float(product.get("printed_amount") or 0))
             gross = round(product["quantity"] * product["unit_price"], 2)
+            # Si el importe impreso ya es menor que cantidad × precio, el
+            # descuento va en una columna de la propia fila y ya está restado
+            # (Bodegas Ruiz: 2 × 39,81, Dto. 19,91/caja, Importe 39,81). La IA
+            # a veces copia ese Dto. como discount_amount: no se resta otra vez.
+            rounding_tolerance = max(0.01, product["quantity"] * 0.005)
+            if discount and printed and printed < gross - rounding_tolerance:
+                discount = 0
             line_base = printed or gross
             if 0 < discount < line_base:
                 product["total_price"] = round(line_base - discount, 2)
