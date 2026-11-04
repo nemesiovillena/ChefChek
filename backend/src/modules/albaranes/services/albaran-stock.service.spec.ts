@@ -266,6 +266,83 @@ describe("AlbaranStockService", () => {
       });
     });
 
+    it("gift (0 €) and negative-net lines enter stock but never touch price, offer or price agreement", async () => {
+      const mockProduct = {
+        id: mockProductId,
+        name: "Vino",
+        purchasePrice: 85.8,
+        netPrice: 85.8,
+        supplierId: "supplier-123",
+        tracksInventory: true,
+      };
+      const mockAlbaran = {
+        id: mockAlbaranId,
+        tenantId: mockTenantId,
+        internalNumber: "ALB-001",
+        supplierId: "supplier-123",
+        warehouseId: null,
+        applyDiscountToCost: true,
+        lines: [
+          // Regalo leído como dto. 100 %: precio 0
+          {
+            id: "gift",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            quantity: 4,
+            unit: "ud",
+            unitPrice: 0,
+            totalPrice: null,
+          },
+          // Regalo leído como abono: neto negativo
+          {
+            id: "credit",
+            lineStatus: LineStatus.CONFIRMADO,
+            matchedProductId: mockProductId,
+            quantity: 4,
+            unit: "ud",
+            unitPrice: 0,
+            totalPrice: -71.4,
+          },
+        ],
+      };
+      const mockTx = {
+        stockMovement: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+        },
+        albaran: { findFirst: jest.fn().mockResolvedValue(mockAlbaran) },
+        product: {
+          findFirst: jest.fn().mockResolvedValue(mockProduct),
+          update: jest.fn(),
+          create: jest.fn(),
+        },
+        stock: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+        albaranLine: { update: jest.fn() },
+        productSupplierOffer: {
+          findFirst: jest.fn().mockResolvedValue({ id: "offer-1" }),
+        },
+        productPriceHistory: { create: jest.fn() },
+        supplierOcrHint: {
+          upsert: jest.fn(),
+          findFirst: jest.fn(),
+          create: jest.fn(),
+          update: jest.fn(),
+        },
+      };
+      (prisma.$transaction as jest.Mock).mockImplementation((fn) => fn(mockTx));
+
+      await service.processStockOnConfirmation(mockAlbaranId, mockTenantId);
+
+      expect(productSupplierOffersService.upsertOffer).not.toHaveBeenCalled();
+      expect(priceAgreementService.evaluateAndRecord).not.toHaveBeenCalled();
+      expect(mockTx.productPriceHistory.create).not.toHaveBeenCalled();
+      expect(mockTx.stockMovement.create).toHaveBeenCalledTimes(2);
+    });
+
     it("converts the line price to per-format when the product was created inline from this same albaran (unit-priced line)", async () => {
       // Alta inline desde la revisión: la línea factura por unidad (72 ud ×
       // 1,3221 €) y el formulario guardó el artículo por formato (caja de 24

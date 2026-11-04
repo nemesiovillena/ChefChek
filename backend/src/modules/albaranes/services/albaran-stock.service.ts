@@ -268,7 +268,17 @@ export class AlbaranStockService {
         ? lineUnitPrice * product.unitSize
         : lineUnitPrice;
 
-      if (albaran.supplierId) {
+      // Regalo (dto. 100 %), abono o envase devuelto: importe ≤ 0. No es un
+      // precio de compra: el stock entra igual, pero oferta, coste del
+      // artículo, histórico y pactos conservan el último precio real (mismo
+      // criterio que la corrección con lápiz en confirmado).
+      const isPurchasePrice = offerLinePrice > 0;
+
+      if (!isPurchasePrice) {
+        this.logger.log(
+          `${product.name}: línea a ${offerLinePrice} € (regalo/abono), no toca precio ni oferta`,
+        );
+      } else if (albaran.supplierId) {
         // Upsert de la oferta de ESTE proveedor: toda compra confirmada
         // lo marca preferente (regla de negocio — el último proveedor al
         // que se le compró rige el coste/escandallos), pisando cualquier
@@ -351,7 +361,7 @@ export class AlbaranStockService {
       // producto — un pacto se compara contra cada recepción, incluso si
       // el precio coincide con el vigente (que puede venir de la oferta
       // preferente de OTRO proveedor). No-op si no hay oferta o pacto.
-      if (albaran.supplierId) {
+      if (albaran.supplierId && isPurchasePrice) {
         const offerForDeviation = await tx.productSupplierOffer.findFirst({
           where: { productId: product.id, supplierId: albaran.supplierId },
         });
