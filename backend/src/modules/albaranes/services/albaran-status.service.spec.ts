@@ -21,6 +21,7 @@ describe("AlbaranStatusService", () => {
     reconcileFromAlbaran: jest.fn(),
     markReceivedOnArrival: jest.fn().mockResolvedValue(undefined),
     reopenIfReceivedOnlyOnArrival: jest.fn().mockResolvedValue(undefined),
+    suggestOrders: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -278,6 +279,39 @@ describe("AlbaranStatusService", () => {
       expect(
         reconciliationService.markReceivedOnArrival,
       ).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("findSingleOpenOrder", () => {
+    const date = new Date("2026-11-05");
+
+    it("devuelve el pedido si es el único pendiente del proveedor", async () => {
+      reconciliationService.suggestOrders.mockResolvedValue([{ id: "po-1" }]);
+      await expect(service.findSingleOpenOrder("t1", "s1", date)).resolves.toBe(
+        "po-1",
+      );
+      expect(reconciliationService.suggestOrders).toHaveBeenCalledWith(
+        "t1",
+        "s1",
+        date,
+      );
+    });
+
+    it("con varios pedidos pendientes no elige ninguno", async () => {
+      reconciliationService.suggestOrders.mockResolvedValue([
+        { id: "po-1" },
+        { id: "po-2" },
+      ]);
+      await expect(
+        service.findSingleOpenOrder("t1", "s1", date),
+      ).resolves.toBeNull();
+    });
+
+    it("un fallo al buscar no impide crear el albarán", async () => {
+      reconciliationService.suggestOrders.mockRejectedValue(new Error("db"));
+      await expect(
+        service.findSingleOpenOrder("t1", "s1", date),
+      ).resolves.toBeNull();
     });
   });
 });

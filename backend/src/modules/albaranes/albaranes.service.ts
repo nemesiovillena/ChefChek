@@ -287,6 +287,22 @@ export class AlbaranesService {
       );
     }
 
+    // Elegir proveedor en un albarán sin pedido lo vincula solo si ese
+    // proveedor tiene un único pedido pendiente de recibir.
+    let purchaseOrderId = dto.purchaseOrderId;
+    if (
+      purchaseOrderId === undefined &&
+      dto.supplierId &&
+      !albaran.purchaseOrderId
+    ) {
+      purchaseOrderId =
+        (await this.statusService.findSingleOpenOrder(
+          tenantId,
+          dto.supplierId,
+          albaran.date,
+        )) ?? undefined;
+    }
+
     const updated = await this.prisma.albaran.update({
       where: { id },
       data: {
@@ -295,13 +311,13 @@ export class AlbaranesService {
         notes: dto.notes,
         warehouseId: dto.warehouseId,
         // undefined (no viene en el body) no toca el campo; null desvincula
-        purchaseOrderId: dto.purchaseOrderId,
+        purchaseOrderId,
         applyDiscountToCost: dto.applyDiscountToCost,
       },
       include: { lines: true, supplier: true, purchaseOrder: true },
     });
 
-    if (dto.purchaseOrderId !== undefined) {
+    if (purchaseOrderId !== undefined) {
       await this.statusService.syncOrderLink(
         tenantId,
         albaran,
@@ -1085,6 +1101,25 @@ export class AlbaranesService {
         (document as any).extraction_model = aiModel;
       }
 
+      // Si el OCR no matchea proveedor, el del pedido de origen es mejor
+      // dato que dejarlo vacío: ya sabemos a quién se le compró.
+      const supplierId =
+        supplierMatch.supplierId ?? purchaseOrder?.supplierId ?? null;
+      const albaranDate = document.document_date
+        ? new Date(document.document_date)
+        : new Date();
+      // Subido fuera del pedido: se vincula solo si el proveedor tiene un
+      // único pedido pendiente de recibir; con varios, se elige a mano.
+      const linkedOrderId =
+        purchaseOrder?.id ??
+        (supplierId
+          ? await this.statusService.findSingleOpenOrder(
+              tenantId,
+              supplierId,
+              albaranDate,
+            )
+          : null);
+
       // 3. Create albaran with lines
       const internalNumber =
         await this.numberService.generateInternalNumber(tenantId);
@@ -1092,14 +1127,10 @@ export class AlbaranesService {
         data: {
           tenantId,
           internalNumber,
-          // Si el OCR no matchea proveedor, el del pedido de origen es mejor
-          // dato que dejarlo vacío: ya sabemos a quién se le compró.
-          supplierId: supplierMatch.supplierId ?? purchaseOrder?.supplierId,
-          purchaseOrderId: purchaseOrder?.id,
+          supplierId,
+          purchaseOrderId: linkedOrderId,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
-          date: document.document_date
-            ? new Date(document.document_date)
-            : new Date(),
+          date: albaranDate,
           grossAmount: document.gross_amount ?? 0,
           base: document.tax_base ?? document.gross_amount ?? 0,
           vatTotal: document.vat_total ?? 0,

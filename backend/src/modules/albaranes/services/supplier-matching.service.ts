@@ -3,6 +3,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import {
   calculateSimilarity,
   normalizeCifNif,
+  normalizeProductDescription,
 } from "../../../common/utils/string-similarity";
 
 export interface SupplierMatchResult {
@@ -166,6 +167,22 @@ export class SupplierMatchingService {
       };
     }
 
+    // El papel trae la razón social larga («COMESTIBLES SALAS MOLTO JUAN SALAS
+    // QUINTA») y el proveedor se guardó con el nombre corto («Salas Moltó»):
+    // la distancia de edición nunca llega al umbral. Si todas las palabras del
+    // nombre guardado aparecen en el del papel, es él; si casan varios, gana
+    // el que más palabras comparte, y en empate no se adivina.
+    const containedMatch = this.matchByContainedName(name, suppliers);
+    if (containedMatch) {
+      this.logger.log(`Name contained in OCR name: ${containedMatch.id}`);
+      return {
+        supplierId: containedMatch.id,
+        matchType: "NAME_FUZZY",
+        confidence: this.HIGH_CONFIDENCE_THRESHOLD,
+        suggestions: [],
+      };
+    }
+
     // Low confidence: return suggestions without auto-matching
     if (bestMatch.similarity >= this.LOW_CONFIDENCE_THRESHOLD) {
       this.logger.log(
@@ -186,6 +203,47 @@ export class SupplierMatchingService {
 
     // No good matches
     return null;
+  }
+
+  private matchByContainedName<
+    T extends { id: string; name: string; legalName: string | null },
+  >(ocrName: string, suppliers: T[]): T | null {
+    const ocrWords = new Set(normalizeProductDescription(ocrName).split(" "));
+    let best: { supplier: T; words: number } | null = null;
+    let tie = false;
+    for (const supplier of suppliers) {
+      const words = Math.max(
+        this.containedWordCount(supplier.name, ocrWords),
+        supplier.legalName
+          ? this.containedWordCount(supplier.legalName, ocrWords)
+          : 0,
+      );
+      if (words === 0) {
+        continue;
+      }
+      if (!best || words > best.words) {
+        best = { supplier, words };
+        tie = false;
+      } else if (words === best.words) {
+        tie = true;
+      }
+    }
+    return best && !tie ? best.supplier : null;
+  }
+
+  /**
+   * Nº de palabras del nombre si TODAS están en el texto del papel; 0 si falta
+   * alguna. Una sola palabra de 1-3 letras no basta.
+   */
+  private containedWordCount(name: string, ocrWords: Set<string>): number {
+    const words = normalizeProductDescription(name).split(" ").filter(Boolean);
+    if (words.length === 0 || !words.every((w) => ocrWords.has(w))) {
+      return 0;
+    }
+    if (words.length === 1 && words[0].length < 4) {
+      return 0;
+    }
+    return words.length;
   }
 
   /**
