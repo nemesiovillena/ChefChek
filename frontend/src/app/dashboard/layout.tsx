@@ -149,6 +149,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     [isEnabled, canEnter, user?.role, user?.isSharedAccount],
   );
 
+  const showSettings = !SETTINGS_LINK.hiddenForRoles?.includes(user?.role ?? '');
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212] text-[#e5e2e1]">
@@ -198,12 +200,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               )}
             </div>
           ))}
-          <Link
+          {showSettings && <Link
             href={SETTINGS_LINK.href}
             className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 whitespace-nowrap shrink-0 hidden lg:block"
           >
             {SETTINGS_LINK.label.toUpperCase()}
-          </Link>
+          </Link>}
         </div>
         <div className="flex items-center gap-stack-md shrink-0">
           {/* Nombre/rol solo desde xl y truncado: por debajo el menú ocupa el ancho y empujaba fuera el botón de cerrar sesión */}
@@ -211,7 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{(user?.role || 'CHEF DE CUISINE').replace('_', ' ').toUpperCase()}</p>
             <p className="font-body-md text-body-md text-primary truncate">{user?.name || 'Marcus V.'}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => router.push('/dashboard/settings')}>
+          <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => showSettings && router.push(SETTINGS_LINK.href)}>
             {user?.avatarUrl ? (
               <Image
                 alt="Foto de perfil"
@@ -358,7 +360,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
                 </div>
               ))}
-              <div className="border-t border-border pt-1.5">
+              {showSettings && <div className="border-t border-border pt-1.5">
                 <Link
                   href={SETTINGS_LINK.href}
                   onClick={() => setShowMobileMenu(false)}
@@ -367,7 +369,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="material-symbols-outlined text-[18px] text-secondary">{SETTINGS_LINK.icon}</span>
                   <span className="font-medium">{SETTINGS_LINK.label}</span>
                 </Link>
-              </div>
+              </div>}
             </div>
           </div>
         </>

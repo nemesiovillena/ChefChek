@@ -51,8 +51,13 @@ export interface NavSection {
   items: NavItem[];
 }
 
-/** Standalone top-bar link, always visible, no dropdown. */
-export const SETTINGS_LINK: NavItem = { label: 'Configuración', href: '/dashboard/settings', icon: 'settings' };
+/** Standalone top-bar link, no dropdown. Las cuentas con rol Usuario no lo ven. */
+export const SETTINGS_LINK: NavItem = {
+  label: 'Configuración',
+  href: '/dashboard/settings',
+  icon: 'settings',
+  hiddenForRoles: ['USER'],
+};
 
 /**
  * Grouped categories rendered as their own dropdown in the top bar (desktop)
@@ -197,10 +202,8 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
 /** ¿La ruta pertenece a un elemento del menú vetado para este rol (`hiddenForRoles`)? */
 export function isPathHiddenForRole(pathname: string, role: string | undefined): boolean {
   if (!role) return false;
-  return NAV_GROUPS.some((group) =>
-    group.items.some(
-      (item) => item.hiddenForRoles?.includes(role) && pathname.startsWith(item.href),
-    ),
+  return [SETTINGS_LINK, ...NAV_GROUPS.flatMap((group) => group.items)].some(
+    (item) => item.hiddenForRoles?.includes(role) && pathname.startsWith(item.href),
   );
 }
 
