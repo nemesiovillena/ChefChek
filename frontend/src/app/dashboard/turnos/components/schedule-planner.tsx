@@ -173,19 +173,24 @@ export function SchedulePlanner() {
     if (!locationId) return;
     const ok = await confirm({
       title: 'Copiar la semana anterior',
-      description: 'Se añaden a esta semana los turnos de la anterior, como borradores. Los que no encajen (ausencias, turnos que se pisan) se saltan.',
+      description:
+        'Se añaden a esta semana, como borradores, los turnos de la última semana planificada antes de esta (aunque haya semanas vacías en medio). Los que no encajen (ausencias, personas de baja, turnos que se pisan) se saltan.',
     });
     if (!ok) return;
     try {
-      const result = await copyWeek.mutateAsync({
-        locationId,
-        fromWeekStart: addDaysIso(weekStart, -7),
-        toWeekStart: weekStart,
-      });
+      const result = await copyWeek.mutateAsync({ locationId, toWeekStart: weekStart });
+      if (!result.fromWeekStart) {
+        notify({ type: 'warning', title: 'Nada que copiar', message: 'No hay ninguna semana anterior con turnos.' });
+        return;
+      }
+      const source = `de la semana ${formatWeekRange(result.fromWeekStart)}`;
       notify({
         type: result.copied > 0 ? 'success' : 'warning',
-        title: `${result.copied} turno${result.copied === 1 ? '' : 's'} copiado${result.copied === 1 ? '' : 's'}`,
-        message: result.skipped > 0 ? `${result.skipped} no se copiaron porque no encajan en esta semana.` : '',
+        title: `${result.copied} turno${result.copied === 1 ? '' : 's'} copiado${result.copied === 1 ? '' : 's'} ${source}`,
+        message:
+          result.skipped > 0
+            ? `${result.skipped} no se copiaron porque no encajan en esta semana (ausencia, persona de baja o ya hay un turno a esa hora).`
+            : '',
       });
     } catch (err) {
       notify({ type: 'error', title: 'Error', message: errorMessage(err) });

@@ -398,7 +398,7 @@ describe("E2E - Turnos: planificador", () => {
       { locationId: centerId, fromWeekStart: WEEK, toWeekStart: NEXT_WEEK },
     );
     // 5 turnos en origen; el de Luis del lunes cae en sus vacaciones del día 9.
-    expect(body(res)).toEqual({ copied: 4, skipped: 1 });
+    expect(body(res)).toEqual({ copied: 4, skipped: 1, fromWeekStart: WEEK });
 
     const next = await week(NEXT_WEEK);
     expect(next.shifts).toHaveLength(4);
@@ -419,13 +419,31 @@ describe("E2E - Turnos: planificador", () => {
         toWeekStart: NEXT_WEEK,
       }),
     );
-    expect(again).toEqual({ copied: 0, skipped: 5 });
+    expect(again).toEqual({ copied: 0, skipped: 5, fromWeekStart: WEEK });
 
     const same = await api(adminSession).post(
       "/api/v1/turnos/schedule/copy-week",
       { locationId: centerId, fromWeekStart: WEEK, toWeekStart: WEEK },
     );
     expect(same.status).toBe(400);
+  });
+
+  it("sin semana de origen copia la última planificada, aunque haya semanas vacías en medio", async () => {
+    // La semana del 16 está vacía: copiar en la del 23 toma la del 9.
+    const res = await api(adminSession).post(
+      "/api/v1/turnos/schedule/copy-week",
+      { locationId: centerId, toWeekStart: "2026-11-23" },
+    );
+    expect(res.status).toBe(201);
+    expect(body(res)).toMatchObject({ fromWeekStart: NEXT_WEEK });
+    expect(body(res).copied).toBeGreaterThan(0);
+
+    // Sin ninguna semana anterior con turnos no copia nada y lo dice.
+    const none = await api(adminSession).post(
+      "/api/v1/turnos/schedule/copy-week",
+      { locationId: centerId, toWeekStart: "2026-01-05" },
+    );
+    expect(body(none)).toEqual({ copied: 0, skipped: 0, fromWeekStart: null });
   });
 
   it("borra un turno", async () => {

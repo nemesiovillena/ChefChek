@@ -209,13 +209,24 @@ export class ShiftsService {
    * no encajan en la semana de destino (la persona tiene una ausencia, está
    * de baja o ya tiene un turno que se pisa) y dice cuántos.
    */
+  /**
+   * Copia como borradores los turnos de una semana en otra. Sin semana de
+   * origen, toma la última semana con turnos antes de la de destino: si la
+   * semana justo anterior quedó sin planificar, se copia la última que sí lo
+   * está. `fromWeekStart` dice de qué semana se copió (null si no había).
+   */
   async copyWeek(tenantId: string, dto: CopyWeekDto) {
-    const from = this.parseMonday(dto.fromWeekStart);
     const to = this.parseMonday(dto.toWeekStart);
+    await this.findLocation(tenantId, dto.locationId);
+    const from = dto.fromWeekStart
+      ? this.parseMonday(dto.fromWeekStart)
+      : await this.lastPlannedWeekBefore(tenantId, dto.locationId, to);
+    if (!from) {
+      return { copied: 0, skipped: 0, fromWeekStart: null };
+    }
     if (from.getTime() === to.getTime()) {
       throw new BadRequestException("Elige una semana de destino distinta.");
     }
-    await this.findLocation(tenantId, dto.locationId);
     const source = await this.prisma.shift.findMany({
       where: {
         tenantId,
@@ -270,7 +281,25 @@ export class ShiftsService {
       });
       copied += 1;
     }
-    return { copied, skipped };
+    return { copied, skipped, fromWeekStart: formatDate(from) };
+  }
+
+  /** Lunes de la última semana con algún turno en el centro antes de `before`. */
+  private async lastPlannedWeekBefore(
+    tenantId: string,
+    locationId: string,
+    before: Date,
+  ): Promise<Date | null> {
+    const last = await this.prisma.shift.findFirst({
+      where: { tenantId, locationId, date: { lt: before } },
+      orderBy: { date: "desc" },
+      select: { date: true },
+    });
+    if (!last) {
+      return null;
+    }
+    const weekday = (last.date.getUTCDay() + 6) % 7; // lunes = 0
+    return addDays(last.date, -weekday);
   }
 
   /** Publica los borradores de la semana: pasan a verlos sus asignados. */
