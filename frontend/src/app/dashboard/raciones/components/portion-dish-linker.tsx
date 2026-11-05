@@ -26,10 +26,13 @@ const keyOf = (d: { tipo: string; producto: string }) => `${d.tipo}|${d.producto
 export function PortionDishLinker({
   counterId,
   linkedKeys,
+  onPendingChange,
 }: {
   counterId: string;
   /** `tipo|producto` ya enlazados a este contador. */
   linkedKeys: Set<string>;
+  /** Avisa de cuántos platos hay marcados sin enlazar (para no perderlos al cerrar). */
+  onPendingChange?: (count: number) => void;
 }) {
   const addNotification = useNotification();
   const link = useLinkPortionDish();
@@ -40,18 +43,22 @@ export function PortionDishLinker({
   const term = search.trim();
   const { data: options = [], isFetching } = useCuinerDishSearch(term, term.length >= 2);
 
-  const toggle = (o: DishOption) =>
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (next.has(keyOf(o))) next.delete(keyOf(o));
-      else next.set(keyOf(o), o);
-      return next;
-    });
+  const toggle = (o: DishOption) => {
+    const next = new Map(selected);
+    if (next.has(keyOf(o))) next.delete(keyOf(o));
+    else next.set(keyOf(o), o);
+    setSelected(next);
+    onPendingChange?.(next.size);
+  };
 
   const linkSelected = async () => {
     const portionsPerSale = Number(perSale.replace(',', '.'));
     if (!Number.isFinite(portionsPerSale) || portionsPerSale <= 0) {
-      addNotification({ type: 'error', title: 'Raciones por venta', message: 'Indica un número mayor que 0.' });
+      addNotification({
+        type: 'error',
+        title: 'Raciones por venta',
+        message: 'Indica un número mayor que 0.',
+      });
       return;
     }
     const linked: string[] = [];
@@ -59,7 +66,13 @@ export function PortionDishLinker({
     // Uno a uno: si un plato ya gasta otro contador, el resto se enlaza igual.
     for (const o of selected.values()) {
       try {
-        await link.mutateAsync({ id: counterId, tipo: o.tipo, producto: o.producto, portionsPerSale, perPiece });
+        await link.mutateAsync({
+          id: counterId,
+          tipo: o.tipo,
+          producto: o.producto,
+          portionsPerSale,
+          perPiece,
+        });
         linked.push(o.nombre);
       } catch (err) {
         failed.push(`${o.nombre}: ${(err as Error).message}`);
@@ -76,6 +89,7 @@ export function PortionDishLinker({
       addNotification({ type: 'error', title: 'No se pudo enlazar', message: failed.join(' · ') });
     }
     setSelected(new Map());
+    onPendingChange?.(0);
     setPerSale('1');
     setPerPiece(false);
   };
@@ -163,8 +177,9 @@ export function PortionDishLinker({
       )}
       {selected.size > 0 && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm text-[var(--on-surface-variant)]">
-            {selected.size} {selected.size === 1 ? 'plato marcado' : 'platos marcados'}
+          <span className="text-sm font-medium text-error">
+            {selected.size} {selected.size === 1 ? 'plato marcado' : 'platos marcados'}: aún sin
+            enlazar
           </span>
           <Button onClick={linkSelected} disabled={link.isPending} className="min-h-[44px]">
             {link.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
