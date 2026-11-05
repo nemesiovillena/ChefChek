@@ -34,6 +34,16 @@ export function computeTotalsFromLines(lines: AlbaranLine[]): {
   return { base: round2(base), vatTotal: round2(vatTotal), total: round2(base + vatTotal) };
 }
 
+/**
+ * Total del papel con el signo de las líneas. Los abonos (Doria foods,
+ * WH/RMA/IN/…) imprimen los importes en positivo aunque sean una devolución:
+ * si las líneas suman en negativo y el papel en positivo, el total del papel
+ * es negativo. Así se compara y se muestra con el mismo signo que las líneas.
+ */
+export function signedPaperTotal(paperTotal: number, linesTotal: number): number {
+  return linesTotal < 0 && paperTotal > 0 ? -paperTotal : paperTotal;
+}
+
 export function computeTotalFromLines(lines: AlbaranLine[]): number {
   return computeTotalsFromLines(lines).total;
 }
@@ -63,7 +73,7 @@ export function getDisplayTotals(
   return {
     base: computed.base,
     vatTotal: computed.vatTotal,
-    total: stored.total > 0 ? stored.total : computed.total,
+    total: stored.total > 0 ? signedPaperTotal(stored.total, computed.total) : computed.total,
   };
 }
 
@@ -75,18 +85,23 @@ export function getDisplayTotals(
  * guarda entonces como «total» la suma de importes sin IVA. Si ese total
  * coincide con la base de las líneas y no se leyó IVA, es la base, no un
  * descuadre (misma regla que el envío a Cuiner, cuiner-export.service.ts).
+ * Esa excepción no vale para abonos: un abono cuyo papel coincide con la base
+ * es un abono sin IVA (Doria foods no lo aplica), y el aviso debe saltar para
+ * que el IVA de sus líneas se ponga a 0 %, que es lo que se enviará a Cuiner.
  */
 export function getTotalMismatch(
   albaran: Pick<Albaran, 'total' | 'lines'> & { vatTotal?: number | null },
-): { computed: number; paper: number } | null {
+): { computed: number; paper: number; isCreditNote: boolean } | null {
   const lines = albaran.lines ?? [];
   if (!(albaran.total > 0) || lines.length === 0) return null;
   const totals = computeTotalsFromLines(lines);
-  if (Math.abs(totals.total - albaran.total) <= TOTAL_MISMATCH_TOLERANCE) return null;
+  const paper = signedPaperTotal(albaran.total, totals.total);
+  if (Math.abs(totals.total - paper) <= TOTAL_MISMATCH_TOLERANCE) return null;
   const paperIsBaseOnly =
+    totals.base > 0 &&
     !(Number(albaran.vatTotal) > 0) &&
-    Math.abs(totals.base - albaran.total) <= TOTAL_MISMATCH_TOLERANCE;
-  return paperIsBaseOnly ? null : { computed: totals.total, paper: albaran.total };
+    Math.abs(totals.base - paper) <= TOTAL_MISMATCH_TOLERANCE;
+  return paperIsBaseOnly ? null : { computed: totals.total, paper, isCreditNote: paper < 0 };
 }
 
 /**
