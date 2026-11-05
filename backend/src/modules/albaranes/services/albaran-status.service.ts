@@ -160,6 +160,32 @@ export class AlbaranStatusService {
     }
   }
 
+  /**
+   * Pedido al que vincular solo un albarán de ese proveedor: el único enviado
+   * y pendiente de recibir cerca de la fecha del albarán. Con varios (o
+   * ninguno) devuelve null y el vínculo se elige a mano.
+   */
+  async findSingleOpenOrder(
+    tenantId: string,
+    supplierId: string,
+    albaranDate: Date,
+  ): Promise<string | null> {
+    try {
+      const orders = await this.orderReconciliationService.suggestOrders(
+        tenantId,
+        supplierId,
+        albaranDate,
+      );
+      return orders.length === 1 ? orders[0].id : null;
+    } catch (err) {
+      this.logger.error(
+        `No se pudo buscar el pedido del proveedor ${supplierId}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      return null;
+    }
+  }
+
   /** Un fallo del pedido no debe impedir marcar la mercancía como recibida. */
   private async markOrderReceived(
     tenantId: string,
