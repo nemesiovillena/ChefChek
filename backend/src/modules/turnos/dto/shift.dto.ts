@@ -98,8 +98,10 @@ export class CopyWeekDto {
   @IsString()
   locationId: string;
 
+  /** Sin ella se copia la última semana con turnos anterior a la de destino. */
+  @IsOptional()
   @Matches(DATE, { message: "fromWeekStart debe ser AAAA-MM-DD." })
-  fromWeekStart: string;
+  fromWeekStart?: string;
 
   @Matches(DATE, { message: "toWeekStart debe ser AAAA-MM-DD." })
   toWeekStart: string;

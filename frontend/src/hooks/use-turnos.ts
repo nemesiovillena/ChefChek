@@ -223,7 +223,11 @@ export function useDeleteShift() {
 
 export function useCopyWeek() {
   const invalidate = useInvalidateTurnos();
-  return useMutation<{ copied: number; skipped: number }, Error, { locationId: string; fromWeekStart: string; toWeekStart: string }>({
+  return useMutation<
+    { copied: number; skipped: number; fromWeekStart: string | null },
+    Error,
+    { locationId: string; fromWeekStart?: string; toWeekStart: string }
+  >({
     mutationFn: async (data) => (await apiClient.post(`${BASE}/schedule/copy-week`, data)).data,
     onSuccess: invalidate,
   });
