@@ -157,6 +157,7 @@ export class PortionCuinerSyncService {
           id: true,
           name: true,
           cuinerMismatchNotifiedAt: true,
+          cuinerCheckedAt: true,
           dishes: { select: { tipo: true, producto: true, perPiece: true } },
         },
       }),
@@ -198,6 +199,16 @@ export class PortionCuinerSyncService {
         // Se carga en el TPV: manda Cuiner y ChefChek se iguala, sin aviso.
         await this.ledger.alignToCuiner(tenantId, counter.id, cuiner!);
         mismatch = false;
+      } else if (mismatch && source === "BOTH" && !counter.cuinerCheckedAt) {
+        // Primera vez que se ve en Cuiner (contador recién enlazado): lo que
+        // ya marcaba Cuiner se toma tal cual, sin volver a escribirlo allí.
+        // Lo pendiente de ChefChek se suma porque aún llegará a Cuiner.
+        await this.ledger.alignToCuiner(
+          tenantId,
+          counter.id,
+          cuiner! + (pendingBy.get(counter.id) ?? 0),
+        );
+        mismatch = false;
       } else if (source === "CHEFCHEK") {
         // Solo en ChefChek: Cuiner no se carga desde aquí; no es un descuadre.
         mismatch = false;
@@ -224,7 +235,9 @@ export class PortionCuinerSyncService {
         where: { id: counter.id },
         data: {
           cuinerAvailable: cuiner,
-          cuinerCheckedAt: now,
+          // Solo cuenta como comprobado si Cuiner tiene contador para el plato:
+          // así, el día que lo cree, ChefChek toma lo que marque.
+          ...(cuiner !== null && { cuinerCheckedAt: now }),
           cuinerMismatchNotifiedAt: notifiedAt,
         },
       });
