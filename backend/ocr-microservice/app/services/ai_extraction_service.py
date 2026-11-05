@@ -62,6 +62,9 @@ REGLAS IMPORTANTES:
      printed_amount = su importe impreso (ej: 6 cajas, precio 0,07, importe 0,40 → printed_amount 0.40 aunque 6 × 0,07 = 0,42),
      total_price = printed_amount, y el mismo vat_percent que su artículo.
    - Comprobación: si el papel trae subtotales ("TOTAL PRODUCTOS", "TOTAL PUNTO VERDE"), la suma de tus líneas debe darlos.
+   - Línea de ABONO o devolución ("ABONO ...", "Devolución", envase devuelto, cantidad o importe con signo menos): SÍ es una
+     línea y RESTA del total. quantity NEGATIVA, unit_price POSITIVO, printed_amount y total_price NEGATIVOS
+     (ej: "ABONO AIRON MD -1 × 6,10 = -6,10" → quantity -1, unit_price 6.10, printed_amount -6.10, total_price -6.10).
 11. PIE DEL ALBARÁN: gross_amount, tax_base, vat_breakdown (base, tipo y cuota de cada fila), vat_total y total_amount se COPIAN
    tal cual están impresos, número a número, aunque no cuadren con tus líneas. NUNCA los recalcules ni los ajustes: se usan
    para comprobar tus líneas, así que un pie inventado esconde el error.
@@ -471,6 +474,18 @@ class AIExtractionService:
             product["unit_price"] = float(product.get("unit_price", 0) or 0)
             product["total_price"] = float(product.get("total_price", 0) or 0)
 
+            # Abono o devolución: la IA mezcla signos (cantidad -1, precio -6,10,
+            # importe 6,10) y los abs() de abajo borran el signo, así que la
+            # línea sumaba en vez de restar (Bioquim 001-1682). Se fija aquí:
+            # cantidad negativa, precio positivo e importe negativo.
+            printed_raw = float(product.get("printed_amount") or 0)
+            is_return = (
+                product["quantity"] < 0
+                or product["unit_price"] < 0
+                or product["total_price"] < 0
+                or printed_raw < 0
+            )
+
             # article_number y lot: string o null
             product["article_number"] = product.get("article_number") or None
             product["lot"] = product.get("lot") or None
@@ -488,6 +503,20 @@ class AIExtractionService:
                 product["price_with_vat"] = round(product["unit_price"] * (1 + product["vat_percent"] / 100), 4)
             else:
                 product["price_with_vat"] = None
+
+            if is_return:
+                quantity = abs(product["quantity"]) or 1
+                unit_price = abs(product["unit_price"])
+                amount = abs(printed_raw) or abs(product["total_price"]) or round(quantity * unit_price, 2)
+                product["quantity"] = -quantity
+                product["unit_price"] = unit_price
+                product["total_price"] = -round(amount, 2)
+                if product["price_with_vat"] is not None:
+                    product["price_with_vat"] = abs(product["price_with_vat"])
+                elif unit_price > 0 and product.get("vat_percent") is not None:
+                    product["price_with_vat"] = round(unit_price * (1 + product["vat_percent"] / 100), 4)
+                product["discount_amount"] = None
+                continue
 
             # Si falta total_price, calcularlo (cantidad × precio sin IVA)
             if product["total_price"] == 0 and product["quantity"] > 0 and product["unit_price"] > 0:
