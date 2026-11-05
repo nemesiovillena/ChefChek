@@ -18,19 +18,13 @@ import {
   RecipeIngredient,
 } from '@/hooks/use-recipes';
 import { processImageForUpload } from '@/lib/image-processing';
-import { RecipeAlphabetBar } from './components/recipe-alphabet-bar';
+import { AlphabetFilterBar, nameStartsWithLetter } from '@/components/alphabet-filter-bar';
 
 type SubRecipeRow = { subRecipeId: string; quantity: number; unit: string; note?: string };
 
 // Unidades de ingrediente/sub-receta con peso conocido, convertidas a gramos
 // (densidad=1 para l/ml/cl — misma convención que calculateSubRecipeCost en
 // backend). "units"/"raciones" no tienen peso conocido en el sistema.
-/** Misma regla que el backend: tildes cuentan como su vocal; Ñ es letra propia. */
-function nameStartsWithLetter(name: string, letter: string): boolean {
-  const first = name.trimStart().charAt(0).toUpperCase();
-  return first === 'Ñ' ? letter === 'Ñ' : first.normalize('NFD').charAt(0) === letter;
-}
-
 const KNOWN_WEIGHT_UNIT_FACTORS: Record<string, number> = { kg: 1000, g: 1, l: 1000, ml: 1, cl: 10 };
 import ElaborationStepEditor, {
   ElaborationStep,
@@ -952,7 +946,7 @@ export default function RecipesPage() {
           </div>
         </div>
 
-        <RecipeAlphabetBar
+        <AlphabetFilterBar
           selected={selectedLetter}
           available={availableLetters}
           onSelect={(letter) => { setSelectedLetter(letter); setPage(1); }}
