@@ -36,6 +36,25 @@ class LineNetAmountTest(unittest.TestCase):
         line = parse_line(quantity=6, unit_price=0.07, printed_amount=0.40)
         self.assertEqual(line["total_price"], 0.40)
 
+    def test_credit_line_with_mixed_signs_subtracts(self):
+        # Bioquim 001-1682: «ABONO AIRON MD» leído como -1 × -6,10 con importe 6,10.
+        line = parse_line(quantity=-1, unit_price=-6.10, total_price=6.10, price_with_vat=-7.38)
+        self.assertEqual(line["quantity"], -1)
+        self.assertEqual(line["unit_price"], 6.10)
+        self.assertEqual(line["total_price"], -6.10)
+        self.assertEqual(line["price_with_vat"], 7.38)
+
+    def test_credit_line_with_negative_printed_amount(self):
+        line = parse_line(quantity=2, unit_price=7.93, printed_amount=-15.86)
+        self.assertEqual(line["quantity"], -2)
+        self.assertEqual(line["total_price"], -15.86)
+        self.assertIsNone(line["discount_amount"])
+
+    def test_normal_line_keeps_positive_signs(self):
+        line = parse_line(quantity=1, unit_price=19, printed_amount=19)
+        self.assertEqual(line["quantity"], 1)
+        self.assertEqual(line["total_price"], 19)
+
 
 if __name__ == "__main__":
     unittest.main()
