@@ -169,19 +169,26 @@ export class CuinerExportService {
     // Excepción: albaranes sin total ni IVA impresos (Frutas Candela), donde
     // el OCR guarda como «total» la suma sin IVA. Si cuadra con la base y no
     // se leyó IVA, es la base: no hay descuadre.
+    // Los abonos (Doria foods) imprimen el total en positivo: si las líneas
+    // suman en negativo, el total del papel se toma en negativo. A un abono no
+    // se le aplica la excepción anterior: si cuadra con la base, es un abono
+    // sin IVA y sus líneas deben ir al 0 %, no con el IVA del artículo.
+    const paperTotal =
+      payload.total < 0 && albaran.total > 0 ? -albaran.total : albaran.total;
     const payloadBase = payload.sumas.reduce((acc, s) => acc + s.base, 0);
     const paperIsBaseOnly =
+      payloadBase > 0 &&
       !(Number(albaran.vatTotal) > 0) &&
-      Math.abs(payloadBase - albaran.total) <= TOTAL_MISMATCH_TOLERANCE;
+      Math.abs(payloadBase - paperTotal) <= TOTAL_MISMATCH_TOLERANCE;
     if (
       albaran.total > 0 &&
       !paperIsBaseOnly &&
-      Math.abs(payload.total - albaran.total) > TOTAL_MISMATCH_TOLERANCE
+      Math.abs(payload.total - paperTotal) > TOTAL_MISMATCH_TOLERANCE
     ) {
       const fmt = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
       return {
         problems: [
-          `El total calculado (${fmt(payload.total)}) no cuadra con el total del albarán (${fmt(albaran.total)}): revisa el IVA y los importes de las líneas`,
+          `El total calculado (${fmt(payload.total)}) no cuadra con el total del albarán (${fmt(paperTotal)}): revisa el IVA y los importes de las líneas`,
         ],
         payload: null,
       };
