@@ -213,6 +213,15 @@ export function useUpdatePortionCounter() {
   );
 }
 
+export function useDeletePortionCounter() {
+  const qc = useQueryClient();
+  return usePortionMutation(async (id: string) => {
+    await apiClient.delete(`/v1/raciones/${id}`);
+    // Sin esto, el refresco tras borrar vuelve a pedir su ficha → 404.
+    qc.removeQueries({ queryKey: [...RACIONES_KEY, 'detail', id] });
+  });
+}
+
 export function useLinkPortionDish() {
   return usePortionMutation(
     ({ id, ...input }: { id: string; tipo: string; producto: string; portionsPerSale?: number; perPiece?: boolean }) =>

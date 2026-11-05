@@ -231,6 +231,28 @@ export class PortionCounterService {
     return updated;
   }
 
+  /**
+   * Borra un contador mal creado. Sus movimientos y platos enlazados se van con
+   * él (cascade); las etiquetas no se tocan, solo dejan de sumar a este
+   * contador. Para quitarlo de la vista sin perder nada está «Desactivar».
+   */
+  async remove(tenantId: string, counterId: string) {
+    await this.findOrThrow(tenantId, counterId);
+    await this.prisma.$transaction([
+      // food_labels.portionCounterId no tiene FK: hay que soltarlas a mano.
+      this.prisma.foodLabel.updateMany({
+        where: { tenantId, portionCounterId: counterId },
+        data: {
+          portionCounterId: null,
+          portionsRemaining: null,
+          portionsExpiryAckAt: null,
+        },
+      }),
+      this.prisma.portionCounter.delete({ where: { id: counterId } }),
+    ]);
+    return { removed: true };
+  }
+
   async linkDish(tenantId: string, counterId: string, dto: LinkPortionDishDto) {
     await this.findOrThrow(tenantId, counterId);
     const existing = await this.prisma.portionCounterDish.findUnique({

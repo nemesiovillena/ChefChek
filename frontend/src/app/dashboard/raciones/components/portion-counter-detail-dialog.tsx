@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, Trash2, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useNotification } from '@/components/notification-system';
+import { useConfirm } from '@/contexts/confirm.context';
 import {
   MOVEMENT_LABEL,
   fmtPortions,
+  useDeletePortionCounter,
   usePortionCounterDetail,
   useUnlinkPortionDish,
   useUpdatePortionCounter,
@@ -55,6 +57,8 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
   const { data, isLoading } = usePortionCounterDetail(counter.id);
   const update = useUpdatePortionCounter();
   const unlink = useUnlinkPortionDish();
+  const remove = useDeletePortionCounter();
+  const confirm = useConfirm();
   const [minPortions, setMinPortions] = useState(String(counter.minPortions));
 
   const fail = (err: unknown) =>
@@ -79,6 +83,25 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
       fail(err);
     }
   };
+
+  const deleteCounter = () =>
+    confirm({
+      title: `¿Borrar el contador «${counter.name}»?`,
+      description:
+        'Se borran su historial y los platos de Cuiner enlazados. Las etiquetas no se tocan: solo dejan de sumar aquí. Si solo quieres quitarlo de la vista, usa «Desactivar contador».',
+      confirmText: 'Borrar',
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          await remove.mutateAsync(counter.id);
+        } catch (err) {
+          fail(err);
+          throw err;
+        }
+        addNotification({ type: 'success', title: 'Contador borrado', message: counter.name });
+        onClose();
+      },
+    });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -178,6 +201,14 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
                     className="ml-auto min-h-[44px] rounded-lg border border-[var(--outline-variant)] px-3 text-sm hover:bg-[var(--surface-container-high)]"
                   >
                     {counter.active ? 'Desactivar contador' : 'Volver a activar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deleteCounter}
+                    className="flex min-h-[44px] items-center gap-1 rounded-lg border border-error/40 px-3 text-sm text-error hover:bg-error/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Borrar contador
                   </button>
                 </div>
               </section>

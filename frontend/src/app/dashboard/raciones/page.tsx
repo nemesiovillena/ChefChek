@@ -1,14 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Loader2, Plus, Soup } from 'lucide-react';
+import { Loader2, Plus, Search, Soup, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AlphabetFilterBar, initialLetter } from '@/components/alphabet-filter-bar';
+import { foldAccents } from '@/lib/utils';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
-import {
-  usePortionOverview,
-  type PortionCounter,
-  type PortionState,
-} from '@/hooks/use-raciones';
+import { usePortionOverview, type PortionCounter, type PortionState } from '@/hooks/use-raciones';
 import { PortionCounterCard } from './components/portion-counter-card';
 import { PortionAdjustDialog, type AdjustMode } from './components/portion-adjust-dialog';
 import { PortionCounterCreateDialog } from './components/portion-counter-create-dialog';
@@ -19,6 +17,13 @@ export const dynamic = 'force-dynamic';
 
 /** Agotados primero, luego los que quedan pocos, luego por nombre. */
 const STATE_ORDER: Record<PortionState, number> = { out: 0, low: 1, ok: 2 };
+
+/** Con pocos contadores las 27 letras ocupan más que la lista: solo buscador. */
+const MIN_COUNTERS_FOR_ALPHABET = 12;
+
+/** Busca por el nombre del contador y por el de los platos de Cuiner enlazados (como se llaman en el TPV). */
+const matchesSearch = (c: PortionCounter, query: string) =>
+  [c.name, ...c.dishes.map((d) => d.name ?? '')].some((n) => foldAccents(n).includes(query));
 
 const fmtDateTime = (iso: string) =>
   new Intl.DateTimeFormat('es-ES', {
@@ -42,7 +47,12 @@ export default function RacionesPage() {
 
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [adjusting, setAdjusting] = useState<{ id: string; mode: AdjustMode } | null>(null);
+  const [adjusting, setAdjusting] = useState<{
+    id: string;
+    mode: AdjustMode;
+  } | null>(null);
+  const [search, setSearch] = useState('');
+  const [letter, setLetter] = useState('');
 
   const counters = useMemo(() => data?.counters ?? [], [data]);
   const byId = useMemo(() => new Map(counters.map((c) => [c.id, c])), [counters]);
@@ -56,6 +66,22 @@ export default function RacionesPage() {
         ),
     [counters],
   );
+  const query = foldAccents(search.trim());
+  const searched = useMemo(
+    () => (query ? active.filter((c) => matchesSearch(c, query)) : active),
+    [active, query],
+  );
+  const visible = letter ? searched.filter((c) => initialLetter(c.name) === letter) : searched;
+  const availableLetters = useMemo(
+    () => [...new Set(searched.map((c) => initialLetter(c.name)))],
+    [searched],
+  );
+  const showAlphabet = active.length >= MIN_COUNTERS_FOR_ALPHABET;
+  const hasFilters = Boolean(query || letter);
+  const clearFilters = () => {
+    setSearch('');
+    setLetter('');
+  };
   const inactive = counters.filter((c) => !c.active);
   const openCounter: PortionCounter | undefined = openId ? byId.get(openId) : undefined;
   const adjustCounter = adjusting ? byId.get(adjusting.id) : undefined;
@@ -67,7 +93,9 @@ export default function RacionesPage() {
           <span className="font-label-md text-label-md text-secondary tracking-widest uppercase">
             Cocina y sala
           </span>
-          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">Contador de platos</h2>
+          <h2 className="font-headline-lg text-headline-lg text-primary mt-stack-xs">
+            Contador de platos
+          </h2>
           <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
             {data?.cuinerCheckedAt
               ? `Enlazado con el Contador de platos de Cuiner: descuenta al pedir. Comprobado a las ${fmtDateTime(data.cuinerCheckedAt)}.`
@@ -101,18 +129,65 @@ export default function RacionesPage() {
                 : 'Aún no hay platos con contador.'}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {active.map((c) => (
-                <PortionCounterCard
-                  key={c.id}
-                  counter={c}
-                  canManage={canManage}
-                  onOpen={() => setOpenId(c.id)}
-                  onRecount={() => setAdjusting({ id: c.id, mode: 'recount' })}
-                  onAdjust={() => setAdjusting({ id: c.id, mode: 'adjust' })}
+            <>
+              <div className="relative mb-3 max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--on-surface-variant)]" />
+                <input
+                  type="text"
+                  inputMode="search"
+                  enterKeyHint="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar plato"
+                  aria-label="Buscar plato"
+                  className="min-h-[44px] w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] py-2 pl-9 pr-10 text-base"
                 />
-              ))}
-            </div>
+                {search && (
+                  <button
+                    type="button"
+                    aria-label="Borrar búsqueda"
+                    onClick={() => setSearch('')}
+                    className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full hover:bg-[var(--surface-container-high)]"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {showAlphabet && (
+                <AlphabetFilterBar
+                  selected={letter}
+                  available={availableLetters}
+                  onSelect={setLetter}
+                />
+              )}
+              {visible.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-[var(--outline-variant)] p-8 text-center text-[var(--on-surface-variant)]">
+                  Ningún plato coincide.
+                  {hasFilters && (
+                    <Button
+                      variant="outline"
+                      onClick={clearFilters}
+                      className="mt-3 block min-h-[44px] mx-auto"
+                    >
+                      Quitar filtros
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {visible.map((c) => (
+                    <PortionCounterCard
+                      key={c.id}
+                      counter={c}
+                      canManage={canManage}
+                      onOpen={() => setOpenId(c.id)}
+                      onRecount={() => setAdjusting({ id: c.id, mode: 'recount' })}
+                      onAdjust={() => setAdjusting({ id: c.id, mode: 'adjust' })}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {canManage && inactive.length > 0 && (
@@ -143,6 +218,8 @@ export default function RacionesPage() {
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false);
+            // Que el contador nuevo no quede oculto por un filtro activo.
+            clearFilters();
             setOpenId(id);
           }}
         />
