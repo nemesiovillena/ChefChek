@@ -1346,19 +1346,7 @@ export class AlbaranesService {
       },
     });
 
-    // Recalculate albaran totals from all lines
-    const allLines = [...albaran.lines, line];
-    const base = allLines.reduce((sum, l) => sum + Number(l.lineAmount), 0);
-    const vatTotal = allLines.reduce(
-      (sum, l) => sum + Number(l.lineAmount) * (Number(l.vatPercent) / 100),
-      0,
-    );
-    const total = base + vatTotal;
-
-    await this.prisma.albaran.update({
-      where: { id: albaranId },
-      data: { base, vatTotal, total },
-    });
+    await this.addLineToTotals(this.prisma, albaran, lineAmount, vatPercent);
 
     return { success: true, data: line };
   }
@@ -1410,8 +1398,6 @@ export class AlbaranesService {
     const unitPrice = Number(dto.unitPrice) || 0;
     const vatPercent = Number(dto.vatPercent) || 10;
     const lineAmount = quantity * unitPrice;
-    const round2 = (n: number) => Math.round(n * 100) / 100;
-    const vatDelta = round2(lineAmount * (vatPercent / 100));
 
     return this.prisma.$transaction(async (tx) => {
       const line = await tx.albaranLine.create({
@@ -1435,21 +1421,41 @@ export class AlbaranesService {
         },
       });
 
-      if (!hasPaperTotal(albaran)) {
-        await tx.albaran.update({
-          where: { id: albaran.id },
-          data: {
-            grossAmount: { increment: round2(lineAmount) },
-            base: { increment: round2(lineAmount) },
-            vatTotal: { increment: vatDelta },
-            total: { increment: round2(lineAmount + vatDelta) },
-          },
-        });
-      }
+      await this.addLineToTotals(tx, albaran, lineAmount, vatPercent);
 
       await this.stockService.processAddedLine(tx, albaran, line, tenantId);
 
       return { success: true, data: line };
+    });
+  }
+
+  /**
+   * Totales del albarán al añadir una línea a mano. Si el albarán trae total
+   * del papel, no se tocan: ese total ya incluía la línea que faltaba (un
+   * punto verde o una tasa que el OCR no leyó) y añadirla es lo que hace
+   * cuadrar las líneas con él. Recalcularlos desde las líneas con cantidad ×
+   * precio pisaba el total del papel e ignoraba los netos con descuento.
+   * En los manuales no hay papel y los totales suman la línea nueva.
+   */
+  private async addLineToTotals(
+    client: any,
+    albaran: { id: string; ocrRawData?: unknown },
+    lineAmount: number,
+    vatPercent: number,
+  ): Promise<void> {
+    if (hasPaperTotal(albaran)) {
+      return;
+    }
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const vatDelta = round2(lineAmount * (vatPercent / 100));
+    await client.albaran.update({
+      where: { id: albaran.id },
+      data: {
+        grossAmount: { increment: round2(lineAmount) },
+        base: { increment: round2(lineAmount) },
+        vatTotal: { increment: vatDelta },
+        total: { increment: round2(lineAmount + vatDelta) },
+      },
     });
   }
 }
