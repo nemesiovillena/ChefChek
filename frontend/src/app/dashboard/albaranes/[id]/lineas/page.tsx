@@ -3,6 +3,7 @@
 import { Fragment, useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useInvalidateOrders } from '@/hooks/use-purchase-orders';
 import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
@@ -58,6 +59,7 @@ export default function AlbaranLineasPage() {
   const addNotification = useNotification();
   const confirm = useConfirm();
   const queryClient = useQueryClient();
+  const invalidateOrders = useInvalidateOrders();
 
   // Product picker dialog state
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -121,6 +123,8 @@ export default function AlbaranLineasPage() {
       // esto el CTA "Confirmar Albarán" seguía apareciendo tras confirmar.
       void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
       void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      // El pedido vinculado pasa a recibido: que Compras no lo siga mostrando.
+      invalidateOrders();
       addNotification({
         type: 'success',
         title: nextStatus === 'CONFIRMADO' ? 'Albarán confirmado' : 'Albarán revisado',
@@ -145,6 +149,7 @@ export default function AlbaranLineasPage() {
       // chocaba con "CONFIRMADO → CONFIRMADO".
       void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
       void queryClient.invalidateQueries({ queryKey: ['albaran', id] });
+      invalidateOrders();
       refetch();
       addNotification({
         type: 'error',
