@@ -24,15 +24,40 @@ import {
 } from '../../check-in/components/check-in-form-styles';
 import { PlanVsActualView } from './plan-vs-actual-view';
 import { ScheduleAlertsCard } from './schedule-alerts-card';
+import { ScheduleDayView } from './schedule-day-view';
 import { ScheduleGrid } from './schedule-grid';
+import { ScheduleMonthView } from './schedule-month-view';
 import { ShiftEditor, type EditorTarget } from './shift-editor';
-import { addDaysIso, formatEuros, formatHours, formatWeekRange, mondayOf } from './week-utils';
+import {
+  addDaysIso,
+  addMonthsIso,
+  formatDayLong,
+  formatEuros,
+  formatHours,
+  formatMonth,
+  formatWeekRange,
+  mondayOfIso,
+  todayIso,
+} from './week-utils';
 
 type PlannerView = 'plan' | 'actual';
 const VIEWS: { id: PlannerView; label: string }[] = [
   { id: 'plan', label: 'Planificación' },
   { id: 'actual', label: 'Plan frente a real' },
 ];
+
+/** Cuánto abarca la planificación en pantalla. */
+type Span = 'day' | 'week' | 'month';
+const SPANS: { id: Span; label: string }[] = [
+  { id: 'day', label: 'Día' },
+  { id: 'week', label: 'Semana' },
+  { id: 'month', label: 'Mes' },
+];
+const SPAN_NAV: Record<Span, { prev: string; next: string }> = {
+  day: { prev: 'Día anterior', next: 'Día siguiente' },
+  week: { prev: 'Semana anterior', next: 'Semana siguiente' },
+  month: { prev: 'Mes anterior', next: 'Mes siguiente' },
+};
 
 const navBtn = 'flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--outline-variant)]';
 
@@ -128,11 +153,16 @@ export function SchedulePlanner() {
   const notify = useNotification();
   const confirm = useConfirm();
   const { data: centers } = useWorkCenters();
-  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  // Fecha de referencia: el día que se ve, o uno de la semana o del mes.
+  const [day, setDay] = useState(todayIso);
+  const [chosenSpan, setSpan] = useState<Span>('week');
   const [chosenCenter, setChosenCenter] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditorTarget | null>(null);
   const [duplicate, setDuplicate] = useState(false);
   const [view, setView] = useState<PlannerView>('plan');
+  // Plan frente a real solo existe por semanas.
+  const span: Span = view === 'actual' ? 'week' : chosenSpan;
+  const weekStart = mondayOfIso(day);
 
   const activeCenters = (centers ?? []).filter((c) => c.isActive);
   // Sin elegir, el centro principal.
@@ -143,9 +173,20 @@ export function SchedulePlanner() {
   const copyWeek = useCopyWeek();
   const publish = usePublishWeek();
 
-  function goToWeek(next: string) {
+  function goTo(next: string) {
     setEditing(null);
-    setWeekStart(next);
+    setDay(next);
+  }
+
+  function step(direction: 1 | -1) {
+    if (span === 'day') goTo(addDaysIso(day, direction));
+    else if (span === 'week') goTo(addDaysIso(day, 7 * direction));
+    else goTo(addMonthsIso(day, direction));
+  }
+
+  function openDay(date: string) {
+    setSpan('day');
+    goTo(date);
   }
 
   async function handleDrop(shift: Shift, employeeId: string | null, date: string) {
@@ -223,16 +264,38 @@ export function SchedulePlanner() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => goToWeek(addDaysIso(weekStart, -7))} className={navBtn} aria-label="Semana anterior">
+          <button type="button" onClick={() => step(-1)} className={navBtn} aria-label={SPAN_NAV[span].prev}>
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="min-w-[170px] text-center font-medium">{formatWeekRange(weekStart)}</span>
-          <button type="button" onClick={() => goToWeek(addDaysIso(weekStart, 7))} className={navBtn} aria-label="Semana siguiente">
+          <span className="min-w-[170px] text-center font-medium first-letter:uppercase">
+            {span === 'day' ? formatDayLong(day) : span === 'month' ? formatMonth(day) : formatWeekRange(weekStart)}
+          </span>
+          <button type="button" onClick={() => step(1)} className={navBtn} aria-label={SPAN_NAV[span].next}>
             <ChevronRight className="h-5 w-5" />
           </button>
-          <button type="button" onClick={() => goToWeek(mondayOf(new Date()))} className="min-h-[44px] px-2 text-sm underline">
+          <button type="button" onClick={() => goTo(todayIso())} className="min-h-[44px] px-2 text-sm underline">
             Hoy
           </button>
+          {view === 'plan' && (
+            <div role="group" aria-label="Periodo" className="flex rounded-xl border border-[var(--outline-variant)] p-0.5">
+              {SPANS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={span === id}
+                  onClick={() => {
+                    setEditing(null);
+                    setSpan(id);
+                  }}
+                  className={`min-h-[40px] rounded-lg px-3 text-sm font-medium ${
+                    span === id ? 'bg-[var(--primary)] text-primary-foreground' : 'text-[var(--on-surface-variant)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         {activeCenters.length > 1 && (
           <select
@@ -277,6 +340,8 @@ export function SchedulePlanner() {
 
       {view === 'actual' ? (
         locationId && <PlanVsActualView locationId={locationId} weekStart={weekStart} />
+      ) : span === 'month' ? (
+        locationId && <ScheduleMonthView locationId={locationId} date={day} onOpenDay={openDay} />
       ) : isLoading || !schedule ? (
         <p className="text-[var(--on-surface-variant)]">Cargando…</p>
       ) : (
@@ -284,7 +349,9 @@ export function SchedulePlanner() {
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={handlePublish} disabled={schedule.draftCount === 0 || publish.isPending} className={primaryBtnCls}>
               {publish.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {schedule.draftCount > 0 ? `Publicar (${schedule.draftCount} sin publicar)` : 'Todo publicado'}
+              {schedule.draftCount > 0
+                ? `Publicar la semana (${schedule.draftCount} sin publicar)`
+                : 'Semana publicada'}
             </button>
             <button type="button" onClick={handleCopyPrevious} disabled={copyWeek.isPending} className={secondaryBtnCls}>
               {copyWeek.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
@@ -295,7 +362,7 @@ export function SchedulePlanner() {
               Duplicar al arrastrar
             </label>
             <span className="ml-auto text-sm text-[var(--on-surface-variant)]">
-              {formatHours(totalMinutes)} planificadas · {formatEuros(schedule.laborCost.total)} estimados
+              {formatHours(totalMinutes)} planificadas en la semana · {formatEuros(schedule.laborCost.total)} estimados
               {schedule.laborCost.employeesWithoutCost > 0 &&
                 ` (${schedule.laborCost.employeesWithoutCost} sin coste hora)`}
               {schedule.lastPublication &&
@@ -303,16 +370,29 @@ export function SchedulePlanner() {
             </span>
           </div>
 
-          <ScheduleGrid
-            schedule={schedule}
-            selectedShiftId={editing && 'shift' in editing ? editing.shift.id : null}
-            onSelectShift={(shift) => setEditing({ shift })}
-            onAddShift={(employeeId, date) => setEditing({ employeeId, date })}
-            onDropShift={handleDrop}
-          />
+          {span === 'day' ? (
+            <ScheduleDayView
+              schedule={schedule}
+              date={day}
+              selectedShiftId={editing && 'shift' in editing ? editing.shift.id : null}
+              onSelectShift={(shift) => setEditing({ shift })}
+              onAddShift={(employeeId, date) => setEditing({ employeeId, date })}
+            />
+          ) : (
+            <ScheduleGrid
+              schedule={schedule}
+              selectedShiftId={editing && 'shift' in editing ? editing.shift.id : null}
+              onSelectShift={(shift) => setEditing({ shift })}
+              onAddShift={(employeeId, date) => setEditing({ employeeId, date })}
+              onDropShift={handleDrop}
+            />
+          )}
           <p className="text-sm text-[var(--on-surface-variant)]">
-            Arrastra un turno a otro día o a otra persona. Borde discontinuo = borrador, todavía no lo ve su persona. Los
-            cambios sobre un turno ya publicado se ven al momento.
+            {span === 'day'
+              ? 'Toca un turno para cambiarlo. Para moverlo a otro día, usa la vista de semana.'
+              : 'Arrastra un turno a otro día o a otra persona.'}{' '}
+            Borde discontinuo = borrador, todavía no lo ve su persona. Los cambios sobre un turno ya publicado se ven al
+            momento.
           </p>
 
           <ScheduleAlertsCard alerts={schedule.alerts} />
