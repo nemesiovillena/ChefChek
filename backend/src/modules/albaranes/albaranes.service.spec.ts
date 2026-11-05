@@ -1449,10 +1449,42 @@ describe("AlbaranesService", () => {
       );
 
       expect(res).toEqual({ success: true, data: createdLine });
+      // Sin total del papel (manual): suma solo la línea nueva.
       expect(prisma.albaran.update).toHaveBeenCalledWith({
         where: { id: "alb-1" },
-        data: expect.objectContaining({ base: 110 }),
+        data: {
+          grossAmount: { increment: 10 },
+          base: { increment: 10 },
+          vatTotal: { increment: 1 },
+          total: { increment: 11 },
+        },
       });
+    });
+
+    it("con total del papel no toca los totales al añadir la línea que faltaba", async () => {
+      // Burruezo 05/727: dos líneas con neto 80,89 (bruto 91,92) y total del
+      // papel 179,50 que ya incluye el punto verde de 1,40 que faltaba.
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.REVISADO,
+          total: 179.5,
+          ocrRawData: { total_amount: 179.5 },
+          lines: [
+            { lineAmount: 91.92, totalPrice: 80.89, vatPercent: 10 },
+            { lineAmount: 91.92, totalPrice: 80.89, vatPercent: 10 },
+          ],
+        }),
+      );
+      prisma.albaranLine.create.mockResolvedValue({ id: "l3" });
+
+      await service.addLine(
+        "alb-1",
+        { description: "CLPPV", quantity: 1, unitPrice: 1.4 } as any,
+        "t1",
+      );
+
+      expect(prisma.albaranLine.create).toHaveBeenCalled();
+      expect(prisma.albaran.update).not.toHaveBeenCalled();
     });
 
     describe("sobre albarán CONFIRMADO", () => {
