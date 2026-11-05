@@ -59,7 +59,7 @@ Panel de planificación visual inspirado en Skello: rejilla semanal empleados ×
 - [x] Copiar semana respeta ausencias y no duplica al repetir (e2e)
 - [x] Borradores invisibles para el empleado hasta publicar; constancia de cada publicación (e2e)
 - [x] Ausencias y festivos visibles en la rejilla; horas por persona (frente a las pactadas) y por día
-- [ ] Notificar a los afectados al publicar (no hay notificaciones)
+- [x] Aviso en la campana al publicar la semana («Turnos publicados» o «Cambios en los turnos»), sin nombres ni horas; enlaza a Mi espacio
 - [ ] Vistas de día y de mes (solo semana)
 - [ ] Fluidez con 40 empleados y uso en tablet (sin probar)
 

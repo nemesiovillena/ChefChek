@@ -44,3 +44,17 @@ describe("horario de un turno", () => {
     expect(isMonday(new Date("nope"))).toBe(false);
   });
 });
+
+describe("weekLabel", () => {
+  // Importado aquí para no crear otro fichero de test por una función.
+  const { weekLabel } = jest.requireActual("./shifts.service");
+
+  it("nombra la semana dentro de un mes y entre dos meses", () => {
+    expect(weekLabel(new Date("2026-11-09T00:00:00Z"))).toBe(
+      "del 9 al 15 de noviembre",
+    );
+    expect(weekLabel(new Date("2026-12-28T00:00:00Z"))).toBe(
+      "del 28 de diciembre al 3 de enero",
+    );
+  });
+});

@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { AbsenceStatus, Shift, ShiftStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CheckInSettingsService } from "../../check-in/services/check-in-settings.service";
+import { NotificationsService } from "../../core/notifications.service";
 import {
   CopyWeekDto,
   CreateShiftDto,
@@ -43,10 +45,13 @@ interface ShiftDraft {
  */
 @Injectable()
 export class ShiftsService {
+  private readonly logger = new Logger(ShiftsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly holidays: HolidaysService,
     private readonly settings: CheckInSettingsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Todo lo que pinta la rejilla de una semana en un centro. */
@@ -281,7 +286,10 @@ export class ShiftsService {
     by: Actor,
   ) {
     const monday = this.parseMonday(weekStart);
-    await this.findLocation(tenantId, locationId);
+    const location = await this.findLocation(tenantId, locationId);
+    const alreadyPublished = await this.prisma.schedulePublication.count({
+      where: { tenantId, locationId, weekStart: monday },
+    });
     const result = await this.prisma.shift.updateMany({
       where: {
         tenantId,
@@ -302,8 +310,47 @@ export class ShiftsService {
           publishedByName: by.name,
         },
       });
+      await this.announcePublication(
+        tenantId,
+        location.name,
+        monday,
+        alreadyPublished > 0,
+        by,
+      );
     }
     return { published: result.count };
+  }
+
+  /**
+   * Aviso en la campana: la campana la ve toda la plantilla, así que el texto
+   * solo dice qué semana y qué centro, nunca quién trabaja ni cuándo. Si el
+   * aviso falla, la semana queda publicada igual.
+   */
+  private async announcePublication(
+    tenantId: string,
+    locationName: string,
+    monday: Date,
+    isUpdate: boolean,
+    by: Actor,
+  ) {
+    const week = weekLabel(monday);
+    try {
+      await this.notifications.createNotification(tenantId, {
+        type: "SCHEDULE_PUBLISHED",
+        severity: "INFO",
+        title: isUpdate ? "Cambios en los turnos" : "Turnos publicados",
+        message: isUpdate
+          ? `Hay turnos nuevos en ${locationName} para la semana ${week}. Mira los tuyos en Mi espacio.`
+          : `Ya están los turnos de ${locationName} de la semana ${week}. Mira los tuyos en Mi espacio.`,
+        userId: by.id,
+        entityType: "SCHEDULE_WEEK",
+        entityId: formatDate(monday),
+      });
+    } catch (error) {
+      this.logger.error(
+        `No se pudo avisar de la publicación de turnos: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 
   /** Turnos publicados de una persona entre dos fechas. */
@@ -536,4 +583,29 @@ function toShiftView(shift: Shift) {
     note: shift.note,
     status: shift.status,
   };
+}
+
+const MONTHS = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/** Lunes 9 de noviembre -> "del 9 al 15 de noviembre"; "del 28 de diciembre al 3 de enero". */
+export function weekLabel(monday: Date): string {
+  const sunday = addDays(monday, 6);
+  const day = (d: Date) => d.getUTCDate();
+  const month = (d: Date) => MONTHS[d.getUTCMonth()];
+  return monday.getUTCMonth() === sunday.getUTCMonth()
+    ? `del ${day(monday)} al ${day(sunday)} de ${month(sunday)}`
+    : `del ${day(monday)} de ${month(monday)} al ${day(sunday)} de ${month(sunday)}`;
 }
