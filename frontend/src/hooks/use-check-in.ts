@@ -31,6 +31,8 @@ import type {
   OwnCheckInState,
   PresenceEntry,
   PunchInput,
+  TeamUnclosedDay,
+  UnclosedDay,
   PunchView,
   ReviewPunch,
   WorkCenter,
@@ -54,6 +56,7 @@ const KEYS = {
   adjustments: ['check-in', 'adjustments'],
   timesheets: ['check-in', 'timesheets'],
   inspectionLinks: ['check-in', 'inspection-links'],
+  unclosed: ['check-in', 'unclosed-days'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -370,10 +373,30 @@ export function useEmployeeMonth(employeeId: string | null, year: number, month:
 function useInvalidateWorkdays() {
   const qc = useQueryClient();
   return () => {
-    for (const key of [KEYS.month, KEYS.adjustments, KEYS.timesheets, KEYS.review, KEYS.me, KEYS.presence]) {
+    for (const key of [
+      KEYS.month,
+      KEYS.adjustments,
+      KEYS.timesheets,
+      KEYS.review,
+      KEYS.me,
+      KEYS.presence,
+      KEYS.unclosed,
+    ]) {
       qc.invalidateQueries({ queryKey: key });
     }
   };
+}
+
+/** Mis días recientes sin cerrar (olvido de fichaje). */
+export function useOwnUnclosedDays(enabled: boolean) {
+  return useApiQuery<UnclosedDay[]>([...KEYS.unclosed, 'me'], `${BASE}/me/unclosed-days`, { enabled });
+}
+
+/** Días recientes sin cerrar de todo el equipo (gerencia). */
+export function useTeamUnclosedDays() {
+  return useApiQuery<TeamUnclosedDay[]>([...KEYS.unclosed, 'team'], `${BASE}/unclosed-days`, {
+    refetchInterval: 5 * 60_000,
+  });
 }
 
 export function useOwnAdjustments() {

@@ -18,6 +18,7 @@ import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import { WorkdaysController } from "./workdays.controller";
 import { AdjustmentsService } from "./services/adjustments.service";
 import { WorkdaysService } from "./services/workdays.service";
+import { UnclosedWorkdaysService } from "./services/unclosed-workdays.service";
 import { TimesheetsService } from "./services/timesheets.service";
 import { ReportsController } from "./reports.controller";
 import { InspectionPublicController } from "./inspection-public.controller";
@@ -74,6 +75,7 @@ import { AgreementExtractionService } from "./services/agreement-extraction.serv
     KioskKeyService,
     AdjustmentsService,
     WorkdaysService,
+    UnclosedWorkdaysService,
     TimesheetsService,
     ReportService,
     ReportExportService,
