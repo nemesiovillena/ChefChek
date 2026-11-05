@@ -20,22 +20,32 @@ export interface DashboardLayout {
 }
 
 /**
- * Cuentas con inicio configurable: los dispositivos compartidos y la
- * administración (OWNER/ADMIN). El resto de cuentas personales ven el inicio
+ * Cuentas con inicio configurable una a una: los dispositivos compartidos y la
+ * administración (OWNER/ADMIN). Las cuentas personales de rol Usuario
+ * comparten una pantalla común (ROLE_USER_SCREEN_ID); el resto ve el inicio
  * completo.
  */
+const ADMIN_ROLES: UserRole[] = ["OWNER", "ADMIN"];
 const CONFIGURABLE_ACCOUNT = {
-  OR: [
-    { isSharedAccount: true },
-    { role: { in: ["OWNER", "ADMIN"] as UserRole[] } },
-  ],
+  OR: [{ isSharedAccount: true }, { role: { in: ADMIN_ROLES } }],
 };
+
+/**
+ * Pantalla común de las cuentas personales con rol Usuario. Va en el sitio del
+ * userId (rutas, clave de configuración) para reutilizar editor y vista previa.
+ */
+export const ROLE_USER_SCREEN_ID = "role:USER";
+/** USER_CUINER es Usuario + Albaranes: comparte su pantalla. */
+const ROLE_USER_ROLES: UserRole[] = ["USER", "USER_CUINER"];
 
 export interface SharedDeviceLayout {
   userId: string;
   name: string;
-  /** device = dispositivo compartido; admin = cuenta de administración. */
-  kind: "device" | "admin";
+  /**
+   * device = dispositivo compartido; admin = cuenta de administración;
+   * role = pantalla común de las cuentas personales con rol Usuario.
+   */
+  kind: "device" | "admin" | "role";
   /** null = sin configurar: el dispositivo ve el dashboard completo. */
   layout: DashboardLayout | null;
 }
@@ -53,20 +63,31 @@ export class DashboardLayoutService {
     private readonly roleAccess: RoleAccessService,
   ) {}
 
-  /** Pantalla del usuario autenticado; null si no es un dispositivo configurado. */
+  /**
+   * Pantalla del usuario autenticado: la suya si es configurable una a una; la
+   * común si es una cuenta personal de rol Usuario; null = dashboard completo.
+   */
   async getForUser(
     tenantId: string,
     userId: string,
   ): Promise<DashboardLayout | null> {
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, tenantId, ...CONFIGURABLE_ACCOUNT },
-      select: { id: true },
+      where: { id: userId, tenantId },
+      select: { role: true, isSharedAccount: true },
     });
     if (!user) {
       return null;
     }
+    const screenId = isOwnScreen(user)
+      ? userId
+      : ROLE_USER_ROLES.includes(user.role)
+        ? ROLE_USER_SCREEN_ID
+        : null;
+    if (!screenId) {
+      return null;
+    }
     const row = await this.prisma.configuration.findUnique({
-      where: { tenantId_key: { tenantId, key: `${KEY_PREFIX}${userId}` } },
+      where: { tenantId_key: { tenantId, key: `${KEY_PREFIX}${screenId}` } },
     });
     return row ? parseLayout(row.value) : null;
   }
@@ -84,15 +105,24 @@ export class DashboardLayoutService {
     const byUser = new Map(
       rows.map((r) => [r.key.slice(KEY_PREFIX.length), r.value]),
     );
-    return devices.map((d) => {
-      const value = byUser.get(d.id);
-      return {
-        userId: d.id,
-        name: d.name,
-        kind: d.isSharedAccount ? ("device" as const) : ("admin" as const),
-        layout: value ? parseLayout(value) : null,
-      };
-    });
+    const roleValue = byUser.get(ROLE_USER_SCREEN_ID);
+    return [
+      ...devices.map((d) => {
+        const value = byUser.get(d.id);
+        return {
+          userId: d.id,
+          name: d.name,
+          kind: d.isSharedAccount ? ("device" as const) : ("admin" as const),
+          layout: value ? parseLayout(value) : null,
+        };
+      }),
+      {
+        userId: ROLE_USER_SCREEN_ID,
+        name: "Usuario",
+        kind: "role" as const,
+        layout: roleValue ? parseLayout(roleValue) : null,
+      },
+    ];
   }
 
   async update(
@@ -126,7 +156,7 @@ export class DashboardLayoutService {
         key,
         value,
         category: CONFIG_CATEGORY,
-        description: `Dashboard layout for shared device ${deviceId}`,
+        description: `Dashboard layout for ${deviceId}`,
         updatedBy: editorId,
       },
       update: { value, updatedBy: editorId },
@@ -143,6 +173,12 @@ export class DashboardLayoutService {
     tenantId: string,
     deviceId: string,
   ): Promise<Record<string, boolean>> {
+    // Pantalla común: permisos del rol Usuario, sin puesto ni persona.
+    if (deviceId === ROLE_USER_SCREEN_ID) {
+      return (
+        (await this.roleAccess.getSectionMapForUserRole(tenantId, "USER")) ?? {}
+      );
+    }
     const device = await this.prisma.user.findFirst({
       where: { id: deviceId, tenantId, ...CONFIGURABLE_ACCOUNT },
       select: { id: true, role: true },
@@ -171,6 +207,9 @@ export class DashboardLayoutService {
     tenantId: string,
     userId: string,
   ): Promise<void> {
+    if (userId === ROLE_USER_SCREEN_ID) {
+      return;
+    }
     const device = await this.prisma.user.findFirst({
       where: { id: userId, tenantId, ...CONFIGURABLE_ACCOUNT },
       select: { id: true },
@@ -179,6 +218,14 @@ export class DashboardLayoutService {
       throw new NotFoundException("Cuenta sin pantalla configurable");
     }
   }
+}
+
+/** Mismo criterio que CONFIGURABLE_ACCOUNT, sobre un usuario ya leído. */
+function isOwnScreen(user: {
+  role: UserRole;
+  isSharedAccount: boolean;
+}): boolean {
+  return user.isSharedAccount || ADMIN_ROLES.includes(user.role);
 }
 
 /** Valor guardado → layout; descarta cards que ya no existen. Corrupto → null. */
