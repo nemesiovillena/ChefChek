@@ -27,6 +27,9 @@ export interface ServerToClientEvents {
   stockUpdated: (stock: StockEvent) => void;
   stockCritical: (alert: StockAlertEvent) => void;
 
+  // Check-In: alguien ha fichado (solo la señal, sin datos de la persona)
+  checkInPresenceChanged: (data: { at: string }) => void;
+
   // Digital menu events
   qrScan: (scan: QRScanEvent) => void;
   menuUpdated: (menu: MenuEvent) => void;
@@ -182,6 +185,14 @@ export interface NotificationEvent {
   tenantId: string;
 }
 
+/**
+ * Suscripciones hechas con `subscribe`. Viven fuera de cada cliente y se
+ * enganchan a cada socket nuevo: al cargar la página la pantalla se suscribe
+ * antes de que AuthProvider confirme la sesión, y este descarta y recrea el
+ * cliente; sin esto la suscripción se quedaba en el cliente descartado.
+ */
+const listeners = new Map<keyof ServerToClientEvents, Set<(...args: never[]) => void>>();
+
 export class WebSocketClient {
   private socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
   private reconnectAttempts = 0;
@@ -208,6 +219,11 @@ export class WebSocketClient {
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
       });
+      for (const [event, callbacks] of listeners) {
+        for (const callback of callbacks) {
+          this.socket.on(event, callback as never);
+        }
+      }
 
       this.socket.on('connect', () => {
         console.log('WebSocket connected');
@@ -324,6 +340,19 @@ export class WebSocketClient {
 
   onError(callback: (error: { message: string; code?: string }) => void): void {
     this.socket?.on('error', callback);
+  }
+
+  /** Escucha un evento hasta llamar a la función que devuelve. Sobrevive a reconexiones. */
+  subscribe<E extends keyof ServerToClientEvents>(event: E, callback: ServerToClientEvents[E]): () => void {
+    const callbacks = listeners.get(event) ?? new Set();
+    callbacks.add(callback as never);
+    listeners.set(event, callbacks);
+    this.socket?.on(event, callback as never);
+    return () => {
+      callbacks.delete(callback as never);
+      // El cliente puede haberse recreado desde la suscripción: se quita del actual.
+      (wsClient ?? this).off(event, callback as never);
+    };
   }
 
   // Remove specific listener

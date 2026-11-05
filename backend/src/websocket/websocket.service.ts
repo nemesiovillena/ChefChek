@@ -18,6 +18,23 @@ export class WebSocketService {
 
   constructor(private readonly gateway: WebSocketGateway) {}
 
+  /**
+   * Avisa de que la presencia ha cambiado (un fichaje o una corrección).
+   * Sin datos de la persona: quien gestiona vuelve a pedir la lista por la
+   * API, que sí comprueba permisos. Un fallo aquí nunca rompe el fichaje.
+   */
+  notifyCheckInPresenceChanged(tenantId: string) {
+    try {
+      this.gateway.broadcastToTenant(tenantId, "checkInPresenceChanged", {
+        at: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo avisar del cambio de presencia: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
+
   // Order Events
   broadcastOrderCreated(order: OrderEvent) {
     this.gateway.broadcastToKitchen(order.tenantId, "orderCreated", order);

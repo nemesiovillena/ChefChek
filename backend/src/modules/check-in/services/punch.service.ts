@@ -12,6 +12,7 @@ import {
   PunchType,
   TimePunch,
 } from "@prisma/client";
+import { WebSocketService } from "../../../websocket/websocket.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CreatePunchDto, SyncPunchItemDto } from "../dto/punch.dto";
 import { KioskKeyService } from "./kiosk-key.service";
@@ -121,6 +122,7 @@ export class PunchService {
     private readonly legalAcks: LegalAcksService,
     private readonly settings: CheckInSettingsService,
     private readonly kioskKeys: KioskKeyService,
+    private readonly realtime: WebSocketService,
   ) {}
 
   async record(
@@ -393,7 +395,7 @@ export class PunchService {
     employee: Employee,
     input: AppendInput,
   ): Promise<TimePunch> {
-    return this.prisma.$transaction(async (tx) => {
+    const punch = await this.prisma.$transaction(async (tx) => {
       // Serializa los fichajes del tenant: la numeración y la huella dependen
       // del anterior, y la validación de secuencia no debe ver un estado viejo
       // si la misma persona pulsa dos veces.
@@ -481,6 +483,8 @@ export class PunchService {
         data: { ...data, hash: computePunchHash(prevHash, data) },
       });
     });
+    this.realtime.notifyCheckInPresenceChanged(tenantId);
+    return punch;
   }
 
   /** Fichajes marcados para revisión (los más recientes primero). */

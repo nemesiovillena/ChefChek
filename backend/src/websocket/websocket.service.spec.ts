@@ -312,4 +312,22 @@ describe("WebSocketService", () => {
       );
     });
   });
+
+  describe("Check-In presence", () => {
+    it("avisa al tenant sin datos de la persona", () => {
+      service.notifyCheckInPresenceChanged("t1");
+      expect(gateway.broadcastToTenant).toHaveBeenCalledWith(
+        "t1",
+        "checkInPresenceChanged",
+        { at: expect.any(String) },
+      );
+    });
+
+    it("un fallo del socket no rompe el fichaje", () => {
+      gateway.broadcastToTenant.mockImplementation(() => {
+        throw new Error("sin servidor");
+      });
+      expect(() => service.notifyCheckInPresenceChanged("t1")).not.toThrow();
+    });
+  });
 });
