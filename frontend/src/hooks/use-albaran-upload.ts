@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useInvalidateOrders } from '@/hooks/use-purchase-orders';
 import { ALBARAN_UPLOAD_URL } from '@/lib/upload-api';
 import { downscaleImageForUpload } from '@/lib/downscale-image-for-upload';
 import type { MatchStatus } from '@/lib/api-albaran';
@@ -66,6 +67,7 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
 
 export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
   const queryClient = useQueryClient();
+  const invalidateOrders = useInvalidateOrders();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -184,6 +186,8 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
 
       if (data.albaranId) {
         void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+        // Subido desde un pedido: su detalle debe mostrar el albarán vinculado.
+        if (options.purchaseOrderId) invalidateOrders();
       }
 
       setResults(data);
@@ -195,7 +199,7 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [files, options.aiApiKey, options.aiModel, options.purchaseOrderId, queryClient]);
+  }, [files, options.aiApiKey, options.aiModel, options.purchaseOrderId, queryClient, invalidateOrders]);
 
   /** Reset all state */
   const reset = useCallback(() => {

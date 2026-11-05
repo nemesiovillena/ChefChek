@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
+import { useInvalidateOrders } from '@/hooks/use-purchase-orders';
 import { useAuth } from '@/contexts/auth.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { useAlbaranDuplicateCheck } from '@/hooks/use-albaran-duplicate-check';
@@ -49,6 +50,7 @@ export default function AlbaranResumenPage() {
   const addNotification = useNotification();
   const confirm = useConfirm();
   const queryClient = useQueryClient();
+  const invalidateOrders = useInvalidateOrders();
 
   // Mutex de doble descuento: si algún producto vinculado tiene descuento
   // fijo (discountPercentage), deshabilitamos "aplicar descuento al coste".
@@ -62,8 +64,11 @@ export default function AlbaranResumenPage() {
   // Marca el query del listado como stale. Sin esto, al volver a /albaranes
   // react-query sirve la caché anterior (staleTime global de 5 min) y el badge
   // de estado queda congelado en el valor previo hasta un refresco manual.
+  // Los pedidos también: marcar la mercancía recibida, borrar el albarán o
+  // cambiar su pedido mueven el pedido vinculado entre «en curso» e histórico.
   const invalidateList = () => {
     void queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+    invalidateOrders();
   };
   // Mutaciones que afectan al detalle Y al listado (proveedor, pedido):
   // refresca el detalle visible y marca el listado como stale.
