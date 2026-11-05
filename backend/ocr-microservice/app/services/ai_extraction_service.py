@@ -38,6 +38,9 @@ REGLAS IMPORTANTES:
    Suelen tener su propia base y su propio tipo de IVA en el desglose. NO son un total: inclúyelos en "products" como una línea más,
    con name = la etiqueta tal cual aparece (ej: "T.S."), quantity 1, unit "ud", unit_price = su importe sin IVA y su vat_percent.
    Comprobación: la suma de total_price de todas las líneas (incluidos estos cargos) debe coincidir con la base total del albarán.
+   Busca también DEBAJO del cuadro de totales, aunque vaya en letra pequeña sobre una franja o fondo de color oscuro: ahí algunos
+   proveedores imprimen el punto verde como "CLPPV Art 78 LEY 37/92 1,4" (ej: Burruezo). Es un cargo: name "CLPPV",
+   unit_price 1.40, y el tipo de IVA de la base en la que va sumado (si la base del papel supera a tus líneas justo en ese importe).
    El recargo de equivalencia (R.E.) NO es un cargo: no lo incluyas como línea.
 10. IMPORTES Y DESCUENTOS: lee, no calcules. Para cada línea:
    - printed_amount = el número que aparece en la columna IMPORTE de ESA misma fila, tal cual (sin restar descuentos de
