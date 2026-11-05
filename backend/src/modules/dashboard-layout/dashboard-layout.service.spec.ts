@@ -13,7 +13,11 @@ describe("DashboardLayoutService", () => {
   beforeEach(async () => {
     prisma = {
       user: {
-        findFirst: jest.fn().mockResolvedValue({ id: "sala" }),
+        findFirst: jest.fn().mockResolvedValue({
+          id: "sala",
+          role: "USER",
+          isSharedAccount: true,
+        }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       configuration: {
@@ -37,25 +41,41 @@ describe("DashboardLayoutService", () => {
   });
 
   describe("getForUser", () => {
-    it("solo dispositivos compartidos y administración son configurables", async () => {
-      await service.getForUser(tenantId, "ana");
-      expect(prisma.user.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            id: "ana",
-            tenantId,
-            OR: [
-              { isSharedAccount: true },
-              { role: { in: ["OWNER", "ADMIN"] } },
-            ],
-          },
-        }),
-      );
+    const keyRead = () =>
+      prisma.configuration.findUnique.mock.calls[0][0].where.tenantId_key.key;
+
+    it("dispositivo compartido y administración: su propia pantalla", async () => {
+      await service.getForUser(tenantId, "sala");
+      expect(keyRead()).toBe("dashboardLayout.sala");
+      prisma.configuration.findUnique.mockClear();
+      prisma.user.findFirst.mockResolvedValue({
+        role: "ADMIN",
+        isSharedAccount: false,
+      });
+      await service.getForUser(tenantId, "jefa");
+      expect(keyRead()).toBe("dashboardLayout.jefa");
     });
 
-    it("cuenta personal sin administración: null (dashboard completo)", async () => {
+    it.each(["USER", "USER_CUINER"])(
+      "cuenta personal %s: pantalla común de Usuario",
+      async (role) => {
+        prisma.user.findFirst.mockResolvedValue({
+          role,
+          isSharedAccount: false,
+        });
+        await service.getForUser(tenantId, "ana");
+        expect(keyRead()).toBe("dashboardLayout.role:USER");
+      },
+    );
+
+    it("visor o usuario inexistente: null sin leer configuración", async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        role: "VIEWER",
+        isSharedAccount: false,
+      });
+      await expect(service.getForUser(tenantId, "v")).resolves.toBeNull();
       prisma.user.findFirst.mockResolvedValue(null);
-      await expect(service.getForUser(tenantId, "ana")).resolves.toBeNull();
+      await expect(service.getForUser(tenantId, "x")).resolves.toBeNull();
       expect(prisma.configuration.findUnique).not.toHaveBeenCalled();
     });
 
@@ -193,6 +213,7 @@ describe("DashboardLayoutService", () => {
           widgets: [{ id: "sicted", cols: 1, rows: 1 }],
         },
       },
+      { userId: "role:USER", name: "Usuario", kind: "role", layout: null },
     ]);
   });
 
@@ -222,6 +243,30 @@ describe("DashboardLayoutService", () => {
       await expect(service.getDeviceSections(tenantId, "ana")).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it("pantalla común: permisos del rol Usuario sin puesto", async () => {
+      await service.getDeviceSections(tenantId, "role:USER");
+      expect(roleAccess.getSectionMapForUserRole).toHaveBeenCalledWith(
+        tenantId,
+        "USER",
+      );
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  it("pantalla común de Usuario: se guarda y restablece sin cuenta", async () => {
+    await service.update(tenantId, "role:USER", "admin", {
+      title: "Equipo",
+      widgets: [],
+    });
+    await service.reset(tenantId, "role:USER");
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    expect(prisma.configuration.upsert.mock.calls[0][0].where).toEqual({
+      tenantId_key: { tenantId, key: "dashboardLayout.role:USER" },
+    });
+    expect(prisma.configuration.deleteMany).toHaveBeenCalledWith({
+      where: { tenantId, key: "dashboardLayout.role:USER" },
     });
   });
 

@@ -46,8 +46,11 @@ export interface DashboardLayout {
 export interface SharedDeviceLayout {
   userId: string;
   name: string;
-  /** device = dispositivo compartido; admin = cuenta de administración (OWNER/ADMIN). */
-  kind: 'device' | 'admin';
+  /**
+   * device = dispositivo compartido; admin = cuenta de administración (OWNER/ADMIN);
+   * role = pantalla común de las cuentas personales con rol Usuario.
+   */
+  kind: 'device' | 'admin' | 'role';
   /** null = sin configurar: ve el dashboard completo. */
   layout: DashboardLayout | null;
 }

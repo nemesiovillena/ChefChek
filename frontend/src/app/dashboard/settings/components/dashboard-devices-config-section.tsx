@@ -37,6 +37,7 @@ export function DashboardDevicesConfigSection() {
 const GROUPS: { kind: SharedDeviceLayout['kind']; label: string }[] = [
   { kind: 'device', label: 'Dispositivos compartidos' },
   { kind: 'admin', label: 'Administración' },
+  { kind: 'role', label: 'Cuentas personales' },
 ];
 
 function AccountRow({ device, onEdit }: { device: SharedDeviceLayout; onEdit: () => void }) {
@@ -72,8 +73,9 @@ function DashboardDevicesList() {
         Pantallas de inicio
       </h2>
       <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
-        Elige qué muestra el inicio de cada dispositivo compartido y de la administración, con qué
-        título y a qué tamaño. El resto de cuentas personales ven siempre el inicio completo.
+        Elige qué muestra el inicio de cada dispositivo compartido, de la administración y de las
+        cuentas personales con rol Usuario (una pantalla común para todas), con qué título y a qué
+        tamaño.
       </p>
 
       {isLoading ? (
@@ -141,8 +143,9 @@ function DeviceLayoutEditor({ device, onDone }: { device: SharedDeviceLayout; on
       <DialogHeader>
         <DialogTitle>Pantalla de «{device.name}»</DialogTitle>
         <DialogDescription>
-          Si el dispositivo no tiene permiso para una sección, su card no aparece aunque esté
-          marcada.
+          {device.kind === 'role'
+            ? 'La ven todas las cuentas personales con rol Usuario. Si una persona no tiene permiso para una sección, su card no aparece aunque esté marcada.'
+            : 'Si el dispositivo no tiene permiso para una sección, su card no aparece aunque esté marcada.'}
         </DialogDescription>
       </DialogHeader>
 
