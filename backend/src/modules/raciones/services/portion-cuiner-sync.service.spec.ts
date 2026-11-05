@@ -21,6 +21,7 @@ describe("PortionCuinerSyncService", () => {
       id: "pc1",
       name: "Solomillo",
       cuinerMismatchNotifiedAt: null,
+      cuinerCheckedAt: new Date("2026-11-01T10:00:00Z"),
       dishes: [{ tipo: "P", producto: "00745", perPiece: false }],
     };
     pushes = [];
@@ -172,6 +173,31 @@ describe("PortionCuinerSyncService", () => {
     expect(ledger.alignToCuiner).toHaveBeenCalledWith(T, "pc1", 9);
     expect(notifications.createNotification).not.toHaveBeenCalled();
     expect(counter.cuinerMismatchNotifiedAt).toBeNull();
+  });
+
+  it("contador recién enlazado: toma lo que ya marca Cuiner, sin avisar", async () => {
+    counter.cuinerCheckedAt = null;
+    available = 0;
+    await sync.ingest(T, snapshot(16));
+    expect(ledger.alignToCuiner).toHaveBeenCalledWith(T, "pc1", 16);
+    expect(notifications.createNotification).not.toHaveBeenCalled();
+    expect(counter.cuinerCheckedAt).toBeInstanceOf(Date);
+  });
+
+  it("contador recién enlazado: suma lo de ChefChek que aún va a Cuiner", async () => {
+    counter.cuinerCheckedAt = null;
+    pushes.push({ id: "x1", quantity: 4, sentAt: null, error: null });
+    available = 4;
+    await sync.ingest(T, snapshot(16));
+    expect(ledger.alignToCuiner).toHaveBeenCalledWith(T, "pc1", 20);
+  });
+
+  it("si Cuiner aún no tiene contador para el plato, espera a que lo tenga", async () => {
+    counter.cuinerCheckedAt = null;
+    await sync.ingest(T, { ...snapshot(0), snapshot: [] });
+    expect(counter.cuinerCheckedAt).toBeNull();
+    await sync.ingest(T, snapshot(7));
+    expect(ledger.alignToCuiner).toHaveBeenCalledWith(T, "pc1", 7);
   });
 
   it("«Solo en ChefChek»: guarda lo de Cuiner pero no lo trata como descuadre", async () => {

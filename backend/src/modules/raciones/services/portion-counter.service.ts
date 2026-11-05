@@ -270,7 +270,10 @@ export class PortionCounterService {
         `Ese plato ya gasta raciones de «${existing.counter.name}».`,
       );
     }
-    return this.prisma.portionCounterDish.create({
+    const hadPlato = await this.prisma.portionCounterDish.count({
+      where: { tenantId, counterId, tipo: "P" },
+    });
+    const dish = await this.prisma.portionCounterDish.create({
       data: {
         tenantId,
         counterId,
@@ -280,6 +283,19 @@ export class PortionCounterService {
         perPiece: dto.perPiece ?? false,
       },
     });
+    if (dto.tipo === "P" && !hadPlato) {
+      // Primer plato enlazado: en la próxima pasada ChefChek toma lo que ya
+      // marque el Contador de platos de Cuiner (ver PortionCuinerSyncService).
+      await this.prisma.portionCounter.update({
+        where: { id: counterId },
+        data: {
+          cuinerCheckedAt: null,
+          cuinerAvailable: null,
+          cuinerMismatchNotifiedAt: null,
+        },
+      });
+    }
+    return dish;
   }
 
   async unlinkDish(tenantId: string, counterId: string, dishId: string) {
