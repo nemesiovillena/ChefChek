@@ -60,16 +60,25 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
   const remove = useDeletePortionCounter();
   const confirm = useConfirm();
   const [minPortions, setMinPortions] = useState(String(counter.minPortions));
+  const [pendingDishes, setPendingDishes] = useState(0);
 
   const fail = (err: unknown) =>
-    addNotification({ type: 'error', title: 'No se pudo guardar', message: (err as Error).message });
+    addNotification({
+      type: 'error',
+      title: 'No se pudo guardar',
+      message: (err as Error).message,
+    });
 
   const saveMin = async () => {
     const min = Number(minPortions.replace(',', '.'));
     if (!Number.isFinite(min) || min < 0 || min === counter.minPortions) return;
     try {
       await update.mutateAsync({ id: counter.id, minPortions: min });
-      addNotification({ type: 'success', title: 'Mínimo guardado', message: `${counter.name}: avisar con ${fmtPortions(min)}.` });
+      addNotification({
+        type: 'success',
+        title: 'Mínimo guardado',
+        message: `${counter.name}: avisar con ${fmtPortions(min)}.`,
+      });
     } catch (err) {
       fail(err);
     }
@@ -103,8 +112,23 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
       },
     });
 
+  // Marcar platos no los guarda: hasta pulsar «Enlazar» no cuentan.
+  const requestClose = async () => {
+    if (pendingDishes > 0) {
+      const leave = await confirm({
+        title: 'Platos marcados sin enlazar',
+        description: `Tienes ${pendingDishes} ${pendingDishes === 1 ? 'plato marcado' : 'platos marcados'} sin enlazar. Si sales ahora no se guardan: pulsa «Enlazar» antes de cerrar.`,
+        confirmText: 'Salir sin enlazar',
+        cancelText: 'Volver',
+        variant: 'warning',
+      });
+      if (!leave) return;
+    }
+    onClose();
+  };
+
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && void requestClose()}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="pr-8">{counter.name}</DialogTitle>
@@ -134,13 +158,17 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
                       <div className="min-w-0">
                         <span className="font-mono text-xs font-semibold">{l.lotNumber}</span>
                         <span className="block text-xs text-[var(--on-surface-variant)]">
-                          {fmtDate(l.preparedAt)} · caduca {fmtDate(l.frozenUseByDate ?? l.useByDate)}
+                          {fmtDate(l.preparedAt)} · caduca{' '}
+                          {fmtDate(l.frozenUseByDate ?? l.useByDate)}
                           {i === 0 && ' · se gasta primero'}
                         </span>
                       </div>
                       <span className="shrink-0 tabular-nums">
                         <strong>{fmtPortions(l.portionsRemaining ?? 0)}</strong>
-                        <span className="text-[var(--on-surface-variant)]"> / {fmtPortions(l.portions ?? 0)}</span>
+                        <span className="text-[var(--on-surface-variant)]">
+                          {' '}
+                          / {fmtPortions(l.portions ?? 0)}
+                        </span>
                       </span>
                     </li>
                   ))}
@@ -148,45 +176,63 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
               )}
             </section>
 
-            {canManage && (
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold">Platos de Cuiner que lo gastan</h3>
-                {counter.dishes.length > 0 && (
-                  <ul className="flex flex-wrap gap-2">
-                    {counter.dishes.map((d) => (
-                      <li
-                        key={d.id}
-                        className="flex items-center gap-1 rounded-full border border-[var(--outline-variant)] py-1 pl-3 pr-1 text-sm"
-                      >
-                        {d.name ?? d.producto}
-                        {d.portionsPerSale !== 1 && (
-                          <span className="text-xs text-[var(--on-surface-variant)]">
-                            ×{fmtPortions(d.portionsPerSale)}
-                          </span>
-                        )}
-                        {d.perPiece && (
-                          <span className="text-xs text-[var(--on-surface-variant)]">por pieza</span>
-                        )}
+            <section className="space-y-3">
+              <h3 className="text-sm font-semibold">Platos de Cuiner que lo gastan</h3>
+              {counter.dishes.length === 0 ? (
+                <p className="text-sm font-medium text-error">
+                  Ninguno: las ventas de Cuiner no descuentan este contador.
+                </p>
+              ) : (
+                <ul className="flex flex-wrap gap-2">
+                  {counter.dishes.map((d) => (
+                    <li
+                      key={d.id}
+                      className={`flex min-h-[40px] items-center gap-1 rounded-full border border-[var(--outline-variant)] py-1 pl-3 text-sm ${canManage ? 'pr-1' : 'pr-3'}`}
+                    >
+                      {d.name ?? d.producto}
+                      <span className="text-xs text-[var(--on-surface-variant)]">
+                        {d.tipo}-{d.producto}
+                      </span>
+                      {d.portionsPerSale !== 1 && (
+                        <span className="text-xs text-[var(--on-surface-variant)]">
+                          ×{fmtPortions(d.portionsPerSale)}
+                        </span>
+                      )}
+                      {d.perPiece && (
+                        <span className="text-xs text-[var(--on-surface-variant)]">por pieza</span>
+                      )}
+                      {canManage && (
                         <button
                           type="button"
                           aria-label={`Quitar ${d.name ?? d.producto}`}
-                          onClick={() => unlink.mutate({ id: counter.id, dishId: d.id }, { onError: fail })}
+                          onClick={() =>
+                            unlink.mutate({ id: counter.id, dishId: d.id }, { onError: fail })
+                          }
                           className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-[var(--surface-container-high)]"
                         >
                           <X className="h-4 w-4" />
                         </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canManage && (
                 <PortionDishLinker
                   counterId={counter.id}
                   linkedKeys={new Set(counter.dishes.map((d) => `${d.tipo}|${d.producto}`))}
+                  onPendingChange={setPendingDishes}
                 />
+              )}
+            </section>
 
+            {canManage && (
+              <section>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="text-sm">
-                    <span className="block text-[var(--on-surface-variant)]">Avisar cuando queden</span>
+                    <span className="block text-[var(--on-surface-variant)]">
+                      Avisar cuando queden
+                    </span>
                     <input
                       inputMode="decimal"
                       value={minPortions}
@@ -248,7 +294,7 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="min-h-[44px]">
+          <Button variant="outline" onClick={() => void requestClose()} className="min-h-[44px]">
             Cerrar
           </Button>
         </DialogFooter>

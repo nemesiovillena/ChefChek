@@ -82,7 +82,7 @@ export function PortionCounterCard({ counter, canManage, onOpen, onRecount, onAd
           <span className="hidden sm:inline">: las ventas no lo descuentan</span>.
         </p>
       ) : (
-        <p className="mt-2 hidden truncate text-xs text-[var(--on-surface-variant)] sm:block">
+        <p className="mt-2 line-clamp-2 text-xs text-[var(--on-surface-variant)]">
           Cuiner: {counter.dishes.map((d) => d.name ?? d.producto).join(', ')}
         </p>
       )}
