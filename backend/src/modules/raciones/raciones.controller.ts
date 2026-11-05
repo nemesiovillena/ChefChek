@@ -97,6 +97,13 @@ export class RacionesController {
     return this.counters.update(req.tenantId, id, dto);
   }
 
+  /** Borra el contador (p. ej. creado sobre la receta equivocada). Las etiquetas se quedan. */
+  @Delete(":id")
+  @RequireSection("raciones.manage")
+  remove(@Req() req: any, @Param("id") id: string) {
+    return this.counters.remove(req.tenantId, id);
+  }
+
   @Post(":id/dishes")
   @RequireSection("raciones.manage")
   linkDish(
