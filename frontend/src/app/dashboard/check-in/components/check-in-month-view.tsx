@@ -12,7 +12,7 @@ import {
   formatMinutes,
   formatTimeIn,
 } from '@/lib/check-in-punch';
-import type { MonthState, Workday } from '@/lib/check-in-types';
+import type { MonthState, Workday, WorkdayAbsence } from '@/lib/check-in-types';
 import { CheckInAdjustmentForm } from './check-in-adjustment-form';
 import { cardCls, errorMessage, primaryBtnCls } from './check-in-form-styles';
 
@@ -32,16 +32,39 @@ function Stat({ label, value, alert }: { label: string; value: string; alert?: b
 const hasIncidence = (day: Workday) => day.incidences.length > 0 || day.open;
 const dayAnchorId = (date: string) => `jornada-${date}`;
 
+/** Etiqueta de un día de ausencia con el color de su tipo. */
+function AbsenceBadge({ absence }: { absence: WorkdayAbsence }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--outline-variant)] px-2 py-0.5 text-sm">
+      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: absence.color }} />
+      {absence.typeName}
+      {absence.halfDay && ' (media jornada)'}
+    </span>
+  );
+}
+
+/** Día sin fichajes cubierto por una ausencia aprobada. */
+function AbsenceRow({ absence }: { absence: WorkdayAbsence }) {
+  return (
+    <li id={dayAnchorId(absence.date)} className="flex flex-wrap items-center justify-between gap-2 py-3">
+      <p className="font-medium capitalize">{formatDay(absence.date)}</p>
+      <AbsenceBadge absence={absence} />
+    </li>
+  );
+}
+
 /** Cuánto dura el resaltado del día al que lleva el contador de incidencias. */
 const HIGHLIGHT_MS = 2500;
 
 function DayRow({
   day,
+  absence,
   state,
   mode,
   highlighted,
 }: {
   day: Workday;
+  absence?: WorkdayAbsence;
   state: MonthState;
   mode: 'own' | 'manager';
   highlighted: boolean;
@@ -60,7 +83,10 @@ function DayRow({
       }`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-medium capitalize">{formatDay(day.date)}</p>
+        <p className="flex flex-wrap items-center gap-2 font-medium capitalize">
+          {formatDay(day.date)}
+          {absence && <AbsenceBadge absence={absence} />}
+        </p>
         <p className="font-semibold">
           {day.open ? 'En curso' : formatMinutes(day.workedMinutes)}
           {day.breakMinutes > 0 && (
@@ -191,6 +217,13 @@ export function CheckInMonthView({
   const [addingDay, setAddingDay] = useState('');
   const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
   const { totals } = state;
+  // Días con fichajes y días de ausencia sin fichajes, juntos y por fecha.
+  const absenceByDate = new Map(state.absences.map((a) => [a.date, a]));
+  const dayDates = new Set(state.days.map((d) => d.date));
+  const rows = [
+    ...state.days.map((day) => ({ date: day.date, day })),
+    ...state.absences.filter((a) => !dayDates.has(a.date)).map((absence) => ({ date: absence.date, absence })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
   const pad = (n: number) => String(n).padStart(2, '0');
   const monthPrefix = `${state.year}-${pad(state.month)}-`;
   const lastDay = new Date(state.year, state.month, 0).getDate();
@@ -240,6 +273,12 @@ export function CheckInMonthView({
           El exceso compara lo trabajado con las horas semanales pactadas repartidas en el mes. El cómputo definitivo de
           horas extraordinarias depende del convenio.
         </p>
+        {totals.absenceDays > 0 && (
+          <p className="text-sm text-[var(--on-surface-variant)]">
+            {String(totals.absenceDays).replace('.', ',')} día{totals.absenceDays === 1 ? '' : 's'} de ausencia
+            aprobada (vacaciones, bajas o permisos): la jornada pactada del mes ya los descuenta.
+          </p>
+        )}
         <SheetStatus state={state} mode={mode} />
         {state.pendingAdjustments > 0 && (
           <p className="text-sm text-[var(--error)]">
@@ -250,15 +289,26 @@ export function CheckInMonthView({
       </div>
 
       <div className={cardCls}>
-        {state.days.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="text-[var(--on-surface-variant)]">
             Sin fichajes en {MONTH_NAMES[state.month - 1]} de {state.year}.
           </p>
         ) : (
           <ul className="divide-y divide-[var(--outline-variant)]">
-            {state.days.map((day) => (
-              <DayRow key={day.date} day={day} state={state} mode={mode} highlighted={day.date === highlightedDate} />
-            ))}
+            {rows.map((row) =>
+              'day' in row && row.day ? (
+                <DayRow
+                  key={row.date}
+                  day={row.day}
+                  absence={absenceByDate.get(row.date)}
+                  state={state}
+                  mode={mode}
+                  highlighted={row.date === highlightedDate}
+                />
+              ) : (
+                <AbsenceRow key={row.date} absence={absenceByDate.get(row.date) as WorkdayAbsence} />
+              ),
+            )}
           </ul>
         )}
 

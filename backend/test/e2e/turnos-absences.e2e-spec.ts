@@ -523,4 +523,72 @@ describe("E2E - Turnos: ausencias, vacaciones y festivos", () => {
     );
     expect(all.map((t: any) => t.name)).toContain("Formación");
   });
+
+  it("las ausencias aprobadas salen en el registro de jornada y descuentan la jornada pactada", async () => {
+    // Sigue el cómputo en días laborables. Del lunes 2 al domingo 8 de marzo
+    // de 2026: cuentan 5 días; sábado y domingo no.
+    await prisma.employee.update({
+      where: { id: workerEmployeeId },
+      data: { weeklyHours: 40 },
+    });
+    const created = await api(adminSession).post("/api/v1/turnos/absences", {
+      employeeId: workerEmployeeId,
+      absenceTypeId: vacationTypeId,
+      startDate: "2026-03-02",
+      endDate: "2026-03-08",
+    });
+    expect(created.status).toBe(201);
+
+    const own = body(
+      await api(workerSession).get(
+        "/api/v1/check-in/me/timesheet?year=2026&month=3",
+      ),
+    );
+    expect(own.absences.map((a: any) => a.date)).toEqual([
+      "2026-03-02",
+      "2026-03-03",
+      "2026-03-04",
+      "2026-03-05",
+      "2026-03-06",
+    ]);
+    expect(own.absences[0]).toMatchObject({ typeName: "Vacaciones" });
+    // 40 h × 31/7 días del mes, menos 5 días laborables (40 h / 5 cada uno).
+    expect(own.totals).toMatchObject({
+      absenceDays: 5,
+      expectedMinutes: Math.round((40 * 60 * 31) / 7 - 40 * 60),
+    });
+
+    // Una solicitud pendiente todavía no cuenta.
+    const pending = await api(workerSession).post(
+      "/api/v1/turnos/me/absences",
+      {
+        absenceTypeId: vacationTypeId,
+        startDate: "2026-03-16",
+        endDate: "2026-03-16",
+      },
+    );
+    expect(pending.status).toBe(201);
+    const manager = body(
+      await api(adminSession).get(
+        `/api/v1/check-in/timesheets/employee?employeeId=${workerEmployeeId}&year=2026&month=3`,
+      ),
+    );
+    expect(manager.totals.absenceDays).toBe(5);
+
+    // Informe de todo el equipo: entra aunque no haya fichado nada ese mes.
+    const csv = await api(adminSession).get(
+      "/api/v1/check-in/reports/workdays?year=2026&month=3&format=csv",
+    );
+    expect(csv.status).toBe(200);
+    const lines = csv.text.split("\r\n").filter((l) => l.includes("Marta"));
+    expect(lines).toHaveLength(5);
+    expect(lines[0]).toContain("02/03/2026");
+    expect(lines[0]).toContain("Vacaciones");
+    for (const format of ["pdf", "xlsx"]) {
+      const file = await api(adminSession).get(
+        `/api/v1/check-in/reports/workdays?year=2026&month=3&format=${format}&employeeId=${workerEmployeeId}`,
+      );
+      expect(file.status).toBe(200);
+    }
+  });
 });

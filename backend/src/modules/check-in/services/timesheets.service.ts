@@ -86,6 +86,7 @@ export class TimesheetsService {
       employee: monthData.employee,
       timezone: monthData.timezone,
       days: monthData.days,
+      absences: monthData.absences,
       totals: monthData.totals,
       pendingAdjustments: pending.filter((a) => a.decision === null).length,
       approved: approved ? summarize(approved) : null,
@@ -117,7 +118,12 @@ export class TimesheetsService {
       );
     }
     // La hoja aprobada es una foto fija con la jornada pactada: sin horas no se aprueba.
-    const { expectedMinutes, overtimeMinutes } = state.totals;
+    const {
+      expectedMinutes,
+      overtimeMinutes,
+      absenceDays: _absenceDays,
+      ...totals
+    } = state.totals;
     if (expectedMinutes === null || overtimeMinutes === null) {
       throw new BadRequestException(
         `${state.employee.name} no tiene horas semanales pactadas. Rellénalas en su ficha (Datos laborales) antes de aprobar.`,
@@ -138,10 +144,14 @@ export class TimesheetsService {
           year,
           month,
           version: (previous?.version ?? 0) + 1,
-          ...state.totals,
+          ...totals,
           expectedMinutes,
           overtimeMinutes,
-          detail: state.days as unknown as Prisma.InputJsonValue,
+          // Foto fija: jornadas y días de ausencia tal como se aprobaron.
+          detail: {
+            days: state.days,
+            absences: state.absences,
+          } as unknown as Prisma.InputJsonValue,
           reopenReason: previous ? reopenReason?.trim() : null,
           approvedByUserId: manager.id,
           approvedByName: manager.name,

@@ -4,7 +4,12 @@ import {
   AdjustmentWithDecision,
   AdjustmentsService,
 } from "./adjustments.service";
-import { MonthTotals, WorkdaysService, fullName } from "./workdays.service";
+import {
+  MonthTotals,
+  WorkdayAbsence,
+  WorkdaysService,
+  fullName,
+} from "./workdays.service";
 import { currentPositionTitles } from "../../users/current-position-titles";
 
 const MONTHS = [
@@ -65,6 +70,8 @@ export interface WorkdayReport {
   period: ReportPeriod;
   timezone: string;
   days: Awaited<ReturnType<WorkdaysService["getMonth"]>>["days"];
+  /** Días con ausencia aprobada (vacaciones, bajas, permisos). */
+  absences: WorkdayAbsence[];
   totals: MonthTotals;
   /** Correcciones que afectan a fichajes del periodo, con su decisión. */
   corrections: AdjustmentWithDecision[];
@@ -173,6 +180,7 @@ export class ReportService {
       period,
       timezone: periodData.timezone,
       days: periodData.days,
+      absences: periodData.absences,
       totals: periodData.totals,
       corrections,
       approval: sheet
@@ -203,7 +211,7 @@ export class ReportService {
     const reports: WorkdayReport[] = [];
     for (const { id } of employees) {
       const report = await this.build(tenantId, id, query);
-      if (employeeId || report.days.length > 0) {
+      if (employeeId || report.days.length > 0 || report.absences.length > 0) {
         reports.push(report);
       }
     }
