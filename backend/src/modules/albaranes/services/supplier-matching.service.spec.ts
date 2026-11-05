@@ -126,6 +126,54 @@ describe("SupplierMatchingService", () => {
         expect(result.suggestions[0].similarity).toBeLessThan(0.8);
       });
 
+      it("reconoce el nombre corto dentro de la razón social del papel", async () => {
+        jest.spyOn(prisma.supplier, "findMany").mockResolvedValue([
+          { id: "salas", name: "Salas Moltó", cifNif: null, legalName: null },
+          { id: "jasa", name: "Jasa", cifNif: null, legalName: null },
+        ] as any);
+
+        const result = await service.matchSupplier({
+          name: "COMESTIBLES SALAS MOLTO JUAN SALAS QUINTA",
+          tenantId: mockTenantId,
+        });
+
+        expect(result.supplierId).toBe("salas");
+        expect(result.matchType).toBe("NAME_FUZZY");
+      });
+
+      it("con varios nombres contenidos gana el que comparte más palabras", async () => {
+        jest.spyOn(prisma.supplier, "findMany").mockResolvedValue([
+          { id: "navarro", name: "Navarro", cifNif: null, legalName: null },
+          {
+            id: "manuel",
+            name: "Manuel Navarro",
+            cifNif: null,
+            legalName: null,
+          },
+        ] as any);
+
+        const result = await service.matchSupplier({
+          name: "Manuel Navarro Martínez",
+          tenantId: mockTenantId,
+        });
+
+        expect(result.supplierId).toBe("manuel");
+      });
+
+      it("no adivina si dos proveedores empatan dentro del nombre", async () => {
+        jest.spyOn(prisma.supplier, "findMany").mockResolvedValue([
+          { id: "a", name: "Salas", cifNif: null, legalName: null },
+          { id: "b", name: "Quinta", cifNif: null, legalName: null },
+        ] as any);
+
+        const result = await service.matchSupplier({
+          name: "COMESTIBLES SALAS MOLTO JUAN SALAS QUINTA",
+          tenantId: mockTenantId,
+        });
+
+        expect(result.supplierId).toBeNull();
+      });
+
       it("should return ranked suggestions by similarity", async () => {
         jest
           .spyOn(prisma.supplier, "findMany")

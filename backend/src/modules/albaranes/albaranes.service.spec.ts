@@ -43,6 +43,7 @@ describe("AlbaranesService", () => {
   const statusService = {
     transitionStatus: jest.fn().mockResolvedValue(undefined),
     syncOrderLink: jest.fn().mockResolvedValue(undefined),
+    findSingleOpenOrder: jest.fn().mockResolvedValue(null),
   };
   const stockService = {
     processAddedLine: jest.fn().mockResolvedValue(undefined),
@@ -405,6 +406,52 @@ describe("AlbaranesService", () => {
           data: expect.objectContaining({ purchaseOrderId: "o1" }),
         }),
       );
+    });
+
+    it("elegir proveedor vincula solo su único pedido pendiente", async () => {
+      const date = new Date("2026-11-05");
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ purchaseOrderId: null, date }),
+      );
+      prisma.albaran.update.mockResolvedValue({
+        id: "alb-1",
+        purchaseOrderId: "po-1",
+      });
+      statusService.findSingleOpenOrder.mockResolvedValueOnce("po-1");
+
+      await service.update("alb-1", { supplierId: "s1" } as any, "t1");
+
+      expect(statusService.findSingleOpenOrder).toHaveBeenCalledWith(
+        "t1",
+        "s1",
+        date,
+      );
+      expect(prisma.albaran.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplierId: "s1",
+            purchaseOrderId: "po-1",
+          }),
+        }),
+      );
+      expect(statusService.syncOrderLink).toHaveBeenCalledWith(
+        "t1",
+        expect.anything(),
+        null,
+        "po-1",
+      );
+    });
+
+    it("elegir proveedor no toca un albarán que ya tiene pedido", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ purchaseOrderId: "po-old" }),
+      );
+      prisma.albaran.update.mockResolvedValue({ id: "alb-1" });
+
+      await service.update("alb-1", { supplierId: "s1" } as any, "t1");
+
+      expect(statusService.findSingleOpenOrder).not.toHaveBeenCalled();
+      expect(statusService.syncOrderLink).not.toHaveBeenCalled();
     });
 
     it("permite desvincular el pedido enviando purchaseOrderId null", async () => {
@@ -1583,6 +1630,35 @@ describe("AlbaranesService", () => {
       expect(prisma.supplier.findFirst).not.toHaveBeenCalled();
       expect(prisma.albaran.create).toHaveBeenCalled();
       expect(lineMatching.matchAllLines).toHaveBeenCalled();
+    });
+
+    it("vincula solo el pedido pendiente del proveedor detectado", async () => {
+      pythonOcrService.processImage.mockResolvedValue({
+        success: true,
+        document: {
+          document_date: "2026-11-05",
+          products: [{ name: "Almendra", quantity: 1, unit_price: 3 }],
+        },
+      });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: "s1" });
+      statusService.findSingleOpenOrder.mockResolvedValueOnce("po-1");
+      prisma.albaran.create.mockResolvedValue({ id: "alb-ocr", lines: [] });
+
+      await service.createFromUpload([file()], "t1");
+
+      expect(statusService.findSingleOpenOrder).toHaveBeenCalledWith(
+        "t1",
+        "s1",
+        new Date("2026-11-05"),
+      );
+      expect(prisma.albaran.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            supplierId: "s1",
+            purchaseOrderId: "po-1",
+          }),
+        }),
+      );
     });
 
     it("creates fallback albaran when OCR returns no document", async () => {
