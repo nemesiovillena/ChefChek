@@ -232,6 +232,46 @@ describe("CuinerExportService.preview", () => {
     expect(payload?.total).toBe(105.1);
   });
 
+  it("un abono con el total del papel en positivo cuadra con sus líneas en negativo", async () => {
+    // Caso real (Doria foods WH/RMA/IN/00319): abono sin IVA, papel 87,75 €.
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        total: 87.75,
+        vatTotal: 0,
+        lines: [
+          albaranLine({
+            quantity: -3.9,
+            unitPrice: 22.5,
+            totalPrice: 87.75,
+            vatPercent: 0,
+          }),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(problems).toEqual([]);
+    expect(payload?.total).toBe(-87.75);
+  });
+
+  it("bloquea un abono sin IVA en el papel cuyas líneas llevan IVA", async () => {
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        total: 87.75,
+        vatTotal: 0,
+        lines: [
+          albaranLine({ quantity: -3.9, unitPrice: 22.5, totalPrice: 87.75 }),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(payload).toBeNull();
+    expect(problems).toEqual([
+      "El total calculado (-96,52 €) no cuadra con el total del albarán (-87,75 €): revisa el IVA y los importes de las líneas",
+    ]);
+  });
+
   it("bloquea las líneas sin cantidad", async () => {
     const prisma = makePrisma({
       ...fullyMapped,

@@ -46,6 +46,8 @@ export function AlbaranTotalMismatchNotice({
       <p>
         Las líneas suman <strong>{formatEur(mismatch.computed)}</strong> con IVA, pero el total del
         albarán es <strong>{formatEur(mismatch.paper)}</strong>.{' '}
+        {mismatch.isCreditNote &&
+          'Es un abono: si el proveedor no cobra IVA en los abonos, pon el IVA de sus líneas a 0 %. '}
         {albaran.status === 'CONFIRMADO'
           ? 'Corrige el IVA o el precio de la línea equivocada con el lápiz, o añade la línea que falte.'
           : 'Revisa el IVA y los importes de las líneas antes de confirmar.'}
