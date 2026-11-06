@@ -11,6 +11,8 @@
 const ENTITY_ROUTES: Record<string, (id: string) => string> = {
   PRODUCT: (id) => `/dashboard/articulos?productId=${id}&tab=historial-precios`,
   PURCHASE_ORDER: (id) => `/dashboard/compras/pedidos/${id}`,
+  // Turnos publicados: cada persona ve los suyos en Mi espacio (el id es el lunes).
+  SCHEDULE_WEEK: () => '/dashboard/mi-espacio',
 };
 
 export function resolveNotificationRoute(

@@ -383,6 +383,19 @@ describe("E2E - Turnos: planificador", () => {
     expect(
       await prisma.schedulePublication.count({ where: { tenantId } }),
     ).toBe(1);
+    // La campana avisa a todos de qué semana hay turnos, sin nombres ni horas.
+    const alerts = await prisma.alert.findMany({
+      where: { tenantId, type: "SCHEDULE_PUBLISHED" },
+    });
+    expect(alerts).toEqual([
+      expect.objectContaining({
+        title: "Turnos publicados",
+        message:
+          "Ya están los turnos de Restaurante de la semana del 2 al 8 de noviembre. Mira los tuyos en Mi espacio.",
+        entityType: "SCHEDULE_WEEK",
+        entityId: WEEK,
+      }),
+    ]);
   });
 
   it("copiar semana duplica los turnos como borradores y se salta los que no encajan", async () => {
@@ -487,5 +500,24 @@ describe("E2E - Turnos: planificador", () => {
         })
       ).status,
     ).toBe(403);
+  });
+
+  it("publicar turnos nuevos en una semana ya publicada avisa de cambios", async () => {
+    await shift({
+      employeeId: luisId,
+      date: d(6),
+      startTime: "10:00",
+      endTime: "14:00",
+    });
+    const res = await api(adminSession).post(
+      "/api/v1/turnos/schedule/publish",
+      { locationId: centerId, weekStart: WEEK },
+    );
+    expect(body(res).published).toBeGreaterThan(0);
+    const latest = await prisma.alert.findFirst({
+      where: { tenantId, type: "SCHEDULE_PUBLISHED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(latest?.title).toBe("Cambios en los turnos");
   });
 });
