@@ -322,6 +322,19 @@ export interface WorkdayAbsence {
   halfDay: boolean;
 }
 
+/** Día reciente con una jornada sin cerrar o con fichajes que no encajan. */
+export interface UnclosedDay {
+  date: string;
+  incidences: WorkdayIncidence[];
+  /** Ya hay una solicitud de corrección sin resolver para ese día. */
+  pendingCorrection: boolean;
+}
+
+export interface TeamUnclosedDay extends UnclosedDay {
+  employeeId: string;
+  employeeName: string;
+}
+
 export interface ApprovedTimesheet extends Omit<MonthTotals, 'absenceDays'> {
   id: string;
   version: number;

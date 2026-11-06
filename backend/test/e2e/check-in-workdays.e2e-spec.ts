@@ -712,4 +712,73 @@ describe("E2E - Check-In jornadas, correcciones y hojas de horas", () => {
       ).status,
     ).toBe(201);
   });
+
+  it("avisa de los días recientes sin cerrar a la persona y a gerencia", async () => {
+    // Entrada de hace dos días sin salida, en la cuenta de «Otro».
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const sync = await api(otherWorkerSession).post(
+      "/api/v1/check-in/punches/sync",
+      {
+        punches: [
+          {
+            id: randomUUID(),
+            type: "IN",
+            deviceTime: `${twoDaysAgo}T09:00:00.000Z`,
+          },
+        ],
+      },
+    );
+    expect(sync.status).toBe(201);
+
+    const own = body(
+      await api(otherWorkerSession).get("/api/v1/check-in/me/unclosed-days"),
+    );
+    expect(own).toEqual([
+      {
+        date: twoDaysAgo,
+        incidences: ["SIN_SALIDA"],
+        pendingCorrection: false,
+      },
+    ]);
+
+    // La lista del equipo es solo para gerencia.
+    expect(
+      (await api(otherWorkerSession).get("/api/v1/check-in/unclosed-days"))
+        .status,
+    ).toBe(403);
+    expect(
+      (await api(sharedAdminSession).get("/api/v1/check-in/unclosed-days"))
+        .status,
+    ).toBe(403);
+    const team = body(
+      await api(adminSession).get("/api/v1/check-in/unclosed-days"),
+    );
+    expect(team).toContainEqual(
+      expect.objectContaining({
+        employeeName: "Otro Prueba",
+        date: twoDaysAgo,
+        incidences: ["SIN_SALIDA"],
+      }),
+    );
+
+    // Al pedir la corrección el día queda marcado: ya ha hecho lo que tocaba.
+    const request = await api(otherWorkerSession).post(
+      "/api/v1/check-in/me/adjustments",
+      {
+        kind: "ADD",
+        type: "OUT",
+        occurredAt: `${twoDaysAgo}T17:00:00.000Z`,
+        reason: "Olvidé fichar la salida",
+      },
+    );
+    expect(request.status).toBe(201);
+    const after = body(
+      await api(otherWorkerSession).get("/api/v1/check-in/me/unclosed-days"),
+    );
+    expect(after).toEqual([
+      expect.objectContaining({ date: twoDaysAgo, pendingCorrection: true }),
+    ]);
+  });
 });

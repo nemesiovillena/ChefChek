@@ -31,6 +31,7 @@ import {
 } from "./dto/workday.dto";
 import { AdjustmentsService } from "./services/adjustments.service";
 import { TimesheetsService } from "./services/timesheets.service";
+import { UnclosedWorkdaysService } from "./services/unclosed-workdays.service";
 import { WorkdaysService, fullName } from "./services/workdays.service";
 
 /**
@@ -51,6 +52,7 @@ export class WorkdaysController {
     private readonly workdays: WorkdaysService,
     private readonly adjustments: AdjustmentsService,
     private readonly timesheets: TimesheetsService,
+    private readonly unclosed: UnclosedWorkdaysService,
   ) {}
 
   // ───────────────────────────────────────────────────────── Lo mío
@@ -64,6 +66,13 @@ export class WorkdaysController {
       query.from,
       query.to,
     );
+  }
+
+  /** Mis días recientes sin cerrar (olvido de fichaje). */
+  @Get("me/unclosed-days")
+  async getOwnUnclosedDays(@Req() req: any) {
+    const employee = await this.ownEmployee(req);
+    return this.unclosed.forEmployee(req.tenantId, employee.id);
   }
 
   @Get("me/adjustments")
@@ -117,6 +126,14 @@ export class WorkdaysController {
       query.from,
       query.to,
     );
+  }
+
+  /** Días recientes sin cerrar de todo el equipo. */
+  @Get("unclosed-days")
+  @Roles(CHECK_IN_MANAGER_ROLE)
+  @UseGuards(CheckInManagerGuard)
+  async getTeamUnclosedDays(@Req() req: any) {
+    return this.unclosed.forTeam(req.tenantId);
   }
 
   @Get("adjustments")

@@ -62,12 +62,15 @@ function DayRow({
   state,
   mode,
   highlighted,
+  onScrolledTo,
 }: {
   day: Workday;
   absence?: WorkdayAbsence;
   state: MonthState;
   mode: 'own' | 'manager';
   highlighted: boolean;
+  /** Llevar este día a la vista al pintarlo (viene de un aviso); se llama una sola vez. */
+  onScrolledTo?: () => void;
 }) {
   // Qué corrección está abierta en este día: un fichaje concreto, 'new' o ninguna.
   const [editing, setEditing] = useState<string | 'new' | null>(null);
@@ -78,6 +81,15 @@ function DayRow({
   return (
     <li
       id={dayAnchorId(day.date)}
+      ref={
+        onScrolledTo
+          ? (el) => {
+              if (!el) return;
+              el.scrollIntoView({ block: 'center' });
+              onScrolledTo();
+            }
+          : undefined
+      }
       className={`scroll-mt-24 py-3 transition-colors duration-500 ${
         highlighted ? '-mx-2 rounded-lg bg-[var(--error-container)] px-2' : ''
       }`}
@@ -208,14 +220,19 @@ export function CheckInMonthView({
   state,
   mode,
   showAddMissingDay = true,
+  focusDate,
 }: {
   state: MonthState;
   mode: 'own' | 'manager';
+  /** Día al que se llega desde un aviso: se resalta y se lleva a la vista. */
+  focusDate?: string;
   /** El local puede ocultar al empleado el alta de un día sin fichajes. */
   showAddMissingDay?: boolean;
 }) {
   const [addingDay, setAddingDay] = useState('');
-  const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
+  const [highlightedDate, setHighlightedDate] = useState<string | null>(focusDate ?? null);
+  // El día del aviso se lleva a la vista una vez; luego el usuario manda.
+  const [pendingScroll, setPendingScroll] = useState(focusDate);
   const { totals } = state;
   // Días con fichajes y días de ausencia sin fichajes, juntos y por fecha.
   const absenceByDate = new Map(state.absences.map((a) => [a.date, a]));
@@ -304,6 +321,7 @@ export function CheckInMonthView({
                   state={state}
                   mode={mode}
                   highlighted={row.date === highlightedDate}
+                  onScrolledTo={row.date === pendingScroll ? () => setPendingScroll(undefined) : undefined}
                 />
               ) : (
                 <AbsenceRow key={row.date} absence={absenceByDate.get(row.date) as WorkdayAbsence} />
