@@ -308,9 +308,34 @@ export interface MonthTotals {
   overtimeMinutes: number | null;
   daysWorked: number;
   incidenceCount: number;
+  /** Días de ausencia aprobada; media jornada cuenta 0,5. */
+  absenceDays: number;
 }
 
-export interface ApprovedTimesheet extends MonthTotals {
+/** Día cubierto por una ausencia aprobada (vacaciones, baja, permiso…). */
+export interface WorkdayAbsence {
+  date: string;
+  absenceId: string;
+  typeName: string;
+  color: string;
+  isPaid: boolean;
+  halfDay: boolean;
+}
+
+/** Día reciente con una jornada sin cerrar o con fichajes que no encajan. */
+export interface UnclosedDay {
+  date: string;
+  incidences: WorkdayIncidence[];
+  /** Ya hay una solicitud de corrección sin resolver para ese día. */
+  pendingCorrection: boolean;
+}
+
+export interface TeamUnclosedDay extends UnclosedDay {
+  employeeId: string;
+  employeeName: string;
+}
+
+export interface ApprovedTimesheet extends Omit<MonthTotals, 'absenceDays'> {
   id: string;
   version: number;
   reopenReason: string | null;
@@ -325,6 +350,7 @@ export interface MonthState {
   employee: { id: string; name: string; weeklyHours: number | null };
   timezone: string;
   days: Workday[];
+  absences: WorkdayAbsence[];
   totals: MonthTotals;
   pendingAdjustments: number;
   approved: ApprovedTimesheet | null;

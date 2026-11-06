@@ -3,7 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Employee, PunchAdjustmentKind } from "@prisma/client";
+import {
+  AbsenceStatus,
+  Employee,
+  PunchAdjustmentKind,
+  VacationDayType,
+} from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { AdjustmentsService } from "./adjustments.service";
 import { CheckInSettingsService } from "./check-in-settings.service";
@@ -12,6 +17,10 @@ import {
   Workday,
   calculateWorkdays,
 } from "./workday-calculator";
+import {
+  absenceDates,
+  parseDate,
+} from "../../turnos/services/absence-days.util";
 
 const DAY_MS = 86_400_000;
 /** Margen para no cortar una jornada que empieza antes o acaba después del rango. */
@@ -32,15 +41,30 @@ export interface WorkdayPunchView {
   geofenceStatus: string | null;
 }
 
+/** Un día cubierto por una ausencia aprobada (vacaciones, baja, permiso…). */
+export interface WorkdayAbsence {
+  date: string;
+  absenceId: string;
+  typeName: string;
+  color: string;
+  isPaid: boolean;
+  halfDay: boolean;
+}
+
 export interface MonthTotals {
   workedMinutes: number;
   breakMinutes: number;
-  /** Jornada pactada del periodo: horas semanales × días del periodo / 7. Null = horas sin pactar. */
+  /**
+   * Jornada pactada del periodo: horas semanales × días del periodo / 7,
+   * menos los días de ausencia aprobada. Null = horas sin pactar.
+   */
   expectedMinutes: number | null;
   overtimeMinutes: number | null;
   daysWorked: number;
   /** Días con incidencia (sin salida, secuencia) o con la jornada aún abierta. */
   incidenceCount: number;
+  /** Días de ausencia aprobada; media jornada cuenta 0,5. */
+  absenceDays: number;
 }
 
 export const fullName = (e: Pick<Employee, "firstName" | "lastName">) =>
@@ -93,7 +117,7 @@ export class WorkdaysService {
     const rangeStart = new Date(fromMs - RANGE_MARGIN_MS);
     const rangeEnd = new Date(toMs + DAY_MS + RANGE_MARGIN_MS);
 
-    const [punches, approved] = await Promise.all([
+    const [punches, approved, absences] = await Promise.all([
       this.prisma.timePunch.findMany({
         where: {
           tenantId,
@@ -103,6 +127,14 @@ export class WorkdaysService {
         orderBy: [{ occurredAt: "asc" }, { seq: "asc" }],
       }),
       this.adjustments.listApproved(tenantId, employeeId),
+      this.approvedAbsenceDays(
+        tenantId,
+        employee.defaultLocationId,
+        employeeId,
+        from,
+        to,
+        settings.vacationDayType,
+      ),
     ]);
 
     const voided = new Set(
@@ -195,7 +227,65 @@ export class WorkdaysService {
       },
       timezone,
       days,
+      absences,
+      vacationDayType: settings.vacationDayType,
     };
+  }
+
+  /**
+   * Días del rango con una ausencia aprobada. Cuentan los mismos días que en
+   * el saldo de vacaciones: con días laborables, ni fines de semana ni festivos.
+   */
+  private async approvedAbsenceDays(
+    tenantId: string,
+    locationId: string | null,
+    employeeId: string,
+    from: string,
+    to: string,
+    dayType: VacationDayType,
+  ): Promise<WorkdayAbsence[]> {
+    const start = parseDate(from);
+    const end = parseDate(to);
+    const [absences, holidays] = await Promise.all([
+      this.prisma.absence.findMany({
+        where: {
+          tenantId,
+          employeeId,
+          status: AbsenceStatus.APPROVED,
+          startDate: { lte: end },
+          endDate: { gte: start },
+        },
+        include: { type: true },
+        orderBy: { startDate: "asc" },
+      }),
+      dayType === VacationDayType.WORKING
+        ? this.prisma.holiday.findMany({
+            where: {
+              tenantId,
+              date: { gte: start, lte: end },
+              OR: [{ locationId: null }, { locationId }],
+            },
+            select: { date: true },
+          })
+        : [],
+    ]);
+    const holidayDates = new Set(
+      holidays.map((h) => h.date.toISOString().slice(0, 10)),
+    );
+    return absences.flatMap((absence) =>
+      absenceDates(
+        absence.startDate < start ? start : absence.startDate,
+        absence.endDate > end ? end : absence.endDate,
+        { dayType, holidays: holidayDates },
+      ).map((date) => ({
+        date,
+        absenceId: absence.id,
+        typeName: absence.type.name,
+        color: absence.type.color,
+        isPaid: absence.type.isPaid,
+        halfDay: absence.halfDay,
+      })),
+    );
   }
 
   /** Jornadas y totales de un mes natural. */
@@ -233,7 +323,13 @@ export class WorkdaysService {
       ) + 1;
     return {
       ...result,
-      totals: monthTotals(result.days, result.employee.weeklyHours, periodDays),
+      totals: monthTotals(
+        result.days,
+        result.employee.weeklyHours,
+        periodDays,
+        result.absences,
+        result.vacationDayType,
+      ),
     };
   }
 }
@@ -247,17 +343,34 @@ function localDay(instant: Date, timezone: string): string {
   }).format(instant);
 }
 
-/** Totales del mes; sin horas pactadas no hay jornada esperada ni exceso. */
+/**
+ * Totales del mes; sin horas pactadas no hay jornada esperada ni exceso.
+ * Cada día de ausencia aprobada descuenta su parte de la jornada pactada:
+ * 1/7 de la semana si se cuentan días naturales, 1/5 si son laborables.
+ */
 export function monthTotals(
   days: Workday[],
   weeklyHours: number | null,
   daysInMonth: number,
+  absences: WorkdayAbsence[] = [],
+  dayType: VacationDayType = VacationDayType.NATURAL,
 ): MonthTotals {
   const workedMinutes = days.reduce((sum, d) => sum + d.workedMinutes, 0);
+  const absenceDays = absences.reduce(
+    (sum, a) => sum + (a.halfDay ? 0.5 : 1),
+    0,
+  );
+  const daysPerWeek = dayType === VacationDayType.WORKING ? 5 : 7;
   const expectedMinutes =
     weeklyHours === null
       ? null
-      : Math.round((weeklyHours * 60 * daysInMonth) / 7);
+      : Math.max(
+          0,
+          Math.round(
+            (weeklyHours * 60 * daysInMonth) / 7 -
+              (weeklyHours * 60 * absenceDays) / daysPerWeek,
+          ),
+        );
   return {
     workedMinutes,
     breakMinutes: days.reduce((sum, d) => sum + d.breakMinutes, 0),
@@ -269,5 +382,6 @@ export function monthTotals(
     daysWorked: days.filter((d) => d.workedMinutes > 0).length,
     incidenceCount: days.filter((d) => d.incidences.length > 0 || d.open)
       .length,
+    absenceDays,
   };
 }

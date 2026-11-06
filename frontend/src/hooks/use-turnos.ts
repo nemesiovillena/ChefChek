@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
 import type {
@@ -173,6 +173,18 @@ export function useSchedule(locationId: string | null, weekStart: string) {
     `${BASE}/schedule?locationId=${locationId}&weekStart=${weekStart}`,
     { enabled: !!locationId },
   );
+}
+
+/** Varias semanas a la vez (vista de mes): comparten caché con la rejilla semanal. */
+export function useScheduleWeeks(locationId: string | null, weekStarts: string[]) {
+  return useQueries({
+    queries: weekStarts.map((weekStart) => ({
+      queryKey: scheduleKey(locationId, weekStart),
+      queryFn: async () =>
+        (await apiClient.get<WeekSchedule>(`${BASE}/schedule?locationId=${locationId}&weekStart=${weekStart}`)).data,
+      enabled: !!locationId,
+    })),
+  });
 }
 
 export function useCreateShift() {

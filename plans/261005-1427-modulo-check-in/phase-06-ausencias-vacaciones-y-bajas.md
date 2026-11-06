@@ -57,7 +57,7 @@ Primer bloque del módulo `turnos`: tipos de ausencia, saldos de vacaciones, sol
 - [x] Cada persona ve solo lo suyo; gestión vetada a cuentas compartidas (e2e)
 - [x] `turnos` apagado por defecto y dependiente de `check-in` (e2e)
 - [ ] Justificante adjunto en las bajas (pasa a la Fase 10, documentación)
-- [ ] Las ausencias aprobadas aún no aparecen en el registro de jornada ni en los informes
+- [x] Las ausencias aprobadas aparecen en el registro de jornada, las hojas de horas y los informes (PDF, Excel, CSV y enlace de Inspección), y descuentan la jornada pactada
 
 ## Risk Assessment
 

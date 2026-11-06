@@ -11,6 +11,7 @@ import {
   TimePunchAdjustment,
   TimePunchAdjustmentDecision,
 } from "@prisma/client";
+import { WebSocketService } from "../../../websocket/websocket.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { CreateAdjustmentDto } from "../dto/workday.dto";
 
@@ -40,7 +41,10 @@ const NEEDS_NEW_PUNCH: PunchAdjustmentKind[] = [
  */
 @Injectable()
 export class AdjustmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: WebSocketService,
+  ) {}
 
   /** Solicitud del propio empleado: queda pendiente de decisión. */
   async request(
@@ -70,7 +74,7 @@ export class AdjustmentsService {
   ): Promise<AdjustmentWithDecision> {
     await this.assertNotOwnRecord(tenantId, employee.id, manager.id);
     await this.assertValid(tenantId, employee.id, dto);
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const adjustment = await tx.timePunchAdjustment.create({
         data: this.toData(tenantId, employee, dto, manager),
       });
@@ -85,6 +89,8 @@ export class AdjustmentsService {
       });
       return { ...adjustment, decision };
     });
+    this.realtime.notifyCheckInPresenceChanged(tenantId);
+    return result;
   }
 
   async decide(
@@ -117,6 +123,9 @@ export class AdjustmentsService {
           decidedByName: manager.name,
         },
       });
+      if (approve) {
+        this.realtime.notifyCheckInPresenceChanged(tenantId);
+      }
       return { ...adjustment, decision };
     } catch (error) {
       // unique(adjustmentId): otra persona ya la decidió.

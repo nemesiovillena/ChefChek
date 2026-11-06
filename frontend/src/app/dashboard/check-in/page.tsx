@@ -17,6 +17,11 @@ import { CheckInReadinessBanner } from "./components/check-in-readiness-banner";
 import { CheckInReviewPanel } from "./components/check-in-review-panel";
 import { CheckInTodayShiftsPanel } from "./components/check-in-today-shifts-panel";
 import {
+  CheckInOwnUnclosedDays,
+  CheckInTeamUnclosedDays,
+} from "./components/check-in-unclosed-days-panel";
+import { useOwnCheckIn } from "@/hooks/use-check-in";
+import {
   canManageCheckIn,
   secondaryBtnCls,
 } from "./components/check-in-form-styles";
@@ -27,6 +32,7 @@ export const dynamic = "force-dynamic";
 export default function CheckInPage() {
   const { user, isLoading: authLoading } = useAuth();
   const { isEnabled } = useModules();
+  const { data: own } = useOwnCheckIn(user?.id);
   if (authLoading) return null;
   // Una cuenta compartida solo ficha en modo kiosco: se abre directamente.
   if (user?.isSharedAccount === true) redirect("/fichar");
@@ -37,6 +43,8 @@ export default function CheckInPage() {
       <h2 className="font-headline-lg text-headline-lg text-primary">Fichar</h2>
 
       {canManage && <CheckInReadinessBanner />}
+
+      <CheckInOwnUnclosedDays enabled={!!own?.employee} />
 
       <CheckInPersonalCard />
 
@@ -83,6 +91,8 @@ export default function CheckInPage() {
       </div>
 
       {canManage && <CheckInReviewPanel />}
+
+      {canManage && <CheckInTeamUnclosedDays />}
 
       {canManage && isEnabled("turnos") && <CheckInTodayShiftsPanel />}
 

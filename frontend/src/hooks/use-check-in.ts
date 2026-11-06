@@ -3,6 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
+import { useMountEffect } from './use-mount-effect';
+import { useAuth } from '@/contexts/auth.context';
+import { getWebSocketClient } from '@/lib/websocket-client';
 import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
   AgreementExtraction,
@@ -28,6 +31,8 @@ import type {
   OwnCheckInState,
   PresenceEntry,
   PunchInput,
+  TeamUnclosedDay,
+  UnclosedDay,
   PunchView,
   ReviewPunch,
   WorkCenter,
@@ -51,6 +56,7 @@ const KEYS = {
   adjustments: ['check-in', 'adjustments'],
   timesheets: ['check-in', 'timesheets'],
   inspectionLinks: ['check-in', 'inspection-links'],
+  unclosed: ['check-in', 'unclosed-days'],
 };
 
 // El interceptor de apiClient desenvuelve { success, data }: `.data` ya es la entidad.
@@ -319,10 +325,22 @@ export function useKioskState(locationId: string | null) {
 }
 
 /** Quién está trabajando ahora. Se refresca solo cada 30 s. */
+/**
+ * Quién está trabajando ahora. Se recarga al momento cuando alguien ficha
+ * (señal por WebSocket, sin datos de la persona); el refresco cada 2 minutos
+ * queda de respaldo si se corta la conexión.
+ */
 export function usePresence(enabled: boolean) {
+  const qc = useQueryClient();
+  const auth = useAuth();
+  useMountEffect(() =>
+    getWebSocketClient(auth).subscribe('checkInPresenceChanged', () => {
+      qc.invalidateQueries({ queryKey: KEYS.presence });
+    }),
+  );
   return useApiQuery<PresenceEntry[]>(KEYS.presence, `${BASE}/presence`, {
     enabled,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 }
 
@@ -355,10 +373,30 @@ export function useEmployeeMonth(employeeId: string | null, year: number, month:
 function useInvalidateWorkdays() {
   const qc = useQueryClient();
   return () => {
-    for (const key of [KEYS.month, KEYS.adjustments, KEYS.timesheets, KEYS.review, KEYS.me, KEYS.presence]) {
+    for (const key of [
+      KEYS.month,
+      KEYS.adjustments,
+      KEYS.timesheets,
+      KEYS.review,
+      KEYS.me,
+      KEYS.presence,
+      KEYS.unclosed,
+    ]) {
       qc.invalidateQueries({ queryKey: key });
     }
   };
+}
+
+/** Mis días recientes sin cerrar (olvido de fichaje). */
+export function useOwnUnclosedDays(enabled: boolean) {
+  return useApiQuery<UnclosedDay[]>([...KEYS.unclosed, 'me'], `${BASE}/me/unclosed-days`, { enabled });
+}
+
+/** Días recientes sin cerrar de todo el equipo (gerencia). */
+export function useTeamUnclosedDays() {
+  return useApiQuery<TeamUnclosedDay[]>([...KEYS.unclosed, 'team'], `${BASE}/unclosed-days`, {
+    refetchInterval: 5 * 60_000,
+  });
 }
 
 export function useOwnAdjustments() {

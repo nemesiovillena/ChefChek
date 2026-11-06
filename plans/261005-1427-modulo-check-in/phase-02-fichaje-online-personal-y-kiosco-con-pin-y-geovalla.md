@@ -65,7 +65,7 @@ Registro de fichajes append-only con cadena de hash, desde dispositivo personal 
 - [x] Con textos legales sin validar no se puede fichar (e2e)
 - [x] Cadena de huellas numerada y verificable por tenant (e2e)
 - [x] Cuenta compartida no accede a fichas, configuración ni presencia aunque tenga rol ADMIN (e2e)
-- [ ] Presencia en vivo sin recargar: hoy se refresca cada 30 s (ver Desviaciones)
+- [x] Presencia en vivo sin recargar: señal por WebSocket al fichar o aprobar una corrección (sin datos de la persona); refresco cada 2 min de respaldo
 - [ ] Empleado con dos centros con geovalla: cubierto por test unitario de `resolveGeofence`, no por e2e
 - [ ] Probado en móvil y tablet reales (solo navegador de escritorio)
 

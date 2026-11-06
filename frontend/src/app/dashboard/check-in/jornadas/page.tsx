@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CalendarDays, ClipboardCheck, Inbox, Users } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useEmployeeMonth, useEmployees, useOwnAdjustments, useOwnCheckIn, useOwnMonth, usePendingAdjustments } from '@/hooks/use-check-in';
@@ -17,7 +18,7 @@ type TabId = 'mias' | 'equipo' | 'solicitudes' | 'hojas';
 const TAB_IDS: readonly TabId[] = ['mias', 'equipo', 'solicitudes', 'hojas'];
 
 /** Mis jornadas del mes y el estado de mis solicitudes. */
-function OwnTab({ period }: { period: YearMonth }) {
+function OwnTab({ period, focusDate }: { period: YearMonth; focusDate?: string }) {
   const { user } = useAuth();
   const { data: own } = useOwnCheckIn(user?.id);
   const hasEmployee = !!own?.employee;
@@ -37,7 +38,12 @@ function OwnTab({ period }: { period: YearMonth }) {
   const recent = (adjustments ?? []).slice(0, 8);
   return (
     <div className="space-y-4">
-      <CheckInMonthView state={state} mode="own" showAddMissingDay={own?.display?.showAddMissingDay !== false} />
+      <CheckInMonthView
+        state={state}
+        mode="own"
+        focusDate={focusDate}
+        showAddMissingDay={own?.display?.showAddMissingDay !== false}
+      />
       {own?.display?.showOwnAdjustments !== false && recent.length > 0 && (
         <div className={cardCls}>
           <p className="mb-2 font-medium">Mis solicitudes de corrección</p>
@@ -72,7 +78,17 @@ function OwnTab({ period }: { period: YearMonth }) {
 }
 
 /** Jornadas de una persona del equipo, con corrección directa. */
-function TeamTab({ period, employeeId, onSelect }: { period: YearMonth; employeeId: string | null; onSelect: (id: string) => void }) {
+function TeamTab({
+  period,
+  employeeId,
+  onSelect,
+  focusDate,
+}: {
+  period: YearMonth;
+  employeeId: string | null;
+  onSelect: (id: string) => void;
+  focusDate?: string;
+}) {
   const { data: employees } = useEmployees(true);
   const { data: state, isLoading } = useEmployeeMonth(employeeId, period.year, period.month);
   return (
@@ -89,7 +105,7 @@ function TeamTab({ period, employeeId, onSelect }: { period: YearMonth; employee
         ))}
       </select>
       {employeeId && (isLoading || !state) && <p className="text-[var(--on-surface-variant)]">Cargando…</p>}
-      {employeeId && state && <CheckInMonthView state={state} mode="manager" />}
+      {employeeId && state && <CheckInMonthView state={state} mode="manager" focusDate={focusDate} />}
     </div>
   );
 }
@@ -98,6 +114,14 @@ function PendingBadge() {
   const { data } = usePendingAdjustments();
   if (!data || data.length === 0) return null;
   return <span className="rounded-full bg-[var(--error)] px-2 text-xs text-white">{data.length}</span>;
+}
+
+/** "2026-10" -> { year: 2026, month: 10 }; cualquier otra cosa -> null. */
+function parseMonthParam(value: string | null): YearMonth | null {
+  const match = value?.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const month = Number(match[2]);
+  return month >= 1 && month <= 12 ? { year: Number(match[1]), month } : null;
 }
 
 /** La pestaña activa vive en `?tab=` (enlazable): useSearchParams exige Suspense. */
@@ -112,8 +136,11 @@ export default function CheckInWorkdaysPage() {
 function WorkdaysContent() {
   const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useTabQueryParam<TabId>(TAB_IDS, 'mias');
-  const [period, setPeriod] = useState<YearMonth>(currentYearMonth);
-  const [employeeId, setEmployeeId] = useState<string | null>(null);
+  // Un aviso de día sin cerrar enlaza aquí con ?mes=AAAA-MM&dia=AAAA-MM-DD&empleado=…
+  const searchParams = useSearchParams();
+  const focusDate = searchParams.get('dia') ?? undefined;
+  const [period, setPeriod] = useState<YearMonth>(() => parseMonthParam(searchParams.get('mes')) ?? currentYearMonth());
+  const [employeeId, setEmployeeId] = useState<string | null>(() => searchParams.get('empleado'));
   const { data: own } = useOwnCheckIn(user?.id);
 
   if (authLoading) return null;
@@ -182,8 +209,10 @@ function WorkdaysContent() {
         </div>
       )}
 
-      {tab === 'mias' && <OwnTab period={ownMonthOnly ? currentYearMonth() : period} />}
-      {tab === 'equipo' && <TeamTab period={period} employeeId={employeeId} onSelect={setEmployeeId} />}
+      {tab === 'mias' && <OwnTab period={ownMonthOnly ? currentYearMonth() : period} focusDate={focusDate} />}
+      {tab === 'equipo' && (
+        <TeamTab period={period} employeeId={employeeId} onSelect={setEmployeeId} focusDate={focusDate} />
+      )}
       {tab === 'solicitudes' && <CheckInRequestsTab />}
       {tab === 'hojas' && (
         <CheckInTimesheetsTab

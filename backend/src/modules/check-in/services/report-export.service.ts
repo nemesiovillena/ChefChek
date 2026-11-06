@@ -43,6 +43,33 @@ const hhmm = (minutes: number | null) =>
     : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
 
 type ReportDay = WorkdayReport["days"][number];
+type ReportAbsence = WorkdayReport["absences"][number];
+
+/** Una fila del registro: un día con fichajes, con ausencia o con las dos cosas. */
+interface ReportLine {
+  date: string;
+  day?: ReportDay;
+  absence?: ReportAbsence;
+}
+
+/** Días con fichajes y días de ausencia, juntos y por fecha. */
+function reportLines(report: WorkdayReport): ReportLine[] {
+  const byDate = new Map<string, ReportLine>();
+  for (const day of report.days) {
+    byDate.set(day.date, { date: day.date, day });
+  }
+  for (const absence of report.absences) {
+    const line = byDate.get(absence.date) ?? { date: absence.date };
+    byDate.set(absence.date, { ...line, absence });
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const absenceLabel = (absence: ReportAbsence) =>
+  `${absence.typeName}${absence.halfDay ? " (media jornada)" : ""}`;
+
+/** 2 -> "2", 1.5 -> "1,5" */
+const daysLabel = (days: number) => String(days).replace(".", ",");
 
 const workSegments = (day: ReportDay, timezone: string) =>
   day.segments
@@ -53,11 +80,12 @@ const workSegments = (day: ReportDay, timezone: string) =>
     )
     .join("  ");
 
-const dayNotes = (day: ReportDay) =>
+const dayNotes = ({ day, absence }: ReportLine) =>
   [
-    ...day.incidences.map((code) => INCIDENCE_LABELS[code] ?? code),
-    day.open ? "Jornada en curso" : "",
-    day.punches.some((p) => p.origin === "ADJUSTMENT" || p.voided)
+    absence ? absenceLabel(absence) : "",
+    ...(day?.incidences ?? []).map((code) => INCIDENCE_LABELS[code] ?? code),
+    day?.open ? "Jornada en curso" : "",
+    day?.punches.some((p) => p.origin === "ADJUSTMENT" || p.voided)
       ? "Con correcciones"
       : "",
   ]
@@ -79,18 +107,18 @@ const COLUMNS = [
 ];
 
 function rows(report: WorkdayReport): (string | number)[][] {
-  return report.days.map((day) => [
+  return reportLines(report).map((line) => [
     report.company.name,
     report.company.taxId ?? "",
     report.center ?? "",
     report.employee.name,
     report.employee.nationalId ?? "",
     report.employee.socialSecurityNumber ?? "",
-    dayLabel(day.date),
-    workSegments(day, report.timezone),
-    hhmm(day.workedMinutes),
-    hhmm(day.breakMinutes),
-    dayNotes(day),
+    dayLabel(line.date),
+    line.day ? workSegments(line.day, report.timezone) : "",
+    hhmm(line.day?.workedMinutes ?? 0),
+    hhmm(line.day?.breakMinutes ?? 0),
+    dayNotes(line),
   ]);
 }
 
@@ -139,6 +167,7 @@ export class ReportExportService {
       "Horas pactadas",
       "Exceso estimado",
       "Días con incidencia",
+      "Días de ausencia",
       "Hoja aprobada",
       "Conformidad del empleado",
     ]).font = { bold: true };
@@ -152,6 +181,7 @@ export class ReportExportService {
         hhmm(report.totals.expectedMinutes),
         hhmm(report.totals.overtimeMinutes),
         report.totals.incidenceCount,
+        report.totals.absenceDays,
         report.approval
           ? `v${report.approval.version} · ${report.approval.approvedByName}`
           : "No",
@@ -351,16 +381,18 @@ export class ReportExportService {
       cols.map((c) => c.title),
       true,
     );
-    for (const day of report.days) {
+    const lines = reportLines(report);
+    for (const line of lines) {
+      const { day } = line;
       drawRow([
-        dayLabel(day.date),
-        workSegments(day, report.timezone) || "—",
-        day.breakMinutes > 0 ? hhmm(day.breakMinutes) : "",
-        day.open ? "en curso" : hhmm(day.workedMinutes),
-        dayNotes(day),
+        dayLabel(line.date),
+        (day && workSegments(day, report.timezone)) || "—",
+        day && day.breakMinutes > 0 ? hhmm(day.breakMinutes) : "",
+        day?.open ? "en curso" : hhmm(day?.workedMinutes ?? 0),
+        dayNotes(line),
       ]);
     }
-    if (report.days.length === 0) {
+    if (lines.length === 0) {
       drawRow([
         "",
         `Sin fichajes ${report.period.kind === "range" ? "en estas fechas" : "este mes"}`,
@@ -378,6 +410,12 @@ export class ReportExportService {
       `Horas pactadas ${report.period.ofThe} / exceso estimado`,
       `${hhmm(report.totals.expectedMinutes)} / ${hhmm(report.totals.overtimeMinutes)}`,
     );
+    if (report.totals.absenceDays > 0) {
+      field(
+        "Días de ausencia (vacaciones, bajas y permisos)",
+        daysLabel(report.totals.absenceDays),
+      );
+    }
     if (report.totals.incidenceCount > 0) {
       field(
         "Días con incidencia sin resolver",

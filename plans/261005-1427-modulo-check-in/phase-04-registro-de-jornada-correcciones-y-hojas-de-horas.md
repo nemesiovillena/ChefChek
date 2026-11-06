@@ -63,7 +63,7 @@ Deriva la jornada diaria de los fichajes, permite correcciones documentadas sin 
 - [x] La situación de cada persona (dentro/fuera) tiene en cuenta las correcciones aprobadas (e2e)
 - [x] Flujo en navegador: el empleado solicita, gerencia aprueba, la hoja refleja el total
 - [ ] Horas extra contrastadas con un cálculo manual según convenio: lo que hay es una estimación mensual (ver Desviaciones)
-- [ ] Avisos automáticos de jornada sin cerrar y de olvido de fichaje (no implementados)
+- [x] Avisos de jornada sin cerrar y de olvido de fichaje: en Fichar, al empleado (sus días del último mes) y a gerencia (todo el equipo), con enlace al día. Sin campana ni correo, por privacidad
 
 ## Risk Assessment
 
