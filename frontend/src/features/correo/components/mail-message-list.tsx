@@ -12,6 +12,8 @@ interface Props {
   onSelect: (uid: number) => void;
   /** Paginador (tamaño y flechas) que va al pie de la lista. */
   footer: React.ReactNode;
+  /** Texto si no hay correos (p. ej. una búsqueda sin resultados). */
+  emptyText?: string;
 }
 
 /**
@@ -28,9 +30,9 @@ function subjectTone(m: MailSummary): string {
   return m.seen ? 'text-[var(--on-surface-variant)]' : 'font-semibold text-[var(--on-surface)]';
 }
 
-export function MailMessageList({ messages, selectedUid, showRecipients, onSelect, footer }: Props) {
+export function MailMessageList({ messages, selectedUid, showRecipients, onSelect, footer, emptyText }: Props) {
   if (messages.length === 0) {
-    return <p className="p-6 text-center text-sm text-[var(--on-surface-variant)]">No hay correos en esta carpeta.</p>;
+    return <p className="p-6 text-center text-sm text-[var(--on-surface-variant)]">{emptyText ?? 'No hay correos en esta carpeta.'}</p>;
   }
   return (
     <div>
