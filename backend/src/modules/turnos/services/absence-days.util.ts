@@ -30,17 +30,16 @@ export interface DayCountOptions {
 }
 
 /**
- * Días que consume una ausencia.
+ * Fechas (AAAA-MM-DD) que consume una ausencia.
  *  - NATURAL: todos los días del calendario.
  *  - WORKING: de lunes a viernes, sin festivos.
- * Media jornada (solo ausencias de un día) cuenta 0,5.
  */
-export function countAbsenceDays(
+export function absenceDates(
   start: Date,
   end: Date,
-  options: DayCountOptions,
-): number {
-  let total = 0;
+  options: Omit<DayCountOptions, "halfDay">,
+): string[] {
+  const dates: string[] = [];
   for (const day of eachDay(start, end)) {
     if (options.year !== undefined && day.getUTCFullYear() !== options.year) {
       continue;
@@ -54,8 +53,18 @@ export function countAbsenceDays(
         continue;
       }
     }
-    total += 1;
+    dates.push(formatDate(day));
   }
+  return dates;
+}
+
+/** Días que consume una ausencia. Media jornada (solo ausencias de un día) cuenta 0,5. */
+export function countAbsenceDays(
+  start: Date,
+  end: Date,
+  options: DayCountOptions,
+): number {
+  const total = absenceDates(start, end, options).length;
   return options.halfDay && total === 1 ? 0.5 : total;
 }
 
