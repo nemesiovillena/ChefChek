@@ -38,6 +38,8 @@ import {
   CorreoMailboxService,
   PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
+  SEARCH_MAX_CHARS,
+  SEARCH_MIN_CHARS,
 } from "./correo-mailbox.service";
 import {
   CorreoSendService,
@@ -65,6 +67,20 @@ function requireFolder(folder: string | undefined): string {
     throw new BadRequestException("Falta la carpeta.");
   }
   return folder;
+}
+
+/** Texto de búsqueda opcional: vacío = sin filtro; fuera de 2–100 caracteres → 400. */
+export function parseSearch(raw: string | undefined): string | undefined {
+  const q = (raw ?? "").replace(/\s+/g, " ").trim();
+  if (!q) {
+    return undefined;
+  }
+  if (q.length < SEARCH_MIN_CHARS || q.length > SEARCH_MAX_CHARS) {
+    throw new BadRequestException(
+      `Escribe entre ${SEARCH_MIN_CHARS} y ${SEARCH_MAX_CHARS} caracteres para buscar.`,
+    );
+  }
+  return q;
 }
 
 function requireUidValidity(value: string | undefined): string {
@@ -160,7 +176,8 @@ export class CorreoController {
 
   @Get("messages")
   @ApiOperation({
-    summary: "Lista de correos (10/20/50, por cursor beforeUid)",
+    summary:
+      "Lista de correos (10/20/50, por cursor beforeUid; q busca en cabeceras y texto)",
   })
   async getMessages(
     @Req() req: any,
@@ -169,6 +186,7 @@ export class CorreoController {
     @Query("uidValidity") uidValidity?: string,
     @Query("fresh") fresh?: string,
     @Query("limit") limitRaw?: string,
+    @Query("q") qRaw?: string,
   ) {
     const f = requireFolder(folder);
     const limit = Number(limitRaw ?? PAGE_SIZE);
@@ -180,6 +198,7 @@ export class CorreoController {
       uidValidity: uidValidity || undefined,
       fresh: fresh === "1",
       limit,
+      q: parseSearch(qRaw),
     });
     const ids = data.messages.map((m) => `${f}:${data.uidValidity}:${m.uid}`);
     const opened = await this.accessLog.openedEntityIds(req.tenantId, ids);

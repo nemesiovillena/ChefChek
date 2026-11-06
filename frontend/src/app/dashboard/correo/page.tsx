@@ -23,6 +23,7 @@ import { MailFolderList } from '@/features/correo/components/mail-folder-list';
 import { MailMessageList } from '@/features/correo/components/mail-message-list';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { MailListPager } from '@/features/correo/components/mail-list-pager';
+import { MailSearchBox } from '@/features/correo/components/mail-search-box';
 import { MailMessageReader } from '@/features/correo/components/mail-message-reader';
 
 export const dynamic = 'force-dynamic';
@@ -52,11 +53,12 @@ export default function CorreoPage() {
   const [selectedUid, setSelectedUid] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<MailPageSize>(10);
   const [pageIndex, setPageIndex] = useState(0);
+  const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<ComposeDraft | null>(null);
 
   const folders = useMailFolders(accessReady);
   const folder = folderChoice ?? folders.data?.[0]?.path ?? null;
-  const messages = useMailMessages(folder, accessReady, pageSize);
+  const messages = useMailMessages(folder, accessReady, pageSize, search);
   const pages = messages.data?.pages ?? [];
   const uidValidity = pages[0]?.uidValidity ?? null;
   const detail = useMailMessage(folder, selectedUid, uidValidity);
@@ -66,6 +68,12 @@ export default function CorreoPage() {
 
   const selectFolder = (path: string) => {
     setFolderChoice(path);
+    setSelectedUid(null);
+    setPageIndex(0);
+    setSearch('');
+  };
+  const applySearch = (q: string) => {
+    setSearch(q);
     setSelectedUid(null);
     setPageIndex(0);
   };
@@ -164,9 +172,11 @@ export default function CorreoPage() {
             <MailFolderList folders={folders.data ?? []} selected={folder} onSelect={selectFolder} />
           </div>
           <div className={`overflow-hidden rounded-xl border border-[var(--outline-variant)] ${selectedUid ? 'hidden lg:block' : ''}`}>
+            {/* key: al cambiar de carpeta la caja vuelve a quedar vacía */}
+            <MailSearchBox key={folder ?? ''} value={search} onSearch={applySearch} />
             {messages.isLoading ? (
               <div className="flex items-center gap-2 p-6 text-[var(--on-surface-variant)]">
-                <Loader2 className="h-4 w-4 animate-spin" /> Cargando correos…
+                <Loader2 className="h-4 w-4 animate-spin" /> {search ? 'Buscando…' : 'Cargando correos…'}
               </div>
             ) : messages.error ? (
               <p className="p-6 text-sm text-[var(--error)]">{errorText(messages.error)}</p>
@@ -175,6 +185,7 @@ export default function CorreoPage() {
                 messages={currentPage?.messages ?? []}
                 selectedUid={selectedUid}
                 showRecipients={isSentFolder}
+                emptyText={search ? `Ningún correo de esta carpeta contiene «${search}».` : undefined}
                 onSelect={(uid) => {
                   setSelectedUid(uid);
                   markOpened(folder, uid);
