@@ -34,6 +34,10 @@ export interface ServerToClientEvents {
   stockUpdated: (stock: StockEvent) => void;
   stockCritical: (alert: StockAlertEvent) => void;
 
+  // Check-In: alguien ha fichado. Solo es una señal para recargar la
+  // presencia: no lleva nombres porque la sala la recibe todo el tenant.
+  checkInPresenceChanged: (data: { at: string }) => void;
+
   // Digital menu events
   qrScan: (scan: QRScanEvent) => void;
   menuUpdated: (menu: MenuEvent) => void;

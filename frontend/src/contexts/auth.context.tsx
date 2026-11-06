@@ -88,6 +88,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         setUser(session.user);
         setTenantId(session.user.tenantId);
+        setTenantSlug(authService.getCurrentTenantSlug());
+        // Sin el id de sesión el WebSocket no conecta tras recargar la página
+        // (avisos y presencia en vivo solo funcionaban justo después del login).
+        setSessionId(localStorage.getItem('session_id'));
         setIsLoading(false);
       })
       .catch((error) => {

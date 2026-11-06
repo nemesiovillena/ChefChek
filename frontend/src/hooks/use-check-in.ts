@@ -3,6 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '@/lib/api-client';
 import { useApiQuery } from './use-api';
+import { useMountEffect } from './use-mount-effect';
+import { useAuth } from '@/contexts/auth.context';
+import { getWebSocketClient } from '@/lib/websocket-client';
 import { isNetworkError, loadSnapshot, saveSnapshot } from '@/lib/check-in-offline';
 import type {
   AgreementExtraction,
@@ -319,10 +322,22 @@ export function useKioskState(locationId: string | null) {
 }
 
 /** Quién está trabajando ahora. Se refresca solo cada 30 s. */
+/**
+ * Quién está trabajando ahora. Se recarga al momento cuando alguien ficha
+ * (señal por WebSocket, sin datos de la persona); el refresco cada 2 minutos
+ * queda de respaldo si se corta la conexión.
+ */
 export function usePresence(enabled: boolean) {
+  const qc = useQueryClient();
+  const auth = useAuth();
+  useMountEffect(() =>
+    getWebSocketClient(auth).subscribe('checkInPresenceChanged', () => {
+      qc.invalidateQueries({ queryKey: KEYS.presence });
+    }),
+  );
   return useApiQuery<PresenceEntry[]>(KEYS.presence, `${BASE}/presence`, {
     enabled,
-    refetchInterval: 30_000,
+    refetchInterval: 120_000,
   });
 }
 

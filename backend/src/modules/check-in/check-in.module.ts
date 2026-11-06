@@ -1,3 +1,4 @@
+import { WebSocketModule } from "../../websocket/websocket.module";
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
@@ -48,6 +49,7 @@ import { AgreementExtractionService } from "./services/agreement-extraction.serv
   imports: [
     PrismaModule,
     AuthModule,
+    WebSocketModule,
     AiAssistantModule,
     AiAssistantConfigModule,
     RecipeCaptureConfigModule,
