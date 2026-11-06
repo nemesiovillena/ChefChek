@@ -116,13 +116,19 @@ export function useMailFolders(enabled: boolean) {
 export const MAIL_PAGE_SIZES = [10, 20, 50] as const;
 export type MailPageSize = (typeof MAIL_PAGE_SIZES)[number];
 
-export function useMailMessages(folder: string | null, enabled: boolean, pageSize: MailPageSize) {
+/** Búsqueda en el servidor (remitente, destinatario, asunto y texto): 2–100 caracteres. */
+export const MAIL_SEARCH_MIN_CHARS = 2;
+export const MAIL_SEARCH_MAX_CHARS = 100;
+
+/** `search` vacío = lista normal de la carpeta. */
+export function useMailMessages(folder: string | null, enabled: boolean, pageSize: MailPageSize, search = '') {
   return useInfiniteQuery({
-    queryKey: ['correo', 'messages', folder, pageSize],
+    queryKey: ['correo', 'messages', folder, pageSize, search],
     queryFn: ({ pageParam }) =>
       get<MailListPage>(`${BASE}/messages`, {
         folder: folder ?? undefined,
         limit: pageSize,
+        q: search || undefined,
         beforeUid: pageParam?.beforeUid,
         uidValidity: pageParam?.uidValidity,
       }),

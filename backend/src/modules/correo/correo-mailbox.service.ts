@@ -150,6 +150,18 @@ export function toFolders(list: ListResponse[]): MailFolder[] {
     });
 }
 
+/** Longitud admitida para buscar (más corta devuelve medio buzón). */
+export const SEARCH_MIN_CHARS = 2;
+export const SEARCH_MAX_CHARS = 100;
+
+/**
+ * Criterio IMAP de la lista. Con búsqueda: TEXT, que el servidor compara sin
+ * mayúsculas contra las cabeceras (remitente, destinatario, asunto) y el cuerpo.
+ */
+export function searchCriteria(q?: string): { all: true } | { text: string } {
+  return q ? { text: q } : { all: true };
+}
+
 /** Lista de UIDs (desc) → página de `size` anteriores a `beforeUid`. */
 export function pageUids(
   uids: number[],
@@ -216,12 +228,14 @@ export class CorreoMailboxService {
       uidValidity?: string;
       fresh?: boolean;
       limit?: number;
+      /** Texto a buscar; las búsquedas no pasan por la caché. */
+      q?: string;
     } = {},
   ): Promise<MailListPage> {
     const limit = opts.limit ?? PAGE_SIZE;
     const cacheKey = `${tenantId}\u0000${folder}\u0000${limit}`;
-    const isFirstPage = !opts.beforeUid;
-    if (isFirstPage && !opts.fresh) {
+    const useCache = !opts.beforeUid && !opts.q;
+    if (useCache && !opts.fresh) {
       const cached = this.firstPageCache.get(cacheKey);
       if (cached && Date.now() - cached.at < CACHE_MS) {
         return cached.data;
@@ -240,7 +254,10 @@ export class CorreoMailboxService {
         ) {
           throw new ConflictException(MAILBOX_CHANGED);
         }
-        const uids = (await client.search({ all: true }, { uid: true })) || [];
+        const uids =
+          (await client.search(searchCriteria(opts.q), {
+            uid: true,
+          })) || [];
         const { page, nextBeforeUid } = pageUids(uids, opts.beforeUid, limit);
         const messages: MailSummary[] = [];
         if (page.length > 0) {
@@ -265,7 +282,7 @@ export class CorreoMailboxService {
       }
     });
 
-    if (isFirstPage) {
+    if (useCache) {
       this.firstPageCache.set(cacheKey, { at: Date.now(), data });
     }
     return data;

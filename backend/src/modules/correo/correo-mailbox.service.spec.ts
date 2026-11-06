@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   CorreoMailboxService,
   MAX_MESSAGE_BYTES,
@@ -6,7 +10,7 @@ import {
   pageUids,
   toFolders,
 } from "./correo-mailbox.service";
-import { attachmentDisposition } from "./correo.controller";
+import { attachmentDisposition, parseSearch } from "./correo.controller";
 import { collectMailParts } from "./mail-body-structure";
 
 const tenantId = "tenant-1";
@@ -136,6 +140,24 @@ describe("CorreoMailboxService", () => {
     expect(imap.withClient).toHaveBeenCalledTimes(2);
   });
 
+  it("buscar: pide TEXT al servidor y no usa la caché", async () => {
+    const client = fakeClient({ uids: [4, 9] });
+    const { service, imap } = serviceWith(client);
+    await service.listMessages(tenantId, "INBOX");
+    const page = await service.listMessages(tenantId, "INBOX", {
+      q: "Makro",
+    });
+    expect(client.search).toHaveBeenLastCalledWith(
+      { text: "Makro" },
+      { uid: true },
+    );
+    expect(page.messages.map((m) => m.uid)).toEqual([9, 4]);
+    expect(imap.withClient).toHaveBeenCalledTimes(2);
+    // La lista sin búsqueda sigue saliendo de su caché
+    await service.listMessages(tenantId, "INBOX");
+    expect(imap.withClient).toHaveBeenCalledTimes(2);
+  });
+
   it("uidValidity distinta → 409 en detalle y en 'cargar más'", async () => {
     const { service } = serviceWith(
       fakeClient({ uids: [1, 2], uidValidity: 999n }),
@@ -254,5 +276,21 @@ describe("tamaño de página", () => {
     expect(ten.messages).toHaveLength(10);
     expect(twenty.messages).toHaveLength(20);
     expect(imap.withClient).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("parseSearch", () => {
+  it("vacío o espacios → sin filtro", () => {
+    expect(parseSearch(undefined)).toBeUndefined();
+    expect(parseSearch("   ")).toBeUndefined();
+  });
+
+  it("recorta y junta espacios", () => {
+    expect(parseSearch("  factura   Makro ")).toBe("factura Makro");
+  });
+
+  it("menos de 2 o más de 100 caracteres → 400", () => {
+    expect(() => parseSearch("a")).toThrow(BadRequestException);
+    expect(() => parseSearch("x".repeat(101))).toThrow(BadRequestException);
   });
 });
