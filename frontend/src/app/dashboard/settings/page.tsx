@@ -26,6 +26,7 @@ import { ConservationDefaultsSection } from './components/conservation-defaults-
 import { SictedConfigSection } from './components/sicted-config-section';
 import { RacionesConfigSection } from './components/raciones-config-section';
 import { SettingsSectionIndex } from './components/settings-section-index';
+import { UserLabelSettings } from './components/user-label-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,19 @@ interface TenantConfig {
   createdAt: string;
 }
 
+/**
+ * El rol Usuario solo ve el estado de la impresora de etiquetas (comprobar que
+ * Browser Print la reconoce); el resto de Configuración es para gerencia.
+ * Se bifurca aquí, antes de los hooks de la página completa, para no pedir al
+ * servidor datos que ese rol no puede leer.
+ */
 export default function SettingsPage() {
+  const { user } = useAuth();
+  if (user?.role === 'USER') return <UserLabelSettings />;
+  return <FullSettingsPage />;
+}
+
+function FullSettingsPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();

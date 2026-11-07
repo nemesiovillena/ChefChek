@@ -51,12 +51,14 @@ export interface NavSection {
   items: NavItem[];
 }
 
-/** Standalone top-bar link, no dropdown. Las cuentas con rol Usuario no lo ven. */
+/**
+ * Standalone top-bar link, no dropdown. Las cuentas con rol Usuario lo ven,
+ * pero la página solo les muestra la impresora de etiquetas.
+ */
 export const SETTINGS_LINK: NavItem = {
   label: 'Configuración',
   href: '/dashboard/settings',
   icon: 'settings',
-  hiddenForRoles: ['USER'],
 };
 
 /**
