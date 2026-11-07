@@ -33,6 +33,7 @@ import {
   type FreezeFoodLabelInput,
 } from '@/hooks/use-food-labels';
 import EditLabelForm from './edit-label-form';
+import { ZebraReadyBadge } from '../components/zebra-ready-badge';
 import FreezeLabelForm from './freeze-label-form';
 
 export const dynamic = 'force-dynamic';
@@ -89,6 +90,12 @@ export default function EtiquetaDetailPage() {
   const [freezing, setFreezing] = useState(false);
   const [printing, setPrinting] = useState(false);
   const isThermal = printFormat.startsWith('thermal:');
+  const notifyPrinterWaiting = () =>
+    addNotification({
+      type: 'info',
+      title: 'Preparando la impresora…',
+      message: 'La etiqueta saldrá en cuanto esté lista. No hace falta volver a pulsar.',
+    });
 
   if (isLoading) {
     return (
@@ -108,6 +115,7 @@ export default function EtiquetaDetailPage() {
         reprint: true,
         onError: (m) =>
           addNotification({ type: 'error', title: 'Impresión', message: m }),
+        onWaiting: notifyPrinterWaiting,
         onSuccess: isThermal
           ? () =>
               addNotification({
@@ -148,6 +156,7 @@ export default function EtiquetaDetailPage() {
       await printLabel(label.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
           addNotification({ type: 'error', title: 'Impresión', message: m }),
+        onWaiting: notifyPrinterWaiting,
       });
     } catch (e: unknown) {
       addNotification({
@@ -170,6 +179,7 @@ export default function EtiquetaDetailPage() {
       await printLabel(label.id, printFormat, Number(copies) || 1, {
         onError: (m) =>
           addNotification({ type: 'error', title: 'Impresión', message: m }),
+        onWaiting: notifyPrinterWaiting,
       });
     } catch (e: unknown) {
       addNotification({
@@ -396,6 +406,7 @@ export default function EtiquetaDetailPage() {
           )}
           {printing ? 'Enviando…' : 'Reimprimir'}
         </Button>
+        {isThermal && <ZebraReadyBadge />}
         {canEdit && !editing && !freezing && (
           <Button variant="outline" onClick={() => setEditing(true)}>
             <Pencil className="mr-2 h-4 w-4" />

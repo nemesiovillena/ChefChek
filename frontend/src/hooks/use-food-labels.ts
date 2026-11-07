@@ -6,6 +6,7 @@ import {
   listZebraPrinters,
   type ZebraDevice,
 } from '@/lib/zebra-browser-print';
+import { waitForReadyZebra, zplLabelLengthDots } from '@/lib/zebra-printer-readiness';
 
 export type LabelType = 'ELABORATED' | 'HANDLED';
 export type StorageCondition = 'REFRIGERATED' | 'FROZEN' | 'AMBIENT';
@@ -630,6 +631,8 @@ export async function printLabelZpl(
     reprint?: boolean;
     onError?: (msg: string) => void;
     onSuccess?: () => void;
+    /** La impresora aún se está preparando: la etiqueta saldrá cuando esté lista. */
+    onWaiting?: () => void;
   } = {},
 ): Promise<void> {
   try {
@@ -640,7 +643,10 @@ export async function printLabelZpl(
         responseType: 'text',
       },
     );
-    const device = await resolveZebraDevice();
+    const device = await waitForReadyZebra(resolveZebraDevice, {
+      expectedLengthDots: zplLabelLengthDots(res.data),
+      onWaiting: opts.onWaiting,
+    });
     await device.send(res.data);
     opts.onSuccess?.();
   } catch (e: unknown) {
@@ -662,6 +668,7 @@ export async function printLabel(
     reprint?: boolean;
     onError?: (msg: string) => void;
     onSuccess?: () => void;
+    onWaiting?: () => void;
   } = {},
 ): Promise<void> {
   if (format.startsWith('thermal:')) {
