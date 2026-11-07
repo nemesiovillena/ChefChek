@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import {
   RETIRED_DISPOSITION_LABEL,
@@ -36,6 +36,9 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 type RetirementFilter = 'active' | 'retired' | '';
+
+type SortField = NonNullable<FoodLabelListQuery['sortBy']>;
+type SortOrder = NonNullable<FoodLabelListQuery['sortOrder']>;
 
 /** Versión corta para móvil, donde el chip va bajo la fecha de caducidad. */
 const STATUS_LABEL_SHORT: Record<string, string> = {
@@ -80,6 +83,8 @@ export default function CaducidadesPage() {
   const [onlyExpiring, setOnlyExpiring] = useState(false);
   const [retirement, setRetirement] = useState<RetirementFilter>('active');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<SortField>('useByDate');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   // Cambiar filtros o página vacía la selección (las filas visibles cambian).
   const resetPaging = () => {
@@ -91,7 +96,8 @@ export default function CaducidadesPage() {
     () => ({
       page,
       pageSize: PAGE_SIZE,
-      sortBy: 'useByDate',
+      sortBy: sortField,
+      sortOrder,
       ...(labelType ? { labelType } : {}),
       ...(lotNumber.trim() ? { lotNumber: lotNumber.trim() } : {}),
       ...(retirement ? { retirement } : {}),
@@ -99,7 +105,7 @@ export default function CaducidadesPage() {
         ? { expiringWithinDays: config.expiryWarningDays }
         : {}),
     }),
-    [page, labelType, lotNumber, onlyExpiring, retirement, config],
+    [page, labelType, lotNumber, onlyExpiring, retirement, config, sortField, sortOrder],
   );
 
   const { data, isLoading } = useFoodLabels(query);
@@ -118,6 +124,34 @@ export default function CaducidadesPage() {
     });
   const toggleAll = () =>
     setSelected(allSelected ? new Set() : new Set(selectableIds));
+  // Mismo título: invierte el orden. Otro título: empieza ascendente.
+  const handleSort = (field: SortField) => {
+    if (field === sortField) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+    resetPaging();
+  };
+  const sortableHeader = (label: string, field: SortField, className: string) => {
+    const isActive = sortField === field;
+    const Icon = isActive && sortOrder === 'desc' ? ChevronDown : ChevronUp;
+    return (
+      <th
+        className={className}
+        aria-sort={isActive ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button
+          type="button"
+          onClick={() => handleSort(field)}
+          className={`inline-flex items-center gap-1 font-medium hover:text-[var(--on-surface)] ${isActive ? 'text-[var(--primary)]' : ''}`}
+        >
+          {label}
+          <Icon className={`h-3.5 w-3.5 ${isActive ? '' : 'opacity-30'}`} />
+        </button>
+      </th>
+    );
+  };
   const goToPage = (p: number) => {
     setPage(p);
     setSelected(new Set());
@@ -250,12 +284,12 @@ export default function CaducidadesPage() {
                     className="h-5 w-5"
                   />
                 </th>
-                <th className="px-2 py-2 md:px-3">Nombre</th>
+                {sortableHeader('Nombre', 'itemName', 'px-2 py-2 md:px-3')}
                 <th className="hidden px-3 py-2 md:table-cell">Lote</th>
                 <th className="hidden px-3 py-2 md:table-cell">Tipo</th>
-                <th className="hidden px-3 py-2 md:table-cell">Creación</th>
-                <th className="px-2 py-2 text-right md:px-3 md:text-left">Caducidad</th>
-                <th className="hidden px-3 py-2 md:table-cell">Estado</th>
+                {sortableHeader('Creación', 'preparedAt', 'hidden px-3 py-2 md:table-cell')}
+                {sortableHeader('Caducidad', 'useByDate', 'px-2 py-2 text-right md:px-3 md:text-left')}
+                {sortableHeader('Estado', 'status', 'hidden px-3 py-2 md:table-cell')}
               </tr>
             </thead>
             <tbody>

@@ -102,7 +102,9 @@ export interface FoodLabelListQuery {
   pageSize?: number;
   /** Filtra a `daysUntilExpiry <= N` (incluye ya caducadas). */
   expiringWithinDays?: number;
-  sortBy?: 'preparedAt' | 'useByDate';
+  /** `status` = activas antes que retiradas y, dentro, por caducidad. */
+  sortBy?: 'preparedAt' | 'useByDate' | 'itemName' | 'status';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface ConservationConfig {

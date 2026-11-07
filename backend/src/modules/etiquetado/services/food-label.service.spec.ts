@@ -1101,7 +1101,45 @@ describe("FoodLabelService", () => {
       mockPrisma.foodLabel.count.mockResolvedValue(0);
       await service.list(TENANT, { sortBy: "useByDate" });
       const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
-      expect(orderBy).toEqual({ useByDate: "asc" });
+      expect(orderBy).toEqual([{ useByDate: "asc" }, { id: "asc" }]);
+    });
+
+    it("list: default orders by preparedAt desc", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, {});
+      const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toEqual([{ preparedAt: "desc" }, { id: "asc" }]);
+    });
+
+    it("list: sortBy=itemName honours sortOrder", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, { sortBy: "itemName", sortOrder: "desc" });
+      const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toEqual([{ itemName: "desc" }, { id: "asc" }]);
+    });
+
+    it("list: sortBy=status puts active labels first, nearest expiry first", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, { sortBy: "status" });
+      const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toEqual([
+        { retiredAt: { sort: "asc", nulls: "first" } },
+        { useByDate: "asc" },
+        { id: "asc" },
+      ]);
+    });
+
+    it("list: sortBy=status desc puts retired labels first", async () => {
+      mockPrisma.foodLabel.findMany.mockResolvedValue([]);
+      mockPrisma.foodLabel.count.mockResolvedValue(0);
+      await service.list(TENANT, { sortBy: "status", sortOrder: "desc" });
+      const orderBy = mockPrisma.foodLabel.findMany.mock.calls[0][0].orderBy;
+      expect(orderBy[0]).toEqual({
+        retiredAt: { sort: "desc", nulls: "last" },
+      });
     });
   });
 });
