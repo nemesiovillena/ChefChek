@@ -74,7 +74,16 @@ export class ListFoodLabelsDto {
   @Min(0)
   expiringWithinDays?: number;
 
+  /**
+   * `status` no es columna: el estado de caducidad se calcula al leer. Ordena
+   * activas antes que retiradas y, dentro, por caducidad (caducadas primero).
+   */
   @IsOptional()
-  @IsIn(["preparedAt", "useByDate"])
-  sortBy?: "preparedAt" | "useByDate";
+  @IsIn(["preparedAt", "useByDate", "itemName", "status"])
+  sortBy?: "preparedAt" | "useByDate" | "itemName" | "status";
+
+  /** Sin valor: `useByDate`/`itemName`/`status` ascendente, `preparedAt` descendente. */
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  sortOrder?: "asc" | "desc";
 }
