@@ -450,10 +450,21 @@ export class FoodLabelService {
     // listado paginado (las congeladas son minoría y su vida útil suele ser
     // mucho más larga). El filtro `expiringWithinDays` y el `nearest` del
     // dashboard sí usan la fecha efectiva exacta (comparan ambos candidatos).
-    const orderBy: Prisma.FoodLabelOrderByWithRelationInput =
-      query.sortBy === "useByDate"
-        ? { useByDate: "asc" }
-        : { preparedAt: "desc" };
+    const sortBy = query.sortBy ?? "preparedAt";
+    const dir: Prisma.SortOrder =
+      query.sortOrder ?? (sortBy === "preparedAt" ? "desc" : "asc");
+    const primary: Prisma.FoodLabelOrderByWithRelationInput[] =
+      sortBy === "status"
+        ? [
+            // Ascendente: activas (sin retirar) primero; descendente, al revés.
+            {
+              retiredAt: { sort: dir, nulls: dir === "asc" ? "first" : "last" },
+            },
+            { useByDate: dir },
+          ]
+        : [{ [sortBy]: dir }];
+    // `id` desempata para que la paginación no repita ni salte filas.
+    const orderBy = [...primary, { id: "asc" as const }];
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.foodLabel.findMany({
