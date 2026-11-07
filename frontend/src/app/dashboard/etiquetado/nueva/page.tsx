@@ -32,6 +32,7 @@ import AllergenPicker from '@/components/shared/allergen-picker';
 import ResponsibleField, {
   type ResponsibleValue,
 } from '@/components/responsible-field';
+import { ZebraReadyBadge } from '../components/zebra-ready-badge';
 
 export const dynamic = 'force-dynamic';
 
@@ -303,6 +304,12 @@ export default function NuevaEtiquetaPage() {
         await printLabel(created.id, printFormat, Number(copies) || 1, {
           onError: (m) =>
             addNotification({ type: 'error', title: 'Impresión', message: m }),
+          onWaiting: () =>
+            addNotification({
+              type: 'info',
+              title: 'Preparando la impresora…',
+              message: 'La etiqueta saldrá en cuanto esté lista. No hace falta volver a pulsar.',
+            }),
           onSuccess: printFormat.startsWith('thermal:')
             ? () =>
                 addNotification({
@@ -865,6 +872,7 @@ export default function NuevaEtiquetaPage() {
               )}
               Imprimir
             </Button>
+            {printFormat.startsWith('thermal:') && <ZebraReadyBadge />}
             <p className="w-full text-xs text-[var(--on-surface-variant)]">
               Formato: {printFormatLabel || '—'}. Se elige en Configuración →
               Etiquetas.

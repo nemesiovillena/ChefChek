@@ -261,3 +261,44 @@ export async function sendZpl(zpl: string, device?: ZebraDevice): Promise<void> 
   const target = device ?? (await getDefaultZebraPrinter());
   await target.send(zpl);
 }
+
+/** Estado de la impresora según su respuesta a `~HS` (Host Status). */
+export interface ZebraHostStatus {
+  paperOut: boolean;
+  paused: boolean;
+  headOpen: boolean;
+  /** Largo de etiqueta que la impresora tiene medido, en puntos. */
+  labelLengthDots: number;
+}
+
+/**
+ * Lee la respuesta de `~HS`: tres líneas entre STX/ETX separadas por comas.
+ * Línea 1: comunicación, papel agotado, pausa, largo de etiqueta…
+ * Línea 2: ajustes, sin uso, cabezal abierto… Devuelve null si no se entiende.
+ */
+export function parseHostStatus(raw: string): ZebraHostStatus | null {
+  const lines = raw
+    .split(/[\x02\x03\r\n]+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return null;
+  const first = lines[0].split(',');
+  const second = lines[1].split(',');
+  if (first.length < 4 || second.length < 3) return null;
+  const labelLengthDots = parseInt(first[3], 10);
+  if (!Number.isFinite(labelLengthDots)) return null;
+  return {
+    paperOut: first[1] === '1',
+    paused: first[2] === '1',
+    headOpen: second[2] === '1',
+    labelLengthDots,
+  };
+}
+
+/** Pregunta a la impresora su estado (no imprime nada). */
+export async function readZebraStatus(device: ZebraDevice): Promise<ZebraHostStatus> {
+  const raw = await device.sendThenRead('~HS');
+  const status = parseHostStatus(raw);
+  if (!status) throw new Error('La impresora no ha contestado bien a la consulta de estado.');
+  return status;
+}
