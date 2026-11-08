@@ -12,6 +12,7 @@ import {
   Flag,
   ListTodo,
   Warehouse as WarehouseIcon,
+  StickyNote,
   RotateCcw,
   Trash2,
   Loader2,
@@ -45,6 +46,7 @@ const TYPES: TypeConfig[] = [
   { id: 'sprint', label: 'Sprints', icon: Flag },
   { id: 'task', label: 'Tareas', icon: ListTodo },
   { id: 'warehouse', label: 'Almacenes', icon: WarehouseIcon },
+  { id: 'note', label: 'Notas', icon: StickyNote },
 ];
 
 /** "hace 3 días", "hace 2 h", "ahora mismo" — relativo y en español. */

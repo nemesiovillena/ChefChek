@@ -12,7 +12,7 @@ import apiClient from '@/lib/api-client';
 import { ApiError, PaginatedResponse } from '@/types/api.types';
 
 /** Extract a human-readable message from an axios error, falling back to a default. */
-function resolveErrorMessage(error: unknown, fallback: string): string {
+export function resolveErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<ApiError>(error)) {
     // GlobalExceptionFilter nests the message under `error.message`; apiClient's
     // interceptor already rewrites error.message for that shape, but check the

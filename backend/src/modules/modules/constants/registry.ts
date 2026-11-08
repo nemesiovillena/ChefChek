@@ -280,6 +280,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     alwaysActive: false,
     defaultEnabled: false,
   },
+  {
+    id: "notas",
+    name: "Notas",
+    description:
+      "Notas del equipo para no olvidar nada: congelador, recordatorios, avisos…",
+    dependencies: [],
+    alwaysActive: false,
+    defaultEnabled: true,
+  },
 ];
 
 /**

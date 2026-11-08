@@ -15,7 +15,8 @@ export type TrashType =
   | 'user'
   | 'sprint'
   | 'task'
-  | 'warehouse';
+  | 'warehouse'
+  | 'note';
 
 export interface TrashItem {
   id: string;
@@ -37,6 +38,7 @@ const CANONICAL_KEY: Record<TrashType, string[]> = {
   sprint: ['sprints'],
   task: ['tasks'],
   warehouse: ['warehouses'],
+  note: ['notes'],
 };
 
 /** Mensaje legible de un error axios (los 409/400 del backend vienen aquí). */

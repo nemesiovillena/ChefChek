@@ -38,6 +38,7 @@ import { QRController } from "./modules/qr/qr.controller";
 
 import { ProductionModule } from "./modules/production/production.module";
 import { SalaTasksModule } from "./modules/sala-tasks/sala-tasks.module";
+import { NotasModule } from "./modules/notas/notas.module";
 import { AppccModule } from "./modules/appcc/appcc.module";
 import { AllergensModule } from "./modules/allergens/allergens.module";
 import { AlmacenesModule } from "./modules/almacenes/almacenes.module";
@@ -94,6 +95,7 @@ import { CorreoModule } from "./modules/correo/correo.module";
     TechnicalSheetsModule,
     ProductionModule,
     SalaTasksModule,
+    NotasModule,
     AppccModule,
     AllergensModule,
     ComprasModule,
