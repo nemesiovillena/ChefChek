@@ -12,6 +12,7 @@ export const TRASH_TYPES = [
   "sprint",
   "task",
   "warehouse",
+  "note",
 ] as const;
 
 export type TrashType = (typeof TRASH_TYPES)[number];

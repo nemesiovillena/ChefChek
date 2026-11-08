@@ -230,6 +230,7 @@ export const SECTION_REGISTRY: SectionDefinition[] = [
     moduleId: "asistente-ia",
     defaultAllowed: true,
   },
+  { key: "notas", label: "Notas", moduleId: "notas", defaultAllowed: true },
   { key: "sprint", label: "Sprint", defaultAllowed: true },
   { key: "papelera", label: "Papelera", defaultAllowed: true },
   { key: "backups", label: "Copias de seguridad", defaultAllowed: true },
