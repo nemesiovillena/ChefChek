@@ -4378,6 +4378,9 @@ model PortionCounter {
   recipeId                 String?
   productId                String?
   minPortions              Float     @default(0)
+  // Grupo en la pantalla (Carnes, Pescados, Platos…). Texto libre propio del
+  // contador: al crearlo se propone la categoría del artículo o «Platos».
+  category                 String?
   // Raciones contadas a mano sin etiqueta (recuento); se gastan las primeras.
   unlabeledPortions        Float     @default(0)
   // Aviso de mínimo/agotado ya enviado; se limpia al volver a superarlo.
