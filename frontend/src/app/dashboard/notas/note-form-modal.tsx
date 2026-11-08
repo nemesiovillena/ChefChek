@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -71,6 +71,15 @@ interface NoteFormModalProps {
   defaultTagId: string | null;
   isSharedAccount: boolean;
   currentUserId: string | undefined;
+}
+
+/** Abre el calendario o el reloj al tocar cualquier parte del campo, no solo el icono. */
+function openNativePicker(e: MouseEvent<HTMLInputElement>) {
+  try {
+    e.currentTarget.showPicker?.();
+  } catch {
+    // Navegadores antiguos o sin gesto válido: se queda el comportamiento nativo.
+  }
 }
 
 export function NoteFormModal({
@@ -243,7 +252,8 @@ export function NoteFormModal({
                     type="date"
                     value={form.remindDate}
                     onChange={(e) => set('remindDate', e.target.value)}
-                    className="text-base"
+                    onClick={openNativePicker}
+                    className="cursor-pointer text-base"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -254,7 +264,8 @@ export function NoteFormModal({
                     value={form.remindTime}
                     disabled={!form.remindDate}
                     onChange={(e) => set('remindTime', e.target.value)}
-                    className="text-base"
+                    onClick={openNativePicker}
+                    className="cursor-pointer text-base"
                   />
                 </div>
               </div>
