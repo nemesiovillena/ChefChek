@@ -118,6 +118,16 @@ export function NoteCard({
         <button
           type="button"
           className={iconButton}
+          onClick={onOpen}
+          disabled={busy}
+          title="Editar"
+          aria-label="Editar"
+        >
+          <span className="material-symbols-outlined text-[20px]">edit</span>
+        </button>
+        <button
+          type="button"
+          className={iconButton}
           onClick={onTogglePin}
           disabled={busy || done}
           title={note.pinned ? 'Desfijar' : 'Fijar arriba'}
