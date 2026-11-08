@@ -26,6 +26,8 @@ import { PortionDishLinker } from './portion-dish-linker';
 
 interface Props {
   counter: PortionCounter;
+  /** Categorías ya usadas, para sugerirlas al escribir. */
+  categories: string[];
   canManage: boolean;
   onClose: () => void;
 }
@@ -52,7 +54,7 @@ const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtPortions(
  * Detalle de un contador: etiquetas en el orden en que se gastan, historial
  * de movimientos y, para gerencia y cocina, mínimo, platos de Cuiner y baja.
  */
-export function PortionCounterDetailDialog({ counter, canManage, onClose }: Props) {
+export function PortionCounterDetailDialog({ counter, categories, canManage, onClose }: Props) {
   const addNotification = useNotification();
   const { data, isLoading } = usePortionCounterDetail(counter.id);
   const update = useUpdatePortionCounter();
@@ -61,6 +63,7 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
   const confirm = useConfirm();
   const [minPortions, setMinPortions] = useState(String(counter.minPortions));
   const [pendingDishes, setPendingDishes] = useState(0);
+  const [category, setCategory] = useState(counter.category ?? '');
 
   const fail = (err: unknown) =>
     addNotification({
@@ -78,6 +81,21 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
         type: 'success',
         title: 'Mínimo guardado',
         message: `${counter.name}: avisar con ${fmtPortions(min)}.`,
+      });
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const saveCategory = async () => {
+    const next = category.trim();
+    if (next === (counter.category ?? '')) return;
+    try {
+      await update.mutateAsync({ id: counter.id, category: next });
+      addNotification({
+        type: 'success',
+        title: 'Categoría guardada',
+        message: `${counter.name}: ${next || 'sin categoría'}.`,
       });
     } catch (err) {
       fail(err);
@@ -229,6 +247,23 @@ export function PortionCounterDetailDialog({ counter, canManage, onClose }: Prop
             {canManage && (
               <section>
                 <div className="flex flex-wrap items-end gap-2">
+                  <label className="text-sm">
+                    <span className="block text-[var(--on-surface-variant)]">Categoría</span>
+                    <input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      onBlur={saveCategory}
+                      list="portion-counter-categories"
+                      maxLength={40}
+                      placeholder="Carnes, Pescados…"
+                      className="mt-1 w-44 rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base"
+                    />
+                    <datalist id="portion-counter-categories">
+                      {categories.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
+                    </datalist>
+                  </label>
                   <label className="text-sm">
                     <span className="block text-[var(--on-surface-variant)]">
                       Avisar cuando queden

@@ -38,6 +38,12 @@ export class UpdatePortionCounterDto {
   @IsOptional()
   @IsBoolean()
   active?: boolean;
+
+  /** Grupo en la pantalla; vacío = «Sin categoría». */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  category?: string;
 }
 
 export class LinkPortionDishDto {
