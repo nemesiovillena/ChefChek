@@ -59,6 +59,8 @@ export class FoodLabelZplService {
       qrModules,
       hasHandledExtra: !!extra,
       hasAllergens: !!allergens,
+      productName: label.itemName,
+      ingredients: ingredients || null,
     });
 
     const out: string[] = [
