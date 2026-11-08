@@ -101,6 +101,7 @@ export class PortionCounterService {
         recipeId: c.recipeId,
         productId: c.productId,
         minPortions: c.minPortions,
+        category: c.category,
         unlabeledPortions: c.unlabeledPortions,
         active: c.active,
         available,
@@ -175,15 +176,20 @@ export class PortionCounterService {
         "Elige una receta o un artículo (uno de los dos).",
       );
     }
-    const source = dto.recipeId
+    const source: {
+      name: string;
+      category?: { name: string } | null;
+    } | null = dto.recipeId
       ? await this.prisma.recipe.findFirst({
           where: { id: dto.recipeId, tenantId },
           select: { name: true },
         })
       : await this.prisma.product.findFirst({
           where: { id: dto.productId, tenantId },
-          select: { name: true },
+          select: { name: true, category: { select: { name: true } } },
         });
+    // Propuesta editable en la ficha: la del artículo; las recetas, «Platos».
+    const category = dto.recipeId ? "Platos" : (source?.category?.name ?? null);
     if (!source) {
       throw new NotFoundException(
         dto.recipeId ? "Receta no encontrada" : "Artículo no encontrado",
@@ -198,6 +204,7 @@ export class PortionCounterService {
           recipeId: dto.recipeId ?? null,
           productId: dto.productId ?? null,
           minPortions: dto.minPortions ?? 0,
+          category,
         },
       });
     } catch (err) {
@@ -224,6 +231,9 @@ export class PortionCounterService {
           ? { minPortions: dto.minPortions }
           : {}),
         ...(dto.active !== undefined ? { active: dto.active } : {}),
+        ...(dto.category !== undefined
+          ? { category: dto.category.trim() || null }
+          : {}),
       },
     });
     // Cambiar el mínimo puede hacer cruzar el umbral.

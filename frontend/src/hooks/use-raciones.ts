@@ -23,6 +23,8 @@ export interface PortionCounter {
   recipeId: string | null;
   productId: string | null;
   minPortions: number;
+  /** Grupo en la pantalla (Carnes, Pescados, Platos…); null = sin categoría. */
+  category: string | null;
   unlabeledPortions: number;
   active: boolean;
   available: number;
@@ -208,7 +210,7 @@ export function useCreatePortionCounter() {
 
 export function useUpdatePortionCounter() {
   return usePortionMutation(
-    ({ id, ...input }: { id: string; name?: string; minPortions?: number; active?: boolean }) =>
+    ({ id, ...input }: { id: string; name?: string; minPortions?: number; active?: boolean; category?: string }) =>
       apiClient.patch(`/v1/raciones/${id}`, input),
   );
 }

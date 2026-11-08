@@ -18,6 +18,20 @@ export const dynamic = 'force-dynamic';
 /** Agotados primero, luego los que quedan pocos, luego por nombre. */
 const STATE_ORDER: Record<PortionState, number> = { out: 0, low: 1, ok: 2 };
 
+const NO_CATEGORY = 'Sin categoría';
+
+/** Agrupa por categoría en orden alfabético; los que no tienen, al final. */
+function groupByCategory(list: PortionCounter[]) {
+  const groups = new Map<string, PortionCounter[]>();
+  for (const c of list) {
+    const key = c.category?.trim() || NO_CATEGORY;
+    groups.set(key, [...(groups.get(key) ?? []), c]);
+  }
+  return [...groups.entries()].sort(([a], [b]) =>
+    a === NO_CATEGORY ? 1 : b === NO_CATEGORY ? -1 : a.localeCompare(b, 'es'),
+  );
+}
+
 /** Con pocos contadores las 27 letras ocupan más que la lista: solo buscador. */
 const MIN_COUNTERS_FOR_ALPHABET = 12;
 
@@ -72,6 +86,15 @@ export default function RacionesPage() {
     [active, query],
   );
   const visible = letter ? searched.filter((c) => initialLetter(c.name) === letter) : searched;
+  const groups = groupByCategory(visible);
+  // Sugerencias del campo «Categoría» de la ficha: las que ya se usan.
+  const categories = useMemo(
+    () =>
+      [...new Set(counters.map((c) => c.category?.trim()).filter((c): c is string => !!c))].sort(
+        (a, b) => a.localeCompare(b, 'es'),
+      ),
+    [counters],
+  );
   const availableLetters = useMemo(
     () => [...new Set(searched.map((c) => initialLetter(c.name)))],
     [searched],
@@ -174,16 +197,33 @@ export default function RacionesPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {visible.map((c) => (
-                    <PortionCounterCard
-                      key={c.id}
-                      counter={c}
-                      canManage={canManage}
-                      onOpen={() => setOpenId(c.id)}
-                      onRecount={() => setAdjusting({ id: c.id, mode: 'recount' })}
-                      onAdjust={() => setAdjusting({ id: c.id, mode: 'adjust' })}
-                    />
+                <div className="space-y-6">
+                  {groups.map(([category, list]) => (
+                    <section key={category} aria-label={category}>
+                      {/* Sin título si todo está en un solo grupo sin categoría. */}
+                      {(groups.length > 1 || category !== NO_CATEGORY) && (
+                        <div
+                          role="heading"
+                          aria-level={3}
+                          className="mb-2 flex items-baseline gap-2 border-b border-[var(--outline-variant)] pb-1"
+                        >
+                          <span className="text-base font-semibold text-primary">{category}</span>
+                          <span className="text-sm text-[var(--on-surface-variant)]">{list.length}</span>
+                        </div>
+                      )}
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {list.map((c) => (
+                          <PortionCounterCard
+                            key={c.id}
+                            counter={c}
+                            canManage={canManage}
+                            onOpen={() => setOpenId(c.id)}
+                            onRecount={() => setAdjusting({ id: c.id, mode: 'recount' })}
+                            onAdjust={() => setAdjusting({ id: c.id, mode: 'adjust' })}
+                          />
+                        ))}
+                      </div>
+                    </section>
                   ))}
                 </div>
               )}
@@ -227,6 +267,7 @@ export default function RacionesPage() {
       {openCounter && (
         <PortionCounterDetailDialog
           counter={openCounter}
+          categories={categories}
           canManage={canManage}
           onClose={() => setOpenId(null)}
         />
