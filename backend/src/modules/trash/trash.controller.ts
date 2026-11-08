@@ -42,7 +42,7 @@ export class TrashController {
     description: "Lista de elementos eliminados (soft-delete)",
   })
   findAll(@Query("type") type: string, @Req() req: any) {
-    return this.trashService.listTrashed(type, req.tenantId);
+    return this.trashService.listTrashed(type, req.tenantId, req.user?.id);
   }
 
   @Patch(":type/:id/restore")
@@ -61,7 +61,7 @@ export class TrashController {
     @Param("id") id: string,
     @Req() req: any,
   ) {
-    return this.trashService.restore(type, id, req.tenantId);
+    return this.trashService.restore(type, id, req.tenantId, req.user?.id);
   }
 
   @Delete(":type/:id")
@@ -80,6 +80,6 @@ export class TrashController {
     @Param("id") id: string,
     @Req() req: any,
   ) {
-    await this.trashService.purge(type, id, req.tenantId);
+    await this.trashService.purge(type, id, req.tenantId, req.user?.id);
   }
 }

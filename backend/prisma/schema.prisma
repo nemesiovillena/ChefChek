@@ -95,6 +95,8 @@ model Tenant {
   ProductionTask             ProductionTask[]
   ProductionReport           ProductionReport[]
   salaTasks                  SalaTask[]
+  notes                      Note[]
+  noteTags                   NoteTag[]
   assistantConversations     AssistantConversation[]
   foodLabels                 FoodLabel[]
   recipeCaptures             RecipeCapture[]
@@ -796,6 +798,56 @@ model SalaTask {
 
   @@index([tenantId, status, sortOrder])
   @@map("sala_tasks")
+}
+
+// Notas: lo que el equipo no quiere olvidar (congelador, recordatorios…).
+// isPrivate = solo la ve su autor (nunca gerencia); solo cuentas personales.
+// createdByName/doneByName guardan el «Quién» (en cuenta compartida lo
+// escribe la persona; en cuenta personal es el nombre de la cuenta).
+model Note {
+  id            String    @id @default(cuid())
+  tenantId      String
+  title         String?
+  body          String    @db.Text
+  tagId         String?
+  isPrivate     Boolean   @default(false)
+  pinned        Boolean   @default(false)
+  remindAt      DateTime?
+  remindHasTime Boolean   @default(false)
+  doneAt        DateTime?
+  doneBy        String?
+  doneByName    String?
+  createdBy     String
+  createdByName String?
+  updatedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tag    NoteTag? @relation(fields: [tagId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, doneAt, pinned])
+  @@index([tenantId, remindAt])
+  @@map("notes")
+}
+
+// Etiquetas de notas por restaurante (color = clave de paleta del frontend).
+model NoteTag {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  color     String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notes  Note[]
+
+  @@index([tenantId, sortOrder])
+  @@map("note_tags")
 }
 
 // Menú y Cartas

@@ -30,6 +30,7 @@ describe("TrashService", () => {
     recipe: { updateMany: jest.fn() },
     user: { updateMany: jest.fn() },
     sprint: { updateMany: jest.fn() },
+    note: { updateMany: jest.fn() },
   };
 
   beforeEach(async () => {
@@ -132,6 +133,66 @@ describe("TrashService", () => {
       expect(res).toEqual({ id: "t1", purged: true });
       // task no tiene dependencias → no hay pre-check de COUNT.
       expect(txQueryRaw).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("notas privadas", () => {
+    /** Fragmentos Prisma.Sql que recibió una llamada a $queryRaw/$executeRaw. */
+    const sqlFragments = (call: unknown[]) =>
+      call.filter(
+        (arg): arg is Prisma.Sql =>
+          typeof (arg as Prisma.Sql)?.sql === "string" &&
+          Array.isArray((arg as Prisma.Sql)?.values),
+      );
+
+    it("listar notas filtra las privadas de otros autores", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+      await service.listTrashed("note", "t1", "u1");
+      const fragment = sqlFragments(
+        (prisma.$queryRaw as jest.Mock).mock.calls[0],
+      ).find((f) => f.sql.includes('"isPrivate"'));
+      expect(fragment?.values).toEqual(["u1"]);
+    });
+
+    it("listar otros tipos no añade filtro de privadas", async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+      await service.listTrashed("product", "t1", "u1");
+      const fragments = sqlFragments(
+        (prisma.$queryRaw as jest.Mock).mock.calls[0],
+      ).filter((f) => f.sql.includes('"isPrivate"'));
+      expect(fragments).toHaveLength(0);
+    });
+
+    it("recuperar una nota exige que no sea privada o sea del autor", async () => {
+      (prisma.note.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      await service.restore("note", "n1", "t1", "u1");
+      expect(prisma.note.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "n1",
+          tenantId: "t1",
+          deletedAt: { not: null },
+          OR: [{ isPrivate: false }, { createdBy: "u1" }],
+        },
+        data: { deletedAt: null },
+      });
+    });
+
+    it("privada ajena al recuperar → 404", async () => {
+      (prisma.note.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+      await expect(service.restore("note", "n1", "t1", "u2")).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it("borrar definitivamente una nota también filtra privadas ajenas", async () => {
+      txExecuteRaw.mockResolvedValue(0);
+      await expect(service.purge("note", "n1", "t1", "u2")).rejects.toThrow(
+        NotFoundException,
+      );
+      const fragment = sqlFragments(txExecuteRaw.mock.calls[0]).find((f) =>
+        f.sql.includes('"isPrivate"'),
+      );
+      expect(fragment?.values).toEqual(["u2"]);
     });
   });
 });

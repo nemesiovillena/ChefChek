@@ -30,6 +30,7 @@ import { UpcomingTaskRow } from './upcoming-task-row';
 import { SalaTaskRow } from './sala-task-row';
 import { SictedDashboardCard } from './sicted-dashboard-card';
 import { RacionesDashboardCard } from './raciones-dashboard-card';
+import { NotasDashboardCard } from './notas-dashboard-card';
 import { AllNotificationsDialog, DashboardNotificationRow } from './dashboard-notifications';
 import { SalaTaskModal } from '@/components/sala-tasks/sala-task-modal';
 import { useMyDashboardLayout, useSaveDeviceLayout } from '@/features/dashboard-layout/use-dashboard-layout';
@@ -116,6 +117,7 @@ export default function DashboardPage() {
   // Solo en pantallas configuradas (el bento por defecto no las incluye).
   const showRaciones = !!layout && moduleOn('raciones') && canSee('raciones') && showWidget('raciones');
   const showFichar = !!layout && moduleOn('check-in') && canSee('check-in') && showWidget('fichar');
+  const showNotas = !!layout && moduleOn('notas') && canSee('notas') && showWidget('notas');
   const { data: salaTasks, isLoading: salaTasksLoading } = useSalaTasks(salaNotificacionesEnabled);
   const [editingSalaTask, setEditingSalaTask] = useState<SalaTask | null>(null);
   const dndSensors = useSensors(
@@ -651,6 +653,8 @@ export default function DashboardPage() {
     compras: showCompras && comprasCard,
     raciones: showRaciones && <RacionesDashboardCard />,
     fichar: showFichar && ficharCard,
+    // Vista previa de un dispositivo: lo que vería él, sin notas privadas.
+    notas: showNotas && <NotasDashboardCard sharedDevice={Boolean(preview)} />,
   })[id];
 
   return (

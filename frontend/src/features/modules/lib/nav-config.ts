@@ -148,6 +148,7 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Asistente IA', href: '/dashboard/asistente', moduleId: 'asistente-ia', icon: 'smart_toy' },
       // Buzón del restaurante (leer y enviar): gerencia y personas autorizadas en su ficha.
       { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: 'mail', hiddenForRoles: ['SUPERADMIN'] },
+      { label: 'Notas', href: '/dashboard/notas', moduleId: 'notas', icon: 'sticky_note_2' },
       { label: 'Sprint', href: '/dashboard/sprint-tracker', sectionKey: 'sprint', icon: 'track_changes' },
       { label: 'Papelera', href: '/dashboard/papelera', sectionKey: 'papelera', icon: 'delete' },
       { label: 'Copias de Seguridad', href: '/dashboard/backups', sectionKey: 'backups', icon: 'cloud_sync' },
@@ -192,6 +193,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   { prefix: '/dashboard/appcc', moduleId: 'appcc' },
   { prefix: '/dashboard/etiquetado', moduleId: 'etiquetado' },
   { prefix: '/dashboard/raciones', moduleId: 'raciones' },
+  { prefix: '/dashboard/notas', moduleId: 'notas' },
   { prefix: '/dashboard/sicted', moduleId: 'sicted' },
   { prefix: '/dashboard/check-in', moduleId: 'check-in' },
   { prefix: '/dashboard/turnos', moduleId: 'turnos' },

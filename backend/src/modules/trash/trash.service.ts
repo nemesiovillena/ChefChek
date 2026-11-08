@@ -28,6 +28,11 @@ interface EntityMeta {
   secondaryCol: string;
   /** Sustantivo humanizado para mensajes ("artículo", "receta"...). */
   labelName: string;
+  /**
+   * Filas con `"isPrivate"` + `"createdBy"`: una privada solo la ve, recupera
+   * o borra su autor (ni gerencia), igual que fuera de la papelera.
+   */
+  privateToAuthor?: boolean;
 }
 
 interface Dependent {
@@ -108,6 +113,14 @@ const TRASH_ENTITIES: Record<TrashType, EntityMeta> = {
     secondaryCol: '"location"',
     labelName: "almacén",
   },
+  note: {
+    table: "notes",
+    model: "note",
+    labelCol: `COALESCE("title", LEFT("body", 80))`,
+    secondaryCol: '"createdByName"',
+    labelName: "nota",
+    privateToAuthor: true,
+  },
 };
 
 /**
@@ -145,6 +158,7 @@ const DEPENDENTS: Record<TrashType, Dependent[]> = {
   warehouse: [
     { table: "inventories", col: "warehouseId", label: "inventarios" },
   ],
+  note: [],
 };
 
 @Injectable()
@@ -154,7 +168,11 @@ export class TrashService {
   constructor(private readonly prisma: PrismaService) {}
 
   /** Lista los elementos en papelera de un tipo (deletedAt NOT NULL) para el tenant. */
-  async listTrashed(type: string, tenantId: string): Promise<TrashItem[]> {
+  async listTrashed(
+    type: string,
+    tenantId: string,
+    userId?: string,
+  ): Promise<TrashItem[]> {
     const meta = this.getMeta(type);
     // SQL crudo: el middleware de soft-delete filtra deletedAt=null en find*,
     // así que para ver la papelera hay que saltárselo. Columnas camelCase entre
@@ -169,6 +187,7 @@ export class TrashService {
       FROM ${Prisma.raw(meta.table)}
       WHERE "tenantId" = ${tenantId}
         AND "deletedAt" IS NOT NULL
+        ${this.privateFilter(meta, userId)}
       ORDER BY "deletedAt" DESC
       LIMIT 500
     `;
@@ -187,6 +206,7 @@ export class TrashService {
     type: string,
     id: string,
     tenantId: string,
+    userId?: string,
   ): Promise<{ id: string; restored: boolean }> {
     const meta = this.getMeta(type);
     // delegate dinámico (prisma.product, prisma.recipe, ...). El modelo viene
@@ -199,7 +219,14 @@ export class TrashService {
       // borrada. Se scopea por tenantId; deletedAt:{not:null} evita "recuperar"
       // algo que no estaba borrado.
       const res = await delegate.updateMany({
-        where: { id, tenantId, deletedAt: { not: null } },
+        where: {
+          id,
+          tenantId,
+          deletedAt: { not: null },
+          ...(meta.privateToAuthor && {
+            OR: [{ isPrivate: false }, { createdBy: userId ?? "" }],
+          }),
+        },
         data: { deletedAt: null },
       });
       if (res.count === 0) {
@@ -223,6 +250,7 @@ export class TrashService {
     type: string,
     id: string,
     tenantId: string,
+    userId?: string,
   ): Promise<{ id: string; purged: boolean }> {
     const meta = this.getMeta(type);
     const deps = DEPENDENTS[type];
@@ -245,6 +273,7 @@ export class TrashService {
         return tx.$executeRaw`
           DELETE FROM ${Prisma.raw(meta.table)}
           WHERE id = ${id} AND "tenantId" = ${tenantId}
+            ${this.privateFilter(meta, userId)}
         `;
       });
 
@@ -273,6 +302,14 @@ export class TrashService {
       }
       throw error;
     }
+  }
+
+  /** Condición SQL extra para tipos con filas privadas de su autor. */
+  private privateFilter(meta: EntityMeta, userId?: string): Prisma.Sql {
+    if (!meta.privateToAuthor) {
+      return Prisma.empty;
+    }
+    return Prisma.sql`AND (NOT "isPrivate" OR "createdBy" = ${userId ?? ""})`;
   }
 
   private getMeta(type: string): EntityMeta {
