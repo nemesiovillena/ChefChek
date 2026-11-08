@@ -345,6 +345,63 @@ describe("FoodLabelZplService", () => {
       }
     });
 
+    it("puts the responsable right after the last line when there are no ingredients", () => {
+      const base = {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: false,
+      };
+      const anchored = computeZplLayout(spec60x40, base);
+      const layout = computeZplLayout(spec60x40, {
+        ...base,
+        productName: "Llata",
+        ingredients: null,
+      });
+      expect(layout.ingredients.maxLines).toBe(0);
+      expect(layout.responsable.y).toBe(layout.ingredients.y);
+      expect(layout.responsable.y).toBeLessThan(anchored.responsable.y);
+    });
+
+    it("reserves the second product line only for long names", () => {
+      const base = {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: false,
+      };
+      const short = computeZplLayout(spec60x40, {
+        ...base,
+        productName: "Llata",
+      });
+      const long = computeZplLayout(spec60x40, {
+        ...base,
+        productName: "Crema de calabaza asada con jengibre y leche de coco",
+      });
+      expect(short.lot.y).toBeLessThan(long.lot.y);
+    });
+
+    it("places the responsable after the estimated ingredient lines, never past the foot", () => {
+      const base = {
+        qrModules: 33,
+        hasHandledExtra: false,
+        hasAllergens: true,
+        productName: "Llata",
+      };
+      const anchored = computeZplLayout(spec60x40, base);
+      const few = computeZplLayout(spec60x40, {
+        ...base,
+        ingredients: "sal (L-1)",
+      });
+      expect(few.ingredients.maxLines).toBe(1);
+      expect(few.responsable.y).toBeGreaterThan(few.ingredients.y);
+      expect(few.responsable.y).toBeLessThan(anchored.responsable.y);
+      const many = computeZplLayout(spec60x40, {
+        ...base,
+        ingredients: "ingrediente con lote (L-123456), ".repeat(20),
+      });
+      expect(many.ingredients.maxLines).toBe(anchored.ingredients.maxLines);
+      expect(many.responsable.y).toBe(anchored.responsable.y);
+    });
+
     it("moves allergens up to fill the gap when there's no HANDLED extra line", () => {
       const withExtra = computeZplLayout(spec60x40, {
         qrModules: 33,

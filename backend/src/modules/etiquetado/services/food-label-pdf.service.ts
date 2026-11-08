@@ -116,7 +116,7 @@ export class FoodLabelPdfService {
       y = this.line(doc, handledExtra, box.x, y, w(), 6.5);
     }
 
-    // La línea de responsable va anclada abajo; el resto no debe invadirla.
+    // Pie de la etiqueta: lo reservado para la línea de responsable.
     const bottomLimit = box.y + box.h - 7;
 
     // Alérgenos — nombres en texto (Reg. UE 1169/2011), en negrita.
@@ -137,10 +137,11 @@ export class FoodLabelPdfService {
       y = this.wrappedLine(doc, ingredients, box.x, y, w(), 6, maxLines);
     }
 
-    // Responsable (abajo del todo)
+    // Responsable justo tras la última línea (como mucho, al pie).
+    y = Math.min(y + 0.5, box.y + box.h - 6.5);
     doc.font("Helvetica").fontSize(5.5);
-    doc.text(responsableLine(label), box.x, box.y + box.h - 6.5, {
-      width: box.w,
+    doc.text(responsableLine(label), box.x, y, {
+      width: w(),
       height: 6.5,
       lineBreak: false,
       ellipsis: true,
