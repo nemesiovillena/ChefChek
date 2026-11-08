@@ -43,6 +43,38 @@ export interface ZplLayoutContent {
   qrModules: number;
   hasHandledExtra: boolean;
   hasAllergens: boolean;
+  /**
+   * Nombre del producto: si cabe en 1 línea, el resto sube. Sin él se reservan
+   * las `maxLines` del nombre.
+   */
+  productName?: string;
+  /**
+   * Texto de ingredientes (null = no lleva). Con él, el responsable va justo
+   * tras la última línea estimada; sin él (undefined) se reserva todo el hueco
+   * y el responsable queda al pie.
+   */
+  ingredients?: string | null;
+}
+
+/**
+ * Ancho medio de carácter de la fuente escalable 0 de Zebra respecto a su
+ * alto, tirando por lo alto: estimar de más solo deja aire, estimar de menos
+ * montaría líneas. El 0,85 descuenta el hueco que deja el ajuste por palabras.
+ */
+const CHAR_WIDTH_RATIO = 0.65;
+const WORD_WRAP_FILL = 0.85;
+
+/** Líneas que ocupará `text` en un bloque `^FB` de `widthDots` (mínimo 1). */
+function estimateLines(
+  text: string,
+  fontDots: number,
+  widthDots: number,
+): number {
+  const perLine = Math.max(
+    1,
+    Math.floor((widthDots * WORD_WRAP_FILL) / (fontDots * CHAR_WIDTH_RATIO)),
+  );
+  return Math.max(1, Math.ceil(text.length / perLine));
 }
 
 /** Tamaño de fuente y alto de línea (mm) de un campo. */
@@ -160,7 +192,18 @@ export function computeZplLayout(
     maxLines: tuning.product.maxLines,
     bold: true,
   });
-  y += d(tuning.product.lineMm) * tuning.product.maxLines;
+  const productLines =
+    content.productName === undefined
+      ? tuning.product.maxLines
+      : Math.min(
+          tuning.product.maxLines,
+          estimateLines(
+            content.productName,
+            product.fontHeightDots,
+            product.widthDots,
+          ),
+        );
+  y += d(tuning.product.lineMm) * productLines;
 
   const lot = field(tuning.lot, { maxLines: 1, bold: true });
   y += d(tuning.lot.lineMm);
@@ -196,25 +239,51 @@ export function computeZplLayout(
     y += d(tuning.allergens.lineMm) * tuning.allergens.maxLines;
   }
 
-  const responsableY = pad + contentH - d(tuning.responsable.heightMm);
+  // Tope inferior: el responsable nunca baja de aquí (pie de la etiqueta).
+  const responsableMaxY = pad + contentH - d(tuning.responsable.heightMm);
+
+  // Ingredientes: como mucho las líneas que caben hasta el pie (más en 60×40
+  // que en 57×32); si se conoce el texto, solo las que necesita.
+  const ingredientsFit = Math.max(
+    0,
+    Math.floor((responsableMaxY - y) / d(tuning.ingredients.lineMm)),
+  );
+  const ingredients = field(tuning.ingredients, {
+    maxLines: ingredientsFit,
+    bold: false,
+  });
+  let ingredientLines = ingredientsFit;
+  if (content.ingredients !== undefined) {
+    ingredientLines = content.ingredients
+      ? Math.min(
+          ingredientsFit,
+          estimateLines(
+            content.ingredients,
+            ingredients.fontHeightDots,
+            ingredients.widthDots,
+          ),
+        )
+      : 0;
+    ingredients.maxLines = ingredientLines;
+  }
+
+  // Responsable justo tras la última línea impresa (sin hueco hasta el pie).
+  const responsableY =
+    content.ingredients === undefined
+      ? responsableMaxY
+      : Math.min(
+          responsableMaxY,
+          y + ingredientLines * d(tuning.ingredients.lineMm),
+        );
   const responsable: ZplFieldLayout = {
     x: x0,
     y: responsableY,
     fontHeightDots: d(tuning.responsable.fontMm),
-    widthDots: contentW,
+    // Al subir puede quedar a la altura del QR: entonces no debe invadirlo.
+    widthDots: widthAt(responsableY),
     maxLines: 1,
     bold: false,
   };
-
-  // Ingredientes: tantas líneas como quepan entre el último campo y el
-  // responsable (más líneas en 60×40 que en 57×32 sin tocar constantes).
-  const ingredients = field(tuning.ingredients, {
-    maxLines: Math.max(
-      0,
-      Math.floor((responsableY - y) / d(tuning.ingredients.lineMm)),
-    ),
-    bold: false,
-  });
 
   return {
     widthDots,
