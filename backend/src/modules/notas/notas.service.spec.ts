@@ -120,6 +120,15 @@ describe("Notas", () => {
       });
     });
 
+    it("la card trae todas las pendientes, no solo fijadas o con aviso", async () => {
+      prisma.note.findMany.mockResolvedValue([]);
+      await notes.highlights(TENANT, personal, false);
+      expect(prisma.note.findMany.mock.calls[0][0].where.AND).toEqual([
+        expect.any(Object),
+        { doneAt: null },
+      ]);
+    });
+
     it("la card de una cuenta personal incluye sus privadas", async () => {
       prisma.note.findMany.mockResolvedValue([]);
       await notes.highlights(TENANT, personal, false);
