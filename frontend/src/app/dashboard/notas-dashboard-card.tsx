@@ -7,7 +7,7 @@ import { NOTE_COLOR_CLASSES, noteDue, noteHeading } from './notas/note-display';
 import { useNoteActions } from './notas/use-note-actions';
 
 /**
- * Card Notas del inicio: fijadas y las que vencen hoy o antes. En un
+ * Card Notas del inicio: todas las pendientes, fijadas primero. En un
  * dispositivo compartido (o su vista previa) nunca salen notas privadas.
  * Se marcan hechas desde aquí; el resto de la card abre la página.
  */
@@ -34,7 +34,7 @@ export function NotasDashboardCard({ sharedDevice }: { sharedDevice: boolean }) 
           </span>
           <div>
             <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Notas</h5>
-            <p className="font-label-sm text-label-sm text-on-surface-variant">Fijadas y avisos de hoy</p>
+            <p className="font-label-sm text-label-sm text-on-surface-variant">Pendientes</p>
           </div>
         </div>
         {overdue > 0 && (
@@ -47,7 +47,7 @@ export function NotasDashboardCard({ sharedDevice }: { sharedDevice: boolean }) 
       {isLoading ? (
         <p className="font-label-md text-label-md text-on-surface-variant">Cargando…</p>
       ) : notes.length === 0 ? (
-        <p className="font-label-md text-label-md text-on-surface-variant">Nada pendiente para hoy</p>
+        <p className="font-label-md text-label-md text-on-surface-variant">No hay notas pendientes</p>
       ) : (
         <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
           {notes.map((note) => {
