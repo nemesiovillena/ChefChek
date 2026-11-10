@@ -12,11 +12,10 @@ import {
   MarkNoteDoneDto,
   UpdateNoteDto,
 } from "./dto/note.dto";
-import { endOfTodayIn, isNoteManager, NoteActor } from "./note-actor";
+import { isNoteManager, NoteActor } from "./note-actor";
 
 const DEFAULT_PAGE_SIZE = 30;
-const HIGHLIGHTS_LIMIT = 20;
-const TIME_ZONE = "Europe/Madrid";
+const HIGHLIGHTS_LIMIT = 50;
 
 const NOTE_INCLUDE = {
   tag: { select: { id: true, name: true, color: true } },
@@ -103,8 +102,9 @@ export class NotasService {
   }
 
   /**
-   * Para la card del inicio: pendientes fijadas o con aviso de hoy o anterior.
-   * Un dispositivo compartido nunca recibe privadas, aunque las creara su cuenta.
+   * Para la card del inicio: todas las pendientes, fijadas primero y luego por
+   * aviso más próximo. Un dispositivo compartido nunca recibe privadas, aunque
+   * las creara su cuenta.
    */
   async highlights(tenantId: string, actor: NoteActor, sharedDevice: boolean) {
     const visibility: Prisma.NoteWhereInput = sharedDevice
@@ -113,16 +113,7 @@ export class NotasService {
 
     const data = await this.prisma.note.findMany({
       where: {
-        AND: [
-          visibility,
-          { doneAt: null },
-          {
-            OR: [
-              { pinned: true },
-              { remindAt: { lt: endOfTodayIn(TIME_ZONE) } },
-            ],
-          },
-        ],
+        AND: [visibility, { doneAt: null }],
       },
       orderBy: NOTE_ORDER,
       include: NOTE_INCLUDE,
