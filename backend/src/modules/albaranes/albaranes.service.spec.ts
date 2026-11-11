@@ -56,6 +56,7 @@ describe("AlbaranesService", () => {
   const lineMatching = {
     matchAllLines: jest.fn().mockResolvedValue(undefined),
     rememberAlias: jest.fn().mockResolvedValue(undefined),
+    forgetAlias: jest.fn().mockResolvedValue(undefined),
   };
   const pythonOcrService = {
     processImage: jest.fn(),
@@ -1225,6 +1226,112 @@ describe("AlbaranesService", () => {
         productId: "p1",
         confirmedBy: "user-1",
       });
+    });
+  });
+
+  describe("matchLine en albarán confirmado", () => {
+    it("rechaza cambiar el artículo de una línea ✓ que ya dio entrada a stock", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          lines: [
+            { id: "l1", description: "Sacarina", lineStatus: "CONFIRMADO" },
+          ],
+        }),
+      );
+      await expect(
+        service.matchLine("alb-1", "l1", "p2", "t1"),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+
+    it("permite enlazar una línea rechazada para recuperarla", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          lines: [{ id: "l1", description: "Portes", lineStatus: "RECHAZADO" }],
+        }),
+      );
+      prisma.product.findFirst.mockResolvedValue({ id: "p1" });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.matchLine("alb-1", "l1", "p1", "t1");
+
+      expect(prisma.albaranLine.update).toHaveBeenCalled();
+    });
+  });
+
+  describe("unmatchLine", () => {
+    const linked = {
+      id: "l1",
+      description: "SACARINA SOBRES 250 U.COMPOST",
+      matchedProductId: "azucar",
+      lineStatus: "PENDIENTE",
+    };
+
+    it("quita el enlace, vuelve a NUEVO y olvida el alias del proveedor", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.REVISADO,
+          supplierId: "sup-1",
+          lines: [linked],
+        }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.unmatchLine("alb-1", "l1", "t1");
+
+      expect(lineMatching.forgetAlias).toHaveBeenCalledWith({
+        tenantId: "t1",
+        supplierId: "sup-1",
+        description: "SACARINA SOBRES 250 U.COMPOST",
+        productId: "azucar",
+      });
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith({
+        where: { id: "l1" },
+        data: {
+          matchedProductId: null,
+          matchStatus: "NUEVO",
+          confidence: 0,
+          suggestedProductId: null,
+          suggestionDismissed: true,
+        },
+      });
+    });
+
+    it("una línea ✓ vuelve a pendiente para revisarla de nuevo", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ lines: [{ ...linked, lineStatus: "CONFIRMADO" }] }),
+      );
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.unmatchLine("alb-1", "l1", "t1");
+
+      expect(prisma.albaranLine.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ lineStatus: "PENDIENTE" }),
+        }),
+      );
+      expect(lineMatching.forgetAlias).not.toHaveBeenCalled();
+    });
+
+    it("rechaza quitar el enlace en un albarán confirmado", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ status: AlbaranStatus.CONFIRMADO, lines: [linked] }),
+      );
+      await expect(service.unmatchLine("alb-1", "l1", "t1")).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
+      expect(lineMatching.forgetAlias).not.toHaveBeenCalled();
+    });
+
+    it("no hace nada si la línea no tiene artículo", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ lines: [{ ...linked, matchedProductId: null }] }),
+      );
+      await service.unmatchLine("alb-1", "l1", "t1");
+      expect(prisma.albaranLine.update).not.toHaveBeenCalled();
     });
   });
 

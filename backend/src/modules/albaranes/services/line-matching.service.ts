@@ -310,6 +310,33 @@ export class LineMatchingService {
   }
 
   /**
+   * Olvida el alias aprendido cuando el usuario quita un enlace equivocado
+   * (p. ej. sacarina enlazada a azúcar): si no, el siguiente albarán del
+   * mismo proveedor volvería a enlazarla sola con confianza total. Solo borra
+   * el alias si apunta al artículo que se desenlaza, para no tocar uno
+   * corregido después hacia otro artículo.
+   */
+  async forgetAlias(
+    input: Omit<RememberAliasInput, "confirmedBy">,
+  ): Promise<void> {
+    const normalizedDescription = normalizeProductDescription(
+      input.description,
+    );
+    if (!normalizedDescription) {
+      return;
+    }
+
+    await this.prisma.supplierProductAlias.deleteMany({
+      where: {
+        tenantId: input.tenantId,
+        supplierId: input.supplierId,
+        normalizedDescription,
+        productId: input.productId,
+      },
+    });
+  }
+
+  /**
    * Match by article number (barcode)
    */
   private async matchByArticleNumber(articleNumber: string, tenantId: string) {

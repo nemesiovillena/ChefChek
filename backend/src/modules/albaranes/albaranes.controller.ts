@@ -340,6 +340,18 @@ export class AlbaranesController {
     );
   }
 
+  @Delete(":id/lines/:lineId/match")
+  @ApiOperation({ summary: "Quitar el artículo enlazado a una línea" })
+  @ApiResponse({ status: 200, description: "Enlace quitado" })
+  async unmatchLine(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user?.tenantId;
+    return this.albaranesService.unmatchLine(id, lineId, tenantId);
+  }
+
   @Put(":id/lines/:lineId/confirm")
   @ApiOperation({ summary: "Confirmar línea del albarán" })
   @ApiResponse({ status: 200, description: "Línea confirmada" })
