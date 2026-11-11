@@ -780,7 +780,7 @@ model SalaTask {
   tenantId      String
   title         String
   eventDate     DateTime
-  guestCount    Int?
+  guestCount    String? // texto libre: «17 adultos y 5 niños»
   customerName  String?
   customerPhone String?
   customerEmail String?

@@ -38,9 +38,12 @@ export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
       </div>
       <div className="flex items-center gap-stack-sm shrink-0 ml-auto">
         {task.guestCount != null && (
-          <span className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">groups</span>
-            {task.guestCount}
+          <span
+            className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 max-w-[10rem]"
+            title={task.guestCount}
+          >
+            <span className="material-symbols-outlined text-[14px] shrink-0">groups</span>
+            <span className="truncate">{task.guestCount}</span>
           </span>
         )}
         <span className="font-label-md text-label-md text-secondary whitespace-nowrap">

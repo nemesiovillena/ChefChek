@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { SalaTasksService } from "./sala-tasks.service";
 import { PrismaService } from "../../common/services/prisma.service";
-import { SalaTaskStatus } from "./dto/sala-task.dto";
+import { SalaTaskStatus, UpdateSalaTaskDto } from "./dto/sala-task.dto";
 
 describe("SalaTasksService", () => {
   let service: SalaTasksService;
@@ -130,6 +130,21 @@ describe("SalaTasksService", () => {
         where: { id: "t1" },
         data: { title: "Nuevo título" },
       });
+    });
+  });
+
+  it("update vacía campos opcionales cuando llegan a null", async () => {
+    mockPrismaService.salaTask.findFirst.mockResolvedValue({ id: "t1" });
+    mockPrismaService.salaTask.update.mockResolvedValue({ id: "t1" });
+
+    await service.update(TENANT_ID, "t1", {
+      guestCount: null,
+      customerName: null,
+    } as unknown as UpdateSalaTaskDto);
+
+    expect(mockPrismaService.salaTask.update).toHaveBeenCalledWith({
+      where: { id: "t1" },
+      data: { guestCount: null, customerName: null },
     });
   });
 
