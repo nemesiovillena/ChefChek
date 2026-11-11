@@ -343,6 +343,19 @@ export async function rejectLine(albaranId: string, lineId: string): Promise<Alb
 }
 
 // Dismiss the auto-suggested product for a line (persists: won't resurface on re-match)
+/** Quita el artículo enlazado (enlace equivocado): la línea vuelve a «nuevo» y se olvida el alias del proveedor. */
+export async function unmatchLine(albaranId: string, lineId: string): Promise<AlbaranLine> {
+  const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/match`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Error al quitar el artículo' }));
+    throw new Error(errorMessage(error, 'Error al quitar el artículo'));
+  }
+  return response.json();
+}
+
 export async function dismissSuggestion(albaranId: string, lineId: string): Promise<AlbaranLine> {
   const response = await fetch(`${API_BASE_URL}/v1/albaranes/${albaranId}/lines/${lineId}/dismiss-suggestion`, {
     method: 'PUT',

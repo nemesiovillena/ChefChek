@@ -27,6 +27,7 @@ describe("LineMatchingService", () => {
       supplierProductAlias: {
         findUnique: jest.fn(),
         upsert: jest.fn(),
+        deleteMany: jest.fn(),
       },
     };
 
@@ -553,6 +554,26 @@ describe("LineMatchingService", () => {
       await service.matchAllLines(mockAlbaranId, mockTenantId);
 
       expect(mockPrisma.albaranLine.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("forgetAlias", () => {
+    it("borra solo el alias de esa descripción que apunta al artículo desenlazado", async () => {
+      await service.forgetAlias({
+        tenantId: mockTenantId,
+        supplierId: "supplier-321",
+        description: "SACARINA SOBRES 250 U.COMPOST",
+        productId: mockProductId,
+      });
+
+      expect(mockPrisma.supplierProductAlias.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: mockTenantId,
+          supplierId: "supplier-321",
+          normalizedDescription: "sacarina sobres 250 u compost",
+          productId: mockProductId,
+        },
+      });
     });
   });
 

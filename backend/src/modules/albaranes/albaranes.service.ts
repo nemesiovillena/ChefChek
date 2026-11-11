@@ -33,6 +33,10 @@ import {
 /** Albaranes por confirmar: su stock y precios todavía no se han aplicado. */
 const PENDING_STATUSES = [AlbaranStatus.PENDIENTE, AlbaranStatus.REVISADO];
 
+/** Cambiar o quitar el artículo de una línea que ya movió stock y precio. */
+const LINK_LOCKED_MESSAGE =
+  "El albarán ya está confirmado: su entrada de stock y su precio ya se aplicaron al artículo";
+
 /**
  * El albarán trae total leído del papel (OCR). Ese total es el del documento
  * del proveedor: corregir o añadir líneas en confirmado no debe moverlo. Los
@@ -836,6 +840,7 @@ export class AlbaranesService {
     if (!line) {
       throw new NotFoundException("Línea no encontrada");
     }
+    this.assertLineLinkEditable(albaran.status, line.lineStatus);
 
     // Verify product exists and belongs to tenant
     const product = await this.prisma.product.findFirst({
@@ -867,6 +872,72 @@ export class AlbaranesService {
     }
 
     return updatedLine;
+  }
+
+  /**
+   * Quita el artículo enlazado a una línea (enlace manual equivocado o
+   * auto-match erróneo): la línea vuelve a NUEVO para elegir otro artículo o
+   * crearlo, y se olvida el alias aprendido para ese proveedor. Una línea ya
+   * marcada ✓ vuelve a pendiente: hay que revisarla de nuevo. La sugerencia
+   * se descarta para que no reaparezca el mismo artículo equivocado.
+   */
+  async unmatchLine(albaranId: string, lineId: string, tenantId: string) {
+    const albaran = await this.findOne(albaranId, tenantId);
+
+    const line = albaran.lines.find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException("Línea no encontrada");
+    }
+    if (
+      albaran.status === AlbaranStatus.CONFIRMADO ||
+      albaran.status === AlbaranStatus.ARCHIVADO
+    ) {
+      throw new BadRequestException(LINK_LOCKED_MESSAGE);
+    }
+    if (!line.matchedProductId) {
+      return line;
+    }
+
+    if (albaran.supplierId) {
+      await this.lineMatching.forgetAlias({
+        tenantId,
+        supplierId: albaran.supplierId,
+        description: line.description,
+        productId: line.matchedProductId,
+      });
+    }
+
+    return this.prisma.albaranLine.update({
+      where: { id: lineId },
+      data: {
+        matchedProductId: null,
+        matchStatus: "NUEVO",
+        confidence: 0,
+        suggestedProductId: null,
+        suggestionDismissed: true,
+        ...(line.lineStatus === LineStatus.CONFIRMADO
+          ? { lineStatus: LineStatus.PENDIENTE }
+          : {}),
+      },
+    });
+  }
+
+  /**
+   * Una línea ✓ de un albarán confirmado ya dio entrada a stock y precio en
+   * su artículo: cambiarle el artículo dejaría esos movimientos en el
+   * equivocado. Las rechazadas sí se pueden enlazar (para recuperarlas).
+   */
+  private assertLineLinkEditable(
+    albaranStatus: AlbaranStatus,
+    lineStatus: LineStatus,
+  ) {
+    if (
+      (albaranStatus === AlbaranStatus.CONFIRMADO ||
+        albaranStatus === AlbaranStatus.ARCHIVADO) &&
+      lineStatus === LineStatus.CONFIRMADO
+    ) {
+      throw new BadRequestException(LINK_LOCKED_MESSAGE);
+    }
   }
 
   /**
