@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useNotification } from '@/components/notification-system';
 import { resolveErrorMessage } from '@/hooks/use-api';
+import { openNativePicker } from '@/lib/open-native-picker';
 import {
   useCreateNote,
   useUpdateNote,
@@ -71,15 +72,6 @@ interface NoteFormModalProps {
   defaultTagId: string | null;
   isSharedAccount: boolean;
   currentUserId: string | undefined;
-}
-
-/** Abre el calendario o el reloj al tocar cualquier parte del campo, no solo el icono. */
-function openNativePicker(e: MouseEvent<HTMLInputElement>) {
-  try {
-    e.currentTarget.showPicker?.();
-  } catch {
-    // Navegadores antiguos o sin gesto válido: se queda el comportamiento nativo.
-  }
 }
 
 export function NoteFormModal({

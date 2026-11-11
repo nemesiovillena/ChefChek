@@ -76,4 +76,48 @@ describe("DTOs de sala-tasks con el ValidationPipe real", () => {
       expect(result.allergies).toBeUndefined();
     });
   });
+
+  describe("comensales (texto libre)", () => {
+    const base = { title: "Reserva", eventDate: "2026-09-15" };
+
+    it("acepta texto como «17 adultos y 5 niños» y lo recorta", async () => {
+      const result = (await transform(CreateSalaTaskDto, {
+        ...base,
+        guestCount: "  17 adultos y 5 niños ",
+      })) as CreateSalaTaskDto;
+      expect(result.guestCount).toBe("17 adultos y 5 niños");
+    });
+
+    it("convierte un número de clientes antiguos a texto", async () => {
+      const result = (await transform(UpdateSalaTaskDto, {
+        guestCount: 25,
+      })) as UpdateSalaTaskDto;
+      expect(result.guestCount).toBe("25");
+    });
+
+    it("trata el campo vacío como no rellenado", async () => {
+      const result = (await transform(CreateSalaTaskDto, {
+        ...base,
+        guestCount: "   ",
+      })) as CreateSalaTaskDto;
+      expect(result.guestCount).toBeUndefined();
+    });
+
+    it("acepta null al editar para vaciar comensales y datos del cliente", async () => {
+      const result = (await transform(UpdateSalaTaskDto, {
+        guestCount: null,
+        customerName: null,
+        customerEmail: null,
+      })) as UpdateSalaTaskDto;
+      expect(result.guestCount).toBeNull();
+      expect(result.customerName).toBeNull();
+      expect(result.customerEmail).toBeNull();
+    });
+
+    it("rechaza más de 100 caracteres", async () => {
+      await expect(
+        transform(CreateSalaTaskDto, { ...base, guestCount: "x".repeat(101) }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });

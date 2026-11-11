@@ -8,7 +8,7 @@ export interface SalaTask {
   id: string;
   title: string;
   eventDate: string;
-  guestCount: number | null;
+  guestCount: string | null;
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -24,7 +24,7 @@ export interface SalaTask {
 export interface SalaTaskInput {
   title: string;
   eventDate: string;
-  guestCount?: number | null;
+  guestCount?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;

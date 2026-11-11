@@ -8,6 +8,7 @@ import {
   IsArray,
   ValidateNested,
   Min,
+  MaxLength,
 } from "class-validator";
 import { Transform, Type } from "class-transformer";
 
@@ -27,6 +28,18 @@ export enum SalaTaskStatus {
 const emptyStringAsUndefined = ({ value }: { value: unknown }) =>
   value === "" ? undefined : value;
 
+/** Comensales: número → texto, recorta y '' → undefined. */
+const guestCountAsText = ({ value }: { value: unknown }) => {
+  if (typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value !== "string") {
+    return value;
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? undefined : trimmed;
+};
+
 export class CreateSalaTaskDto {
   @IsString()
   title!: string;
@@ -35,11 +48,12 @@ export class CreateSalaTaskDto {
   @IsDate()
   eventDate!: Date;
 
+  /** Texto libre: «17 adultos y 5 niños». Acepta número de clientes antiguos. */
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  guestCount?: number;
+  @Transform(guestCountAsText)
+  @IsString()
+  @MaxLength(100)
+  guestCount?: string;
 
   @IsOptional()
   @Transform(emptyStringAsUndefined)
@@ -86,11 +100,12 @@ export class UpdateSalaTaskDto {
   @IsDate()
   eventDate?: Date;
 
+  /** Texto libre: «17 adultos y 5 niños». Acepta número de clientes antiguos. */
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0)
-  guestCount?: number;
+  @Transform(guestCountAsText)
+  @IsString()
+  @MaxLength(100)
+  guestCount?: string;
 
   @IsOptional()
   @Transform(emptyStringAsUndefined)
