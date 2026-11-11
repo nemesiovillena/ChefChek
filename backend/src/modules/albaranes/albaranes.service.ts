@@ -1254,11 +1254,6 @@ export class AlbaranesService {
       "supplier_sanitary_registry",
       "document_number",
       "document_date",
-      "gross_amount",
-      "tax_base",
-      "vat_total",
-      "vat_breakdown",
-      "total_amount",
     ];
     for (const field of headerFields) {
       if (!merged[field]) {
@@ -1267,6 +1262,23 @@ export class AlbaranesService {
           merged[field] = withValue.document[field];
         }
       }
+    }
+
+    // El pie (totales e IVA) va en la ÚLTIMA hoja: la primera solo trae un
+    // «suma y sigue» o nada, y en ese caso el OCR rellena total_amount con la
+    // suma de sus propias líneas (Makro 9-255655153: 61,88 en vez de 426,10).
+    const footerFields = [
+      "gross_amount",
+      "tax_base",
+      "vat_total",
+      "vat_breakdown",
+      "total_amount",
+    ];
+    for (const field of footerFields) {
+      const withValue = [...successfulDocuments]
+        .reverse()
+        .find((d) => d.document[field]);
+      merged[field] = withValue ? withValue.document[field] : merged[field];
     }
 
     const confidences = successfulDocuments.map(

@@ -1806,6 +1806,64 @@ describe("AlbaranesService", () => {
       );
     });
 
+    it("takes the footer totals from the last sheet, not the first sheet's running sum", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [{ name: "Picos", quantity: 12, unit_price: 3.18 }],
+            supplier_name: "MAKRO",
+            total_amount: 61.88,
+          },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          document: {
+            products: [
+              { name: "Rodaballo", quantity: 10.5, unit_price: 23.49 },
+            ],
+            total_amount: 426.1,
+            vat_total: 30.5,
+          },
+        });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({ id: "alb-footer", lines: [] });
+
+      await service.createFromUpload(
+        [file("hoja1.jpg"), file("hoja2.jpg")],
+        "t1",
+      );
+
+      const { data } = prisma.albaran.create.mock.calls[0][0];
+      expect(data.total).toBe(426.1);
+      expect(data.ocrRawData.total_amount).toBe(426.1);
+      expect(data.ocrRawData.vat_total).toBe(30.5);
+      expect(supplierMatching.matchSupplier).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "MAKRO" }),
+      );
+    });
+
+    it("keeps the first sheet's total when the last sheet has none", async () => {
+      pythonOcrService.processImage
+        .mockResolvedValueOnce({
+          success: true,
+          document: { products: [], total_amount: 99.5 },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          document: { products: [] },
+        });
+      supplierMatching.matchSupplier.mockResolvedValue({ supplierId: null });
+      prisma.albaran.create.mockResolvedValue({ id: "alb-footer2", lines: [] });
+
+      await service.createFromUpload(
+        [file("hoja1.jpg"), file("hoja2.jpg")],
+        "t1",
+      );
+
+      expect(prisma.albaran.create.mock.calls[0][0].data.total).toBe(99.5);
+    });
+
     it("creates albaran with partial results and a warning note when one of several files fails OCR", async () => {
       pythonOcrService.processImage
         .mockResolvedValueOnce({
