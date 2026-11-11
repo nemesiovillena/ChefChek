@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
-import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, dismissSuggestion, correctLineVat, correctLineQuantity } from '@/lib/api-albaran';
+import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, unmatchLine, dismissSuggestion, correctLineVat, correctLineQuantity } from '@/lib/api-albaran';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -24,7 +24,7 @@ import { getDisplayTotals } from '@/lib/albaran-total-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, ArrowLeft, CheckCircle, CheckCircle2, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2 } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, CheckCircle2, XCircle, Package, Search, Plus, Check, X, Clock, Pencil, Undo2, ArrowLeftRight } from 'lucide-react';
 import type { AlbaranLine, AlbaranStatus, LineStatus } from '@/lib/api-albaran';
 
 // Móvil: la tabla de 10 columnas no cabe (quedaba recortada tras un scroll
@@ -236,6 +236,22 @@ export default function AlbaranLineasPage() {
     }
   };
 
+  const handleUnmatchLine = async (line: AlbaranLine) => {
+    setUpdating(line.id);
+    try {
+      await unmatchLine(id, line.id);
+      refetch();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        title: 'No se pudo quitar el artículo',
+        message: err instanceof Error ? err.message : 'Error al quitar el artículo',
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const handleDismissSuggestion = async (line: AlbaranLine) => {
     setUpdating(line.id);
     try {
@@ -278,6 +294,15 @@ export default function AlbaranLineasPage() {
    *  se asientan al confirmar el albarán, así que corregir el peso o las
    *  unidades leídas (manuscritos) antes de eso no deja nada descuadrado. */
   const canEditQuantity = (line: AlbaranLine) =>
+    line.lineStatus !== 'RECHAZADO' &&
+    albaran?.status !== 'CONFIRMADO' &&
+    albaran?.status !== 'ARCHIVADO';
+
+  /** Cambiar o quitar el artículo enlazado (enlace equivocado) mientras el
+   *  albarán no esté confirmado: hasta entonces el enlace no ha movido stock
+   *  ni precio. Quitarlo también olvida el alias aprendido del proveedor. */
+  const canRelink = (line: AlbaranLine) =>
+    !!line.matchedProduct &&
     line.lineStatus !== 'RECHAZADO' &&
     albaran?.status !== 'CONFIRMADO' &&
     albaran?.status !== 'ARCHIVADO';
@@ -668,9 +693,34 @@ export default function AlbaranLineasPage() {
                               <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
                             ) : null}
                             {line.matchedProduct && (
-                              <p className="text-xs text-indigo-600 mt-1">
-                                → {line.matchedProduct.name}
-                              </p>
+                              <div className="mt-1 flex items-center gap-1.5 text-xs text-indigo-600">
+                                <span>→ {line.matchedProduct.name}</span>
+                                {/* Visibles siempre (no solo al pasar el ratón): en iPad no hay hover. */}
+                                {canRelink(line) && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenPicker(line)}
+                                      disabled={updating === line.id}
+                                      className="rounded p-0.5 text-indigo-500 hover:bg-indigo-50"
+                                      title="Cambiar artículo"
+                                      aria-label="Cambiar artículo"
+                                    >
+                                      <ArrowLeftRight className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUnmatchLine(line)}
+                                      disabled={updating === line.id}
+                                      className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                      title="Quitar artículo (no es este)"
+                                      aria-label="Quitar artículo"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             )}
                             {/* Candidato de baja confianza (MATCH_DUDOSO o NUEVO): antes se
                                 calculaba y se tiraba sin mostrar nada. Aceptar reutiliza el
