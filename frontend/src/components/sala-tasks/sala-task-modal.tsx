@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
+import { openNativePicker } from '@/lib/open-native-picker';
 import {
   useCreateSalaTask,
   useUpdateSalaTask,
@@ -45,7 +46,7 @@ function emptyFormState(): SalaTaskInput {
   return {
     title: '',
     eventDate: '',
-    guestCount: undefined,
+    guestCount: '',
     customerName: '',
     customerPhone: '',
     customerEmail: '',
@@ -60,7 +61,7 @@ function taskToFormState(task: SalaTask): SalaTaskInput {
   return {
     title: task.title,
     eventDate: toDateInputValue(task.eventDate),
-    guestCount: task.guestCount ?? undefined,
+    guestCount: task.guestCount ?? '',
     customerName: task.customerName ?? '',
     customerPhone: task.customerPhone ?? '',
     customerEmail: task.customerEmail ?? '',
@@ -125,23 +126,21 @@ export function SalaTaskModal({ open, onOpenChange, task }: SalaTaskModalProps) 
     }
 
     try {
-      // Los campos de texto opcionales quedan '' cuando el usuario no los
-      // toca (estado inicial del form). El backend los valida con
-      // @IsOptional(), que solo omite la validación si el valor es
-      // undefined — un '' sigue llegando a @IsEmail() y lo rechaza con 400
-      // (ej. "customerEmail must be an email" al crear sin rellenar email).
-      // Se normaliza aquí, en la frontera del formulario.
-      const emptyToUndefined = (value?: string | null) =>
-        value && value.trim() ? value.trim() : undefined;
+      // Campo opcional vacío → null: al editar borra el valor guardado (con
+      // undefined el backend lo dejaba igual y no se podía vaciar). Además
+      // evita que un '' llegue a @IsEmail() y dé 400.
+      const emptyToNull = (value?: string | null) =>
+        value && value.trim() ? value.trim() : null;
       const payload: SalaTaskInput = {
         ...form,
         title: form.title.trim(),
-        customerName: emptyToUndefined(form.customerName),
-        customerPhone: emptyToUndefined(form.customerPhone),
-        customerEmail: emptyToUndefined(form.customerEmail),
-        menuNotes: emptyToUndefined(form.menuNotes),
-        observations: emptyToUndefined(form.observations),
-        allergies: emptyToUndefined(form.allergies),
+        guestCount: emptyToNull(form.guestCount),
+        customerName: emptyToNull(form.customerName),
+        customerPhone: emptyToNull(form.customerPhone),
+        customerEmail: emptyToNull(form.customerEmail),
+        menuNotes: emptyToNull(form.menuNotes),
+        observations: emptyToNull(form.observations),
+        allergies: emptyToNull(form.allergies),
       };
       if (isEditing && task) {
         await updateTask.mutateAsync({ id: task.id, ...payload });
@@ -209,18 +208,22 @@ export function SalaTaskModal({ open, onOpenChange, task }: SalaTaskModalProps) 
                 type="date"
                 value={form.eventDate}
                 onChange={(e) => handleChange('eventDate', e.target.value)}
+                onClick={openNativePicker}
+                autoComplete="off"
+                data-lpignore="true"
+                className="cursor-pointer"
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="sala-task-guests">Comensales</Label>
               <Input
                 id="sala-task-guests"
-                type="number"
-                min={0}
                 value={form.guestCount ?? ''}
-                onChange={(e) =>
-                  handleChange('guestCount', e.target.value ? Number(e.target.value) : undefined)
-                }
+                onChange={(e) => handleChange('guestCount', e.target.value)}
+                placeholder="Ej. 17 adultos y 5 niños"
+                maxLength={100}
+                autoComplete="off"
+                data-lpignore="true"
               />
             </div>
           </div>

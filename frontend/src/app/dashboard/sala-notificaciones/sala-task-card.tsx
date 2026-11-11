@@ -38,9 +38,9 @@ export function SalaTaskCard({ task, onClick }: SalaTaskCardProps) {
           {eventDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
         </span>
         {task.guestCount != null && (
-          <span className="font-label-sm text-label-sm flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">groups</span>
-            {task.guestCount}
+          <span className="font-label-sm text-label-sm flex items-center gap-1 min-w-0" title={task.guestCount}>
+            <span className="material-symbols-outlined text-[14px] shrink-0">groups</span>
+            <span className="truncate">{task.guestCount}</span>
           </span>
         )}
       </div>
