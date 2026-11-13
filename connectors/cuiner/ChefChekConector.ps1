@@ -265,7 +265,8 @@ SELECT json_build_object(
         AND zona = '' AND plato IN ($list)) r), '[]'::json),
   'snapshot', COALESCE((SELECT json_agg(x) FROM (
       SELECT p.plato,
-        (SELECT (s.stock - s.consumo)::float8 FROM es_stock s WHERE s.zona = '' AND s.plato = p.plato LIMIT 1) AS quedan,
+        -- Cuiner deja consumo vacío en un contador recién creado hasta la primera venta.
+        (SELECT (s.stock - COALESCE(s.consumo, 0))::float8 FROM es_stock s WHERE s.zona = '' AND s.plato = p.plato LIMIT 1) AS quedan,
         (SELECT CASE WHEN COUNT(*) = 0 THEN NULL ELSE COUNT(*) FILTER (WHERE l.consumido IS NOT TRUE) END
            FROM es_lotes l WHERE l.zona = '' AND l.plato = p.plato)::float8 AS piezas
       FROM unnest(ARRAY[$list]::text[]) AS p(plato)) x), '[]'::json)
