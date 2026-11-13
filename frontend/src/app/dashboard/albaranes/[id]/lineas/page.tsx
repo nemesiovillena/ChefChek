@@ -911,12 +911,28 @@ export default function AlbaranLineasPage() {
                             const discountPct = isDiscount
                               ? Math.round((1 - (net! / gross)) * 1000) / 10
                               : 0;
+                            // Señales de importe leído en la fila equivocada:
+                            // un importe mayor que cantidad × precio no tiene
+                            // explicación, y un importe igual al precio de una
+                            // sola unidad suele ser el precio copiado como importe.
+                            const qty = Number(line.quantity);
+                            const looksMisread =
+                              gross >= 0 &&
+                              (net! > gross + 0.005 ||
+                                (isDiscount &&
+                                  qty > 1 &&
+                                  Math.abs(net! - line.unitPrice) <= 0.005));
                             return (
                               <div className="flex flex-col leading-tight">
                                 <span className="font-semibold">
                                   {formatCurrency(net!)}
                                 </span>
-                                {isDiscount && (
+                                {looksMisread && (
+                                  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                    No cuadra con {formatCurrency(gross)} (cant. × precio). Revisa el papel
+                                  </span>
+                                )}
+                                {isDiscount && !looksMisread && (
                                   <>
                                     <span className="text-xs text-gray-400 line-through">
                                       {formatCurrency(gross)}
