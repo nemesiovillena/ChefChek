@@ -526,6 +526,80 @@ describe("AlbaranesService", () => {
       expect(data.lineAmount).toBe(20);
     });
 
+    it("el neto sin descuento sigue a cantidad × precio al cambiar la cantidad", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaranLine.findFirst.mockResolvedValue({
+        ...existingLine,
+        quantity: 4.1,
+        unitPrice: 4.5,
+        lineAmount: 18.45,
+        totalPrice: 18.45,
+      });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.updateLine("alb-1", "l1", { quantity: "4.5" } as any, "t1");
+
+      const { data } = prisma.albaranLine.update.mock.calls[0][0];
+      expect(data.lineAmount).toBeCloseTo(20.25);
+      expect(data.totalPrice).toBe(20.25);
+    });
+
+    it("sin total del papel, el total del albarán sigue a la línea editada", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ ocrRawData: { total_amount: 0 } }),
+      );
+      prisma.albaranLine.findFirst.mockResolvedValue({
+        ...existingLine,
+        quantity: 7.3,
+        unitPrice: 4.5,
+        vatPercent: 4,
+        lineAmount: 32.85,
+        totalPrice: 32.85,
+      });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.updateLine("alb-1", "l1", { quantity: "2.3" } as any, "t1");
+
+      // −5 kg × 4,50 € = −22,50 base; IVA 4 % = −0,90
+      expect(prisma.albaran.update).toHaveBeenCalledWith({
+        where: { id: "alb-1" },
+        data: {
+          grossAmount: { increment: -22.5 },
+          base: { increment: -22.5 },
+          vatTotal: { increment: -0.9 },
+          total: { increment: -23.4 },
+        },
+      });
+    });
+
+    it("con total del papel, editar la línea no mueve el total del albarán", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({ ocrRawData: { total_amount: 100 } }),
+      );
+      prisma.albaranLine.findFirst.mockResolvedValue(existingLine);
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.updateLine("alb-1", "l1", { quantity: "4" } as any, "t1");
+
+      expect(prisma.albaran.update).not.toHaveBeenCalled();
+    });
+
+    it("respeta el neto con descuento del papel al cambiar la cantidad", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(albaran());
+      prisma.albaranLine.findFirst.mockResolvedValue({
+        ...existingLine,
+        lineAmount: 10,
+        totalPrice: 8,
+      });
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+
+      await service.updateLine("alb-1", "l1", { quantity: "3" } as any, "t1");
+
+      const { data } = prisma.albaranLine.update.mock.calls[0][0];
+      expect(data.lineAmount).toBe(15);
+      expect(data.totalPrice).toBe(8);
+    });
+
     it("recalculates lineAmount using both quantity and unitPrice", async () => {
       prisma.albaran.findFirst.mockResolvedValue(albaran());
       prisma.albaranLine.findFirst.mockResolvedValue(existingLine);
@@ -1104,7 +1178,7 @@ describe("AlbaranesService", () => {
 
       expect(prisma.albaranLine.update).toHaveBeenCalledWith({
         where: { id: "l1" },
-        data: { quantity: 12.5, lineAmount: 12.5 * 1.6 },
+        data: { quantity: 12.5, lineAmount: 12.5 * 1.6, totalPrice: null },
       });
       expect(stockService.applyQuantityCorrection).toHaveBeenCalledWith(
         prisma,
@@ -1150,7 +1224,9 @@ describe("AlbaranesService", () => {
           status: AlbaranStatus.CONFIRMADO,
           supplierId: "s1",
           applyDiscountToCost: true,
-          lines: [{ ...confirmedLine, quantity: 10, totalPrice: 15 }],
+          lines: [
+            { ...confirmedLine, quantity: 10, lineAmount: 16, totalPrice: 15 },
+          ],
         }),
       );
       offersService.upsertOffer.mockResolvedValue({ id: "off-1" });
@@ -1171,6 +1247,55 @@ describe("AlbaranesService", () => {
         "alb-1",
         true,
       );
+    });
+  });
+
+  describe("correctConfirmedLineQuantity: neto sin descuento", () => {
+    beforeEach(() => {
+      prisma.$transaction.mockImplementation(
+        async (fn: (tx: typeof prisma) => Promise<unknown>) => fn(prisma),
+      );
+      prisma.cuinerAlbaranExport.findUnique.mockResolvedValue(null);
+      prisma.albaranLine.update.mockResolvedValue({ id: "l1" });
+    });
+
+    it("el neto sigue a cantidad × precio y mueve la base del albarán manual", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        albaran({
+          status: AlbaranStatus.CONFIRMADO,
+          lines: [
+            {
+              id: "l1",
+              lineStatus: "CONFIRMADO",
+              matchedProductId: "p1",
+              quantity: 4.1,
+              unitPrice: 4.5,
+              vatPercent: 4,
+              lineAmount: 18.45,
+              totalPrice: 18.45,
+            },
+          ],
+        }),
+      );
+
+      await service.correctConfirmedLineQuantity(
+        "alb-1",
+        "l1",
+        { quantity: "4.5" } as any,
+        "t1",
+      );
+
+      const { data } = prisma.albaranLine.update.mock.calls[0][0];
+      expect(data.totalPrice).toBe(20.25);
+      expect(prisma.albaran.update).toHaveBeenCalledWith({
+        where: { id: "alb-1" },
+        data: {
+          grossAmount: { increment: 1.8 },
+          base: { increment: 1.8 },
+          vatTotal: { increment: 0.07 },
+          total: { increment: 1.87 },
+        },
+      });
     });
   });
 
