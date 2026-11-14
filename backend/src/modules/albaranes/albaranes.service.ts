@@ -47,6 +47,46 @@ function hasPaperTotal(albaran: { ocrRawData?: unknown }): boolean {
   return Number(raw?.total_amount) > 0;
 }
 
+/**
+ * Neto de una línea tras cambiar su cantidad × precio. Si el neto coincidía
+ * con cantidad × precio (sin descuento), sigue al nuevo bruto: la edición
+ * suele corregir un peso o cantidad mal leído. Si el papel traía un neto con
+ * descuento, ese neto se respeta.
+ */
+export function netAfterGrossChange(
+  oldNet: number | null,
+  oldGross: number,
+  newGross: number,
+): number | null {
+  if (oldNet === null) {
+    return null;
+  }
+  if (Math.abs(oldNet - oldGross) <= 0.005) {
+    return Math.round(newGross * 100) / 100;
+  }
+  return oldNet;
+}
+
+/**
+ * Lo que una línea aporta al albarán: bruto, base (el neto del papel si trae
+ * descuento, si no cantidad × precio) e IVA. Misma cuenta que el total que se
+ * muestra (frontend albaran-total-check.ts) y que el envío a Cuiner.
+ */
+function lineTotals(line: {
+  quantity: unknown;
+  unitPrice: unknown;
+  vatPercent: unknown;
+  totalPrice?: unknown;
+}): { gross: number; base: number; vat: number } {
+  const gross = Number(line.quantity) * Number(line.unitPrice);
+  const net =
+    line.totalPrice !== null && line.totalPrice !== undefined
+      ? Number(line.totalPrice)
+      : null;
+  const base = net !== null && net < gross ? net : gross;
+  return { gross, base, vat: (base * Number(line.vatPercent)) / 100 };
+}
+
 @Injectable()
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
@@ -436,11 +476,46 @@ export class AlbaranesService {
     if (dto.matchedProductId !== undefined) {
       updateData.matchedProductId = dto.matchedProductId;
     }
+    if (
+      updateData.lineAmount !== undefined &&
+      line.totalPrice !== null &&
+      line.totalPrice !== undefined
+    ) {
+      updateData.totalPrice = netAfterGrossChange(
+        Number(line.totalPrice),
+        Number(line.lineAmount),
+        updateData.lineAmount,
+      );
+    }
 
-    return this.prisma.albaranLine.update({
+    const updated = await this.prisma.albaranLine.update({
       where: { id: lineId },
       data: updateData,
     });
+
+    // Sin total del papel (manual, o un papel que no lo trae), el total del
+    // albarán sigue a sus líneas: se ajusta por lo que cambia esta línea.
+    if (!hasPaperTotal(albaran) && line.lineStatus !== LineStatus.RECHAZADO) {
+      const before = lineTotals(line);
+      const after = lineTotals({ ...line, ...updateData });
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const grossDelta = round2(after.gross - before.gross);
+      const baseDelta = round2(after.base - before.base);
+      const vatDelta = round2(after.vat - before.vat);
+      if (grossDelta !== 0 || baseDelta !== 0 || vatDelta !== 0) {
+        await this.prisma.albaran.update({
+          where: { id: albaranId },
+          data: {
+            grossAmount: { increment: grossDelta },
+            base: { increment: baseDelta },
+            vatTotal: { increment: vatDelta },
+            total: { increment: round2(baseDelta + vatDelta) },
+          },
+        });
+      }
+    }
+
+    return updated;
   }
 
   /**
@@ -616,22 +691,28 @@ export class AlbaranesService {
       return line;
     }
     const unitPrice = Number(line.unitPrice);
-    const totalPrice =
-      line.totalPrice !== null ? Number(line.totalPrice) : null;
+    const oldNet = line.totalPrice !== null ? Number(line.totalPrice) : null;
+    const newLineAmount = quantity * unitPrice;
+    const totalPrice = netAfterGrossChange(
+      oldNet,
+      Number(line.lineAmount),
+      newLineAmount,
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const updatedLine = await tx.albaranLine.update({
         where: { id: lineId },
-        data: { quantity, lineAmount: quantity * unitPrice },
+        data: { quantity, lineAmount: newLineAmount, totalPrice },
       });
 
       // Totales: mismo criterio que la corrección de precio. Con total del
-      // papel mandan los del papel; si la línea trae su neto del papel, ese
-      // neto no cambia con la cantidad y la base tampoco.
+      // papel mandan los del papel. Un neto con descuento del papel no cambia
+      // con la cantidad; sin descuento, el neto sigue a cantidad × precio.
       if (!hasPaperTotal(albaran)) {
         const round2 = (n: number) => Math.round(n * 100) / 100;
         const grossDelta = round2((quantity - oldQuantity) * unitPrice);
-        const baseDelta = totalPrice !== null ? 0 : grossDelta;
+        const baseDelta =
+          totalPrice !== null ? round2(totalPrice - (oldNet ?? 0)) : grossDelta;
         const vatDelta = round2(baseDelta * (Number(line.vatPercent) / 100));
         if (grossDelta !== 0 || baseDelta !== 0) {
           await tx.albaran.update({
