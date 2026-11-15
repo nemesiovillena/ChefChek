@@ -154,7 +154,15 @@ function makeDb() {
       }),
     },
     cuinerSaleLine: {
-      findMany: jest.fn(async () => db.saleLines),
+      // Sin `fecha` explícita, la venta es del día (Madrid) en que se recibió.
+      findMany: jest.fn(async () =>
+        db.saleLines.map((l) => ({
+          fecha: new Date(
+            `${new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(l.createdAt)}T00:00:00Z`,
+          ),
+          ...l,
+        })),
+      ),
     },
   };
   return { db, prisma };
@@ -310,6 +318,20 @@ describe("PortionLedgerService", () => {
         producto: "00403",
         unidades: 1,
         createdAt: new Date(Date.now() - 7_200_000),
+      });
+      await expect(ledger.applySales(T)).resolves.toBe(0);
+      expect(db.labels[0].portionsRemaining).toBe(5);
+    });
+
+    it("ignora tickets antiguos que llegan tarde (vendidos antes de enlazar el plato)", async () => {
+      db.labels.push(label("a", 1, 5));
+      db.saleLines.push({
+        id: "octubre",
+        tipo: "P",
+        producto: "00403",
+        unidades: 1,
+        fecha: new Date("2026-10-23T00:00:00Z"),
+        createdAt: new Date(),
       });
       await expect(ledger.applySales(T)).resolves.toBe(0);
       expect(db.labels[0].portionsRemaining).toBe(5);
