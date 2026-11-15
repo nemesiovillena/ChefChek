@@ -29,9 +29,10 @@ export const dynamic = 'force-dynamic';
 
 type BoardStatus = Exclude<SalaTaskStatus, 'EN_CURSO'>;
 
-const COLUMNS: { status: BoardStatus; title: string }[] = [
+// Las completadas se acumulan para siempre: solo esa columna va paginada.
+const COLUMNS: { status: BoardStatus; title: string; paginate?: boolean }[] = [
   { status: 'PENDIENTE', title: 'Pendiente' },
-  { status: 'COMPLETADO', title: 'Completado' },
+  { status: 'COMPLETADO', title: 'Completado', paginate: true },
 ];
 
 function groupByStatus(tasks: SalaTask[]): Record<BoardStatus, SalaTask[]> {
@@ -140,6 +141,7 @@ export default function SalaNotificacionesPage() {
                 title={column.title}
                 tasks={grouped[column.status]}
                 onTaskClick={setEditingTask}
+                paginate={column.paginate}
               />
             ))}
           </div>
