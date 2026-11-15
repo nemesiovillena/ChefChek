@@ -121,9 +121,14 @@ function makeDb() {
     },
     portionCounterDish: {
       findMany: jest.fn(async ({ where }: any = {}) =>
-        where?.counterId
-          ? db.dishes.filter((d) => d.counterId === where.counterId)
-          : db.dishes,
+        db.dishes.filter(
+          (d) =>
+            (!where?.counterId || d.counterId === where.counterId) &&
+            // `counter: { cuinerAvailable: null }` = contador que Cuiner no lleva.
+            (where?.counter?.cuinerAvailable !== null ||
+              (db.counters.find((c) => c.id === d.counterId)?.cuinerAvailable ??
+                null) === null),
+        ),
       ),
       count: jest.fn(
         async ({ where }: any) =>
@@ -488,6 +493,7 @@ describe("PortionLedgerService", () => {
     });
 
     it("con enlace en vivo, lo cobrado no vuelve a descontar", async () => {
+      db.counters[0].cuinerAvailable = 5;
       db.saleLines.push({
         id: "s1",
         tipo: "P",
@@ -497,6 +503,22 @@ describe("PortionLedgerService", () => {
       });
       await expect(ledger.applySales(T)).resolves.toBe(0);
       expect(db.counters[0].unlabeledPortions).toBe(5);
+    });
+
+    it("con enlace en vivo, un contador que Cuiner no lleva descuenta al cobrar", async () => {
+      db.counters[0].cuinerAvailable = null;
+      db.saleLines.push({
+        id: "s1",
+        tipo: "P",
+        producto: "00745",
+        unidades: 2,
+        createdAt: new Date(),
+      });
+      await expect(ledger.applySales(T)).resolves.toBe(1);
+      expect(db.counters[0].unlabeledPortions).toBe(3);
+      expect(db.movements).toEqual([
+        expect.objectContaining({ type: "SALE", quantity: -2 }),
+      ]);
     });
   });
 });
