@@ -1,4 +1,4 @@
-import type { PunchGeofenceStatus, PunchType, WorkStatus } from './check-in-types';
+import type { PunchGeofenceStatus, PunchType, WorkStatus, WorkdayPunch } from './check-in-types';
 
 export const PUNCH_LABELS: Record<PunchType, string> = {
   IN: 'Entrada',
@@ -116,3 +116,36 @@ export const INCIDENCE_LABELS: Record<string, string> = {
   SIN_SALIDA: 'Falta fichar la salida',
   SECUENCIA: 'Fichajes que no encajan',
 };
+
+/**
+ * Instante de un fichaje que se corrige a mano en la jornada `date`. La
+ * jornada incluye lo fichado pasada la medianoche si el turno empezó ese día,
+ * así que una salida o pausa con hora anterior al fichaje que la precede es
+ * del día siguiente (salida a las 00:30 de un turno que entró a las 20:00).
+ * Las entradas nunca se pasan al día siguiente. La hora se interpreta en el
+ * horario de este dispositivo.
+ */
+export function correctedPunchInstant(
+  date: string,
+  time: string,
+  type: PunchType,
+  dayPunches: WorkdayPunch[],
+  targetId?: string,
+): { occurredAt: Date; nextDay: boolean } {
+  const sameDay = new Date(`${date}T${time}`);
+  if (type === 'IN') return { occurredAt: sameDay, nextDay: false };
+
+  const counted = dayPunches.filter((p) => !p.voided && p.id !== targetId);
+  // Al sustituir, manda el fichaje anterior al que se corrige; al añadir,
+  // el primero de la jornada (antes de él no hay nada que cerrar).
+  const targetIndex = targetId ? dayPunches.findIndex((p) => p.id === targetId) : -1;
+  const reference = targetId
+    ? dayPunches.slice(0, Math.max(targetIndex, 0)).filter((p) => !p.voided).at(-1)
+    : counted[0];
+  if (!reference || sameDay >= new Date(reference.occurredAt)) {
+    return { occurredAt: sameDay, nextDay: false };
+  }
+  const nextDay = new Date(sameDay);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return { occurredAt: nextDay, nextDay: true };
+}

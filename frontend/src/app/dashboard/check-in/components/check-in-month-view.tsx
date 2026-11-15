@@ -159,6 +159,7 @@ function DayRow({
           date={day.date}
           timezone={tz}
           target={target}
+          dayPunches={day.punches}
           onDone={() => setEditing(null)}
         />
       )}
