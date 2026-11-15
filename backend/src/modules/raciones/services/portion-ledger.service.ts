@@ -426,17 +426,23 @@ export class PortionLedgerService {
     if (!(await this.isEnabled(tenantId))) {
       return 0;
     }
-    // Enlace en vivo con el Contador de platos de Cuiner: ya descuenta al
-    // pedir (applyCuinerRegistro); lo cobrado no debe restar otra vez.
+    // Enlace en vivo con el Contador de platos de Cuiner: los contadores que
+    // Cuiner también lleva ya descuentan al pedir (applyCuinerRegistro) y lo
+    // cobrado no debe restar otra vez. Los que Cuiner no lleva
+    // (`cuinerAvailable` null: ningún plato suyo tiene contador en el TPV) no
+    // tienen pedidos que leer, así que siguen descontando al cobrar.
     const live = await this.prisma.cuinerConfig.findUnique({
       where: { tenantId },
       select: { portionCursor: true },
     });
-    if (live && live.portionCursor !== null) {
-      return 0;
-    }
+    const isLive = !!live && live.portionCursor !== null;
     const dishes = await this.prisma.portionCounterDish.findMany({
-      where: { tenantId, counter: { active: true } },
+      where: {
+        tenantId,
+        counter: isLive
+          ? { active: true, cuinerAvailable: null }
+          : { active: true },
+      },
     });
     if (!dishes.length) {
       return 0;
