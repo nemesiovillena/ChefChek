@@ -68,8 +68,8 @@ export class GestionReportQueryDto {
   years?: number;
 
   @IsOptional()
-  @IsIn(["day", "month", "dish", "total"])
-  groupBy?: "day" | "month" | "dish" | "total";
+  @IsIn(["day", "month", "dish", "total", "supplier", "category"])
+  groupBy?: "day" | "month" | "dish" | "total" | "supplier" | "category";
 }
 
 export class GestionReportExportQueryDto extends GestionReportQueryDto {

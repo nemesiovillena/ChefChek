@@ -71,6 +71,7 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Gestión',
     items: [
       { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
       { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
       { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
     ],

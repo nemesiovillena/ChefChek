@@ -150,3 +150,24 @@ export function useGestionTicket(id: number | null) {
     enabled: id !== null,
   });
 }
+
+export type MenuClass = 'estrella' | 'caballo' | 'puzzle' | 'perro';
+
+export interface ProfitabilitySummary {
+  range: DateRange;
+  salesBase: number;
+  foodCost: { total: number; pct: number | null; coverage: number | null; unknownDishes: number };
+  purchases: { total: number; pct: number | null };
+  labor: { total: number; pct: number | null; hours: number; withoutCost: number } | null;
+  primeCost: { total: number; pct: number | null } | null;
+  menu: Record<MenuClass, number>;
+}
+
+export function useGestionProfitability(range: DateRange, enabled = true) {
+  return useQuery<ProfitabilitySummary, Error>({
+    queryKey: [ROOT, 'profitability', range],
+    enabled,
+    queryFn: async () => (await apiClient.get(`${GESTION_BASE}/profitability`, { params: range })).data,
+    placeholderData: keepPreviousData,
+  });
+}

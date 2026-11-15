@@ -27,12 +27,17 @@ import {
 } from "../cuiner/dto/cuiner.dto";
 import {
   GestionDashboardQueryDto,
+  GestionRangeDto,
   GestionReportExportQueryDto,
   GestionReportQueryDto,
   GestionTicketsQueryDto,
 } from "./dto/gestion-query.dto";
 import { GestionDashboardService } from "./gestion-dashboard.service";
 import { GestionReportsService } from "./gestion-reports.service";
+import {
+  GestionProfitabilityReportsService,
+  PROFITABILITY_REPORT_KEYS,
+} from "./gestion-profitability-reports.service";
 import { GestionTableExportService } from "./gestion-table-export.service";
 import { GestionTicketsService } from "./gestion-tickets.service";
 import { GESTION_CONTENT_TYPES } from "./gestion-table.types";
@@ -77,6 +82,7 @@ export class GestionController {
   constructor(
     private readonly dashboard: GestionDashboardService,
     private readonly reports: GestionReportsService,
+    private readonly profitability: GestionProfitabilityReportsService,
     private readonly tickets: GestionTicketsService,
     private readonly tableExport: GestionTableExportService,
     private readonly salesReport: CuinerSalesReportService,
@@ -129,7 +135,7 @@ export class GestionController {
     @Param("key") key: string,
     @Query() q: GestionReportQueryDto,
   ) {
-    return this.reports.build(req.tenantId, key, q);
+    return this.table(req.tenantId, key, q);
   }
 
   @Get("reports/:key/export")
@@ -140,7 +146,7 @@ export class GestionController {
     @Res() res: Response,
   ) {
     const { format, ...query } = q;
-    const table = await this.reports.build(req.tenantId, key, query);
+    const table = await this.table(req.tenantId, key, query);
     const buffer = await this.tableExport.export(table, format);
     sendFile(
       res,
@@ -148,6 +154,19 @@ export class GestionController {
       GESTION_CONTENT_TYPES[format],
       this.tableExport.fileName(table, format),
     );
+  }
+
+  /** Rentabilidad: food cost teórico, compras, personal y prime cost. */
+  @Get("profitability")
+  getProfitability(@Req() req: AuthedRequest, @Query() q: GestionRangeDto) {
+    return this.profitability.summary(req.tenantId, { from: q.from, to: q.to });
+  }
+
+  /** Informes de ventas o de rentabilidad, según la clave. */
+  private table(tenantId: string, key: string, q: GestionReportQueryDto) {
+    return (PROFITABILITY_REPORT_KEYS as readonly string[]).includes(key)
+      ? this.profitability.build(tenantId, key, q)
+      : this.reports.build(tenantId, key, q);
   }
 
   @Get("tickets")

@@ -6,6 +6,8 @@ export type ReportOption = { value: string; label: string };
 
 export interface ReportDefinition {
   key: string;
+  /** Grupo del catálogo. */
+  group: 'Ventas' | 'Rentabilidad';
   title: string;
   description: string;
   icon: string;
@@ -17,6 +19,7 @@ export interface ReportDefinition {
 
 export const GESTION_REPORTS: ReportDefinition[] = [
   {
+    group: 'Ventas',
     key: 'ventas',
     title: 'Ventas por periodo y familia',
     description: 'Por día, semana, mes o año; de familia a plato, con unidades, base y total.',
@@ -24,6 +27,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     input: 'range',
   },
   {
+    group: 'Ventas',
     key: 'ranking',
     title: 'Ranking de platos',
     description: 'Los más y los menos vendidos, por importe o por unidades.',
@@ -57,6 +61,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     ],
   },
   {
+    group: 'Ventas',
     key: 'interanual',
     title: 'Comparativa interanual',
     description: 'Ventas mes a mes de varios años, con la variación del último.',
@@ -64,6 +69,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     input: 'years',
   },
   {
+    group: 'Ventas',
     key: 'anulaciones',
     title: 'Anulaciones e invitaciones',
     description: 'Lo anulado y lo invitado, por día o por plato.',
@@ -82,6 +88,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     ],
   },
   {
+    group: 'Ventas',
     key: 'iva',
     title: 'IVA repercutido',
     description: 'Base imponible y cuota por tipo de IVA.',
@@ -100,6 +107,51 @@ export const GESTION_REPORTS: ReportDefinition[] = [
       },
     ],
   },
+  {
+    group: 'Rentabilidad',
+    key: 'food-cost',
+    title: 'Food cost teórico',
+    description: 'Coste de escandallo de lo servido, plato a plato, frente a lo vendido.',
+    icon: 'restaurant',
+    input: 'range',
+  },
+  {
+    group: 'Rentabilidad',
+    key: 'compras',
+    title: 'Compras',
+    description: 'Albaranes recibidos por proveedor o categoría, y su peso sobre las ventas.',
+    icon: 'local_shipping',
+    input: 'range',
+    options: [
+      {
+        param: 'groupBy',
+        label: 'Agrupar',
+        initial: 'supplier',
+        choices: [
+          { value: 'supplier', label: 'Por proveedor' },
+          { value: 'category', label: 'Por categoría' },
+        ],
+      },
+    ],
+  },
+  {
+    group: 'Rentabilidad',
+    key: 'ingenieria-menu',
+    title: 'Ingeniería de menú',
+    description: 'Estrellas, caballos, puzzles y perros: popularidad × margen de cada plato.',
+    icon: 'grid_view',
+    input: 'range',
+  },
+  {
+    group: 'Rentabilidad',
+    key: 'personal',
+    title: 'Coste de personal',
+    description: 'Horas fichadas × coste/hora de cada persona (hasta un año).',
+    icon: 'badge',
+    input: 'range',
+  },
 ];
+
+export const REPORT_GROUPS = ['Ventas', 'Rentabilidad'] as const;
 
 export const findReport = (key: string) => GESTION_REPORTS.find((r) => r.key === key);
