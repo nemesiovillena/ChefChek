@@ -36,6 +36,18 @@ const SALES_LOOKBACK_MS = 7 * 86_400_000;
 
 export const RACIONES_MODULE_ID = "raciones";
 
+/** Día de venta de Cuiner ("AAAA-MM-DD" guardado como medianoche UTC). */
+function saleDay(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10);
+}
+
+/** Día "AAAA-MM-DD" de un instante en hora de Madrid. */
+function madridDay(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+  }).format(d);
+}
+
 /** Cargas hechas en ChefChek (para detectar una posible carga doble). */
 const CHEFCHEK_LOAD_TYPES: PortionMovementType[] = [
   PortionMovementType.LABEL_IN,
@@ -469,12 +481,19 @@ export class PortionLedgerService {
         tipo: true,
         producto: true,
         unidades: true,
+        fecha: true,
         createdAt: true,
       },
     });
+    // Recibida después de enlazar el plato Y vendida ese día o después: Cuiner
+    // a veces manda tarde tickets antiguos, que no gastaron de este contador.
     const candidates = lines.filter((line) => {
       const dish = dishByKey.get(`${line.tipo}|${line.producto}`);
-      return dish && line.createdAt >= dish.createdAt;
+      return (
+        dish &&
+        line.createdAt >= dish.createdAt &&
+        saleDay(line.fecha) >= madridDay(dish.createdAt)
+      );
     });
     if (!candidates.length) {
       return 0;
