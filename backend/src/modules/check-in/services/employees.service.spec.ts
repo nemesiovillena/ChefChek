@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { EmployeesService, splitFullName } from "./employees.service";
 
 function makeService() {
@@ -7,9 +11,11 @@ function makeService() {
       id: "u-free",
       name: "Ana López Mora",
       tenantId: "t1",
+      role: "USER",
       isSharedAccount: false,
       employee: null,
     },
+
     { id: "u-shared", tenantId: "t1", isSharedAccount: true, employee: null },
     {
       id: "u-taken",
@@ -124,7 +130,7 @@ function makeService() {
     },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
-  return { service: new EmployeesService(prisma), employees, prisma };
+  return { service: new EmployeesService(prisma), employees, prisma, users };
 }
 
 const BASE = { firstName: "Luis", lastName: "García" };
@@ -212,6 +218,46 @@ describe("EmployeesService", () => {
       where: { id: "u-free" },
       data: { isActive: true },
     });
+  });
+
+  it("la oficina (GESTION) no da de baja, reactiva ni vincula cuentas de gerencia", async () => {
+    const { service, prisma, users } = makeService();
+    users.push({
+      id: "u-admin",
+      name: "Gerente Uno",
+      tenantId: "t1",
+      role: "ADMIN",
+      isSharedAccount: false,
+      employee: null,
+    });
+    const admin = await service.create("t1", { ...BASE, userId: "u-admin" });
+    await expect(
+      service.update("t1", admin.id, { isActive: false }, "x", "GESTION"),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      service.update("t1", admin.id, { userId: null } as any, "x", "GESTION"),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+
+    const sinCuenta = await service.create("t1", BASE);
+    await expect(
+      service.update("t1", sinCuenta.id, { userId: "u-admin" }, "x", "GESTION"),
+    ).rejects.toThrow(ForbiddenException);
+
+    // Una cuenta normal sí la gestiona.
+    const normal = await service.create(
+      "t1",
+      { ...BASE, userId: "u-free" },
+      "GESTION",
+    );
+    const off = await service.update(
+      "t1",
+      normal.id,
+      { isActive: false },
+      "x",
+      "GESTION",
+    );
+    expect(off.isActive).toBe(false);
   });
 
   it("respeta la fecha de baja que se indique al desactivar", async () => {

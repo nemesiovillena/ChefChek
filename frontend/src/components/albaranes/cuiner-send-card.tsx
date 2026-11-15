@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCuinerAlbaranExport, useSendAlbaranToCuiner } from '@/hooks/use-cuiner';
 import { CUINER_EXPORT_STATUS_LABELS } from '@/lib/cuiner-types';
 
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
+const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER', 'GESTION'];
 const eur = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
 
 /** Antigüedad (días) a partir de la cual se avisa de revisar la fecha. */

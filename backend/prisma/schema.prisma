@@ -653,6 +653,7 @@ enum UserRole {
   ADMIN
   USER
   USER_CUINER // Igual que USER + Albaranes y la integración con Cuiner
+  GESTION // Oficina: módulo Gestión, Albaranes, Proveedores y Personal; Compras solo consulta
   VIEWER
 }
 

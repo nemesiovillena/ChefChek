@@ -81,6 +81,11 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { RolesGuard } from "../../guards/roles.guard";
 import { ModuleGuard, RequireModule } from "../../guards/module.guard";
 import {
+  AllowWriteForRoles,
+  ReadOnlyForRoles,
+  ReadOnlyRolesGuard,
+} from "../../guards/read-only-roles.guard";
+import {
   SectionAccessGuard,
   RequireSection,
   RequireSectionAny,
@@ -98,9 +103,18 @@ const PEDIDOS_SECTIONS = ["compras", "compras-pedidos"];
 @ApiTags("Compras")
 @ApiBearerAuth()
 @Controller("api/v1/compras")
-@UseGuards(AuthGuard, TenantGuard, RolesGuard, ModuleGuard, SectionAccessGuard)
+@UseGuards(
+  AuthGuard,
+  TenantGuard,
+  RolesGuard,
+  ModuleGuard,
+  SectionAccessGuard,
+  ReadOnlyRolesGuard,
+)
 @RequireModule("compras")
 @RequireSection("compras")
+// La oficina (GESTION) consulta pedidos y listas, pero no los crea ni envía.
+@ReadOnlyForRoles("GESTION")
 export class ComprasController {
   constructor(
     private readonly locationsService: LocationsService,
@@ -599,6 +613,8 @@ export class ComprasController {
   }
 
   @Post("facturas")
+  // Las facturas de pedido son trabajo de oficina: GESTION sí escribe aquí.
+  @AllowWriteForRoles("GESTION")
   @Roles("ADMIN", "USER")
   @ApiOperation({ summary: "Registrar factura mínima" })
   async createInvoice(@Req() req: any, @Body() dto: CreateInvoiceDto) {
@@ -607,6 +623,8 @@ export class ComprasController {
   }
 
   @Delete("facturas/:id")
+  // Las facturas de pedido son trabajo de oficina: GESTION sí escribe aquí.
+  @AllowWriteForRoles("GESTION")
   @Roles("ADMIN", "USER")
   @ApiOperation({ summary: "Eliminar (soft) una factura" })
   async removeInvoice(@Req() req: any, @Param("id") id: string) {

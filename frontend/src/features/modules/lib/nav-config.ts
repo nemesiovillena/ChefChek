@@ -31,7 +31,7 @@ export interface NavItem {
    * screens with personal data that only an identified person may see.
    */
   personalAccountOnly?: boolean;
-  /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner). */
+  /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner, GESTION en Personal). */
   extraRoles?: string[];
   /**
    * Roles que nunca ven el elemento ni pueden abrir su ruta, aunque el módulo y
@@ -122,16 +122,16 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Personal',
     items: [
       // Siempre disponible (sin módulo): personas, cuentas y puestos.
-      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, personalAccountOnly: true },
+      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
       { label: 'Mi espacio', href: '/dashboard/mi-espacio', moduleId: 'rrhh', icon: 'person', personalAccountOnly: true },
       { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
       { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
       { label: 'Turnos', href: '/dashboard/turnos/planificador', moduleId: 'turnos', icon: 'calendar_view_week', personalAccountOnly: true },
       { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: 'beach_access', personalAccountOnly: true },
-      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, personalAccountOnly: true },
-      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
-      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
-      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
+      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
     ],
   },
   {

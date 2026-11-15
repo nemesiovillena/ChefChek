@@ -226,6 +226,45 @@ describe("RoleAccessService", () => {
     });
   });
 
+  describe("rol GESTION (oficina, exclusivo)", () => {
+    const oficina = [
+      "albaranes",
+      "articulos",
+      "proveedores",
+      "compras",
+      "compras-pedidos",
+      "check-in",
+      "turnos",
+      "rrhh",
+    ];
+
+    it("ve solo lo de oficina aunque USER vea cocina", async () => {
+      prisma.configuration.findMany.mockResolvedValue([]);
+      for (const key of oficina) {
+        expect(await service.isSectionAllowed(tenantId, "GESTION", key)).toBe(
+          true,
+        );
+      }
+      for (const key of ["recipes", "production", "appcc", "sicted", "menus"]) {
+        expect(await service.isSectionAllowed(tenantId, "GESTION", key)).toBe(
+          false,
+        );
+        expect(await service.isSectionAllowed(tenantId, "USER", key)).toBe(
+          true,
+        );
+      }
+    });
+
+    it("lo de oficina no depende de lo que el tenant quite a USER", async () => {
+      prisma.configuration.findMany.mockResolvedValue(
+        oficina.map((k) => ({ key: `roleAccess.USER.${k}`, value: "false" })),
+      );
+      expect(
+        await service.isSectionAllowed(tenantId, "GESTION", "albaranes"),
+      ).toBe(true);
+    });
+  });
+
   describe("rol USER_CUINER (derivado de USER)", () => {
     it("hereda las secciones de USER y ve todo Almacén aunque USER no", async () => {
       const almacen = [
