@@ -1,6 +1,8 @@
 import { Test } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { ToolRegistryService } from "./tool-registry.service";
+import { GestionDashboardService } from "../../gestion/gestion-dashboard.service";
+import { GestionReportsService } from "../../gestion/gestion-reports.service";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseAnalyticsService } from "../../compras/services/purchase-analytics.service";
 import { PriceAgreementService } from "../../compras/services/price-agreement.service";
@@ -39,6 +41,20 @@ const TENANT_DATA: Record<string, any[]> = {
     },
   ],
 };
+
+const gestionDashboardMock = {
+  build: jest.fn().mockResolvedValue({
+    range: { from: "2026-10-01", to: "2026-10-31" },
+    compare: { mode: "year", range: { from: "2025-10-02", to: "2025-11-01" } },
+    kpis: { total: 100 },
+    compareKpis: { total: 80 },
+    deltas: { total: 25 },
+    topDishes: [],
+    families: [],
+  }),
+  calendar: jest.fn().mockResolvedValue({ topDays: [], byWeekday: [] }),
+};
+const gestionReportsMock = { build: jest.fn() };
 
 describe("ToolRegistryService", () => {
   let service: ToolRegistryService;
@@ -90,14 +106,17 @@ describe("ToolRegistryService", () => {
         { provide: RecipesService, useValue: recipesMock },
         { provide: WarehousesService, useValue: warehousesMock },
         { provide: LotService, useValue: lotServiceMock },
+        { provide: GestionDashboardService, useValue: gestionDashboardMock },
+        { provide: GestionReportsService, useValue: gestionReportsMock },
       ],
     }).compile();
     service = module.get(ToolRegistryService);
   });
 
-  it("expone 11 tools con schema sin tenantId en las propiedades", () => {
-    const schemas = service.getToolSchemas();
-    expect(schemas).toHaveLength(11);
+  it("expone 11 tools (14 con ventas) con schema sin tenantId en las propiedades", () => {
+    expect(service.getToolSchemas()).toHaveLength(11);
+    const schemas = service.getToolSchemas({ canViewSales: true });
+    expect(schemas).toHaveLength(14);
     for (const schema of schemas) {
       expect(schema.parameters.properties).not.toHaveProperty("tenantId");
       expect(schema.parameters.required ?? []).not.toContain("tenantId");
@@ -108,6 +127,45 @@ describe("ToolRegistryService", () => {
     await expect(service.executeTool("t1", "no_existe", {})).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  describe("gating de ventas (gerencia y oficina con Gestión activo)", () => {
+    it("sin permiso de ventas, las oculta y las rechaza", async () => {
+      const names = service.getToolSchemas().map((t) => t.name);
+      expect(names).not.toContain("get_sales_summary");
+      await expect(
+        service.executeTool("t1", "get_sales_summary", {
+          from: "2026-10-01",
+          to: "2026-10-31",
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("con permiso, resume las ventas comparando con el año anterior", async () => {
+      const result: any = await service.executeTool(
+        "t1",
+        "get_sales_summary",
+        { from: "2026-10-01", to: "2026-10-31" },
+        { canViewSales: true },
+      );
+      expect(gestionDashboardMock.build).toHaveBeenCalledWith(
+        "t1",
+        { from: "2026-10-01", to: "2026-10-31" },
+        "year",
+      );
+      expect(result.deltasPercent.total).toBe(25);
+    });
+
+    it("rechaza fechas que no son AAAA-MM-DD", async () => {
+      await expect(
+        service.executeTool(
+          "t1",
+          "get_sales_calendar",
+          { from: "octubre", to: "2026-10-31" },
+          { canViewSales: true },
+        ),
+      ).rejects.toThrow("AAAA-MM-DD");
+    });
   });
 
   describe("gating por coste (recipes.cost)", () => {

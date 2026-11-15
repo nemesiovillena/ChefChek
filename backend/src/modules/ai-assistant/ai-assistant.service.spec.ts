@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { AiAssistantService } from "./ai-assistant.service";
 import { PrismaService } from "../../common/services/prisma.service";
+import { ModulesService } from "../modules/modules.service";
 import { RoleAccessService } from "../role-access/role-access.service";
 import { AiAssistantConfigService } from "./config/ai-assistant-config.service";
 import { ToolRegistryService } from "./tools/tool-registry.service";
@@ -125,6 +126,10 @@ describe("AiAssistantService", () => {
         { provide: AnthropicProviderAdapter, useValue: {} },
         { provide: OpenCodeProviderAdapter, useValue: {} },
         {
+          provide: ModulesService,
+          useValue: { isModuleEnabled: jest.fn().mockResolvedValue(true) },
+        },
+        {
           provide: RoleAccessService,
           useValue: (roleAccessMock = {
             isSectionAllowed: jest.fn().mockResolvedValue(true),
@@ -166,12 +171,27 @@ describe("AiAssistantService", () => {
 
     expect(toolRegistryMock.getToolSchemas).toHaveBeenCalledWith({
       canViewCosts: false,
+      canViewSales: false,
     });
     expect(toolRegistryMock.executeTool).toHaveBeenCalledWith(
       "t1",
       "get_top_purchased_products",
       {},
-      { canViewCosts: false, canViewDrinks: true },
+      { canViewCosts: false, canViewDrinks: true, canViewSales: false },
+    );
+  });
+
+  it("rol de oficina (GESTION) con Gestión activo ve las tools de ventas", async () => {
+    openaiMock.chat.mockResolvedValueOnce({ content: "listo" });
+    await service.ask(
+      "t1",
+      "u1",
+      undefined,
+      "¿cuánto vendimos ayer?",
+      "GESTION",
+    );
+    expect(toolRegistryMock.getToolSchemas).toHaveBeenCalledWith(
+      expect.objectContaining({ canViewSales: true }),
     );
   });
 
@@ -199,7 +219,7 @@ describe("AiAssistantService", () => {
       "t1",
       "get_top_purchased_products",
       { period: "week" },
-      { canViewCosts: true, canViewDrinks: true },
+      { canViewCosts: true, canViewDrinks: true, canViewSales: false },
     );
     expect(result.answer).toBe("Se compró más Harina (500 kg).");
     expect(openaiMock.chat).toHaveBeenCalledTimes(2);
@@ -315,14 +335,14 @@ describe("AiAssistantService", () => {
       "t1",
       "tool_a",
       {},
-      { canViewCosts: true, canViewDrinks: true },
+      { canViewCosts: true, canViewDrinks: true, canViewSales: false },
     );
     expect(toolRegistryMock.executeTool).toHaveBeenNthCalledWith(
       2,
       "t1",
       "tool_b",
       {},
-      { canViewCosts: true, canViewDrinks: true },
+      { canViewCosts: true, canViewDrinks: true, canViewSales: false },
     );
     expect(result.answer).toBe("Respuesta con ambos datos.");
   });

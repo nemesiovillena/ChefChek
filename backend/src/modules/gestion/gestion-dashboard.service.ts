@@ -202,4 +202,54 @@ export class GestionDashboardService {
       share: sum > 0 ? cents((r.total / sum) * 100) : 0,
     }));
   }
+
+  /**
+   * Cuándo se vende más: los mejores días del rango y la media por día de la
+   * semana (solo días con venta, así los días de cierre no hunden la media).
+   */
+  async calendar(tenantId: string, range: DateRange, limit = 10) {
+    assertRange(range);
+    const days = await this.prisma.$queryRaw<
+      { day: string; dow: number; total: number; tickets: number }[]
+    >`
+      SELECT to_char(s.fecha, 'YYYY-MM-DD') AS day, EXTRACT(ISODOW FROM s.fecha)::int AS dow,
+        COALESCE(SUM(COALESCE(s.base, 0) + COALESCE(s.impuesto, 0)), 0)::float8 AS total,
+        (COUNT(DISTINCT s."idVentasCab"))::int AS tickets
+      FROM cuiner_sale_lines s
+      WHERE ${inRange(tenantId, range)} AND ${CHARGED}
+      GROUP BY 1, 2`;
+    const WEEKDAYS = [
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+      "domingo",
+    ];
+    const byWeekday = WEEKDAYS.map((weekday, i) => {
+      const list = days.filter((d) => d.dow === i + 1);
+      const total = list.reduce((n, d) => n + d.total, 0);
+      return {
+        weekday,
+        daysWithSales: list.length,
+        avgTotal: list.length ? cents(total / list.length) : 0,
+        avgTickets: list.length
+          ? Math.round(
+              (list.reduce((n, d) => n + d.tickets, 0) / list.length) * 10,
+            ) / 10
+          : 0,
+      };
+    });
+    const topDays = [...days]
+      .sort((a, b) => b.total - a.total)
+      .slice(0, Math.min(Math.max(limit, 1), 50))
+      .map((d) => ({
+        date: d.day,
+        weekday: WEEKDAYS[d.dow - 1],
+        total: cents(d.total),
+        tickets: d.tickets,
+      }));
+    return { range, daysWithSales: days.length, topDays, byWeekday };
+  }
 }
