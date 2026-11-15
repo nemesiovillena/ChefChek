@@ -34,5 +34,7 @@ import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard
     CuinerConnectorGuard,
     CuinerTenantRequiredGuard,
   ],
+  // Gestión reutiliza el informe de ventas por familia y su exportación.
+  exports: [CuinerSalesReportService, CuinerSalesReportExportService],
 })
 export class CuinerModule {}

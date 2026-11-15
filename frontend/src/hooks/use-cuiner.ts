@@ -293,19 +293,26 @@ export function useRequeueCuinerSales() {
 
 // ─── Informe de ventas ──────────────────────────────────────────────────────
 
+/** Gestión sirve el mismo informe en su propia ruta (la oficina no entra en Cuiner). */
+const SALES_REPORT_ENDPOINT = `${BASE_URL}/reports/sales`;
+
 /** Informe en pantalla. Solo pide cuando hay consulta (tras «Generar»). */
-export function useCuinerSalesReport(query: SalesReportQuery | null) {
+export function useCuinerSalesReport(query: SalesReportQuery | null, endpoint = SALES_REPORT_ENDPOINT) {
   return useQuery<SalesReport, Error>({
-    queryKey: keys.salesReport(query ?? ({} as SalesReportQuery)),
-    queryFn: async () => (await apiClient.get(`${BASE_URL}/reports/sales`, { params: query })).data,
+    queryKey: [...keys.salesReport(query ?? ({} as SalesReportQuery)), endpoint],
+    queryFn: async () => (await apiClient.get(endpoint, { params: query })).data,
     enabled: !!query,
     placeholderData: keepPreviousData,
   });
 }
 
 /** Descarga el informe en Excel, CSV o PDF (va por apiClient: lleva la sesión). */
-export async function downloadCuinerSalesReport(query: SalesReportQuery, format: SalesReportFormat) {
-  const response = await apiClient.get<Blob>(`${BASE_URL}/reports/sales/export`, {
+export async function downloadCuinerSalesReport(
+  query: SalesReportQuery,
+  format: SalesReportFormat,
+  endpoint = SALES_REPORT_ENDPOINT,
+) {
+  const response = await apiClient.get<Blob>(`${endpoint}/export`, {
     params: { ...query, format },
     responseType: 'blob',
   });

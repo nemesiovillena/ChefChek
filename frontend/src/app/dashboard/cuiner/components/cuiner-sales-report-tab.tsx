@@ -35,9 +35,10 @@ const labelCls = 'flex min-w-[9rem] flex-1 flex-col gap-1 text-sm';
 /**
  * Informe de ventas del TPV: periodo, agrupación y nivel de familia, y la
  * salida elegida (pantalla o descarga en Excel, CSV o PDF). En pantalla, al
- * pulsar una familia se baja un nivel dentro de ella.
+ * pulsar una familia se baja un nivel dentro de ella. `endpoint`: Gestión lo
+ * sirve desde su propia ruta (la oficina no tiene acceso a Cuiner).
  */
-export function CuinerSalesReportTab() {
+export function CuinerSalesReportTab({ endpoint }: { endpoint?: string } = {}) {
   const notify = useNotification();
   const [preset, setPreset] = useState<RangePreset>('thisMonth');
   // Las dos fechas siempre a la vista: el periodo rápido solo las rellena.
@@ -48,7 +49,7 @@ export function CuinerSalesReportTab() {
   const [downloading, setDownloading] = useState(false);
   // Consulta mostrada en pantalla: cambia al pulsar «Generar» o al bajar de nivel.
   const [shown, setShown] = useState<SalesReportQuery | null>(null);
-  const report = useCuinerSalesReport(shown);
+  const report = useCuinerSalesReport(shown, endpoint);
 
   const draft: SalesReportQuery = { ...range, groupBy, level };
 
@@ -63,7 +64,7 @@ export function CuinerSalesReportTab() {
     }
     setDownloading(true);
     try {
-      await downloadCuinerSalesReport(draft, output);
+      await downloadCuinerSalesReport(draft, output, endpoint);
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo descargar el informe', message: err instanceof Error ? err.message : '' });
     } finally {
@@ -74,7 +75,7 @@ export function CuinerSalesReportTab() {
   async function downloadShown(format: SalesReportFormat) {
     if (!shown) return;
     try {
-      await downloadCuinerSalesReport(shown, format);
+      await downloadCuinerSalesReport(shown, format, endpoint);
     } catch (err) {
       notify({ type: 'error', title: 'No se pudo descargar el informe', message: err instanceof Error ? err.message : '' });
     }

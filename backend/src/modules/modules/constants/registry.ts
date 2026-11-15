@@ -263,6 +263,15 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     defaultEnabled: false,
   },
   {
+    id: "gestion",
+    name: "Gestión",
+    description:
+      "Ventas, caja y rentabilidad: panel, informes y exportación a PDF, Excel y CSV con las ventas de Cuiner",
+    dependencies: ["cuiner"],
+    alwaysActive: false,
+    defaultEnabled: false,
+  },
+  {
     id: "captura-recetas",
     name: "Captura de recetas",
     description:
