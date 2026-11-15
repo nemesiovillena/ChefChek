@@ -4509,3 +4509,21 @@ model GestionCalendarDate {
   @@index([tenantId, date])
   @@map("gestion_calendar_dates")
 }
+
+// Gestión: gastos generales del local por mes (alquiler, suministros…), sin
+// IVA, para la cuenta de explotación. Se introducen a mano.
+model GestionExpense {
+  id        String   @id @default(cuid())
+  tenantId  String
+  // Primer día del mes al que corresponde el gasto.
+  month     DateTime @db.Date
+  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento | otros
+  category  String
+  concept   String
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, month])
+  @@map("gestion_expenses")
+}

@@ -7,12 +7,12 @@ export type ReportOption = { value: string; label: string };
 export interface ReportDefinition {
   key: string;
   /** Grupo del catálogo. */
-  group: 'Ventas' | 'Rentabilidad';
+  group: 'Ventas' | 'Rentabilidad' | 'Resultados';
   title: string;
   description: string;
   icon: string;
-  /** range = periodo de fechas; years = año final y nº de años. */
-  input: 'range' | 'years';
+  /** range = periodo de fechas; years = año final y nº de años; year = un año. */
+  input: 'range' | 'years' | 'year';
   /** Selectores extra del informe (clave del parámetro → opciones). */
   options?: { param: string; label: string; choices: ReportOption[]; initial: string }[];
 }
@@ -150,8 +150,24 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     icon: 'badge',
     input: 'range',
   },
+  {
+    group: 'Resultados',
+    key: 'cuenta-explotacion',
+    title: 'Cuenta de explotación',
+    description: 'Ventas, compras, personal, gastos generales y EBITDA mes a mes.',
+    icon: 'account_balance',
+    input: 'year',
+  },
+  {
+    group: 'Resultados',
+    key: 'flujo-caja',
+    title: 'Flujo de caja aproximado',
+    description: 'Cobros y pagos con IVA por mes y saldo acumulado.',
+    icon: 'payments',
+    input: 'year',
+  },
 ];
 
-export const REPORT_GROUPS = ['Ventas', 'Rentabilidad'] as const;
+export const REPORT_GROUPS = ['Ventas', 'Rentabilidad', 'Resultados'] as const;
 
 export const findReport = (key: string) => GESTION_REPORTS.find((r) => r.key === key);

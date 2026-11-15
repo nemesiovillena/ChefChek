@@ -2,6 +2,7 @@ import { Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -118,4 +119,54 @@ export class GestionCalendarDateDto {
 
   @IsIn(["nacional", "autonomico", "local", "comercial", "propio"])
   kind!: string;
+}
+
+const YEAR_MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export class GestionExpenseDto {
+  @Matches(YEAR_MONTH)
+  month!: string;
+
+  @IsIn([
+    "alquiler",
+    "suministros",
+    "seguros",
+    "gestoria",
+    "marketing",
+    "mantenimiento",
+    "otros",
+  ])
+  category!: string;
+
+  @IsString()
+  @MaxLength(120)
+  concept!: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(-1_000_000)
+  @Max(1_000_000)
+  amount!: number;
+}
+
+export class GestionExpenseUpdateDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  concept?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(-1_000_000)
+  @Max(1_000_000)
+  amount?: number;
+}
+
+export class GestionCopyExpensesDto {
+  @Matches(YEAR_MONTH)
+  from!: string;
+
+  @Matches(YEAR_MONTH)
+  to!: string;
 }

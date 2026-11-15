@@ -40,7 +40,11 @@ export function GestionReportView({ report }: { report: ReportDefinition }) {
   const { data, isFetching, error } = useGestionReport(report.key, shown);
 
   const params: GestionReportParams =
-    report.input === 'years' ? { year, years, ...options } : { ...range, ...options };
+    report.input === 'years'
+      ? { year, years, ...options }
+      : report.input === 'year'
+        ? { year, ...options }
+        : { ...range, ...options };
   const invalid = report.input === 'range' && range.from > range.to;
 
   async function download(format: ExportFormat) {
@@ -69,7 +73,7 @@ export function GestionReportView({ report }: { report: ReportDefinition }) {
         ) : (
           <div className="flex flex-wrap gap-3">
             <label className="flex min-w-[9rem] flex-1 flex-col">
-              <span className={labelCls}>Hasta el año</span>
+              <span className={labelCls}>{report.input === 'year' ? 'Año' : 'Hasta el año'}</span>
               <select className={inputCls} value={year} onChange={(e) => setYear(Number(e.target.value))}>
                 {Array.from({ length: 8 }, (_, i) => thisYear - i).map((y) => (
                   <option key={y} value={y}>
@@ -78,6 +82,7 @@ export function GestionReportView({ report }: { report: ReportDefinition }) {
                 ))}
               </select>
             </label>
+            {report.input === 'years' && (
             <label className="flex min-w-[9rem] flex-1 flex-col">
               <span className={labelCls}>Años a comparar</span>
               <select className={inputCls} value={years} onChange={(e) => setYears(Number(e.target.value))}>
@@ -88,6 +93,7 @@ export function GestionReportView({ report }: { report: ReportDefinition }) {
                 ))}
               </select>
             </label>
+            )}
           </div>
         )}
         {report.options && (

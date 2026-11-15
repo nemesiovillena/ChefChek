@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Patch,
   Post,
   Param,
   ParseIntPipe,
@@ -30,6 +31,9 @@ import {
 } from "../cuiner/dto/cuiner.dto";
 import {
   GestionCalendarDateDto,
+  GestionCopyExpensesDto,
+  GestionExpenseDto,
+  GestionExpenseUpdateDto,
   GestionDashboardQueryDto,
   GestionRangeDto,
   GestionSeedDatesDto,
@@ -41,6 +45,8 @@ import {
 import { GestionDashboardService } from "./gestion-dashboard.service";
 import { GestionReportsService } from "./gestion-reports.service";
 import { GestionSeasonalityService } from "./gestion-seasonality.service";
+import { GestionResultsService, madridToday } from "./gestion-results.service";
+import { GestionExpensesService } from "./gestion-expenses.service";
 import { GESTION_ROLES } from "./gestion-roles";
 import {
   GestionProfitabilityReportsService,
@@ -89,6 +95,8 @@ export class GestionController {
     private readonly reports: GestionReportsService,
     private readonly profitability: GestionProfitabilityReportsService,
     private readonly seasonality: GestionSeasonalityService,
+    private readonly results: GestionResultsService,
+    private readonly expenses: GestionExpensesService,
     private readonly tickets: GestionTicketsService,
     private readonly tableExport: GestionTableExportService,
     private readonly salesReport: CuinerSalesReportService,
@@ -162,6 +170,42 @@ export class GestionController {
     );
   }
 
+  /** Cuenta de explotación del año por meses, punto de equilibrio y avisos. */
+  @Get("results")
+  getResults(@Req() req: AuthedRequest, @Query() q: GestionYearDto) {
+    return this.results.build(req.tenantId, q.year);
+  }
+
+  @Get("expenses")
+  listExpenses(@Req() req: AuthedRequest, @Query() q: GestionYearDto) {
+    return this.expenses.list(req.tenantId, q.year);
+  }
+
+  @Post("expenses")
+  createExpense(@Req() req: AuthedRequest, @Body() dto: GestionExpenseDto) {
+    return this.expenses.create(req.tenantId, dto);
+  }
+
+  /** Copia los gastos de un mes a otro vacío (alquiler, seguros… se repiten). */
+  @Post("expenses/copy")
+  copyExpenses(@Req() req: AuthedRequest, @Body() dto: GestionCopyExpensesDto) {
+    return this.expenses.copyMonth(req.tenantId, dto.from, dto.to);
+  }
+
+  @Patch("expenses/:id")
+  updateExpense(
+    @Req() req: AuthedRequest,
+    @Param("id") id: string,
+    @Body() dto: GestionExpenseUpdateDto,
+  ) {
+    return this.expenses.update(req.tenantId, id, dto);
+  }
+
+  @Delete("expenses/:id")
+  removeExpense(@Req() req: AuthedRequest, @Param("id") id: string) {
+    return this.expenses.remove(req.tenantId, id);
+  }
+
   /** Estacionalidad del año: calendario, mejores días, semanas y festivos. */
   @Get("seasonality")
   getSeasonality(@Req() req: AuthedRequest, @Query() q: GestionYearDto) {
@@ -197,6 +241,13 @@ export class GestionController {
 
   /** Informes de ventas o de rentabilidad, según la clave. */
   private table(tenantId: string, key: string, q: GestionReportQueryDto) {
+    if (key === "cuenta-explotacion" || key === "flujo-caja") {
+      return this.results.table(
+        tenantId,
+        key,
+        q.year ?? Number(madridToday().slice(0, 4)),
+      );
+    }
     return (PROFITABILITY_REPORT_KEYS as readonly string[]).includes(key)
       ? this.profitability.build(tenantId, key, q)
       : this.reports.build(tenantId, key, q);
