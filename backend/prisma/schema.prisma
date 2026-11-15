@@ -4490,3 +4490,22 @@ model PortionCuinerPush {
   @@index([counterId])
   @@map("portion_cuiner_pushes")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Gestión: festivos y fechas importantes del local (estacionalidad). Se
+// precargan sugeridas por año y el local las corrige: los festivos
+// autonómicos y locales cambian cada año.
+// ─────────────────────────────────────────────────────────────────────────
+model GestionCalendarDate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  date      DateTime @db.Date
+  name      String
+  // nacional | autonomico | local | comercial | propio
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date, name])
+  @@index([tenantId, date])
+  @@map("gestion_calendar_dates")
+}

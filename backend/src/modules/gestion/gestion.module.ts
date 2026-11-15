@@ -10,6 +10,7 @@ import { GestionDashboardService } from "./gestion-dashboard.service";
 import { GestionReportsService } from "./gestion-reports.service";
 import { GestionTableExportService } from "./gestion-table-export.service";
 import { GestionTicketsService } from "./gestion-tickets.service";
+import { GestionSeasonalityService } from "./gestion-seasonality.service";
 
 /** Gestión: ventas, caja y rentabilidad (lectura de las ventas de Cuiner). */
 @Module({
@@ -22,6 +23,7 @@ import { GestionTicketsService } from "./gestion-tickets.service";
     GestionTableExportService,
     GestionProfitabilityService,
     GestionProfitabilityReportsService,
+    GestionSeasonalityService,
   ],
 })
 export class GestionModule {}

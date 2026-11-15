@@ -1,6 +1,9 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Post,
   Param,
   ParseIntPipe,
   Query,
@@ -26,14 +29,19 @@ import {
   SalesReportQueryDto,
 } from "../cuiner/dto/cuiner.dto";
 import {
+  GestionCalendarDateDto,
   GestionDashboardQueryDto,
   GestionRangeDto,
+  GestionSeedDatesDto,
+  GestionYearDto,
   GestionReportExportQueryDto,
   GestionReportQueryDto,
   GestionTicketsQueryDto,
 } from "./dto/gestion-query.dto";
 import { GestionDashboardService } from "./gestion-dashboard.service";
 import { GestionReportsService } from "./gestion-reports.service";
+import { GestionSeasonalityService } from "./gestion-seasonality.service";
+import { GESTION_ROLES } from "./gestion-roles";
 import {
   GestionProfitabilityReportsService,
   PROFITABILITY_REPORT_KEYS,
@@ -41,9 +49,6 @@ import {
 import { GestionTableExportService } from "./gestion-table-export.service";
 import { GestionTicketsService } from "./gestion-tickets.service";
 import { GESTION_CONTENT_TYPES } from "./gestion-table.types";
-
-/** Gerencia y oficina (rol lateral GESTION). */
-const GESTION_ROLES = ["ADMIN", "OWNER", "SUPERADMIN", "GESTION"] as const;
 
 interface AuthedRequest {
   tenantId: string;
@@ -83,6 +88,7 @@ export class GestionController {
     private readonly dashboard: GestionDashboardService,
     private readonly reports: GestionReportsService,
     private readonly profitability: GestionProfitabilityReportsService,
+    private readonly seasonality: GestionSeasonalityService,
     private readonly tickets: GestionTicketsService,
     private readonly tableExport: GestionTableExportService,
     private readonly salesReport: CuinerSalesReportService,
@@ -154,6 +160,33 @@ export class GestionController {
       GESTION_CONTENT_TYPES[format],
       this.tableExport.fileName(table, format),
     );
+  }
+
+  /** Estacionalidad del año: calendario, mejores días, semanas y festivos. */
+  @Get("seasonality")
+  getSeasonality(@Req() req: AuthedRequest, @Query() q: GestionYearDto) {
+    return this.seasonality.analysis(req.tenantId, q.year);
+  }
+
+  @Get("calendar-dates")
+  listDates(@Req() req: AuthedRequest, @Query() q: GestionYearDto) {
+    return this.seasonality.list(req.tenantId, q.year);
+  }
+
+  /** Precarga los festivos y fechas sugeridos del año (sin duplicar). */
+  @Post("calendar-dates/seed")
+  seedDates(@Req() req: AuthedRequest, @Body() dto: GestionSeedDatesDto) {
+    return this.seasonality.seed(req.tenantId, dto.year, dto.region);
+  }
+
+  @Post("calendar-dates")
+  createDate(@Req() req: AuthedRequest, @Body() dto: GestionCalendarDateDto) {
+    return this.seasonality.create(req.tenantId, dto);
+  }
+
+  @Delete("calendar-dates/:id")
+  removeDate(@Req() req: AuthedRequest, @Param("id") id: string) {
+    return this.seasonality.remove(req.tenantId, id);
   }
 
   /** Rentabilidad: food cost teórico, compras, personal y prime cost. */

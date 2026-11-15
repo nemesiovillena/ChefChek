@@ -94,3 +94,28 @@ export class GestionTicketsQueryDto extends GestionRangeDto {
   @MaxLength(80)
   search?: string;
 }
+
+export class GestionYearDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year!: number;
+}
+
+export class GestionSeedDatesDto extends GestionYearDto {
+  @IsIn(["nacional", "villena"])
+  region!: "nacional" | "villena";
+}
+
+export class GestionCalendarDateDto {
+  @Matches(ISO_DAY)
+  date!: string;
+
+  @IsString()
+  @MaxLength(80)
+  name!: string;
+
+  @IsIn(["nacional", "autonomico", "local", "comercial", "propio"])
+  kind!: string;
+}
