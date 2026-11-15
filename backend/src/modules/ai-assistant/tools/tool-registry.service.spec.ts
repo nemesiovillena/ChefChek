@@ -152,6 +152,7 @@ describe("ToolRegistryService", () => {
         "t1",
         { from: "2026-10-01", to: "2026-10-31" },
         "year",
+        { series: false },
       );
       expect(result.deltasPercent.total).toBe(25);
     });
@@ -165,6 +166,14 @@ describe("ToolRegistryService", () => {
           { canViewSales: true },
         ),
       ).rejects.toThrow("AAAA-MM-DD");
+      await expect(
+        service.executeTool(
+          "t1",
+          "get_sales_summary",
+          { from: "2026-02-31", to: "2026-03-01" },
+          { canViewSales: true },
+        ),
+      ).rejects.toThrow("fechas reales");
     });
   });
 

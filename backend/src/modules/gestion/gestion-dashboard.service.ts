@@ -71,16 +71,19 @@ export class GestionDashboardService {
     tenantId: string,
     range: DateRange,
     mode: CompareMode,
+    /** El asistente no dibuja gráficas: sin series ahorra dos consultas. */
+    opts: { series?: boolean } = {},
   ): Promise<DashboardResponse> {
     assertRange(range);
     const compare = comparisonRange(range, mode);
     const bucket = bucketFor(range);
+    const withSeries = opts.series ?? true;
     const [kpis, compareKpis, series, compareSeries, topDishes, families] =
       await Promise.all([
         this.kpis(tenantId, range),
         this.kpis(tenantId, compare),
-        this.series(tenantId, range, bucket),
-        this.series(tenantId, compare, bucket),
+        withSeries ? this.series(tenantId, range, bucket) : [],
+        withSeries ? this.series(tenantId, compare, bucket) : [],
         this.topDishes(tenantId, range),
         this.families(tenantId, range),
       ]);
@@ -217,7 +220,8 @@ export class GestionDashboardService {
         (COUNT(DISTINCT s."idVentasCab"))::int AS tickets
       FROM cuiner_sale_lines s
       WHERE ${inRange(tenantId, range)} AND ${CHARGED}
-      GROUP BY 1, 2`;
+      GROUP BY 1, 2
+      HAVING SUM(COALESCE(s.base, 0)) <> 0`;
     const WEEKDAYS = [
       "lunes",
       "martes",
@@ -242,7 +246,7 @@ export class GestionDashboardService {
       };
     });
     const topDays = [...days]
-      .sort((a, b) => b.total - a.total)
+      .sort((a, b) => b.total - a.total || a.day.localeCompare(b.day))
       .slice(0, Math.min(Math.max(limit, 1), 50))
       .map((d) => ({
         date: d.day,

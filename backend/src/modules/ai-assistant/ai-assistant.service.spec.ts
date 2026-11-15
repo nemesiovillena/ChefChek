@@ -182,6 +182,10 @@ describe("AiAssistantService", () => {
   });
 
   it("rol de oficina (GESTION) con Gestión activo ve las tools de ventas", async () => {
+    roleAccessMock.isSectionAllowed.mockImplementation(
+      (_t: string, _r: string, key: string) =>
+        Promise.resolve(key !== "recipes.cost"),
+    );
     openaiMock.chat.mockResolvedValueOnce({ content: "listo" });
     await service.ask(
       "t1",
@@ -193,6 +197,9 @@ describe("AiAssistantService", () => {
     expect(toolRegistryMock.getToolSchemas).toHaveBeenCalledWith(
       expect.objectContaining({ canViewSales: true }),
     );
+    // Sin costes pero con ventas: el prompt aclara que la facturación sí se da.
+    const messages = openaiMock.chat.mock.calls[0][2];
+    expect(messages[0].content).toContain("VENTAS del TPV");
   });
 
   it("respuesta con 1 tool call: ejecuta la tool y vuelve a llamar al provider", async () => {

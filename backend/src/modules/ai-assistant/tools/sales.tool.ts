@@ -9,11 +9,20 @@ const DATE_PARAM = (what: string) => ({
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Fecha real (2026-02-31 no existe) y razonable (desde el año 2000). */
+const isRealDay = (value: string) =>
+  ISO_DAY.test(value) &&
+  value >= "2000-01-01" &&
+  new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+
 function rangeOf(params: Record<string, any>) {
   const from = String(params.from ?? "");
   const to = String(params.to ?? "");
-  if (!ISO_DAY.test(from) || !ISO_DAY.test(to)) {
-    throw new Error("Indica las fechas en formato AAAA-MM-DD");
+  if (!isRealDay(from) || !isRealDay(to)) {
+    throw new Error("Indica fechas reales en formato AAAA-MM-DD");
+  }
+  if (from > to) {
+    throw new Error("La fecha de inicio es posterior a la de fin");
   }
   return { from, to };
 }
@@ -50,6 +59,7 @@ export function createSalesTools(
           tenantId,
           rangeOf(params),
           params.compare === "previous" ? "previous" : "year",
+          { series: false },
         );
         return {
           range: d.range,
