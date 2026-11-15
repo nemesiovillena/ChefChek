@@ -3,6 +3,7 @@ import * as QRCode from "qrcode";
 import { toDots, ZplLabelSpec } from "../constants/zpl-presets";
 import {
   computeZplLayout,
+  fitTextToField,
   type ZplFieldLayout,
 } from "../util/food-label-zpl-layout.util";
 import type { FoodLabelForPrint } from "../types/food-label-for-print.type";
@@ -83,7 +84,12 @@ export class FoodLabelZplService {
       out.push(this.field(layout.allergens, allergens));
     }
     if (ingredients && layout.ingredients.maxLines > 0) {
-      out.push(this.field(layout.ingredients, ingredients));
+      out.push(
+        this.field(
+          layout.ingredients,
+          fitTextToField(ingredients, layout.ingredients),
+        ),
+      );
     }
     out.push(this.field(layout.responsable, responsableLine(label)));
 
@@ -113,8 +119,9 @@ export class FoodLabelZplService {
   }
 
   /**
-   * Campo de texto en bloque (`^FB`, ajusta y corta sin elipsis si no cabe en
-   * `maxLines`). `bold` reimprime el campo desplazado 1 dot en X: la fuente
+   * Campo de texto en bloque (`^FB`, ajusta por palabras; lo que no cabe en
+   * `maxLines` lo sobreimprime en la última línea, recortar antes con
+   * `fitTextToField`). `bold` reimprime el campo desplazado 1 dot en X: la fuente
    * escalable 0 de Zebra no tiene variante negrita real, esto es el truco
    * estándar de "doble impresión" para simularla.
    */
