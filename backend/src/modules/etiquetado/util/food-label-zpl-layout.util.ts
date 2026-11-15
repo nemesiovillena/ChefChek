@@ -64,17 +64,48 @@ export interface ZplLayoutContent {
 const CHAR_WIDTH_RATIO = 0.65;
 const WORD_WRAP_FILL = 0.85;
 
+/** Caracteres que caben (estimado a la baja) en una línea de `widthDots`. */
+function charsPerLine(fontDots: number, widthDots: number): number {
+  return Math.max(
+    1,
+    Math.floor((widthDots * WORD_WRAP_FILL) / (fontDots * CHAR_WIDTH_RATIO)),
+  );
+}
+
 /** Líneas que ocupará `text` en un bloque `^FB` de `widthDots` (mínimo 1). */
 function estimateLines(
   text: string,
   fontDots: number,
   widthDots: number,
 ): number {
-  const perLine = Math.max(
+  return Math.max(
     1,
-    Math.floor((widthDots * WORD_WRAP_FILL) / (fontDots * CHAR_WIDTH_RATIO)),
+    Math.ceil(text.length / charsPerLine(fontDots, widthDots)),
   );
-  return Math.max(1, Math.ceil(text.length / perLine));
+}
+
+const ELLIPSIS = "...";
+
+/**
+ * Recorta `text` para que quepa en `field.maxLines` líneas, terminando en
+ * "..." en un límite de palabra. Necesario porque `^FB` de Zebra NO corta lo
+ * que no cabe: lo sobreimprime todo encima de la última línea.
+ */
+export function fitTextToField(text: string, field: ZplFieldLayout): string {
+  const capacity =
+    charsPerLine(field.fontHeightDots, field.widthDots) * field.maxLines;
+  if (text.length <= capacity) {
+    return text;
+  }
+  const hard = text.slice(0, Math.max(0, capacity - ELLIPSIS.length));
+  const lastSpace = hard.lastIndexOf(" ");
+  // Corta en la última palabra completa salvo que eso tire más de media línea.
+  const cut =
+    lastSpace >
+    hard.length - charsPerLine(field.fontHeightDots, field.widthDots) / 2
+      ? hard.slice(0, lastSpace)
+      : hard;
+  return cut.replace(/[\s,;:(]+$/, "") + ELLIPSIS;
 }
 
 /** Tamaño de fuente y alto de línea (mm) de un campo. */

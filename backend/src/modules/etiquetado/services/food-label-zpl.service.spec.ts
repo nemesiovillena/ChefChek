@@ -165,6 +165,37 @@ describe("FoodLabelZplService", () => {
     expect(zpl).toContain("huevos");
   });
 
+  it("cuts ingredients that don't fit with '...' instead of piling them on the last line", () => {
+    const manyLots = Array.from({ length: 12 }, (_, i) => ({
+      id: `il${i}`,
+      foodLabelId: "fl1",
+      productId: `p${i}`,
+      productName: `Ingrediente número ${i}`,
+      lotId: null,
+      lotNumber: `105041115${i}`,
+      quantityUsed: 1,
+      unit: "kg",
+    }));
+    for (const spec of [spec60x40, spec57x32]) {
+      const zpl = service.generate(
+        makeLabel({ ingredientLots: manyLots }),
+        spec,
+        1,
+      );
+      const line = zpl.split("\n").find((l) => l.includes("Ingr.:")) ?? "";
+      const text = line.slice(line.indexOf("^FD") + 3, line.lastIndexOf("^FS"));
+      expect(text.endsWith("...")).toBe(true);
+      expect(text).not.toContain("número 11");
+      // Corta en una palabra completa, sin dejar coma ni paréntesis colgando.
+      expect(text).not.toMatch(/[,(]\.\.\.$/);
+    }
+  });
+
+  it("leaves ingredients that fit untouched (no '...')", () => {
+    const zpl = service.generate(makeLabel(), spec60x40, 1);
+    expect(zpl).toContain("Ingr.: huevos (L:1672086)^FS");
+  });
+
   it("standard 60x40 label prints both the QR and the ingredients", () => {
     const zpl = service.generate(makeLabel(), spec60x40, 1);
     expect(zpl).toContain("^BQN,2,");
