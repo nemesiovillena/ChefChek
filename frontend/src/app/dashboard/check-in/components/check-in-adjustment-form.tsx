@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import { useCreateAdjustment, useRequestAdjustment } from '@/hooks/use-check-in';
-import { PUNCH_LABELS, formatTimeIn } from '@/lib/check-in-punch';
+import { PUNCH_LABELS, correctedPunchInstant, formatTimeIn } from '@/lib/check-in-punch';
 import type { AdjustmentKind, PunchType, WorkdayPunch } from '@/lib/check-in-types';
 import { errorMessage, inputCls, labelCls, primaryBtnCls, secondaryBtnCls } from './check-in-form-styles';
 
@@ -19,6 +19,8 @@ interface Props {
   timezone: string;
   /** Fichaje sobre el que se actúa; sin él, se añade uno nuevo. */
   target?: WorkdayPunch;
+  /** Fichajes de la jornada: sirven para situar una salida pasada la medianoche. */
+  dayPunches?: WorkdayPunch[];
   onDone: () => void;
 }
 
@@ -26,7 +28,7 @@ interface Props {
  * Corrección de un fichaje. Nunca edita el original: añade, anula o sustituye
  * dejando constancia del motivo y de quién lo pide.
  */
-export function CheckInAdjustmentForm({ mode, employeeId, date, timezone, target, onDone }: Props) {
+export function CheckInAdjustmentForm({ mode, employeeId, date, timezone, target, dayPunches = [], onDone }: Props) {
   const notify = useNotification();
   const request = useRequestAdjustment();
   const create = useCreateAdjustment();
@@ -37,6 +39,8 @@ export function CheckInAdjustmentForm({ mode, employeeId, date, timezone, target
   const [time, setTime] = useState(target ? formatTimeIn(target.occurredAt, timezone) : '');
   const [reason, setReason] = useState('');
   const needsNewPunch = kind === 'ADD' || kind === 'REPLACE';
+  const instant =
+    needsNewPunch && time ? correctedPunchInstant(date, time, type, dayPunches, target?.id) : null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -54,8 +58,7 @@ export function CheckInAdjustmentForm({ mode, employeeId, date, timezone, target
         employeeId: mode === 'manager' ? employeeId : undefined,
         targetPunchId: target?.id,
         type: needsNewPunch ? type : undefined,
-        // La hora se interpreta en el horario de este dispositivo.
-        occurredAt: needsNewPunch ? new Date(`${date}T${time}`).toISOString() : undefined,
+        occurredAt: instant ? instant.occurredAt.toISOString() : undefined,
         reason: reason.trim(),
       });
       notify({
@@ -101,6 +104,15 @@ export function CheckInAdjustmentForm({ mode, employeeId, date, timezone, target
             <span className={labelCls}>Hora correcta</span>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputCls} />
           </label>
+          {instant?.nextDay && (
+            <p className="text-sm text-[var(--on-surface-variant)] sm:col-span-2">
+              Pasada la medianoche: se guardará el{' '}
+              <strong>
+                {instant.occurredAt.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'numeric' })}
+              </strong>{' '}
+              a las {time}.
+            </p>
+          )}
         </div>
       )}
 
