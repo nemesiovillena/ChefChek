@@ -38,8 +38,33 @@ export function TicketDetailDialog({ id, onClose }: { id: number | null; onClose
               <span>Total (sin anuladas)</span>
               <span className="tabular-nums">{formatEuros(data.total)}</span>
             </div>
-            <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
-              Base {formatEuros(data.base)} · mesa, comensales y forma de pago llegarán con la próxima versión del conector.
+            {data.payments.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-sm">
+                {data.payments.map((p, i) => (
+                  <li key={i} className={`flex justify-between ${p.voided ? 'line-through opacity-60' : ''}`}>
+                    <span className="text-[var(--on-surface-variant)]">
+                      Cobro {p.method.charAt(0) + p.method.slice(1).toLowerCase()}
+                    </span>
+                    <span className="tabular-nums">{formatEuros(p.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-xs text-[var(--on-surface-variant)]">
+              Base {formatEuros(data.base)}
+              {data.header
+                ? [
+                    data.header.table && `mesa ${data.header.table}`,
+                    data.header.diners ? `${data.header.diners} comensales` : null,
+                    data.header.shift && data.header.shift.toLowerCase(),
+                    data.header.openedAt &&
+                      `${data.header.openedAt}${data.header.closedAt ? `–${data.header.closedAt}` : ''}`,
+                    data.header.waiter,
+                  ]
+                    .filter(Boolean)
+                    .map((x) => ` · ${x}`)
+                    .join('')
+                : ' · sin datos de mesa ni cobros todavía (llegan con la versión nueva del conector)'}
             </p>
           </>
         )}
