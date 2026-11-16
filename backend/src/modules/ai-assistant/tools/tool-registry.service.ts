@@ -16,6 +16,9 @@ import { createRecipeDetailsTool } from "./recipe-details.tool";
 import { createStockTools } from "./stock.tool";
 import { createLotTraceabilityTool } from "./lot-traceability.tool";
 import { LotService } from "../../albaranes/services/lot.service";
+import { GestionDashboardService } from "../../gestion/gestion-dashboard.service";
+import { GestionReportsService } from "../../gestion/gestion-reports.service";
+import { createSalesTools } from "./sales.tool";
 
 /**
  * Tools that surface monetary figures (€): recipe cost, purchase spend, price
@@ -29,6 +32,16 @@ export const AI_COST_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_top_spend_products",
   "get_supplier_spend",
   "get_pending_price_deviations",
+]);
+
+/**
+ * Tools de ventas del TPV (facturación): solo gerencia y oficina, y con el
+ * módulo Gestión activo. Ocultas y rechazadas para el resto.
+ */
+export const AI_SALES_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_sales_summary",
+  "get_dish_sales_ranking",
+  "get_sales_calendar",
 ]);
 
 /**
@@ -48,6 +61,8 @@ export class ToolRegistryService {
     recipesService: RecipesService,
     warehouses: WarehousesService,
     lotService: LotService,
+    gestionDashboard: GestionDashboardService,
+    gestionReports: GestionReportsService,
   ) {
     this.tools = [
       createPriceIncreasesTool(prisma),
@@ -59,15 +74,18 @@ export class ToolRegistryService {
       createRecipeDetailsTool(recipesService),
       ...createStockTools(warehouses, productsService),
       createLotTraceabilityTool(lotService, productsService),
+      ...createSalesTools(gestionDashboard, gestionReports),
     ];
   }
 
   getToolSchemas(
-    opts: { canViewCosts?: boolean } = {},
+    opts: { canViewCosts?: boolean; canViewSales?: boolean } = {},
   ): Array<Pick<ToolDefinition, "name" | "description" | "parameters">> {
     const canViewCosts = opts.canViewCosts ?? true;
+    const canViewSales = opts.canViewSales ?? false;
     return this.tools
       .filter((t) => canViewCosts || !AI_COST_TOOL_NAMES.has(t.name))
+      .filter((t) => canViewSales || !AI_SALES_TOOL_NAMES.has(t.name))
       .map(({ name, description, parameters }) => ({
         name,
         description,
@@ -79,9 +97,18 @@ export class ToolRegistryService {
     tenantId: string,
     name: string,
     params: Record<string, any>,
-    opts: { canViewCosts?: boolean; canViewDrinks?: boolean } = {},
+    opts: {
+      canViewCosts?: boolean;
+      canViewDrinks?: boolean;
+      canViewSales?: boolean;
+    } = {},
   ): Promise<unknown> {
     const canViewCosts = opts.canViewCosts ?? true;
+    if (!(opts.canViewSales ?? false) && AI_SALES_TOOL_NAMES.has(name)) {
+      throw new BadRequestException(
+        `El rol actual no tiene acceso a las ventas ("${name}").`,
+      );
+    }
     if (!canViewCosts && AI_COST_TOOL_NAMES.has(name)) {
       throw new BadRequestException(
         `El rol actual no tiene acceso a datos de coste ("${name}").`,

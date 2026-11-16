@@ -67,6 +67,18 @@ export const SETTINGS_LINK: NavItem = {
  */
 export const NAV_GROUPS: NavSection[] = [
   {
+    // Ventas y facturación del TPV: gerencia y oficina (rol GESTION).
+    title: 'Gestión',
+    items: [
+      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
+    ],
+  },
+  {
     title: 'Cocina',
     items: [
       { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
@@ -175,6 +187,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   // FoodLabel, módulo etiquetado, no del módulo appcc).
   { prefix: '/dashboard/appcc/caducidades', moduleId: 'etiquetado' },
   { prefix: '/dashboard/asistente', moduleId: 'asistente-ia' },
+  { prefix: '/dashboard/gestion', moduleId: 'gestion' },
   { prefix: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento' },
   { prefix: '/dashboard/technical-sheets', moduleId: 'technical-sheets' },
   { prefix: '/dashboard/digital-menu', moduleId: 'digital-menu' },

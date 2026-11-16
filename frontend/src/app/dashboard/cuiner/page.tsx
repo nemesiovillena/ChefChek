@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useCuinerStatus } from '@/hooks/use-cuiner';
+import Link from 'next/link';
+import { useModules } from '@/features/modules/hooks/use-modules';
 import { CuinerConfigTab } from './components/cuiner-config-tab';
 import { CuinerDishesTab } from './components/cuiner-dishes-tab';
 import { CuinerSalesReportTab } from './components/cuiner-sales-report-tab';
@@ -32,6 +34,8 @@ type TabId = (typeof TABS)[number]['id'];
  * configuración del conector y seguimiento de los albaranes enviados.
  */
 export default function CuinerPage() {
+  const { isEnabled } = useModules();
+  const gestionOn = isEnabled('gestion');
   const { user } = useAuth();
   const canManage = !!user && CUINER_ROLES.includes(user.role);
   const canSeeReports = !!user && REPORT_ROLES.includes(user.role);
@@ -90,7 +94,20 @@ export default function CuinerPage() {
             {activeTab === 'platos' && <CuinerDishesTab />}
             {activeTab === 'medidas' && <CuinerServingMeasuresTab />}
             {activeTab === 'ventas' && <CuinerSalesTab />}
-            {activeTab === 'informes' && canSeeReports && <CuinerSalesReportTab />}
+            {activeTab === 'informes' && canSeeReports && (
+              <>
+                {gestionOn && (
+                  <p className="mb-4 rounded-lg bg-[var(--surface-container-high)] p-3 text-sm text-[var(--on-surface-variant)]">
+                    Los informes de ventas están ahora en{' '}
+                    <Link href="/dashboard/gestion/informes" className="font-medium text-[var(--primary)] underline">
+                      Gestión
+                    </Link>
+                    , con panel, ranking, comparativa interanual, IVA y tickets.
+                  </p>
+                )}
+                <CuinerSalesReportTab />
+              </>
+            )}
             {activeTab === 'conector' && <CuinerConfigTab key={status.config?.id ?? 'nuevo'} status={status} />}
           </div>
         </>

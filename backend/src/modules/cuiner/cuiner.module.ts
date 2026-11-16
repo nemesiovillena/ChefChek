@@ -13,6 +13,7 @@ import { CuinerSalesReportExportService } from "./cuiner-sales-report-export.ser
 import { CuinerSalesReportService } from "./cuiner-sales-report.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { CuinerServingMeasuresService } from "./cuiner-serving-measures.service";
+import { CuinerTicketsService } from "./cuiner-tickets.service";
 import { CuinerStockService } from "./cuiner-stock.service";
 import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
 import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard";
@@ -31,8 +32,11 @@ import { CuinerTenantRequiredGuard } from "./guards/cuiner-tenant-required.guard
     CuinerSalesReportService,
     CuinerSalesReportExportService,
     CuinerStockService,
+    CuinerTicketsService,
     CuinerConnectorGuard,
     CuinerTenantRequiredGuard,
   ],
+  // Gestión reutiliza el informe de ventas por familia y su exportación.
+  exports: [CuinerSalesReportService, CuinerSalesReportExportService],
 })
 export class CuinerModule {}
