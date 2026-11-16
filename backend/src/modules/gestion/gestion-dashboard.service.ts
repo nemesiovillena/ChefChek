@@ -12,6 +12,7 @@ import {
   deltaPercent,
 } from "./gestion-period.util";
 import { CHARGED, NO_FAMILY_LABEL, cents, inRange } from "./gestion-sql.util";
+import { ticketTotals } from "./gestion-ticket-reports.service";
 
 export interface DashboardKpis {
   /** Con IVA. */
@@ -25,6 +26,10 @@ export interface DashboardKpis {
   invitedUnits: number;
   /** Líneas sin importe (anteriores a que el conector enviara importes). */
   missingAmounts: number;
+  /** Comensales de los tickets (0 si el conector aún no manda cabeceras). */
+  diners: number;
+  /** Con IVA, solo tickets con comensales (la barra sin comensales no cuenta). */
+  avgPerDiner: number;
 }
 
 export interface SeriesPoint {
@@ -71,16 +76,19 @@ export class GestionDashboardService {
     tenantId: string,
     range: DateRange,
     mode: CompareMode,
+    /** El asistente no dibuja gráficas: sin series ahorra dos consultas. */
+    opts: { series?: boolean } = {},
   ): Promise<DashboardResponse> {
     assertRange(range);
     const compare = comparisonRange(range, mode);
     const bucket = bucketFor(range);
+    const withSeries = opts.series ?? true;
     const [kpis, compareKpis, series, compareSeries, topDishes, families] =
       await Promise.all([
         this.kpis(tenantId, range),
         this.kpis(tenantId, compare),
-        this.series(tenantId, range, bucket),
-        this.series(tenantId, compare, bucket),
+        withSeries ? this.series(tenantId, range, bucket) : [],
+        withSeries ? this.series(tenantId, compare, bucket) : [],
         this.topDishes(tenantId, range),
         this.families(tenantId, range),
       ]);
@@ -136,6 +144,12 @@ export class GestionDashboardService {
         (COUNT(*) FILTER (WHERE s.base IS NULL AND NOT s.anulada))::int AS missing
       FROM cuiner_sale_lines s
       WHERE ${inRange(tenantId, range)}`;
+    const [diners] = await this.prisma.$queryRaw<
+      { diners: number; total: number }[]
+    >`
+      SELECT COALESCE(SUM(x.comensales), 0)::int AS diners,
+        COALESCE(SUM(x.total) FILTER (WHERE x.comensales > 0), 0)::float8 AS total
+      FROM (${ticketTotals(tenantId, range)}) x`;
     const tickets = row?.tickets ?? 0;
     const total = row?.total ?? 0;
     return {
@@ -146,6 +160,8 @@ export class GestionDashboardService {
       voidedTotal: cents(row?.voided_total ?? 0),
       invitedUnits: cents(row?.invited_units ?? 0),
       missingAmounts: row?.missing ?? 0,
+      diners: diners?.diners ?? 0,
+      avgPerDiner: diners?.diners ? cents(diners.total / diners.diners) : 0,
     };
   }
 
@@ -201,5 +217,56 @@ export class GestionDashboardService {
       total: cents(r.total),
       share: sum > 0 ? cents((r.total / sum) * 100) : 0,
     }));
+  }
+
+  /**
+   * Cuándo se vende más: los mejores días del rango y la media por día de la
+   * semana (solo días con venta, así los días de cierre no hunden la media).
+   */
+  async calendar(tenantId: string, range: DateRange, limit = 10) {
+    assertRange(range);
+    const days = await this.prisma.$queryRaw<
+      { day: string; dow: number; total: number; tickets: number }[]
+    >`
+      SELECT to_char(s.fecha, 'YYYY-MM-DD') AS day, EXTRACT(ISODOW FROM s.fecha)::int AS dow,
+        COALESCE(SUM(COALESCE(s.base, 0) + COALESCE(s.impuesto, 0)), 0)::float8 AS total,
+        (COUNT(DISTINCT s."idVentasCab"))::int AS tickets
+      FROM cuiner_sale_lines s
+      WHERE ${inRange(tenantId, range)} AND ${CHARGED}
+      GROUP BY 1, 2
+      HAVING SUM(COALESCE(s.base, 0)) <> 0`;
+    const WEEKDAYS = [
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+      "domingo",
+    ];
+    const byWeekday = WEEKDAYS.map((weekday, i) => {
+      const list = days.filter((d) => d.dow === i + 1);
+      const total = list.reduce((n, d) => n + d.total, 0);
+      return {
+        weekday,
+        daysWithSales: list.length,
+        avgTotal: list.length ? cents(total / list.length) : 0,
+        avgTickets: list.length
+          ? Math.round(
+              (list.reduce((n, d) => n + d.tickets, 0) / list.length) * 10,
+            ) / 10
+          : 0,
+      };
+    });
+    const topDays = [...days]
+      .sort((a, b) => b.total - a.total || a.day.localeCompare(b.day))
+      .slice(0, Math.min(Math.max(limit, 1), 50))
+      .map((d) => ({
+        date: d.day,
+        weekday: WEEKDAYS[d.dow - 1],
+        total: cents(d.total),
+        tickets: d.tickets,
+      }));
+    return { range, daysWithSales: days.length, topDays, byWeekday };
   }
 }

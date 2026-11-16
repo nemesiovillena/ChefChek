@@ -114,6 +114,22 @@ export function GestionDashboardView() {
               compareText={compareText(formatQty(data.compareKpis.invitedUnits))}
               higherIsWorse
             />
+            {data.kpis.diners > 0 && (
+              <>
+                <KpiCard
+                  label="Comensales"
+                  value={data.kpis.diners.toLocaleString('es-ES')}
+                  delta={data.deltas.diners}
+                  compareText={compareText(data.compareKpis.diners.toLocaleString('es-ES'))}
+                />
+                <KpiCard
+                  label="Gasto por comensal"
+                  value={formatEuros(data.kpis.avgPerDiner)}
+                  delta={data.deltas.avgPerDiner}
+                  compareText={compareText(formatEuros(data.compareKpis.avgPerDiner))}
+                />
+              </>
+            )}
           </div>
 
           {data.kpis.missingAmounts > 0 && (
