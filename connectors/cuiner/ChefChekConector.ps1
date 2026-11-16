@@ -553,11 +553,14 @@ WHERE Empresa = @empresa AND Centro = @centro
   }
 
   for ($batch = 0; $batch -lt $Cfg.historyBatchesPerRun; $batch++) {
+    # Solo tickets del centro del tenant: los de otros locales ni se recorren.
     $ids = Invoke-SqlQuery $Conn @'
-SELECT TOP (@n) Id_VentasCab FROM VentasCab
-WHERE Id_VentasCab > @cursor AND Id_VentasCab <= @top
-ORDER BY Id_VentasCab
-'@ @{ n = [int]$Cfg.ticketsPerBatch; cursor = $cursor; top = $top }
+SELECT TOP (@n) c.Id_VentasCab
+FROM VentasCab c JOIN Ventas v ON v.Id_Ventas = c.Id_Ventas
+WHERE c.Id_VentasCab > @cursor AND c.Id_VentasCab <= @top
+  AND v.Empresa = @empresa AND v.Centro = @centro
+ORDER BY c.Id_VentasCab
+'@ @{ n = [int]$Cfg.ticketsPerBatch; cursor = $cursor; top = $top; empresa = $Remote.empresa; centro = $Remote.centro }
     if ($ids.Rows.Count -eq 0) { break }
     $newCursor = [int]$ids.Rows[$ids.Rows.Count - 1].Id_VentasCab
     $p = @{ from = $cursor; to = $newCursor; empresa = $Remote.empresa; centro = $Remote.centro }
