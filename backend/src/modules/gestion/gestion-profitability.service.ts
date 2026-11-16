@@ -40,6 +40,8 @@ export interface LaborRow {
   employeeId: string;
   name: string;
   minutes: number;
+  /** Minutos por mes («2026-10»), para repartir el coste en la cuenta de explotación. */
+  minutesByMonth: Record<string, number>;
   hourlyCost: number | null;
   cost: number | null;
 }
@@ -208,6 +210,31 @@ export class GestionProfitabilityService {
     }));
   }
 
+  /** Compras por mes (sin IVA y con el IVA de cada línea), mismos filtros que `purchases`. */
+  async purchasesByMonth(
+    tenantId: string,
+    range: DateRange,
+  ): Promise<{ month: string; base: number; withVat: number }[]> {
+    assertRange(range);
+    const rows = await this.prisma.$queryRaw<
+      { month: string; base: number; with_vat: number }[]
+    >`
+      SELECT to_char(a.date, 'YYYY-MM') AS month,
+        COALESCE(SUM(COALESCE(l."totalPrice", l."lineAmount")), 0)::float8 AS base,
+        COALESCE(SUM(COALESCE(l."totalPrice", l."lineAmount") * (1 + COALESCE(l."vatPercent", 0) / 100)), 0)::float8 AS with_vat
+      FROM albaranes a
+      JOIN albaran_lines l ON l."albaranId" = a.id AND l."lineStatus" <> 'RECHAZADO'
+      WHERE a."tenantId" = ${tenantId} AND a."deletedAt" IS NULL
+        AND a.status IN ('CONFIRMADO', 'ARCHIVADO')
+        AND a.date >= ${range.from}::date AND a.date < (${range.to}::date + 1)
+      GROUP BY 1 ORDER BY 1`;
+    return rows.map((r) => ({
+      month: r.month,
+      base: cents(r.base),
+      withVat: cents(r.with_vat),
+    }));
+  }
+
   /** Horas fichadas y coste por persona; null si el rango pasa de un año. */
   async labor(tenantId: string, range: DateRange): Promise<LaborRow[] | null> {
     assertRange(range);
@@ -236,6 +263,7 @@ export class GestionProfitabilityService {
       LABOR_CONCURRENCY,
       async (e) => {
         let minutes = 0;
+        const minutesByMonth: Record<string, number> = {};
         for (const window of chunkRange(range, WORKDAYS_MAX_DAYS)) {
           const { days } = await this.workdays.getWorkdays(
             tenantId,
@@ -243,7 +271,12 @@ export class GestionProfitabilityService {
             window.from,
             window.to,
           );
-          minutes += days.reduce((n, d) => n + d.workedMinutes, 0);
+          for (const d of days) {
+            minutes += d.workedMinutes;
+            const month = d.date.slice(0, 7);
+            minutesByMonth[month] =
+              (minutesByMonth[month] ?? 0) + d.workedMinutes;
+          }
         }
         // Un coste/hora a 0 es una ficha sin rellenar, no personal gratis.
         const hourlyCost =
@@ -252,6 +285,7 @@ export class GestionProfitabilityService {
           employeeId: e.id,
           name: `${e.firstName} ${e.lastName}`.trim(),
           minutes,
+          minutesByMonth,
           hourlyCost,
           cost: hourlyCost === null ? null : cents((minutes / 60) * hourlyCost),
         };

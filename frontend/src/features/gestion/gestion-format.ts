@@ -37,3 +37,22 @@ export function formatCell(kind: GestionColumnKind, value: GestionCell): string 
       return formatQty(value);
   }
 }
+
+/**
+ * Importe escrito a la española: «1.200», «1.234,56», «12,5» o «-80».
+ * Con coma, los puntos son de miles; sin coma, un punto seguido de 3 cifras
+ * también lo es («1.200» = 1200). Devuelve NaN si no se entiende.
+ */
+export function parseEsAmount(text: string): number {
+  const t = text.trim().replace(/\s|€/g, '');
+  if (!/^-?[\d.,]+$/.test(t)) return NaN;
+  let normalized: string;
+  if (t.includes(',')) {
+    normalized = t.replace(/\./g, '').replace(',', '.');
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) {
+    normalized = t.replace(/\./g, '');
+  } else {
+    normalized = t;
+  }
+  return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : NaN;
+}

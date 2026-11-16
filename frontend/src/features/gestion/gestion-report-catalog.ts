@@ -7,12 +7,12 @@ export type ReportOption = { value: string; label: string };
 export interface ReportDefinition {
   key: string;
   /** Grupo del catálogo. */
-  group: 'Ventas' | 'Rentabilidad';
+  group: 'Ventas' | 'Caja y sala' | 'Rentabilidad' | 'Resultados';
   title: string;
   description: string;
   icon: string;
-  /** range = periodo de fechas; years = año final y nº de años. */
-  input: 'range' | 'years';
+  /** range = periodo de fechas; years = año final y nº de años; year = un año. */
+  input: 'range' | 'years' | 'year';
   /** Selectores extra del informe (clave del parámetro → opciones). */
   options?: { param: string; label: string; choices: ReportOption[]; initial: string }[];
 }
@@ -108,6 +108,30 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     ],
   },
   {
+    group: 'Caja y sala',
+    key: 'caja-diaria',
+    title: 'Caja diaria',
+    description: 'Cada día: tickets, comensales, gasto por comensal, comidas y cenas, y cobros por forma de pago.',
+    icon: 'point_of_sale',
+    input: 'range',
+  },
+  {
+    group: 'Caja y sala',
+    key: 'franjas-horarias',
+    title: 'Franjas horarias',
+    description: 'Ventas por hora de apertura de la mesa y día de la semana.',
+    icon: 'schedule',
+    input: 'range',
+  },
+  {
+    group: 'Caja y sala',
+    key: 'camareros',
+    title: 'Camareros',
+    description: 'Tickets, comensales, ventas, ticket medio y gasto por comensal de cada camarero.',
+    icon: 'room_service',
+    input: 'range',
+  },
+  {
     group: 'Rentabilidad',
     key: 'food-cost',
     title: 'Food cost teórico',
@@ -150,8 +174,24 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     icon: 'badge',
     input: 'range',
   },
+  {
+    group: 'Resultados',
+    key: 'cuenta-explotacion',
+    title: 'Cuenta de explotación',
+    description: 'Ventas, compras, personal, gastos generales y EBITDA mes a mes.',
+    icon: 'account_balance',
+    input: 'year',
+  },
+  {
+    group: 'Resultados',
+    key: 'flujo-caja',
+    title: 'Flujo de caja aproximado',
+    description: 'Cobros y pagos con IVA por mes y saldo acumulado.',
+    icon: 'payments',
+    input: 'year',
+  },
 ];
 
-export const REPORT_GROUPS = ['Ventas', 'Rentabilidad'] as const;
+export const REPORT_GROUPS = ['Ventas', 'Caja y sala', 'Rentabilidad', 'Resultados'] as const;
 
 export const findReport = (key: string) => GESTION_REPORTS.find((r) => r.key === key);
