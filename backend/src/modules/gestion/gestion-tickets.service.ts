@@ -12,6 +12,11 @@ export interface TicketSummary {
   base: number;
   total: number;
   hasVoids: boolean;
+  /** Cabecera del TPV; null si el conector aún no la ha enviado. */
+  table: string | null;
+  diners: number | null;
+  waiter: string | null;
+  openedAt: string | null;
 }
 
 export interface TicketDetail {
@@ -19,6 +24,15 @@ export interface TicketDetail {
   date: string;
   base: number;
   total: number;
+  header: {
+    table: string | null;
+    diners: number | null;
+    shift: string | null;
+    openedAt: string | null;
+    closedAt: string | null;
+    waiter: string | null;
+  } | null;
+  payments: { method: string; amount: number; voided: boolean }[];
   lines: {
     line: number;
     name: string;
@@ -77,6 +91,10 @@ export class GestionTicketsService {
           base: number;
           total: number;
           voids: number;
+          mesa: string | null;
+          comensales: number | null;
+          camarero: string | null;
+          opened_at: string | null;
         }[]
       >`
         SELECT s."idVentasCab" AS id, to_char(MIN(s.fecha), 'YYYY-MM-DD') AS date,
@@ -84,8 +102,11 @@ export class GestionTicketsService {
           COALESCE(SUM(s.unidades) FILTER (WHERE NOT s.anulada), 0)::float8 AS units,
           COALESCE(SUM(s.base) FILTER (WHERE NOT s.anulada), 0)::float8 AS base,
           COALESCE(SUM(COALESCE(s.base, 0) + COALESCE(s.impuesto, 0)) FILTER (WHERE NOT s.anulada), 0)::float8 AS total,
-          (COUNT(*) FILTER (WHERE s.anulada))::int AS voids
+          (COUNT(*) FILTER (WHERE s.anulada))::int AS voids,
+          MAX(ct.mesa) AS mesa, MAX(ct.comensales)::int AS comensales,
+          MAX(ct.camarero) AS camarero, MAX(ct."openedAt") AS opened_at
         FROM cuiner_sale_lines s
+        LEFT JOIN cuiner_tickets ct ON ct."tenantId" = s."tenantId" AND ct."idVentasCab" = s."idVentasCab"
         WHERE ${inRange(tenantId, range)} AND s.base IS NOT NULL ${filter}
         GROUP BY s."idVentasCab"
         ORDER BY s."idVentasCab" DESC
@@ -104,6 +125,10 @@ export class GestionTicketsService {
         base: cents(r.base),
         total: cents(r.total),
         hasVoids: r.voids > 0,
+        table: r.mesa,
+        diners: r.comensales,
+        waiter: r.camarero,
+        openedAt: r.opened_at,
       })),
       total: count,
       page: Math.max(page, 1),
@@ -136,10 +161,32 @@ export class GestionTicketsService {
     if (lines.length === 0) {
       throw new NotFoundException("Ticket no encontrado");
     }
+    const [header, payments] = await Promise.all([
+      this.prisma.cuinerTicket.findUnique({
+        where: { tenantId_idVentasCab: { tenantId, idVentasCab: id } },
+      }),
+      this.prisma.cuinerTicketPayment.findMany({
+        where: { tenantId, idVentasCab: id },
+        orderBy: { linea: "asc" },
+      }),
+    ]);
     const charged = lines.filter((l) => !l.voided);
     return {
       id,
       date: lines[0].date,
+      header: header && {
+        table: header.mesa,
+        diners: header.comensales,
+        shift: header.turno,
+        openedAt: header.openedAt,
+        closedAt: header.closedAt,
+        waiter: header.camarero,
+      },
+      payments: payments.map((p) => ({
+        method: p.formaPago,
+        amount: cents(p.importe),
+        voided: p.anulada,
+      })),
       base: cents(charged.reduce((n, l) => n + (l.base ?? 0), 0)),
       total: cents(
         charged.reduce((n, l) => n + (l.base ?? 0) + (l.tax ?? 0), 0),

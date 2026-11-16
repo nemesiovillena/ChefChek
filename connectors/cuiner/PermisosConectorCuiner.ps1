@@ -42,7 +42,9 @@ $PasswordFile = 'C:\ChefChekConector\secrets\chefchek_conector.txt'
 $TablasLectura = @(
   'DocsCab', 'DocsLin', 'DocsLinAux', 'DocsSumas', 'Proveedores', 'EmpresaProveedores',
   'Articulos', 'EmpresaArticulos', 'ArticulosProv', 'TiposIVA', 'Centros', 'Almacenes',
-  'Ventas', 'VentasCab', 'VentasLin', 'CartasCab', 'CartasLin', 'EscandallosCab'
+  'Ventas', 'VentasCab', 'VentasLin', 'CartasCab', 'CartasLin', 'EscandallosCab',
+  # Cobros por forma de pago de cada ticket (informes de Gestión).
+  'VentasFormasDePago'
 )
 $TablasInsercion = @('DocsCab', 'DocsLin', 'DocsLinAux', 'DocsSumas')
 $ColumnasUltimoPrecio = 'UltFecha, UltImporte, UltDescuentoP, UltDescuentoI, UltIVA, UltUnPorCaja, UltImporteUC, UltCosteUM, ActUsuario, ActFecha'
@@ -99,6 +101,7 @@ $escritura = ($Nivel -eq 'Escritura')
 $resultados = @(
   Test-Permiso 'Leer ventas (VentasLin)' 'SELECT TOP 1 Producto FROM VentasLin' $true
   Test-Permiso 'Leer catálogo (ArticulosProv)' 'SELECT TOP 1 Articulo FROM ArticulosProv' $true
+  Test-Permiso 'Leer cobros (VentasFormasDePago)' 'SELECT TOP 1 FormaDePago FROM VentasFormasDePago' $true
   Test-Permiso 'Insertar sumas de albarán (0 filas)' 'INSERT INTO DocsSumas SELECT * FROM DocsSumas WHERE 1=0' $escritura
   Test-Permiso 'Borrar albaranes (DocsCab)' 'DELETE FROM DocsCab WHERE 1=0' $false
   Test-Permiso 'Modificar líneas (DocsLin)' 'UPDATE DocsLin SET Unidades=Unidades WHERE 1=0' $false

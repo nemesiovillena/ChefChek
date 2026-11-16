@@ -7,7 +7,7 @@ export type ReportOption = { value: string; label: string };
 export interface ReportDefinition {
   key: string;
   /** Grupo del catálogo. */
-  group: 'Ventas' | 'Rentabilidad' | 'Resultados';
+  group: 'Ventas' | 'Caja y sala' | 'Rentabilidad' | 'Resultados';
   title: string;
   description: string;
   icon: string;
@@ -108,6 +108,30 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     ],
   },
   {
+    group: 'Caja y sala',
+    key: 'caja-diaria',
+    title: 'Caja diaria',
+    description: 'Cada día: tickets, comensales, gasto por comensal, comidas y cenas, y cobros por forma de pago.',
+    icon: 'point_of_sale',
+    input: 'range',
+  },
+  {
+    group: 'Caja y sala',
+    key: 'franjas-horarias',
+    title: 'Franjas horarias',
+    description: 'Ventas por hora de apertura de la mesa y día de la semana.',
+    icon: 'schedule',
+    input: 'range',
+  },
+  {
+    group: 'Caja y sala',
+    key: 'camareros',
+    title: 'Camareros',
+    description: 'Tickets, comensales, ventas, ticket medio y gasto por comensal de cada camarero.',
+    icon: 'room_service',
+    input: 'range',
+  },
+  {
     group: 'Rentabilidad',
     key: 'food-cost',
     title: 'Food cost teórico',
@@ -168,6 +192,6 @@ export const GESTION_REPORTS: ReportDefinition[] = [
   },
 ];
 
-export const REPORT_GROUPS = ['Ventas', 'Rentabilidad', 'Resultados'] as const;
+export const REPORT_GROUPS = ['Ventas', 'Caja y sala', 'Rentabilidad', 'Resultados'] as const;
 
 export const findReport = (key: string) => GESTION_REPORTS.find((r) => r.key === key);

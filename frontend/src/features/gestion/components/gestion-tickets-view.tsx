@@ -73,7 +73,12 @@ export function GestionTicketsView() {
                   <span>
                     <span className="block font-medium text-[var(--on-surface)]">Ticket {t.id}</span>
                     <span className="block text-xs text-[var(--on-surface-variant)]">
-                      {formatDay(t.date)} · {t.lines} líneas · {formatQty(t.units)} uds.
+                      {formatDay(t.date)}
+                      {t.openedAt && ` · ${t.openedAt}`}
+                      {t.table && ` · mesa ${t.table}`}
+                      {t.diners ? ` · ${t.diners} comensales` : ''}
+                      {t.waiter && ` · camarero ${t.waiter}`}
+                      {` · ${t.lines} líneas · ${formatQty(t.units)} uds.`}
                       {t.hasVoids && ' · con anulaciones'}
                     </span>
                   </span>

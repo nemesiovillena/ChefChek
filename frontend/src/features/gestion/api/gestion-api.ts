@@ -22,6 +22,8 @@ export interface DashboardKpis {
   voidedTotal: number;
   invitedUnits: number;
   missingAmounts: number;
+  diners: number;
+  avgPerDiner: number;
 }
 
 export interface SeriesPoint {
@@ -68,6 +70,10 @@ export interface TicketSummary {
   base: number;
   total: number;
   hasVoids: boolean;
+  table: string | null;
+  diners: number | null;
+  waiter: string | null;
+  openedAt: string | null;
 }
 
 export interface TicketPage {
@@ -82,6 +88,15 @@ export interface TicketDetail {
   date: string;
   base: number;
   total: number;
+  header: {
+    table: string | null;
+    diners: number | null;
+    shift: string | null;
+    openedAt: string | null;
+    closedAt: string | null;
+    waiter: string | null;
+  } | null;
+  payments: { method: string; amount: number; voided: boolean }[];
   lines: {
     line: number;
     name: string;
