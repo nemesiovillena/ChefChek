@@ -72,6 +72,8 @@ export const NAV_GROUPS: NavSection[] = [
     items: [
       { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
       { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
       { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
       { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
     ],

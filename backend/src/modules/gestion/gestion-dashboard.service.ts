@@ -12,6 +12,7 @@ import {
   deltaPercent,
 } from "./gestion-period.util";
 import { CHARGED, NO_FAMILY_LABEL, cents, inRange } from "./gestion-sql.util";
+import { ticketTotals } from "./gestion-ticket-reports.service";
 
 export interface DashboardKpis {
   /** Con IVA. */
@@ -25,6 +26,10 @@ export interface DashboardKpis {
   invitedUnits: number;
   /** Líneas sin importe (anteriores a que el conector enviara importes). */
   missingAmounts: number;
+  /** Comensales de los tickets (0 si el conector aún no manda cabeceras). */
+  diners: number;
+  /** Con IVA, solo tickets con comensales (la barra sin comensales no cuenta). */
+  avgPerDiner: number;
 }
 
 export interface SeriesPoint {
@@ -139,6 +144,12 @@ export class GestionDashboardService {
         (COUNT(*) FILTER (WHERE s.base IS NULL AND NOT s.anulada))::int AS missing
       FROM cuiner_sale_lines s
       WHERE ${inRange(tenantId, range)}`;
+    const [diners] = await this.prisma.$queryRaw<
+      { diners: number; total: number }[]
+    >`
+      SELECT COALESCE(SUM(x.comensales), 0)::int AS diners,
+        COALESCE(SUM(x.total) FILTER (WHERE x.comensales > 0), 0)::float8 AS total
+      FROM (${ticketTotals(tenantId, range)}) x`;
     const tickets = row?.tickets ?? 0;
     const total = row?.total ?? 0;
     return {
@@ -149,6 +160,8 @@ export class GestionDashboardService {
       voidedTotal: cents(row?.voided_total ?? 0),
       invitedUnits: cents(row?.invited_units ?? 0),
       missingAmounts: row?.missing ?? 0,
+      diners: diners?.diners ?? 0,
+      avgPerDiner: diners?.diners ? cents(diners.total / diners.diners) : 0,
     };
   }
 

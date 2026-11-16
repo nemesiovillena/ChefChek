@@ -8,7 +8,9 @@
   saliente (cabecera X-Connector-Token). Tareas:
     check    Comprueba la conexión a SQL y a la API sin enviar nada.
     catalog  Sube proveedores, artículos, precios por proveedor y carta.
-    sales    Sube las líneas de venta nuevas (cursor Id_VentasCab en ChefChek).
+    sales    Sube las líneas de venta nuevas (cursor Id_VentasCab en ChefChek),
+             el histórico y, para Gestión, las cabeceras de ticket (mesa,
+             comensales, turno, horas, camarero) y sus cobros por forma de pago.
     albaranes Escribe en Cuiner los albaranes que el usuario envió desde
              ChefChek. En modo simulación (DRY_RUN) ejecuta todo y hace
              ROLLBACK: valida permisos y datos sin dejar nada escrito.
@@ -506,6 +508,108 @@ SELECT TOP (@n) Id_VentasCab FROM VentasCab WHERE Id_VentasCab < @upper ORDER BY
   }
 }
 
+function Limit-Text {
+  param([string]$Text, [int]$Max)
+  if ($Text.Length -le $Max) { return $Text }
+  return $Text.Substring(0, $Max)
+}
+
+# «HH:MM» de un ticket, o $null si no hay hora: Cuiner deja 00:00 cuando no la
+# tiene (tickets de cintas importadas) y puede traer valores fuera de rango.
+function Format-TicketTime {
+  param($Hour, $Minute)
+  if ($null -eq $Hour -or $null -eq $Minute) { return $null }
+  $h = [int]$Hour; $m = [int]$Minute
+  if ($h -lt 0 -or $h -gt 23 -or $m -lt 0 -or $m -gt 59) { return $null }
+  if ($h -eq 0 -and $m -eq 0) { return $null }
+  return ('{0:00}:{1:00}' -f $h, $m)
+}
+
+# Cabeceras de ticket y cobros para Gestión. Recorre los tickets de más viejo a
+# más nuevo desde 'ticketCursor' y nunca pasa del cursor de ventas (tickets de
+# cintas ya estables). Solo lee de Cuiner; en ChefChek solo alimenta informes.
+function Invoke-TicketSync {
+  param($Cfg, $Conn, $Remote)
+  # Un ChefChek sin esta función no manda 'ticketCursor': no se hace nada.
+  if (-not ($Remote.PSObject.Properties.Name -contains 'ticketCursor')) { return }
+  $cursor = if ($null -ne $Remote.ticketCursor) { [int]$Remote.ticketCursor } else { 0 }
+  $top = [int]$Remote.lastVentasCabId
+  if ($top -le $cursor) { return }
+
+  # Nombres de los camareros del centro (PersonalLin), una vez por ejecución.
+  # Sin permiso de lectura se sigue sin nombres: en ChefChek sale «Camarero N».
+  $waiters = @()
+  try {
+    $waiters = @(foreach ($r in (Invoke-SqlQuery $Conn @'
+SELECT Personal, Nombre, ISNULL(Baja, 0) AS Baja FROM PersonalLin
+WHERE Empresa = @empresa AND Centro = @centro
+'@ @{ empresa = $Remote.empresa; centro = $Remote.centro }).Rows) {
+      $code = Get-Value $r 'Personal'; $name = Get-Value $r 'Nombre'
+      if ($code -notmatch '^[0-9]{1,6}$' -or -not $name) { continue }
+      @{ code = $code; name = (Limit-Text $name 60); active = -not [bool](Get-Value $r 'Baja') }
+    })
+  } catch {
+    Write-Log ("Tickets: sin nombres de camareros ({0})" -f $_.Exception.Message) 'WARN'
+  }
+
+  for ($batch = 0; $batch -lt $Cfg.historyBatchesPerRun; $batch++) {
+    $ids = Invoke-SqlQuery $Conn @'
+SELECT TOP (@n) Id_VentasCab FROM VentasCab
+WHERE Id_VentasCab > @cursor AND Id_VentasCab <= @top
+ORDER BY Id_VentasCab
+'@ @{ n = [int]$Cfg.ticketsPerBatch; cursor = $cursor; top = $top }
+    if ($ids.Rows.Count -eq 0) { break }
+    $newCursor = [int]$ids.Rows[$ids.Rows.Count - 1].Id_VentasCab
+    $p = @{ from = $cursor; to = $newCursor; empresa = $Remote.empresa; centro = $Remote.centro }
+
+    $tickets = foreach ($r in (Invoke-SqlQuery $Conn @'
+SELECT c.Id_VentasCab, c.Fecha, c.MesaNumeroNombre, c.Comensales, c.Turno,
+       c.HoraAperturahh, c.HoraAperturamm, c.HoraCierrehh, c.HoraCierremm,
+       c.Usuario, c.TOTAL, ISNULL(c.Invitacion, 0) AS Invitacion, ISNULL(c.ConumoPersonal, 0) AS ConsumoPersonal
+FROM VentasCab c JOIN Ventas v ON v.Id_Ventas = c.Id_Ventas
+WHERE c.Id_VentasCab > @from AND c.Id_VentasCab <= @to
+  AND v.Empresa = @empresa AND v.Centro = @centro
+'@ $p).Rows) {
+      # Datos saneados: un valor raro (abono con comensales negativos, hora
+      # sin poner) no puede bloquear el lote; se omite ese campo.
+      $fecha = Get-Value $r 'Fecha'; if ($null -eq $fecha) { continue }
+      $t = @{ idVentasCab = [int](Get-Value $r 'Id_VentasCab');
+              fecha = ([datetime]$fecha).ToString('yyyy-MM-dd');
+              invitacion = [bool](Get-Value $r 'Invitacion'); consumoPersonal = [bool](Get-Value $r 'ConsumoPersonal') }
+      $mesa = Get-Value $r 'MesaNumeroNombre'; if ($mesa) { $t.mesa = (Limit-Text ($mesa -replace '\s+', ' ') 60) }
+      $com = Get-Value $r 'Comensales'; if ($null -ne $com -and [int]$com -ge 0 -and [int]$com -le 1000) { $t.comensales = [int]$com }
+      $turno = Get-Value $r 'Turno'; if ($turno) { $t.turno = (Limit-Text $turno 30) }
+      $opened = Format-TicketTime (Get-Value $r 'HoraAperturahh') (Get-Value $r 'HoraAperturamm'); if ($opened) { $t.openedAt = $opened }
+      $closed = Format-TicketTime (Get-Value $r 'HoraCierrehh') (Get-Value $r 'HoraCierremm'); if ($closed) { $t.closedAt = $closed }
+      $usr = Get-Value $r 'Usuario'; if ($null -ne $usr) { $t.camarero = (Limit-Text ([string]$usr) 30) }
+      $total = Get-Value $r 'TOTAL'; if ($null -ne $total) { $t.total = [double]$total }
+      $t
+    }
+
+    $payments = foreach ($r in (Invoke-SqlQuery $Conn @'
+SELECT fp.Id_VentasCab, fp.Linea, ISNULL(fp.FormaDePago, '') AS FormaDePago, ISNULL(fp.Importe, 0) AS Importe,
+       ISNULL(fp.Anulacion, 0) AS Anulacion
+FROM VentasFormasDePago fp
+JOIN VentasCab c ON c.Id_VentasCab = fp.Id_VentasCab
+JOIN Ventas v ON v.Id_Ventas = c.Id_Ventas
+WHERE c.Id_VentasCab > @from AND c.Id_VentasCab <= @to
+  AND v.Empresa = @empresa AND v.Centro = @centro
+'@ $p).Rows) {
+      # Forma de pago vacía en Cuiner = efectivo.
+      $forma = Get-Value $r 'FormaDePago'; if (-not $forma) { $forma = 'EFECTIVO' }; $forma = Limit-Text $forma 40
+      @{ idVentasCab = [int](Get-Value $r 'Id_VentasCab'); linea = [int](Get-Value $r 'Linea');
+         formaPago = $forma.ToUpper(); importe = [double](Get-Value $r 'Importe'); anulada = [bool](Get-Value $r 'Anulacion') }
+    }
+
+    $body = @{ cursor = $newCursor; tickets = @($tickets); payments = @($payments) }
+    # La lista de camareros solo en el primer lote de la ejecución.
+    if ($batch -eq 0 -and $waiters.Count -gt 0) { $body.waiters = $waiters }
+    $res = Invoke-ChefChekApi $Cfg 'POST' 'tickets' $body
+    Write-Log ("Tickets: hasta {0}, {1} del centro, {2} cobros" -f $newCursor, @($tickets).Count, @($payments).Count)
+    $cursor = [int]$res.ticketCursor
+  }
+}
+
 # ─── Escritura de albaranes (única tarea que escribe en Cuiner) ─────────────
 
 function Invoke-TxScalar {
@@ -631,6 +735,9 @@ try {
     if ($Task -in 'sales', 'all') {
       Invoke-SalesSync $cfg $conn $remote
       Invoke-HistorySync $cfg $conn $remote
+      # Solo informes de Gestión: si falla (p. ej. falta el permiso de lectura de
+      # VentasFormasDePago) se avisa en el log, pero la tarea de ventas sigue OK.
+      try { Invoke-TicketSync $cfg $conn $remote } catch { Write-Log ("Tickets (Gestión): " + $_.Exception.Message) 'WARN' }
     }
     if ($Task -in 'albaranes', 'all') { Invoke-AlbaranSync $cfg $conn $remote }
     if ($Task -in 'contador', 'all') { Invoke-PortionSync $cfg $remote }

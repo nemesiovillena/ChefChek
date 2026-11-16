@@ -15,6 +15,7 @@ import { CuinerConnectorGuard } from "./guards/cuiner-connector.guard";
 import { CuinerConfigService } from "./cuiner-config.service";
 import { CuinerExportService } from "./cuiner-export.service";
 import { CuinerMappingService } from "./cuiner-mapping.service";
+import { CuinerTicketsService } from "./cuiner-tickets.service";
 import { CuinerSalesService } from "./cuiner-sales.service";
 import { PortionCuinerSyncDto } from "../raciones/dto/portion-cuiner-sync.dto";
 import { PortionCuinerSyncService } from "../raciones/services/portion-cuiner-sync.service";
@@ -24,6 +25,7 @@ import {
   UploadCatalogDto,
   UploadSalesDto,
   UploadSalesHistoryDto,
+  UploadTicketsDto,
 } from "./dto/cuiner.dto";
 
 interface ConnectorRequest {
@@ -46,6 +48,7 @@ export class CuinerConnectorController {
     private readonly exportService: CuinerExportService,
     private readonly salesService: CuinerSalesService,
     private readonly portionSync: PortionCuinerSyncService,
+    private readonly ticketsService: CuinerTicketsService,
   ) {}
 
   @Get("config")
@@ -59,6 +62,7 @@ export class CuinerConnectorController {
       lastVentasCabId,
       historyCursor,
       historyDone,
+      ticketCursor,
     } = req.cuinerConfig;
     return {
       enabled,
@@ -69,6 +73,8 @@ export class CuinerConnectorController {
       lastVentasCabId,
       historyCursor,
       historyDone,
+      // null = aún sin empezar; un conector antiguo lo ignora.
+      ticketCursor,
     };
   }
 
@@ -104,6 +110,13 @@ export class CuinerConnectorController {
   ) {
     this.assertEnabled(req);
     return this.salesService.ingestHistory(req.tenantId, dto);
+  }
+
+  /** Cabeceras de ticket y cobros para Gestión (no tocan ventas ni stock). */
+  @Post("tickets")
+  uploadTickets(@Req() req: ConnectorRequest, @Body() dto: UploadTicketsDto) {
+    this.assertEnabled(req);
+    return this.ticketsService.ingest(req.tenantId, dto);
   }
 
   @Get("albaranes/pending")

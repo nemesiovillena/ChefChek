@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 const LINKS = [
   { href: '/dashboard/gestion', label: 'Panel' },
   { href: '/dashboard/gestion/rentabilidad', label: 'Rentabilidad' },
+  { href: '/dashboard/gestion/calendario', label: 'Calendario' },
+  { href: '/dashboard/gestion/resultados', label: 'Resultados' },
   { href: '/dashboard/gestion/informes', label: 'Informes' },
   { href: '/dashboard/gestion/tickets', label: 'Tickets' },
 ];
