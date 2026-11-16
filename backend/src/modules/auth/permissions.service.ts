@@ -155,6 +155,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 // USER_CUINER tiene los mismos permisos que USER; lo extra (Almacén y Cuiner)
 // lo dan el acceso por secciones y los @Roles del módulo Cuiner.
 ROLE_PERMISSIONS.USER_CUINER = ROLE_PERMISSIONS.USER;
+// GESTION (oficina) igual: su alcance lo dan las secciones y los @Roles.
+ROLE_PERMISSIONS.GESTION = ROLE_PERMISSIONS.USER;
 
 @Injectable()
 export class PermissionsService {

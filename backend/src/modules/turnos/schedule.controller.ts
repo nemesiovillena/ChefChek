@@ -22,7 +22,7 @@ import {
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { PrismaService } from "../../common/services/prisma.service";
-import { CHECK_IN_MANAGER_ROLE } from "../check-in/constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "../check-in/constants/check-in-permissions";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import {
   CopyWeekDto,
@@ -69,7 +69,7 @@ export class ScheduleController {
   }
 
   @Get("schedule")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getWeek(@Req() req: any, @Query() query: ScheduleQueryDto) {
     return this.shifts.getWeek(req.tenantId, query.locationId, query.weekStart);
@@ -77,7 +77,7 @@ export class ScheduleController {
 
   /** Turnos publicados frente a lo fichado, con coste: solo gerencia. */
   @Get("schedule/plan-vs-actual")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getPlanVsActual(@Req() req: any, @Query() query: ScheduleQueryDto) {
     return this.planVsActual.getWeek(
@@ -89,21 +89,21 @@ export class ScheduleController {
 
   /** Estado de los turnos de hoy: retrasos y quien no ha fichado. */
   @Get("schedule/today")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getToday(@Req() req: any) {
     return this.planVsActual.getToday(req.tenantId);
   }
 
   @Post("schedule/copy-week")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async copyWeek(@Req() req: any, @Body() dto: CopyWeekDto) {
     return this.shifts.copyWeek(req.tenantId, dto);
   }
 
   @Post("schedule/publish")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async publish(@Req() req: any, @Body() dto: PublishWeekDto) {
     return this.shifts.publishWeek(
@@ -118,14 +118,14 @@ export class ScheduleController {
   }
 
   @Post("shifts")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async create(@Req() req: any, @Body() dto: CreateShiftDto) {
     return this.shifts.create(req.tenantId, dto);
   }
 
   @Patch("shifts/:id")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async update(
     @Req() req: any,
@@ -137,21 +137,21 @@ export class ScheduleController {
 
   @Delete("shifts/:id")
   @HttpCode(204)
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async remove(@Req() req: any, @Param("id") id: string) {
     await this.shifts.remove(req.tenantId, id);
   }
 
   @Post("shift-templates")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async createTemplate(@Req() req: any, @Body() dto: SaveShiftTemplateDto) {
     return this.shifts.createTemplate(req.tenantId, dto);
   }
 
   @Patch("shift-templates/:id")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async updateTemplate(
     @Req() req: any,

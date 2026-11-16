@@ -98,6 +98,7 @@ describe("UsersController", () => {
       expect(mockUsersService.create).toHaveBeenCalledWith(
         createUserDto,
         "tenant-1",
+        "ADMIN",
       );
       expect(result.success).toBe(true);
       expect(result.data.email).toBe("newuser@test.com");
@@ -351,6 +352,8 @@ describe("UsersController", () => {
         userId,
         updateUserDto,
         "tenant-1",
+        "ADMIN",
+        "user-1",
       );
       expect(result.success).toBe(true);
       expect(result.data.name).toBe("Updated Name");
@@ -384,6 +387,8 @@ describe("UsersController", () => {
         userId,
         updateUserDto,
         "tenant-1",
+        "ADMIN",
+        "user-1",
       );
       expect(result.success).toBe(true);
     });
@@ -442,7 +447,11 @@ describe("UsersController", () => {
 
       const result = await controller.remove(userId, mockReq);
 
-      expect(mockUsersService.remove).toHaveBeenCalledWith(userId, "tenant-1");
+      expect(mockUsersService.remove).toHaveBeenCalledWith(
+        userId,
+        "tenant-1",
+        "ADMIN",
+      );
       expect(result.success).toBe(true);
       expect(result.data).toBeNull();
     });
@@ -457,7 +466,11 @@ describe("UsersController", () => {
       await expect(controller.remove(userId, mockReq)).rejects.toThrow(
         NotFoundException,
       );
-      expect(mockUsersService.remove).toHaveBeenCalledWith(userId, "tenant-1");
+      expect(mockUsersService.remove).toHaveBeenCalledWith(
+        userId,
+        "tenant-1",
+        "ADMIN",
+      );
     });
 
     it("should not delete user from different tenant", async () => {

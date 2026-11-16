@@ -111,8 +111,13 @@ export default function UsersPage() {
   return <EmployeesContent />;
 }
 
+/** Cuentas de gerencia: la oficina (GESTION) las ve pero no las toca (el servidor tampoco lo permite). */
+const OFFICE_LOCKED_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+
 function EmployeesContent() {
   const { user, tenantId, isLoading, isAuthenticated, refreshUser } = useAuth();
+  const isLockedForMe = (target: { role: string }) =>
+    user?.role === 'GESTION' && OFFICE_LOCKED_ROLES.includes(target.role);
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
@@ -301,7 +306,7 @@ function EmployeesContent() {
                     active={targetUser.isActive}
                     // El propio usuario se ve normal; al pulsarlo, handleToggleStatus avisa
                     // de que no puede desactivarse a sí mismo.
-                    disabled={updateMutation.isPending}
+                    disabled={updateMutation.isPending || isLockedForMe(targetUser)}
                     onToggle={() => handleToggleStatus(targetUser)}
                   />
                 </td>
@@ -309,22 +314,24 @@ function EmployeesContent() {
                   {new Date(targetUser.createdAt).toLocaleDateString()}
                 </td>
                 <td className={tdActionsClass}>
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      onClick={() => handleEdit(targetUser)}
-                      className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
-                      title="Editar usuario"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(targetUser)}
-                      className="text-[var(--on-surface-variant)] hover:text-red-600 transition-colors"
-                      title="Eliminar usuario"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {!isLockedForMe(targetUser) && (
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleEdit(targetUser)}
+                        className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
+                        title="Editar usuario"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(targetUser)}
+                        className="text-[var(--on-surface-variant)] hover:text-red-600 transition-colors"
+                        title="Eliminar usuario"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
                 ))

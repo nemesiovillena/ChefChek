@@ -153,6 +153,11 @@ export class RoleAccessService {
       return null;
     }
     const map = await this.getRoleSectionMap(tenantId, derived.base);
+    if (derived.exclusive) {
+      for (const key of Object.keys(map)) {
+        map[key] = false;
+      }
+    }
     for (const key of derived.alwaysAllowed) {
       // Un módulo desactivado sigue mandando: su sección queda en false.
       const section = SECTION_REGISTRY.find((s) => s.key === key);

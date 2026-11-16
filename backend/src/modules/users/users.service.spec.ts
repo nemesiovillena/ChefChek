@@ -493,6 +493,83 @@ describe("UsersService", () => {
     });
   });
 
+  describe("GESTION no gestiona cuentas de administración", () => {
+    const target = (role: string) => ({
+      id: "t",
+      tenantId: "tenant-id",
+      email: "t@test.com",
+      role,
+    });
+
+    it("no puede crear un ADMIN", async () => {
+      await expect(
+        service.create(
+          {
+            tenantId: "tenant-id",
+            email: "a@test.com",
+            password: "x",
+            name: "A",
+            role: "ADMIN",
+          } as any,
+          "tenant-id",
+          "GESTION",
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it("no puede editar a un OWNER ni ascender a alguien a ADMIN", async () => {
+      prisma.user.findFirst.mockResolvedValue(target("OWNER"));
+      await expect(
+        service.update("t", { name: "x" } as any, "tenant-id", "GESTION"),
+      ).rejects.toThrow(ForbiddenException);
+
+      prisma.user.findFirst.mockResolvedValue(target("USER"));
+      await expect(
+        service.update("t", { role: "ADMIN" } as any, "tenant-id", "GESTION"),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("no puede borrar a un ADMIN", async () => {
+      prisma.user.findFirst.mockResolvedValue(target("ADMIN"));
+      await expect(service.remove("t", "tenant-id", "GESTION")).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.user.delete).not.toHaveBeenCalled();
+    });
+
+    it("no se cambia su propio rol", async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        ...target("GESTION"),
+        id: "me",
+      });
+      await expect(
+        service.update(
+          "me",
+          { role: "USER_CUINER" } as any,
+          "tenant-id",
+          "GESTION",
+          "me",
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("sí edita a un USER y un ADMIN sigue editando a quien quiera", async () => {
+      prisma.user.findFirst.mockResolvedValue(target("USER"));
+      prisma.user.update.mockResolvedValue({ ...target("USER"), name: "x" });
+      await expect(
+        service.update("t", { name: "x" } as any, "tenant-id", "GESTION"),
+      ).resolves.toMatchObject({ success: true });
+
+      prisma.user.findFirst.mockResolvedValue(target("OWNER"));
+      prisma.user.update.mockResolvedValue({ ...target("OWNER"), name: "x" });
+      await expect(
+        service.update("t", { name: "x" } as any, "tenant-id", "ADMIN"),
+      ).resolves.toMatchObject({ success: true });
+    });
+  });
+
   describe("remove", () => {
     const mockUser = {
       id: "user-id",
@@ -730,6 +807,40 @@ describe("UsersService", () => {
         asRole("USER");
         expect(
           await service.validateUserPermissions("u", ["ADMIN", "USER_CUINER"]),
+        ).toBe(false);
+      });
+    });
+
+    describe("rol GESTION (oficina)", () => {
+      const asRole = (role: string) =>
+        (service.findById as jest.Mock).mockResolvedValue({
+          id: "u",
+          role,
+          isActive: true,
+        });
+
+      it("pasa donde pasa un USER pero no donde se exige ADMIN", async () => {
+        asRole("GESTION");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "USER"]),
+        ).toBe(true);
+        expect(await service.validateUserPermissions("u", ["ADMIN"])).toBe(
+          false,
+        );
+      });
+
+      it("pasa donde se exige GESTION; un USER o USER_CUINER no", async () => {
+        asRole("GESTION");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "GESTION"]),
+        ).toBe(true);
+        asRole("USER");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "GESTION"]),
+        ).toBe(false);
+        asRole("USER_CUINER");
+        expect(
+          await service.validateUserPermissions("u", ["ADMIN", "GESTION"]),
         ).toBe(false);
       });
     });

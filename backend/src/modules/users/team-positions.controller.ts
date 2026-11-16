@@ -27,7 +27,7 @@ import {
 @ApiBearerAuth()
 @Controller("api/v1/team/positions")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
-@Roles("ADMIN")
+@Roles("ADMIN", "GESTION")
 export class TeamPositionsController {
   constructor(private readonly positions: TeamPositionsService) {}
 
@@ -62,6 +62,8 @@ export class TeamPositionsController {
   }
 
   @Post(":id/archive")
+  // Qué ve cada puesto y archivar puestos (afecta a SICTED): solo gerencia.
+  @Roles("ADMIN")
   @ApiOperation({
     summary: "Archivar un puesto (sus personas quedan sin puesto)",
   })
@@ -70,6 +72,8 @@ export class TeamPositionsController {
   }
 
   @Put(":id/access")
+  // Qué ve cada puesto y archivar puestos (afecta a SICTED): solo gerencia.
+  @Roles("ADMIN")
   @ApiOperation({ summary: "Guardar qué apartados ve el puesto" })
   updateAccess(
     @Req() req: any,

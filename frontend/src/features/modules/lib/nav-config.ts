@@ -31,7 +31,7 @@ export interface NavItem {
    * screens with personal data that only an identified person may see.
    */
   personalAccountOnly?: boolean;
-  /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner). */
+  /** Roles que ven un elemento `managerOnly` sin ser responsables (p. ej. USER_CUINER en Cuiner, GESTION en Personal). */
   extraRoles?: string[];
   /**
    * Roles que nunca ven el elemento ni pueden abrir su ruta, aunque el módulo y
@@ -66,6 +66,18 @@ export const SETTINGS_LINK: NavItem = {
  * and as sections inside the mobile "Más" drawer, in this exact order.
  */
 export const NAV_GROUPS: NavSection[] = [
+  {
+    // Ventas y facturación del TPV: gerencia y oficina (rol GESTION).
+    title: 'Gestión',
+    items: [
+      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
+    ],
+  },
   {
     title: 'Cocina',
     items: [
@@ -122,16 +134,16 @@ export const NAV_GROUPS: NavSection[] = [
     title: 'Personal',
     items: [
       // Siempre disponible (sin módulo): personas, cuentas y puestos.
-      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, personalAccountOnly: true },
+      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
       { label: 'Mi espacio', href: '/dashboard/mi-espacio', moduleId: 'rrhh', icon: 'person', personalAccountOnly: true },
       { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
       { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
       { label: 'Turnos', href: '/dashboard/turnos/planificador', moduleId: 'turnos', icon: 'calendar_view_week', personalAccountOnly: true },
       { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: 'beach_access', personalAccountOnly: true },
-      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, personalAccountOnly: true },
-      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, personalAccountOnly: true },
-      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, personalAccountOnly: true },
-      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, personalAccountOnly: true },
+      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
     ],
   },
   {
@@ -175,6 +187,7 @@ export const ROUTE_MODULE_MAP: { prefix: string; moduleId: string }[] = [
   // FoodLabel, módulo etiquetado, no del módulo appcc).
   { prefix: '/dashboard/appcc/caducidades', moduleId: 'etiquetado' },
   { prefix: '/dashboard/asistente', moduleId: 'asistente-ia' },
+  { prefix: '/dashboard/gestion', moduleId: 'gestion' },
   { prefix: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento' },
   { prefix: '/dashboard/technical-sheets', moduleId: 'technical-sheets' },
   { prefix: '/dashboard/digital-menu', moduleId: 'digital-menu' },

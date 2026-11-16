@@ -49,6 +49,8 @@ import {
 const ADMIN_ROLES = ["ADMIN", "OWNER", "SUPERADMIN"] as const;
 /** Usan Cuiner: enlaces, envío de albaranes y aplicar ventas. */
 const CUINER_ROLES = [...ADMIN_ROLES, "USER_CUINER"] as const;
+/** Enviar albaranes a Cuiner: también la oficina (GESTION), que lleva los albaranes. */
+const ALBARAN_SEND_ROLES = [...CUINER_ROLES, "GESTION"] as const;
 
 /** Lo que AuthGuard y TenantGuard dejan en la petición. */
 interface AuthedRequest {
@@ -298,16 +300,19 @@ export class CuinerController {
   // ─── Envío de albaranes ────────────────────────────────────────────────
 
   @Get("albaranes/:albaranId/preview")
+  @Roles(...ALBARAN_SEND_ROLES)
   preview(@Req() req: AuthedRequest, @Param("albaranId") albaranId: string) {
     return this.exportService.preview(req.tenantId, albaranId);
   }
 
   @Get("albaranes/:albaranId/export")
+  @Roles(...ALBARAN_SEND_ROLES)
   getExport(@Req() req: AuthedRequest, @Param("albaranId") albaranId: string) {
     return this.exportService.getForAlbaran(req.tenantId, albaranId);
   }
 
   @Post("albaranes/:albaranId/send")
+  @Roles(...ALBARAN_SEND_ROLES)
   send(@Req() req: AuthedRequest, @Param("albaranId") albaranId: string) {
     return this.exportService.requestSend(req.tenantId, albaranId, req.user.id);
   }

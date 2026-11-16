@@ -9,6 +9,7 @@ import { PrismaService } from "../../../common/services/prisma.service";
 import { CreateEmployeeDto, UpdateEmployeeDto } from "../dto/employee.dto";
 import { currentPositionTitles } from "../../users/current-position-titles";
 import { terminationDateOnActiveChange } from "./termination-date-on-active-change.util";
+import { assertActorCanManageRole } from "../../users/account-role-management.util";
 
 const EMPLOYEE_INCLUDE = {
   user: { select: { id: true, name: true, email: true, role: true } },
@@ -115,9 +116,9 @@ export class EmployeesService {
     return created;
   }
 
-  async create(tenantId: string, dto: CreateEmployeeDto) {
+  async create(tenantId: string, dto: CreateEmployeeDto, actorRole?: string) {
     const account = dto.userId
-      ? await this.assertUserLinkable(tenantId, dto.userId)
+      ? await this.assertUserLinkable(tenantId, dto.userId, actorRole)
       : null;
     const name = account ? splitFullName(account.name) : dto;
     const locationIds = await this.resolveLocationIds(
@@ -162,8 +163,22 @@ export class EmployeesService {
     id: string,
     dto: UpdateEmployeeDto,
     actorUserId?: string,
+    actorRole?: string,
   ) {
     const current = await this.findOwned(tenantId, id);
+
+    // La ficha activa/desactiva su cuenta: la oficina (GESTION) no puede así
+    // dar de baja, reactivar ni desvincular una cuenta de gerencia.
+    const changesAccount =
+      (dto.isActive !== undefined && dto.isActive !== current.isActive) ||
+      (dto.userId !== undefined && dto.userId !== current.userId);
+    if (actorRole && current.userId && changesAccount) {
+      const account = await this.prisma.user.findFirst({
+        where: { id: current.userId, tenantId },
+        select: { role: true },
+      });
+      assertActorCanManageRole(actorRole, account?.role);
+    }
 
     // Con cuenta vinculada el nombre es el de Equipo: se copia al vincular y
     // se ignora el que llegue en el formulario.
@@ -171,7 +186,7 @@ export class EmployeesService {
     let name: { firstName?: string; lastName?: string } = dto;
     if (dto.userId && dto.userId !== current.userId) {
       name = splitFullName(
-        (await this.assertUserLinkable(tenantId, dto.userId)).name,
+        (await this.assertUserLinkable(tenantId, dto.userId, actorRole)).name,
       );
     } else if (linkedUserId) {
       name = {};
@@ -270,11 +285,16 @@ export class EmployeesService {
   }
 
   /** La cuenta debe ser del tenant, personal (no compartida) y estar libre. */
-  private async assertUserLinkable(tenantId: string, userId: string) {
+  private async assertUserLinkable(
+    tenantId: string,
+    userId: string,
+    actorRole?: string,
+  ) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, tenantId },
       select: {
         name: true,
+        role: true,
         isSharedAccount: true,
         employee: { select: { id: true } },
       },
@@ -282,6 +302,7 @@ export class EmployeesService {
     if (!user) {
       throw new BadRequestException("La cuenta de usuario no existe.");
     }
+    assertActorCanManageRole(actorRole, user.role);
     if (user.isSharedAccount) {
       throw new BadRequestException(
         "Una cuenta compartida no puede vincularse a un empleado.",

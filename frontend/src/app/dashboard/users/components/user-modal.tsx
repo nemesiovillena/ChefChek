@@ -33,14 +33,14 @@ const PER_USER_GRANTS = [
   {
     key: 'correo',
     module: 'correo',
-    roles: ['USER', 'VIEWER', 'USER_CUINER'],
+    roles: ['USER', 'VIEWER', 'USER_CUINER', 'GESTION'],
     label: 'Puede ver el correo del restaurante',
     hint: 'Bandeja del buzón del restaurante (Personal → Correo).',
   },
   {
     key: 'correo.enviar',
     module: 'correo',
-    roles: ['USER', 'VIEWER', 'USER_CUINER'],
+    roles: ['USER', 'VIEWER', 'USER_CUINER', 'GESTION'],
     label: 'Puede enviar correo del restaurante',
     hint: 'Redactar, responder y reenviar en nombre del restaurante. Necesita también «Puede ver el correo».',
   },
@@ -341,9 +341,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as User['role'] })} className={inputClass}>
                 <option value="USER">USER</option>
                 <option value="USER_CUINER">USER CUINER (User + todo Almacén y Cuiner)</option>
-                <option value="ADMIN">ADMIN</option>
+                <option value="GESTION">GESTIÓN (oficina: Gestión, Albaranes, Proveedores, Personal)</option>
+                {/* La oficina gestiona Personal, pero no da roles de administración (el servidor lo impide). */}
+                {currentUser?.role !== 'GESTION' && <option value="ADMIN">ADMIN</option>}
                 <option value="VIEWER">VIEWER</option>
-                {targetUser?.role && !["USER", "USER_CUINER", "ADMIN", "VIEWER"].includes(targetUser.role) && (
+                {targetUser?.role && !["USER", "USER_CUINER", "GESTION", "ADMIN", "VIEWER"].includes(targetUser.role) && (
                   <option value={targetUser.role} disabled>
                     {targetUser.role} (rol actual, no editable)
                   </option>

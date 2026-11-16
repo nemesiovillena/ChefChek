@@ -19,7 +19,7 @@ import {
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { PrismaService } from "../../common/services/prisma.service";
-import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "./constants/check-in-permissions";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import {
   ApproveTimesheetDto,
@@ -117,7 +117,7 @@ export class WorkdaysController {
   // ─────────────────────────────────────────────────────── Gerencia
 
   @Get("workdays")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getWorkdays(@Req() req: any, @Query() query: WorkdaysQueryDto) {
     return this.workdays.getWorkdays(
@@ -130,14 +130,14 @@ export class WorkdaysController {
 
   /** Días recientes sin cerrar de todo el equipo. */
   @Get("unclosed-days")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getTeamUnclosedDays(@Req() req: any) {
     return this.unclosed.forTeam(req.tenantId);
   }
 
   @Get("adjustments")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listAdjustments(
     @Req() req: any,
@@ -152,7 +152,7 @@ export class WorkdaysController {
 
   /** Corrección hecha por gerencia: queda aprobada, con su motivo y su autor. */
   @Post("adjustments")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async createAdjustment(@Req() req: any, @Body() dto: CreateAdjustmentDto) {
     const employee = await this.workdays.findEmployee(
@@ -168,7 +168,7 @@ export class WorkdaysController {
   }
 
   @Post("adjustments/:id/decision")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async decideAdjustment(
     @Req() req: any,
@@ -185,7 +185,7 @@ export class WorkdaysController {
   }
 
   @Get("timesheets")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listTimesheets(@Req() req: any, @Query() query: MonthQueryDto) {
     return this.timesheets.listMonth(req.tenantId, query.year, query.month);
@@ -193,7 +193,7 @@ export class WorkdaysController {
 
   /** Mes de una persona: jornadas, totales, hoja aprobada y conformidad. */
   @Get("timesheets/employee")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getEmployeeTimesheet(
     @Req() req: any,
@@ -208,7 +208,7 @@ export class WorkdaysController {
   }
 
   @Post("timesheets/approve")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async approveTimesheet(@Req() req: any, @Body() dto: ApproveTimesheetDto) {
     return this.timesheets.approve(
