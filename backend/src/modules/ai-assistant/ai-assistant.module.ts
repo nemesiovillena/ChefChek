@@ -15,6 +15,8 @@ import { ProductsModule } from "../products/products.module";
 import { RecipesModule } from "../recipes/recipes.module";
 import { AlmacenesModule } from "../almacenes/almacenes.module";
 import { AlbaranesModule } from "../albaranes/albaranes.module";
+import { GestionDashboardService } from "../gestion/gestion-dashboard.service";
+import { GestionReportsService } from "../gestion/gestion-reports.service";
 
 /**
  * Asistente IA "Chefchek": consultas en lenguaje natural sobre datos del
@@ -36,6 +38,10 @@ import { AlbaranesModule } from "../albaranes/albaranes.module";
     AiAssistantService,
     AssistantCompletionService,
     ToolRegistryService,
+    // Ventas de Gestión: solo dependen de Prisma. Se proveen aquí y no se
+    // importa GestionModule (que importa CheckInModule, que importa este).
+    GestionDashboardService,
+    GestionReportsService,
     OpenAiProviderAdapter,
     GeminiProviderAdapter,
     AnthropicProviderAdapter,

@@ -236,6 +236,7 @@ describe("RoleAccessService", () => {
       "check-in",
       "turnos",
       "rrhh",
+      "asistente-ia",
     ];
 
     it("ve solo lo de oficina aunque USER vea cocina", async () => {

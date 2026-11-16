@@ -22,6 +22,8 @@ export interface DashboardKpis {
   voidedTotal: number;
   invitedUnits: number;
   missingAmounts: number;
+  diners: number;
+  avgPerDiner: number;
 }
 
 export interface SeriesPoint {
@@ -68,6 +70,10 @@ export interface TicketSummary {
   base: number;
   total: number;
   hasVoids: boolean;
+  table: string | null;
+  diners: number | null;
+  waiter: string | null;
+  openedAt: string | null;
 }
 
 export interface TicketPage {
@@ -82,6 +88,15 @@ export interface TicketDetail {
   date: string;
   base: number;
   total: number;
+  header: {
+    table: string | null;
+    diners: number | null;
+    shift: string | null;
+    openedAt: string | null;
+    closedAt: string | null;
+    waiter: string | null;
+  } | null;
+  payments: { method: string; amount: number; voided: boolean }[];
   lines: {
     line: number;
     name: string;
@@ -148,5 +163,26 @@ export function useGestionTicket(id: number | null) {
     queryKey: [ROOT, 'ticket', id],
     queryFn: async () => (await apiClient.get(`${GESTION_BASE}/tickets/${id}`)).data,
     enabled: id !== null,
+  });
+}
+
+export type MenuClass = 'estrella' | 'caballo' | 'puzzle' | 'perro';
+
+export interface ProfitabilitySummary {
+  range: DateRange;
+  salesBase: number;
+  foodCost: { total: number; pct: number | null; coverage: number | null; unknownDishes: number };
+  purchases: { total: number; pct: number | null };
+  labor: { total: number; pct: number | null; hours: number; withoutCost: number } | null;
+  primeCost: { total: number; pct: number | null } | null;
+  menu: Record<MenuClass, number>;
+}
+
+export function useGestionProfitability(range: DateRange, enabled = true) {
+  return useQuery<ProfitabilitySummary, Error>({
+    queryKey: [ROOT, 'profitability', range],
+    enabled,
+    queryFn: async () => (await apiClient.get(`${GESTION_BASE}/profitability`, { params: range })).data,
+    placeholderData: keepPreviousData,
   });
 }

@@ -19,6 +19,8 @@ import { AiAssistantProvider } from "./config/dto/ai-assistant-config.dto";
 import { AssistantAction, extractAssistantAction } from "./assistant-actions";
 import { toUserFacingProviderError } from "./provider-error-message.util";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { ModulesService } from "../modules/modules.service";
+import { canSeeSales } from "../gestion/gestion-roles";
 
 const MAX_TOOL_TURNS = 4;
 /** Ventana de historial mandada al proveedor — evita reventar el context window en conversaciones largas (plan.md fase 6, hallazgo de code review). */
@@ -50,6 +52,11 @@ Hoy es ${hoy} (zona horaria Europe/Madrid). "La semana pasada" = de lunes a domi
 /** Añadido al prompt cuando el rol no puede ver costes (sección `recipes.cost`). */
 const NO_COST_ACCESS_PROMPT = `\n\nIMPORTANTE: este usuario NO tiene permiso para ver costes ni precios de compra. Si pregunta por importes, coste de recetas, gasto en compras, márgenes o variaciones de precio, responde con claridad que no tienes acceso a esa información para su rol. Sí puedes informarle de qué artículos se han comprado y en qué cantidades, y del stock.`;
 
+/** Oficina: ve facturación pero no costes; que el veto de importes no tape las ventas. */
+const SALES_ALLOWED_WITHOUT_COSTS_PROMPT = `\n\nEXCEPCIÓN: las VENTAS del TPV (facturación, tickets, ticket medio, ventas por plato o por día) SÍ puedes darlas con sus importes en euros. Lo que no puedes dar son costes, precios de compra, márgenes y gasto en compras.`;
+
+const SALES_PROMPT = `\n\nVENTAS: para preguntas de ventas, facturación, tickets, platos más vendidos o qué días se vende más, usa get_sales_summary, get_dish_sales_ranking o get_sales_calendar con fechas AAAA-MM-DD calculadas desde hoy. Las fechas son días de caja del TPV (lo cobrado pasada la medianoche cuenta en el día de la caja). Da las cifras en euros con IVA salvo que pidan sin IVA y menciona la comparación si la hay.`;
+
 export interface AskAssistantResult {
   conversationId: string;
   answer: string;
@@ -67,6 +74,7 @@ export class AiAssistantService {
     private readonly configService: AiAssistantConfigService,
     private readonly toolRegistry: ToolRegistryService,
     private readonly roleAccess: RoleAccessService,
+    private readonly modules: ModulesService,
     openai: OpenAiProviderAdapter,
     gemini: GeminiProviderAdapter,
     anthropic: AnthropicProviderAdapter,
@@ -113,13 +121,22 @@ export class AiAssistantService {
       userId,
     );
 
-    const systemPrompt = buildSystemPrompt(new Date());
+    // Ventas del TPV = facturación: gerencia y oficina, con Gestión activo.
+    const canViewSales =
+      !!tenantId &&
+      canSeeSales(role) &&
+      (await this.modules.isModuleEnabled(tenantId, "gestion"));
+
+    const systemPrompt =
+      buildSystemPrompt(new Date()) + (canViewSales ? SALES_PROMPT : "");
     const messages: ChatMessage[] = [
       {
         role: "system",
         content: canViewCosts
           ? systemPrompt
-          : systemPrompt + NO_COST_ACCESS_PROMPT,
+          : systemPrompt +
+            NO_COST_ACCESS_PROMPT +
+            (canViewSales ? SALES_ALLOWED_WITHOUT_COSTS_PROMPT : ""),
       },
       ...history.map(
         (m): ChatMessage => ({
@@ -136,7 +153,10 @@ export class AiAssistantService {
     ];
 
     const adapter = this.adapters[config.provider];
-    const toolSchemas = this.toolRegistry.getToolSchemas({ canViewCosts });
+    const toolSchemas = this.toolRegistry.getToolSchemas({
+      canViewCosts,
+      canViewSales,
+    });
 
     let turns = 0;
     let finalContent: string | undefined;
@@ -194,6 +214,7 @@ export class AiAssistantService {
           call.params,
           canViewCosts,
           canViewDrinks,
+          canViewSales,
         );
         if (action && !actions.some((a) => a.recipeId === action.recipeId)) {
           actions.push(action);
@@ -272,13 +293,14 @@ export class AiAssistantService {
     params: Record<string, any>,
     canViewCosts: boolean,
     canViewDrinks: boolean,
+    canViewSales = false,
   ): Promise<{ text: string; action: AssistantAction | null }> {
     try {
       const result = await this.toolRegistry.executeTool(
         tenantId,
         name,
         params,
-        { canViewCosts, canViewDrinks },
+        { canViewCosts, canViewDrinks, canViewSales },
       );
       return {
         text: JSON.stringify(result),

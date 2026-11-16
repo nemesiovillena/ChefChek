@@ -23,7 +23,7 @@ export interface GestionReportQuery extends Partial<DateRange> {
   year?: number;
   years?: number;
   /** anulaciones / iva. */
-  groupBy?: "day" | "month" | "dish" | "total";
+  groupBy?: "day" | "month" | "dish" | "total" | "supplier" | "category";
 }
 
 const MONTHS = [
