@@ -50,6 +50,7 @@ function make(
     purchases: jest.fn().mockResolvedValue([
       { key: "c1", label: "Pescado", albaranes: 3, base: 600 },
       { key: "c2", label: "Arroz", albaranes: 1, base: 200 },
+      { key: "c3", label: "Limpieza", albaranes: 1, base: 50 },
     ]),
   };
   return new GestionMenuEngineeringService(prisma as any, data as any);
@@ -130,6 +131,12 @@ describe("GestionMenuEngineeringService.analysis", () => {
     expect(a.pareto.byUnits.needed).toBe(3);
     expect(a.omnes?.bandsOk).toBe(false);
     expect(a.costRatios.rawMaterial).toEqual({ cost: 800, pct: 27.82 });
+    // La limpieza no es materia prima: va aparte.
+    expect(a.costRatios.otherPurchases).toEqual({
+      cost: 50,
+      labels: ["Limpieza"],
+    });
+    expect(a.costRatios.byCategory).toHaveLength(2);
     expect(a.costRatios.byCategory[0]).toEqual({
       label: "Pescado",
       cost: 600,

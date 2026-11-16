@@ -127,6 +127,7 @@ export interface MenuEngineeringAnalysis {
     salesBase: number;
     rawMaterial: { cost: number; pct: number | null };
     byCategory: { label: string; cost: number; pct: number | null }[];
+    otherPurchases: { cost: number; labels: string[] };
   };
 }
 

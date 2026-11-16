@@ -73,7 +73,7 @@ export function MenuEngineeringGrayZone({ data }: { data: MenuEngineeringAnalysi
         )}
         <p className="mt-2 text-xs text-[var(--on-surface-variant)]">
           Sin inventarios todavía: lo comprado y no gastado en el mes cuenta como gastado, así que compara meses completos y mira la tendencia.
-          Las compras incluyen todo lo recibido por albarán (comida, bebida y también limpieza o menaje si entran por albarán).
+          Cuentan las compras de comida y bebida; limpieza, menaje, envases y portes no son materia prima y van aparte (Ratios de costes).
         </p>
       </div>
 

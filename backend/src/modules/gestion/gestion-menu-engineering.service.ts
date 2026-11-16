@@ -115,13 +115,24 @@ export interface MenuEngineeringAnalysis {
   costRatios: CostRatios;
 }
 
+/**
+ * Categorías de compra que no son materia prima (limpieza, menaje, envases,
+ * portes…): se enseñan aparte y no cuentan en el coste real.
+ */
+const NOT_RAW_MATERIAL =
+  /LIMPIEZA|DROGUER|MANTELER|MENAJE|CONSUMIBLE|ENVASE|UTENSILIO|LOG[IÍ]STICA|PORTE|PUNTO VERDE|PAPELER|UNIFORME/i;
+
+export const isRawMaterial = (label: string) => !NOT_RAW_MATERIAL.test(label);
+
 /** Ratios de coste sobre la cifra de ventas (sin IVA) del periodo. */
 export interface CostRatios {
   salesBase: number;
   /** Coste total de materia prima: el coste real de la zona gris. */
   rawMaterial: { cost: number; pct: number | null };
-  /** Compras por categoría: la primera es la materia prima principal. */
+  /** Compras de materia prima por categoría: la primera es la principal. */
   byCategory: { label: string; cost: number; pct: number | null }[];
+  /** Otros gastos de albarán que no son materia prima. */
+  otherPurchases: { cost: number; labels: string[] };
 }
 
 interface ParetoItem {
@@ -378,15 +389,25 @@ export class GestionMenuEngineeringService {
         pct: pctOf(grayZone.realCost),
       },
       byCategory: purchases
-        .filter((p) => p.base > 0)
+        .filter((p) => p.base > 0 && isRawMaterial(p.label))
         .map((p) => ({ label: p.label, cost: p.base, pct: pctOf(p.base) })),
+      otherPurchases: {
+        cost: cents(
+          purchases
+            .filter((p) => !isRawMaterial(p.label))
+            .reduce((n, p) => n + p.base, 0),
+        ),
+        labels: purchases
+          .filter((p) => p.base > 0 && !isRawMaterial(p.label))
+          .map((p) => p.label),
+      },
     };
   }
 
   /**
    * Zona gris de toda la carta (comida y bebida): coste medio de la carta,
-   * coste teórico de lo vendido en carta y coste real (todas las compras de
-   * albaranes; sin inventarios todavía). Se compara en % sobre venta: el
+   * coste teórico de lo vendido en carta y coste real (compras de materia
+   * prima de los albaranes; sin inventarios todavía). Se compara en % sobre venta: el
    * teórico solo cuenta los platos con coste, así una cobertura baja no
    * infla la diferencia.
    */
@@ -420,7 +441,9 @@ export class GestionMenuEngineeringService {
             100,
         )
       : null;
-    const purchasesTotal = purchases.reduce((n, p) => n + p.base, 0);
+    const purchasesTotal = purchases
+      .filter((p) => isRawMaterial(p.label))
+      .reduce((n, p) => n + p.base, 0);
     const realCost = purchasesTotal;
     const theoreticalCostPct =
       knownBase > 0 ? cents((theoreticalCost / knownBase) * 100) : null;

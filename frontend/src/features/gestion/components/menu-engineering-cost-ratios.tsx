@@ -64,6 +64,11 @@ export function MenuEngineeringCostRatios({ data }: { data: MenuEngineeringAnaly
             ))}
             {r.byCategory.length === 0 && <li className="text-[var(--on-surface-variant)]">Sin compras en el periodo.</li>}
           </ul>
+          {r.otherPurchases.cost > 0 && (
+            <p className="mt-2 text-xs text-[var(--on-surface-variant)]">
+              Otros gastos de albarán (no son materia prima, no cuentan): {formatEuros(r.otherPurchases.cost)} · {r.otherPurchases.labels.join(', ')}.
+            </p>
+          )}
         </div>
         {MANUAL.map((m) => (
           <div key={m.key} className={card}>
