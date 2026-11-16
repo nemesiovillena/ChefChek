@@ -35,3 +35,13 @@ CREATE TABLE "cuiner_ticket_payments" (
 );
 CREATE UNIQUE INDEX "cuiner_ticket_payments_tenantId_idVentasCab_linea_key" ON "cuiner_ticket_payments"("tenantId", "idVentasCab", "linea");
 CREATE INDEX "cuiner_ticket_payments_tenantId_idVentasCab_idx" ON "cuiner_ticket_payments"("tenantId", "idVentasCab");
+
+CREATE TABLE "cuiner_waiters" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    CONSTRAINT "cuiner_waiters_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "cuiner_waiters_tenantId_code_key" ON "cuiner_waiters"("tenantId", "code");

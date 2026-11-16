@@ -77,7 +77,7 @@ export function GestionTicketsView() {
                       {t.openedAt && ` · ${t.openedAt}`}
                       {t.table && ` · mesa ${t.table}`}
                       {t.diners ? ` · ${t.diners} comensales` : ''}
-                      {t.waiter && ` · camarero ${t.waiter}`}
+                      {t.waiter && ` · ${t.waiter}`}
                       {` · ${t.lines} líneas · ${formatQty(t.units)} uds.`}
                       {t.hasVoids && ' · con anulaciones'}
                     </span>

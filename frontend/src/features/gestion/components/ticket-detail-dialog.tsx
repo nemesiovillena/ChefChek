@@ -59,7 +59,7 @@ export function TicketDetailDialog({ id, onClose }: { id: number | null; onClose
                     data.header.shift && data.header.shift.toLowerCase(),
                     data.header.openedAt &&
                       `${data.header.openedAt}${data.header.closedAt ? `–${data.header.closedAt}` : ''}`,
-                    data.header.waiter && `camarero ${data.header.waiter}`,
+                    data.header.waiter,
                   ]
                     .filter(Boolean)
                     .map((x) => ` · ${x}`)

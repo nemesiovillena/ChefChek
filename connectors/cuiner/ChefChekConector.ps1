@@ -536,6 +536,22 @@ function Invoke-TicketSync {
   $top = [int]$Remote.lastVentasCabId
   if ($top -le $cursor) { return }
 
+  # Nombres de los camareros del centro (PersonalLin), una vez por ejecución.
+  # Sin permiso de lectura se sigue sin nombres: en ChefChek sale «Camarero N».
+  $waiters = @()
+  try {
+    $waiters = @(foreach ($r in (Invoke-SqlQuery $Conn @'
+SELECT Personal, Nombre, ISNULL(Baja, 0) AS Baja FROM PersonalLin
+WHERE Empresa = @empresa AND Centro = @centro
+'@ @{ empresa = $Remote.empresa; centro = $Remote.centro }).Rows) {
+      $code = Get-Value $r 'Personal'; $name = Get-Value $r 'Nombre'
+      if ($code -notmatch '^[0-9]{1,6}$' -or -not $name) { continue }
+      @{ code = $code; name = (Limit-Text $name 60); active = -not [bool](Get-Value $r 'Baja') }
+    })
+  } catch {
+    Write-Log ("Tickets: sin nombres de camareros ({0})" -f $_.Exception.Message) 'WARN'
+  }
+
   for ($batch = 0; $batch -lt $Cfg.historyBatchesPerRun; $batch++) {
     $ids = Invoke-SqlQuery $Conn @'
 SELECT TOP (@n) Id_VentasCab FROM VentasCab
@@ -585,7 +601,10 @@ WHERE c.Id_VentasCab > @from AND c.Id_VentasCab <= @to
          formaPago = $forma.ToUpper(); importe = [double](Get-Value $r 'Importe'); anulada = [bool](Get-Value $r 'Anulacion') }
     }
 
-    $res = Invoke-ChefChekApi $Cfg 'POST' 'tickets' @{ cursor = $newCursor; tickets = @($tickets); payments = @($payments) }
+    $body = @{ cursor = $newCursor; tickets = @($tickets); payments = @($payments) }
+    # La lista de camareros solo en el primer lote de la ejecución.
+    if ($batch -eq 0 -and $waiters.Count -gt 0) { $body.waiters = $waiters }
+    $res = Invoke-ChefChekApi $Cfg 'POST' 'tickets' $body
     Write-Log ("Tickets: hasta {0}, {1} del centro, {2} cobros" -f $newCursor, @($tickets).Count, @($payments).Count)
     $cursor = [int]$res.ticketCursor
   }

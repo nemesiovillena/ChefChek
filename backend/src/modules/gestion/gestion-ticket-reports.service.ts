@@ -38,9 +38,12 @@ export function ticketTotals(tenantId: string, range: DateRange) {
       WHERE ${inRange(tenantId, range)} AND ${CHARGED}
       GROUP BY 1
     )
-    SELECT t.id, t.day, t.total, ct.comensales, ct.turno, ct."openedAt", ct.camarero
+    SELECT t.id, t.day, t.total, ct.comensales, ct.turno, ct."openedAt",
+      CASE WHEN ct.camarero IS NULL THEN NULL
+        ELSE COALESCE(w.name, 'Camarero ' || ct.camarero) END AS camarero
     FROM totals t
-    JOIN cuiner_tickets ct ON ct."tenantId" = ${tenantId} AND ct."idVentasCab" = t.id`;
+    JOIN cuiner_tickets ct ON ct."tenantId" = ${tenantId} AND ct."idVentasCab" = t.id
+    LEFT JOIN cuiner_waiters w ON w."tenantId" = ct."tenantId" AND w.code = ct.camarero`;
 }
 
 /** Desde esta hora de apertura de la mesa el ticket es una cena. */
@@ -267,7 +270,7 @@ export class GestionTicketReportsService {
         const total = list.reduce((n, t) => n + t.total, 0);
         const diners = list.reduce((n, t) => n + (t.comensales ?? 0), 0);
         return {
-          name: name === "—" ? "Sin camarero" : `Camarero ${name}`,
+          name: name === "—" ? "Sin camarero" : name,
           tickets: list.length,
           diners,
           total: cents(total),
@@ -306,7 +309,7 @@ export class GestionTicketReportsService {
       },
       notes: [
         ...(tickets.length === 0 ? [NO_TICKET_DATA] : []),
-        "El número es el usuario del TPV de Cuiner que abrió el ticket.",
+        "Camarero = usuario del TPV de Cuiner que abrió el ticket (nombre de su ficha de personal en Cuiner).",
       ],
     };
   }

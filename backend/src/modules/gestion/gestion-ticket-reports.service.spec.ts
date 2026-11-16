@@ -8,7 +8,7 @@ const tickets = [
     comensales: 2,
     turno: "COMIDAS",
     openedAt: "14:03",
-    camarero: "10",
+    camarero: "PEDRO SANCHEZ",
   },
   {
     id: 2,
@@ -17,7 +17,7 @@ const tickets = [
     comensales: 0,
     turno: "COMIDAS",
     openedAt: "14:40",
-    camarero: "3",
+    camarero: "Camarero 3",
   },
   {
     id: 3,
@@ -26,7 +26,7 @@ const tickets = [
     comensales: 4,
     turno: "COMIDAS",
     openedAt: "21:10",
-    camarero: "10",
+    camarero: "PEDRO SANCHEZ",
   },
   {
     id: 4,
@@ -35,7 +35,7 @@ const tickets = [
     comensales: 2,
     turno: "COMIDAS",
     openedAt: "01:15",
-    camarero: "3",
+    camarero: "Camarero 3",
   },
 ];
 
@@ -95,7 +95,7 @@ describe("GestionTicketReportsService", () => {
   it("camareros ordenados por ventas", async () => {
     const t = await make().build("t1", "camareros", range);
     expect(t.rows[0]).toMatchObject({
-      name: "Camarero 10",
+      name: "PEDRO SANCHEZ",
       tickets: 2,
       diners: 6,
       total: 160,

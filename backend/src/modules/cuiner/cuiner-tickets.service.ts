@@ -71,6 +71,16 @@ export class CuinerTicketsService {
           skipDuplicates: true,
         });
       }
+      // Camareros: «010» y «10» son el mismo (cuiner_tickets.camarero va sin ceros).
+      for (const w of dto.waiters ?? []) {
+        const code = String(Number(w.code));
+        const name = w.name.trim() || `Camarero ${code}`;
+        await tx.cuinerWaiter.upsert({
+          where: { tenantId_code: { tenantId, code } },
+          update: { name, active: w.active },
+          create: { tenantId, code, name, active: w.active },
+        });
+      }
       await tx.cuinerConfig.update({
         where: { tenantId },
         data: { ticketCursor: dto.cursor },

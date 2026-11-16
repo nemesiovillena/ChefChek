@@ -485,6 +485,20 @@ export class TicketPaymentDto {
   anulada!: boolean;
 }
 
+/** Camarero del TPV (PersonalLin): número y nombre. */
+export class TicketWaiterDto {
+  @IsString()
+  @Matches(/^\d{1,6}$/)
+  code!: string;
+
+  @IsString()
+  @MaxLength(60)
+  name!: string;
+
+  @IsBoolean()
+  active!: boolean;
+}
+
 /** Lote de cabeceras y cobros: tickets con cursor previo < Id_VentasCab <= cursor. */
 export class UploadTicketsDto {
   @IsInt()
@@ -502,4 +516,12 @@ export class UploadTicketsDto {
   @ValidateNested({ each: true })
   @Type(() => TicketPaymentDto)
   payments!: TicketPaymentDto[];
+
+  /** Lista de camareros del centro (opcional: un conector antiguo no la manda). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => TicketWaiterDto)
+  waiters?: TicketWaiterDto[];
 }

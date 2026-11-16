@@ -104,9 +104,10 @@ export class GestionTicketsService {
           COALESCE(SUM(COALESCE(s.base, 0) + COALESCE(s.impuesto, 0)) FILTER (WHERE NOT s.anulada), 0)::float8 AS total,
           (COUNT(*) FILTER (WHERE s.anulada))::int AS voids,
           MAX(ct.mesa) AS mesa, MAX(ct.comensales)::int AS comensales,
-          MAX(ct.camarero) AS camarero, MAX(ct."openedAt") AS opened_at
+          MAX(COALESCE(w.name, 'Camarero ' || ct.camarero)) AS camarero, MAX(ct."openedAt") AS opened_at
         FROM cuiner_sale_lines s
         LEFT JOIN cuiner_tickets ct ON ct."tenantId" = s."tenantId" AND ct."idVentasCab" = s."idVentasCab"
+        LEFT JOIN cuiner_waiters w ON w."tenantId" = ct."tenantId" AND w.code = ct.camarero
         WHERE ${inRange(tenantId, range)} AND s.base IS NOT NULL ${filter}
         GROUP BY s."idVentasCab"
         ORDER BY s."idVentasCab" DESC
@@ -170,6 +171,13 @@ export class GestionTicketsService {
         orderBy: { linea: "asc" },
       }),
     ]);
+    const waiter = header?.camarero
+      ? await this.prisma.cuinerWaiter.findUnique({
+          where: {
+            tenantId_code: { tenantId, code: header.camarero },
+          },
+        })
+      : null;
     const charged = lines.filter((l) => !l.voided);
     return {
       id,
@@ -180,7 +188,9 @@ export class GestionTicketsService {
         shift: header.turno,
         openedAt: header.openedAt,
         closedAt: header.closedAt,
-        waiter: header.camarero,
+        waiter: header.camarero
+          ? (waiter?.name ?? `Camarero ${header.camarero}`)
+          : null,
       },
       payments: payments.map((p) => ({
         method: p.formaPago,

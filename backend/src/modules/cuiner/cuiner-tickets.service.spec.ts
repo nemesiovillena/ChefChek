@@ -8,6 +8,7 @@ function makeTx() {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     cuinerConfig: { update: jest.fn().mockResolvedValue({}) },
+    cuinerWaiter: { upsert: jest.fn().mockResolvedValue({}) },
   };
 }
 
@@ -124,5 +125,28 @@ describe("CuinerTicketsService.ingest", () => {
     expect(
       tx.cuinerTicketPayment.createMany.mock.calls[0][0].data[0].importe,
     ).toBe(12);
+  });
+
+  it("guarda los camareros con el código sin ceros a la izquierda", async () => {
+    const tx = makeTx();
+    const service = new CuinerTicketsService({
+      $transaction: jest.fn((fn: any) => fn(tx)),
+    } as any);
+    await service.ingest("t1", {
+      cursor: 1,
+      tickets: [],
+      payments: [],
+      waiters: [{ code: "010", name: "PEDRO SANCHEZ ", active: true }],
+    });
+    expect(tx.cuinerWaiter.upsert).toHaveBeenCalledWith({
+      where: { tenantId_code: { tenantId: "t1", code: "10" } },
+      update: { name: "PEDRO SANCHEZ", active: true },
+      create: {
+        tenantId: "t1",
+        code: "10",
+        name: "PEDRO SANCHEZ",
+        active: true,
+      },
+    });
   });
 });

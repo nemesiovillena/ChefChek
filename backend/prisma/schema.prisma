@@ -4570,3 +4570,16 @@ model CuinerTicketPayment {
   @@index([tenantId, idVentasCab])
   @@map("cuiner_ticket_payments")
 }
+
+// Camareros del TPV (PersonalLin de Cuiner): nombre del número de usuario que
+// aparece en los tickets. Lo manda el conector.
+model CuinerWaiter {
+  id       String  @id @default(cuid())
+  tenantId String
+  code     String // número sin ceros a la izquierda («10»), como cuiner_tickets.camarero
+  name     String
+  active   Boolean @default(true)
+
+  @@unique([tenantId, code])
+  @@map("cuiner_waiters")
+}
