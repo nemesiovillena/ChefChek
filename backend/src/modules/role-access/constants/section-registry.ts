@@ -270,8 +270,8 @@ export type RoleAccessRole = (typeof ROLE_ACCESS_ROLES)[number];
  * `exclusive`: no hereda nada del rol base; solo ve `alwaysAllowed` (más lo
  * que se conceda por persona). GESTION (oficina) = Albaranes, Artículos
  * (los albaranes crean y enlazan artículos), Proveedores, Compras (solo
- * consulta, ver ReadOnlyRolesGuard) y Personal. Gestión no es una sección:
- * lo controlan su módulo y sus @Roles.
+ * consulta, ver ReadOnlyRolesGuard), Personal y el asistente IA. Gestión no
+ * es una sección: lo controlan su módulo y sus @Roles.
  */
 export const DERIVED_SECTION_ROLES: Record<
   string,
@@ -300,6 +300,8 @@ export const DERIVED_SECTION_ROLES: Record<
       "check-in",
       "turnos",
       "rrhh",
+      // Preguntas de ventas y gestión al asistente (decisión del usuario).
+      "asistente-ia",
     ],
   },
 };
