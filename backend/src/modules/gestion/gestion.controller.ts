@@ -36,6 +36,7 @@ import {
   GestionExpenseUpdateDto,
   GestionDashboardQueryDto,
   GestionRangeDto,
+  GestionMenuEngineeringQueryDto,
   GestionSeedDatesDto,
   GestionYearDto,
   GestionReportExportQueryDto,
@@ -57,6 +58,7 @@ import {
   PROFITABILITY_REPORT_KEYS,
 } from "./gestion-profitability-reports.service";
 import { GestionTableExportService } from "./gestion-table-export.service";
+import { GestionMenuEngineeringService } from "./gestion-menu-engineering.service";
 import { GestionTicketsService } from "./gestion-tickets.service";
 import { GESTION_CONTENT_TYPES } from "./gestion-table.types";
 
@@ -106,6 +108,7 @@ export class GestionController {
     private readonly tableExport: GestionTableExportService,
     private readonly salesReport: CuinerSalesReportService,
     private readonly salesReportExport: CuinerSalesReportExportService,
+    private readonly menuEngineering: GestionMenuEngineeringService,
   ) {}
 
   @Get("dashboard")
@@ -242,6 +245,15 @@ export class GestionController {
   @Get("profitability")
   getProfitability(@Req() req: AuthedRequest, @Query() q: GestionRangeDto) {
     return this.profitability.summary(req.tenantId, { from: q.from, to: q.to });
+  }
+
+  /** Menú engineering: matriz, 80/20, Omnes, zona gris y ratios de coste. */
+  @Get("menu-engineering")
+  getMenuEngineering(
+    @Req() req: AuthedRequest,
+    @Query() q: GestionMenuEngineeringQueryDto,
+  ) {
+    return this.menuEngineering.analysis(req.tenantId, q);
   }
 
   /** Informes de ventas o de rentabilidad, según la clave. */

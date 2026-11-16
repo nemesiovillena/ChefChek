@@ -1,7 +1,13 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { DateRange, assertRange } from "./gestion-period.util";
-import { CHARGED, NO_FAMILY_LABEL, cents, inRange } from "./gestion-sql.util";
+import {
+  CHARGED,
+  NO_FAMILY_LABEL,
+  cents,
+  groupOf,
+  inRange,
+} from "./gestion-sql.util";
 import {
   GestionProfitabilityService,
   MAX_LABOR_DAYS,
@@ -161,8 +167,6 @@ export class GestionProfitabilityReportsService {
         d.type === "P" && d.paidUnits > 0 && d.base > 0 && d.unitCost !== null,
     );
     const byKey = new Map(candidates.map((d) => [d.key, d]));
-    const groupOf = (family: string | null) =>
-      family?.split("-")[0]?.trim() || NO_FAMILY_LABEL;
     const groups = new Map<string, typeof candidates>();
     for (const d of candidates) {
       const g = groupOf(d.family);
@@ -338,7 +342,7 @@ export class GestionProfitabilityReportsService {
       ],
       rows,
       notes: [
-        "Cada plato se compara con los de su misma familia: popular si su mix ≥ 70 % de la media del grupo; margen alto si deja al menos el margen medio (ponderado) del grupo.",
+        "Cada plato se compara con los de su misma familia: popular si su mix llega a la media del grupo (100 % / nº de platos); margen alto si deja al menos el margen medio (ponderado) del grupo. Más detalle en Gestión › Menú engineering.",
         ...order.map((c) => `${MENU_CLASS_LABEL[c]}: ${MENU_CLASS_HINT[c]}`),
         "Solo platos de carta con escandallo y sus ventas en carta: las raciones de menú (a 0 €) y los platos sin coste no entran.",
         "Un grupo con menos de 3 platos (número entre paréntesis) apenas se puede comparar: tómalo con cautela.",

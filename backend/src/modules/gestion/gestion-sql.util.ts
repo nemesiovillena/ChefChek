@@ -3,6 +3,10 @@ import type { DateRange } from "./gestion-period.util";
 
 export const NO_FAMILY_LABEL = "Sin familia";
 
+/** Familia de primer nivel («CARNES-VACUNO» → «CARNES»): con la que compite un plato. */
+export const groupOf = (family: string | null) =>
+  family?.split("-")[0]?.trim() || NO_FAMILY_LABEL;
+
 export const cents = (n: number) => Math.round(n * 100) / 100;
 
 /**

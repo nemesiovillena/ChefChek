@@ -162,7 +162,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     group: 'Rentabilidad',
     key: 'ingenieria-menu',
     title: 'Ingeniería de menú',
-    description: 'Estrellas, caballos, puzzles y perros: popularidad × margen de cada plato.',
+    description: 'Estrellas, percherones, puzzles y perros: popularidad × margen de cada plato.',
     icon: 'grid_view',
     input: 'range',
   },
