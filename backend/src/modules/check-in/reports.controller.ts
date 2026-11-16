@@ -19,7 +19,7 @@ import {
   RequireSection,
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
-import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "./constants/check-in-permissions";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
 import { CreateInspectionLinkDto, ReportQueryDto } from "./dto/report.dto";
 import { InspectionLinksService } from "./services/inspection-links.service";
@@ -43,7 +43,7 @@ import { sendWorkdayReport } from "./services/report-file.util";
 )
 @RequireModule("check-in")
 @RequireSection("check-in")
-@Roles(CHECK_IN_MANAGER_ROLE)
+@Roles(...CHECK_IN_MANAGER_ROLES)
 export class ReportsController {
   constructor(
     private readonly reports: ReportService,

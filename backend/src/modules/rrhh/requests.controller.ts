@@ -17,7 +17,7 @@ import {
   RequireSection,
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
-import { CHECK_IN_MANAGER_ROLE } from "../check-in/constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "../check-in/constants/check-in-permissions";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import { DecideEmployeeRequestDto } from "./dto/employee-request.dto";
 import { EmployeeRequestsService } from "./services/employee-requests.service";
@@ -34,7 +34,7 @@ import { EmployeeRequestsService } from "./services/employee-requests.service";
 )
 @RequireModule("rrhh")
 @RequireSection("rrhh")
-@Roles(CHECK_IN_MANAGER_ROLE)
+@Roles(...CHECK_IN_MANAGER_ROLES)
 export class RequestsController {
   constructor(private readonly requests: EmployeeRequestsService) {}
 

@@ -26,7 +26,7 @@ import {
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { PrismaService } from "../../common/services/prisma.service";
-import { CHECK_IN_MANAGER_ROLE } from "../check-in/constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "../check-in/constants/check-in-permissions";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import {
   AbsenceRangeQueryDto,
@@ -120,7 +120,7 @@ export class TurnosController {
 
   /** Ausencias del equipo que pisan un rango (calendario). */
   @Get("absences")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listTeam(@Req() req: any, @Query() query: AbsenceRangeQueryDto) {
     return this.absences.list(req.tenantId, {
@@ -131,7 +131,7 @@ export class TurnosController {
   }
 
   @Get("absences/pending")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listPending(@Req() req: any) {
     return this.absences.listPending(req.tenantId);
@@ -139,7 +139,7 @@ export class TurnosController {
 
   /** Ausencia registrada por gerencia (p. ej. una baja): queda aprobada. */
   @Post("absences")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async createAbsence(@Req() req: any, @Body() dto: CreateAbsenceDto) {
     const employee = await this.prisma.employee.findFirst({
@@ -157,7 +157,7 @@ export class TurnosController {
   }
 
   @Post("absences/:id/decision")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async decide(
     @Req() req: any,
@@ -174,7 +174,7 @@ export class TurnosController {
   }
 
   @Post("absences/:id/cancel")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async cancel(
     @Req() req: any,
@@ -188,7 +188,7 @@ export class TurnosController {
 
   /** Cambiar el tipo de una ausencia (justificarla). Queda constancia. */
   @Post("absences/:id/justify")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async justify(
     @Req() req: any,
@@ -199,14 +199,14 @@ export class TurnosController {
   }
 
   @Get("balances")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listBalances(@Req() req: any, @Query() query: YearQueryDto) {
     return this.balances.forAll(req.tenantId, query.year);
   }
 
   @Put("balances/:employeeId/:year")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async saveBalance(
     @Req() req: any,
@@ -218,14 +218,14 @@ export class TurnosController {
   }
 
   @Post("absence-types")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async createType(@Req() req: any, @Body() dto: SaveAbsenceTypeDto) {
     return this.types.create(req.tenantId, dto);
   }
 
   @Patch("absence-types/:id")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async updateType(
     @Req() req: any,
@@ -236,7 +236,7 @@ export class TurnosController {
   }
 
   @Post("holidays")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async createHoliday(@Req() req: any, @Body() dto: CreateHolidayDto) {
     return this.holidays.create(req.tenantId, dto);
@@ -244,7 +244,7 @@ export class TurnosController {
 
   @Delete("holidays/:id")
   @HttpCode(204)
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async removeHoliday(@Req() req: any, @Param("id") id: string) {
     await this.holidays.remove(req.tenantId, id);

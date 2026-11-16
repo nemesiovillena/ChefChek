@@ -32,7 +32,7 @@ import {
   UpdateLocationDto,
 } from "../compras/dto/location.dto";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
-import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "./constants/check-in-permissions";
 import {
   ApplyAgreementPresetDto,
   UpdateCheckInSettingsDto,
@@ -72,7 +72,7 @@ const EXTRACT_THROTTLE = { default: { limit: 5, ttl: 60000 } };
 )
 @RequireModule("check-in")
 @RequireSection("check-in")
-@Roles(CHECK_IN_MANAGER_ROLE)
+@Roles(...CHECK_IN_MANAGER_ROLES)
 export class CheckInConfigurationController {
   constructor(
     private readonly settings: CheckInSettingsService,

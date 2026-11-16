@@ -6,12 +6,13 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { assertActorCanManageRole } from "./account-role-management.util";
 import { CreateUserDto, UpdateUserDto } from "./dto/create-user.dto";
 import * as bcrypt from "bcrypt";
 import { EmployeeAccountSyncService } from "../check-in/services/employee-account-sync.service";
 
 /** Roles que en @Roles solo cumple quien los tiene exactamente (no por nivel). */
-const EXACT_MATCH_ROLES = new Set(["USER_CUINER"]);
+const EXACT_MATCH_ROLES = new Set(["USER_CUINER", "GESTION"]);
 
 @Injectable()
 export class UsersService {
@@ -20,7 +21,12 @@ export class UsersService {
     private readonly employeeSync: EmployeeAccountSyncService,
   ) {}
 
-  async create(createUserDto: CreateUserDto, requestTenantId: string) {
+  async create(
+    createUserDto: CreateUserDto,
+    requestTenantId: string,
+    actorRole?: string,
+  ) {
+    assertActorCanManageRole(actorRole, createUserDto.role ?? "USER");
     const {
       tenantId,
       email,
@@ -233,6 +239,8 @@ export class UsersService {
     id: string,
     updateUserDto: UpdateUserDto,
     requestTenantId: string,
+    actorRole?: string,
+    actorId?: string,
   ) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
@@ -243,6 +251,18 @@ export class UsersService {
 
     if (!existingUser) {
       throw new NotFoundException("User not found");
+    }
+
+    assertActorCanManageRole(actorRole, existingUser.role);
+    assertActorCanManageRole(actorRole, updateUserDto.role);
+    // La oficina no se cambia su propio rol (p. ej. a USER_CUINER para ver cocina).
+    if (
+      actorRole === "GESTION" &&
+      actorId === id &&
+      updateUserDto.role &&
+      updateUserDto.role !== existingUser.role
+    ) {
+      throw new ForbiddenException("No puedes cambiar tu propio rol.");
     }
 
     if (updateUserDto.email && updateUserDto.email !== existingUser.email) {
@@ -290,7 +310,7 @@ export class UsersService {
     };
   }
 
-  async remove(id: string, requestTenantId: string) {
+  async remove(id: string, requestTenantId: string, actorRole?: string) {
     const existingUser = await this.prisma.user.findFirst({
       where: {
         id,
@@ -301,6 +321,8 @@ export class UsersService {
     if (!existingUser) {
       throw new NotFoundException("User not found");
     }
+
+    assertActorCanManageRole(actorRole, existingUser.role);
 
     await this.prisma.user.delete({
       where: { id },
@@ -396,13 +418,16 @@ export class UsersService {
     }
 
     // Roles con mayor jerarquía: SUPERADMIN > OWNER > ADMIN > USER > VIEWER.
-    // USER_CUINER tiene el nivel de USER: pasa donde pasa un USER.
+    // USER_CUINER y GESTION tienen el nivel de USER: pasan donde pasa un USER.
+    // Lo que GESTION no puede hacer (escribir en Compras) lo cierra
+    // ReadOnlyRolesGuard; lo que ve, el mapa de secciones.
     const roleHierarchy: { [key: string]: number } = {
       SUPERADMIN: 5,
       OWNER: 4,
       ADMIN: 3,
       USER: 2,
       USER_CUINER: 2,
+      GESTION: 2,
       VIEWER: 1,
     };
 

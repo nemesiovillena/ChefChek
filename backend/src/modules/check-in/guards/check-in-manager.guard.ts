@@ -11,7 +11,7 @@ import {
  * dispositivo compartido lo usa cualquiera que pase por delante, así que los
  * datos personales solo se muestran a una persona identificada.
  *
- * Complementa a `@Roles(CHECK_IN_MANAGER_ROLE)`: el rol decide quién puede
+ * Complementa a `@Roles(...CHECK_IN_MANAGER_ROLES)`: el rol decide quién puede
  * gestionar; este guard exige además que sea desde su cuenta personal.
  */
 @Injectable()

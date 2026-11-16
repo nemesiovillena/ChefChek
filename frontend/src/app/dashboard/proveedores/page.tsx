@@ -91,7 +91,11 @@ export default function ProveedoresPage() {
     );
   }
 
-  const canManage = MANAGE_ROLES.includes(user?.role ?? '') || user?.role === 'USER' || user?.role === 'USER_CUINER';
+  const canManage =
+    MANAGE_ROLES.includes(user?.role ?? '') ||
+    user?.role === 'USER' ||
+    user?.role === 'USER_CUINER' ||
+    user?.role === 'GESTION';
   const list = suppliers ?? [];
   const query = normalizeSearch(search.trim());
   const filteredList = query

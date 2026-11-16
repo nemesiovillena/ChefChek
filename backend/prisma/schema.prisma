@@ -653,6 +653,7 @@ enum UserRole {
   ADMIN
   USER
   USER_CUINER // Igual que USER + Albaranes y la integración con Cuiner
+  GESTION // Oficina: módulo Gestión, Albaranes, Proveedores y Personal; Compras solo consulta
   VIEWER
 }
 
@@ -3926,6 +3927,10 @@ model CuinerConfig {
   // Contador de platos en vivo: último id_es_registro del PostgreSQL del TPV
   // ya aplicado. null = sin enlace en vivo (descuenta con las ventas cobradas).
   portionCursor      Int?
+  // Cabeceras de ticket (mesa, comensales, turno, horas, camarero) y cobros
+  // por forma de pago, para Gestión. Último Id_VentasCab enviado; null = sin
+  // empezar (el conector recorre desde el primer ticket del centro).
+  ticketCursor       Int?
   lastSeenAt         DateTime? // Último contacto del conector
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -4488,4 +4493,93 @@ model PortionCuinerPush {
   @@index([tenantId, sentAt])
   @@index([counterId])
   @@map("portion_cuiner_pushes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Gestión: festivos y fechas importantes del local (estacionalidad). Se
+// precargan sugeridas por año y el local las corrige: los festivos
+// autonómicos y locales cambian cada año.
+// ─────────────────────────────────────────────────────────────────────────
+model GestionCalendarDate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  date      DateTime @db.Date
+  name      String
+  // nacional | autonomico | local | comercial | propio
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, date, name])
+  @@index([tenantId, date])
+  @@map("gestion_calendar_dates")
+}
+
+// Gestión: gastos generales del local por mes (alquiler, suministros…), sin
+// IVA, para la cuenta de explotación. Se introducen a mano.
+model GestionExpense {
+  id        String   @id @default(cuid())
+  tenantId  String
+  // Primer día del mes al que corresponde el gasto.
+  month     DateTime @db.Date
+  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento | otros
+  category  String
+  concept   String
+  amount    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, month])
+  @@map("gestion_expenses")
+}
+
+// Cabecera de un ticket del TPV de Cuiner (VentasCab) para Gestión: solo
+// lectura e informes, nunca toca stock.
+model CuinerTicket {
+  id              String   @id @default(cuid())
+  tenantId        String
+  idVentasCab     Int
+  fecha           DateTime // día de caja (00:00), como CuinerSaleLine
+  mesa            String?
+  comensales      Int?
+  turno           String? // COMIDAS | CENAS…
+  openedAt        String? // HH:MM de apertura de la mesa
+  closedAt        String? // HH:MM de cierre (cobro)
+  camarero        String? // número de usuario del TPV
+  total           Float?
+  invitacion      Boolean  @default(false)
+  consumoPersonal Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, idVentasCab])
+  @@index([tenantId, fecha])
+  @@map("cuiner_tickets")
+}
+
+// Cobro de un ticket por forma de pago (VentasFormasDePago).
+model CuinerTicketPayment {
+  id          String  @id @default(cuid())
+  tenantId    String
+  idVentasCab Int
+  linea       Int
+  formaPago   String // TARJETA, EFECTIVO, TRANSFERENCIA…
+  importe     Float
+  anulada     Boolean @default(false)
+
+  @@unique([tenantId, idVentasCab, linea])
+  @@index([tenantId, idVentasCab])
+  @@map("cuiner_ticket_payments")
+}
+
+// Camareros del TPV (PersonalLin de Cuiner): nombre del número de usuario que
+// aparece en los tickets. Lo manda el conector.
+model CuinerWaiter {
+  id       String  @id @default(cuid())
+  tenantId String
+  code     String // número sin ceros a la izquierda («10»), como cuiner_tickets.camarero
+  name     String
+  active   Boolean @default(true)
+
+  @@unique([tenantId, code])
+  @@map("cuiner_waiters")
 }

@@ -26,7 +26,7 @@ import {
   RequireSection,
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
-import { CHECK_IN_MANAGER_ROLE } from "../check-in/constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "../check-in/constants/check-in-permissions";
 import { CheckInManagerGuard } from "../check-in/guards/check-in-manager.guard";
 import {
   UploadEmployeeDocumentDto,
@@ -122,14 +122,14 @@ export class DocumentsController {
   // ─────────────────────────────────────────────────────────────── Gerencia
 
   @Get("documents")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async list(@Req() req: any, @Query("employeeId") employeeId?: string) {
     return this.documents.list(req.tenantId, employeeId || undefined);
   }
 
   @Post("documents")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   @UseInterceptors(upload())
   async uploadForEmployees(
@@ -144,7 +144,7 @@ export class DocumentsController {
   }
 
   @Get("documents/:id/file")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async download(
     @Req() req: any,
@@ -156,7 +156,7 @@ export class DocumentsController {
 
   @Delete("documents/:id")
   @HttpCode(204)
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async remove(@Req() req: any, @Param("id") id: string) {
     await this.documents.remove(req.tenantId, id);

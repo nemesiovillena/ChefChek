@@ -37,7 +37,7 @@ import { Roles } from "../../decorators/roles.decorator";
 @ApiTags("Users")
 @Controller("api/v1/users")
 // Empleados: siempre disponible (no depende de ningún módulo) y solo para
-// responsables, por protección de datos personales.
+// responsables (gerencia y oficina), por protección de datos personales.
 @UseGuards(AuthGuard, TenantGuard, RolesGuard)
 export class UsersController {
   constructor(
@@ -46,18 +46,18 @@ export class UsersController {
   ) {}
 
   @Post()
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Crear un nuevo usuario (solo ADMIN)" })
   @ApiResponse({ status: 201, description: "Usuario creado exitosamente" })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
   @ApiResponse({ status: 403, description: "Permiso denegado (solo ADMIN)" })
   async create(@Body() createUserDto: CreateUserDto, @Req() req: any) {
     const tenantId = req.tenantId; // Extraído del middleware de tenant
-    return this.usersService.create(createUserDto, tenantId);
+    return this.usersService.create(createUserDto, tenantId, req.user?.role);
   }
 
   @Post("upload-avatar")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Subir avatar de usuario" })
   @UseInterceptors(
     FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }),
@@ -79,7 +79,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Listar todos los usuarios del tenant" })
   @ApiQuery({
     name: "page",
@@ -107,7 +107,7 @@ export class UsersController {
   }
 
   @Get(":id")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Obtener un usuario por ID" })
   @ApiParam({ name: "id", description: "ID del usuario" })
   @ApiResponse({ status: 200, description: "Usuario encontrado" })
@@ -118,7 +118,7 @@ export class UsersController {
   }
 
   @Patch(":id")
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Actualizar un usuario (solo ADMIN)" })
   @ApiParam({ name: "id", description: "ID del usuario" })
   @ApiResponse({ status: 200, description: "Usuario actualizado exitosamente" })
@@ -130,12 +130,18 @@ export class UsersController {
     @Req() req: any,
   ) {
     const tenantId = req.tenantId; // Extraído del middleware de tenant
-    return this.usersService.update(id, updateUserDto, tenantId);
+    return this.usersService.update(
+      id,
+      updateUserDto,
+      tenantId,
+      req.user?.role,
+      req.user?.id,
+    );
   }
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Roles("ADMIN")
+  @Roles("ADMIN", "GESTION")
   @ApiOperation({ summary: "Eliminar un usuario (solo ADMIN)" })
   @ApiParam({ name: "id", description: "ID del usuario" })
   @ApiResponse({ status: 204, description: "Usuario eliminado exitosamente" })
@@ -143,6 +149,6 @@ export class UsersController {
   @ApiResponse({ status: 404, description: "Usuario no encontrado" })
   async remove(@Param("id") id: string, @Req() req: any) {
     const tenantId = req.tenantId; // Extraído del middleware de tenant
-    return this.usersService.remove(id, tenantId);
+    return this.usersService.remove(id, tenantId, req.user?.role);
   }
 }

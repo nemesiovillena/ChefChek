@@ -47,7 +47,9 @@ interface TenantConfig {
  */
 export default function SettingsPage() {
   const { user } = useAuth();
-  if (user?.role === 'USER') return <UserLabelSettings />;
+  // La oficina (GESTION) tampoco gestiona el tenant: sus ajustes de fichaje
+  // están en Personal → Ajustes de fichaje.
+  if (user?.role === 'USER' || user?.role === 'GESTION') return <UserLabelSettings />;
   return <FullSettingsPage />;
 }
 

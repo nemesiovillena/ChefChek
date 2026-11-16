@@ -266,10 +266,16 @@ export type RoleAccessRole = (typeof ROLE_ACCESS_ROLES)[number];
  * Almacén salvo Escandallos (cada sección, si su módulo está activo), para que
  * gestione el almacén entero. Cuiner no es una sección: lo controla su módulo
  * y sus @Roles.
+ *
+ * `exclusive`: no hereda nada del rol base; solo ve `alwaysAllowed` (más lo
+ * que se conceda por persona). GESTION (oficina) = Albaranes, Artículos
+ * (los albaranes crean y enlazan artículos), Proveedores, Compras (solo
+ * consulta, ver ReadOnlyRolesGuard), Personal y el asistente IA. Gestión no
+ * es una sección: lo controlan su módulo y sus @Roles.
  */
 export const DERIVED_SECTION_ROLES: Record<
   string,
-  { base: RoleAccessRole; alwaysAllowed: string[] }
+  { base: RoleAccessRole; alwaysAllowed: string[]; exclusive?: boolean }
 > = {
   USER_CUINER: {
     base: "USER",
@@ -280,6 +286,22 @@ export const DERIVED_SECTION_ROLES: Record<
       "proveedores",
       "almacenes",
       "historico-precios",
+    ],
+  },
+  GESTION: {
+    base: "USER",
+    exclusive: true,
+    alwaysAllowed: [
+      "albaranes",
+      "articulos",
+      "proveedores",
+      "compras",
+      "compras-pedidos",
+      "check-in",
+      "turnos",
+      "rrhh",
+      // Preguntas de ventas y gestión al asistente (decisión del usuario).
+      "asistente-ia",
     ],
   },
 };

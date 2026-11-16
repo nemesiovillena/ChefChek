@@ -66,6 +66,7 @@ import { RacionesModule } from "./modules/raciones/raciones.module";
 import { DashboardLayoutModule } from "./modules/dashboard-layout/dashboard-layout.module";
 import { ConservationDefaultsModule } from "./modules/conservation-defaults/conservation-defaults.module";
 import { CuinerModule } from "./modules/cuiner/cuiner.module";
+import { GestionModule } from "./modules/gestion/gestion.module";
 import { RecipeCaptureModule } from "./modules/recipe-capture/recipe-capture.module";
 import { ChecklistsModule } from "./modules/checklists/checklists.module";
 import { SictedModule } from "./modules/sicted/sicted.module";
@@ -111,6 +112,7 @@ import { CorreoModule } from "./modules/correo/correo.module";
     OcrConfigModule,
     ConservationDefaultsModule,
     CuinerModule,
+    GestionModule,
     RecipeCaptureModule,
     AiAssistantModule,
     TrashModule,

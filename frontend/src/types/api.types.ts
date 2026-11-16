@@ -23,7 +23,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'USER' | 'USER_CUINER' | 'VIEWER';
+  role: 'SUPERADMIN' | 'OWNER' | 'ADMIN' | 'USER' | 'USER_CUINER' | 'GESTION' | 'VIEWER';
   tenantId: string | null;
   isActive: boolean;
   avatarUrl?: string | null;

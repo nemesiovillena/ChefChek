@@ -8,7 +8,8 @@ export const primaryBtnCls =
 export const secondaryBtnCls =
   'flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-[var(--outline-variant)] px-4 font-medium disabled:opacity-40';
 
-const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
+/** Gestionan Personal: gerencia y oficina (GESTION). Espejo de CHECK_IN_MANAGER_ROLES. */
+const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'GESTION'];
 
 /**
  * ¿Puede gestionar Check-In (fichas, ajustes, presencia)? Hace falta rol de

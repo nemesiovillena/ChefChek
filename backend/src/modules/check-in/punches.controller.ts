@@ -19,12 +19,15 @@ import {
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
-import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
+import {
+  CHECK_IN_MANAGER_ROLES,
+  CHECK_IN_MANAGER_ROLE_NAMES,
+} from "./constants/check-in-permissions";
 import { CreatePunchDto, SyncPunchesDto } from "./dto/punch.dto";
 import { LegalTextsService } from "./services/legal-texts.service";
 import { PunchActor, PunchService } from "./services/punch.service";
 
-const MANAGER_ROLES = ["ADMIN", "OWNER", "SUPERADMIN"];
+const MANAGER_ROLES = CHECK_IN_MANAGER_ROLE_NAMES;
 
 /**
  * Fichaje: desde la cuenta personal (sin PIN) o desde un kiosco compartido
@@ -88,7 +91,7 @@ export class PunchesController {
 
   /** Fichajes que gerencia debe revisar (PIN sin verificar, secuencia, etc.). */
   @Get("punches/review")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async listForReview(@Req() req: any) {
     return this.punches.listForReview(req.tenantId);
@@ -110,7 +113,7 @@ export class PunchesController {
   }
 
   @Get("presence")
-  @Roles(CHECK_IN_MANAGER_ROLE)
+  @Roles(...CHECK_IN_MANAGER_ROLES)
   @UseGuards(CheckInManagerGuard)
   async getPresence(@Req() req: any) {
     return this.punches.getPresence(req.tenantId);

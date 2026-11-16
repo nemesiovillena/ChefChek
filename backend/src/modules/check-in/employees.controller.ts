@@ -22,7 +22,7 @@ import {
 } from "../../guards/section-access.guard";
 import { Roles } from "../../decorators/roles.decorator";
 import { CheckInManagerGuard } from "./guards/check-in-manager.guard";
-import { CHECK_IN_MANAGER_ROLE } from "./constants/check-in-permissions";
+import { CHECK_IN_MANAGER_ROLES } from "./constants/check-in-permissions";
 import {
   CreateEmployeeDto,
   ImportEmployeesDto,
@@ -48,7 +48,7 @@ import { EmployeePinService } from "./services/employee-pin.service";
 )
 @RequireModule("check-in")
 @RequireSection("check-in")
-@Roles(CHECK_IN_MANAGER_ROLE)
+@Roles(...CHECK_IN_MANAGER_ROLES)
 export class EmployeesController {
   constructor(
     private readonly employees: EmployeesService,
@@ -82,7 +82,7 @@ export class EmployeesController {
 
   @Post()
   async create(@Req() req: any, @Body() dto: CreateEmployeeDto) {
-    return this.employees.create(req.tenantId, dto);
+    return this.employees.create(req.tenantId, dto, req.user?.role);
   }
 
   @Patch(":id")
@@ -91,7 +91,13 @@ export class EmployeesController {
     @Param("id") id: string,
     @Body() dto: UpdateEmployeeDto,
   ) {
-    return this.employees.update(req.tenantId, id, dto, req.user?.id);
+    return this.employees.update(
+      req.tenantId,
+      id,
+      dto,
+      req.user?.id,
+      req.user?.role,
+    );
   }
 
   @Put(":id/pin")

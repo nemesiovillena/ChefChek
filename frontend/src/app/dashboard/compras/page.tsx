@@ -57,6 +57,9 @@ const TABS: { id: TabId; label: string; icon: typeof ShoppingCart }[] = [
   { id: 'locales', label: 'Locales', icon: MapPin },
 ];
 
+/** Oficina (GESTION) consulta Compras sin crear ni enviar; Catálogos es solo trabajo de importación. */
+const READ_ONLY_HIDDEN_TABS: ReadonlySet<TabId> = new Set(['catalogos']);
+
 /** Pestañas que abre el permiso por persona «compras-pedidos». */
 const PEDIDOS_ONLY_TABS: ReadonlySet<TabId> = new Set(['pedidos', 'listas', 'programaciones']);
 
@@ -69,7 +72,10 @@ export default function ComprasPage() {
   const [activeTab, setActiveTab] = useState<TabId>('pedidos');
   // Sin Compras entero (solo el permiso de pedidos): solo sus tres pestañas.
   const { canSee } = useSectionAccess();
-  const visibleTabs = canSee('compras') ? TABS : TABS.filter((t) => PEDIDOS_ONLY_TABS.has(t.id));
+  // Oficina: solo consulta (el servidor también rechaza sus escrituras).
+  const readOnly = user?.role === 'GESTION';
+  const allowedTabs = canSee('compras') ? TABS : TABS.filter((t) => PEDIDOS_ONLY_TABS.has(t.id));
+  const visibleTabs = readOnly ? allowedTabs.filter((t) => !READ_ONLY_HIDDEN_TABS.has(t.id)) : allowedTabs;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push('/login');
@@ -126,7 +132,7 @@ export default function ComprasPage() {
       ) : activeTab === 'listas' ? (
         <ListasTab
           canManage={canManage || user?.role === 'USER' || user?.role === 'USER_CUINER'}
-          canCreateOrDelete={canSee('compras')}
+          canCreateOrDelete={canSee('compras') && !readOnly}
         />
       ) : activeTab === 'precios' ? (
         <PriceDeviationPanel canManage={canManage} />
