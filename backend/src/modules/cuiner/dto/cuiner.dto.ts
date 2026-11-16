@@ -412,3 +412,116 @@ export class SalesReportExportQueryDto extends SalesReportQueryDto {
   @IsIn(SALES_REPORT_FORMATS)
   format!: SalesReportFormat;
 }
+
+const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Cabecera de un ticket (VentasCab) para Gestión. */
+export class TicketHeaderDto {
+  @IsInt()
+  @Min(1)
+  idVentasCab!: number;
+
+  @IsDateString()
+  fecha!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  mesa?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1000)
+  comensales?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  turno?: string;
+
+  @IsOptional()
+  @Matches(HH_MM)
+  openedAt?: string;
+
+  @IsOptional()
+  @Matches(HH_MM)
+  closedAt?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  camarero?: string;
+
+  @IsOptional()
+  @IsNumber()
+  total?: number;
+
+  @IsBoolean()
+  invitacion!: boolean;
+
+  @IsBoolean()
+  consumoPersonal!: boolean;
+}
+
+/** Cobro de un ticket (VentasFormasDePago). */
+export class TicketPaymentDto {
+  @IsInt()
+  @Min(1)
+  idVentasCab!: number;
+
+  @IsInt()
+  @Min(0)
+  linea!: number;
+
+  @IsString()
+  @MaxLength(40)
+  formaPago!: string;
+
+  @IsNumber()
+  importe!: number;
+
+  @IsBoolean()
+  anulada!: boolean;
+}
+
+/** Camarero del TPV (PersonalLin): número y nombre. */
+export class TicketWaiterDto {
+  @IsString()
+  @Matches(/^\d{1,6}$/)
+  code!: string;
+
+  @IsString()
+  @MaxLength(60)
+  name!: string;
+
+  @IsBoolean()
+  active!: boolean;
+}
+
+/** Lote de cabeceras y cobros: tickets con cursor previo < Id_VentasCab <= cursor. */
+export class UploadTicketsDto {
+  @IsInt()
+  @Min(0)
+  cursor!: number;
+
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @ValidateNested({ each: true })
+  @Type(() => TicketHeaderDto)
+  tickets!: TicketHeaderDto[];
+
+  @IsArray()
+  @ArrayMaxSize(3000)
+  @ValidateNested({ each: true })
+  @Type(() => TicketPaymentDto)
+  payments!: TicketPaymentDto[];
+
+  /** Lista de camareros del centro (opcional: un conector antiguo no la manda). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => TicketWaiterDto)
+  waiters?: TicketWaiterDto[];
+}

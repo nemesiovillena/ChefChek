@@ -47,6 +47,10 @@ import { GestionReportsService } from "./gestion-reports.service";
 import { GestionSeasonalityService } from "./gestion-seasonality.service";
 import { GestionResultsService, madridToday } from "./gestion-results.service";
 import { GestionExpensesService } from "./gestion-expenses.service";
+import {
+  GestionTicketReportsService,
+  TICKET_REPORT_KEYS,
+} from "./gestion-ticket-reports.service";
 import { GESTION_ROLES } from "./gestion-roles";
 import {
   GestionProfitabilityReportsService,
@@ -97,6 +101,7 @@ export class GestionController {
     private readonly seasonality: GestionSeasonalityService,
     private readonly results: GestionResultsService,
     private readonly expenses: GestionExpensesService,
+    private readonly ticketReports: GestionTicketReportsService,
     private readonly tickets: GestionTicketsService,
     private readonly tableExport: GestionTableExportService,
     private readonly salesReport: CuinerSalesReportService,
@@ -241,6 +246,9 @@ export class GestionController {
 
   /** Informes de ventas o de rentabilidad, según la clave. */
   private table(tenantId: string, key: string, q: GestionReportQueryDto) {
+    if ((TICKET_REPORT_KEYS as readonly string[]).includes(key)) {
+      return this.ticketReports.build(tenantId, key, q);
+    }
     if (key === "cuenta-explotacion" || key === "flujo-caja") {
       return this.results.table(
         tenantId,
