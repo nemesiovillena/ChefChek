@@ -23,6 +23,23 @@ export class GestionRangeDto {
   to!: string;
 }
 
+export class GestionMenuEngineeringQueryDto extends GestionRangeDto {
+  @IsOptional()
+  @IsIn(["comida", "bebida"])
+  scope?: "comida" | "bebida";
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  group?: string;
+
+  /** 1 = 100 % de la media; 0,7 = regla clásica del 70 %. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn([1, 0.7])
+  popularityFactor?: number;
+}
+
 export class GestionDashboardQueryDto extends GestionRangeDto {
   @IsOptional()
   @IsIn(["previous", "year"])

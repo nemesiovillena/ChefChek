@@ -15,9 +15,9 @@ const pctText = (p: number | null) => (p === null ? '—' : `${p.toLocaleString(
 
 const MENU: { id: MenuClass; label: string; hint: string; icon: string }[] = [
   { id: 'estrella', label: 'Estrellas', hint: 'Populares y rentables', icon: 'star' },
-  { id: 'caballo', label: 'Caballos de batalla', hint: 'Se venden mucho, dejan poco', icon: 'trending_up' },
+  { id: 'caballo', label: 'Percherones', hint: 'Se venden mucho, dejan poco', icon: 'agriculture' },
   { id: 'puzzle', label: 'Puzzles', hint: 'Rentables, se venden poco', icon: 'extension' },
-  { id: 'perro', label: 'Perros', hint: 'Ni se venden ni dejan', icon: 'trending_down' },
+  { id: 'perro', label: 'Perros', hint: 'Ni se venden ni dejan', icon: 'pets' },
 ];
 
 /**
@@ -88,8 +88,8 @@ export function GestionProfitabilityView() {
           <div className={cardCls}>
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <div className="text-sm font-semibold text-[var(--on-surface)]">Ingeniería de menú</div>
-              <Link href="/dashboard/gestion/informes/ingenieria-menu" className="text-sm text-[var(--primary)] underline">
-                Ver platos
+              <Link href="/dashboard/gestion/menu-engineering" className="text-sm text-[var(--primary)] underline">
+                Abrir Menú engineering
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

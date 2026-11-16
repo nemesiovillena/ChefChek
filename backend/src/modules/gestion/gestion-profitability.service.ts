@@ -27,6 +27,10 @@ export interface DishSale {
   base: number;
   /** Coste teórico por unidad; null = sin escandallo o sin enlazar. */
   unitCost: number | null;
+  /** Receta marcada como bebida; null si el plato no lleva receta. */
+  drink: boolean | null;
+  /** Receta enlazada (para abrir su escandallo); null si no hay. */
+  recipeId: string | null;
 }
 
 export interface PurchaseRow {
@@ -120,6 +124,8 @@ export class GestionProfitabilityService {
         avg_unit_weight: number | null;
         measure_qty: number | null;
         measure_unit: string | null;
+        is_drink: boolean | null;
+        recipe_id: string | null;
       }[]
     >`
       SELECT s.tipo, s.producto, COALESCE(d.nombre, s.producto) AS name, d.familia AS family,
@@ -131,7 +137,9 @@ export class GestionProfitabilityService {
         r."totalCost"::float8 AS total_cost, r.portions::float8 AS portions,
         p."purchasePrice"::float8 AS purchase_price, p."unitSize"::float8 AS unit_size,
         p."referenceUnit" AS reference_unit, p."avgUnitWeight"::float8 AS avg_unit_weight,
-        sm.quantity::float8 AS measure_qty, sm.unit AS measure_unit
+        sm.quantity::float8 AS measure_qty, sm.unit AS measure_unit,
+        r."isDrink" AS is_drink,
+        r.id AS recipe_id
       FROM cuiner_sale_lines s
       LEFT JOIN cuiner_dishes d ON d."tenantId" = s."tenantId" AND d.tipo = s.tipo AND d.producto = s.producto
       LEFT JOIN cuiner_dish_maps m ON m."tenantId" = s."tenantId" AND m.tipo = s.tipo AND m.producto = s.producto
@@ -149,6 +157,8 @@ export class GestionProfitabilityService {
       paidUnits: r.paid,
       servedUnits: r.served,
       base: r.base,
+      drink: r.is_drink,
+      recipeId: r.recipe_id,
       unitCost: unitCostOfDish({
         noStock: r.no_stock,
         recipe:
@@ -184,10 +194,12 @@ export class GestionProfitabilityService {
     groupBy: "supplier" | "category",
   ): Promise<PurchaseRow[]> {
     assertRange(range);
+    // Con alias: sin ellos Postgres llama «coalesce» a las dos columnas y el
+    // informe salía sin nombres de proveedor ni de categoría.
     const group =
       groupBy === "category"
-        ? Prisma.sql`COALESCE(c.id, '-'), COALESCE(c.name, 'Sin categoría')`
-        : Prisma.sql`COALESCE(sp.id, '-'), COALESCE(sp.name, 'Sin proveedor')`;
+        ? Prisma.sql`COALESCE(c.id, '-') AS key, COALESCE(c.name, 'Sin categoría') AS label`
+        : Prisma.sql`COALESCE(sp.id, '-') AS key, COALESCE(sp.name, 'Sin proveedor') AS label`;
     const rows = await this.prisma.$queryRaw<
       { key: string; label: string; albaranes: number; base: number }[]
     >`

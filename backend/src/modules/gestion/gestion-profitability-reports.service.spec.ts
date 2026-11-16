@@ -11,6 +11,8 @@ const dish = (over: Partial<DishSale>): DishSale => ({
   servedUnits: 10,
   base: 100,
   unitCost: 3,
+  drink: null,
+  recipeId: null,
   ...over,
 });
 
