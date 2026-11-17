@@ -10,6 +10,7 @@ import {
   PunchPinStatus,
   PunchSource,
   PunchType,
+  Prisma,
   TimePunch,
 } from "@prisma/client";
 import { WebSocketService } from "../../../websocket/websocket.service";
@@ -30,6 +31,11 @@ import {
   statusAfter,
 } from "./punch-state.util";
 import { currentPositionTitles } from "../../users/current-position-titles";
+import {
+  EMPLOYEE_ROLE_CAN_PUNCH_WHERE,
+  ROLE_PUNCH_DENIED,
+  roleCanPunch,
+} from "./punch-roles.util";
 
 /** Sesión desde la que se ficha. */
 export interface PunchActor {
@@ -174,6 +180,9 @@ export class PunchService {
       }
     }
 
+    if (!(await this.employeeRoleCanPunch(employee))) {
+      throw new ForbiddenException(ROLE_PUNCH_DENIED);
+    }
     if (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) {
       throw new ForbiddenException(PERSONAL_PUNCH_DENIED);
     }
@@ -312,7 +321,10 @@ export class PunchService {
     const review: ReviewReason[] = [];
     // Hecho sin conexión cuando ya no tenía permiso (o justo antes de
     // perderlo): se guarda igualmente para no perder jornada, y gerencia decide.
-    if (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) {
+    if (
+      (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) ||
+      !(await this.employeeRoleCanPunch(employee))
+    ) {
       review.push("SIN_PERMISO");
     }
     let pinStatus: PunchPinStatus = PunchPinStatus.NOT_REQUIRED;
@@ -569,6 +581,9 @@ export class PunchService {
     });
     const last = await this.lastEffective(tenantId, employee.id);
     const status = statusAfter(last?.type);
+    const canPunch =
+      employee.allowPersonalPunch &&
+      (await this.employeeRoleCanPunch(employee));
 
     return {
       readiness,
@@ -578,13 +593,11 @@ export class PunchService {
         name: fullName(employee),
         isActive: employee.isActive,
       },
-      canPunch: employee.allowPersonalPunch,
+      canPunch,
       status,
       since: last?.occurredAt ?? null,
       // Sin permiso no se ofrece ningún botón; el estado y el registro siguen visibles.
-      allowedTypes: employee.allowPersonalPunch
-        ? allowedNextTypes(status, allowBreaks)
-        : [],
+      allowedTypes: canPunch ? allowedNextTypes(status, allowBreaks) : [],
       allowBreaks,
       display,
       recentPunches: recentPunches.map(toPunchView),
@@ -623,6 +636,7 @@ export class PunchService {
       ? await this.listWithStatus(tenantId, {
           isActive: true,
           locations: { some: { locationId: center.id } },
+          ...EMPLOYEE_ROLE_CAN_PUNCH_WHERE,
         })
       : [];
     return {
@@ -653,7 +667,7 @@ export class PunchService {
 
   private async listWithStatus(
     tenantId: string,
-    where: { isActive: boolean; locations?: object },
+    where: Prisma.EmployeeWhereInput,
   ) {
     const employees = await this.prisma.employee.findMany({
       where: { tenantId, ...where },
@@ -722,6 +736,20 @@ export class PunchService {
       new Date(Date.now() - STATUS_WINDOW_MS),
     );
     return timeline.get(employeeId)?.at(-1);
+  }
+
+  /** Gerencia, Gestión y User Cuiner no fichan; una ficha sin cuenta, sí. */
+  private async employeeRoleCanPunch(
+    employee: Pick<Employee, "userId">,
+  ): Promise<boolean> {
+    if (!employee.userId) {
+      return true;
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: employee.userId },
+      select: { role: true },
+    });
+    return roleCanPunch(user?.role);
   }
 
   private async findOwnEmployee(tenantId: string, userId: string) {
