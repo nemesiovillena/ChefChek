@@ -448,18 +448,25 @@ export class RecipesService {
       orderBy: { name: "asc" },
     });
 
+    const live = includeCost
+      ? await this.liveCosts(
+          tenantId,
+          recipes.map((r) => r.id),
+        )
+      : new Map<string, LiveCost>();
     return recipes.map((r) => {
       const hasValidYield =
         (r.totalYieldWeight ?? r.portions * r.portionSize) > 0;
+      const perUnit = live.get(r.id)?.totalCostPerUnit ?? r.totalCostPerUnit;
       return {
         id: r.id,
         name: r.name,
-        // totalCostPerUnit persistido (€/g o €/ml, se reescribe al guardar)
-        // × 1000. kg y L se tratan como equivalentes a g/ml (densidad=1),
-        // igual que en el cálculo de coste de sub-recetas.
+        // Coste de hoy por unidad de rendimiento (€/g o €/ml) × 1000. kg y L
+        // se tratan como equivalentes a g/ml (densidad=1), igual que en el
+        // cálculo de coste de sub-recetas.
         pricePerKgOrL:
           includeCost && hasValidYield
-            ? Math.round(r.totalCostPerUnit * 1000 * 100) / 100
+            ? Math.round(perUnit * 1000 * 100) / 100
             : null,
       };
     });

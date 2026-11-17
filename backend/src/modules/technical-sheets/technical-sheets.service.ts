@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { RoleAccessService } from "../role-access/role-access.service";
+import { RecipesService } from "../recipes/recipes.service";
 import {
   calculateProductCostPerUnit,
   calculateSubRecipeCost,
@@ -27,7 +28,34 @@ export class TechnicalSheetsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roleAccess: RoleAccessService,
+    private readonly recipesService: RecipesService,
   ) {}
+
+  /**
+   * Pone en cada sub-receta su coste de hoy (precios actuales, bajando por
+   * las suyas) en vez del guardado, para que la ficha cueste igual que
+   * «Costo» en Recetas.
+   */
+  private async applyLiveSubRecipeCosts(
+    tenantId: string,
+    recipes: any[],
+  ): Promise<void> {
+    const subs = recipes.flatMap((r) => r.subRecipes ?? []);
+    if (subs.length === 0) {
+      return;
+    }
+    const live = await this.recipesService.liveCosts(
+      tenantId,
+      subs.map((sub: any) => sub.subRecipeId),
+    );
+    for (const sub of subs) {
+      const cost = live.get(sub.subRecipeId);
+      if (cost && sub.subRecipe) {
+        sub.subRecipe.totalCost = cost.totalCost;
+        sub.subRecipe.totalCostPerUnit = cost.totalCostPerUnit;
+      }
+    }
+  }
 
   /**
    * Enforces the Recetas sub-capabilities on PDF generation. `recipeCardOnly`
@@ -199,6 +227,7 @@ export class TechnicalSheetsService {
       throw new NotFoundException("Template not found");
     }
 
+    await this.applyLiveSubRecipeCosts(tenantId, [recipe]);
     const pdfBuffer = await this.generatePDF(recipe, template, dto);
 
     const document = await this.prisma.document.create({
@@ -255,6 +284,7 @@ export class TechnicalSheetsService {
     if (recipes.length === 0) {
       throw new NotFoundException("No recipes found");
     }
+    await this.applyLiveSubRecipeCosts(tenantId, recipes);
 
     const template = await this.prisma.technicalSheetTemplate.findFirst({
       where: { id: dto.templateId, tenantId },

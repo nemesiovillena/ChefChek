@@ -1,3 +1,4 @@
+import { RecipesService } from "../recipes/recipes.service";
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { MenusService } from "./menus.service";
@@ -127,6 +128,11 @@ describe("MenusService", () => {
           provide: PrismaService,
           useValue: mockPrismaService,
         },
+        {
+          // Sin coste de hoy: las recetas usan el guardado del fixture.
+          provide: RecipesService,
+          useValue: { liveCosts: jest.fn().mockResolvedValue(new Map()) },
+        },
       ],
     }).compile();
 
@@ -234,6 +240,23 @@ describe("MenusService", () => {
   });
 
   describe("findOne", () => {
+    it("usa el coste de hoy de la receta, no el guardado", async () => {
+      const recipes = (service as any).recipes;
+      recipes.liveCosts.mockResolvedValueOnce(
+        new Map([
+          ["recipe-1", { totalCost: 6, totalCostPerUnit: 0, portions: 1 }],
+        ]),
+      );
+      mockPrismaService.menu.findFirst.mockResolvedValue(
+        structuredClone(mockMenu),
+      );
+
+      const result = await service.findOne(tenantId, menuId);
+
+      expect(recipes.liveCosts).toHaveBeenCalledWith(tenantId, ["recipe-1"]);
+      expect(result.costBreakdown?.totalCost).toBe(6);
+    });
+
     it("should return a menu by id", async () => {
       mockPrismaService.menu.findFirst.mockResolvedValue(mockMenu);
 
