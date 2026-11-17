@@ -25,6 +25,8 @@ export interface Employee {
   pinLocked: boolean;
   /** Puede fichar desde su propia cuenta; si no, solo en el kiosco. */
   allowPersonalPunch: boolean;
+  /** Ficha (kiosco y su cuenta). Desmarcado: no sale en el kiosco ni puede fichar. */
+  punchEnabled: boolean;
   user: { id: string; name: string; email: string; role?: string } | null;
 }
 
@@ -45,6 +47,7 @@ export interface EmployeeInput {
   terminationDate?: string | null;
   isActive?: boolean;
   allowPersonalPunch?: boolean;
+  punchEnabled?: boolean;
 }
 
 export interface LinkableUser {
