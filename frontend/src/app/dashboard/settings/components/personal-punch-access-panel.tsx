@@ -8,8 +8,9 @@ import { useEmployees, useUpdateEmployee } from '@/hooks/use-check-in';
 import type { Employee } from '@/lib/check-in-types';
 import { canManageCheckIn } from '@/app/dashboard/check-in/components/check-in-form-styles';
 
-// Gerencia no ficha: no sale en la lista.
-const MANAGER_ROLES = new Set(['ADMIN', 'OWNER', 'SUPERADMIN']);
+// Roles que no fichan (gerencia, Gestión y User Cuiner): no salen en la lista.
+// Misma lista que NON_PUNCHING_ROLES en el backend.
+const NON_PUNCHING_ROLES = new Set(['ADMIN', 'OWNER', 'SUPERADMIN', 'GESTION', 'USER_CUINER']);
 
 /**
  * Quién puede fichar desde su propia cuenta (móvil o web). Quien no tenga
@@ -29,7 +30,7 @@ function PersonalPunchAccessList() {
   const update = useUpdateEmployee();
 
   const people = (data ?? []).filter(
-    (e) => e.user && !MANAGER_ROLES.has(e.user.role ?? ''),
+    (e) => e.user && !NON_PUNCHING_ROLES.has(e.user.role ?? ''),
   );
 
   async function toggle(employee: Employee) {

@@ -67,18 +67,6 @@ export const SETTINGS_LINK: NavItem = {
  */
 export const NAV_GROUPS: NavSection[] = [
   {
-    // Ventas y facturación del TPV: gerencia y oficina (rol GESTION).
-    title: 'Gestión',
-    items: [
-      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
-    ],
-  },
-  {
     title: 'Cocina',
     items: [
       { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
@@ -144,6 +132,18 @@ export const NAV_GROUPS: NavSection[] = [
       { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
       { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
       { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+    ],
+  },
+  {
+    // Ventas y facturación del TPV: gerencia y oficina (rol GESTION).
+    title: 'Gestión',
+    items: [
+      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
     ],
   },
   {
