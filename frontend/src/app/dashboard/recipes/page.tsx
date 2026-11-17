@@ -190,8 +190,13 @@ export default function RecipesPage() {
   const clearEditLink = () => {
     if (wantsEditLink) router.replace('/dashboard/recipes');
   };
+  // ?recipe=<id>&view=cost (p.ej. Gestión › Menú engineering): abre el modal
+  // «Costo» de la receta en vez de la vista visual. Sin permiso de costes,
+  // cae en la vista visual normal.
+  const wantsCostLink = searchParams.get('view') === 'cost' && canViewCost;
+  const closeCostLink = () => router.replace('/dashboard/recipes');
   // Vista activa: deep link si lo hay, si no la abierta con un click en la tabla
-  const activeVisualRecipe = (wantsEditLink ? null : deepLinkViewRecipe) ?? visualViewRecipe;
+  const activeVisualRecipe = (wantsEditLink || wantsCostLink ? null : deepLinkViewRecipe) ?? visualViewRecipe;
   const closeVisualView = () => {
     setVisualViewRecipe(null);
     if (deepLinkViewRecipe) router.replace('/dashboard/recipes');
@@ -1830,6 +1835,10 @@ export default function RecipesPage() {
               setSelectedRecipe(null);
             }}
           />
+        )}
+
+        {wantsCostLink && deepLinkViewRecipe && !showCostModal && (
+          <RecipeCostModal recipe={deepLinkViewRecipe} onClose={closeCostLink} />
         )}
 
         {/* Enlace del asistente apuntando a una receta que ya no existe */}

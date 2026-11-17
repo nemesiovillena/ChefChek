@@ -51,8 +51,9 @@ export function MenuEngineeringView() {
   const [group, setGroup] = useState<string | undefined>();
   const [factor, setFactor] = useState<PopularityFactor>(1);
   const valid = range.from <= range.to;
-  const { canEnter } = useSectionAccess();
-  const canOpenRecipes = canEnter('recipes');
+  const { canEnter, canSee } = useSectionAccess();
+  // Los enlaces abren el «Costo» de la receta: hace falta ver Recetas y sus costes.
+  const canOpenRecipes = canEnter('recipes') && canSee('recipes.cost');
 
   const { data, isLoading, isFetching, error } = useGestionMenuEngineering(
     { ...range, scope, group, popularityFactor: factor },
