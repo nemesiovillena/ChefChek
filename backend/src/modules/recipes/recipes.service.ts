@@ -1,8 +1,10 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import {
@@ -14,6 +16,13 @@ import {
 import { CostingConfigService } from "../costing-config/costing-config.service";
 import { CreateRecipeDto } from "./dto/create-recipe.dto";
 import { RecipesQueryDto } from "./dto/recipes-query.dto";
+import {
+  computeLiveCosts,
+  costPerYieldUnit,
+  LiveCost,
+  LiveCostProduct,
+  LiveCostRecipe,
+} from "./recipe-live-cost";
 import {
   RecipeInitialLetter,
   RECIPE_INITIAL_LETTERS,
@@ -49,6 +58,8 @@ const INACTIVE_RECIPE_VIEWER_ROLES = ["ADMIN", "OWNER"];
 
 @Injectable()
 export class RecipesService {
+  private readonly logger = new Logger(RecipesService.name);
+
   constructor(
     private prisma: PrismaService,
     private costingConfigService: CostingConfigService,
@@ -387,8 +398,18 @@ export class RecipesService {
       this.prisma.recipe.count({ where }),
     ]);
 
+    // Una sola carga del coste de hoy de todas las sub-recetas de la página.
+    const subIds = recipes.flatMap((r: any) =>
+      (r.subRecipes ?? []).map((sub: any) => sub.subRecipeId),
+    );
+    const subCosts =
+      includeCost && subIds.length > 0
+        ? await this.liveCosts(tenantId, subIds)
+        : new Map<string, LiveCost>();
     const data = await Promise.all(
-      recipes.map((recipe) => this.formatRecipeResponse(recipe, includeCost)),
+      recipes.map((recipe) =>
+        this.formatRecipeResponse(recipe, includeCost, subCosts),
+      ),
     );
 
     return {
@@ -427,18 +448,25 @@ export class RecipesService {
       orderBy: { name: "asc" },
     });
 
+    const live = includeCost
+      ? await this.liveCosts(
+          tenantId,
+          recipes.map((r) => r.id),
+        )
+      : new Map<string, LiveCost>();
     return recipes.map((r) => {
       const hasValidYield =
         (r.totalYieldWeight ?? r.portions * r.portionSize) > 0;
+      const perUnit = live.get(r.id)?.totalCostPerUnit ?? r.totalCostPerUnit;
       return {
         id: r.id,
         name: r.name,
-        // totalCostPerUnit persistido (€/g o €/ml, se reescribe al guardar)
-        // × 1000. kg y L se tratan como equivalentes a g/ml (densidad=1),
-        // igual que en el cálculo de coste de sub-recetas.
+        // Coste de hoy por unidad de rendimiento (€/g o €/ml) × 1000. kg y L
+        // se tratan como equivalentes a g/ml (densidad=1), igual que en el
+        // cálculo de coste de sub-recetas.
         pricePerKgOrL:
           includeCost && hasValidYield
-            ? Math.round(r.totalCostPerUnit * 1000 * 100) / 100
+            ? Math.round(perUnit * 1000 * 100) / 100
             : null,
       };
     });
@@ -609,18 +637,15 @@ export class RecipesService {
     }
 
     // Recalcular costos si hay cambios en ingredientes
-    let totalCost = recipe.totalCost;
-
-    if (ingredients || subRecipes) {
-      const costBreakdown = await this.calculateCost(
-        tenantId,
-        ingredients || recipe.ingredients,
-        subRecipes || recipe.subRecipes,
-        yield_.portions,
-        yield_.portionSize,
-      );
-      totalCost = costBreakdown.totalCost;
-    }
+    // Siempre con los precios de hoy: guardar deja el coste al día aunque
+    // no cambien las líneas (los precios de compra sí pueden haber cambiado).
+    const { totalCost } = await this.calculateCost(
+      tenantId,
+      ingredients || recipe.ingredients,
+      subRecipes || recipe.subRecipes,
+      yield_.portions,
+      yield_.portionSize,
+    );
 
     // El costo por unidad de rendimiento depende de porciones y tamaño,
     // así que se recalcula siempre a partir del costo total vigente
@@ -804,77 +829,167 @@ export class RecipesService {
   }
 
   /**
-   * Reescribe totalCost/totalCostPerUnit guardados de todas las recetas
-   * activas con los precios y mermas actuales. Las recetas padre costean sus
-   * sub-recetas con esos campos guardados, así que se recorren de menor a
-   * mayor profundidad (primero las que no usan sub-recetas). SQL crudo en la
-   * escritura para no tocar updatedAt: no es una edición del usuario.
-   * Uso puntual tras cambiar la fórmula de coste (no hay endpoint).
+   * Coste actual (precios de hoy, sub-recetas incluidas) de las recetas
+   * pedidas. Carga también las sub-recetas que usan, a cualquier
+   * profundidad. SQL crudo para incluir artículos y sub-recetas dados de
+   * baja que una receta aún referencia (el middleware de soft-delete los
+   * ocultaría); se mantiene el alcance por tenant. Una receta que no existe
+   * no aparece en el mapa.
    */
-  async recalculateStoredCosts(): Promise<{
-    updated: number;
-    failed: string[];
-  }> {
+  async liveCosts(
+    tenantId: string,
+    recipeIds: string[],
+  ): Promise<Map<string, LiveCost>> {
+    const recipes = new Map<string, LiveCostRecipe>();
+    let pending = [...new Set(recipeIds)];
+    while (pending.length > 0) {
+      const [rows, ingredients, subRecipes] = await Promise.all([
+        this.prisma.$queryRaw<
+          {
+            id: string;
+            portions: number;
+            portionSize: number;
+            totalCost: number;
+            totalCostPerUnit: number;
+          }[]
+        >`
+          SELECT id, portions::float8 AS portions,
+                 "portionSize"::float8 AS "portionSize",
+                 "totalCost"::float8 AS "totalCost",
+                 "totalCostPerUnit"::float8 AS "totalCostPerUnit"
+          FROM recipes
+          WHERE id = ANY(${pending}::text[]) AND "tenantId" = ${tenantId}`,
+        this.prisma.$queryRaw<
+          {
+            recipeId: string;
+            productId: string;
+            quantity: number;
+            unit: string;
+          }[]
+        >`
+          SELECT "recipeId", "productId", quantity::float8 AS quantity, unit
+          FROM recipe_ingredients
+          WHERE "recipeId" = ANY(${pending}::text[])`,
+        this.prisma.$queryRaw<
+          {
+            parentRecipeId: string;
+            subRecipeId: string;
+            quantity: number;
+            unit: string;
+          }[]
+        >`
+          SELECT "parentRecipeId", "subRecipeId", quantity::float8 AS quantity, unit
+          FROM recipe_sub_recipes
+          WHERE "parentRecipeId" = ANY(${pending}::text[])`,
+      ]);
+      for (const r of rows) {
+        recipes.set(r.id, {
+          portions: r.portions,
+          portionSize: r.portionSize,
+          storedTotalCost: r.totalCost,
+          storedTotalCostPerUnit: r.totalCostPerUnit,
+          ingredients: [],
+          subRecipes: [],
+        });
+      }
+      for (const i of ingredients) {
+        recipes.get(i.recipeId)?.ingredients.push(i);
+      }
+      // Solo las líneas de recetas del tenant (las filas cargadas arriba).
+      const ownSubs = subRecipes.filter((sub) =>
+        recipes.has(sub.parentRecipeId),
+      );
+      for (const sub of ownSubs) {
+        recipes.get(sub.parentRecipeId)!.subRecipes.push(sub);
+      }
+      pending = [
+        ...new Set(
+          ownSubs
+            .map((sub) => sub.subRecipeId)
+            .filter((id) => !recipes.has(id)),
+        ),
+      ];
+    }
+
+    const productIds = [
+      ...new Set(
+        [...recipes.values()].flatMap((r) =>
+          r.ingredients.map((i) => i.productId),
+        ),
+      ),
+    ];
+    const products =
+      productIds.length > 0
+        ? await this.prisma.$queryRaw<(LiveCostProduct & { id: string })[]>`
+            SELECT id,
+                   "purchasePrice"::float8 AS "purchasePrice",
+                   "unitSize"::float8 AS "unitSize",
+                   "referenceUnit",
+                   "discountPercentage"::float8 AS "discountPercentage",
+                   "wastePercentage"::float8 AS "wastePercentage"
+            FROM products
+            WHERE id = ANY(${productIds}::text[]) AND "tenantId" = ${tenantId}`
+        : [];
+    return computeLiveCosts(recipes, new Map(products.map((p) => [p.id, p])));
+  }
+
+  /**
+   * Reescribe el totalCost/totalCostPerUnit guardado de las recetas activas
+   * con los precios de hoy. Lo leen menús, asistente, fichas y escandallos;
+   * Recetas («Costo») y Gestión calculan en vivo. SQL crudo en la escritura
+   * para no tocar updatedAt: no es una edición del usuario.
+   */
+  async recalculateStoredCosts(): Promise<{ updated: number }> {
     const recipes = await this.prisma.recipe.findMany({
       where: { deletedAt: null },
       select: {
         id: true,
         tenantId: true,
-        name: true,
-        portions: true,
-        portionSize: true,
-        ingredients: {
-          select: { productId: true, quantity: true, unit: true },
-        },
-        subRecipes: {
-          select: { subRecipeId: true, quantity: true, unit: true },
-        },
+        totalCost: true,
+        totalCostPerUnit: true,
       },
     });
-    const byId = new Map(recipes.map((r) => [r.id, r]));
-    const depth = new Map<string, number>();
-    const depthOf = (id: string, seen: Set<string>): number => {
-      const known = depth.get(id);
-      if (known !== undefined) {
-        return known;
-      }
-      const recipe = byId.get(id);
-      if (!recipe || seen.has(id)) {
-        return 0;
-      }
-      seen.add(id);
-      const d = recipe.subRecipes.reduce(
-        (max, sub) => Math.max(max, depthOf(sub.subRecipeId, seen) + 1),
-        0,
-      );
-      depth.set(id, d);
-      return d;
-    };
-    recipes.forEach((r) => depthOf(r.id, new Set()));
-    recipes.sort((a, b) => (depth.get(a.id) ?? 0) - (depth.get(b.id) ?? 0));
-
+    const byTenant = new Map<string, typeof recipes>();
+    for (const r of recipes) {
+      byTenant.set(r.tenantId, [...(byTenant.get(r.tenantId) ?? []), r]);
+    }
     let updated = 0;
-    const failed: string[] = [];
-    for (const recipe of recipes) {
-      try {
-        const { totalCost, costPerUnit } = await this.calculateCost(
-          recipe.tenantId,
-          recipe.ingredients,
-          recipe.subRecipes,
-          recipe.portions,
-          recipe.portionSize,
-        );
+    for (const [tenantId, list] of byTenant) {
+      const live = await this.liveCosts(
+        tenantId,
+        list.map((r) => r.id),
+      );
+      for (const r of list) {
+        const cost = live.get(r.id);
+        if (
+          !cost ||
+          (Math.abs(cost.totalCost - r.totalCost) < 1e-6 &&
+            Math.abs(cost.totalCostPerUnit - r.totalCostPerUnit) < 1e-9)
+        ) {
+          continue;
+        }
         await this.prisma.$executeRaw`
           UPDATE recipes
-          SET "totalCost" = ${totalCost}, "totalCostPerUnit" = ${costPerUnit}
-          WHERE id = ${recipe.id}
+          SET "totalCost" = ${cost.totalCost}, "totalCostPerUnit" = ${cost.totalCostPerUnit}
+          WHERE id = ${r.id}
         `;
         updated += 1;
-      } catch (error) {
-        failed.push(`${recipe.name}: ${(error as Error).message}`);
       }
     }
-    return { updated, failed };
+    return { updated };
+  }
+
+  /** Cada noche, para quien lee el coste guardado de la receta. */
+  @Cron("30 4 * * *", { timeZone: "Europe/Madrid" })
+  async refreshStoredCostsNightly(): Promise<void> {
+    try {
+      const { updated } = await this.recalculateStoredCosts();
+      this.logger.log(`Costes de receta actualizados: ${updated}`);
+    } catch (error) {
+      this.logger.error(
+        `No se pudieron actualizar los costes de receta: ${(error as Error).message}`,
+      );
+    }
   }
 
   private async calculateCost(
@@ -933,30 +1048,16 @@ export class RecipesService {
       ingredientsCost += ingredient.quantity * costPerUnit;
     }
 
-    // Mismo motivo que el fetch de productos: $queryRaw para saltar el
-    // middleware de soft-delete. Una sub-receta dada de baja sigue teniendo
-    // totalCost/totalCostPerUnit válidos, así que debe poder costearse.
-    // Se mantiene el alcance por tenant; un id inexistente o de otro tenant
-    // sigue ausente del mapa y lanza NotFoundException abajo.
-    const subRecipeIds = subRecipes.map((sub) => sub.subRecipeId);
-    const subRecipeDataList =
-      subRecipeIds.length > 0
-        ? ((await this.prisma.$queryRaw`
-            SELECT id,
-                   "totalCost"::float8        AS "totalCost",
-                   "totalCostPerUnit"::float8 AS "totalCostPerUnit",
-                   "portions"::float8         AS "portions"
-            FROM recipes
-            WHERE id = ANY(${subRecipeIds}::text[])
-              AND "tenantId" = ${tenantId}
-          `) as Array<{
-            id: string;
-            totalCost: number;
-            totalCostPerUnit: number;
-            portions: number;
-          }>)
-        : [];
-    const subRecipeMap = new Map(subRecipeDataList.map((r: any) => [r.id, r]));
+    // Sub-recetas con su coste de hoy (bajando por las suyas), no con el
+    // guardado. Una sub-receta dada de baja se sigue pudiendo costear; un id
+    // inexistente o de otro tenant falta del mapa y lanza NotFoundException.
+    const subRecipeMap =
+      subRecipes.length > 0
+        ? await this.liveCosts(
+            tenantId,
+            subRecipes.map((sub) => sub.subRecipeId),
+          )
+        : new Map<string, LiveCost>();
 
     // Calcular costos de sub-recetas (recursivo)
     for (const subRecipe of subRecipes) {
@@ -1000,11 +1101,7 @@ export class RecipesService {
     portions: number,
     portionSize: number,
   ): number {
-    const totalYield = (portions || 1) * (portionSize || 0);
-    if (totalYield > 0) {
-      return totalCost / totalYield;
-    }
-    return portions > 0 ? totalCost / portions : totalCost;
+    return costPerYieldUnit(totalCost, portions, portionSize);
   }
 
   /**
@@ -1128,7 +1225,17 @@ export class RecipesService {
   private async formatRecipeResponse(
     recipe: any,
     includeCost = true,
+    /** Coste de hoy de sus sub-recetas; si falta, se calcula aquí. */
+    subRecipeCosts?: Map<string, LiveCost>,
   ): Promise<RecipeResponse> {
+    const subCosts =
+      subRecipeCosts ??
+      (recipe.subRecipes?.length && includeCost
+        ? await this.liveCosts(
+            recipe.tenantId,
+            recipe.subRecipes.map((sub: any) => sub.subRecipeId),
+          )
+        : new Map<string, LiveCost>());
     const ingredients: IngredientResponse[] =
       recipe.ingredients?.map((ing: any) => {
         const product = ing.product;
@@ -1178,9 +1285,14 @@ export class RecipesService {
         subRecipeName: sub.subRecipe.name,
         quantity: sub.quantity,
         unit: sub.unit,
-        totalCost: sub.subRecipe.totalCost,
-        costPerUnit: sub.subRecipe.totalCostPerUnit,
-        cost: calculateSubRecipeCost(sub.quantity, sub.unit, sub.subRecipe),
+        totalCost: (subCosts.get(sub.subRecipeId) ?? sub.subRecipe).totalCost,
+        costPerUnit: (subCosts.get(sub.subRecipeId) ?? sub.subRecipe)
+          .totalCostPerUnit,
+        cost: calculateSubRecipeCost(
+          sub.quantity,
+          sub.unit,
+          subCosts.get(sub.subRecipeId) ?? sub.subRecipe,
+        ),
         note: sub.note ?? null,
       })) || [];
 

@@ -10,7 +10,7 @@ import { Pencil, Trash2, UserRound } from 'lucide-react';
 import UserModal from './components/user-modal';
 import { TeamPositionsTab } from './components/team-positions-tab';
 import { CheckInEmployeesWithoutAccount } from './components/check-in-employees-without-account';
-import { useEmployees, usePresence } from '@/hooks/use-check-in';
+import { useEmployees, usePresence, useUpdateEmployee } from '@/hooks/use-check-in';
 import { useQueryClient } from '@tanstack/react-query';
 import { UserActiveSwitch } from './components/user-active-switch';
 import { formatWeeklyHours } from '@/lib/check-in-punch';
@@ -70,6 +70,34 @@ function CheckInHoursCell({ userId }: { userId: string }) {
     <span className="text-sm text-[var(--on-surface-variant)]">
       {employee ? formatWeeklyHours(employee.weeklyHours, ' h/sem') : 'Sin ficha'}
     </span>
+  );
+}
+
+/** Interruptor «Ficha»: desmarcado, la persona no sale en el kiosco ni ficha desde su cuenta. */
+function CheckInPunchSwitchCell({ userId, name }: { userId: string; name: string }) {
+  const addNotification = useNotification();
+  const { data: employees } = useEmployees(true);
+  const update = useUpdateEmployee();
+  const employee = employees?.find((e) => e.userId === userId);
+  if (!employees) return null;
+  if (!employee) {
+    return <span className="text-sm text-[var(--on-surface-variant)]">Sin ficha</span>;
+  }
+  return (
+    <UserActiveSwitch
+      name={name}
+      active={employee.punchEnabled}
+      labels={{ on: 'Ficha', off: 'No ficha' }}
+      ariaLabel={`${employee.punchEnabled ? 'Quitar el fichaje a' : 'Permitir fichar a'} ${name}`}
+      disabled={update.isPending}
+      onToggle={async () => {
+        try {
+          await update.mutateAsync({ id: employee.id, data: { punchEnabled: !employee.punchEnabled } });
+        } catch (error: unknown) {
+          addNotification({ type: 'error', title: 'No se pudo guardar', message: error instanceof Error ? error.message : '' });
+        }
+      }}
+    />
   );
 }
 
@@ -242,7 +270,7 @@ function EmployeesContent() {
 
   // Tabla de cuentas: personas (con su contrato de Fichar) o dispositivos compartidos.
   const renderTable = (rows: User[], showContract: boolean, emptyText: string) => {
-    const colSpan = showContract ? 8 : 7;
+    const colSpan = showContract ? 9 : 7;
     return (
       <div className={tableCardClass}>
         <div className={tableScrollClass}>
@@ -255,6 +283,7 @@ function EmployeesContent() {
                 <th className={thBaseClass}>Puesto</th>
                 {showContract && <th className={thBaseClass}>Contrato</th>}
                 <th className={thBaseClass}>Estado</th>
+                {showContract && <th className={thBaseClass}>Ficha</th>}
                 <th className={thBaseClass}>Fecha de creación</th>
                 <th className={thActionsClass}>Acciones</th>
               </tr>
@@ -310,6 +339,11 @@ function EmployeesContent() {
                     onToggle={() => handleToggleStatus(targetUser)}
                   />
                 </td>
+                {showContract && (
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <CheckInPunchSwitchCell userId={targetUser.id} name={targetUser.name} />
+                  </td>
+                )}
                 <td className={tdBaseClass}>
                   {new Date(targetUser.createdAt).toLocaleDateString()}
                 </td>

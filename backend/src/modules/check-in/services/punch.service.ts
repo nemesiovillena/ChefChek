@@ -31,11 +31,6 @@ import {
   statusAfter,
 } from "./punch-state.util";
 import { currentPositionTitles } from "../../users/current-position-titles";
-import {
-  EMPLOYEE_ROLE_CAN_PUNCH_WHERE,
-  ROLE_PUNCH_DENIED,
-  roleCanPunch,
-} from "./punch-roles.util";
 
 /** Sesión desde la que se ficha. */
 export interface PunchActor {
@@ -49,6 +44,8 @@ const fullName = (employee: Pick<Employee, "firstName" | "lastName">) =>
   `${employee.firstName} ${employee.lastName}`.trim();
 
 const MAX_USABLE_ACCURACY_M = 500;
+
+const PUNCH_DISABLED = "Esta persona no ficha.";
 
 const PERSONAL_PUNCH_DENIED =
   "Tu cuenta no tiene permiso para fichar. Ficha en la pantalla del local.";
@@ -180,8 +177,8 @@ export class PunchService {
       }
     }
 
-    if (!(await this.employeeRoleCanPunch(employee))) {
-      throw new ForbiddenException(ROLE_PUNCH_DENIED);
+    if (!employee.punchEnabled) {
+      throw new ForbiddenException(PUNCH_DISABLED);
     }
     if (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) {
       throw new ForbiddenException(PERSONAL_PUNCH_DENIED);
@@ -323,7 +320,7 @@ export class PunchService {
     // perderlo): se guarda igualmente para no perder jornada, y gerencia decide.
     if (
       (source === PunchSource.PERSONAL && !employee.allowPersonalPunch) ||
-      !(await this.employeeRoleCanPunch(employee))
+      !employee.punchEnabled
     ) {
       review.push("SIN_PERMISO");
     }
@@ -581,9 +578,7 @@ export class PunchService {
     });
     const last = await this.lastEffective(tenantId, employee.id);
     const status = statusAfter(last?.type);
-    const canPunch =
-      employee.allowPersonalPunch &&
-      (await this.employeeRoleCanPunch(employee));
+    const canPunch = employee.punchEnabled && employee.allowPersonalPunch;
 
     return {
       readiness,
@@ -636,7 +631,8 @@ export class PunchService {
       ? await this.listWithStatus(tenantId, {
           isActive: true,
           locations: { some: { locationId: center.id } },
-          ...EMPLOYEE_ROLE_CAN_PUNCH_WHERE,
+          // Quien no ficha no sale en el kiosco.
+          punchEnabled: true,
         })
       : [];
     return {
@@ -736,20 +732,6 @@ export class PunchService {
       new Date(Date.now() - STATUS_WINDOW_MS),
     );
     return timeline.get(employeeId)?.at(-1);
-  }
-
-  /** Gerencia, Gestión y User Cuiner no fichan; una ficha sin cuenta, sí. */
-  private async employeeRoleCanPunch(
-    employee: Pick<Employee, "userId">,
-  ): Promise<boolean> {
-    if (!employee.userId) {
-      return true;
-    }
-    const user = await this.prisma.user.findUnique({
-      where: { id: employee.userId },
-      select: { role: true },
-    });
-    return roleCanPunch(user?.role);
   }
 
   private async findOwnEmployee(tenantId: string, userId: string) {

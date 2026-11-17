@@ -3585,6 +3585,8 @@ model Employee {
   // Si puede fichar desde su propia cuenta (móvil/web). Sin permiso solo
   // ficha en el kiosco del local. Lo decide gerencia persona a persona.
   allowPersonalPunch   Boolean   @default(true)
+  /// Ficha (kiosco y su cuenta). Desmarcado: no sale en el kiosco ni puede fichar.
+  punchEnabled         Boolean   @default(true)
   isActive             Boolean   @default(true)
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt

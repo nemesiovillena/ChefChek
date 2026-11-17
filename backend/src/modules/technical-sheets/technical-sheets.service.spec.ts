@@ -1,3 +1,4 @@
+import { RecipesService } from "../recipes/recipes.service";
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import PDFDocument from "pdfkit";
@@ -139,6 +140,11 @@ describe("TechnicalSheetsService", () => {
           useValue: (mockRoleAccess = {
             isSectionAllowed: jest.fn().mockResolvedValue(true),
           }),
+        },
+        {
+          // Sin coste de hoy: las recetas usan el guardado del fixture.
+          provide: RecipesService,
+          useValue: { liveCosts: jest.fn().mockResolvedValue(new Map()) },
         },
       ],
     }).compile();
