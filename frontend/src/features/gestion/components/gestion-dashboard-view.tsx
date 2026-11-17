@@ -7,26 +7,14 @@ import { type CompareMode, type DateRange, useGestionDashboard } from '../api/ge
 import { formatDay, formatEuros, formatQty } from '../gestion-format';
 import { KpiCard } from './kpi-card';
 import { PeriodPicker } from './period-picker';
-import { RankedBars } from './ranked-bars';
+import { PagedRankedBars } from './paged-ranked-bars';
 import { SalesEvolutionChart } from './sales-evolution-chart';
 
-const FAMILY_ROWS = 9;
-
-/** Las 9 familias que más venden y el resto sumado en «Otras familias» (sin las de 0 €). */
-function topFamilies(families: { family: string; total: number; share: number }[]) {
-  const withSales = families.filter((f) => f.total > 0);
-  const top = withSales.slice(0, FAMILY_ROWS);
-  const rest = withSales.slice(FAMILY_ROWS);
-  const rows = top.map((f) => ({ key: f.family, label: f.family, total: f.total, share: f.share }));
-  if (rest.length > 0) {
-    rows.push({
-      key: '__otras',
-      label: `Otras familias (${rest.length})`,
-      total: Math.round(rest.reduce((n, f) => n + f.total, 0) * 100) / 100,
-      share: Math.round(rest.reduce((n, f) => n + f.share, 0) * 100) / 100,
-    });
-  }
-  return rows.map((r) => ({ ...r, detail: `${r.share.toLocaleString('es-ES')} %` }));
+/** Cada familia por separado (sin las de 0 €), con su % del total. */
+function familyRows(families: { family: string; total: number; share: number }[]) {
+  return families
+    .filter((f) => f.total > 0)
+    .map((f) => ({ key: f.family, label: f.family, total: f.total, detail: `${f.share.toLocaleString('es-ES')} %` }));
 }
 
 const cardCls = 'rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4';
@@ -38,6 +26,8 @@ export function GestionDashboardView() {
   const [range, setRange] = useState<DateRange>(() => presetRange('thisMonth'));
   const [compare, setCompare] = useState<CompareMode>('year');
   const valid = range.from <= range.to;
+  // Al cambiar de periodo, los rankings vuelven a su página 1.
+  const rangeKey = `${range.from}_${range.to}`;
   const { data, isLoading, isFetching, error } = useGestionDashboard(range, compare, valid);
 
   const compareLabel = compare === 'year' ? 'Año anterior' : 'Periodo anterior';
@@ -153,8 +143,10 @@ export function GestionDashboardView() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className={cardCls}>
               <div className={sectionTitle}>Platos más vendidos</div>
-              <RankedBars
+              <PagedRankedBars
+                key={rangeKey}
                 emptyText="Sin ventas en este periodo."
+                pageEmptyLabel="Sin platos"
                 items={data.topDishes.map((d) => ({
                   key: d.key,
                   label: d.name,
@@ -165,9 +157,11 @@ export function GestionDashboardView() {
             </div>
             <div className={cardCls}>
               <div className={sectionTitle}>Ventas por familia</div>
-              <RankedBars
+              <PagedRankedBars
+                key={rangeKey}
                 emptyText="Sin ventas en este periodo."
-                items={topFamilies(data.families)}
+                pageEmptyLabel="Sin familias"
+                items={familyRows(data.families)}
               />
             </div>
           </div>
