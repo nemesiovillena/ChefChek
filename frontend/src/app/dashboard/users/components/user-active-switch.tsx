@@ -5,16 +5,26 @@ interface UserActiveSwitchProps {
   active: boolean;
   disabled?: boolean;
   onToggle: () => void;
+  /** Textos del estado encendido/apagado (por defecto Activo/Desactivado). */
+  labels?: { on: string; off: string };
+  ariaLabel?: string;
 }
 
 /** Interruptor Activo/Desactivado de una persona o dispositivo en Equipo. */
-export function UserActiveSwitch({ name, active, disabled, onToggle }: UserActiveSwitchProps) {
+export function UserActiveSwitch({
+  name,
+  active,
+  disabled,
+  onToggle,
+  labels = { on: 'Activo', off: 'Desactivado' },
+  ariaLabel,
+}: UserActiveSwitchProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={active}
-      aria-label={`${active ? 'Desactivar' : 'Activar'} a ${name}`}
+      aria-label={ariaLabel ?? `${active ? 'Desactivar' : 'Activar'} a ${name}`}
       disabled={disabled}
       onClick={onToggle}
       className="inline-flex min-h-[44px] items-center gap-2 rounded-full pr-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
@@ -31,7 +41,7 @@ export function UserActiveSwitch({ name, active, disabled, onToggle }: UserActiv
         />
       </span>
       <span className={active ? 'text-green-700 dark:text-green-400' : 'text-[var(--on-surface-variant)]'}>
-        {active ? 'Activo' : 'Desactivado'}
+        {active ? labels.on : labels.off}
       </span>
     </button>
   );

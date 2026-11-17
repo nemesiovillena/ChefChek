@@ -174,6 +174,10 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsBoolean()
   allowPersonalPunch?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  punchEnabled?: boolean;
 }
 
 export class SetEmployeePinDto {

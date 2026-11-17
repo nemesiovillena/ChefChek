@@ -265,6 +265,7 @@ export class EmployeesService {
           ),
           isActive: dto.isActive,
           allowPersonalPunch: dto.allowPersonalPunch,
+          punchEnabled: dto.punchEnabled,
         },
         include: EMPLOYEE_INCLUDE,
       });
