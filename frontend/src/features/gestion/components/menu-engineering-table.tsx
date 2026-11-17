@@ -17,7 +17,7 @@ export function MenuEngineeringTable({ data, canOpenRecipes }: { data: MenuEngin
   const level = (high: boolean) => (high ? 'Alta' : 'Baja');
   const nameCell = (name: string, recipeId: string | null) =>
     canOpenRecipes && recipeId ? (
-      <Link href={`/dashboard/recipes?recipe=${recipeId}`} className="underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]">
+      <Link href={`/dashboard/recipes?recipe=${recipeId}&view=cost`} className="underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]">
         {name}
       </Link>
     ) : (

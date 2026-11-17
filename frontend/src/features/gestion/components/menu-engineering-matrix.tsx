@@ -112,7 +112,7 @@ function QuadrantCard({ menuClass, rows, canOpenRecipes }: { menuClass: MenuClas
             <li key={r.key} className="flex flex-wrap items-baseline justify-between gap-x-2">
               <span className="min-w-0 text-[var(--on-surface)]">
                 {canOpenRecipes && r.recipeId ? (
-                  <Link href={`/dashboard/recipes?recipe=${r.recipeId}`} className="underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]">
+                  <Link href={`/dashboard/recipes?recipe=${r.recipeId}&view=cost`} className="underline decoration-dotted underline-offset-2 hover:text-[var(--primary)]">
                     {r.name}
                   </Link>
                 ) : (
