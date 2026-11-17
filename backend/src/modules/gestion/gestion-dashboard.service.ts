@@ -191,7 +191,7 @@ export class GestionDashboardService {
       LEFT JOIN cuiner_dishes d
         ON d."tenantId" = s."tenantId" AND d.tipo = s.tipo AND d.producto = s.producto
       WHERE ${inRange(tenantId, range)} AND ${CHARGED}
-      GROUP BY 1, 2 ORDER BY total DESC, units DESC LIMIT 10`;
+      GROUP BY 1, 2 ORDER BY total DESC, units DESC`;
     return rows.map((r) => ({
       ...r,
       units: cents(r.units),
