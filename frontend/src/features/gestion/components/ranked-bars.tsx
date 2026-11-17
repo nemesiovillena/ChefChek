@@ -1,6 +1,6 @@
 import { formatEuros } from '../gestion-format';
 
-interface Item {
+export interface RankedItem {
   key: string;
   label: string;
   total: number;
@@ -12,8 +12,17 @@ interface Item {
  * Lista ordenada con barra proporcional (un solo color: magnitud, no identidad).
  * Sirve para platos más vendidos y reparto por familia.
  */
-export function RankedBars({ items, emptyText }: { items: Item[]; emptyText: string }) {
-  const max = Math.max(...items.map((i) => i.total), 0);
+export function RankedBars({
+  items,
+  emptyText,
+  max: maxOverride,
+}: {
+  items: RankedItem[];
+  emptyText: string;
+  /** Máximo de referencia para las barras; al paginar, el de toda la lista (no el de la página). */
+  max?: number;
+}) {
+  const max = maxOverride ?? Math.max(...items.map((i) => i.total), 0);
   if (items.length === 0) {
     return <p className="py-6 text-center text-sm text-[var(--on-surface-variant)]">{emptyText}</p>;
   }
