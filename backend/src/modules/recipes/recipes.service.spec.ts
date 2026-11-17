@@ -65,6 +65,42 @@ describe("RecipesService", () => {
     tenantId,
   };
 
+  /**
+   * Responde a las consultas crudas de liveCosts/calculateCost según la
+   * tabla que leen, filtrando por los ids pedidos.
+   */
+  const routeRawQueries = (data: {
+    recipes?: any[];
+    ingredients?: any[];
+    subRecipes?: any[];
+    products?: any[];
+  }) => {
+    mockPrismaService.$queryRaw.mockImplementation(
+      (strings: string[], ...values: any[]) => {
+        const sql = strings.join("");
+        const ids: string[] = Array.isArray(values[0]) ? values[0] : [];
+        if (sql.includes("FROM recipe_ingredients")) {
+          return Promise.resolve(
+            (data.ingredients ?? []).filter((i) => ids.includes(i.recipeId)),
+          );
+        }
+        if (sql.includes("FROM recipe_sub_recipes")) {
+          return Promise.resolve(
+            (data.subRecipes ?? []).filter((r) =>
+              ids.includes(r.parentRecipeId),
+            ),
+          );
+        }
+        if (sql.includes("FROM recipes")) {
+          return Promise.resolve(
+            (data.recipes ?? []).filter((r) => ids.includes(r.id)),
+          );
+        }
+        return Promise.resolve(data.products ?? []);
+      },
+    );
+  };
+
   // 100 g × 0,01 €/g = 1 € de coste de ingredientes
   const mockIngredient = {
     id: "ingredient-1",
@@ -306,16 +342,27 @@ describe("RecipesService", () => {
 
     it("should allow the same sub-recipe repeated in two lines and sum their cost", async () => {
       mockPrismaService.recipe.create.mockResolvedValue(mockRecipe);
-      mockPrismaService.$queryRaw
-        .mockResolvedValueOnce([]) // productos (sin ingredientes)
-        .mockResolvedValueOnce([
+      // Coste guardado viejo (999): manda el de hoy, 2 kg × 10 €/kg = 20 €.
+      routeRawQueries({
+        recipes: [
           {
             id: "sub-recipe-1",
-            totalCost: 20,
-            totalCostPerUnit: 0.2,
             portions: 4,
+            portionSize: 100,
+            totalCost: 999,
+            totalCostPerUnit: 9.99,
           },
-        ]);
+        ],
+        ingredients: [
+          {
+            recipeId: "sub-recipe-1",
+            productId: "product-1",
+            quantity: 2,
+            unit: "kg",
+          },
+        ],
+        products: [mockProduct],
+      });
 
       await service.create(tenantId, {
         ...createRecipeDto,
@@ -1019,7 +1066,8 @@ describe("RecipesService", () => {
       );
     });
 
-    it("update ajeno al rendimiento (renombrar) conserva coste y rendimiento", async () => {
+    it("update ajeno al rendimiento (renombrar) conserva rendimiento y pone el coste al día", async () => {
+      mockPrismaService.$queryRaw.mockResolvedValue([mockProduct]);
       mockPrismaService.recipe.findFirst.mockResolvedValue(mockRecipe);
       mockPrismaService.recipe.update.mockResolvedValue(mockRecipe);
       mockPrismaService.recipe.findUnique.mockResolvedValue(mockRecipe);
@@ -1030,10 +1078,11 @@ describe("RecipesService", () => {
       expect(data.portions).toBe(mockRecipe.portions);
       expect(data.portionSize).toBe(mockRecipe.portionSize);
       expect(data.totalYieldWeight).toBe(mockRecipe.totalYieldWeight);
-      // coste inalterado: sin cambios en ingredientes/subRecipes se reusa recipe.totalCost
-      expect(data.totalCost).toBe(mockRecipe.totalCost);
+      // Guardar deja el coste con los precios de hoy aunque no cambien las
+      // líneas: 100 g × 0,01 €/g = 1 €, no el totalCost guardado.
+      expect(data.totalCost).toBeCloseTo(1);
       expect(data.totalCostPerUnit).toBeCloseTo(
-        mockRecipe.totalCost / (mockRecipe.portions * mockRecipe.portionSize),
+        1 / (mockRecipe.portions * mockRecipe.portionSize),
         10,
       );
     });
@@ -1258,49 +1307,70 @@ describe("RecipesService", () => {
   });
 
   describe("recalculateStoredCosts", () => {
-    it("recalcula primero las sub-recetas y después los platos que las usan", async () => {
+    it("guarda el coste de hoy, sub-recetas incluidas, solo donde ha cambiado", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([
-        {
-          id: "plato",
-          tenantId,
-          name: "Plato",
-          portions: 1,
-          portionSize: 400,
-          ingredients: [],
-          subRecipes: [{ subRecipeId: "salsa", quantity: 1, unit: "raciones" }],
-        },
-        {
-          id: "salsa",
-          tenantId,
-          name: "Salsa",
-          portions: 10,
-          portionSize: 100,
-          ingredients: [{ productId: "product-1", quantity: 1, unit: "kg" }],
-          subRecipes: [],
-        },
+        { id: "plato", tenantId, totalCost: 0, totalCostPerUnit: 0 },
+        { id: "salsa", tenantId, totalCost: 0, totalCostPerUnit: 0 },
+        { id: "al-dia", tenantId, totalCost: 5, totalCostPerUnit: 5 },
       ]);
-      mockPrismaService.$queryRaw.mockImplementation((strings: string[]) =>
-        Promise.resolve(
-          strings.join("").includes("FROM recipes")
-            ? [
-                {
-                  id: "salsa",
-                  totalCost: 10,
-                  totalCostPerUnit: 0.01,
-                  portions: 10,
-                },
-              ]
-            : [mockProduct],
-        ),
-      );
+      routeRawQueries({
+        recipes: [
+          {
+            id: "plato",
+            portions: 1,
+            portionSize: 400,
+            totalCost: 0,
+            totalCostPerUnit: 0,
+          },
+          {
+            id: "salsa",
+            portions: 10,
+            portionSize: 100,
+            totalCost: 0,
+            totalCostPerUnit: 0,
+          },
+          {
+            id: "al-dia",
+            portions: 1,
+            portionSize: 0,
+            totalCost: 5,
+            totalCostPerUnit: 5,
+          },
+        ],
+        ingredients: [
+          {
+            recipeId: "salsa",
+            productId: "product-1",
+            quantity: 1,
+            unit: "kg",
+          },
+          {
+            recipeId: "al-dia",
+            productId: "product-1",
+            quantity: 0.5,
+            unit: "kg",
+          },
+        ],
+        subRecipes: [
+          {
+            parentRecipeId: "plato",
+            subRecipeId: "salsa",
+            quantity: 1,
+            unit: "raciones",
+          },
+        ],
+        products: [mockProduct],
+      });
 
       const result = await service.recalculateStoredCosts();
 
-      expect(result).toEqual({ updated: 2, failed: [] });
-      const ids = mockPrismaService.$executeRaw.mock.calls.map((c) => c.at(-1));
-      expect(ids).toEqual(["salsa", "plato"]);
-      // Salsa: 1 kg × 10 €/kg = 10 €
-      expect(mockPrismaService.$executeRaw.mock.calls[0][1]).toBeCloseTo(10);
+      expect(result).toEqual({ updated: 2 });
+      const calls = mockPrismaService.$executeRaw.mock.calls;
+      const byId = new Map(calls.map((c) => [c.at(-1), c[1]]));
+      // Salsa: 1 kg × 10 €/kg = 10 €; plato: 1 ración de salsa = 1 €.
+      expect(byId.get("salsa")).toBeCloseTo(10);
+      expect(byId.get("plato")).toBeCloseTo(1);
+      expect(byId.has("al-dia")).toBe(false);
     });
   });
 
