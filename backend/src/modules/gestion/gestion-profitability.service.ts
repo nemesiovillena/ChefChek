@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/services/prisma.service";
 import { WorkdaysService } from "../check-in/services/workdays.service";
+import { RecipesService } from "../recipes/recipes.service";
 import {
   DateRange,
   addDays,
@@ -101,6 +102,7 @@ export class GestionProfitabilityService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly workdays: WorkdaysService,
+    private readonly recipes: RecipesService,
   ) {}
 
   async dishSales(tenantId: string, range: DateRange): Promise<DishSale[]> {
@@ -148,6 +150,15 @@ export class GestionProfitabilityService {
       LEFT JOIN serving_measures sm ON sm.id = m."servingMeasureId" AND sm."tenantId" = s."tenantId"
       WHERE ${inRange(tenantId, range)} AND ${CHARGED}
       GROUP BY s.tipo, s.producto, d.nombre, d.familia, m."noStock", r.id, p.id, sm.id`;
+    // Coste del escandallo con los precios de hoy (como «Costo» en Recetas),
+    // no el guardado en la receta, que solo se escribe al guardarla.
+    const recipeIds = [
+      ...new Set(rows.flatMap((r) => (r.recipe_id ? [r.recipe_id] : []))),
+    ];
+    const live =
+      recipeIds.length > 0
+        ? await this.recipes.liveCosts(tenantId, recipeIds)
+        : new Map<string, { totalCost: number }>();
     return rows.map((r) => ({
       key: `${r.tipo}-${r.producto}`,
       name: r.name,
@@ -163,7 +174,11 @@ export class GestionProfitabilityService {
         noStock: r.no_stock,
         recipe:
           r.total_cost !== null && r.portions !== null
-            ? { totalCost: r.total_cost, portions: r.portions }
+            ? {
+                totalCost:
+                  live.get(r.recipe_id ?? "")?.totalCost ?? r.total_cost,
+                portions: r.portions,
+              }
             : null,
         product:
           r.purchase_price !== null && r.unit_size !== null

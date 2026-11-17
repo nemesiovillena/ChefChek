@@ -1,3 +1,4 @@
+import { RecipesModule } from "../recipes/recipes.module";
 import { Module } from "@nestjs/common";
 import { TechnicalSheetsService } from "./technical-sheets.service";
 import { TechnicalSheetsController } from "./technical-sheets.controller";
@@ -5,7 +6,7 @@ import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, RecipesModule],
   controllers: [TechnicalSheetsController],
   providers: [TechnicalSheetsService],
   exports: [TechnicalSheetsService],

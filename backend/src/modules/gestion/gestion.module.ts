@@ -3,6 +3,7 @@ import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { CuinerModule } from "../cuiner/cuiner.module";
 import { CheckInModule } from "../check-in/check-in.module";
+import { RecipesModule } from "../recipes/recipes.module";
 import { GestionProfitabilityService } from "./gestion-profitability.service";
 import { GestionProfitabilityReportsService } from "./gestion-profitability-reports.service";
 import { GestionController } from "./gestion.controller";
@@ -18,7 +19,13 @@ import { GestionMenuEngineeringService } from "./gestion-menu-engineering.servic
 
 /** Gestión: ventas, caja y rentabilidad (lectura de las ventas de Cuiner). */
 @Module({
-  imports: [PrismaModule, AuthModule, CuinerModule, CheckInModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    CuinerModule,
+    CheckInModule,
+    RecipesModule,
+  ],
   controllers: [GestionController],
   providers: [
     GestionDashboardService,

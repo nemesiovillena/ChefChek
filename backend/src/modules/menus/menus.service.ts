@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
+import { RecipesService } from "../recipes/recipes.service";
 import { CreateMenuDto } from "./dto/create-menu.dto";
 import {
   MenuResponse,
@@ -15,7 +16,36 @@ import {
 
 @Injectable()
 export class MenusService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private recipes: RecipesService,
+  ) {}
+
+  /**
+   * Pone en cada plato de los menús el coste de hoy de su receta (precios
+   * actuales, sub-recetas incluidas) en vez del totalCost guardado.
+   */
+  private async applyLiveRecipeCosts(
+    tenantId: string,
+    menus: any[],
+  ): Promise<void> {
+    const items = menus.flatMap((m) =>
+      (m?.sections ?? []).flatMap((section: any) => section.items ?? []),
+    );
+    const ids = items
+      .filter((item: any) => item.recipe)
+      .map((item: any) => item.recipeId);
+    if (ids.length === 0) {
+      return;
+    }
+    const live = await this.recipes.liveCosts(tenantId, ids);
+    for (const item of items) {
+      const cost = live.get(item.recipeId);
+      if (cost && item.recipe) {
+        item.recipe.totalCost = cost.totalCost;
+      }
+    }
+  }
 
   async create(
     tenantId: string,
@@ -39,6 +69,7 @@ export class MenusService {
 
     // Calcular costos del menú
     const costBreakdown = await this.calculateCostFromSections(
+      tenantId,
       sections,
       portions,
     );
@@ -98,7 +129,7 @@ export class MenusService {
     });
 
     // Actualizar precios de items si no se proporcionaron
-    await this.updateItemPrices(menu.id);
+    await this.updateItemPrices(tenantId, menu.id);
 
     // Recargar con precios actualizados
     const updatedMenu = await this.prisma.menu.findUnique({
@@ -118,6 +149,7 @@ export class MenusService {
       },
     });
 
+    await this.applyLiveRecipeCosts(tenantId, [updatedMenu]);
     return this.formatMenuResponse(updatedMenu, costBreakdown);
   }
 
@@ -159,6 +191,7 @@ export class MenusService {
       orderBy: { createdAt: "desc" },
     });
 
+    await this.applyLiveRecipeCosts(tenantId, menus);
     return menus.map((menu) => {
       const costBreakdown = this.calculateMenuCostResponse(menu);
       return this.formatMenuResponse(menu, costBreakdown);
@@ -187,6 +220,7 @@ export class MenusService {
       throw new NotFoundException(`Menu with ID ${id} not found`);
     }
 
+    await this.applyLiveRecipeCosts(tenantId, [menu]);
     const costBreakdown = this.calculateMenuCostResponse(menu);
     return this.formatMenuResponse(menu, costBreakdown);
   }
@@ -196,13 +230,18 @@ export class MenusService {
     id: string,
     updateMenuDto: Partial<CreateMenuDto>,
   ): Promise<MenuResponse> {
+    // Con sus platos: sin ellos el coste del menú no se puede calcular.
     const menu = await this.prisma.menu.findFirst({
       where: { id, tenantId },
+      include: {
+        sections: { include: { items: { include: { recipe: true } } } },
+      },
     });
 
     if (!menu) {
       throw new NotFoundException(`Menu with ID ${id} not found`);
     }
+    await this.applyLiveRecipeCosts(tenantId, [menu]);
 
     const {
       name = menu.name,
@@ -225,7 +264,11 @@ export class MenusService {
     // Recalcular costos si hay cambios en secciones
     let costBreakdown = this.calculateMenuCostResponse(menu);
     if (sections) {
-      costBreakdown = await this.calculateCostFromSections(sections, portions);
+      costBreakdown = await this.calculateCostFromSections(
+        tenantId,
+        sections,
+        portions,
+      );
     }
 
     const updatedMenu = await this.prisma.menu.update({
@@ -284,6 +327,7 @@ export class MenusService {
       },
     });
 
+    await this.applyLiveRecipeCosts(tenantId, [finalMenu]);
     return this.formatMenuResponse(finalMenu, costBreakdown);
   }
 
@@ -325,6 +369,7 @@ export class MenusService {
       throw new NotFoundException(`Menu with ID ${id} not found`);
     }
 
+    await this.applyLiveRecipeCosts(tenantId, [menu]);
     return this.calculateMenuCostResponse(menu);
   }
 
@@ -352,9 +397,16 @@ export class MenusService {
   }
 
   private async calculateCostFromSections(
+    tenantId: string,
     sections: any[],
     portions: number,
   ): Promise<MenuCostBreakdown> {
+    const live = await this.recipes.liveCosts(
+      tenantId,
+      sections.flatMap((section) =>
+        section.items.map((item: any) => item.recipeId),
+      ),
+    );
     let totalCost = 0;
     let totalPrice = 0;
     let totalItems = 0;
@@ -371,8 +423,8 @@ export class MenusService {
           );
         }
 
-        const cost = recipe.totalCost;
-        const price = item.price || recipe.totalCost * 1.3; // 30% margen por defecto
+        const cost = live.get(recipe.id)?.totalCost ?? recipe.totalCost;
+        const price = item.price || cost * 1.3; // 30% margen por defecto
 
         totalCost += cost;
         totalPrice += price;
@@ -471,7 +523,10 @@ export class MenusService {
     }
   }
 
-  private async updateItemPrices(menuId: string): Promise<void> {
+  private async updateItemPrices(
+    tenantId: string,
+    menuId: string,
+  ): Promise<void> {
     const menu = await this.prisma.menu.findUnique({
       where: { id: menuId },
       include: {
@@ -495,7 +550,9 @@ export class MenusService {
           });
 
           if (recipe) {
-            const price = recipe.totalCost * 1.3; // 30% margen
+            const live = await this.recipes.liveCosts(tenantId, [recipe.id]);
+            const cost = live.get(recipe.id)?.totalCost ?? recipe.totalCost;
+            const price = cost * 1.3; // 30% margen
             await this.prisma.menuItem.update({
               where: { id: item.id },
               data: { price },
