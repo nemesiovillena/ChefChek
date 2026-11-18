@@ -23,6 +23,7 @@ import {
   type PortionCounter,
 } from '@/hooks/use-raciones';
 import { PortionDishLinker } from './portion-dish-linker';
+import { PortionCounterChangeSourceDialog } from './portion-counter-change-source-dialog';
 
 interface Props {
   counter: PortionCounter;
@@ -64,6 +65,7 @@ export function PortionCounterDetailDialog({ counter, categories, canManage, onC
   const [minPortions, setMinPortions] = useState(String(counter.minPortions));
   const [pendingDishes, setPendingDishes] = useState(0);
   const [category, setCategory] = useState(counter.category ?? '');
+  const [changingSource, setChangingSource] = useState(false);
 
   const fail = (err: unknown) =>
     addNotification({
@@ -155,6 +157,22 @@ export function PortionCounterDetailDialog({ counter, categories, canManage, onC
             {counter.unlabeledPortions > 0 &&
               ` (${fmtPortions(counter.unlabeledPortions)} contadas a mano sin etiqueta)`}
           </DialogDescription>
+          {/* Qué etiquetas suman: si no coincide con lo que se etiqueta, no pide raciones. */}
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-[var(--on-surface-variant)]">
+              Suman las etiquetas de{' '}
+              {counter.recipeId ? 'la receta (elaborado)' : 'el artículo (manipulado)'}
+            </span>
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setChangingSource(true)}
+                className="min-h-[44px] rounded-lg border border-[var(--outline-variant)] px-3 text-sm hover:bg-[var(--surface-container-high)]"
+              >
+                Cambiar receta o artículo
+              </button>
+            )}
+          </div>
         </DialogHeader>
 
         {isLoading || !data ? (
@@ -334,6 +352,12 @@ export function PortionCounterDetailDialog({ counter, categories, canManage, onC
           </Button>
         </DialogFooter>
       </DialogContent>
+      {changingSource && (
+        <PortionCounterChangeSourceDialog
+          counter={counter}
+          onClose={() => setChangingSource(false)}
+        />
+      )}
     </Dialog>
   );
 }

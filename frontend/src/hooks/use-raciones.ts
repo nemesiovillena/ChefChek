@@ -210,7 +210,18 @@ export function useCreatePortionCounter() {
 
 export function useUpdatePortionCounter() {
   return usePortionMutation(
-    ({ id, ...input }: { id: string; name?: string; minPortions?: number; active?: boolean; category?: string }) =>
+    ({
+      id,
+      ...input
+    }: {
+      id: string;
+      name?: string;
+      minPortions?: number;
+      active?: boolean;
+      category?: string;
+      recipeId?: string;
+      productId?: string;
+    }) =>
       apiClient.patch(`/v1/raciones/${id}`, input),
   );
 }
