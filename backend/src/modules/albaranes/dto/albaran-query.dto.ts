@@ -56,6 +56,13 @@ export class AlbaranQueryDto {
   @IsDateString()
   olderThan?: string;
 
+  /** Solo albaranes sin pedido vinculado (para vincularlos desde un pedido). */
+  @ApiPropertyOptional({ description: "Solo albaranes sin pedido vinculado" })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  unlinked?: boolean;
+
   @ApiPropertyOptional({ description: "Buscar por número o descripción" })
   @IsOptional()
   @IsString()
