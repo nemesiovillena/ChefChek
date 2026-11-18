@@ -105,6 +105,21 @@ export interface MenuEngineeringAnalysis {
     simpleMeans: { cost: number; price: number; margin: number };
     weightedMeans: { cost: number; price: number; margin: number };
   };
+  /**
+   * Todos los platos vendidos de la carta (comida o bebida), cada uno
+   * clasificado dentro de su familia; `menuClass` null = sin escandallo.
+   */
+  allDishes: {
+    key: string;
+    name: string;
+    group: string;
+    recipeId: string | null;
+    units: number;
+    revenue: number;
+    margin: number | null;
+    costPct: number | null;
+    menuClass: MenuClass | null;
+  }[];
   pareto: {
     dishes: number;
     byRevenue: { needed: number; items: ParetoItem[] };
@@ -290,6 +305,36 @@ export class GestionMenuEngineeringService {
     const avg = (f: (i: (typeof result.items)[number]) => number) =>
       n ? cents(result.items.reduce((s, i) => s + f(i), 0) / n) : 0;
 
+    // La clase de un plato se decide frente a los de su familia: popularidad y
+    // margen medio no son comparables entre, p. ej., arroces y postres.
+    const classOf = new Map<string, MenuClass>();
+    for (const groupList of byGroup.values()) {
+      const classified = classifyMenu(
+        groupList.filter((d) => d.unitCost !== null).map(toInput),
+        popularityFactor,
+      );
+      for (const i of classified.items) {
+        classOf.set(i.key, i.menuClass);
+      }
+    }
+    const allDishes = inScope
+      .map((d) => ({
+        key: d.key,
+        name: d.name,
+        group: groupOf(d.family),
+        recipeId: d.recipeId,
+        units: cents(d.paidUnits),
+        revenue: cents(d.base),
+        margin:
+          d.unitCost === null ? null : cents(d.base / d.paidUnits - d.unitCost),
+        costPct:
+          d.unitCost === null
+            ? null
+            : cents(((d.unitCost * d.paidUnits) / d.base) * 100),
+        menuClass: classOf.get(d.key) ?? null,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
+
     const paretoItems = (value: (d: DishSale) => number) => {
       const p = paretoOf(
         inScope.map((d) => ({
@@ -354,6 +399,7 @@ export class GestionMenuEngineeringService {
           margin: units ? cents((revenue - totalCost) / units) : 0,
         },
       },
+      allDishes,
       pareto: {
         dishes: inScope.length,
         byRevenue: paretoItems((d) => d.base),

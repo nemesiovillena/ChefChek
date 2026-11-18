@@ -117,6 +117,24 @@ describe("GestionMenuEngineeringService.analysis", () => {
     expect(food.matrix.withoutCost.map((d) => d.name)).toEqual(["Arroz nuevo"]);
     expect(food.matrix.rows).toHaveLength(5);
 
+    // Todos los platos de comida, cada uno con la clase de su familia.
+    expect(food.allDishes.map((d) => d.name)).toEqual([
+      "Mero",
+      "Tabarca",
+      "Bacalao",
+      "Pulpo",
+      "Boquerones",
+      "Arroz nuevo",
+    ]);
+    expect(food.allDishes.find((d) => d.name === "Arroz nuevo")).toMatchObject({
+      menuClass: null,
+      margin: null,
+    });
+    const rowClass = new Map(food.matrix.rows.map((r) => [r.key, r.menuClass]));
+    for (const d of food.allDishes.filter((x) => x.menuClass)) {
+      expect(d.menuClass).toBe(rowClass.get(d.key));
+    }
+
     const drinks = await make(dishes).analysis("t1", {
       ...RANGE,
       scope: "bebida",
