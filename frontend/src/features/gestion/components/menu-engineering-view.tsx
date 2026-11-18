@@ -13,6 +13,7 @@ import { PeriodPicker } from './period-picker';
 import { MenuEngineeringPopularityExplainer } from './menu-engineering-popularity-explainer';
 import { MenuEngineeringMatrix } from './menu-engineering-matrix';
 import { MenuEngineeringTable } from './menu-engineering-table';
+import { MenuEngineeringAllDishes } from './menu-engineering-all-dishes';
 import { MenuEngineeringPareto } from './menu-engineering-pareto';
 import { MenuEngineeringOmnes } from './menu-engineering-omnes';
 import { MenuEngineeringGrayZone } from './menu-engineering-gray-zone';
@@ -148,6 +149,16 @@ export function MenuEngineeringView() {
           {view === 'tabla' && data.group && (
             <div className={cardCls}>
               <MenuEngineeringTable data={data} canOpenRecipes={canOpenRecipes} />
+            </div>
+          )}
+          {view === 'tabla' && data.allDishes.length > 0 && (
+            <div className={cardCls}>
+              <MenuEngineeringAllDishes
+                // Otro periodo, carta o corte de popularidad: vuelve a «Todos» y página 1.
+                key={`${range.from}_${range.to}_${scope}_${factor}`}
+                dishes={data.allDishes}
+                canOpenRecipes={canOpenRecipes}
+              />
             </div>
           )}
           {view === '80-20' && (
