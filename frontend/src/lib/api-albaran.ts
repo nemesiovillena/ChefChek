@@ -83,6 +83,8 @@ export interface AlbaranFilters {
   olderThan?: string;
   /** Vista Pendientes: PENDIENTE y REVISADO (todo lo que falta por confirmar). */
   pending?: boolean;
+  /** Solo albaranes sin pedido vinculado. */
+  unlinked?: boolean;
   search?: string;
   page?: number;
   limit?: number;
@@ -139,6 +141,7 @@ export async function listAlbaranes(filters: AlbaranFilters = {}): Promise<Albar
   if (filters.dateTo) params.append('dateTo', filters.dateTo);
   if (filters.olderThan) params.append('olderThan', filters.olderThan);
   if (filters.pending) params.append('pending', 'true');
+  if (filters.unlinked) params.append('unlinked', 'true');
   if (filters.search) params.append('search', filters.search);
   if (filters.page) params.append('page', String(filters.page));
   if (filters.limit) params.append('limit', String(filters.limit));

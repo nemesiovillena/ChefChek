@@ -227,6 +227,9 @@ export class AlbaranesService {
     if (query.supplierId) {
       where.supplierId = query.supplierId;
     }
+    if (query.unlinked) {
+      where.purchaseOrderId = null;
+    }
     if (query.olderThan) {
       // Vista Archivados: archivados por estado + todos los anteriores a la
       // ventana de dos meses que marca el cliente. Se expresa como AND para
