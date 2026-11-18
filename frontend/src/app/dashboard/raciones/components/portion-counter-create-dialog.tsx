@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,11 +12,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useNotification } from '@/components/notification-system';
-import { useRecipeOptions } from '@/hooks/use-recipes';
-import { useLabelProductOptions } from '@/hooks/use-food-labels';
 import { useCreatePortionCounter } from '@/hooks/use-raciones';
-
-type Source = 'recipe' | 'product';
+import {
+  PortionCounterSourcePicker,
+  type PortionCounterSourcePick,
+} from './portion-counter-source-picker';
 
 interface Props {
   onClose: () => void;
@@ -27,9 +27,6 @@ interface Props {
 const fieldClass =
   'mt-1 w-full rounded-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-base';
 
-const fold = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
 /**
  * Alta de un contador: qué etiquetas suman (las de una receta elaborada o las
  * de un artículo manipulado) y el mínimo con el que avisar.
@@ -37,21 +34,8 @@ const fold = (s: string) =>
 export function PortionCounterCreateDialog({ onClose, onCreated }: Props) {
   const addNotification = useNotification();
   const create = useCreatePortionCounter();
-  const [source, setSource] = useState<Source>('product');
-  const [search, setSearch] = useState('');
-  const [picked, setPicked] = useState<{ id: string; name: string } | null>(null);
+  const [picked, setPicked] = useState<PortionCounterSourcePick | null>(null);
   const [minPortions, setMinPortions] = useState('3');
-
-  const recipes = useRecipeOptions();
-  const products = useLabelProductOptions(source === 'product' ? search : '');
-
-  const options = useMemo(() => {
-    if (source === 'product') return (products.data ?? []).slice(0, 30);
-    const term = fold(search.trim());
-    return (recipes.data ?? [])
-      .filter((r) => !term || fold(r.name).includes(term))
-      .slice(0, 30);
-  }, [source, search, recipes.data, products.data]);
 
   const min = Number(minPortions.replace(',', '.'));
   const valid = picked && Number.isFinite(min) && min >= 0;
@@ -60,7 +44,7 @@ export function PortionCounterCreateDialog({ onClose, onCreated }: Props) {
     if (!valid || !picked) return;
     try {
       const res = await create.mutateAsync({
-        ...(source === 'recipe' ? { recipeId: picked.id } : { productId: picked.id }),
+        ...(picked.type === 'recipe' ? { recipeId: picked.id } : { productId: picked.id }),
         minPortions: min,
       });
       const created = (res as { data: { id: string } }).data;
@@ -87,73 +71,7 @@ export function PortionCounterCreateDialog({ onClose, onCreated }: Props) {
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Qué se cuenta">
-            {(
-              [
-                ['product', 'Artículo'],
-                ['recipe', 'Receta'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={source === value}
-                onClick={() => {
-                  setSource(value);
-                  setPicked(null);
-                }}
-                className={`min-h-[44px] rounded-lg border text-sm font-semibold ${source === value ? 'border-primary bg-primary text-primary-foreground' : 'border-[var(--outline-variant)]'}`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {picked ? (
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--outline-variant)] px-3 py-2">
-              <span className="font-medium">{picked.name}</span>
-              <Button variant="ghost" size="sm" onClick={() => setPicked(null)}>
-                Cambiar
-              </Button>
-            </div>
-          ) : (
-            <div>
-              <label className="block text-sm">
-                <span className="text-[var(--on-surface-variant)]">
-                  Buscar {source === 'product' ? 'artículo' : 'receta'}
-                </span>
-                <input
-                  autoFocus
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={source === 'product' ? 'ej. lubina' : 'ej. solomillo'}
-                  className={fieldClass}
-                />
-              </label>
-              <ul className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-[var(--outline-variant)]">
-                {options.length === 0 ? (
-                  <li className="px-3 py-3 text-sm text-[var(--on-surface-variant)]">
-                    {source === 'product' && !search.trim()
-                      ? 'Escribe para buscar.'
-                      : 'Sin resultados.'}
-                  </li>
-                ) : (
-                  options.map((o) => (
-                    <li key={o.id}>
-                      <button
-                        type="button"
-                        onClick={() => setPicked({ id: o.id, name: o.name })}
-                        className="min-h-[44px] w-full border-b border-[var(--outline-variant)] px-3 text-left text-sm last:border-b-0 hover:bg-[var(--surface-container-high)]"
-                      >
-                        {o.name}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          )}
+          <PortionCounterSourcePicker value={picked} onChange={setPicked} />
 
           <label className="block text-sm">
             <span className="text-[var(--on-surface-variant)]">Avisar cuando queden</span>
