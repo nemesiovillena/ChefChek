@@ -1,8 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, CircleAlert, FileStack, Upload } from 'lucide-react';
-import type { PurchaseOrder } from '@/hooks/use-purchase-orders';
+import { useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, CircleAlert, FileStack, Link2, Upload } from 'lucide-react';
+import { type PurchaseOrder, useInvalidateOrders } from '@/hooks/use-purchase-orders';
+import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
+import { LinkExistingAlbaranDialog } from '@/components/albaranes/link-existing-albaran-dialog';
 import { normalizeUnitSymbol } from '@/lib/unit-symbols';
 
 const euro = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
@@ -79,6 +83,12 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
   const lines = order.lines ?? [];
   const albaranes = order.albaranes ?? [];
   const canUploadAlbaran = order.status === 'ENVIADO' || order.status === 'RECIBIDO_PARCIAL';
+  // Vincular pide el listado de Albaranes: sin esa sección daría 403.
+  const { canEnter } = useSectionAccess();
+  const canLinkAlbaran = canUploadAlbaran && canEnter('albaranes');
+  const [linkOpen, setLinkOpen] = useState(false);
+  const invalidateOrders = useInvalidateOrders();
+  const queryClient = useQueryClient();
 
   return (
     <section className="space-y-4">
@@ -100,13 +110,36 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
             </span>
           )}
         </div>
-        {canUploadAlbaran && (
-          <Link
-            href={`/dashboard/albaranes/subir?purchaseOrderId=${order.id}`}
-            className="flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-primary-foreground"
-          >
-            <Upload className="h-4 w-4" /> Subir albarán
-          </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {canLinkAlbaran && (
+            <button
+              type="button"
+              onClick={() => setLinkOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)] px-3 py-1.5 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
+            >
+              <Link2 className="h-4 w-4" /> Vincular albarán ya subido
+            </button>
+          )}
+          {canUploadAlbaran && (
+            <Link
+              href={`/dashboard/albaranes/subir?purchaseOrderId=${order.id}`}
+              className="flex items-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-1.5 text-sm font-medium text-primary-foreground"
+            >
+              <Upload className="h-4 w-4" /> Subir albarán
+            </Link>
+          )}
+        </div>
+        {canLinkAlbaran && (
+          <LinkExistingAlbaranDialog
+            open={linkOpen}
+            onOpenChange={setLinkOpen}
+            purchaseOrderId={order.id}
+            supplierId={order.supplierId}
+            onSuccess={() => {
+              invalidateOrders();
+              queryClient.invalidateQueries({ queryKey: ['albaranes'] });
+            }}
+          />
         )}
       </div>
 

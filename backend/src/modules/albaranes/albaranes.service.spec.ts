@@ -167,6 +167,16 @@ describe("AlbaranesService", () => {
       expect(where.status).toEqual({ not: AlbaranStatus.ARCHIVADO });
     });
 
+    it("solo los de ese proveedor sin pedido vinculado cuando se pide unlinked", async () => {
+      await service.findAll(
+        { supplierId: "s1", pending: true, unlinked: true } as any,
+        "t1",
+      );
+      const { where } = prisma.albaran.findMany.mock.calls[0][0];
+      expect(where.supplierId).toBe("s1");
+      expect(where.purchaseOrderId).toBeNull();
+    });
+
     it("returns archived albaranes when status ARCHIVADO is requested", async () => {
       await service.findAll({ status: AlbaranStatus.ARCHIVADO } as any, "t1");
       const { where } = prisma.albaran.findMany.mock.calls[0][0];
