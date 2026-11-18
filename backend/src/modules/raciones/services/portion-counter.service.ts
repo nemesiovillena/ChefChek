@@ -171,50 +171,22 @@ export class PortionCounterService {
   }
 
   async create(tenantId: string, dto: CreatePortionCounterDto) {
-    if (Boolean(dto.recipeId) === Boolean(dto.productId)) {
-      throw new BadRequestException(
-        "Elige una receta o un artículo (uno de los dos).",
-      );
-    }
-    const source: {
-      name: string;
-      category?: { name: string } | null;
-    } | null = dto.recipeId
-      ? await this.prisma.recipe.findFirst({
-          where: { id: dto.recipeId, tenantId },
-          select: { name: true },
-        })
-      : await this.prisma.product.findFirst({
-          where: { id: dto.productId, tenantId },
-          select: { name: true, category: { select: { name: true } } },
-        });
-    // Propuesta editable en la ficha: la del artículo; las recetas, «Platos».
-    const category = dto.recipeId ? "Platos" : (source?.category?.name ?? null);
-    if (!source) {
-      throw new NotFoundException(
-        dto.recipeId ? "Receta no encontrada" : "Artículo no encontrado",
-      );
-    }
+    const source = await this.resolveSource(tenantId, dto);
     try {
       return await this.prisma.portionCounter.create({
         data: {
           tenantId,
           // Siempre el del artículo/receta: un trigger lo mantiene al día si se renombra.
           name: source.name,
-          recipeId: dto.recipeId ?? null,
-          productId: dto.productId ?? null,
+          recipeId: source.recipeId,
+          productId: source.productId,
           minPortions: dto.minPortions ?? 0,
-          category,
+          // Propuesta editable en la ficha: la del artículo; las recetas, «Platos».
+          category: source.category,
         },
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
-        throw new ConflictException(`«${source.name}» ya tiene contador.`);
-      }
-      throw err;
+      throw this.duplicateSourceError(err, source.name);
     }
   }
 
@@ -224,21 +196,91 @@ export class PortionCounterService {
     dto: UpdatePortionCounterDto,
   ) {
     await this.findOrThrow(tenantId, counterId);
-    const updated = await this.prisma.portionCounter.update({
-      where: { id: counterId },
-      data: {
-        ...(dto.minPortions !== undefined
-          ? { minPortions: dto.minPortions }
-          : {}),
-        ...(dto.active !== undefined ? { active: dto.active } : {}),
-        ...(dto.category !== undefined
-          ? { category: dto.category.trim() || null }
-          : {}),
-      },
-    });
+    // Cambiar receta/artículo: el contador sigue siendo el mismo (historial,
+    // platos de Cuiner, mínimo y categoría); solo cambia qué etiquetas suman.
+    // Las etiquetas ya emitidas siguen en él con sus raciones.
+    const source =
+      dto.recipeId !== undefined || dto.productId !== undefined
+        ? await this.resolveSource(tenantId, dto)
+        : null;
+    let updated;
+    try {
+      updated = await this.prisma.portionCounter.update({
+        where: { id: counterId },
+        data: {
+          ...(dto.minPortions !== undefined
+            ? { minPortions: dto.minPortions }
+            : {}),
+          ...(dto.active !== undefined ? { active: dto.active } : {}),
+          ...(dto.category !== undefined
+            ? { category: dto.category.trim() || null }
+            : {}),
+          ...(source
+            ? {
+                name: source.name,
+                recipeId: source.recipeId,
+                productId: source.productId,
+              }
+            : {}),
+        },
+      });
+    } catch (err) {
+      throw this.duplicateSourceError(err, source?.name ?? "");
+    }
     // Cambiar el mínimo puede hacer cruzar el umbral.
     await this.ledger.refreshAlerts(tenantId, [counterId]);
     return updated;
+  }
+
+  /** Receta o artículo (exactamente uno) del tenant al que se une un contador. */
+  private async resolveSource(
+    tenantId: string,
+    dto: { recipeId?: string; productId?: string },
+  ) {
+    if (Boolean(dto.recipeId) === Boolean(dto.productId)) {
+      throw new BadRequestException(
+        "Elige una receta o un artículo (uno de los dos).",
+      );
+    }
+    if (dto.recipeId) {
+      const recipe = await this.prisma.recipe.findFirst({
+        where: { id: dto.recipeId, tenantId },
+        select: { name: true },
+      });
+      if (!recipe) {
+        throw new NotFoundException("Receta no encontrada");
+      }
+      return {
+        name: recipe.name,
+        recipeId: dto.recipeId,
+        productId: null,
+        category: "Platos",
+      };
+    }
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, tenantId },
+      select: { name: true, category: { select: { name: true } } },
+    });
+    if (!product) {
+      throw new NotFoundException("Artículo no encontrado");
+    }
+    return {
+      name: product.name,
+      recipeId: null,
+      productId: dto.productId!,
+      category: product.category?.name ?? null,
+    };
+  }
+
+  /** Solo puede haber un contador por receta y por artículo. */
+  private duplicateSourceError(err: unknown, name: string) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return new ConflictException(`«${name}» ya tiene contador.`);
+    }
+    return err;
   }
 
   /**

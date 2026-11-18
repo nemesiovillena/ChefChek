@@ -39,6 +39,18 @@ export class UpdatePortionCounterDto {
   @IsBoolean()
   active?: boolean;
 
+  /**
+   * Cambia a qué se une el contador (qué etiquetas suman). Uno de los dos;
+   * conserva historial, platos de Cuiner, mínimo y categoría.
+   */
+  @IsOptional()
+  @IsString()
+  recipeId?: string;
+
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
   /** Grupo en la pantalla; vacío = «Sin categoría». */
   @IsOptional()
   @IsString()
