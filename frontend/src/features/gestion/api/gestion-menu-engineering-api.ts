@@ -61,6 +61,18 @@ export interface MenuEngineeringRow {
   previousClass: MenuClass | null;
 }
 
+export interface MenuDishClassified {
+  key: string;
+  name: string;
+  group: string;
+  recipeId: string | null;
+  units: number;
+  revenue: number;
+  margin: number | null;
+  costPct: number | null;
+  menuClass: MenuClass | null;
+}
+
 export interface ParetoItem {
   key: string;
   name: string;
@@ -116,6 +128,8 @@ export interface MenuEngineeringAnalysis {
     simpleMeans: { cost: number; price: number; margin: number };
     weightedMeans: { cost: number; price: number; margin: number };
   };
+  /** Todos los platos de la carta, cada uno clasificado en su familia; menuClass null = sin escandallo. */
+  allDishes: MenuDishClassified[];
   pareto: {
     dishes: number;
     byRevenue: { needed: number; items: ParetoItem[] };
