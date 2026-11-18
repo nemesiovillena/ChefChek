@@ -67,6 +67,8 @@ export interface Recipe {
   totalCostPerUnit?: number;
   sellingPriceWithVat?: number | null;
   sellingPrice?: number | null;
+  /** Solo en el listado: platos de Cuiner (TPV) enlazados; vacío = sin enlazar. */
+  cuinerDishes?: string[];
   version?: number;
   parentVersion?: string | null;
   isActive: boolean;

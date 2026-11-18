@@ -39,7 +39,7 @@ import RecipeCaptureNotes from './components/recipe-capture-notes';
 import ImagePicker from '@/components/image-picker';
 import ConservationFieldset from '@/components/conservation-fieldset';
 import { useInvalidateQueries, useApiQuery } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, Tag } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, Tag, Link2, Link2Off } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -161,6 +161,8 @@ export default function RecipesPage() {
   const canEditRecipes = canSee('recipes.edit');
   const canViewDrinks = canSee('recipes.drinks');
   const canLabel = isEnabled('etiquetado') && canSee('etiquetado.emit');
+  // Chivato «enlazada a Cuiner» junto al Estado: solo si el local usa Cuiner.
+  const showCuinerLink = isEnabled('cuiner');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -1136,6 +1138,7 @@ export default function RecipesPage() {
                             {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                           </span>
                         )}
+                        {showCuinerLink && <CuinerLinkBadge dishes={recipe.cuinerDishes} />}
                       </td>
                       <td className={tdActionsClass}>
                         <button
@@ -1860,5 +1863,27 @@ export default function RecipesPage() {
         )}
       </PageContainer>
     </div>
+  );
+}
+
+/**
+ * Chivato de enlace con Cuiner (TPV): enlazada = el plato descuenta esta receta
+ * al venderse. Los nombres de los platos van en el tooltip.
+ */
+function CuinerLinkBadge({ dishes }: { dishes?: string[] }) {
+  const linked = (dishes?.length ?? 0) > 0;
+  const label = linked ? `Enlazada a Cuiner: ${dishes!.join(', ')}` : 'Sin enlazar a Cuiner';
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      className={`ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full align-middle ${
+        linked
+          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+          : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'
+      }`}
+    >
+      {linked ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+    </span>
   );
 }
