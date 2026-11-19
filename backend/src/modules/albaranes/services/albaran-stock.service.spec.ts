@@ -1405,6 +1405,119 @@ describe("AlbaranStockService", () => {
     });
   });
 
+  describe("devoluciones al proveedor", () => {
+    const albaran = {
+      id: mockAlbaranId,
+      tenantId: mockTenantId,
+      internalNumber: "ALB-001",
+      albaranNumber: "ALV261120242",
+      supplierId: "supplier-123",
+      warehouseId: mockWarehouseId,
+    };
+    const buildTx = (ret: any) => ({
+      albaranReturn: {
+        findFirst: jest.fn().mockResolvedValue(ret),
+        update: jest.fn(),
+      },
+      product: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: mockProductId,
+          name: "MAYONESA",
+          tracksInventory: true,
+        }),
+      },
+      lot: {
+        findUnique: jest.fn().mockResolvedValue({ id: "lot-1" }),
+        update: jest.fn(),
+      },
+      stockMovement: { create: jest.fn() },
+      stock: {
+        findFirst: jest.fn().mockResolvedValue({ id: "stock-1" }),
+        update: jest.fn(),
+        create: jest.fn(),
+      },
+      sictedSupplierIncident: { updateMany: jest.fn() },
+    });
+    const returnLine = {
+      id: "neg-1",
+      matchedProductId: mockProductId,
+      quantity: -1,
+      unit: "ud",
+      unitPrice: 14.95,
+    };
+
+    it("la línea de devolución resta stock y lote de la original, sin tocar precios", async () => {
+      const tx = buildTx({
+        id: "r1",
+        appliedLineId: "neg-1",
+        creditNoteLineId: null,
+        lineId: "l1",
+        settlement: "IN_ALBARAN",
+        sictedIncidentId: "inc1",
+      });
+      await service.processAddedLine(tx, albaran, returnLine, mockTenantId);
+
+      expect(tx.lot.findUnique).toHaveBeenCalledWith({
+        where: { albaranLineId: "l1" },
+      });
+      expect(tx.lot.update).toHaveBeenCalledWith({
+        where: { id: "lot-1" },
+        data: { quantity: { increment: -1 } },
+      });
+      expect(tx.stockMovement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ type: "ADJUSTMENT", quantity: -1 }),
+      });
+      expect(tx.stock.update).toHaveBeenCalledWith({
+        where: { id: "stock-1" },
+        data: { quantity: { increment: -1 } },
+      });
+      expect(productSupplierOffersService.upsertOffer).not.toHaveBeenCalled();
+      expect(tx.sictedSupplierIncident.updateMany).toHaveBeenCalledWith({
+        where: { id: "inc1", resolvedAt: null },
+        data: expect.objectContaining({
+          resolution: "Descontado en albarán ALV261120242",
+        }),
+      });
+    });
+
+    it("con abono aparte la incidencia sigue abierta", async () => {
+      const tx = buildTx({
+        id: "r1",
+        appliedLineId: "neg-1",
+        creditNoteLineId: null,
+        lineId: "l1",
+        settlement: "CREDIT_NOTE",
+        sictedIncidentId: "inc1",
+      });
+      await service.processAddedLine(tx, albaran, returnLine, mockTenantId);
+      expect(tx.stockMovement.create).toHaveBeenCalled();
+      expect(tx.sictedSupplierIncident.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("la línea del abono que cubre la devolución no mueve stock y la da por abonada", async () => {
+      const tx = buildTx({
+        id: "r1",
+        appliedLineId: "neg-0",
+        creditNoteLineId: "neg-1",
+        settlement: "CREDIT_NOTE",
+        sictedIncidentId: "inc1",
+      });
+      await service.processAddedLine(tx, albaran, returnLine, mockTenantId);
+      expect(tx.stockMovement.create).not.toHaveBeenCalled();
+      expect(tx.stock.update).not.toHaveBeenCalled();
+      expect(tx.albaranReturn.update).toHaveBeenCalledWith({
+        where: { id: "r1" },
+        data: { creditNoteSettledAt: expect.any(Date) },
+      });
+      expect(tx.sictedSupplierIncident.updateMany).toHaveBeenCalledWith({
+        where: { id: "inc1", resolvedAt: null },
+        data: expect.objectContaining({
+          resolution: "Abonado en albarán ALV261120242",
+        }),
+      });
+    });
+  });
+
   describe("applyQuantityCorrection", () => {
     const makeTx = () => ({
       product: { findFirst: jest.fn() },

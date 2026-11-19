@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ClipboardList, Loader2, Plus } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
@@ -206,6 +207,14 @@ function SictedSupplierIncidentDetail({
         {incident.productTemperature !== null && <p className="text-sm">Temperatura: {incident.productTemperature} °C</p>}
         {incident.rejectionCause && <p className="text-sm">Causa de rechazo: {incident.rejectionCause}</p>}
         <p className="text-sm text-[var(--on-surface-variant)]">Notificado por {incident.reportedByName}</p>
+        {incident.albaranId && (
+          <Link
+            href={`/dashboard/albaranes/${incident.albaranId}/resumen`}
+            className="inline-flex min-h-[40px] items-center text-sm font-medium text-[var(--primary)] underline"
+          >
+            Ver el albarán y el justificante →
+          </Link>
+        )}
       </div>
 
       {incident.resolvedAt ? (

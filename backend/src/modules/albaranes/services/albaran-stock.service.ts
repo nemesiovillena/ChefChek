@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { resolveReturnIncident } from "./albaran-return-incident";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
 import { ProductSupplierOffersService } from "../../products/product-supplier-offers.service";
@@ -90,7 +91,13 @@ export class AlbaranStockService {
         return;
       }
 
-      for (const line of confirmedLines) {
+      // Las líneas negativas (devoluciones, envases) van al final: una
+      // devolución resta del lote de su línea original, que ha de existir ya.
+      const ordered = [...confirmedLines].sort(
+        (a, b) =>
+          Number(Number(a.quantity) < 0) - Number(Number(b.quantity) < 0),
+      );
+      for (const line of ordered) {
         await this.processConfirmedLine(tx, albaran, line, tenantId);
       }
 
@@ -195,6 +202,102 @@ export class AlbaranStockService {
   }
 
   /**
+   * Línea de devolución al proveedor: el género sale del stock y del lote de
+   * la línea original (no se crea lote nuevo ni se toca el precio). Si se
+   * descontó en el propio albarán, la incidencia SICTED se cierra aquí. La
+   * línea de un abono aparte que cubre una devolución no mueve stock (ya salió
+   * con la devolución): marca la devolución como abonada y cierra la incidencia.
+   */
+  private async processReturnLine(
+    tx: any,
+    albaran: any,
+    line: any,
+    albaranReturn: any,
+    tenantId: string,
+  ): Promise<void> {
+    const label = albaran.albaranNumber || albaran.internalNumber;
+
+    if (albaranReturn.creditNoteLineId === line.id) {
+      await tx.albaranReturn.update({
+        where: { id: albaranReturn.id },
+        data: { creditNoteSettledAt: new Date() },
+      });
+      await resolveReturnIncident(
+        tx,
+        albaranReturn.sictedIncidentId,
+        `Abonado en albarán ${label}`,
+      );
+      return;
+    }
+
+    const quantity = Number(line.quantity); // negativa
+    const product = line.matchedProductId
+      ? await tx.product.findFirst({
+          where: { id: line.matchedProductId, tenantId },
+          select: { id: true, name: true, tracksInventory: true },
+        })
+      : null;
+
+    if (product?.tracksInventory && quantity !== 0) {
+      const lot = albaranReturn.lineId
+        ? await tx.lot.findUnique({
+            where: { albaranLineId: albaranReturn.lineId },
+          })
+        : null;
+      if (lot) {
+        await tx.lot.update({
+          where: { id: lot.id },
+          data: { quantity: { increment: quantity } },
+        });
+      }
+
+      await tx.stockMovement.create({
+        data: {
+          productId: product.id,
+          warehouseId: albaran.warehouseId,
+          lotId: lot?.id,
+          type: "ADJUSTMENT",
+          quantity,
+          unit: normalizeUnit(line.unit || "kilo"),
+          reason: `Devolución al proveedor en albarán ${albaran.internalNumber} (${albaran.id})`,
+        },
+      });
+
+      const existingStock = await tx.stock.findFirst({
+        where: {
+          productId: product.id,
+          warehouseId: albaran.warehouseId || null,
+          tenantId,
+        },
+      });
+      if (existingStock) {
+        await tx.stock.update({
+          where: { id: existingStock.id },
+          data: { quantity: { increment: quantity } },
+        });
+      } else {
+        await tx.stock.create({
+          data: {
+            tenantId,
+            productId: product.id,
+            warehouseId: albaran.warehouseId,
+            quantity,
+          },
+        });
+      }
+      this.logger.log(`Devolución: ${product.name} ${quantity} ${line.unit}`);
+    }
+
+    if (albaranReturn.settlement === "IN_ALBARAN") {
+      await resolveReturnIncident(
+        tx,
+        albaranReturn.sictedIncidentId,
+        `Descontado en albarán ${label}`,
+      );
+    }
+  }
+
+  /**
    * Efectos de una línea confirmada sobre artículo, precios y stock. Es el
    * cuerpo de cada iteración de processStockOnConfirmation, extraído para
    * reutilizarlo al añadir líneas a un albarán ya confirmado.
@@ -205,6 +308,18 @@ export class AlbaranStockService {
     line: any,
     tenantId: string,
   ): Promise<void> {
+    // Devolución al proveedor o línea de abono que la cubre: solo stock (o
+    // nada) y cierre de la incidencia; nunca precio, oferta ni lote nuevo.
+    const albaranReturn = await tx.albaranReturn?.findFirst({
+      where: {
+        OR: [{ appliedLineId: line.id }, { creditNoteLineId: line.id }],
+      },
+    });
+    if (albaranReturn) {
+      await this.processReturnLine(tx, albaran, line, albaranReturn, tenantId);
+      return;
+    }
+
     const lineQuantity = Number(line.quantity);
     let lineUnitPrice = Number(line.unitPrice);
     // Opt-in del usuario: si activó "aplicar descuento al coste" y la línea

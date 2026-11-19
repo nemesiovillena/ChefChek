@@ -681,6 +681,17 @@ enum LineStatus {
   RECHAZADO
 }
 
+enum AlbaranReturnStatus {
+  PENDIENTE // anotada en recepción, oficina aún no la ha aplicado
+  APLICADA // ya hay línea negativa en el albarán
+  DESCARTADA // al final no se devolvió (queda la nota)
+}
+
+enum AlbaranReturnSettlement {
+  IN_ALBARAN // descontado en el propio albarán (también anotado a mano en el papel)
+  CREDIT_NOTE // llegará un abono aparte: la línea solo resta cantidad
+}
+
 // Sprint Tracker - Sprint 16
 model Sprint {
   id             String    @id @default(cuid())
@@ -2864,6 +2875,7 @@ model Albaran {
   warehouse       Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
   lines           AlbaranLine[]
+  returns         AlbaranReturn[]
   priceHistory    ProductPriceHistory[]
   invoices        Invoice[]
   priceDeviations PriceDeviation[]
@@ -2911,11 +2923,59 @@ model AlbaranLine {
   suggestedProduct Product? @relation("AlbaranLineSuggestedProduct", fields: [suggestedProductId], references: [id], onDelete: SetNull)
   lotRecord        Lot? // Registro de trazabilidad creado a partir de esta línea (campo escalar `lot` de arriba es el nº de lote en crudo)
 
+  // Devoluciones al proveedor: línea original devuelta, línea negativa que la
+  // aplica y línea de un abono aparte que la cubre.
+  returnsOfThisLine AlbaranReturn[] @relation("AlbaranReturnOriginalLine")
+  returnAppliedHere AlbaranReturn?  @relation("AlbaranReturnAppliedLine")
+  returnCoveredHere AlbaranReturn?  @relation("AlbaranReturnCreditNoteLine")
+
   @@index([albaranId])
   @@index([matchedProductId])
   @@index([suggestedProductId])
   @@index([matchStatus])
   @@map("albaran_lines")
+}
+
+// Devolución al proveedor. Cocina la anota al subir la foto del albarán (texto
+// libre: aún no hay líneas leídas) y oficina la aplica a una línea, lo que
+// crea una línea negativa debajo de la original. Con abono aparte, la línea
+// solo resta cantidad y el abono que llegue después se enlaza aquí para no
+// descontar el stock dos veces. La incidencia SICTED (PROV.3) se crea al anotarla.
+model AlbaranReturn {
+  id        String @id @default(cuid())
+  tenantId  String
+  albaranId String
+
+  description    String // qué se devuelve, como lo escribió quien recibe
+  quantity       Float?
+  unit           String?
+  reason         String
+  reportedByName String
+  reportedAt     DateTime @default(now())
+
+  status      AlbaranReturnStatus      @default(PENDIENTE)
+  settlement  AlbaranReturnSettlement?
+  discardNote String?
+
+  lineId              String? // línea original del albarán
+  appliedLineId       String?   @unique // línea negativa
+  creditNoteLineId    String?   @unique // línea del abono aparte que la cubre
+  creditNoteSettledAt DateTime?
+
+  sictedIncidentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  albaran        Albaran      @relation(fields: [albaranId], references: [id], onDelete: Cascade)
+  line           AlbaranLine? @relation("AlbaranReturnOriginalLine", fields: [lineId], references: [id], onDelete: SetNull)
+  appliedLine    AlbaranLine? @relation("AlbaranReturnAppliedLine", fields: [appliedLineId], references: [id], onDelete: SetNull)
+  creditNoteLine AlbaranLine? @relation("AlbaranReturnCreditNoteLine", fields: [creditNoteLineId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([albaranId])
+  @@index([tenantId, status])
+  @@map("albaran_returns")
 }
 
 // Alias aprendido: texto crudo con el que un proveedor concreto describe un

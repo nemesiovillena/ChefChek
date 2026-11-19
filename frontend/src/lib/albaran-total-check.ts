@@ -21,7 +21,8 @@ export function computeTotalsFromLines(lines: AlbaranLine[]): {
     if (line.lineStatus === 'RECHAZADO') continue;
     const gross = round2(line.quantity * line.unitPrice);
     const net = line.totalPrice !== null ? round2(line.totalPrice) : null;
-    const base = net !== null && net < gross ? net : gross;
+    // Neto con descuento: más cerca de 0 que el bruto (también en negativas).
+    const base = net !== null && Math.abs(net) < Math.abs(gross) ? net : gross;
     baseByVat.set(line.vatPercent, (baseByVat.get(line.vatPercent) ?? 0) + base);
   }
   let base = 0;
@@ -97,6 +98,12 @@ export function getTotalMismatch(
   const totals = computeTotalsFromLines(lines);
   const paper = signedPaperTotal(albaran.total, totals.total);
   if (Math.abs(totals.total - paper) <= TOTAL_MISMATCH_TOLERANCE) return null;
+  // Devoluciones al proveedor: el papel suele traer el total sin restarlas
+  // (salvo que el repartidor lo corrigiera a mano, y entonces ya cuadra).
+  if (lines.some((l) => l.returnAppliedHere)) {
+    const withoutReturns = computeTotalsFromLines(lines.filter((l) => !l.returnAppliedHere));
+    if (Math.abs(withoutReturns.total - paper) <= TOTAL_MISMATCH_TOLERANCE) return null;
+  }
   const paperIsBaseOnly =
     totals.base > 0 &&
     !(Number(albaran.vatTotal) > 0) &&

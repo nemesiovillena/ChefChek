@@ -3,6 +3,8 @@ import { BadRequestException } from "@nestjs/common";
 import { AlbaranesController } from "./albaranes.controller";
 import { AlbaranesService } from "./albaranes.service";
 import { ManualAlbaranService } from "./services/manual-albaran.service";
+import { AlbaranReturnService } from "./services/albaran-return.service";
+import { AlbaranReturnReceiptPdfService } from "./services/albaran-return-receipt-pdf.service";
 import { AuthGuard } from "../../guards/auth.guard";
 import { SectionAccessGuard } from "../../guards/section-access.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -37,6 +39,8 @@ describe("AlbaranesController", () => {
       providers: [
         { provide: AlbaranesService, useValue: mockService },
         { provide: ManualAlbaranService, useValue: mockManualService },
+        { provide: AlbaranReturnService, useValue: {} },
+        { provide: AlbaranReturnReceiptPdfService, useValue: {} },
       ],
     })
       .overrideGuard(AuthGuard)

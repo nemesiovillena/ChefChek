@@ -31,6 +31,11 @@ export interface UseAlbaranUploadOptions {
   aiApiKey?: string;
   /** Pedido de compra de origen: el albarán se vincula a él al crearse */
   purchaseOrderId?: string;
+  /**
+   * Se llama en cuanto el albarán existe (antes de comprobar los productos
+   * leídos): p. ej. para guardar las devoluciones anotadas en la entrega.
+   */
+  onAlbaranCreated?: (albaranId: string) => Promise<void>;
 }
 
 const MAX_FILES = 10;
@@ -180,6 +185,10 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
         data.albaranId = data.albaran.id;
       }
 
+      if (data.albaranId && options.onAlbaranCreated) {
+        await options.onAlbaranCreated(data.albaranId);
+      }
+
       if (!data.products || data.products.length === 0) {
         throw new Error('No se detectaron productos en el albarán');
       }
@@ -199,7 +208,7 @@ export function useAlbaranUpload(options: UseAlbaranUploadOptions = {}) {
       setIsUploading(false);
       setUploadProgress(0);
     }
-  }, [files, options.aiApiKey, options.aiModel, options.purchaseOrderId, queryClient, invalidateOrders]);
+  }, [files, options, queryClient, invalidateOrders]);
 
   /** Reset all state */
   const reset = useCallback(() => {

@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -46,6 +47,15 @@ import {
   CorrectAlbaranLineQuantityDto,
 } from "./dto/update-albaran.dto";
 import { AlbaranQueryDto } from "./dto/albaran-query.dto";
+import {
+  ApplyAlbaranReturnDto,
+  CoverAlbaranReturnDto,
+  CreateAlbaranReturnDto,
+  DiscardAlbaranReturnDto,
+} from "./dto/albaran-return.dto";
+import { AlbaranReturnService } from "./services/albaran-return.service";
+import { AlbaranReturnReceiptPdfService } from "./services/albaran-return-receipt-pdf.service";
+import type { Response } from "express";
 
 @ApiTags("Albaranes")
 @ApiBearerAuth()
@@ -57,6 +67,8 @@ export class AlbaranesController {
   constructor(
     private readonly albaranesService: AlbaranesService,
     private readonly manualAlbaranService: ManualAlbaranService,
+    private readonly albaranReturnService: AlbaranReturnService,
+    private readonly returnReceiptPdf: AlbaranReturnReceiptPdfService,
   ) {}
 
   @Post()
@@ -176,6 +188,136 @@ export class AlbaranesController {
       excludeId,
     );
     return { success: true, data: match };
+  }
+
+  // Debe ir ANTES de @Get(":id") para que NestJS no lo capture como id.
+  @Get("returns/pending-credit-notes")
+  @ApiOperation({
+    summary: "Devoluciones de un proveedor pendientes de abono aparte",
+  })
+  async pendingCreditNotes(
+    @Query("supplierId") supplierId: string | undefined,
+    @Req() req: any,
+  ) {
+    if (!supplierId) {
+      return { success: true, data: [] };
+    }
+    const data = await this.albaranReturnService.listPendingCreditNotes(
+      req.user?.tenantId,
+      supplierId,
+    );
+    return { success: true, data };
+  }
+
+  @Get(":id/returns")
+  @ApiOperation({ summary: "Devoluciones al proveedor de un albarán" })
+  async listReturns(@Param("id") id: string, @Req() req: any) {
+    const data = await this.albaranReturnService.list(id, req.user?.tenantId);
+    return { success: true, data };
+  }
+
+  @Post(":id/returns")
+  @ApiOperation({
+    summary:
+      "Anotar una devolución al proveedor (con lineId+settlement se aplica ya)",
+  })
+  async createReturn(
+    @Param("id") id: string,
+    @Body() dto: CreateAlbaranReturnDto,
+    @Req() req: any,
+  ) {
+    const data = await this.albaranReturnService.create(
+      id,
+      dto,
+      req.user?.tenantId,
+      req.user?.name,
+    );
+    return { success: true, data };
+  }
+
+  @Get(":id/returns/:returnId/receipt")
+  @ApiOperation({ summary: "Justificante de la devolución en PDF" })
+  async returnReceipt(
+    @Param("id") id: string,
+    @Param("returnId") returnId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.returnReceiptPdf.generate(
+      req.user?.tenantId,
+      id,
+      returnId,
+    );
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Post(":id/returns/:returnId/apply")
+  @ApiOperation({ summary: "Aplicar la devolución a una línea del albarán" })
+  async applyReturn(
+    @Param("id") id: string,
+    @Param("returnId") returnId: string,
+    @Body() dto: ApplyAlbaranReturnDto,
+    @Req() req: any,
+  ) {
+    const data = await this.albaranReturnService.apply(
+      id,
+      returnId,
+      dto,
+      req.user?.tenantId,
+    );
+    return { success: true, data };
+  }
+
+  @Post(":id/returns/:returnId/unapply")
+  @ApiOperation({ summary: "Deshacer una devolución aplicada (sin confirmar)" })
+  async unapplyReturn(
+    @Param("id") id: string,
+    @Param("returnId") returnId: string,
+    @Req() req: any,
+  ) {
+    const data = await this.albaranReturnService.unapply(
+      id,
+      returnId,
+      req.user?.tenantId,
+    );
+    return { success: true, data };
+  }
+
+  @Post(":id/returns/:returnId/discard")
+  @ApiOperation({ summary: "Descartar una devolución anotada" })
+  async discardReturn(
+    @Param("id") id: string,
+    @Param("returnId") returnId: string,
+    @Body() dto: DiscardAlbaranReturnDto,
+    @Req() req: any,
+  ) {
+    const data = await this.albaranReturnService.discard(
+      id,
+      returnId,
+      dto,
+      req.user?.tenantId,
+    );
+    return { success: true, data };
+  }
+
+  @Put(":id/lines/:lineId/cover-return")
+  @ApiOperation({
+    summary: "Enlazar una línea de abono con la devolución que cubre",
+  })
+  async coverReturn(
+    @Param("id") id: string,
+    @Param("lineId") lineId: string,
+    @Body() dto: CoverAlbaranReturnDto,
+    @Req() req: any,
+  ) {
+    return this.albaranReturnService.coverReturn(
+      id,
+      lineId,
+      dto.returnId,
+      req.user?.tenantId,
+    );
   }
 
   @Post(":id/lines")

@@ -70,6 +70,19 @@ export class AlbaranStatusService {
     // Validate preconditions per transition
     await this.validateTransition(albaran.status, newStatus, albaran.lines);
 
+    // Devolución anotada al recibir: oficina tiene que aplicarla a una línea o
+    // descartarla antes de confirmar, para que no se quede sin reflejar.
+    if (newStatus === AlbaranStatus.CONFIRMADO) {
+      const pendingReturns = await this.prisma.albaranReturn.count({
+        where: { albaranId, tenantId, status: "PENDIENTE" },
+      });
+      if (pendingReturns > 0) {
+        throw new BadRequestException(
+          `No se puede confirmar: ${pendingReturns === 1 ? "hay 1 devolución anotada" : `hay ${pendingReturns} devoluciones anotadas`} en recepción sin aplicar ni descartar`,
+        );
+      }
+    }
+
     // Compare-and-swap sobre el estado leído: si dos peticiones concurrentes
     // pasan la validación, solo una gana el cambio y la otra no asienta stock
     // por duplicado.
