@@ -84,8 +84,14 @@ export class CuinerExportService {
       );
     }
 
+    // Una línea con cantidad 0 e importe 0 viene así en el papel (Makro
+    // imprime el «manipulado» del pescado sin peso; el peso va en otra línea).
+    // No aporta unidades ni base a Cuiner: se omite en vez de bloquear.
+    // Cantidad 0 con importe sí es una cantidad mal leída y sigue bloqueando.
     const lines = albaran.lines.filter(
-      (l) => l.lineStatus !== LineStatus.RECHAZADO,
+      (l) =>
+        l.lineStatus !== LineStatus.RECHAZADO &&
+        !(l.quantity === 0 && l.totalPrice === 0),
     );
     if (lines.length === 0) {
       problems.push("El albarán no tiene líneas");
