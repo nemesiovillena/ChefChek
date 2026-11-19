@@ -22,6 +22,7 @@ describe("PurchaseOrderService", () => {
     supplier: { findFirst: jest.fn() },
     product: { findMany: jest.fn() },
     location: { findFirst: jest.fn() },
+    albaranLine: { findMany: jest.fn() },
   };
   const numberMock = { generateOrderNumber: jest.fn() };
 
@@ -228,6 +229,61 @@ describe("PurchaseOrderService", () => {
     });
   });
 
+  describe("findOne", () => {
+    it("marca por línea si llegó entera y si viene en un albarán sin confirmar", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        albaranes: [
+          { id: "a-conf", status: "CONFIRMADO" },
+          { id: "a-rev", status: "REVISADO" },
+        ],
+        lines: [
+          {
+            productId: "p1",
+            quantity: 2,
+            unit: "ud",
+            receivedQuantity: 2,
+            receivedSourceUnit: null,
+          },
+          {
+            productId: "p2",
+            quantity: 1,
+            unit: "Bote",
+            receivedQuantity: null,
+            receivedSourceUnit: null,
+          },
+          {
+            productId: "p3",
+            quantity: 1,
+            unit: "Bote",
+            receivedQuantity: null,
+            receivedSourceUnit: null,
+          },
+        ],
+      });
+      prismaMock.albaranLine.findMany.mockResolvedValue([
+        { matchedProductId: "p2" },
+      ]);
+
+      const result = await service.findOne(tenantId, "o1");
+
+      expect(
+        prismaMock.albaranLine.findMany.mock.calls[0][0].where.albaranId,
+      ).toEqual({ in: ["a-rev"] });
+      expect(
+        result.lines.map((l) => [
+          l.productId,
+          l.covered,
+          l.inUnconfirmedAlbaran,
+        ]),
+      ).toEqual([
+        ["p1", true, false],
+        ["p2", false, true],
+        ["p3", false, false],
+      ]);
+    });
+  });
+
   describe("reportIncident", () => {
     it("404 si el pedido no es del tenant", async () => {
       prismaMock.purchaseOrder.findFirst.mockResolvedValue(null);
@@ -252,6 +308,8 @@ describe("PurchaseOrderService", () => {
           id: "o1",
           tenantId,
           status: PurchaseOrderStatus.ENVIADO,
+          albaranes: [],
+          lines: [],
         });
       prismaMock.purchaseOrderEvent.create.mockResolvedValue({});
 

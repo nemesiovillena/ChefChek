@@ -17,6 +17,7 @@ describe("PurchaseOrderStatusService", () => {
     purchaseOrderEvent: { create: jest.fn() },
     albaran: { count: jest.fn() },
     purchaseOrderLine: { findFirst: jest.fn() },
+    alert: { findFirst: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as any)),
   };
   const notificationsMock = { createNotification: jest.fn() };
@@ -40,6 +41,7 @@ describe("PurchaseOrderStatusService", () => {
     status,
     sentAt,
     supplier: { name: "Proveedor Test" },
+    lines: [],
   });
 
   it("404 si el pedido no es del tenant", async () => {
@@ -114,6 +116,63 @@ describe("PurchaseOrderStatusService", () => {
       "t1",
       expect.objectContaining({ type: "PARTIAL_ORDER_RECEIVED" }),
     );
+  });
+
+  describe("notifyPartialReception", () => {
+    const withLines = {
+      orderNumber: "PED-0116",
+      supplier: { name: "Dialvi" },
+      lines: [
+        {
+          quantity: 1,
+          unit: "Caja",
+          receivedQuantity: 1,
+          receivedSourceUnit: null,
+          product: { name: "Azúcar" },
+        },
+        {
+          quantity: 1,
+          unit: "Bote",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Tomillo" },
+        },
+        {
+          quantity: 10,
+          unit: "ud",
+          receivedQuantity: 4,
+          receivedSourceUnit: null,
+          product: { name: "Limones" },
+        },
+      ],
+    };
+
+    it("nombra lo que falta y lo que llegó corto", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(withLines);
+      prismaMock.alert.findFirst.mockResolvedValue(null);
+
+      await service.notifyPartialReception("t1", "o1");
+
+      expect(notificationsMock.createNotification).toHaveBeenCalledWith(
+        "t1",
+        expect.objectContaining({
+          type: "PARTIAL_ORDER_RECEIVED",
+          entityId: "o1",
+          message: expect.stringContaining(
+            "PED-0116 (Dialvi): falta Tomillo (1 Bote) y Limones (llegan 4 de 10 ud)",
+          ),
+        }),
+      );
+    });
+
+    it("no repite un aviso idéntico del mismo pedido", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue(withLines);
+      prismaMock.alert.findFirst.mockResolvedValue({ id: "a1" });
+
+      await service.notifyPartialReception("t1", "o1");
+
+      expect(notificationsMock.createNotification).not.toHaveBeenCalled();
+    });
   });
 
   it("BORRADOR → ENVIADO no dispara la alerta de recepción parcial", async () => {

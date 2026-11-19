@@ -9,6 +9,7 @@ describe("OrderReconciliationService", () => {
 
   const prismaMock = {
     albaran: { findFirst: jest.fn(), count: jest.fn() },
+    albaranLine: { findMany: jest.fn() },
     purchaseOrder: {
       findFirst: jest.fn(),
       findMany: jest.fn(),
@@ -839,6 +840,73 @@ describe("OrderReconciliationService", () => {
       await service.markReceivedOnArrival(tenantId, "o1", "ALB-0200");
 
       expect(statusServiceMock.transition).not.toHaveBeenCalled();
+    });
+
+    it("avisa en el acto de los artículos del pedido que no vienen en el albarán", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        status: PurchaseOrderStatus.ENVIADO,
+      });
+      prismaMock.albaranLine.findMany.mockResolvedValue([
+        { matchedProductId: "p-azucar" },
+      ]);
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          productId: "p-azucar",
+          quantity: 1,
+          unit: "Caja",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Azúcar" },
+        },
+        {
+          productId: "p-tomillo",
+          quantity: 1,
+          unit: "Bote",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Tomillo" },
+        },
+      ]);
+
+      await service.markReceivedOnArrival(tenantId, "o1", "ALB-0359", "alb-1");
+
+      expect(prismaMock.albaranLine.findMany.mock.calls[0][0].where).toEqual(
+        expect.objectContaining({
+          albaranId: "alb-1",
+          lineStatus: { not: LineStatus.RECHAZADO },
+        }),
+      );
+      expect(statusServiceMock.notifyPartialReception).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        [{ name: "Tomillo", quantity: 1, unit: "Bote", received: null }],
+        "No ha llegado todo el pedido",
+      );
+    });
+
+    it("no avisa si el albarán trae todos los artículos del pedido", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        status: PurchaseOrderStatus.ENVIADO,
+      });
+      prismaMock.albaranLine.findMany.mockResolvedValue([
+        { matchedProductId: "p-azucar" },
+      ]);
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          productId: "p-azucar",
+          quantity: 1,
+          unit: "Caja",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Azúcar" },
+        },
+      ]);
+
+      await service.markReceivedOnArrival(tenantId, "o1", "ALB-0359", "alb-1");
+
+      expect(statusServiceMock.notifyPartialReception).not.toHaveBeenCalled();
     });
   });
 
