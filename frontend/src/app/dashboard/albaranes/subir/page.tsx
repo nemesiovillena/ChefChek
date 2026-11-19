@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useRef } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Upload,
@@ -27,6 +27,16 @@ import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { useOcrConfig } from '@/hooks/use-ocr-config';
 import { usePurchaseOrder } from '@/hooks/use-purchase-orders';
 import { OCR_MODELS, getApiKeyForModel, getOcrModel } from '@/lib/ai-api-keys';
+import { useAuth } from '@/contexts/auth.context';
+import { createAlbaranReturn } from '@/lib/api-albaran-returns';
+import {
+  DeliveryReturnsForm,
+  draftToReturn,
+  emptyReturnDraft,
+  isDraftComplete,
+  isDraftTouched,
+  type DeliveryReturnDraft,
+} from '@/components/albaranes/returns/delivery-returns-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,6 +75,35 @@ function SubirAlbaranContent() {
   // "configurada" debe mirar ambas fuentes, no solo la local.
   const hasApiKeyConfigured = Boolean(ocrConfig?.hasApiKey) || Boolean(aiApiKey);
 
+  // Devoluciones al repartidor anotadas en la entrega: se guardan junto al
+  // albarán en cuanto se crea (y crean la incidencia SICTED).
+  const { user } = useAuth();
+  const askWho = user?.isSharedAccount === true;
+  const [returnsOpen, setReturnsOpen] = useState(false);
+  const [returnDrafts, setReturnDrafts] = useState<DeliveryReturnDraft[]>(() => [emptyReturnDraft()]);
+  const [returnsWho, setReturnsWho] = useState('');
+  const [returnsSaved, setReturnsSaved] = useState(0);
+  const [returnsError, setReturnsError] = useState<string | null>(null);
+  const [returnsValidation, setReturnsValidation] = useState<string | null>(null);
+  const completeDrafts = returnsOpen ? returnDrafts.filter(isDraftComplete) : [];
+
+  const saveDeliveryReturns = async (albaranId: string) => {
+    let saved = 0;
+    try {
+      for (const draft of completeDrafts) {
+        await createAlbaranReturn(albaranId, draftToReturn(draft, askWho ? returnsWho : undefined));
+        saved += 1;
+      }
+      setReturnsError(null);
+    } catch (err) {
+      setReturnsError(
+        `${err instanceof Error ? err.message : 'Error'}. El albarán se ha subido: anota la devolución desde el albarán.`,
+      );
+    } finally {
+      setReturnsSaved(saved);
+    }
+  };
+
   const {
     fileInputRef,
     files,
@@ -80,7 +119,32 @@ function SubirAlbaranContent() {
     aiModel: aiModel !== 'regex' ? aiModel : undefined,
     aiApiKey: aiModel !== 'regex' ? aiApiKey : undefined,
     purchaseOrderId,
+    onAlbaranCreated: completeDrafts.length > 0 ? saveDeliveryReturns : undefined,
   });
+
+  const handleProcess = () => {
+    if (returnsOpen) {
+      const halfFilled = returnDrafts.filter((d) => isDraftTouched(d) && !isDraftComplete(d));
+      if (halfFilled.length > 0) {
+        setReturnsValidation('Completa qué se devuelve y el motivo, o quita esa devolución.');
+        return;
+      }
+      if (askWho && completeDrafts.length > 0 && returnsWho.trim() === '') {
+        setReturnsValidation('Indica quién anota la devolución.');
+        return;
+      }
+    }
+    setReturnsValidation(null);
+    void processFiles();
+  };
+
+  const handleReset = () => {
+    reset();
+    setReturnsOpen(false);
+    setReturnDrafts([emptyReturnDraft()]);
+    setReturnsSaved(0);
+    setReturnsError(null);
+  };
 
   const selectedModelInfo = OCR_MODELS.find((m) => m.id === aiModel);
   const needsApiKey = aiModel && aiModel !== 'regex';
@@ -255,7 +319,24 @@ function SubirAlbaranContent() {
                   procesar: todas se juntan en un solo albarán.
                 </span>
               </p>
-              <Button className="w-full h-12" onClick={processFiles}>
+              <DeliveryReturnsForm
+                open={returnsOpen}
+                onOpenChange={setReturnsOpen}
+                drafts={returnDrafts}
+                onChange={setReturnDrafts}
+                askWho={askWho}
+                who={returnsWho}
+                onWhoChange={setReturnsWho}
+                suggestions={(linkedOrder?.lines ?? [])
+                  .map((l) => l.product?.name)
+                  .filter((n): n is string => !!n)}
+              />
+              {returnsValidation && (
+                <p role="alert" className="text-sm text-red-600">
+                  {returnsValidation}
+                </p>
+              )}
+              <Button className="w-full h-12" onClick={handleProcess}>
                 <Upload className="mr-2 h-4 w-4" />
                 Procesar Albarán
               </Button>
@@ -278,6 +359,20 @@ function SubirAlbaranContent() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {returnsSaved > 0 && (
+              <p className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {returnsSaved === 1 ? 'Devolución anotada' : `${returnsSaved} devoluciones anotadas`} junto al
+                  albarán. Oficina la verá al repasarlo.
+                </span>
+              </p>
+            )}
+            {returnsError && (
+              <Alert variant="destructive">
+                <AlertDescription>{returnsError}</AlertDescription>
+              </Alert>
+            )}
             {results.products.map((product, index) => (
               <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex-1 min-w-0">
@@ -326,7 +421,7 @@ function SubirAlbaranContent() {
                   {getAlbaranId(results) ? 'Revisar Albarán' : 'Ver en Albaranes'}
                 </Button>
               </Link>
-              <Button variant="ghost" onClick={reset}>
+              <Button variant="ghost" onClick={handleReset}>
                 Cerrar
               </Button>
             </div>

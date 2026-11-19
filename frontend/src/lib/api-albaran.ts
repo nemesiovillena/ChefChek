@@ -32,6 +32,10 @@ export interface AlbaranLine {
   suggestedProductId: string | null;
   suggestedProduct: { id: string; name: string } | null;
   suggestionDismissed: boolean;
+  /** Es la línea negativa de una devolución al proveedor. */
+  returnAppliedHere?: { id: string } | null;
+  /** Línea de un abono aparte que cubre una devolución (no se envía a Cuiner). */
+  returnCoveredHere?: { id: string } | null;
 }
 
 export interface Albaran {
@@ -91,7 +95,7 @@ export interface AlbaranFilters {
 }
 
 // Auth headers
-function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   const sessionId = localStorage.getItem('session_id');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -106,7 +110,7 @@ function getAuthHeaders(): Record<string, string> {
  * leer solo `message` a nivel raíz dejaba el mensaje real oculto y el
  * usuario veía siempre el texto genérico de cada llamada.
  */
-function errorMessage(payload: unknown, fallback: string): string {
+export function errorMessage(payload: unknown, fallback: string): string {
   const err = payload as { message?: string; error?: { message?: string } } | undefined;
   return err?.error?.message || err?.message || fallback;
 }

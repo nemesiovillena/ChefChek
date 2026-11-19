@@ -15,6 +15,7 @@ describe("AlbaranStatusService", () => {
 
   const prisma = {
     albaran: { findFirst: jest.fn(), updateMany: jest.fn() },
+    albaranReturn: { count: jest.fn().mockResolvedValue(0) },
   };
   const stockService = { processStockOnConfirmation: jest.fn() };
   const reconciliationService = {
@@ -51,6 +52,17 @@ describe("AlbaranStatusService", () => {
   });
 
   describe("transitionStatus", () => {
+    it("no confirma con una devolución anotada en recepción sin aplicar", async () => {
+      prisma.albaran.findFirst.mockResolvedValue(
+        buildAlbaran({ status: AlbaranStatus.REVISADO }),
+      );
+      prisma.albaranReturn.count.mockResolvedValueOnce(1);
+      await expect(
+        service.transitionStatus("alb-1", "t1", AlbaranStatus.CONFIRMADO),
+      ).rejects.toThrow("hay 1 devolución anotada");
+      expect(prisma.albaran.updateMany).not.toHaveBeenCalled();
+    });
+
     it("throws NotFound when the albaran does not exist", async () => {
       prisma.albaran.findFirst.mockResolvedValue(null);
       await expect(

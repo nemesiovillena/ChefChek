@@ -43,6 +43,7 @@ function makePrisma(state: {
   productMaps?: unknown[];
   articles?: unknown[];
   existingExport?: unknown;
+  returns?: unknown[];
 }) {
   return {
     cuinerConfig: { findUnique: jest.fn(async () => state.config ?? null) },
@@ -54,6 +55,7 @@ function makePrisma(state: {
       findMany: jest.fn(async () => state.productMaps ?? []),
     },
     cuinerArticle: { findMany: jest.fn(async () => state.articles ?? []) },
+    albaranReturn: { findMany: jest.fn(async () => state.returns ?? []) },
     cuinerAlbaranExport: {
       findUnique: jest.fn(async () => state.existingExport ?? null),
       upsert: jest.fn(async (args: { create: unknown }) => args.create),
@@ -303,6 +305,102 @@ describe("CuinerExportService.preview", () => {
     expect(problems).toEqual([]);
     expect(payload?.lineas).toHaveLength(1);
     expect(payload?.lineas[0].unidades).toBe(1);
+  });
+
+  describe("devoluciones al proveedor", () => {
+    const original = albaranLine({
+      id: "l1",
+      description: "MAYONESA",
+      quantity: 6,
+      unitPrice: 14.95,
+      totalPrice: 89.7,
+    });
+    const devolucion = albaranLine({
+      id: "l2",
+      description: "Devolución: MAYONESA",
+      quantity: -1,
+      unitPrice: 14.95,
+      totalPrice: -14.95,
+    });
+    const withReturn = (total: number) =>
+      makePrisma({
+        ...fullyMapped,
+        albaran: albaran({ lines: [original, devolucion], total }),
+        returns: [{ appliedLineId: "l2", creditNoteLineId: null }],
+      });
+
+    it("envía la devolución en negativo si el papel no la resta", async () => {
+      const { problems, payload } = await serviceWith(
+        withReturn(98.67),
+      ).preview("t1", "a1");
+      expect(problems).toEqual([]);
+      expect(payload?.lineas.map((l) => l.unidades)).toEqual([6, -1]);
+      expect(payload?.total).toBe(82.23);
+    });
+
+    it("también cuadra si el papel ya trae la devolución restada a mano", async () => {
+      const { problems } = await serviceWith(withReturn(82.23)).preview(
+        "t1",
+        "a1",
+      );
+      expect(problems).toEqual([]);
+    });
+
+    it("sigue bloqueando un descuadre que no explica la devolución", async () => {
+      const { payload, problems } = await serviceWith(withReturn(120)).preview(
+        "t1",
+        "a1",
+      );
+      expect(payload).toBeNull();
+      expect(problems[0]).toContain("no cuadra");
+    });
+
+    it("no envía un abono que solo cubre una devolución ya descontada", async () => {
+      const prisma = makePrisma({
+        ...fullyMapped,
+        albaran: albaran({
+          lines: [albaranLine({ id: "c1", quantity: -1, totalPrice: -14.95 })],
+          total: 16.45,
+        }),
+        returns: [{ appliedLineId: null, creditNoteLineId: "c1" }],
+      });
+      const { payload, problems } = await serviceWith(prisma).preview(
+        "t1",
+        "a1",
+      );
+      expect(payload).toBeNull();
+      expect(problems[0]).toContain("no se envía");
+    });
+
+    it("de un abono mixto envía solo las líneas no cubiertas", async () => {
+      const prisma = makePrisma({
+        ...fullyMapped,
+        albaran: albaran({
+          lines: [
+            albaranLine({
+              id: "c1",
+              quantity: -1,
+              unitPrice: 10,
+              totalPrice: -10,
+            }),
+            albaranLine({
+              id: "c2",
+              quantity: -2,
+              unitPrice: 10,
+              totalPrice: -20,
+            }),
+          ],
+          total: 33,
+        }),
+        returns: [{ appliedLineId: null, creditNoteLineId: "c1" }],
+      });
+      const { payload, problems } = await serviceWith(prisma).preview(
+        "t1",
+        "a1",
+      );
+      expect(problems).toEqual([]);
+      expect(payload?.lineas.map((l) => l.unidades)).toEqual([-2]);
+    });
   });
 
   it("admite diferencias de redondeo de hasta 5 céntimos", async () => {

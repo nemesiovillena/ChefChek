@@ -8,6 +8,8 @@ import { LineMatchingService } from "./services/line-matching.service";
 import { AlbaranStockService } from "./services/albaran-stock.service";
 import { ManualAlbaranService } from "./services/manual-albaran.service";
 import { LotService } from "./services/lot.service";
+import { AlbaranReturnService } from "./services/albaran-return.service";
+import { AlbaranReturnReceiptPdfService } from "./services/albaran-return-receipt-pdf.service";
 import { PrismaModule } from "../../common/services/prisma.module";
 import { AuthModule } from "../auth/auth.module";
 import { OcrModule } from "../ocr/ocr.module";
@@ -36,6 +38,8 @@ import { OcrConfigModule } from "../ocr-config/ocr-config.module";
     AlbaranStockService,
     ManualAlbaranService,
     LotService,
+    AlbaranReturnService,
+    AlbaranReturnReceiptPdfService,
   ],
   exports: [
     AlbaranesService,
