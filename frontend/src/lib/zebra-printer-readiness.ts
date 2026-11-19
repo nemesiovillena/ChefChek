@@ -7,6 +7,11 @@
  * con la impresora sin papel o con la medida de etiqueta perdida, la etiqueta
  * no sale y nadie sabe por qué. Aquí se espera a que esté lista y, si tiene un
  * problema que solo arregla una persona, se explica qué hacer sin mandar nada.
+ *
+ * Se usan dos rollos (60×40 y 57×32) y la Zebra solo guarda la medida de uno.
+ * Si la medida que tiene no es la del formato elegido en Ajustes (o la perdió y
+ * marca sin papel), ChefChek la calibra sola con el sensor de raya negra (el
+ * único con el que estos rollos Z-Select se leen bien), lo guarda y sigue.
  */
 import {
   readZebraStatus,
@@ -24,6 +29,23 @@ const RETRY_MS = 2_000;
 const STALE_RETRY_MS = 6_000;
 const STALE_USB_PATTERN = /error writing to port|connection closed|perdió la conexión/i;
 
+/**
+ * Lo que la impresora mide al calibrar es etiqueta + hueco: 57×32 da 266
+ * puntos (pide 256) y 60×40 da 324 (pide 320). Entre los dos formatos hay
+ * más de 50 puntos, así que este margen distingue el rollo puesto.
+ */
+const LENGTH_TOLERANCE_BELOW = 12;
+const LENGTH_TOLERANCE_ABOVE = 32;
+/**
+ * Sensor de raya negra + calibrar. Sin `^JUS`: solo se guarda si sale bien.
+ * Probado en la ZD220d de cocina con el rollo 57×32 (2026-11-19).
+ */
+const CALIBRATE_ZPL = '^XA^MNM^XZ~JC';
+const SAVE_ZPL = '^XA^JUS^XZ';
+/** La calibración saca unas etiquetas en blanco; durante ese rato no contesta bien. */
+const CALIBRATION_FIRST_CHECK_MS = 10_000;
+const CALIBRATION_TIMEOUT_MS = 30_000;
+
 /** Problema de la impresora que no se arregla esperando: hay que tocarla. */
 export class ZebraPrinterProblemError extends Error {
   constructor(message: string) {
@@ -38,11 +60,25 @@ export function zplLabelLengthDots(zpl: string): number | null {
   return match ? parseInt(match[1], 10) : null;
 }
 
+/** ¿La medida que tiene la impresora es la de esta etiqueta (más su hueco)? */
+export function labelLengthMatches(measuredDots: number, expectedDots: number): boolean {
+  return (
+    measuredDots >= expectedDots - LENGTH_TOLERANCE_BELOW &&
+    measuredDots <= expectedDots + LENGTH_TOLERANCE_ABOVE
+  );
+}
+
+const DOTS_PER_MM = 8; // 203 ppp
+
+/** Hace falta calibrar: marca sin papel o tiene la medida de otro rollo. */
+export function needsCalibration(status: ZebraHostStatus, expectedLengthDots: number | null): boolean {
+  if (status.headOpen || status.paused) return false;
+  if (status.paperOut) return true;
+  return expectedLengthDots !== null && !labelLengthMatches(status.labelLengthDots, expectedLengthDots);
+}
+
 /** Qué le pasa a la impresora, en palabras de cocina; null si puede imprimir. */
-export function printerProblem(
-  status: ZebraHostStatus,
-  expectedLengthDots: number | null,
-): string | null {
+export function printerProblem(status: ZebraHostStatus): string | null {
   if (status.headOpen) {
     return 'La tapa de la impresora está abierta: ciérrala hasta oír el clic y vuelve a imprimir.';
   }
@@ -52,17 +88,50 @@ export function printerProblem(
   if (status.paused) {
     return 'La impresora está en pausa (luz verde parpadeando): pulsa una vez el botón de avance y vuelve a imprimir.';
   }
-  // Con la medida perdida avanza un poco y no sale nada (visto con 13 puntos
-  // en vez de ~320). Solo se avisa si es claramente más corta de lo esperado.
-  if (expectedLengthDots && status.labelLengthDots < expectedLengthDots / 2) {
-    return 'La impresora ha perdido la medida de la etiqueta. Con la luz verde fija, mantén pulsado el botón de avance y suéltalo justo después del 2.º parpadeo (no llegues al 4.º). Si se queda en rojo, abre y cierra la tapa y pulsa el botón una vez. Después vuelve a imprimir.';
-  }
   return null;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isStaleUsbError = (e: unknown) => e instanceof Error && STALE_USB_PATTERN.test(e.message);
+
+/**
+ * Calibra la impresora para el rollo puesto y, si queda bien para esta
+ * etiqueta, lo guarda. Si no, explica qué pasa sin guardar nada.
+ */
+async function calibrateForLabel(device: ZebraDevice, expectedLengthDots: number | null): Promise<void> {
+  await device.send(CALIBRATE_ZPL);
+  await sleep(CALIBRATION_FIRST_CHECK_MS);
+  const deadline = Date.now() + CALIBRATION_TIMEOUT_MS;
+  let last: ZebraHostStatus | null = null;
+  for (;;) {
+    try {
+      last = await readZebraStatus(device);
+      if (!needsCalibration(last, expectedLengthDots) && !last.headOpen && !last.paused) {
+        await device.send(SAVE_ZPL);
+        return;
+      }
+    } catch {
+      // Mientras calibra puede no contestar: se vuelve a preguntar.
+    }
+    if (Date.now() >= deadline) break;
+    await sleep(RETRY_MS);
+  }
+  if (!last || last.paperOut) {
+    throw new ZebraPrinterProblemError(
+      'La impresora no detecta las etiquetas (luz roja): abre la tapa, centra el rollo con las guías ajustadas a su ancho, ciérrala hasta oír el clic y vuelve a imprimir.',
+    );
+  }
+  const otherProblem = printerProblem(last);
+  if (otherProblem) throw new ZebraPrinterProblemError(otherProblem);
+  const measuredMm = Math.round(last.labelLengthDots / DOTS_PER_MM);
+  const expectedMm = expectedLengthDots ? Math.round(expectedLengthDots / DOTS_PER_MM) : null;
+  throw new ZebraPrinterProblemError(
+    `El rollo puesto no es del formato elegido: la impresora mide etiquetas de unos ${measuredMm} mm${
+      expectedMm ? ` y esta etiqueta es de ${expectedMm} mm` : ''
+    }. Cambia el formato en Ajustes → Etiquetas o pon el rollo que corresponde, y vuelve a imprimir.`,
+  );
+}
 
 /**
  * Devuelve la impresora cuando está lista para imprimir. Mientras Browser Print
@@ -90,7 +159,15 @@ export async function waitForReadyZebra(
         if (isStaleUsbError(e)) throw e;
         return device;
       }
-      const problem = printerProblem(status, opts.expectedLengthDots);
+      if (needsCalibration(status, opts.expectedLengthDots)) {
+        if (!notified) {
+          notified = true;
+          opts.onWaiting?.();
+        }
+        await calibrateForLabel(device, opts.expectedLengthDots);
+        return device;
+      }
+      const problem = printerProblem(status);
       if (problem) throw new ZebraPrinterProblemError(problem);
       return device;
     } catch (e) {
