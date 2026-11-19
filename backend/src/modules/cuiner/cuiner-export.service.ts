@@ -88,11 +88,41 @@ export class CuinerExportService {
     // imprime el «manipulado» del pescado sin peso; el peso va en otra línea).
     // No aporta unidades ni base a Cuiner: se omite en vez de bloquear.
     // Cantidad 0 con importe sí es una cantidad mal leída y sigue bloqueando.
-    const lines = albaran.lines.filter(
+    // Devoluciones al proveedor: la línea negativa viaja como cualquier otra.
+    // La línea de un abono aparte que cubre una devolución no se envía: el
+    // género ya salió en Cuiner con la devolución del albarán original.
+    const returns =
+      (await this.prisma.albaranReturn?.findMany({
+        where: {
+          tenantId,
+          OR: [
+            { appliedLine: { albaranId } },
+            { creditNoteLine: { albaranId } },
+          ],
+        },
+        select: { appliedLineId: true, creditNoteLineId: true },
+      })) ?? [];
+    const returnLineIds = new Set(
+      returns.map((r) => r.appliedLineId).filter((id): id is string => !!id),
+    );
+    const coveredLineIds = new Set(
+      returns.map((r) => r.creditNoteLineId).filter((id): id is string => !!id),
+    );
+
+    const validLines = albaran.lines.filter(
       (l) =>
         l.lineStatus !== LineStatus.RECHAZADO &&
         !(l.quantity === 0 && l.totalPrice === 0),
     );
+    const lines = validLines.filter((l) => !coveredLineIds.has(l.id));
+    if (validLines.length > 0 && lines.length === 0) {
+      return {
+        problems: [
+          "Este abono cubre una devolución ya descontada en Cuiner con el albarán original: no se envía",
+        ],
+        payload: null,
+      };
+    }
     if (lines.length === 0) {
       problems.push("El albarán no tiene líneas");
     }
@@ -144,6 +174,21 @@ export class CuinerExportService {
       return { problems, payload: null };
     }
 
+    const toPayloadLine = (line: (typeof validLines)[number]) => {
+      const articulo = articuloByProduct.get(
+        line.matchedProductId as string,
+      ) as string;
+      return {
+        articulo,
+        description: descripcionByArticulo.get(articulo) || line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        netAmount: line.totalPrice,
+        vatPercent: line.vatPercent,
+        medida: medidaByArticulo.get(articulo) ?? null,
+        lot: line.lot,
+      };
+    };
     const payload = buildCuinerAlbaranPayload({
       albaranId: albaran.id,
       empresa: config.empresa,
@@ -153,21 +198,7 @@ export class CuinerExportService {
       actUsuario: config.actUsuario ?? "",
       date: albaran.date,
       albaranNumber: albaran.albaranNumber,
-      lines: lines.map((line) => {
-        const articulo = articuloByProduct.get(
-          line.matchedProductId as string,
-        ) as string;
-        return {
-          articulo,
-          description: descripcionByArticulo.get(articulo) || line.description,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          netAmount: line.totalPrice,
-          vatPercent: line.vatPercent,
-          medida: medidaByArticulo.get(articulo) ?? null,
-          lot: line.lot,
-        };
-      }),
+      lines: lines.map(toPayloadLine),
     });
     // Última barrera: si lo que se escribiría en Cuiner no cuadra con el
     // total del papel, casi siempre es un IVA mal leído por el OCR en alguna
@@ -179,17 +210,35 @@ export class CuinerExportService {
     // suman en negativo, el total del papel se toma en negativo. A un abono no
     // se le aplica la excepción anterior: si cuadra con la base, es un abono
     // sin IVA y sus líneas deben ir al 0 %, no con el IVA del artículo.
+    // Devoluciones: el papel puede traer el total sin restar la devolución (lo
+    // normal) o ya restado (corregido a mano por el repartidor): valen ambos.
+    // Las líneas de abono no enviadas sí están en el total del papel.
+    const withVat = (ls: typeof validLines) =>
+      ls.reduce(
+        (acc, l) =>
+          acc +
+          (l.totalPrice ?? l.quantity * l.unitPrice) * (1 + l.vatPercent / 100),
+        0,
+      );
+    const returnsTotal = withVat(lines.filter((l) => returnLineIds.has(l.id)));
+    const coveredTotal = withVat(
+      validLines.filter((l) => coveredLineIds.has(l.id)),
+    );
+    const documentTotal = payload.total + coveredTotal;
     const paperTotal =
-      payload.total < 0 && albaran.total > 0 ? -albaran.total : albaran.total;
+      documentTotal < 0 && albaran.total > 0 ? -albaran.total : albaran.total;
     const payloadBase = payload.sumas.reduce((acc, s) => acc + s.base, 0);
     const paperIsBaseOnly =
       payloadBase > 0 &&
       !(Number(albaran.vatTotal) > 0) &&
       Math.abs(payloadBase - paperTotal) <= TOTAL_MISMATCH_TOLERANCE;
+    const matchesPaper = (total: number) =>
+      Math.abs(total - paperTotal) <= TOTAL_MISMATCH_TOLERANCE;
     if (
       albaran.total > 0 &&
       !paperIsBaseOnly &&
-      Math.abs(payload.total - paperTotal) > TOTAL_MISMATCH_TOLERANCE
+      !matchesPaper(documentTotal) &&
+      !(returnsTotal !== 0 && matchesPaper(documentTotal - returnsTotal))
     ) {
       const fmt = (n: number) => `${n.toFixed(2).replace(".", ",")} €`;
       return {

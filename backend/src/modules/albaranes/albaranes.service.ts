@@ -42,7 +42,7 @@ const LINK_LOCKED_MESSAGE =
  * del proveedor: corregir o añadir líneas en confirmado no debe moverlo. Los
  * albaranes manuales no tienen papel y su total sigue a las líneas.
  */
-function hasPaperTotal(albaran: { ocrRawData?: unknown }): boolean {
+export function hasPaperTotal(albaran: { ocrRawData?: unknown }): boolean {
   const raw = albaran.ocrRawData as { total_amount?: unknown } | null;
   return Number(raw?.total_amount) > 0;
 }
