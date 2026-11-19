@@ -284,6 +284,27 @@ describe("CuinerExportService.preview", () => {
     ]);
   });
 
+  it("omite sin bloquear las líneas a 0 del papel (cantidad e importe 0, Makro)", async () => {
+    const prisma = makePrisma({
+      ...fullyMapped,
+      albaran: albaran({
+        lines: [
+          albaranLine({
+            description: "SALMON 5-6KG DE CRIA MANIPULADO",
+            quantity: 0,
+            unitPrice: 8.58,
+            totalPrice: 0,
+          }),
+          albaranLine(),
+        ],
+      }),
+    });
+    const { problems, payload } = await serviceWith(prisma).preview("t1", "a1");
+    expect(problems).toEqual([]);
+    expect(payload?.lineas).toHaveLength(1);
+    expect(payload?.lineas[0].unidades).toBe(1);
+  });
+
   it("admite diferencias de redondeo de hasta 5 céntimos", async () => {
     const prisma = makePrisma({
       ...fullyMapped,
