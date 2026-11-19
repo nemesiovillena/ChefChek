@@ -4,7 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, CircleAlert, FileStack, Link2, Upload } from 'lucide-react';
-import { type PurchaseOrder, useInvalidateOrders } from '@/hooks/use-purchase-orders';
+import {
+  type PurchaseOrder,
+  type PurchaseOrderLine,
+  useInvalidateOrders,
+} from '@/hooks/use-purchase-orders';
 import { useSectionAccess } from '@/features/modules/hooks/use-section-access';
 import { LinkExistingAlbaranDialog } from '@/components/albaranes/link-existing-albaran-dialog';
 import { normalizeUnitSymbol } from '@/lib/unit-symbols';
@@ -63,8 +67,35 @@ function formatQty(qty: number) {
   return Number(qty.toFixed(3));
 }
 
+function qtyWithUnit(qty: number, unit: string | null | undefined) {
+  const label = unitLabel(unit);
+  return label ? `${formatQty(qty)} ${label}` : String(formatQty(qty));
+}
+
 function isPriceMismatch(expected: number, received: number) {
   return Math.abs(received - expected) > PRICE_TOLERANCE_ABSOLUTE;
+}
+
+type ArrivalState =
+  | { kind: 'none' }
+  | { kind: 'pending-confirm' }
+  | { kind: 'missing' }
+  | { kind: 'short'; missingQty: number };
+
+/**
+ * Qué pasa con la línea respecto a lo recibido. Solo se habla de faltas
+ * cuando ya hay albarán vinculado (antes, el pedido simplemente no ha llegado).
+ */
+function arrivalState(line: PurchaseOrderLine, hasAlbaran: boolean): ArrivalState {
+  if (!hasAlbaran) return { kind: 'none' };
+  const received = line.receivedQuantity ?? null;
+  if (received === null || received <= 0) {
+    return line.inUnconfirmedAlbaran ? { kind: 'pending-confirm' } : { kind: 'missing' };
+  }
+  if (line.covered === false && received < line.quantity) {
+    return { kind: 'short', missingQty: line.quantity - received };
+  }
+  return { kind: 'none' };
 }
 
 const ALBARAN_STATUS_META: Record<string, { label: string; className: string }> = {
@@ -89,6 +120,10 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
   const [linkOpen, setLinkOpen] = useState(false);
   const invalidateOrders = useInvalidateOrders();
   const queryClient = useQueryClient();
+  const hasAlbaran = albaranes.length > 0;
+  const shortfalls = lines
+    .map((line) => ({ line, state: arrivalState(line, hasAlbaran) }))
+    .filter(({ state }) => state.kind === 'missing' || state.kind === 'short');
 
   return (
     <section className="space-y-4">
@@ -143,6 +178,31 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
         )}
       </div>
 
+      {shortfalls.length > 0 && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+        >
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">
+              {order.status === 'RECIBIDO' ? 'Recibido con faltas' : 'Falta mercancía'}
+            </p>
+            <ul className="mt-1 list-disc pl-5">
+              {shortfalls.map(({ line, state }) => (
+                <li key={line.id}>
+                  {line.product?.name ?? line.productId}
+                  {' · '}
+                  {state.kind === 'short'
+                    ? `faltan ${qtyWithUnit(state.missingQty, line.unit)}`
+                    : `no ha llegado (${qtyWithUnit(line.quantity, line.unit)})`}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-2xl border border-[var(--outline-variant)]">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
@@ -165,6 +225,7 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
                 line.expectedPrice != null &&
                 isPriceMismatch(line.expectedPrice, line.receivedPrice);
               const orderedLabel = unitLabel(line.unit);
+              const state = arrivalState(line, hasAlbaran);
 
               return (
                 <tr
@@ -195,8 +256,21 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
                           </span>
                         )}
                       </>
+                    ) : state.kind === 'missing' ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        No ha llegado
+                      </span>
+                    ) : state.kind === 'pending-confirm' ? (
+                      <span className="text-xs font-normal text-[var(--on-surface-variant)]">
+                        En albarán, sin confirmar
+                      </span>
                     ) : (
                       '—'
+                    )}
+                    {state.kind === 'short' && (
+                      <span className="block text-xs font-normal">
+                        faltan {formatQty(state.missingQty)} {orderedLabel}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2 text-right text-[var(--on-surface-variant)]">

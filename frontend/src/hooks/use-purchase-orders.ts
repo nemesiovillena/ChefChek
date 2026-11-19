@@ -21,6 +21,10 @@ export interface PurchaseOrderLine {
   receivedPrice?: number | null;
   receivedSourceQuantity?: number | null;
   receivedSourceUnit?: string | null;
+  /** Solo en el detalle: lo recibido cubre lo pedido (con tolerancias). */
+  covered?: boolean;
+  /** Solo en el detalle: viene en un albarán vinculado aún sin confirmar. */
+  inUnconfirmedAlbaran?: boolean;
   lineNotes?: string | null;
   product?: {
     id: string;
