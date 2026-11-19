@@ -114,6 +114,7 @@ describe("AlbaranStatusService", () => {
         "t1",
         "po-1",
         "ALB-0200",
+        "alb-1",
       );
       expect(stockService.processStockOnConfirmation).not.toHaveBeenCalled();
     });
@@ -267,7 +268,11 @@ describe("AlbaranStatusService", () => {
     it("vincular un albarán ya recibido marca el pedido nuevo y reabre el anterior", async () => {
       await service.syncOrderLink(
         "t1",
-        { status: AlbaranStatus.REVISADO, internalNumber: "ALB-0200" },
+        {
+          id: "alb-1",
+          status: AlbaranStatus.REVISADO,
+          internalNumber: "ALB-0200",
+        },
         "po-old",
         "po-new",
       );
@@ -278,13 +283,18 @@ describe("AlbaranStatusService", () => {
         "t1",
         "po-new",
         "ALB-0200",
+        "alb-1",
       );
     });
 
     it("vincular un albarán PENDIENTE no marca el pedido", async () => {
       await service.syncOrderLink(
         "t1",
-        { status: AlbaranStatus.PENDIENTE, internalNumber: "ALB-0200" },
+        {
+          id: "alb-1",
+          status: AlbaranStatus.PENDIENTE,
+          internalNumber: "ALB-0200",
+        },
         null,
         "po-new",
       );

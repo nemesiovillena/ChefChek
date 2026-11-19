@@ -7,6 +7,11 @@ import {
 import { PurchaseOrderStatus } from "@prisma/client";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { NotificationsService } from "../../core/notifications.service";
+import {
+  formatShortfallMessage,
+  isOrderLineCovered,
+  ShortfallItem,
+} from "../utils/order-shortfall.util";
 
 /**
  * Estados desde los que un ADMIN puede forzar la vuelta a BORRADOR (fuera de
@@ -125,46 +130,81 @@ export class PurchaseOrderStatusService {
     // Aviso inmediato en la campana: no esperar a los 3 días de
     // StalePartialOrderAlertService, el usuario quiere verlo en cuanto pasa.
     if (newStatus === PurchaseOrderStatus.RECIBIDO_PARCIAL) {
-      await this.sendPartialReceptionNotification(tenantId, {
-        id: orderId,
-        orderNumber: order.orderNumber,
-        supplierName: order.supplier.name,
-      });
+      await this.notifyPartialReception(tenantId, orderId);
     }
 
     return updated;
   }
 
   /**
-   * Aviso de faltas para un pedido que ya está RECIBIDO (quedó así al marcar
-   * «Mercancía recibida»), cuando al confirmar el albarán no cubre lo pedido.
+   * Aviso de faltas en la campana, con los artículos que faltan.
+   * - Sin `missing`: se calcula de lo recibido en las líneas del pedido
+   *   (confirmación del albarán o recepción parcial).
+   * - Con `missing`: lo que no venía en el albarán al recibir la mercancía.
+   * No repite un aviso idéntico del mismo pedido (el de la recepción y el de
+   * la confirmación coinciden cuando lo que falta es lo mismo).
    */
-  async notifyPartialReception(tenantId: string, orderId: string) {
+  async notifyPartialReception(
+    tenantId: string,
+    orderId: string,
+    missing?: ShortfallItem[],
+    title = "Recepción parcial",
+  ) {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: { id: orderId, tenantId },
-      select: { orderNumber: true, supplier: { select: { name: true } } },
+      select: {
+        orderNumber: true,
+        supplier: { select: { name: true } },
+        lines: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            quantity: true,
+            unit: true,
+            receivedQuantity: true,
+            receivedSourceUnit: true,
+            product: { select: { name: true } },
+          },
+        },
+      },
     });
     if (!order) {
       return;
     }
-    await this.sendPartialReceptionNotification(tenantId, {
-      id: orderId,
-      orderNumber: order.orderNumber,
-      supplierName: order.supplier.name,
-    });
-  }
+    const items =
+      missing ??
+      order.lines
+        .filter((l) => !isOrderLineCovered(l))
+        .map((l) => ({
+          name: l.product.name,
+          quantity: l.quantity,
+          unit: l.unit,
+          received: l.receivedQuantity,
+        }));
+    const message =
+      items.length > 0
+        ? formatShortfallMessage(order.orderNumber, order.supplier.name, items)
+        : `${order.orderNumber} (${order.supplier.name}) se ha recibido parcialmente. ` +
+          "Revisa qué falta o cierra el pedido si el proveedor no completará el envío.";
 
-  private async sendPartialReceptionNotification(
-    tenantId: string,
-    order: { id: string; orderNumber: string; supplierName: string },
-  ) {
+    const alreadySent = await this.prisma.alert.findFirst({
+      where: {
+        tenantId,
+        type: "PARTIAL_ORDER_RECEIVED",
+        entityId: orderId,
+        message,
+      },
+      select: { id: true },
+    });
+    if (alreadySent) {
+      return;
+    }
     await this.notificationsService.createNotification(tenantId, {
       type: "PARTIAL_ORDER_RECEIVED",
       severity: "WARNING",
-      title: "Recepción parcial",
-      message: `${order.orderNumber} (${order.supplierName}) se ha recibido parcialmente. Revisa qué falta o cierra el pedido si el proveedor no completará el envío.`,
+      title,
+      message,
       entityType: "PURCHASE_ORDER",
-      entityId: order.id,
+      entityId: orderId,
     });
   }
 

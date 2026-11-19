@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { PurchaseOrderStatus } from "@prisma/client";
+import { AlbaranStatus, LineStatus, PurchaseOrderStatus } from "@prisma/client";
+import { isOrderLineCovered } from "../utils/order-shortfall.util";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderNumberService } from "./purchase-order-number.service";
 import {
@@ -143,7 +144,35 @@ export class PurchaseOrderService {
     if (!order) {
       throw new NotFoundException("Pedido no encontrado");
     }
-    return order;
+    // Artículos que vienen en albaranes vinculados aún sin confirmar: ya han
+    // llegado aunque el pedido no tenga todavía la cantidad recibida.
+    const unconfirmedAlbaranIds = order.albaranes
+      .filter(
+        (a) =>
+          a.status !== AlbaranStatus.CONFIRMADO &&
+          a.status !== AlbaranStatus.ARCHIVADO,
+      )
+      .map((a) => a.id);
+    const arrivedLines =
+      unconfirmedAlbaranIds.length > 0
+        ? await this.prisma.albaranLine.findMany({
+            where: {
+              albaranId: { in: unconfirmedAlbaranIds },
+              matchedProductId: { not: null },
+              lineStatus: { not: LineStatus.RECHAZADO },
+            },
+            select: { matchedProductId: true },
+          })
+        : [];
+    const arrived = new Set(arrivedLines.map((l) => l.matchedProductId));
+    return {
+      ...order,
+      lines: order.lines.map((l) => ({
+        ...l,
+        covered: isOrderLineCovered(l),
+        inUnconfirmedAlbaran: arrived.has(l.productId),
+      })),
+    };
   }
 
   /**

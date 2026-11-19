@@ -7,6 +7,7 @@ import {
   isBilledPerFormat,
   ReceptionConversionResult,
 } from "../../../common/utils/reception-unit-conversion.util";
+import { isOrderLineCovered } from "../utils/order-shortfall.util";
 import { PurchaseOrderStatusService } from "./purchase-order-status.service";
 
 const SUGGESTION_WINDOW_DAYS = 7;
@@ -66,13 +67,15 @@ export class OrderReconciliationService {
    * «Mercancía recibida» en el albarán: el pedido vinculado pasa a RECIBIDO
    * en ese momento, sin esperar a que oficina confirme. No toca cantidades ni
    * precios: eso lo hace `reconcileFromAlbaran` al confirmar (suma cantidades,
-   * así que no puede ejecutarse dos veces). Si al confirmar falta mercancía,
-   * se avisa allí. No-op si el pedido ya no admite recepción.
+   * así que no puede ejecutarse dos veces). Avisa en el acto de los artículos
+   * del pedido que no vienen en el albarán; las cantidades cortas se avisan
+   * al confirmar. No-op si el pedido ya no admite recepción.
    */
   async markReceivedOnArrival(
     tenantId: string,
     orderId: string,
     albaranLabel: string,
+    albaranId?: string,
   ) {
     const order = await this.prisma.purchaseOrder.findFirst({
       where: { id: orderId, tenantId },
@@ -91,6 +94,60 @@ export class OrderReconciliationService {
       PurchaseOrderStatus.RECIBIDO,
       undefined, // transición del sistema, no de un usuario
       `Mercancía recibida (albarán ${albaranLabel})`,
+    );
+    if (albaranId) {
+      await this.notifyMissingOnArrival(tenantId, order.id, albaranId);
+    }
+  }
+
+  /**
+   * Artículos del pedido que no vienen en el albarán recibido (ni llegaron
+   * antes): se comparan por artículo vinculado, ignorando líneas rechazadas.
+   */
+  private async notifyMissingOnArrival(
+    tenantId: string,
+    orderId: string,
+    albaranId: string,
+  ) {
+    const [albaranLines, orderLines] = await Promise.all([
+      this.prisma.albaranLine.findMany({
+        where: {
+          albaranId,
+          matchedProductId: { not: null },
+          lineStatus: { not: LineStatus.RECHAZADO },
+        },
+        select: { matchedProductId: true },
+      }),
+      this.prisma.purchaseOrderLine.findMany({
+        where: { orderId },
+        orderBy: { sortOrder: "asc" },
+        select: {
+          productId: true,
+          quantity: true,
+          unit: true,
+          receivedQuantity: true,
+          receivedSourceUnit: true,
+          product: { select: { name: true } },
+        },
+      }),
+    ]);
+    const arrived = new Set(albaranLines.map((l) => l.matchedProductId));
+    const missing = orderLines
+      .filter((l) => !arrived.has(l.productId) && !isOrderLineCovered(l))
+      .map((l) => ({
+        name: l.product.name,
+        quantity: l.quantity,
+        unit: l.unit,
+        received: l.receivedQuantity,
+      }));
+    if (missing.length === 0) {
+      return;
+    }
+    await this.statusService.notifyPartialReception(
+      tenantId,
+      orderId,
+      missing,
+      "No ha llegado todo el pedido",
     );
   }
 
@@ -337,28 +394,7 @@ export class OrderReconciliationService {
       (sum, l) => sum + (l.receivedQuantity ?? 0) * (l.receivedPrice ?? 0),
       0,
     );
-    // Cobertura con tolerancias: un cruce ud↔kg/L convertido con peso medio
-    // aprendido arrastra el redondeo del peso (±10%), y lo pedido a peso
-    // nunca llega al gramo exacto (±2%, mismo criterio que la recepción en
-    // frontend). Unidades: exacto — no hay "0,3 uds" de sobra.
-    const allCovered = refreshedLines.every((l) => {
-      const received = l.receivedQuantity ?? 0;
-      if (received >= l.quantity) {
-        return true;
-      }
-      const orderMeta = getUnitMeta(l.unit);
-      const sourceMeta = getUnitMeta(l.receivedSourceUnit);
-      const crossed =
-        !!orderMeta &&
-        !!sourceMeta &&
-        orderMeta.category !== sourceMeta.category;
-      const tolerance = crossed
-        ? l.quantity * 0.1
-        : orderMeta && orderMeta.category !== "unidad"
-          ? Math.max(l.quantity * 0.02, 0.01)
-          : 0;
-      return received >= l.quantity - tolerance;
-    });
+    const allCovered = refreshedLines.every(isOrderLineCovered);
     const anyReceived = refreshedLines.some(
       (l) => (l.receivedQuantity ?? 0) > 0,
     );

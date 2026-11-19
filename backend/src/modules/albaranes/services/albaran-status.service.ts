@@ -105,6 +105,7 @@ export class AlbaranStatusService {
         tenantId,
         albaran.purchaseOrderId,
         albaran.internalNumber,
+        albaranId,
       );
     }
 
@@ -147,7 +148,7 @@ export class AlbaranStatusService {
    */
   async syncOrderLink(
     tenantId: string,
-    albaran: { status: AlbaranStatus; internalNumber: string },
+    albaran: { id: string; status: AlbaranStatus; internalNumber: string },
     previousOrderId: string | null,
     nextOrderId: string | null,
   ): Promise<void> {
@@ -169,6 +170,7 @@ export class AlbaranStatusService {
         tenantId,
         nextOrderId,
         albaran.internalNumber,
+        albaran.id,
       );
     }
   }
@@ -204,9 +206,10 @@ export class AlbaranStatusService {
     tenantId: string,
     orderId: string,
     albaranLabel: string,
+    albaranId: string,
   ) {
     await this.orderReconciliationService
-      .markReceivedOnArrival(tenantId, orderId, albaranLabel)
+      .markReceivedOnArrival(tenantId, orderId, albaranLabel, albaranId)
       .catch((err) =>
         this.logger.error(
           `Pedido ${orderId}: no se pudo marcar recibido (albarán ${albaranLabel})`,
