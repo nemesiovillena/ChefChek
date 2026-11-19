@@ -38,6 +38,8 @@ describe("RecipesService", () => {
       findMany: jest.fn(),
       update: jest.fn(),
     },
+    cuinerDishMap: { findMany: jest.fn().mockResolvedValue([]) },
+    cuinerDish: { findMany: jest.fn().mockResolvedValue([]) },
     // calculateCost usa $queryRaw (SQL crudo) para leer los productos fuera
     // del middleware de soft-delete; se mockea aquí en lugar de product.findMany.
     $queryRaw: jest.fn(),
@@ -631,6 +633,29 @@ describe("RecipesService", () => {
         mockPrismaService.recipe.findMany.mock.calls.at(-1)[0].where;
       expect(where.isActive).toBe(true);
       expect(where.isDrink).toBe(false);
+    });
+  });
+
+  describe("platos de Cuiner enlazados (listado)", () => {
+    it("agrupa por receta el nombre del plato del TPV", async () => {
+      mockPrismaService.cuinerDishMap.findMany.mockResolvedValueOnce([
+        { recipeId: "r1", tipo: "P", producto: "101" },
+        { recipeId: "r1", tipo: "P", producto: "102" },
+        { recipeId: "r2", tipo: "P", producto: "200" },
+      ]);
+      mockPrismaService.cuinerDish.findMany.mockResolvedValueOnce([
+        { tipo: "P", producto: "101", nombre: "Arroz negro" },
+        { tipo: "P", producto: "102", nombre: "Arroz negro ½" },
+      ]);
+      const byRecipe = await (service as any).cuinerDishesByRecipe(tenantId, [
+        "r1",
+        "r2",
+        "r3",
+      ]);
+      expect(byRecipe.get("r1")).toEqual(["Arroz negro", "Arroz negro ½"]);
+      // Sin nombre sincronizado: cae al código del producto.
+      expect(byRecipe.get("r2")).toEqual(["200"]);
+      expect(byRecipe.has("r3")).toBe(false);
     });
   });
 

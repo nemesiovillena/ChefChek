@@ -88,6 +88,11 @@ export interface RecipeCostResponse extends RecipeCostBreakdown {
 export interface RecipeResponse {
   id: string;
   name: string;
+  /**
+   * Solo en el listado: nombres de los platos de Cuiner (TPV) enlazados a la
+   * receta, que la descuentan al venderse. Vacío = sin enlazar.
+   */
+  cuinerDishes?: string[];
   description?: string;
   elaboration: string;
   imageUrl?: string | null;

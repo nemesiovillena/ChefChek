@@ -406,16 +406,65 @@ export class RecipesService {
       includeCost && subIds.length > 0
         ? await this.liveCosts(tenantId, subIds)
         : new Map<string, LiveCost>();
-    const data = await Promise.all(
-      recipes.map((recipe) =>
-        this.formatRecipeResponse(recipe, includeCost, subCosts),
+    const [formatted, cuinerDishes] = await Promise.all([
+      Promise.all(
+        recipes.map((recipe) =>
+          this.formatRecipeResponse(recipe, includeCost, subCosts),
+        ),
       ),
-    );
+      this.cuinerDishesByRecipe(
+        tenantId,
+        recipes.map((r) => r.id),
+      ),
+    ]);
+    const data = formatted.map((r) => ({
+      ...r,
+      cuinerDishes: cuinerDishes.get(r.id) ?? [],
+    }));
 
     return {
       data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  /**
+   * Platos de Cuiner (TPV) enlazados a cada receta de la página: el chivato
+   * «enlazada a Cuiner» del listado. Dos consultas por página, sin N+1.
+   */
+  private async cuinerDishesByRecipe(
+    tenantId: string,
+    recipeIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (recipeIds.length === 0) {
+      return result;
+    }
+    const maps = await this.prisma.cuinerDishMap.findMany({
+      where: { tenantId, recipeId: { in: recipeIds } },
+      select: { recipeId: true, tipo: true, producto: true },
+    });
+    if (maps.length === 0) {
+      return result;
+    }
+    const dishes = await this.prisma.cuinerDish.findMany({
+      where: {
+        tenantId,
+        OR: maps.map((m) => ({ tipo: m.tipo, producto: m.producto })),
+      },
+      select: { tipo: true, producto: true, nombre: true },
+    });
+    const nameOf = new Map(
+      dishes.map((d) => [`${d.tipo}-${d.producto}`, d.nombre]),
+    );
+    for (const m of maps) {
+      if (!m.recipeId) {
+        continue;
+      }
+      const name = nameOf.get(`${m.tipo}-${m.producto}`) ?? m.producto;
+      result.set(m.recipeId, [...(result.get(m.recipeId) ?? []), name]);
+    }
+    return result;
   }
 
   /**
