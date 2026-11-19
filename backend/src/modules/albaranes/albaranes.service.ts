@@ -83,7 +83,8 @@ function lineTotals(line: {
     line.totalPrice !== null && line.totalPrice !== undefined
       ? Number(line.totalPrice)
       : null;
-  const base = net !== null && net < gross ? net : gross;
+  // Neto con descuento: más cerca de 0 que el bruto (también en negativas).
+  const base = net !== null && Math.abs(net) < Math.abs(gross) ? net : gross;
   return { gross, base, vat: (base * Number(line.vatPercent)) / 100 };
 }
 
@@ -309,7 +310,14 @@ export class AlbaranesService {
           select: { id: true, orderNumber: true, status: true },
         },
         lines: {
-          include: { matchedProduct: true, suggestedProduct: true },
+          include: {
+            matchedProduct: true,
+            suggestedProduct: true,
+            // Devolución al proveedor que aplica esta línea negativa, o que
+            // cubre esta línea de un abono aparte (para pintar y cuadrar totales).
+            returnAppliedHere: { select: { id: true } },
+            returnCoveredHere: { select: { id: true } },
+          },
           orderBy: [{ lineOrder: "asc" }, { createdAt: "asc" }],
         },
       },

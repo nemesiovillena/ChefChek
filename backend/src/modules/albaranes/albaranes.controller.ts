@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -53,6 +54,8 @@ import {
   DiscardAlbaranReturnDto,
 } from "./dto/albaran-return.dto";
 import { AlbaranReturnService } from "./services/albaran-return.service";
+import { AlbaranReturnReceiptPdfService } from "./services/albaran-return-receipt-pdf.service";
+import type { Response } from "express";
 
 @ApiTags("Albaranes")
 @ApiBearerAuth()
@@ -65,6 +68,7 @@ export class AlbaranesController {
     private readonly albaranesService: AlbaranesService,
     private readonly manualAlbaranService: ManualAlbaranService,
     private readonly albaranReturnService: AlbaranReturnService,
+    private readonly returnReceiptPdf: AlbaranReturnReceiptPdfService,
   ) {}
 
   @Post()
@@ -229,6 +233,24 @@ export class AlbaranesController {
       req.user?.name,
     );
     return { success: true, data };
+  }
+
+  @Get(":id/returns/:returnId/receipt")
+  @ApiOperation({ summary: "Justificante de la devolución en PDF" })
+  async returnReceipt(
+    @Param("id") id: string,
+    @Param("returnId") returnId: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.returnReceiptPdf.generate(
+      req.user?.tenantId,
+      id,
+      returnId,
+    );
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Post(":id/returns/:returnId/apply")

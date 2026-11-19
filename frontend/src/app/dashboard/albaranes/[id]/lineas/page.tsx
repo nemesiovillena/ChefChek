@@ -9,6 +9,8 @@ import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import { useAlbaranDetail } from '@/hooks/use-albaran-detail';
 import { confirmLine, rejectLine, updateStatus, updateAlbaran, matchLine as assignMatchedProduct, unmatchLine, dismissSuggestion, correctLineVat, correctLineQuantity } from '@/lib/api-albaran';
+import { AlbaranReturnsPanel, returnLineIds } from '@/components/albaranes/returns/albaran-returns-panel';
+import { useAlbaranReturns } from '@/hooks/use-albaran-returns';
 import { LineMatchBadge } from '@/components/albaranes/line-match-badge';
 import { LinePriceChangeBadge } from '@/components/albaranes/line-price-change-badge';
 import { AlbaranStatusBadge } from '@/components/albaranes/albaran-status-badge';
@@ -55,6 +57,9 @@ export default function AlbaranLineasPage() {
   const backLabel = returnTo ? 'Volver al Pedido' : 'Volver a Albaranes';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { albaran, loading, error, refetch } = useAlbaranDetail(id);
+  const { data: albaranReturns } = useAlbaranReturns(id);
+  const pendingReturnsCount = (albaranReturns ?? []).filter((r) => r.status === 'PENDIENTE').length;
+  const returnRowIds = returnLineIds(albaranReturns);
   const [updating, setUpdating] = useState<string | null>(null);
   const addNotification = useNotification();
   const confirm = useConfirm();
@@ -603,6 +608,10 @@ export default function AlbaranLineasPage() {
         </CardContent>
       </Card>
 
+      <div className="mb-4">
+        <AlbaranReturnsPanel albaran={albaran} onChanged={refetch} />
+      </div>
+
       {lines.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
@@ -660,7 +669,7 @@ export default function AlbaranLineasPage() {
                   <TableBody className="max-md:block">
                     {lines.map((line) => (
                       <Fragment key={line.id}>
-                      <TableRow className={`${MOBILE_ROW} ${line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''}`}>
+                      <TableRow className={`${MOBILE_ROW} ${line.lineStatus === 'RECHAZADO' ? 'opacity-50' : ''} ${returnRowIds.has(line.id) ? 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-300' : ''}`}>
                         <TableCell className={MOBILE_CELL_FULL}>
                           <div>
                             {isEditable(line) ? (
@@ -1048,7 +1057,9 @@ export default function AlbaranLineasPage() {
                     <p className="text-sm text-green-800">
                       {albaran.status === 'PENDIENTE'
                         ? 'Todas las líneas están revisadas. Puedes marcar la mercancía como recibida.'
-                        : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
+                        : pendingReturnsCount > 0
+                          ? 'Antes de confirmar, aplica o descarta la devolución anotada en recepción (arriba).'
+                          : `Albarán revisado. Al confirmarlo se actualizará el stock y los precios de ${albaran.supplier.name}.`}
                     </p>
                   </div>
                   <Button
@@ -1057,7 +1068,12 @@ export default function AlbaranLineasPage() {
                         albaran.status === 'PENDIENTE' ? 'REVISADO' : 'CONFIRMADO',
                       )
                     }
-                    disabled={statusUpdating}
+                    disabled={statusUpdating || (albaran.status === 'REVISADO' && pendingReturnsCount > 0)}
+                    title={
+                      albaran.status === 'REVISADO' && pendingReturnsCount > 0
+                        ? 'Aplica o descarta la devolución anotada en recepción'
+                        : undefined
+                    }
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     {statusUpdating ? (

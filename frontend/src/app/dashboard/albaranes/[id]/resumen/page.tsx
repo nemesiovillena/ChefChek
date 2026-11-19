@@ -17,6 +17,7 @@ import { SupplierPickerDialog } from '@/components/albaranes/supplier-picker-dia
 import { PurchaseOrderPickerDialog } from '@/components/albaranes/purchase-order-picker-dialog';
 import { CuinerSendCard } from '@/components/albaranes/cuiner-send-card';
 import { AlbaranTotalMismatchNotice } from '@/components/albaranes/albaran-total-mismatch-notice';
+import { AlbaranReturnsPanel } from '@/components/albaranes/returns/albaran-returns-panel';
 import { getDisplayTotals } from '@/lib/albaran-total-check';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -250,6 +251,10 @@ export default function AlbaranResumenPage() {
         <ArrowLeft className="mr-2 h-4 w-4" />
         {backLabel}
       </Button>
+
+      <div className="mb-6">
+        <AlbaranReturnsPanel albaran={albaran} onChanged={refetch} />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info */}

@@ -395,11 +395,6 @@ export class AlbaranReturnService {
           "El abono tiene que ser del mismo proveedor y de otro albarán",
         );
       }
-      if (ret.creditNoteLineId && ret.creditNoteLineId !== lineId) {
-        throw new BadRequestException(
-          "Esa devolución ya está enlazada con otra línea de abono",
-        );
-      }
       const updated = await tx.albaranReturn.update({
         where: { id: ret.id },
         data: { creditNoteLineId: lineId },
