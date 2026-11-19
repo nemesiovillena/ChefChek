@@ -255,22 +255,24 @@ export function ZebraPrinterStatus() {
           )}
         </div>
       )}
-      {/* La configuración del rollo (modo de sensor, acción al encender) se
-          deja en la propia impresora con FEED; la app no la toca. La
-          calibración remota (~JC) dejó una ZD220d en error (commit cdf522f). */}
+      {/* Al imprimir, si la medida de la impresora no es la del formato
+          elegido, la app calibra sola con sensor de raya negra (^MNM + ~JC,
+          ver zebra-printer-readiness.ts). La calibración remota en modo hueco
+          (^MNY) dejó una ZD220d en error (commit cdf522f): no usarla. */}
       <div className="rounded-md border border-gray-200 p-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-gray-400">
         <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
-          ¿Descuadran las etiquetas o salen en blanco de más?
+          ¿Cambias de rollo (60×40 ↔ 57×32)?
         </p>
         <ol className="list-decimal space-y-0.5 pl-4">
-          <li>Con la luz verde fija, mantén pulsado el botón FEED y suéltalo tras el 2º parpadeo.</li>
+          <li>Pon el rollo, centrado y con las guías ajustadas a su ancho, y cierra la tapa hasta el clic.</li>
+          <li>Elige su formato arriba y pulsa Guardar.</li>
           <li>
-            Sacará unas etiquetas y se parará. No abras la tapa mientras tanto. Al
-            pulsar FEED debe salir una sola.
+            Al imprimir, ChefChek ve que la impresora tiene la medida del otro rollo y la
+            ajusta sola: sacará unas etiquetas en blanco y después la tuya.
           </li>
           <li>
-            No restaures la configuración de fábrica (4º parpadeo): borra el modo de
-            lectura del rollo que tiene guardado la impresora.
+            No uses el botón FEED para calibrar (2º parpadeo): puede dejarla en modo
+            continuo y en rojo. Tampoco restaures fábrica (4º parpadeo).
           </li>
           <li>
             Luz roja con la tapa abierta es normal: ciérrala hasta el clic y pulsa
