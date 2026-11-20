@@ -99,6 +99,7 @@ model Tenant {
   noteTags                   NoteTag[]
   assistantConversations     AssistantConversation[]
   foodLabels                 FoodLabel[]
+  labelPrintLogs             LabelPrintLog[]
   recipeCaptures             RecipeCapture[]
 
   @@map("tenants")
@@ -4644,4 +4645,32 @@ model CuinerWaiter {
 
   @@unique([tenantId, code])
   @@map("cuiner_waiters")
+}
+
+/// Registro de cada impresión térmica (Zebra): qué contestó la impresora,
+/// si ChefChek la calibró y cómo acabó. Lo escribe el navegador al terminar
+/// cada intento; sirve para saber qué pasó cuando en cocina sale algo raro.
+model LabelPrintLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  userId       String?
+  userName     String?
+  foodLabelId  String?
+  format       String?
+  copies       Int?
+  /// OK | ERROR
+  outcome      String
+  errorMessage String?
+  calibrated   Boolean  @default(false)
+  durationMs   Int?
+  deviceUid    String?
+  /// Pasos con su instante (ms desde el inicio) y lo que leyó de la impresora
+  steps        Json
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("label_print_logs")
 }

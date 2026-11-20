@@ -18,6 +18,7 @@ import {
   type ZebraDevice,
   type ZebraHostStatus,
 } from './zebra-browser-print';
+import { PrintTrace, traceErrorMessage } from './zebra-print-trace';
 
 /** Margen para que Browser Print termine de reiniciarse tras encender la Zebra. */
 const READY_TIMEOUT_MS = 45_000;
@@ -99,7 +100,13 @@ const isStaleUsbError = (e: unknown) => e instanceof Error && STALE_USB_PATTERN.
  * Calibra la impresora para el rollo puesto y, si queda bien para esta
  * etiqueta, lo guarda. Si no, explica qué pasa sin guardar nada.
  */
-async function calibrateForLabel(device: ZebraDevice, expectedLengthDots: number | null): Promise<void> {
+async function calibrateForLabel(
+  device: ZebraDevice,
+  expectedLengthDots: number | null,
+  trace?: PrintTrace,
+): Promise<void> {
+  if (trace) trace.calibrated = true;
+  trace?.add('calibrate-start');
   await device.send(CALIBRATE_ZPL);
   await sleep(CALIBRATION_FIRST_CHECK_MS);
   const deadline = Date.now() + CALIBRATION_TIMEOUT_MS;
@@ -107,16 +114,20 @@ async function calibrateForLabel(device: ZebraDevice, expectedLengthDots: number
   for (;;) {
     try {
       last = await readZebraStatus(device);
+      trace?.add('calibrate-status', { ...last });
       if (!needsCalibration(last, expectedLengthDots) && !last.headOpen && !last.paused) {
         await device.send(SAVE_ZPL);
+        trace?.add('calibrate-saved');
         return;
       }
-    } catch {
+    } catch (e) {
       // Mientras calibra puede no contestar: se vuelve a preguntar.
+      trace?.add('calibrate-status-error', { message: traceErrorMessage(e) });
     }
     if (Date.now() >= deadline) break;
     await sleep(RETRY_MS);
   }
+  trace?.add('calibrate-failed');
   if (!last || last.paperOut) {
     throw new ZebraPrinterProblemError(
       'La impresora no detecta las etiquetas (luz roja): abre la tapa, centra el rollo con las guías ajustadas a su ancho, ciérrala hasta oír el clic y vuelve a imprimir.',
@@ -141,18 +152,23 @@ async function calibrateForLabel(device: ZebraDevice, expectedLengthDots: number
  */
 export async function waitForReadyZebra(
   resolveDevice: () => Promise<ZebraDevice>,
-  opts: { expectedLengthDots: number | null; onWaiting?: () => void },
+  opts: { expectedLengthDots: number | null; onWaiting?: () => void; trace?: PrintTrace },
 ): Promise<ZebraDevice> {
+  const trace = opts.trace;
   const deadline = Date.now() + READY_TIMEOUT_MS;
   let notified = false;
   for (;;) {
     let lastError: unknown;
     try {
       const device = await resolveDevice();
+      if (trace) trace.deviceUid = device.uid;
+      trace?.add('device', { uid: device.uid, connection: device.connection });
       let status: ZebraHostStatus;
       try {
         status = await readZebraStatus(device);
+        trace?.add('status', { ...status });
       } catch (e) {
+        trace?.add('status-error', { message: traceErrorMessage(e) });
         // Conexión USB caducada: se espera a que el vigilante reinicie Browser
         // Print. Si solo es que no contesta a la consulta, se imprime como
         // siempre: la comprobación no debe impedir imprimir.
@@ -164,15 +180,19 @@ export async function waitForReadyZebra(
           notified = true;
           opts.onWaiting?.();
         }
-        await calibrateForLabel(device, opts.expectedLengthDots);
+        await calibrateForLabel(device, opts.expectedLengthDots, trace);
         return device;
       }
       const problem = printerProblem(status);
       if (problem) throw new ZebraPrinterProblemError(problem);
       return device;
     } catch (e) {
-      if (e instanceof ZebraPrinterProblemError) throw e;
+      if (e instanceof ZebraPrinterProblemError) {
+        trace?.add('problem', { message: e.message });
+        throw e;
+      }
       lastError = e;
+      trace?.add('not-ready', { message: traceErrorMessage(e) });
     }
     if (Date.now() >= deadline) {
       throw lastError instanceof Error ? lastError : new Error('La impresora no está lista.');
