@@ -7,6 +7,7 @@ import {
   type ZebraDevice,
 } from '@/lib/zebra-browser-print';
 import { waitForReadyZebra, zplLabelLengthDots } from '@/lib/zebra-printer-readiness';
+import { PrintTrace, traceErrorMessage } from '@/lib/zebra-print-trace';
 
 export type LabelType = 'ELABORATED' | 'HANDLED';
 export type StorageCondition = 'REFRIGERATED' | 'FROZEN' | 'AMBIENT';
@@ -635,6 +636,7 @@ export async function printLabelZpl(
     onWaiting?: () => void;
   } = {},
 ): Promise<void> {
+  const trace = new PrintTrace();
   try {
     const res = await apiClient.get<string>(
       `/v1/etiquetado/labels/${labelId}/zpl`,
@@ -643,17 +645,62 @@ export async function printLabelZpl(
         responseType: 'text',
       },
     );
+    const expectedLengthDots = zplLabelLengthDots(res.data);
+    trace.add('zpl', { expectedLengthDots, reprint: !!opts.reprint });
     const device = await waitForReadyZebra(resolveZebraDevice, {
-      expectedLengthDots: zplLabelLengthDots(res.data),
-      onWaiting: opts.onWaiting,
+      expectedLengthDots,
+      onWaiting: () => {
+        trace.add('waiting');
+        opts.onWaiting?.();
+      },
+      trace,
     });
     await device.send(res.data);
+    trace.add('sent');
+    savePrintLog(trace, { labelId, format, copies, outcome: 'OK' });
     opts.onSuccess?.();
   } catch (e: unknown) {
+    trace.add('error', { message: traceErrorMessage(e) });
+    savePrintLog(trace, {
+      labelId,
+      format,
+      copies,
+      outcome: 'ERROR',
+      errorMessage: traceErrorMessage(e),
+    });
     opts.onError?.(
       e instanceof Error ? e.message : 'No se pudo imprimir la etiqueta',
     );
   }
+}
+
+/**
+ * Guarda el intento en el registro de impresiones. Nunca bloquea ni hace
+ * fallar la impresión: si no se puede guardar, se pierde ese registro.
+ */
+function savePrintLog(
+  trace: PrintTrace,
+  info: {
+    labelId: string;
+    format: string;
+    copies: number;
+    outcome: 'OK' | 'ERROR';
+    errorMessage?: string;
+  },
+): void {
+  apiClient
+    .post('/v1/etiquetado/print-logs', {
+      foodLabelId: info.labelId,
+      format: info.format,
+      copies: Math.max(1, Math.round(info.copies) || 1),
+      outcome: info.outcome,
+      ...(info.errorMessage ? { errorMessage: info.errorMessage } : {}),
+      calibrated: trace.calibrated,
+      durationMs: trace.elapsedMs(),
+      ...(trace.deviceUid ? { deviceUid: trace.deviceUid.slice(0, 120) } : {}),
+      steps: trace.steps,
+    })
+    .catch(() => undefined);
 }
 
 /**
