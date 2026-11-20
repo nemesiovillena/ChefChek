@@ -36,6 +36,8 @@ import { VoidFoodLabelDto } from "./dto/void-food-label.dto";
 import { RetireFoodLabelsDto } from "./dto/retire-food-labels.dto";
 import { UpdateEtiquetadoConfigDto } from "./dto/update-etiquetado-config.dto";
 import { EtiquetadoConfigService } from "./services/etiquetado-config.service";
+import { LabelPrintLogService } from "./services/label-print-log.service";
+import { CreateLabelPrintLogDto } from "./dto/create-label-print-log.dto";
 
 @ApiTags("Etiquetado")
 @ApiBearerAuth()
@@ -50,7 +52,27 @@ export class EtiquetadoController {
     private readonly pdf: FoodLabelPdfService,
     private readonly zpl: FoodLabelZplService,
     private readonly config: EtiquetadoConfigService,
+    private readonly printLogs: LabelPrintLogService,
   ) {}
+
+  /** Resultado de un intento de impresión térmica (lo manda el navegador). */
+  @Post("print-logs")
+  @RequireSection("etiquetado.emit")
+  async createPrintLog(@Req() req: any, @Body() dto: CreateLabelPrintLogDto) {
+    return this.printLogs.create(
+      req.tenantId,
+      req.user,
+      dto,
+      req.headers?.["user-agent"],
+    );
+  }
+
+  /** Últimas impresiones térmicas, para diagnosticar la etiquetadora. */
+  @Get("print-logs")
+  @Roles("ADMIN")
+  async listPrintLogs(@Req() req: any, @Query("limit") limit?: string) {
+    return this.printLogs.list(req.tenantId, Number(limit) || 50);
+  }
 
   @Get("config")
   async getConfig(@Req() req: any) {
