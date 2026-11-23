@@ -308,6 +308,144 @@ describe("ProductionService", () => {
     });
   });
 
+  describe("assigned staff tenant isolation on create", () => {
+    it("rejects staff from another tenant", async () => {
+      mockPrismaService.workBatch.findFirst.mockResolvedValue({ id: batchId });
+      mockPrismaService.staffMember.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.createProductionOrder(tenantId, userId, {
+          batchId,
+          title: "Tarea",
+          assignedStaffIds: ["foreign-staff"],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.staffMember.findMany).toHaveBeenCalledWith({
+        where: { id: { in: ["foreign-staff"] }, tenantId },
+        select: { id: true },
+      });
+      expect(mockPrismaService.productionOrder.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateProductionOrder", () => {
+    const editableOrder = {
+      id: orderId,
+      status: "PENDING",
+      assignedStaffIds: ["staff-1"],
+      batch: { status: "PLANNED" },
+    };
+
+    beforeEach(() => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(
+        editableOrder,
+      );
+      mockPrismaService.productionOrder.update.mockResolvedValue({
+        id: orderId,
+      });
+    });
+
+    it("updates title, description and staff", async () => {
+      mockPrismaService.staffMember.findMany.mockResolvedValue([
+        { id: "staff-2" },
+      ]);
+
+      const result = await service.updateProductionOrder(tenantId, orderId, {
+        title: "  Marinar pollo ",
+        description: " Con limón ",
+        assignedStaffIds: ["staff-1", "staff-2"],
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: {
+          title: "Marinar pollo",
+          description: "Con limón",
+          assignedStaffIds: ["staff-1", "staff-2"],
+        },
+      });
+    });
+
+    it("clears description and staff when asked to", async () => {
+      await service.updateProductionOrder(tenantId, orderId, {
+        description: null,
+        assignedStaffIds: [],
+      });
+
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { description: null, assignedStaffIds: [] },
+      });
+    });
+
+    it("leaves omitted fields untouched", async () => {
+      await service.updateProductionOrder(tenantId, orderId, { title: "Otra" });
+
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalledWith({
+        where: { id: orderId },
+        data: { title: "Otra" },
+      });
+    });
+
+    it("keeps an already assigned id without revalidating it", async () => {
+      await service.updateProductionOrder(tenantId, orderId, {
+        assignedStaffIds: ["staff-1"],
+      });
+
+      expect(mockPrismaService.staffMember.findMany).not.toHaveBeenCalled();
+      expect(mockPrismaService.productionOrder.update).toHaveBeenCalled();
+    });
+
+    it("rejects newly added staff from another tenant", async () => {
+      mockPrismaService.staffMember.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.updateProductionOrder(tenantId, orderId, {
+          assignedStaffIds: ["staff-1", "foreign-staff"],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a blank title", async () => {
+      await expect(
+        service.updateProductionOrder(tenantId, orderId, { title: "   " }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it("throws NotFoundException for an order outside the tenant", async () => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateProductionOrder(otherTenantId, orderId, { title: "X" }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrismaService.productionOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: orderId, tenantId: otherTenantId, deletedAt: null },
+        }),
+      );
+    });
+
+    it.each([
+      ["completed order", { status: "COMPLETED" }],
+      ["cancelled order", { status: "CANCELLED" }],
+      ["completed batch", { batch: { status: "COMPLETED" } }],
+      ["cancelled batch", { batch: { status: "CANCELLED" } }],
+    ])("rejects editing a %s", async (_label, override) => {
+      mockPrismaService.productionOrder.findFirst.mockResolvedValue({
+        ...editableOrder,
+        ...override,
+      });
+
+      await expect(
+        service.updateProductionOrder(tenantId, orderId, { title: "X" }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrismaService.productionOrder.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("getProductionOrdersByBatch", () => {
     it("should filter by batchId and tenantId directly (no relation traversal needed)", async () => {
       mockPrismaService.productionOrder.findMany.mockResolvedValue([]);

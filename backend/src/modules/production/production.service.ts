@@ -11,6 +11,7 @@ import {
   CreateWorkBatchDto,
   UpdateWorkBatchDto,
   CreateProductionOrderDto,
+  UpdateProductionOrderDto,
   CreateMiseEnPlaceItemDto,
   CreateMiseEnPlaceSheetDto,
   CreateProductionTaskDto,
@@ -21,6 +22,8 @@ import {
   UpdateAlertDto,
   GenerateProductionReportDto,
 } from "./dto/production.dto";
+
+const CLOSED_PRODUCTION_STATUSES = ["COMPLETED", "CANCELLED"];
 
 @Injectable()
 export class ProductionService {
@@ -151,6 +154,7 @@ export class ProductionService {
     if (!batch) {
       throw new NotFoundException("Work batch not found");
     }
+    await this.assertStaffBelongsToTenant(tenantId, dto.assignedStaffIds ?? []);
 
     const orderNumber =
       await this.orderNumberService.generateOrderNumber(tenantId);
@@ -176,6 +180,76 @@ export class ProductionService {
     });
 
     return { success: true, data: order };
+  }
+
+  async updateProductionOrder(
+    tenantId: string,
+    orderId: string,
+    dto: UpdateProductionOrderDto,
+  ): Promise<any> {
+    const existing = await this.prisma.productionOrder.findFirst({
+      where: { id: orderId, tenantId, deletedAt: null },
+      include: { batch: { select: { status: true } } },
+    });
+    if (!existing) {
+      throw new NotFoundException("Production order not found");
+    }
+    // Lo ya hecho o cancelado se conserva como registro de lo que ocurrió.
+    if (
+      CLOSED_PRODUCTION_STATUSES.includes(existing.status) ||
+      CLOSED_PRODUCTION_STATUSES.includes(existing.batch.status)
+    ) {
+      throw new BadRequestException(
+        "No se puede editar una orden o un lote completado o cancelado",
+      );
+    }
+
+    const title = dto.title?.trim();
+    if (dto.title !== undefined && !title) {
+      throw new BadRequestException("El título es obligatorio");
+    }
+
+    // Solo se validan las altas: una asignación antigua que ya no resuelva a
+    // un miembro del equipo no debe impedir editar el resto de la orden.
+    const addedStaffIds = (dto.assignedStaffIds ?? []).filter(
+      (id) => !existing.assignedStaffIds.includes(id),
+    );
+    await this.assertStaffBelongsToTenant(tenantId, addedStaffIds);
+
+    const order = await this.prisma.productionOrder.update({
+      where: { id: orderId },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(dto.description !== undefined && {
+          description: dto.description?.trim() || null,
+        }),
+        ...(dto.assignedStaffIds !== undefined && {
+          assignedStaffIds: Array.from(new Set(dto.assignedStaffIds)),
+        }),
+      },
+    });
+
+    return { success: true, data: order };
+  }
+
+  private async assertStaffBelongsToTenant(
+    tenantId: string,
+    staffIds: string[],
+  ): Promise<void> {
+    const uniqueIds = Array.from(new Set(staffIds));
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const found = await this.prisma.staffMember.findMany({
+      where: { id: { in: uniqueIds }, tenantId },
+      select: { id: true },
+    });
+    if (found.length !== uniqueIds.length) {
+      throw new BadRequestException(
+        "El personal asignado no pertenece a este restaurante",
+      );
+    }
   }
 
   async getProductionOrdersByBatch(

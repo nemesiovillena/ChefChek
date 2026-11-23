@@ -7,6 +7,7 @@ import {
   IsBoolean,
   IsDate,
   IsEmail,
+  ValidateIf,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -105,6 +106,24 @@ export class CreateProductionOrderDto {
   description?: string;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignedStaffIds?: string[];
+}
+
+export class UpdateProductionOrderDto {
+  // Omitido = no cambia; null no es válido porque el título es obligatorio.
+  @ValidateIf((dto) => dto.title !== undefined)
+  @IsString()
+  title?: string;
+
+  // null vacía la descripción; omitido la deja como está.
+  @IsOptional()
+  @IsString()
+  description?: string | null;
+
+  // [] quita todo el personal; omitido deja la asignación como está.
+  @ValidateIf((dto) => dto.assignedStaffIds !== undefined)
   @IsArray()
   @IsString({ each: true })
   assignedStaffIds?: string[];

@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import type { VariantProps } from 'class-variance-authority';
 import { Button } from '@/components/ui/button';
-import { GripVertical, User, Trash2, CalendarClock } from 'lucide-react';
+import { GripVertical, User, Trash2, CalendarClock, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ProductionOrder } from '@/hooks/use-production';
 
@@ -40,6 +40,8 @@ interface SortableOrderCardProps {
   assignedNames: string[];
   isHighlighted: boolean;
   highlightedOrderRef?: React.Ref<HTMLDivElement>;
+  canEdit: boolean;
+  onEdit: () => void;
   onPostpone: () => void;
   onComplete: () => void;
   onDelete: () => void;
@@ -50,6 +52,8 @@ export function SortableOrderCard({
   assignedNames,
   isHighlighted,
   highlightedOrderRef,
+  canEdit,
+  onEdit,
   onPostpone,
   onComplete,
   onDelete,
@@ -94,6 +98,18 @@ export function SortableOrderCard({
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          {canEdit && (order.status === 'PENDING' || order.status === 'IN_PROGRESS') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEdit}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Editar orden"
+              aria-label={`Editar orden ${order.title}`}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
           {order.status === 'PENDING' && (
             <Button
               size="sm"

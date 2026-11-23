@@ -420,7 +420,7 @@ export class DashboardService {
     );
     const assignedStaff = assignedStaffIds.length
       ? await this.prisma.staffMember.findMany({
-          where: { id: { in: assignedStaffIds } },
+          where: { id: { in: assignedStaffIds }, tenantId },
           select: { id: true, name: true },
         })
       : [];
