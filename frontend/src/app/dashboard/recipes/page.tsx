@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { CUINER_ROLES } from '@/lib/cuiner-types';
 import { useNotification } from '@/components/notification-system';
 import { useConfirm } from '@/contexts/confirm.context';
 import {
@@ -135,7 +137,7 @@ function ingredientUnitFor(referenceUnit?: string): string | undefined {
 }
 
 export default function RecipesPage() {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, user } = useAuth();
   const router = useRouter();
   const addNotification = useNotification();
   const confirm = useConfirm();
@@ -168,6 +170,7 @@ export default function RecipesPage() {
   const canLabel = isEnabled('etiquetado') && canSee('etiquetado.emit');
   // Chivato «enlazada a Cuiner» junto al Estado: solo si el local usa Cuiner.
   const showCuinerLink = isEnabled('cuiner');
+  const canOpenCuiner = !!user && CUINER_ROLES.includes(user.role);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -1174,7 +1177,7 @@ export default function RecipesPage() {
                             {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                           </span>
                         )}
-                        {showCuinerLink && <CuinerLinkBadge dishes={recipe.cuinerDishes} />}
+                        {showCuinerLink && <CuinerLinkBadge dishes={recipe.cuinerDishes} canOpenCuiner={canOpenCuiner} />}
                       </td>
                       <td className={tdActionsClass}>
                         <button
@@ -1932,10 +1935,24 @@ export default function RecipesPage() {
 
 /**
  * Chivato de enlace con Cuiner (TPV): enlazada = el plato descuenta esta receta
- * al venderse. Los nombres de los platos van en el tooltip.
+ * al venderse. Los nombres de los platos van en el tooltip. Sin enlazar, quien
+ * tiene acceso a Cuiner puede pulsarlo para ir a Platos y enlazarla.
  */
-function CuinerLinkBadge({ dishes }: { dishes?: string[] }) {
+function CuinerLinkBadge({ dishes, canOpenCuiner }: { dishes?: string[]; canOpenCuiner: boolean }) {
   const linked = (dishes?.length ?? 0) > 0;
+  if (!linked && canOpenCuiner) {
+    const linkLabel = 'Sin enlazar a Cuiner — clic para enlazar en Platos';
+    return (
+      <Link
+        href="/dashboard/cuiner?tab=platos"
+        title={linkLabel}
+        aria-label={linkLabel}
+        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 align-middle text-gray-400 transition-all duration-150 hover:bg-indigo-100 hover:text-indigo-700 active:scale-95 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
+      >
+        <Link2Off className="h-3.5 w-3.5" />
+      </Link>
+    );
+  }
   const label = linked ? `Enlazada a Cuiner: ${dishes!.join(', ')}` : 'Sin enlazar a Cuiner';
   return (
     <span

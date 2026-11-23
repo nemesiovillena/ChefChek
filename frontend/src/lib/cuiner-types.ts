@@ -1,5 +1,8 @@
 /** Tipos del módulo Cuiner (conector con el TPV y la gestión de Cuiner). */
 
+/** Usan Cuiner; la configuración del conector solo la cambian ADMIN/OWNER/SUPERADMIN. */
+export const CUINER_ROLES: string[] = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
+
 export type CuinerMode = 'DRY_RUN' | 'LIVE';
 export type CuinerExportStatus = 'PENDIENTE' | 'SIMULADO' | 'ENVIADO' | 'ERROR';
 export type CuinerDishTipo = 'P' | 'I' | 'M';
