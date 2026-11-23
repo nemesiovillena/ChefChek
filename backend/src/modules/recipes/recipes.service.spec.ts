@@ -1209,6 +1209,50 @@ describe("RecipesService", () => {
 
       expect(result.name).toContain("(Copia)");
     });
+
+    it("copia foto, PVP, conservación y solo los alérgenos guardados", async () => {
+      const original = {
+        ...mockRecipe,
+        imageUrl: "https://img/tiramisu.webp",
+        sellingPriceWithVat: 7.5,
+        shelfLifeDays: 3,
+        shelfLifeFrozenDays: 30,
+        storageCondition: "REFRIGERATED",
+        storageTempMin: 0,
+        storageTempMax: 4,
+        allergens: [9],
+      };
+      mockPrismaService.recipe.findFirst.mockResolvedValue(original);
+      mockPrismaService.recipe.create.mockResolvedValue(original);
+
+      await service.duplicate(tenantId, recipeId, "  Tiramisú sin lactosa ");
+
+      const data = mockPrismaService.recipe.create.mock.calls.at(-1)[0].data;
+      expect(data).toMatchObject({
+        name: "Tiramisú sin lactosa",
+        imageUrl: "https://img/tiramisu.webp",
+        sellingPriceWithVat: 7.5,
+        shelfLifeDays: 3,
+        shelfLifeFrozenDays: 30,
+        storageCondition: "REFRIGERATED",
+        storageTempMin: 0,
+        storageTempMax: 4,
+      });
+      // mockProduct aporta [1, 2]: derivados, no se fijan en la copia.
+      expect(data.allergens).toEqual([9]);
+    });
+
+    it("no duplica una bebida sin permiso de bebidas", async () => {
+      mockPrismaService.recipe.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.duplicate(tenantId, recipeId, "Copia", false),
+      ).rejects.toThrow(NotFoundException);
+      expect(
+        mockPrismaService.recipe.findFirst.mock.calls[0][0].where,
+      ).toMatchObject({ isDrink: false });
+      expect(mockPrismaService.recipe.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("merma del artículo", () => {

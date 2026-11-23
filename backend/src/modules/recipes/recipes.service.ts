@@ -826,13 +826,29 @@ export class RecipesService {
     tenantId: string,
     id: string,
     newName?: string,
+    canViewDrinks = true,
   ): Promise<RecipeResponse> {
-    const originalRecipe = await this.findOne(tenantId, id);
+    const originalRecipe = await this.findOne(
+      tenantId,
+      id,
+      true,
+      canViewDrinks,
+    );
+    // La respuesta de findOne une los alérgenos guardados con los derivados de
+    // los ingredientes. Se copia solo lo guardado: si no, el alérgeno de un
+    // ingrediente que se cambie en la copia quedaría fijado como manual. El PVP
+    // se lee aquí porque no depende de los cálculos de la respuesta.
+    const stored = await this.prisma.recipe.findFirst({
+      where: { id, tenantId },
+      select: { allergens: true, sellingPriceWithVat: true },
+    });
+    const trimmedName = typeof newName === "string" ? newName.trim() : "";
 
     const duplicatedRecipe = await this.create(tenantId, {
-      name: newName || `${originalRecipe.name} (Copia)`,
+      name: trimmedName || `${originalRecipe.name} (Copia)`,
       description: originalRecipe.description,
       elaboration: originalRecipe.elaboration,
+      imageUrl: originalRecipe.imageUrl,
       notes: originalRecipe.notes,
       sourceUrl: originalRecipe.sourceUrl,
       // Con ingredientes pendientes la copia está tan incompleta como el
@@ -845,6 +861,14 @@ export class RecipesService {
       preparationTimeMinutes:
         originalRecipe.preparationTimeMinutes ?? undefined,
       cookingTimeMinutes: originalRecipe.cookingTimeMinutes ?? undefined,
+      shelfLifeDays: originalRecipe.shelfLifeDays ?? undefined,
+      shelfLifeFrozenDays: originalRecipe.shelfLifeFrozenDays ?? undefined,
+      storageCondition: (originalRecipe.storageCondition ??
+        undefined) as CreateRecipeDto["storageCondition"],
+      storageTempMin: originalRecipe.storageTempMin ?? undefined,
+      storageTempMax: originalRecipe.storageTempMax ?? undefined,
+      sellingPriceWithVat: stored?.sellingPriceWithVat ?? undefined,
+      allergens: stored?.allergens ?? [],
       ingredients: originalRecipe.ingredients?.map((ing) => ({
         productId: ing.productId,
         quantity: ing.quantity,
@@ -1323,6 +1347,7 @@ export class RecipesService {
           referencePurchasePrice,
           realPrice: referencePurchasePrice / yieldFactor,
           referenceUnit: product?.referenceUnit || "kilo",
+          allergens: product?.allergens ?? [],
           note: ing.note ?? null,
         };
       }) || [];
