@@ -105,7 +105,7 @@ function DishTargetPicker({
   const [mode, setMode] = useState<'recipe' | 'product'>('recipe');
   const [product, setProduct] = useState<Product | null>(null);
   const [filter, setFilter] = useState(dish.nombre.toLowerCase());
-  const recipes = useRecipeOptions();
+  const recipes = useRecipeOptions({ includeInactive: true });
   const products = useProductSearch(300);
 
   const recipeHits = useMemo(() => {
@@ -164,6 +164,11 @@ function DishTargetPicker({
                 <li key={r.id}>
                   <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => onPick({ recipeId: r.id })}>
                     {r.name}
+                    {r.isActive === false && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        Desactivada
+                      </span>
+                    )}
                   </button>
                 </li>
               ))

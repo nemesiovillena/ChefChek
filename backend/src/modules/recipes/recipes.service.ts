@@ -472,23 +472,39 @@ export class RecipesService {
    * sub-recetas) — separado de findAll() porque ese ahora pagina y un
    * picker necesita poder elegir entre TODAS las recetas activas, no solo
    * la página visible del listado principal.
+   *
+   * `inactiveForRole`: el selector que admite desactivadas (enlace de platos
+   * de Cuiner) pasa el rol; solo quien puede verlas las recibe, con `isActive`
+   * para marcarlas. El resto de pickers siguen viendo solo las activas.
    */
   async findAllOptions(
     tenantId: string,
     includeCost = true,
     canViewDrinks = true,
-  ): Promise<{ id: string; name: string; pricePerKgOrL: number | null }[]> {
+    inactiveForRole?: string,
+  ): Promise<
+    {
+      id: string;
+      name: string;
+      pricePerKgOrL: number | null;
+      isActive?: boolean;
+    }[]
+  > {
+    const withInactive = INACTIVE_RECIPE_VIEWER_ROLES.includes(
+      inactiveForRole ?? "",
+    );
     const recipes = await this.prisma.recipe.findMany({
       // Las bebidas pueden ser sub-receta de un plato (café en el tiramisú),
       // pero solo las ofrece el selector a quien puede verlas.
       where: {
         tenantId,
-        isActive: true,
+        ...(!withInactive && { isActive: true }),
         ...(!canViewDrinks && { isDrink: false }),
       },
       select: {
         id: true,
         name: true,
+        isActive: true,
         totalCostPerUnit: true,
         portions: true,
         portionSize: true,
@@ -517,6 +533,7 @@ export class RecipesService {
           includeCost && hasValidYield
             ? Math.round(perUnit * 1000 * 100) / 100
             : null,
+        ...(withInactive && { isActive: r.isActive }),
       };
     });
   }

@@ -136,12 +136,16 @@ export class RecipesController {
     summary:
       "Listado ligero (id+nombre) de todas las recetas activas del tenant, sin paginar — para pickers (p.ej. sub-recetas)",
   })
-  async findAllOptions(@Req() req: any) {
+  async findAllOptions(
+    @Req() req: any,
+    @Query("includeInactive") includeInactive?: string,
+  ) {
     const tenantId = req.tenantId;
     const data = await this.recipesService.findAllOptions(
       tenantId,
       await this.canViewCost(req),
       await this.canViewDrinks(req),
+      includeInactive === "true" ? req.user?.role : undefined,
     );
     return {
       success: true,

@@ -222,11 +222,13 @@ export function useRecipeInitials(
  * Listado ligero (id+nombre) de recetas activas, sin paginar — para pickers
  * (p.ej. combobox de sub-recetas), que necesitan elegir entre TODAS las
  * recetas, no solo la página visible del listado principal (paginado).
+ * `includeInactive`: añade las desactivadas si el rol puede verlas (lo decide
+ * el servidor), con `isActive: false` para marcarlas.
  */
-export function useRecipeOptions() {
-  return useApiQuery<{ id: string; name: string; pricePerKgOrL: number | null }[]>(
-    ['recipe-options'],
-    '/v1/recipes/options'
+export function useRecipeOptions({ includeInactive = false }: { includeInactive?: boolean } = {}) {
+  return useApiQuery<{ id: string; name: string; pricePerKgOrL: number | null; isActive?: boolean }[]>(
+    includeInactive ? ['recipe-options', 'with-inactive'] : ['recipe-options'],
+    `/v1/recipes/options${includeInactive ? '?includeInactive=true' : ''}`
   );
 }
 
