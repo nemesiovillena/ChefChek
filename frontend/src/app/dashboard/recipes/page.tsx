@@ -1177,7 +1177,7 @@ export default function RecipesPage() {
                             {recipe.isActive ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
                           </span>
                         )}
-                        {showCuinerLink && <CuinerLinkBadge dishes={recipe.cuinerDishes} canOpenCuiner={canOpenCuiner} />}
+                        {showCuinerLink && <CuinerLinkBadge recipeName={recipe.name} dishes={recipe.cuinerDishes} canOpenCuiner={canOpenCuiner} />}
                       </td>
                       <td className={tdActionsClass}>
                         <button
@@ -1938,13 +1938,21 @@ export default function RecipesPage() {
  * al venderse. Los nombres de los platos van en el tooltip. Sin enlazar, quien
  * tiene acceso a Cuiner puede pulsarlo para ir a Platos y enlazarla.
  */
-function CuinerLinkBadge({ dishes, canOpenCuiner }: { dishes?: string[]; canOpenCuiner: boolean }) {
+function CuinerLinkBadge({
+  recipeName,
+  dishes,
+  canOpenCuiner,
+}: {
+  recipeName: string;
+  dishes?: string[];
+  canOpenCuiner: boolean;
+}) {
   const linked = (dishes?.length ?? 0) > 0;
   if (!linked && canOpenCuiner) {
     const linkLabel = 'Sin enlazar a Cuiner — clic para enlazar en Platos';
     return (
       <Link
-        href="/dashboard/cuiner?tab=platos"
+        href={`/dashboard/cuiner?tab=platos&search=${encodeURIComponent(recipeName)}`}
         title={linkLabel}
         aria-label={linkLabel}
         className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 align-middle text-gray-400 transition-all duration-150 hover:bg-indigo-100 hover:text-indigo-700 active:scale-95 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
