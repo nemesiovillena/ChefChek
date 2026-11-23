@@ -55,6 +55,11 @@ function deriveSellingPriceFromVat(
 
 /** Roles que ven también las recetas desactivadas en el listado. */
 const INACTIVE_RECIPE_VIEWER_ROLES = ["ADMIN", "OWNER"];
+/** Quienes enlazan platos de Cuiner: ven las desactivadas solo en ese selector. */
+const INACTIVE_RECIPE_OPTION_ROLES = [
+  ...INACTIVE_RECIPE_VIEWER_ROLES,
+  "USER_CUINER",
+];
 
 @Injectable()
 export class RecipesService {
@@ -490,7 +495,7 @@ export class RecipesService {
       isActive?: boolean;
     }[]
   > {
-    const withInactive = INACTIVE_RECIPE_VIEWER_ROLES.includes(
+    const withInactive = INACTIVE_RECIPE_OPTION_ROLES.includes(
       inactiveForRole ?? "",
     );
     const recipes = await this.prisma.recipe.findMany({

@@ -678,7 +678,7 @@ describe("RecipesService", () => {
       expect(lastWhere().isActive).toBe(true);
     });
 
-    it.each(["ADMIN", "OWNER"])(
+    it.each(["ADMIN", "OWNER", "USER_CUINER"])(
       "ofrece las desactivadas marcadas a %s",
       async (role) => {
         mockPrismaService.recipe.findMany.mockResolvedValue([inactiveRow]);
@@ -693,7 +693,7 @@ describe("RecipesService", () => {
       },
     );
 
-    it.each(["USER", "USER_CUINER", "VIEWER", "GESTION"])(
+    it.each(["USER", "VIEWER", "GESTION"])(
       "no ofrece desactivadas a %s aunque las pida",
       async (role) => {
         mockPrismaService.recipe.findMany.mockResolvedValue([]);
