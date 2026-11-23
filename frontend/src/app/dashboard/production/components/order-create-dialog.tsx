@@ -5,27 +5,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { useNotification } from '@/components/notification-system';
 import { useStaffMembers } from '@/hooks/use-production-staff';
-import type { CreateProductionOrderInput } from '@/hooks/use-production';
+import type { ProductionOrder, UpdateProductionOrderInput } from '@/hooks/use-production';
 
 interface OrderCreateDialogProps {
-  batchId: string;
+  initialOrder?: ProductionOrder;
   onClose: () => void;
-  onSubmit: (input: CreateProductionOrderInput) => Promise<void>;
+  onSubmit: (input: UpdateProductionOrderInput) => Promise<void>;
   isSubmitting: boolean;
 }
 
 /**
- * Diálogo de creación de orden de producción: una tarea de cocina definida por
- * título + descripción + personal asignado. La asignación se hace aquí, en la
- * creación, eligiendo miembros del equipo (StaffMember) — por eso ya no hace
- * falta ni el panel de "Tareas y personal asignado" ni la hoja de mise en place.
+ * Diálogo de creación y edición de orden de producción: una tarea de cocina
+ * definida por título + descripción + personal asignado, elegido entre los
+ * miembros del equipo (StaffMember). Con `initialOrder` funciona en modo edición.
  */
-export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmitting }: OrderCreateDialogProps) {
+export default function OrderCreateDialog({ initialOrder, onClose, onSubmit, isSubmitting }: OrderCreateDialogProps) {
+  const isEditMode = Boolean(initialOrder);
+  const addNotification = useNotification();
   const { staff, isLoading: isLoadingStaff } = useStaffMembers();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [title, setTitle] = useState(initialOrder?.title ?? '');
+  const [description, setDescription] = useState(initialOrder?.description ?? '');
+  const [selectedStaff, setSelectedStaff] = useState<string[]>(initialOrder?.assignedStaffIds ?? []);
 
   const canSubmit = title.trim() !== '' && !isSubmitting;
 
@@ -39,21 +41,34 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    await onSubmit({
-      batchId,
-      title,
-      description: description || undefined,
-      assignedStaffIds: selectedStaff.length > 0 ? selectedStaff : undefined,
-    });
+    try {
+      await onSubmit({
+        title: title.trim(),
+        description: description.trim() || null,
+        assignedStaffIds: selectedStaff,
+      });
+    } catch (e) {
+      // El modal sigue abierto para no perder lo escrito.
+      addNotification({
+        type: 'error',
+        title: isEditMode ? 'No se pudo guardar la orden' : 'No se pudo crear la orden',
+        message: e instanceof Error ? e.message : 'Error desconocido',
+      });
+    }
   };
 
-  const activeStaff = staff.filter((s) => s.isActive);
+  // Los inactivos ya asignados siguen visibles para poder verlos y quitarlos.
+  const selectableStaff = staff.filter(
+    (s) => s.isActive || initialOrder?.assignedStaffIds?.includes(s.id),
+  );
 
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-lg shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Nueva orden de producción</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            {isEditMode ? 'Editar orden de producción' : 'Nueva orden de producción'}
+          </h3>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
@@ -92,13 +107,13 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Cargando equipo...
               </div>
-            ) : activeStaff.length === 0 ? (
+            ) : selectableStaff.length === 0 ? (
               <p className="text-xs text-muted-foreground">
                 No hay miembros del equipo. Crea personal en la sección Personal.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2 mt-2">
-                {activeStaff.map((member) => {
+                {selectableStaff.map((member) => {
                   const selected = selectedStaff.includes(member.id);
                   return (
                     <button
@@ -114,6 +129,7 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
                     >
                       {member.name}
                       {member.role ? <span className="opacity-60"> · {member.role}</span> : null}
+                      {!member.isActive ? <span className="opacity-60"> · inactivo</span> : null}
                     </button>
                   );
                 })}
@@ -126,7 +142,9 @@ export default function OrderCreateDialog({ batchId, onClose, onSubmit, isSubmit
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={!canSubmit}>
-              {isSubmitting ? 'Creando...' : 'Crear orden'}
+              {isEditMode
+                ? isSubmitting ? 'Guardando...' : 'Guardar cambios'
+                : isSubmitting ? 'Creando...' : 'Crear orden'}
             </Button>
           </div>
         </div>
