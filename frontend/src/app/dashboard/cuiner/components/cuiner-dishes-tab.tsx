@@ -188,11 +188,12 @@ function DishTargetPicker({
   );
 }
 
-export function CuinerDishesTab() {
+/** `initialSearch`: nombre de la receta cuando se llega desde su chivato «Sin enlazar». */
+export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string }) {
   const notify = useNotification();
   const [tipo, setTipo] = useState<CuinerDishTipo>('P');
-  const [draft, setDraft] = useState('');
-  const [search, setSearch] = useState('');
+  const [draft, setDraft] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch);
   const [onlyUnmapped, setOnlyUnmapped] = useState(true);
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<string | null>(null);
@@ -345,7 +346,12 @@ export function CuinerDishesTab() {
                 </li>
               );
             })}
-            {data.items.length === 0 && <li className="py-6 text-center text-sm text-gray-500">Sin resultados.</li>}
+            {data.items.length === 0 && (
+              <li className="py-6 text-center text-sm text-gray-500">
+                {/* La búsqueda exige la frase seguida: el nombre de la receta puede no coincidir con el de la carta. */}
+                {search ? `Sin resultados para «${search}». Prueba con una parte del nombre.` : 'Sin resultados.'}
+              </li>
+            )}
           </ul>
           <Pager page={data.page} total={data.total} pageSize={data.pageSize} onPage={setPage} />
         </>
