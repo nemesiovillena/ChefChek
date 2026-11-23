@@ -29,7 +29,7 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
-/** `?tab=platos` abre directamente Platos: useSearchParams exige Suspense. */
+/** `?tab=platos&search=…` abre Platos ya filtrado: useSearchParams exige Suspense. */
 export default function CuinerPage() {
   return (
     <Suspense fallback={null}>
@@ -101,7 +101,7 @@ function CuinerPageContent() {
           <div className="rounded-lg bg-white p-4 shadow dark:bg-zinc-950 md:p-6">
             {activeTab === 'proveedores' && <CuinerSuppliersTab />}
             {activeTab === 'articulos' && <CuinerProductsTab />}
-            {activeTab === 'platos' && <CuinerDishesTab />}
+            {activeTab === 'platos' && <CuinerDishesTab initialSearch={searchParams.get('search')?.trim() ?? ''} />}
             {activeTab === 'medidas' && <CuinerServingMeasuresTab />}
             {activeTab === 'ventas' && <CuinerSalesTab />}
             {activeTab === 'informes' && canSeeReports && (
