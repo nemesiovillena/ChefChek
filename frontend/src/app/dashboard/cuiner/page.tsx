@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { useCuinerStatus } from '@/hooks/use-cuiner';
+import { CUINER_ROLES } from '@/lib/cuiner-types';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useModules } from '@/features/modules/hooks/use-modules';
 import { CuinerConfigTab } from './components/cuiner-config-tab';
 import { CuinerDishesTab } from './components/cuiner-dishes-tab';
@@ -13,8 +15,6 @@ import { CuinerSalesTab } from './components/cuiner-sales-tab';
 import { CuinerServingMeasuresTab } from './components/cuiner-serving-measures-tab';
 import { CuinerProductsTab, CuinerSuppliersTab } from './components/cuiner-suppliers-products-tabs';
 
-/** Usan Cuiner; la configuración del conector solo la cambian ADMIN/OWNER/SUPERADMIN. */
-const CUINER_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'USER_CUINER'];
 /** Facturación: los informes de ventas solo los ve gerencia. */
 const REPORT_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 
@@ -29,18 +29,28 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]['id'];
 
+/** `?tab=platos` abre directamente Platos: useSearchParams exige Suspense. */
+export default function CuinerPage() {
+  return (
+    <Suspense fallback={null}>
+      <CuinerPageContent />
+    </Suspense>
+  );
+}
+
 /**
  * Integración con Cuiner: enlaces entre ChefChek y los códigos de Cuiner,
  * configuración del conector y seguimiento de los albaranes enviados.
  */
-export default function CuinerPage() {
+function CuinerPageContent() {
+  const searchParams = useSearchParams();
   const { isEnabled } = useModules();
   const gestionOn = isEnabled('gestion');
   const { user } = useAuth();
   const canManage = !!user && CUINER_ROLES.includes(user.role);
   const canSeeReports = !!user && REPORT_ROLES.includes(user.role);
   const { data: status, isLoading, error } = useCuinerStatus(canManage);
-  const [tab, setTab] = useState<TabId>('proveedores');
+  const [tab, setTab] = useState<TabId>(searchParams.get('tab') === 'platos' ? 'platos' : 'proveedores');
 
   if (!canManage) {
     return <p className="p-6 text-sm text-gray-600">Solo los administradores y el rol User Cuiner pueden usar la integración con Cuiner.</p>;
