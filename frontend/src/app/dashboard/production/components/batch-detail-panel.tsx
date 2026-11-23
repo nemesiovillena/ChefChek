@@ -39,6 +39,8 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
     isLoading: ordersLoading,
     createOrder,
     isCreating,
+    updateOrder,
+    isUpdating: isUpdatingOrder,
     completeOrder,
     deleteOrder,
     reorderOrders,
@@ -46,6 +48,7 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
   const { staff } = useStaffMembers();
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<ProductionOrder | null>(null);
   const [postponingOrder, setPostponingOrder] = useState<ProductionOrder | null>(null);
   const canEditBatch = batch.status !== 'COMPLETED' && batch.status !== 'CANCELLED';
   const dndSensors = useSensors(
@@ -165,6 +168,8 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
                       assignedNames={assignedNames}
                       isHighlighted={isHighlighted}
                       highlightedOrderRef={isHighlighted ? highlightedOrderRef : undefined}
+                      canEdit={canEditBatch}
+                      onEdit={() => setEditingOrder(order)}
                       onPostpone={() => setPostponingOrder(order)}
                       onComplete={() => handleCompleteOrder(order.id, order.estimatedTime)}
                       onDelete={() => handleDeleteOrder(order.id, order.title)}
@@ -198,12 +203,29 @@ export default function BatchDetailPanel({ batch, highlightOrderId }: BatchDetai
 
       {isOrderDialogOpen && (
         <OrderCreateDialog
-          batchId={batch.id}
           isSubmitting={isCreating}
           onClose={() => setIsOrderDialogOpen(false)}
-          onSubmit={async (input) => {
-            await createOrder(input);
+          onSubmit={async ({ title, description, assignedStaffIds }) => {
+            await createOrder({
+              batchId: batch.id,
+              title,
+              description: description ?? undefined,
+              assignedStaffIds,
+            });
             setIsOrderDialogOpen(false);
+          }}
+        />
+      )}
+
+      {editingOrder && (
+        <OrderCreateDialog
+          key={editingOrder.id}
+          initialOrder={editingOrder}
+          isSubmitting={isUpdatingOrder}
+          onClose={() => setEditingOrder(null)}
+          onSubmit={async (input) => {
+            await updateOrder({ orderId: editingOrder.id, input });
+            setEditingOrder(null);
           }}
         />
       )}

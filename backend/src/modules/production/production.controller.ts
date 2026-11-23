@@ -35,6 +35,7 @@ import {
   CreateWorkBatchDto,
   UpdateWorkBatchDto,
   CreateProductionOrderDto,
+  UpdateProductionOrderDto,
   PostponeProductionOrderDto,
   ReorderProductionOrdersDto,
   CreateMiseEnPlaceItemDto,
@@ -136,6 +137,24 @@ export class ProductionController {
     return this.productionService.getProductionOrdersByBatch(
       req.tenantId,
       batchId,
+    );
+  }
+
+  // PUT y no PATCH: un PATCH orders/:orderId competiría con PATCH orders/reorder.
+  @Put("orders/:orderId")
+  @Roles("ADMIN", "USER")
+  @ApiOperation({ summary: "Editar una orden de producción" })
+  @ApiParam({ name: "orderId", description: "ID de la orden" })
+  @ApiResponse({ status: 200, description: "Orden actualizada" })
+  async updateProductionOrder(
+    @Req() req: any,
+    @Param("orderId") orderId: string,
+    @Body() dto: UpdateProductionOrderDto,
+  ) {
+    return this.productionService.updateProductionOrder(
+      req.tenantId,
+      orderId,
+      dto,
     );
   }
 

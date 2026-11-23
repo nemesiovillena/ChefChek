@@ -73,6 +73,13 @@ export interface CreateProductionOrderInput {
   assignedStaffIds?: string[];
 }
 
+// description null vacía el campo; assignedStaffIds [] quita todo el personal.
+export interface UpdateProductionOrderInput {
+  title: string;
+  description: string | null;
+  assignedStaffIds: string[];
+}
+
 export function useProductionBatches() {
   const queryClient = useQueryClient();
 
@@ -160,6 +167,14 @@ export function useProductionOrders(batchId: string | null) {
     onSuccess: invalidate,
   });
 
+  const updateOrder = useMutation({
+    mutationFn: async ({ orderId, input }: { orderId: string; input: UpdateProductionOrderInput }) => {
+      const response = await apiClient.put<ProductionOrder>(`/v1/production/orders/${orderId}`, input);
+      return response.data;
+    },
+    onSuccess: invalidate,
+  });
+
   const startOrder = useMutation({
     mutationFn: async (orderId: string) => {
       const response = await apiClient.post<ProductionOrder>(
@@ -211,6 +226,8 @@ export function useProductionOrders(batchId: string | null) {
     error,
     createOrder: createOrder.mutateAsync,
     isCreating: createOrder.isPending,
+    updateOrder: updateOrder.mutateAsync,
+    isUpdating: updateOrder.isPending,
     startOrder: startOrder.mutateAsync,
     isStarting: startOrder.isPending,
     completeOrder: completeOrder.mutateAsync,
