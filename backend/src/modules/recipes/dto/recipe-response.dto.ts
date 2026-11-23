@@ -23,6 +23,8 @@ export interface IngredientResponse {
   realPrice: number;
   /** Unidad de referencia del producto (kg, L, ud) — para etiquetar referencePurchasePrice/realPrice */
   referenceUnit: string;
+  /** Alérgenos del artículo: el formulario avisa si se quita de la receta */
+  allergens: number[];
   /** Nota libre de la línea (ej. "para el mascarpone") — distingue líneas repetidas del mismo artículo */
   note: string | null;
 }

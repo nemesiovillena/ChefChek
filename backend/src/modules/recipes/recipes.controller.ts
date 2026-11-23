@@ -252,7 +252,12 @@ export class RecipesController {
     @Body("newName") newName?: string,
   ) {
     const tenantId = req.tenantId;
-    const recipe = await this.recipesService.duplicate(tenantId, id, newName);
+    const recipe = await this.recipesService.duplicate(
+      tenantId,
+      id,
+      newName,
+      await this.canViewDrinks(req),
+    );
     return {
       success: true,
       data: recipe,
