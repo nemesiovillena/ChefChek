@@ -660,6 +660,48 @@ describe("RecipesService", () => {
   });
 
   describe("findAllOptions", () => {
+    const inactiveRow = {
+      id: "r2",
+      name: "Arroz y pata",
+      isActive: false,
+      totalCostPerUnit: 0,
+      portions: 1,
+      portionSize: 100,
+      totalYieldWeight: 100,
+    };
+    const lastWhere = () =>
+      mockPrismaService.recipe.findMany.mock.calls.at(-1)?.[0].where;
+
+    it("solo ofrece activas si no se piden las desactivadas", async () => {
+      mockPrismaService.recipe.findMany.mockResolvedValue([]);
+      await service.findAllOptions(tenantId, false);
+      expect(lastWhere().isActive).toBe(true);
+    });
+
+    it.each(["ADMIN", "OWNER", "USER_CUINER"])(
+      "ofrece las desactivadas marcadas a %s",
+      async (role) => {
+        mockPrismaService.recipe.findMany.mockResolvedValue([inactiveRow]);
+        const result = await service.findAllOptions(
+          tenantId,
+          false,
+          true,
+          role,
+        );
+        expect(lastWhere()).not.toHaveProperty("isActive");
+        expect(result[0]).toMatchObject({ id: "r2", isActive: false });
+      },
+    );
+
+    it.each(["USER", "VIEWER", "GESTION"])(
+      "no ofrece desactivadas a %s aunque las pida",
+      async (role) => {
+        mockPrismaService.recipe.findMany.mockResolvedValue([]);
+        await service.findAllOptions(tenantId, false, true, role);
+        expect(lastWhere().isActive).toBe(true);
+      },
+    );
+
     it("should compute pricePerKgOrL from persisted totalCostPerUnit × 1000", async () => {
       mockPrismaService.recipe.findMany.mockResolvedValue([
         {
