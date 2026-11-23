@@ -6,7 +6,7 @@ import {
   listZebraPrinters,
   type ZebraDevice,
 } from '@/lib/zebra-browser-print';
-import { waitForReadyZebra, zplLabelLengthDots } from '@/lib/zebra-printer-readiness';
+import { checkAfterPrint, waitForReadyZebra, zplLabelLengthDots } from '@/lib/zebra-printer-readiness';
 import { PrintTrace, traceErrorMessage } from '@/lib/zebra-print-trace';
 
 export type LabelType = 'ELABORATED' | 'HANDLED';
@@ -657,8 +657,18 @@ export async function printLabelZpl(
     });
     await device.send(res.data);
     trace.add('sent');
-    savePrintLog(trace, { labelId, format, copies, outcome: 'OK' });
     opts.onSuccess?.();
+    // Sin await: la pantalla sigue a lo suyo y, si la impresora se para al
+    // imprimir (etiquetas en blanco), se avisa unos segundos después.
+    void checkAfterPrint(device, trace).then((problem) => {
+      if (problem) {
+        trace.add('after-problem', { message: problem });
+        savePrintLog(trace, { labelId, format, copies, outcome: 'ERROR', errorMessage: problem });
+        opts.onError?.(problem);
+      } else {
+        savePrintLog(trace, { labelId, format, copies, outcome: 'OK' });
+      }
+    });
   } catch (e: unknown) {
     trace.add('error', { message: traceErrorMessage(e) });
     savePrintLog(trace, {

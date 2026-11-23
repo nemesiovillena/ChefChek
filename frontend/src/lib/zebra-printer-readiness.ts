@@ -204,3 +204,35 @@ export async function waitForReadyZebra(
     await sleep(isStaleUsbError(lastError) ? STALE_RETRY_MS : RETRY_MS);
   }
 }
+
+/**
+ * Momentos (ms desde el envío) en que se vuelve a preguntar a la impresora.
+ * Si no encuentra la raya negra del rollo, avanza etiquetas en blanco
+ * buscándola y acaba sin papel o en pausa: eso se ve en estos segundos.
+ */
+const AFTER_PRINT_CHECKS_MS = [4_000, 9_000, 15_000];
+
+export const BLANK_LABELS_MESSAGE =
+  'La impresora se ha parado al imprimir (seguramente han salido etiquetas en blanco): no encuentra la raya negra del rollo. Abre la tapa, centra el rollo ajustando las guías a su ancho, ciérrala hasta oír el clic, pulsa una vez el botón de avance y vuelve a imprimir.';
+
+/**
+ * Vigila la impresora unos segundos después de mandar la etiqueta. Devuelve
+ * qué ha pasado si se ha parado (sin papel, en pausa o tapa abierta), o null
+ * si sigue bien. No lanza nunca: si no contesta, solo lo anota.
+ */
+export async function checkAfterPrint(device: ZebraDevice, trace: PrintTrace): Promise<string | null> {
+  let waited = 0;
+  for (const at of AFTER_PRINT_CHECKS_MS) {
+    await sleep(at - waited);
+    waited = at;
+    try {
+      const status = await readZebraStatus(device);
+      trace.add('after-status', { ...status });
+      if (status.headOpen) return printerProblem(status);
+      if (status.paperOut || status.paused) return BLANK_LABELS_MESSAGE;
+    } catch (e) {
+      trace.add('after-status-error', { message: traceErrorMessage(e) });
+    }
+  }
+  return null;
+}
