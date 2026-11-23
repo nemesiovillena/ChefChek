@@ -234,6 +234,7 @@ describe("RecipesController", () => {
         "tenant-1",
         "recipe-1",
         "Copy",
+        true,
       );
       expect(result).toEqual({
         success: true,
@@ -255,6 +256,7 @@ describe("RecipesController", () => {
         "tenant-1",
         "recipe-1",
         undefined,
+        true,
       );
       expect(result.success).toBe(true);
     });

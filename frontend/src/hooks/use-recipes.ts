@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCrud as createCrudHooks } from './use-api';
 import { useApiQuery, useApiMutation } from './use-api';
 import { PaginatedResponse } from '@/types/api.types';
@@ -15,6 +15,8 @@ export interface RecipeIngredient {
   wastePercentage?: number;
   /** true si la merma viene del artículo (Product.wastePercentage > 0) — solo lectura */
   hasArticleWaste?: boolean;
+  /** Alérgenos del artículo — solo lectura, la devuelve el backend */
+  allergens?: number[];
   /** Nota libre (ej. "para el mascarpone") para distinguir líneas repetidas del mismo artículo */
   note?: string | null;
 }
@@ -242,6 +244,21 @@ export function useUpdateRecipe() {
 
 export function useDeleteRecipe() {
   return useDelete();
+}
+
+/** Crea una copia de la receta con otro nombre y refresca los listados. */
+export function useDuplicateRecipe() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, newName }: { id: string; newName: string }) => {
+      const response = await apiClient.post<Recipe>(`/v1/recipes/${id}/duplicate`, { newName });
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['recipes'] });
+      void queryClient.invalidateQueries({ queryKey: ['recipe-options'] });
+    },
+  });
 }
 
 export function useUploadRecipeImage() {

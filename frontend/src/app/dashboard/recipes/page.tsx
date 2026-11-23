@@ -36,10 +36,15 @@ import SubRecipeCombobox from './components/sub-recipe-combobox';
 import RecipeCostModal from './components/recipe-cost-modal';
 import RecipeVisualView from './components/recipe-visual-view';
 import RecipeCaptureNotes from './components/recipe-capture-notes';
+import RecipeDuplicateDialog from './components/recipe-duplicate-dialog';
+import RecipeRemovedAllergensNotice, {
+  findRemovedIngredientAllergens,
+  type KnownIngredientAllergens,
+} from './components/recipe-removed-allergens-notice';
 import ImagePicker from '@/components/image-picker';
 import ConservationFieldset from '@/components/conservation-fieldset';
 import { useInvalidateQueries, useApiQuery } from '@/hooks/use-api';
-import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, Tag, Link2, Link2Off } from 'lucide-react';
+import { ChevronUp, ChevronDown, RotateCcw, BookOpen, FileText, Calculator, Pencil, Trash2, Plus, ListChecks, Layers, Check, X, Eye, Tag, Link2, Link2Off, Copy } from 'lucide-react';
 import { useCategories, Category } from '@/hooks/use-categories';
 import { useAllergens } from '@/hooks/use-allergens';
 import { useRecipeNameCheck } from '@/hooks/use-recipe-name-check';
@@ -217,6 +222,10 @@ export default function RecipesPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedAllergenIds, setSelectedAllergenIds] = useState<number[]>([]);
+  // Artículos que han pasado por el formulario, para avisar si se quita uno
+  // cuyo alérgeno sigue marcado.
+  const [knownIngredientAllergens, setKnownIngredientAllergens] = useState<Map<string, KnownIngredientAllergens>>(new Map());
+  const [recipeToDuplicate, setRecipeToDuplicate] = useState<Recipe | null>(null);
   const [generatingSheetId, setGeneratingSheetId] = useState<string | null>(null);
 
   // Paginación server-side
@@ -589,6 +598,9 @@ export default function RecipesPage() {
         : newIngredients[index].wastePercentageOverride,
     };
     setIngredients(newIngredients);
+    setKnownIngredientAllergens((prev) =>
+      new Map(prev).set(product.id, { name: product.name, allergens: product.allergens ?? [] }),
+    );
     if (product.allergens?.length) {
       setSelectedAllergenIds((prev) => Array.from(new Set([...prev, ...product.allergens!])));
     }
@@ -702,35 +714,7 @@ export default function RecipesPage() {
       } else {
         const createdRecipe = await createRecipeMutation.mutateAsync(recipeData);
         invalidateQueries([['recipe-options'], ['products']]);
-        // Se pasa a la pestaña de la receta creada para que se vea al momento.
-        if (canViewDrinks) setKind(isDrink ? 'drink' : 'food');
-        // Si el filtro de categoría activo excluiría la receta recién creada
-        // (p.ej. creada sin categoría con un filtro puesto), se limpia para
-        // que sea visible sin recargar: cambiar la key del query refetchea.
-        if (selectedCategory && !createdRecipe.categories?.some((c) => c.categoryId === selectedCategory)) {
-          setSelectedCategory('');
-          setPage(1);
-        }
-        // Igual con la letra del abecedario.
-        if (selectedLetter && !nameStartsWithLetter(createdRecipe.name, selectedLetter)) {
-          setSelectedLetter('');
-          setPage(1);
-        }
-        // Igual con la búsqueda activa: si el nombre o la descripción de la
-        // receta no la matchean (mismo contains insensitive que el backend),
-        // se limpia para que sea visible sin recargar.
-        if (debouncedSearch) {
-          const query = debouncedSearch.toLowerCase();
-          const matchesSearch =
-            createdRecipe.name.toLowerCase().includes(query) ||
-            createdRecipe.description?.toLowerCase().includes(query);
-          if (!matchesSearch) {
-            if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-            setSearchTerm('');
-            setDebouncedSearch('');
-            setPage(1);
-          }
-        }
+        revealCreatedRecipe(createdRecipe);
         addNotification({
           type: 'success',
           title: 'Receta creada',
@@ -757,8 +741,60 @@ export default function RecipesPage() {
     }
   };
 
+  // Quita los filtros que ocultarían una receta recién creada o duplicada.
+  const revealCreatedRecipe = (createdRecipe: Recipe) => {
+    // Se pasa a la pestaña de la receta creada para que se vea al momento.
+    if (canViewDrinks) setKind(createdRecipe.isDrink ? 'drink' : 'food');
+    // Si el filtro de categoría activo excluiría la receta recién creada
+    // (p.ej. creada sin categoría con un filtro puesto), se limpia para
+    // que sea visible sin recargar: cambiar la key del query refetchea.
+    if (selectedCategory && !createdRecipe.categories?.some((c) => c.categoryId === selectedCategory)) {
+      setSelectedCategory('');
+      setPage(1);
+    }
+    // Igual con la letra del abecedario.
+    if (selectedLetter && !nameStartsWithLetter(createdRecipe.name, selectedLetter)) {
+      setSelectedLetter('');
+      setPage(1);
+    }
+    // Igual con la búsqueda activa: si el nombre o la descripción de la
+    // receta no la matchean (mismo contains insensitive que el backend),
+    // se limpia para que sea visible sin recargar.
+    if (debouncedSearch) {
+      const query = debouncedSearch.toLowerCase();
+      const matchesSearch =
+        createdRecipe.name.toLowerCase().includes(query) ||
+        createdRecipe.description?.toLowerCase().includes(query);
+      if (!matchesSearch) {
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        setSearchTerm('');
+        setDebouncedSearch('');
+        setPage(1);
+      }
+    }
+  };
+
+  const handleRecipeDuplicated = (copy: Recipe) => {
+    setRecipeToDuplicate(null);
+    revealCreatedRecipe(copy);
+    addNotification({
+      type: 'success',
+      title: 'Receta duplicada',
+      message: `"${copy.name}" creada. Cambia lo que necesites y guarda.`,
+    });
+    handleEdit(copy);
+  };
+
   const handleEdit = (recipe: Recipe) => {
     setSelectedRecipe(recipe);
+    setKnownIngredientAllergens(
+      new Map(
+        recipe.ingredients.map((ing) => [
+          ing.productId,
+          { name: ing.productName ?? '', allergens: ing.allergens ?? [] },
+        ]),
+      ),
+    );
     setDismissedRecipeMatchIds(new Set());
     setFormData({
       name: recipe.name,
@@ -856,7 +892,7 @@ export default function RecipesPage() {
         Gestionar categorías
       </button>
       <button
-        onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setIsDrink(canViewDrinks && kind === 'drink'); setShowCreateForm(true); }}
+        onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setKnownIngredientAllergens(new Map()); setIsDrink(canViewDrinks && kind === 'drink'); setShowCreateForm(true); }}
         className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
       >
         Crear Receta
@@ -1201,6 +1237,16 @@ export default function RecipesPage() {
                         )}
                         {canEditRecipes && (
                           <button
+                            onClick={() => setRecipeToDuplicate(recipe)}
+                            title="Duplicar receta"
+                            aria-label="Duplicar receta"
+                            className={`${actionButtonClass} border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900`}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canEditRecipes && (
+                          <button
                             onClick={() => handleDelete(recipe.id, recipe.name)}
                             title="Eliminar receta"
                             aria-label="Eliminar receta"
@@ -1230,6 +1276,14 @@ export default function RecipesPage() {
         </div>
 
         {/* Create/Edit Modal */}
+        {recipeToDuplicate && (
+          <RecipeDuplicateDialog
+            recipe={recipeToDuplicate}
+            onClose={() => setRecipeToDuplicate(null)}
+            onDuplicated={handleRecipeDuplicated}
+          />
+        )}
+
         {showCreateForm && canEditRecipes && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
             <div className="relative top-8 mx-auto w-full max-w-3xl mb-8 rounded-[28px] border border-[var(--outline-variant)] bg-[var(--surface-container-high)] shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)]">
@@ -1638,6 +1692,16 @@ export default function RecipesPage() {
                           </div>
                         </div>
                       </div>
+
+                      <RecipeRemovedAllergensNotice
+                        items={findRemovedIngredientAllergens(
+                          knownIngredientAllergens,
+                          ingredients.map((ing) => ing.productId).filter(Boolean),
+                          selectedAllergenIds,
+                        )}
+                        allergenName={(id) => allergenById.get(id)?.name ?? 'alérgeno'}
+                        onUncheck={(id) => setSelectedAllergenIds((prev) => prev.filter((a) => a !== id))}
+                      />
 
                       {/* Sub-recetas */}
                       <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-3">
