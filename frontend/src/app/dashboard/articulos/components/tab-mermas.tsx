@@ -56,15 +56,15 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <p className="text-sm font-medium text-gray-700">
+      <div className="bg-surface-sunken p-3 rounded-lg">
+        <p className="text-sm font-medium text-text-default">
           Prueba de rendimiento: pesa el artículo antes y después de limpiarlo/prepararlo para calcular el coste real del {unit} aprovechable.
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto ({unit})</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Peso Bruto ({unit})</label>
           <input
             type="number"
             step="any"
@@ -72,11 +72,11 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.grossWeight}
             onChange={(e) => update('grossWeight', e.target.value)}
             placeholder="Ej: 5.24"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Peso Neto ({unit})</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Peso Neto ({unit})</label>
           <input
             type="number"
             step="any"
@@ -84,11 +84,11 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.netWeight}
             onChange={(e) => update('netWeight', e.target.value)}
             placeholder="Ej: 3.99"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Merma (%)</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Merma (%)</label>
           <input
             type="number"
             step="any"
@@ -98,32 +98,32 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             onChange={(e) => update('wastePercentage', e.target.value)}
             disabled={hasYieldData}
             placeholder="Ej: 15 (si ya la conoces)"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${
               hasYieldData
-                ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
-                : 'border-gray-300'
+                ? 'bg-surface-subtle text-text-muted border-line-soft cursor-not-allowed'
+                : 'border-line'
             }`}
           />
         </div>
       </div>
 
       {hasAnyYieldInfo && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 space-y-1.5">
+        <div className="bg-secondary-container/50 border border-primary/30 rounded-lg px-4 py-3 space-y-1.5">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-            <span className="text-indigo-700">Precio Compra/{unit} (referencia):</span>
-            <span className="text-indigo-900 font-semibold text-right">{formatEuro(pricePerUnit)}/{unit}</span>
+            <span className="text-primary">Precio Compra/{unit} (referencia):</span>
+            <span className="text-primary font-semibold text-right">{formatEuro(pricePerUnit)}/{unit}</span>
             {hasYieldData && (
               <>
-                <span className="text-indigo-700">Coste Total de compra:</span>
-                <span className="text-indigo-900 font-semibold text-right">{formatEuro(totalCost!)}</span>
+                <span className="text-primary">Coste Total de compra:</span>
+                <span className="text-primary font-semibold text-right">{formatEuro(totalCost!)}</span>
               </>
             )}
-            <span className="text-indigo-700">Rendimiento:</span>
-            <span className="text-indigo-900 font-semibold text-right">{yieldPercentage!.toFixed(2)} %</span>
-            <span className="text-indigo-700">Merma:</span>
-            <span className="text-indigo-900 font-semibold text-right">{effectiveWaste!.toFixed(2)} %</span>
-            <span className="text-indigo-700">Precio Real/{unit}:</span>
-            <span className="text-indigo-900 font-semibold text-right">{formatEuro(realPrice!)}/{unit}</span>
+            <span className="text-primary">Rendimiento:</span>
+            <span className="text-primary font-semibold text-right">{yieldPercentage!.toFixed(2)} %</span>
+            <span className="text-primary">Merma:</span>
+            <span className="text-primary font-semibold text-right">{effectiveWaste!.toFixed(2)} %</span>
+            <span className="text-primary">Precio Real/{unit}:</span>
+            <span className="text-primary font-semibold text-right">{formatEuro(realPrice!)}/{unit}</span>
           </div>
         </div>
       )}

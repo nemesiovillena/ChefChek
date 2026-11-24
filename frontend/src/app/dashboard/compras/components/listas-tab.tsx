@@ -418,7 +418,6 @@ function ListEditor({
 
   return (
     <section className="space-y-4 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] p-5">
-      {/* div, no <header>: la regla global header:not(.fixed){display:none} oculta cualquier <header> que no sea el navbar fijo */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-[var(--on-surface)]">{list.name}</h2>

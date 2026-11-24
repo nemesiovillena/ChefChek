@@ -19,11 +19,11 @@ export function PedidosListsPicker({ value, onChange }: PedidosListsPickerProps)
   };
 
   if (isLoading) {
-    return <p className="text-xs text-gray-500">Cargando listas…</p>;
+    return <p className="text-xs text-text-muted">Cargando listas…</p>;
   }
   if (!lists?.length) {
     return (
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-text-muted">
         Aún no hay listas de compra. Créalas en Almacén → Compras → Listas.
       </p>
     );
@@ -31,22 +31,22 @@ export function PedidosListsPicker({ value, onChange }: PedidosListsPickerProps)
 
   return (
     <div className="space-y-1">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-text-muted">
         Listas con las que puede pedir. Verá esas listas y los pedidos de sus proveedores.
         {value.length === 0 && ' Sin ninguna marcada no verá nada.'}
       </p>
-      <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 dark:border-zinc-700 p-2 space-y-1">
+      <div className="max-h-48 overflow-y-auto rounded-md border border-line-soft p-2 space-y-1">
         {lists.map((list) => (
-          <label key={list.id} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <label key={list.id} className="flex items-center gap-2 text-sm text-text-default">
             <input
               type="checkbox"
               checked={value.includes(list.id)}
               onChange={(e) => toggle(list.id, e.target.checked)}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="h-4 w-4 text-primary border-line rounded focus:ring-ring"
             />
             <span>
               {list.name}
-              {list.supplier?.name && <span className="text-gray-500"> · {list.supplier.name}</span>}
+              {list.supplier?.name && <span className="text-text-muted"> · {list.supplier.name}</span>}
             </span>
           </label>
         ))}

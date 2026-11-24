@@ -293,7 +293,7 @@ export default function WikiProcedimientosPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => startEditArticle(article)}>
+                        <Button variant="ghost" size="icon" onClick={() => startEditArticle(article)} aria-label={`Editar ${article.title}`}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </div>

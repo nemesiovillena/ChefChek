@@ -36,7 +36,7 @@ function GroupProductPicker({
   if (!touched && products.search !== search) products.setSearch(search);
 
   return (
-    <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-secondary-container/50 p-3 ">
       <div className="flex gap-2">
         <input
           className={inputCls}
@@ -52,12 +52,12 @@ function GroupProductPicker({
           Cancelar
         </Button>
       </div>
-      <ul className="max-h-60 divide-y divide-gray-200 overflow-y-auto rounded-md bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+      <ul className="max-h-60 divide-y divide-line-soft overflow-y-auto rounded-md bg-surface-raised">
         {products.products.slice(0, 20).map((p) => (
           <li key={p.id}>
             <button
               type="button"
-              className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-secondary-container/60 dark:hover:bg-zinc-800"
               onClick={() =>
                 onPick({ id: p.id, name: p.name, referenceUnit: p.referenceUnit, categoryName: p.category?.name ?? null, avgUnitWeight: p.avgUnitWeight ?? null })
               }
@@ -69,7 +69,7 @@ function GroupProductPicker({
       </ul>
       {products.loading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
       {!products.loading && search.trim() && products.products.length === 0 && (
-        <p className="text-sm text-gray-500">Ningún artículo coincide. Si falta, créalo en Artículos.</p>
+        <p className="text-sm text-text-muted">Ningún artículo coincide. Si falta, créalo en Artículos.</p>
       )}
     </div>
   );
@@ -155,7 +155,7 @@ export function CuinerBulkLinkPanel({ onClose }: { onClose: () => void }) {
         <Button type="button" size="sm" variant="ghost" onClick={onClose}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Volver a Platos
         </Button>
-        <p className="flex-1 text-sm text-gray-600 dark:text-zinc-400">
+        <p className="flex-1 text-sm text-text-soft">
           Platos sin enlazar con medida en el nombre (CHUPITO, PIEDRA, COPA, CAÑA…), agrupados por marca. Revisa el artículo y la
           medida de cada uno, marca los grupos correctos y enlázalos de una vez.
         </p>
@@ -167,10 +167,10 @@ export function CuinerBulkLinkPanel({ onClose }: { onClose: () => void }) {
       {loading && <Loader2 className="mx-auto my-8 h-6 w-6 animate-spin text-gray-400" />}
       {candidates.error && <p className="text-sm text-red-600">{candidates.error.message}</p>}
       {!loading && groups.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-500">No quedan platos con medida en el nombre sin enlazar.</p>
+        <p className="py-6 text-center text-sm text-text-muted">No quedan platos con medida en el nombre sin enlazar.</p>
       )}
 
-      <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
+      <ul className="divide-y divide-line-soft">
         {groups.map((group) => {
           const { product, selected } = stateOf(group);
           const options = product ? measuresForProduct(allMeasures, product.referenceUnit, product.avgUnitWeight) : [];

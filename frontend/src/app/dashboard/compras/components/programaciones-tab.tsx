@@ -261,7 +261,7 @@ export function ProgramacionesTab({ canManage }: { canManage: boolean }) {
                     {schedule.nextRunAt.timeOfDay}
                   </span>
                 ) : (
-                  <span>Próxima: —</span>
+                  <span>Próxima: sin fecha</span>
                 )}
                 {schedule.lastRunAt && (
                   <span>

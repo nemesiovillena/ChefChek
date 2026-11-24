@@ -216,7 +216,6 @@ export default function ProveedoresPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* div en vez de <header>: globals.css oculta header:not(.fixed) globalmente */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-2xl font-semibold text-[var(--on-surface)]">

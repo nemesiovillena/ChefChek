@@ -775,7 +775,7 @@ export default function SprintTrackerPage() {
                       <Card>
                         <CardContent className="pt-6">
                           <p className="text-sm text-muted-foreground">Pendientes</p>
-                          <p className="text-2xl font-bold text-gray-600">{sprintProgress.remainingTasks - sprintProgress.inProgressTasks - sprintProgress.blockedTasks}</p>
+                          <p className="text-2xl font-bold text-text-soft">{sprintProgress.remainingTasks - sprintProgress.inProgressTasks - sprintProgress.blockedTasks}</p>
                         </CardContent>
                       </Card>
                     </div>

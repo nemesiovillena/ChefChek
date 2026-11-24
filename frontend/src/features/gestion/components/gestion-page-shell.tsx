@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth.context';
 import { GestionSubnav } from './gestion-subnav';
+import { ChartLine } from 'lucide-react';
 
 /** Gerencia y oficina: el servidor exige lo mismo (ver gestion.controller.ts). */
 const GESTION_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN', 'GESTION'];
@@ -22,7 +23,7 @@ export function GestionPageShell({ children }: { children: ReactNode }) {
     <div className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 lg:px-8">
       <div className="mb-4">
         <div className="flex items-center gap-3 text-2xl font-semibold text-[var(--on-surface)]">
-          <span className="material-symbols-outlined text-[var(--primary)]">monitoring</span>
+          <ChartLine aria-hidden className="h-6 w-6 text-[var(--primary)]" />
           Gestión
         </div>
         <p className="mt-1 text-sm text-[var(--on-surface-variant)]">

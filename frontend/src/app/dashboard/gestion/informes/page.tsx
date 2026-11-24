@@ -18,7 +18,7 @@ export default function GestionInformesPage() {
                 href={`/dashboard/gestion/informes/${r.key}`}
                 className="flex gap-3 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4 transition hover:bg-[var(--surface-container-high)]"
               >
-                <span className="material-symbols-outlined text-[var(--primary)]">{r.icon}</span>
+                <r.icon aria-hidden className="h-6 w-6 text-[var(--primary)]" />
                 <span>
                   <span className="block font-medium text-[var(--on-surface)]">{r.title}</span>
                   <span className="mt-0.5 block text-sm text-[var(--on-surface-variant)]">{r.description}</span>

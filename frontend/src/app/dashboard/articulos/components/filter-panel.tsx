@@ -32,19 +32,19 @@ export default function FilterPanel({
   const activeCount = [selectedCategory, selectedSupplier, stockFilter !== 'all'].filter(Boolean).length;
 
   return (
-    <div className="bg-white border rounded-lg p-4 space-y-4">
+    <div className="bg-surface-raised border rounded-lg p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <div className="flex items-center gap-2 text-sm font-medium text-text-default">
           <SlidersHorizontal className="h-4 w-4" />
           Filtros avanzados
           {activeCount > 0 && (
-            <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">
+            <span className="bg-secondary-container/50 text-primary text-xs font-semibold px-1.5 py-0.5 rounded-full">
               {activeCount}
             </span>
           )}
         </div>
         {activeCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={onClear} className="text-xs text-gray-500 h-7">
+          <Button variant="ghost" size="sm" onClick={onClear} className="text-xs text-text-muted h-7">
             <X className="h-3 w-3 mr-1" /> Limpiar
           </Button>
         )}
@@ -53,7 +53,7 @@ export default function FilterPanel({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Category */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">Categoría</label>
+          <label className="block text-xs font-medium text-text-muted mb-1.5">Categoría</label>
           <CategoryCombobox
             tree={tree}
             value={selectedCategory}
@@ -64,7 +64,7 @@ export default function FilterPanel({
 
         {/* Supplier */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">Proveedor</label>
+          <label className="block text-xs font-medium text-text-muted mb-1.5">Proveedor</label>
           <SupplierCombobox
             suppliers={suppliers}
             value={selectedSupplier}
@@ -75,23 +75,26 @@ export default function FilterPanel({
 
         {/* Stock status */}
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">Estado del stock</label>
+          <label className="block text-xs font-medium text-text-muted mb-1.5">Estado del stock</label>
           <div className="flex gap-1.5">
             {[
-              { value: 'all' as const, label: 'Todos', color: 'bg-gray-100 text-gray-600' },
-              { value: 'ok' as const, label: '🟢 OK', color: 'bg-emerald-50 text-emerald-700' },
-              { value: 'low' as const, label: '🟡 Bajo', color: 'bg-amber-50 text-amber-700' },
-              { value: 'empty' as const, label: '🔴 Agotado', color: 'bg-red-50 text-red-700' },
+              { value: 'all' as const, label: 'Todos', color: 'bg-surface-subtle text-text-soft', dot: '' },
+              { value: 'ok' as const, label: 'OK', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+              { value: 'low' as const, label: 'Bajo', color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
+              { value: 'empty' as const, label: 'Agotado', color: 'bg-red-50 text-red-700', dot: 'bg-red-500' },
             ].map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => onStockFilterChange(opt.value)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                type="button"
+                aria-pressed={stockFilter === opt.value}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   stockFilter === opt.value
                     ? opt.color + ' ring-1 ring-inset ring-current/20'
-                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                    : 'bg-surface-sunken text-text-soft hover:bg-surface-hover'
                 }`}
               >
+                {opt.dot && <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${opt.dot}`} />}
                 {opt.label}
               </button>
             ))}

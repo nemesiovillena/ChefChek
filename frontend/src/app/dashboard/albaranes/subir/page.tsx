@@ -251,7 +251,7 @@ function SubirAlbaranContent() {
               className="sr-only"
             />
             <p className="text-xs text-muted-foreground text-center">
-              JPG, PNG, HEIC, PDF — máx 10MB por archivo
+              JPG, PNG, HEIC o PDF, máx. 10 MB por archivo
             </p>
           </div>
 
@@ -268,12 +268,12 @@ function SubirAlbaranContent() {
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <span className="text-sm text-gray-700 truncate flex-1">{file.name}</span>
+                    <span className="text-sm text-text-default truncate flex-1">{file.name}</span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {(file.size / 1024).toFixed(1)} KB
                     </span>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => removeFile(index)}>
+                  <Button variant="ghost" size="sm" onClick={() => removeFile(index)} aria-label="Quitar archivo">
                     <XCircle className="h-4 w-4" />
                   </Button>
                 </div>

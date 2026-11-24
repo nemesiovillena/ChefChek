@@ -47,7 +47,7 @@ export function CuinerSuppliersTab() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
+        <p className="text-sm text-text-soft">
           {pending} de {data?.length ?? 0} proveedores sin enlazar. Un albarán solo se puede enviar si su proveedor
           está enlazado.
         </p>
@@ -56,12 +56,12 @@ export function CuinerSuppliersTab() {
           Solo sin enlazar
         </label>
       </div>
-      <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
+      <ul className="divide-y divide-line-soft">
         {rows.map((row) => (
           <li key={row.supplierId} className="grid gap-2 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] md:items-center">
             <div>
               <p className="font-medium">{row.name}</p>
-              {row.cifNif && <p className="text-xs text-gray-500">{row.cifNif}</p>}
+              {row.cifNif && <p className="text-xs text-text-muted">{row.cifNif}</p>}
             </div>
             <CuinerLinkCell
               kind="supplier"
@@ -76,7 +76,7 @@ export function CuinerSuppliersTab() {
             />
           </li>
         ))}
-        {rows.length === 0 && <li className="py-6 text-center text-sm text-gray-500">Todo enlazado.</li>}
+        {rows.length === 0 && <li className="py-6 text-center text-sm text-text-muted">Todo enlazado.</li>}
       </ul>
     </div>
   );
@@ -135,7 +135,7 @@ export function CuinerProductsTab() {
           Solo sin enlazar
         </label>
       </div>
-      <p className="mb-2 text-sm text-gray-600 dark:text-zinc-400">
+      <p className="mb-2 text-sm text-text-soft">
         Cada línea de un albarán necesita su artículo enlazado al código de Cuiner para poder enviarse.
       </p>
 
@@ -143,7 +143,7 @@ export function CuinerProductsTab() {
       {error && <p className="text-sm text-red-600">{error.message}</p>}
       {data && (
         <>
-          <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
+          <ul className="divide-y divide-line-soft">
             {data.items.map((row) => (
               <li key={row.productId} className="grid gap-2 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] md:items-center">
                 <p className="font-medium">{row.name}</p>
@@ -161,7 +161,7 @@ export function CuinerProductsTab() {
               </li>
             ))}
             {data.items.length === 0 && (
-              <li className="py-6 text-center text-sm text-gray-500">
+              <li className="py-6 text-center text-sm text-text-muted">
                 {onlyUnmapped && search
                   ? 'Sin resultados entre los artículos sin enlazar. Desmarca «Solo sin enlazar» para buscar también en los ya enlazados.'
                   : 'Sin resultados.'}

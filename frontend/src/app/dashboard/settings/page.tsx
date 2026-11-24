@@ -175,7 +175,7 @@ function FullSettingsPage() {
   // Don't render anything if not authenticated or loading
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );
@@ -244,26 +244,26 @@ function FullSettingsPage() {
 
   if (isLoading || pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-sunken">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Configuración</h1>
+        <h1 className="text-3xl font-bold text-text-strong mb-4">Configuración</h1>
         <SettingsSectionIndex />
 
         {/* Datos del negocio */}
-        <div id="negocio" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="negocio" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Datos del negocio</h2>
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
               >
                 Editar
               </button>
@@ -273,40 +273,40 @@ function FullSettingsPage() {
           {editing ? (
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-default mb-1">
                   Nombre del negocio
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-text-default mb-1">
                   Dominio personalizado (opcional)
                 </label>
                 <input
                   type="text"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="tudominio.com"
                 />
               </div>
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
                   Guardar cambios
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                  className="px-4 py-2 bg-gray-300 text-text-default rounded-md hover:bg-gray-400"
                 >
                   Cancelar
                 </button>
@@ -315,23 +315,23 @@ function FullSettingsPage() {
           ) : (
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">ID:</span>
+                <span className="text-text-soft">ID:</span>
                 <span className="font-mono text-sm">{config?.id}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Slug:</span>
+                <span className="text-text-soft">Slug:</span>
                 <span className="font-mono text-sm">{config?.slug}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Nombre:</span>
+                <span className="text-text-soft">Nombre:</span>
                 <span className="font-medium">{config?.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Dominio personalizado:</span>
+                <span className="text-text-soft">Dominio personalizado:</span>
                 <span className="font-medium">{config?.domain || 'No configurado'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Estado:</span>
+                <span className="text-text-soft">Estado:</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                   config?.isActive
                     ? 'bg-green-100 text-green-800'
@@ -341,7 +341,7 @@ function FullSettingsPage() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Creado:</span>
+                <span className="text-text-soft">Creado:</span>
                 <span className="font-medium">
                   {config?.createdAt ? new Date(config.createdAt).toLocaleDateString() : ''}
                 </span>
@@ -351,14 +351,14 @@ function FullSettingsPage() {
         </div>
 
         {/* Idioma */}
-        <div id="idioma" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="idioma" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <h2 className="text-xl font-semibold mb-4">Idioma</h2>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-default mb-2">
               Idioma por defecto
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => handleLanguageChange(e.target.value)}
               defaultValue="es"
             >
@@ -371,14 +371,14 @@ function FullSettingsPage() {
         </div>
 
         {/* Moneda */}
-        <div id="moneda" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="moneda" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <h2 className="text-xl font-semibold mb-4">Moneda</h2>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-default mb-2">
               Moneda por defecto
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => handleCurrencyChange(e.target.value)}
               defaultValue="EUR"
             >
@@ -391,12 +391,12 @@ function FullSettingsPage() {
         </div>
 
         {/* Costeo de Recetas */}
-        <div id="costeo" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="costeo" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Percent className="h-5 w-5 text-indigo-600" />
+            <Percent className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Costeo de Recetas</h2>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-text-muted mb-4">
             Coste objetivo máximo aplicado por defecto al escandallo de las recetas, y multiplicador usado para calcular el PVP teórico (coste × multiplicador).
           </p>
           <CostingConfigForm
@@ -423,12 +423,12 @@ function FullSettingsPage() {
         </div>
 
         {/* Motor de extracción (OCR de albaranes) */}
-        <div id="ocr" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="ocr" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <Sparkles className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Motor de extracción</h2>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-text-muted mb-4">
             Modelo IA usado para extraer los productos al subir un albarán.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -439,17 +439,17 @@ function FullSettingsPage() {
                 onClick={() => handleOcrModelChange(model.id)}
                 className={`p-2 rounded-lg border text-left transition-colors ${
                   ocrModel === model.id
-                    ? 'border-indigo-600 bg-gray-100 ring-1 ring-indigo-600'
-                    : 'border-gray-200 hover:border-indigo-300'
+                    ? 'border-primary bg-surface-subtle ring-1 ring-primary'
+                    : 'border-line-soft hover:border-primary/60'
                 }`}
               >
-                <div className="text-xs font-medium text-gray-900 truncate">{model.name}</div>
-                <div className="text-[10px] text-gray-500">{model.cost}/img</div>
+                <div className="text-xs font-medium text-text-strong truncate">{model.name}</div>
+                <div className="text-[11px] text-text-muted">{model.cost}/img</div>
               </button>
             ))}
           </div>
           {selectedOcrModel && (
-            <p className="text-xs text-gray-500 mt-3">{selectedOcrModel.desc}</p>
+            <p className="text-xs text-text-muted mt-3">{selectedOcrModel.desc}</p>
           )}
           {ocrModelNeedsApiKey && (
             <p className="text-xs mt-1 flex items-center gap-1">
@@ -489,12 +489,12 @@ function FullSettingsPage() {
         </div>
 
         {/* Texto fijo del pedido al proveedor */}
-        <div id="mensaje-proveedor" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
+        <div id="mensaje-proveedor" className="scroll-mt-40 bg-surface-raised shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5 text-indigo-600" />
+            <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Mensaje al proveedor</h2>
           </div>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-text-muted mb-4">
             Texto que se añade a todo pedido generado desde una lista de compra (PDF, email y WhatsApp), después del listado de artículos.
           </p>
           <PurchaseOrderNoteForm
@@ -504,12 +504,12 @@ function FullSettingsPage() {
         </div>
 
         {/* Claves API */}
-        <div id="claves-api" className="scroll-mt-40 bg-white shadow rounded-lg p-6">
+        <div id="claves-api" className="scroll-mt-40 bg-surface-raised shadow rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Key className="h-5 w-5 text-indigo-600" />
+            <Key className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Claves API</h2>
           </div>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-text-muted mb-6">
             Configura las claves API de los proveedores de IA para la extracción de datos de albaranes
             y el asistente Chefchek. La clave del motor de extracción seleccionado se guarda en el
             servidor (cifrada) y se comparte entre todos tus dispositivos; el resto quedan solo en
@@ -526,10 +526,10 @@ function FullSettingsPage() {
               const isShown = showKeys[provider.id];
 
               return (
-                <div key={provider.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={provider.id} className="border border-line-soft rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{provider.name}</span>
+                      <span className="font-medium text-text-strong">{provider.name}</span>
                       {hasKey ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           <Check className="h-3 w-3" /> Configurada
@@ -539,7 +539,7 @@ function FullSettingsPage() {
                           <CheckCircle2 className="h-3 w-3" /> Guardada en el servidor
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-surface-subtle text-text-muted">
                           Sin clave
                         </span>
                       )}
@@ -555,7 +555,7 @@ function FullSettingsPage() {
                   {/* Available models for this provider */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {provider.models.map(m => (
-                      <span key={m.id} className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                      <span key={m.id} className="px-2 py-0.5 rounded text-xs bg-surface-subtle text-text-soft">
                         {m.name}
                       </span>
                     ))}
@@ -569,12 +569,12 @@ function FullSettingsPage() {
                         value={apiKeys[provider.id] || ''}
                         onChange={(e) => handleApiKeyChange(provider.id, e.target.value)}
                         placeholder={provider.keyPlaceholder}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                        className="w-full px-3 py-2 pr-10 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
                       />
                       <button
                         type="button"
                         onClick={() => toggleShowKey(provider.id)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-text-soft"
                       >
                         {isShown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -585,7 +585,7 @@ function FullSettingsPage() {
                       className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                         isSaved
                           ? 'bg-green-600 text-white'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
                       }`}
                     >
                       {isSaved ? '✓ Guardada' : 'Guardar'}
@@ -657,14 +657,14 @@ function PurchaseOrderNoteForm({ initialSupplierNote }: { initialSupplierNote: s
         onChange={(e) => setSupplierNote(e.target.value)}
         rows={3}
         placeholder="Si no dispone de algún artículo, por favor, comuníquelo."
-        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full px-3 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       />
       <button
         type="button"
         onClick={handleSave}
         disabled={updateMutation.isPending}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          saved ? 'bg-green-600 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
         } disabled:opacity-50`}
       >
         {saved ? '✓ Guardado' : 'Guardar'}
@@ -702,7 +702,7 @@ function CostingConfigForm({
   return (
     <div className="flex items-end gap-3">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-default mb-1">
           Coste objetivo máximo (%)
         </label>
         <input
@@ -712,11 +712,11 @@ function CostingConfigForm({
           step="any"
           value={targetCostPercentage}
           onChange={(e) => setTargetCostPercentage(e.target.value)}
-          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-32 px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-text-default mb-1">
           Multiplicador PVP teórico
         </label>
         <input
@@ -726,7 +726,7 @@ function CostingConfigForm({
           step="any"
           value={theoreticalPriceMultiplier}
           onChange={(e) => setTheoreticalPriceMultiplier(e.target.value)}
-          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-32 px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
       <button
@@ -734,7 +734,7 @@ function CostingConfigForm({
         onClick={handleSave}
         disabled={updateCostingConfigMutation.isPending}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          saved ? 'bg-green-600 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
         } disabled:opacity-50`}
       >
         {saved ? '✓ Guardado' : 'Guardar'}

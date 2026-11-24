@@ -8,6 +8,7 @@ import {
   MinLength,
   MaxLength,
   Min,
+  IsIn,
 } from "class-validator";
 
 // DTO para query de dashboard
@@ -105,4 +106,11 @@ export class AlertsQueryDto {
   @IsNumber()
   @Min(1)
   limit?: number;
+}
+
+/** Periodo de comparación del gasto por proveedor (ventana móvil). */
+export class SupplierSpendQueryDto {
+  @IsOptional()
+  @IsIn(["MONTH", "QUARTER", "YEAR"])
+  period?: "MONTH" | "QUARTER" | "YEAR";
 }

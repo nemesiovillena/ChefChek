@@ -220,8 +220,8 @@ export function AlbaranReturnsPanel({ albaran, onChanged }: AlbaranReturnsPanelP
       )}
 
       {linkable.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-indigo-300 bg-indigo-50 p-3 dark:border-indigo-800 dark:bg-indigo-950/40">
-          <p className="flex items-center gap-2 text-sm font-semibold text-indigo-800 dark:text-indigo-300">
+        <div className="space-y-2 rounded-xl border border-primary/30 bg-secondary-container/50 p-3 ">
+          <p className="flex items-center gap-2 text-sm font-semibold text-primary ">
             <Link2 className="h-4 w-4" />
             ¿Este abono cubre alguna devolución pendiente de {albaran.supplier?.name}?
           </p>

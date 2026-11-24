@@ -9,6 +9,7 @@ import {
   noteDue,
   noteHeading,
 } from './note-display';
+import { CalendarDays, Check, Lock, Pencil, Pin, Trash2, Undo2 } from 'lucide-react';
 
 interface NoteCardProps {
   note: Note;
@@ -68,13 +69,11 @@ export function NoteCard({
           )}
         </button>
         {note.isPrivate && (
-          <span
-            className="material-symbols-outlined text-[18px] text-on-surface-variant"
-            title="Solo para mí"
+          <Lock
+            role="img"
             aria-label="Solo para mí"
-          >
-            lock
-          </span>
+            className="h-[18px] w-[18px] shrink-0 text-on-surface-variant"
+            />
         )}
       </div>
 
@@ -96,7 +95,7 @@ export function NoteCard({
         )}
         {due === 'later' && (
           <span className="flex items-center gap-1 text-label-sm text-on-surface-variant">
-            <span className="material-symbols-outlined text-[14px]">event</span>
+            <CalendarDays aria-hidden className="h-[14px] w-[14px]" />
             {formatRemind(note)}
           </span>
         )}
@@ -123,7 +122,7 @@ export function NoteCard({
           title="Editar"
           aria-label="Editar"
         >
-          <span className="material-symbols-outlined text-[20px]">edit</span>
+          <Pencil aria-hidden className="h-[20px] w-[20px]" />
         </button>
         <button
           type="button"
@@ -134,12 +133,7 @@ export function NoteCard({
           aria-label={note.pinned ? 'Desfijar' : 'Fijar arriba'}
           aria-pressed={note.pinned}
         >
-          <span
-            className="material-symbols-outlined text-[20px]"
-            style={note.pinned ? { fontVariationSettings: "'FILL' 1" } : undefined}
-          >
-            push_pin
-          </span>
+          <Pin aria-hidden className={`h-5 w-5 ${note.pinned ? 'fill-current' : ''}`} />
         </button>
         {canDelete && (
           <button
@@ -150,7 +144,7 @@ export function NoteCard({
             title="Borrar"
             aria-label="Borrar"
           >
-            <span className="material-symbols-outlined text-[20px]">delete</span>
+            <Trash2 aria-hidden className="h-[20px] w-[20px]" />
           </button>
         )}
         <button
@@ -163,7 +157,7 @@ export function NoteCard({
               : 'bg-primary text-primary-foreground hover:opacity-90'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">{done ? 'undo' : 'check'}</span>
+          {done ? <Undo2 aria-hidden className="h-[18px] w-[18px]" /> : <Check aria-hidden className="h-[18px] w-[18px]" />}
           {done ? 'Deshacer' : 'Hecha'}
         </button>
       </div>

@@ -117,7 +117,7 @@ export default function SictedAuditoriaPage() {
       </section>
 
       <section>
-        <h3 className="mb-3 font-semibold">Cobertura — {month}</h3>
+        <h3 className="mb-3 font-semibold">Cobertura · {month}</h3>
         {loadingCoverage ? (
           <div className="flex h-24 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-[var(--primary)]" />
@@ -155,7 +155,7 @@ export default function SictedAuditoriaPage() {
                   >
                     <span className="flex items-center gap-2">
                       <AlertTriangle className="h-3.5 w-3.5" />
-                      {gap.templateName} ({gap.area}) — {gap.periodKey}
+                      {gap.templateName} ({gap.area}) · {gap.periodKey}
                     </span>
                     <span className="text-xs font-semibold">{gap.status === 'MISSING' ? 'Sin generar' : 'Incompleta'}</span>
                   </div>

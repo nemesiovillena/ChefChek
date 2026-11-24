@@ -38,7 +38,7 @@ export function TenantList({ tenants, selectedId, onSelect }: TenantListProps) {
               className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                 tenant.isActive
                   ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-500'
+                  : 'bg-surface-subtle text-text-muted'
               }`}
             >
               {tenant.isActive ? 'Activo' : 'Inactivo'}

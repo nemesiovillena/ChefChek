@@ -78,27 +78,6 @@ export class DashboardService {
   }
 
   async calculateKPIs(tenantId: string, role?: string, userId?: string) {
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
-
-    // Costes de proveedores - promedio netPrice de productos
-    const products = await this.prisma.product.findMany({
-      where: { tenantId },
-    });
-
-    const avgCost =
-      products.reduce((sum, p) => sum + p.purchasePrice, 0) /
-      (products.length || 1);
-
-    // Márgenes de carta - promedio de márgenes de menús activos
-    const menus = await this.prisma.menu.findMany({
-      where: { tenantId, isActive: true },
-    });
-
-    const avgMargin =
-      menus.reduce((sum, m) => sum + (m.totalMargin || 0), 0) /
-      (menus.length || 1);
-
     // Stock bajo - productos con quantity <= minimumStock
     const stocks = await this.prisma.stock.findMany({
       where: { tenantId },
@@ -107,19 +86,6 @@ export class DashboardService {
     const lowStockCount = stocks.filter(
       (s) => s.quantity <= s.minimumStock,
     ).length;
-
-    // Escaneos de menú digital
-    const menuScans = await this.prisma.menuScan.groupBy({
-      by: ["digitalMenuId"],
-      _count: true,
-      where: {
-        digitalMenu: {
-          tenantId,
-        },
-      },
-    });
-
-    const totalScans = menuScans.reduce((sum, s) => sum + s._count, 0);
 
     // Alertas activas no resueltas
     const activeAlerts = await this.prisma.dashboardAlert.count({
@@ -489,28 +455,10 @@ export class DashboardService {
       activeProductionBatches,
       upcomingProductionTasks,
       // Campos compatibles con formato existente
-      averageCost: {
-        current: avgCost,
-        target: avgCost * 0.95,
-        changePercent: 0,
-        status: avgCost > avgCost * 1.05 ? "WARNING" : "OK",
-      },
-      averageMargin: {
-        current: avgMargin,
-        target: avgMargin * 1.1,
-        changePercent: 0,
-        status: avgMargin < 25 ? "WARNING" : "OK",
-      },
       lowStockAlerts: {
         current: lowStockCount,
         target: 0,
         status: lowStockCount > 0 ? "CRITICAL" : "OK",
-      },
-      digitalMenuScans: {
-        current: totalScans,
-        target: totalScans * 1.2,
-        changePercent: 0,
-        status: "OK",
       },
       activeAlerts: {
         current: activeAlerts,
@@ -527,8 +475,6 @@ export class DashboardService {
       userId,
     );
     if (!canViewCosts) {
-      delete (kpis as Partial<typeof kpis>).averageCost;
-      delete (kpis as Partial<typeof kpis>).averageMargin;
       delete (kpis as Partial<typeof kpis>).todayRevenue;
       delete (kpis as Partial<typeof kpis>).monthlyRevenue;
     }
@@ -537,141 +483,6 @@ export class DashboardService {
       success: true,
       data: kpis,
       message: "KPIs calculated successfully",
-    };
-  }
-
-  async getCostTrend(tenantId: string, period: string = "MONTH") {
-    const metrics = await this.prisma.dashboardMetric.findMany({
-      where: {
-        tenantId,
-        metricType: "COST_TREND",
-        period,
-      },
-      orderBy: { date: "asc" },
-      take: 12,
-    });
-
-    if (metrics.length > 0) {
-      return {
-        success: true,
-        data: metrics,
-        message: "Cost trend retrieved successfully",
-      };
-    }
-
-    // Calculate real cost trends from order data if no dashboardMetrics exist
-    const now = new Date();
-    const costTrendData = [];
-
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(now);
-      date.setMonth(date.getMonth() - i);
-      date.setDate(1);
-      date.setHours(0, 0, 0, 0);
-
-      const monthEnd = new Date(date);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
-      monthEnd.setDate(0);
-
-      const orders = await this.prisma.order.findMany({
-        where: {
-          tenantId,
-          orderedAt: { gte: date, lte: monthEnd },
-          status: "COMPLETED",
-        },
-      });
-
-      const totalRevenue = orders.reduce(
-        (sum, order) => sum + order.totalAmount,
-        0,
-      );
-      const totalCost = totalRevenue * 0.7; // Approximate 70% cost
-      const avgMargin =
-        totalRevenue > 0
-          ? ((totalRevenue - totalCost) / totalRevenue) * 100
-          : 0;
-
-      costTrendData.push({
-        id: `real-${i}`,
-        tenantId,
-        metricType: "COST_TREND",
-        metricName: "Monthly Cost",
-        period,
-        date,
-        value: totalCost,
-        target: totalCost * 0.95,
-        change:
-          i > 0
-            ? totalCost - costTrendData[costTrendData.length - 1]?.value
-            : 0,
-        changePercent:
-          i > 0 && costTrendData.length > 0
-            ? ((totalCost - costTrendData[costTrendData.length - 1].value) /
-                costTrendData[costTrendData.length - 1].value) *
-              100
-            : 0,
-        metadata: {
-          totalRevenue,
-          avgMargin,
-          orderCount: orders.length,
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-
-    return {
-      success: true,
-      data: costTrendData,
-      message: "Real cost trend data calculated from orders",
-    };
-  }
-
-  async getMenuMarginAnalysis(tenantId: string) {
-    const menus = await this.prisma.menu.findMany({
-      where: { tenantId, isActive: true },
-      include: {
-        items: {
-          include: {
-            recipe: true,
-          },
-        },
-      },
-    });
-
-    const menuAnalysis = menus.map((menu) => {
-      const totalCost = menu.totalCost;
-      const totalPrice = menu.totalPrice;
-      const margin = menu.totalMargin;
-      const marginPercent = totalPrice > 0 ? (margin / totalPrice) * 100 : 0;
-
-      return {
-        id: menu.id,
-        name: menu.name,
-        totalCost,
-        totalPrice,
-        margin,
-        marginPercent,
-        itemCount: menu.items.length,
-        status: marginPercent < 20 ? "WARNING" : "OK",
-      };
-    });
-
-    return {
-      success: true,
-      data: {
-        menus: menuAnalysis,
-        averageMargin:
-          menuAnalysis.reduce((sum, m) => sum + m.marginPercent, 0) /
-          (menuAnalysis.length || 1),
-        worstMargin: menuAnalysis.sort(
-          (a, b) => a.marginPercent - b.marginPercent,
-        )[0],
-        bestMargin: menuAnalysis.sort(
-          (a, b) => b.marginPercent - a.marginPercent,
-        )[0],
-      },
-      message: "Menu margin analysis retrieved successfully",
     };
   }
 

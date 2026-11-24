@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { usePortionOverview, type PortionState } from '@/hooks/use-raciones';
+import { UtensilsCrossed } from 'lucide-react';
 
 // Platos que se nombran en la card; el resto se resume en "+N más".
 const COUNTER_LIST_LIMIT = 6;
@@ -36,7 +37,7 @@ export function RacionesDashboardCard() {
       <div className="flex flex-wrap items-center justify-between gap-stack-sm">
         <div className="flex items-center gap-stack-md">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
-            <span className="material-symbols-outlined text-[22px]">set_meal</span>
+            <UtensilsCrossed aria-hidden className="h-[22px] w-[22px]" />
           </span>
           <div>
             <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Contador de platos</h5>

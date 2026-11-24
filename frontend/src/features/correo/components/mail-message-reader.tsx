@@ -97,7 +97,7 @@ export function MailMessageReader({ detail, loading, error, canSend, canAlbaran,
           sandbox="allow-popups allow-popups-to-escape-sandbox"
           referrerPolicy="no-referrer"
           srcDoc={srcdoc}
-          className="min-h-[60vh] w-full flex-1 bg-white"
+          className="min-h-[60vh] w-full flex-1 bg-surface-raised"
         />
       )}
       <MailAttachmentList detail={detail} canAlbaran={canAlbaran} />

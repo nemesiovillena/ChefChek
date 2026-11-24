@@ -61,10 +61,9 @@ function SictedDireccionPageContent() {
       </button>
       <h2 className="font-headline-lg text-headline-lg text-primary mb-1">Dirección</h2>
       <p className="mb-6 text-sm text-[var(--on-surface-variant)]">
-        Herramienta de apoyo a la autoevaluación interna — no sustituye la evaluación oficial de un evaluador externo SICTED.
+        Herramienta de apoyo a la autoevaluación interna. No sustituye la evaluación oficial de un evaluador externo SICTED.
       </p>
 
-      {/* Tab bar con role=tablist: globals.css oculta <nav> no-fixed, no usar <nav> */}
       <div
         role="tablist"
         aria-label="Secciones de dirección"

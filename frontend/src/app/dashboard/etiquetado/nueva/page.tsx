@@ -757,7 +757,7 @@ export default function NuevaEtiquetaPage() {
                     }
                   }}
                 >
-                  <option value="">— (escribir el lote a mano)</option>
+                  <option value="">Escribir el lote a mano</option>
                   {(productCtx.data?.lots ?? []).length > 0 && (
                     <optgroup label="Lotes registrados">
                       {productCtx.data!.lots.map((l) => (

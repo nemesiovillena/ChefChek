@@ -2,6 +2,7 @@
 
 import type { MenuEngineeringAnalysis } from '../api/gestion-menu-engineering-api';
 import { formatEuros, formatQty } from '../gestion-format';
+import { CircleHelp } from 'lucide-react';
 
 const pct = (n: number) => `${n.toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
 
@@ -21,9 +22,7 @@ export function MenuEngineeringPopularityExplainer({ data }: { data: MenuEnginee
       className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-low,var(--surface-container))] p-4"
     >
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined mt-0.5 text-[var(--primary)]" aria-hidden>
-          help
-        </span>
+        <CircleHelp aria-hidden className="h-6 w-6 mt-0.5 text-[var(--primary)]" />
         <div className="min-w-0 flex-1 space-y-3 text-sm text-[var(--on-surface-variant)]">
           <div id="me-popularidad" className="text-base font-semibold text-[var(--on-surface)]">
             ¿Qué es la popularidad?

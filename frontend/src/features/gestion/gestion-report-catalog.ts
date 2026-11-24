@@ -1,3 +1,5 @@
+import { ArrowLeftRight, Ban, Banknote, ChartColumnStacked, ChefHat, Clock, ConciergeBell, IdCard, Landmark, LayoutGrid, ListOrdered, Percent, Truck, Wallet, type LucideIcon } from 'lucide-react';
+
 /**
  * Informes de Gestión que se ven en el catálogo. `ventas` reutiliza el informe
  * por familias que ya tenía Cuiner; el resto usan la tabla común de Gestión.
@@ -10,7 +12,7 @@ export interface ReportDefinition {
   group: 'Ventas' | 'Caja y sala' | 'Rentabilidad' | 'Resultados';
   title: string;
   description: string;
-  icon: string;
+  icon: LucideIcon;
   /** range = periodo de fechas; years = año final y nº de años; year = un año. */
   input: 'range' | 'years' | 'year';
   /** Selectores extra del informe (clave del parámetro → opciones). */
@@ -23,7 +25,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'ventas',
     title: 'Ventas por periodo y familia',
     description: 'Por día, semana, mes o año; de familia a plato, con unidades, base y total.',
-    icon: 'stacked_bar_chart',
+    icon: ChartColumnStacked,
     input: 'range',
   },
   {
@@ -31,7 +33,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'ranking',
     title: 'Ranking de platos',
     description: 'Los más y los menos vendidos, por importe o por unidades.',
-    icon: 'leaderboard',
+    icon: ListOrdered,
     input: 'range',
     options: [
       {
@@ -65,7 +67,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'interanual',
     title: 'Comparativa interanual',
     description: 'Ventas mes a mes de varios años, con la variación del último.',
-    icon: 'compare_arrows',
+    icon: ArrowLeftRight,
     input: 'years',
   },
   {
@@ -73,7 +75,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'anulaciones',
     title: 'Anulaciones e invitaciones',
     description: 'Lo anulado y lo invitado, por día o por plato.',
-    icon: 'block',
+    icon: Ban,
     input: 'range',
     options: [
       {
@@ -92,7 +94,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'iva',
     title: 'IVA repercutido',
     description: 'Base imponible y cuota por tipo de IVA.',
-    icon: 'percent',
+    icon: Percent,
     input: 'range',
     options: [
       {
@@ -112,7 +114,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'caja-diaria',
     title: 'Caja diaria',
     description: 'Cada día: tickets, comensales, gasto por comensal, comidas y cenas, y cobros por forma de pago.',
-    icon: 'point_of_sale',
+    icon: Banknote,
     input: 'range',
   },
   {
@@ -120,7 +122,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'franjas-horarias',
     title: 'Franjas horarias',
     description: 'Ventas por hora de apertura de la mesa y día de la semana.',
-    icon: 'schedule',
+    icon: Clock,
     input: 'range',
   },
   {
@@ -128,7 +130,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'camareros',
     title: 'Camareros',
     description: 'Tickets, comensales, ventas, ticket medio y gasto por comensal de cada camarero.',
-    icon: 'room_service',
+    icon: ConciergeBell,
     input: 'range',
   },
   {
@@ -136,7 +138,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'food-cost',
     title: 'Food cost teórico',
     description: 'Coste de escandallo de lo servido, plato a plato, frente a lo vendido.',
-    icon: 'restaurant',
+    icon: ChefHat,
     input: 'range',
   },
   {
@@ -144,7 +146,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'compras',
     title: 'Compras',
     description: 'Albaranes recibidos por proveedor o categoría, y su peso sobre las ventas.',
-    icon: 'local_shipping',
+    icon: Truck,
     input: 'range',
     options: [
       {
@@ -163,7 +165,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'ingenieria-menu',
     title: 'Ingeniería de menú',
     description: 'Estrellas, percherones, puzzles y perros: popularidad × margen de cada plato.',
-    icon: 'grid_view',
+    icon: LayoutGrid,
     input: 'range',
   },
   {
@@ -171,7 +173,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'personal',
     title: 'Coste de personal',
     description: 'Horas fichadas × coste/hora de cada persona (hasta un año).',
-    icon: 'badge',
+    icon: IdCard,
     input: 'range',
   },
   {
@@ -179,7 +181,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'cuenta-explotacion',
     title: 'Cuenta de explotación',
     description: 'Ventas, compras, personal, gastos generales y EBITDA mes a mes.',
-    icon: 'account_balance',
+    icon: Landmark,
     input: 'year',
   },
   {
@@ -187,7 +189,7 @@ export const GESTION_REPORTS: ReportDefinition[] = [
     key: 'flujo-caja',
     title: 'Flujo de caja aproximado',
     description: 'Cobros y pagos con IVA por mes y saldo acumulado.',
-    icon: 'payments',
+    icon: Wallet,
     input: 'year',
   },
 ];

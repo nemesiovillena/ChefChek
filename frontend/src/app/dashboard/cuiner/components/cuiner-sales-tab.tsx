@@ -61,7 +61,7 @@ export function CuinerSalesTab() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
+        <p className="text-sm text-text-soft">
           {nothingPending ? (
             'No hay ventas pendientes de aplicar.'
           ) : (
@@ -96,8 +96,8 @@ export function CuinerSalesTab() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section>
           <h3 className="mb-2 font-semibold">Se descontará del stock</h3>
-          <p className="mb-2 text-xs text-gray-500">En formatos de compra, la misma unidad en la que suma el albarán.</p>
-          <ul className="divide-y divide-gray-200 text-sm dark:divide-zinc-800">
+          <p className="mb-2 text-xs text-text-muted">En formatos de compra, la misma unidad en la que suma el albarán.</p>
+          <ul className="divide-y divide-line-soft text-sm">
             {data.consumption.map((c) => (
               <li key={c.productId} className="flex justify-between gap-3 py-2">
                 <span>{c.name}</span>
@@ -106,22 +106,22 @@ export function CuinerSalesTab() {
                 </span>
               </li>
             ))}
-            {data.consumption.length === 0 && <li className="py-3 text-gray-500">Nada que descontar.</li>}
+            {data.consumption.length === 0 && <li className="py-3 text-text-muted">Nada que descontar.</li>}
           </ul>
         </section>
         <section>
           <h3 className="mb-2 font-semibold">Vendido sin enlazar (no descontará)</h3>
-          <p className="mb-2 text-xs text-gray-500">Enlázalos en la pestaña Platos y pulsa «Reintentar las sin enlazar».</p>
-          <ul className="divide-y divide-gray-200 text-sm dark:divide-zinc-800">
+          <p className="mb-2 text-xs text-text-muted">Enlázalos en la pestaña Platos y pulsa «Reintentar las sin enlazar».</p>
+          <ul className="divide-y divide-line-soft text-sm">
             {data.unmappedDishes.slice(0, 50).map((d) => (
               <li key={`${d.tipo}-${d.producto}`} className="flex justify-between gap-3 py-2">
                 <span>
-                  {d.nombre} <span className="text-xs text-gray-500">({CUINER_DISH_TIPO_LABELS[d.tipo] ?? d.tipo})</span>
+                  {d.nombre} <span className="text-xs text-text-muted">({CUINER_DISH_TIPO_LABELS[d.tipo] ?? d.tipo})</span>
                 </span>
                 <span className="font-mono">{fmtQty(d.unidades)}</span>
               </li>
             ))}
-            {data.unmappedDishes.length === 0 && <li className="py-3 text-gray-500">Todo lo vendido está enlazado.</li>}
+            {data.unmappedDishes.length === 0 && <li className="py-3 text-text-muted">Todo lo vendido está enlazado.</li>}
           </ul>
         </section>
       </div>

@@ -38,7 +38,7 @@ export class SictedPlanPdfService {
       .fontSize(16)
       .text(
         area
-          ? `Plan de limpieza y revisión — ${area}`
+          ? `Plan de limpieza y revisión: ${area}`
           : "Plan de limpieza y revisión",
       );
     doc.moveDown(0.5);

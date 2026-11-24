@@ -43,11 +43,11 @@ function CategoryTreeNodeComponent({
   return (
     <div>
       <div
-        className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer group"
+        className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-hover-faint rounded cursor-pointer group"
         style={{ paddingLeft: `${paddingLeft + 8}px` }}
       >
         {hasChildren ? (
-          <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-400 hover:text-gray-600">
+          <button onClick={() => setIsExpanded(!isExpanded)} className="text-gray-400 hover:text-text-soft">
             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
         ) : (
@@ -55,9 +55,9 @@ function CategoryTreeNodeComponent({
         )}
 
         {isExpanded ? (
-          <FolderOpen className="h-4 w-4 text-indigo-500" />
+          <FolderOpen className="h-4 w-4 text-primary" />
         ) : (
-          <Folder className="h-4 w-4 text-indigo-500" />
+          <Folder className="h-4 w-4 text-primary" />
         )}
 
         {node.icon && (

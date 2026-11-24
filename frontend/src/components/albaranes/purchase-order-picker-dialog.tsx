@@ -83,7 +83,7 @@ export function PurchaseOrderPickerDialog({
         )}
 
         {!supplierId ? (
-          <p className="py-6 text-center text-sm text-gray-500">
+          <p className="py-6 text-center text-sm text-text-muted">
             Asigna primero un proveedor al albarán.
           </p>
         ) : (
@@ -95,7 +95,7 @@ export function PurchaseOrderPickerDialog({
             ) : error ? (
               <div className="py-8 text-center text-red-600">{error.message}</div>
             ) : !orders || orders.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
+              <div className="py-8 text-center text-text-muted">
                 No hay pedidos enviados recientes de este proveedor.
               </div>
             ) : (
@@ -107,16 +107,16 @@ export function PurchaseOrderPickerDialog({
                     disabled={updating}
                     className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:opacity-50 ${
                       order.id === currentPurchaseOrderId
-                        ? 'border border-indigo-200 bg-indigo-50'
-                        : 'hover:bg-gray-100'
+                        ? 'border border-primary/30 bg-secondary-container/50'
+                        : 'hover:bg-surface-hover'
                     }`}
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
-                      <ShoppingCart className="h-5 w-5 text-indigo-600" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container/50">
+                      <ShoppingCart className="h-5 w-5 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{order.orderNumber}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-text-muted">
                         {order.status === 'RECIBIDO_PARCIAL' ? 'Recibido parcial' : 'Enviado'}
                         {order.sentAt
                           ? ` · ${new Date(order.sentAt).toLocaleDateString('es-ES')}`
@@ -137,7 +137,7 @@ export function PurchaseOrderPickerDialog({
             type="button"
             onClick={() => handleSelect(null)}
             disabled={updating}
-            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm text-text-soft transition-colors hover:bg-surface-hover disabled:opacity-50"
           >
             <Link2Off className="h-4 w-4" />
             Desvincular pedido actual

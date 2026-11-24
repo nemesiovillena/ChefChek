@@ -14,16 +14,16 @@ export function ModuleListWidget() {
 
   if (loading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="bg-surface-raised shadow rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Modules</h2>
-        <div className="text-gray-500">Loading modules...</div>
+        <div className="text-text-muted">Loading modules...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="bg-surface-raised shadow rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">Modules</h2>
         <div className="flex items-center gap-2 text-red-600">
           <AlertCircle className="h-5 w-5" />
@@ -31,7 +31,7 @@ export function ModuleListWidget() {
         </div>
         <button
           onClick={() => refetch()}
-          className="mt-4 text-indigo-600 hover:text-indigo-800 underline"
+          className="mt-4 text-primary hover:text-primary underline"
         >
           Retry
         </button>
@@ -40,7 +40,7 @@ export function ModuleListWidget() {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
+    <div className="bg-surface-raised shadow rounded-lg p-6">
       <h2 className="text-xl font-semibold mb-4">Active Modules</h2>
 
       {!canManageModules && (
@@ -104,20 +104,20 @@ function ModuleCard({ module, canManageModules, onToggle }: ModuleCardProps) {
     <div className="flex items-start justify-between py-3 border-b last:border-b-0">
       <div className="flex-1 pr-4">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-900">{module.name}</span>
+          <span className="font-medium text-text-strong">{module.name}</span>
           {module.enabled ? (
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 flex items-center gap-1">
               <Check className="h-3 w-3" />
               Active
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-subtle text-text-soft flex items-center gap-1">
               <X className="h-3 w-3" />
               Inactive
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-600 mt-1">{module.description}</p>
+        <p className="text-sm text-text-soft mt-1">{module.description}</p>
         {localError && (
           <div className="mt-2 text-sm text-red-600 flex items-start gap-1">
             <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
@@ -132,12 +132,12 @@ function ModuleCard({ module, canManageModules, onToggle }: ModuleCardProps) {
           disabled={module.alwaysActive || toggling || !canManageModules}
         />
         {module.alwaysActive && (
-          <div className="text-xs text-gray-500 text-center mt-1">
+          <div className="text-xs text-text-muted text-center mt-1">
             Always active
           </div>
         )}
         {!canManageModules && (
-          <div className="text-xs text-gray-500 text-center mt-1 flex items-center justify-center gap-1">
+          <div className="text-xs text-text-muted text-center mt-1 flex items-center justify-center gap-1">
             <Lock className="h-3 w-3" />
             Solo ChefChek
           </div>

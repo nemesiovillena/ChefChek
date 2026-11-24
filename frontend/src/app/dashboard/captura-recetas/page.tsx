@@ -53,7 +53,6 @@ export default function CapturaRecetasPage() {
 
   return (
     <div className="container mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-      {/* <div>, no <header>: globals.css oculta header:not(.fixed). */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--on-surface)]">Captura de recetas</h1>
         <p className="text-sm text-[var(--on-surface-variant)]">

@@ -379,8 +379,6 @@ describe("DashboardService", () => {
     it("incluye las cifras monetarias para un rol con acceso a coste", async () => {
       mockEmptyKpiSources();
       const result = await service.calculateKPIs("tenant-1", "USER");
-      expect(result.data).toHaveProperty("averageCost");
-      expect(result.data).toHaveProperty("averageMargin");
       expect(result.data).toHaveProperty("todayRevenue");
       expect(result.data).toHaveProperty("monthlyRevenue");
     });
@@ -392,8 +390,6 @@ describe("DashboardService", () => {
           Promise.resolve(key !== "recipes.cost"),
       );
       const result = await service.calculateKPIs("tenant-1", "USER");
-      expect(result.data).not.toHaveProperty("averageCost");
-      expect(result.data).not.toHaveProperty("averageMargin");
       expect(result.data).not.toHaveProperty("todayRevenue");
       expect(result.data).not.toHaveProperty("monthlyRevenue");
       // los contadores no monetarios siguen ahí
@@ -536,70 +532,6 @@ describe("DashboardService", () => {
         const where = prismaService.foodLabel.count.mock.calls[0][0].where;
         expect(where.voidedAt).toBeNull();
         expect(where.tenantId).toBe("tenant-1");
-      });
-    });
-  });
-
-  describe("getCostTrend", () => {
-    it("should return cost trend for period", async () => {
-      prismaService.dashboardMetric.findMany.mockResolvedValue([]);
-
-      const result = await service.getCostTrend("tenant-1", "MONTH");
-
-      expect(result.success).toBe(true);
-      expect(prismaService.dashboardMetric.findMany).toHaveBeenCalledWith({
-        where: {
-          tenantId: "tenant-1",
-          period: "MONTH",
-          metricType: "COST_TREND",
-        },
-        orderBy: { date: "asc" },
-        take: 12,
-      });
-    });
-
-    it("should return existing metrics when dashboardMetrics exist", async () => {
-      const mockMetrics = [
-        { id: "m-1", metricType: "COST_TREND", value: 500, date: new Date() },
-      ];
-      prismaService.dashboardMetric.findMany.mockResolvedValue(mockMetrics);
-
-      const result = await service.getCostTrend("tenant-1", "MONTH");
-
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockMetrics);
-    });
-  });
-
-  describe("getMenuMarginAnalysis", () => {
-    it("should return menu margin analysis", async () => {
-      const mockMenus = [
-        {
-          id: "menu-1",
-          name: "Menu del dia",
-          totalCost: 100,
-          totalPrice: 150,
-          totalMargin: 50,
-          items: [],
-        },
-      ];
-
-      prismaService.menu.findMany.mockResolvedValue(mockMenus);
-
-      const result = await service.getMenuMarginAnalysis("tenant-1");
-
-      expect(result.success).toBe(true);
-      expect(result.data.menus).toHaveLength(1);
-      expect(result.data.averageMargin).toBeDefined();
-      expect(prismaService.menu.findMany).toHaveBeenCalledWith({
-        where: { tenantId: "tenant-1", isActive: true },
-        include: {
-          items: {
-            include: {
-              recipe: true,
-            },
-          },
-        },
       });
     });
   });

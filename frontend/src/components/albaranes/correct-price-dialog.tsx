@@ -167,8 +167,8 @@ export function CorrectPriceDialog({
 
         {/* Preview del coste que quedará asentado, contra el coste en ficha */}
         {priceValid && netValid && effectivePrice !== null && !isReturn && (
-          <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
-            <span className="text-gray-600 dark:text-gray-300">
+          <div className="flex items-center justify-between rounded-lg bg-surface-sunken px-3 py-2 text-sm">
+            <span className="text-text-soft">
               Coste que quedará asentado
             </span>
             <span className="flex items-center gap-2 font-semibold">
@@ -181,8 +181,8 @@ export function CorrectPriceDialog({
           </div>
         )}
 
-        <div className="space-y-1.5 rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
-          <p className="flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-200">
+        <div className="space-y-1.5 rounded-lg border border-line-soft p-3 text-xs text-text-soft">
+          <p className="flex items-center gap-1.5 font-medium text-text-default">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             Al guardar se actualizará:
           </p>

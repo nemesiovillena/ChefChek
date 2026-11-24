@@ -218,7 +218,7 @@ export default function WarehousePage() {
                               className={`w-12 h-12 rounded-lg flex items-center justify-center ${
                                 warehouse.isActive
                                   ? 'bg-green-500/10 text-green-500'
-                                  : 'bg-gray-500/10 text-gray-500'
+                                  : 'bg-gray-500/10 text-text-muted'
                               }`}
                             >
                               <Warehouse className="h-6 w-6" />

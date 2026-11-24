@@ -591,7 +591,7 @@ export class TechnicalSheetsService {
       const cost = calculateSubRecipeCost(sub.quantity, sub.unit, subData);
       totalCost += cost;
 
-      const label = `${subData.name.toLowerCase()} (subreceta${sub.note ? ` — ${sub.note}` : ""})`;
+      const label = `${subData.name.toLowerCase()} (subreceta${sub.note ? `: ${sub.note}` : ""})`;
       doc.text(
         `${index + 1}. ${label} - ${sub.quantity} ${formatUnitSymbol(sub.unit || "g")}`,
         { continued: options.includeCosts },

@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Dog, Puzzle, Star, Tractor, type LucideIcon } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { type DateRange, GESTION_BASE, type MenuClass } from './gestion-api';
 
@@ -7,11 +8,11 @@ export type PopularityFactor = 1 | 0.7;
 
 export const MENU_CLASSES: MenuClass[] = ['estrella', 'caballo', 'puzzle', 'perro'];
 
-export const MENU_CLASS_INFO: Record<MenuClass, { label: string; plural: string; icon: string; rule: string; action: string; color: string }> = {
+export const MENU_CLASS_INFO: Record<MenuClass, { label: string; plural: string; icon: LucideIcon; rule: string; action: string; color: string }> = {
   estrella: {
     label: 'Estrella',
     plural: 'Estrellas',
-    icon: 'star',
+    icon: Star,
     rule: 'Muy popular · muy rentable',
     action: 'Elasticidad en el precio: mantener la calidad, destacarlo en carta y probar a subir el precio poco a poco.',
     color: 'var(--me-estrella)',
@@ -19,7 +20,7 @@ export const MENU_CLASS_INFO: Record<MenuClass, { label: string; plural: string;
   caballo: {
     label: 'Percherón',
     plural: 'Percherones',
-    icon: 'agriculture',
+    icon: Tractor,
     rule: 'Muy popular · poco rentable',
     action: 'Hay que trabajar el plato: reducir cantidad, cambiar materia prima o menaje, o subir algo el precio.',
     color: 'var(--me-caballo)',
@@ -27,7 +28,7 @@ export const MENU_CLASS_INFO: Record<MenuClass, { label: string; plural: string;
   puzzle: {
     label: 'Puzzle',
     plural: 'Puzzles',
-    icon: 'extension',
+    icon: Puzzle,
     rule: 'Poco popular · muy rentable',
     action: 'Plan específico de venta: mejor sitio en la carta, nombre y descripción, sugerencia de sala.',
     color: 'var(--me-puzzle)',
@@ -35,7 +36,7 @@ export const MENU_CLASS_INFO: Record<MenuClass, { label: string; plural: string;
   perro: {
     label: 'Perro',
     plural: 'Perros',
-    icon: 'pets',
+    icon: Dog,
     rule: 'Poco popular · poco rentable',
     action: 'Fuera de carta, salvo que cumpla una función (clientes fieles, dietas) y se pueda reformular.',
     color: 'var(--me-perro)',

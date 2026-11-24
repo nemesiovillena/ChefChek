@@ -26,9 +26,9 @@ const WEEKDAYS = [
 ];
 
 const fieldCls =
-  'min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-zinc-700 dark:bg-zinc-900';
+  'min-h-[44px] w-full rounded-lg border border-line bg-surface-raised px-3 text-base';
 const buttonCls =
-  'inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white disabled:opacity-40';
+  'inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-40';
 
 /**
  * Configuración → SICTED: días de cierre del local. En un día de cierre no se
@@ -54,7 +54,7 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
   }
 
   if (isLoading || !calendar) {
-    return <Loader2 className="mb-6 h-5 w-5 animate-spin text-indigo-600" />;
+    return <Loader2 className="mb-6 h-5 w-5 animate-spin text-primary" />;
   }
 
   async function toggleWeekday(day: number) {
@@ -96,16 +96,16 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
   return (
     <div className="mb-6">
       <h3 className="mb-1 font-semibold">Días de cierre</h3>
-      <p className="mb-3 text-sm text-gray-500">
+      <p className="mb-3 text-sm text-text-muted">
         Los días que el local cierra no se generan hojas ni cuentan como hueco en Auditoría.
       </p>
 
-      <p className="mb-2 text-sm text-gray-500">Descanso semanal</p>
+      <p className="mb-2 text-sm text-text-muted">Descanso semanal</p>
       <div className="mb-4 flex flex-wrap gap-2">
         {WEEKDAYS.map((day) => (
           <label
             key={day.value}
-            className={`flex min-h-[44px] items-center gap-2 rounded-lg border border-gray-200 px-3 dark:border-zinc-700 ${canManage ? 'cursor-pointer' : 'opacity-70'}`}
+            className={`flex min-h-[44px] items-center gap-2 rounded-lg border border-line-soft px-3 ${canManage ? 'cursor-pointer' : 'opacity-70'}`}
           >
             <input
               type="checkbox"
@@ -119,20 +119,20 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
         ))}
       </div>
 
-      <p className="mb-2 text-sm text-gray-500">Fechas concretas (vacaciones, festivos, un descanso en que sí abrís)</p>
+      <p className="mb-2 text-sm text-text-muted">Fechas concretas (vacaciones, festivos, un descanso en que sí abrís)</p>
       {calendar.exceptions.length > 0 && (
         <ul className="mb-3 space-y-1 text-sm">
           {calendar.exceptions.map((e) => (
             <li
               key={e.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-1 dark:border-zinc-700"
+              className="flex items-center justify-between gap-2 rounded-lg border border-line-soft px-3 py-1"
             >
               <span>
                 <span className="font-medium">{e.kind === 'OPEN' ? 'Abrimos' : 'Cerramos'}</span>{' '}
                 {formatPeriodKey(e.fromDay)}
                 {e.toDay !== e.fromDay && ` – ${formatPeriodKey(e.toDay)}`}
                 {e.reason && ` · ${e.reason}`}
-                <span className="text-gray-500"> · {e.createdByName}</span>
+                <span className="text-text-muted"> · {e.createdByName}</span>
               </span>
               {canManage && (
                 <button
@@ -140,7 +140,7 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
                   aria-label="Quitar fecha"
                   disabled={removeException.isPending}
                   onClick={() => removeException.mutateAsync(e.id).catch(notifyError)}
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-gray-500 hover:text-red-600"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-text-muted hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -154,22 +154,22 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <label className="text-sm">
-              <span className="mb-1 block text-gray-500">Qué pasa</span>
+              <span className="mb-1 block text-text-muted">Qué pasa</span>
               <select value={kind} onChange={(e) => setKind(e.target.value as CalendarExceptionKind)} className={fieldCls}>
                 <option value="OPEN">Abrimos</option>
                 <option value="CLOSED">Cerramos</option>
               </select>
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-gray-500">Desde</span>
+              <span className="mb-1 block text-text-muted">Desde</span>
               <input type="date" value={fromDay} onChange={(e) => setFromDay(e.target.value)} className={fieldCls} />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-gray-500">Hasta (opcional)</span>
+              <span className="mb-1 block text-text-muted">Hasta (opcional)</span>
               <input type="date" value={toDay} min={fromDay} onChange={(e) => setToDay(e.target.value)} className={fieldCls} />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-gray-500">Motivo (opcional)</span>
+              <span className="mb-1 block text-text-muted">Motivo (opcional)</span>
               <input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} className={fieldCls} />
             </label>
           </div>

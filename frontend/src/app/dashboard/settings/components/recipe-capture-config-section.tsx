@@ -173,7 +173,7 @@ export function RecipeCaptureConfigSection() {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 font-medium text-amber-600">
-                  <AlertTriangle className="h-3.5 w-3.5" /> sin API key — añádela en «Claves API»
+                  <AlertTriangle className="h-3.5 w-3.5" /> sin API key: añádela en «Claves API»
                 </span>
               )}
             </p>
@@ -223,19 +223,19 @@ export function RecipeCaptureConfigSection() {
                     <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-green-500" aria-hidden="true" />
                   )}
                   <div className="truncate text-xs font-medium text-[var(--on-surface)]">{model.name}</div>
-                  <div className="text-[10px] text-[var(--on-surface-variant)]">{model.cost}/llamada</div>
+                  <div className="text-[11px] text-[var(--on-surface-variant)]">{model.cost}/llamada</div>
                 </button>
               );
             })}
           </div>
-          <p className="text-[10px] text-[var(--on-surface-variant)]">
+          <p className="text-[11px] text-[var(--on-surface-variant)]">
             Solo modelos con visión (leen fotos y PDF). Los atenuados necesitan la
             API key de su proveedor en «Claves API».
           </p>
 
           <p className="text-xs text-[var(--on-surface-variant)]">
             {selectedModel
-              ? `${selectedModel.name} — ${selectedModel.desc}.`
+              ? `${selectedModel.name}: ${selectedModel.desc}.`
               : `Modelo personalizado: ${form.model}`}
           </p>
           {selectedKeyReady ? (

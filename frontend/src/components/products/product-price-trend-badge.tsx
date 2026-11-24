@@ -98,9 +98,9 @@ export function ProductPriceTrendBadge({
     <Dialog>
       <DialogTrigger
         type="button"
-        title={`${canNormalize ? 'Precio ref. anterior' : 'Precio anterior'}: ${previous.toFixed(2)} € (${dateLabel}) — click para ver el historial`}
+        title={`${canNormalize ? 'Precio ref. anterior' : 'Precio anterior'}: ${previous.toFixed(2)} € (${dateLabel}). Clic para ver el historial`}
         className={cn(
-          'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+          'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           isUp ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
         )}
       >
@@ -110,7 +110,7 @@ export function ProductPriceTrendBadge({
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Historial de precios — {productName}</DialogTitle>
+          <DialogTitle>Historial de precios de {productName}</DialogTitle>
           <DialogDescription>
             Evolución del precio de compra y cambios registrados.
           </DialogDescription>

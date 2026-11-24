@@ -564,9 +564,9 @@ export default function ArticulosPage() {
           <span>{label}</span>
           {isActive ? (
             sortDirection === 'asc' ? (
-              <ChevronUp className="h-3.5 w-3.5 text-indigo-600" />
+              <ChevronUp className="h-3.5 w-3.5 text-primary" />
             ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+              <ChevronDown className="h-3.5 w-3.5 text-primary" />
             )
           ) : (
             <ChevronDown className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -579,7 +579,7 @@ export default function ArticulosPage() {
   // Guard: not authenticated or loading
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );
@@ -587,7 +587,7 @@ export default function ArticulosPage() {
 
   if (productsError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-red-600">Error al cargar artículos: {productsError.message}</div>
       </div>
     );
@@ -595,22 +595,22 @@ export default function ArticulosPage() {
 
   const headerActions = (
     <>
-      <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors">
+      <button onClick={() => setShowImportModal(true)} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-text-strong rounded-md transition-colors">
         Importar
       </button>
       <div className="relative group">
-        <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
+        <button disabled={isExporting} className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-text-strong rounded-md transition-colors flex items-center gap-1 disabled:opacity-50">
           {isExporting ? 'Exportando…' : 'Exportar'}
           <ChevronDown className="h-4 w-4" />
         </button>
-        <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
-          <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+        <div className="absolute right-0 mt-1 w-40 bg-surface-raised border border-line-soft shadow-lg rounded-md overflow-hidden z-50 hidden group-focus-within:block group-hover:block">
+          <button onClick={exportToCSV} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-surface-hover transition-colors disabled:opacity-50">
             Exportar a CSV
           </button>
-          <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+          <button onClick={exportToExcel} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-surface-hover transition-colors disabled:opacity-50">
             Exportar a Excel
           </button>
-          <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50">
+          <button onClick={exportToPDF} disabled={isExporting} className="w-full px-4 py-2 text-left text-sm text-text-default hover:bg-surface-hover transition-colors disabled:opacity-50">
             Exportar a PDF
           </button>
         </div>
@@ -620,7 +620,7 @@ export default function ArticulosPage() {
           onClick={handleBackfillImages}
           disabled={!!backfillStatus}
           title="Busca en internet (Pexels) y asigna la primera imagen candidata a cada artículo sin imagen"
-          className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-800 dark:text-white rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+          className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-text-strong rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" />
           {backfillStatus?.running
@@ -628,7 +628,7 @@ export default function ArticulosPage() {
             : 'Rellenar imágenes'}
         </button>
       )}
-      <button onClick={handleCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+      <button onClick={handleCreate} className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors">
         Crear Artículo
       </button>
     </>
@@ -640,11 +640,11 @@ export default function ArticulosPage() {
         <PageHeader title="Artículos" subtitle="Gestión de artículos e inventario" actions={headerActions} />
 
         {/* Chained Filters */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
+        <div className="bg-surface-raised border border-line-soft shadow rounded-lg p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar</label>
-              <input type="text" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <label className="block text-sm font-medium text-text-default mb-1">Buscar</label>
+              <input type="text" value={searchTerm} onChange={(e) => handleSearchChange(e.target.value)} placeholder="Nombre o referencia" className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring" />
             </div>
             <div className="flex items-end">
               <button
@@ -671,9 +671,9 @@ export default function ArticulosPage() {
                   setPage(1);
                 }}
                 className="w-full px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] font-medium text-sm select-none
-                  disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
+                  disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-gray-400 disabled:border-line-soft
                   dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
-                  enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
+                  enabled:bg-surface-raised enabled:hover:bg-surface-sunken enabled:text-text-default enabled:border-line
                   dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
                   enabled:cursor-pointer"
               >
@@ -682,43 +682,43 @@ export default function ArticulosPage() {
               </button>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoría</label>
-              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <label className="block text-sm font-medium text-text-default mb-1">Categoría</label>
+              <select value={selectedParentCategory} onChange={(e) => { setSelectedParentCategory(e.target.value); setSelectedSubcategory(''); setPage(1); }} className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring">
                 <option value="">Todas</option>
                 {tree.map((cat) => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subcategoría</label>
-              <select value={selectedSubcategory} onChange={(e) => { setSelectedSubcategory(e.target.value); setPage(1); }} disabled={!selectedParentCategory} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600">
+              <label className="block text-sm font-medium text-text-default mb-1">Subcategoría</label>
+              <select value={selectedSubcategory} onChange={(e) => { setSelectedSubcategory(e.target.value); setPage(1); }} disabled={!selectedParentCategory} className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring disabled:bg-surface-subtle disabled:text-gray-400 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-600">
                 <option value="">Todas</option>
                 {availableSubcategories.map((sub) => (<option key={sub.id} value={sub.id}>{sub.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proveedor</label>
-              <select value={selectedSupplier} onChange={(e) => { setSelectedSupplier(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <label className="block text-sm font-medium text-text-default mb-1">Proveedor</label>
+              <select value={selectedSupplier} onChange={(e) => { setSelectedSupplier(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring">
                 <option value="">Todos</option>
                 {suppliers.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filtrar por fecha</label>
-              <select value={dateFilterType} onChange={(e) => { setDateFilterType(e.target.value as 'createdAt' | 'lastPurchaseDate'); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+              <label className="block text-sm font-medium text-text-default mb-1">Filtrar por fecha</label>
+              <select value={dateFilterType} onChange={(e) => { setDateFilterType(e.target.value as 'createdAt' | 'lastPurchaseDate'); setPage(1); }} className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring">
                 <option value="createdAt">Registro</option>
                 <option value="lastPurchaseDate">Última Compra</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Desde</label>
-              <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <label className="block text-sm font-medium text-text-default mb-1">Desde</label>
+              <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1); }} className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hasta</label>
+              <label className="block text-sm font-medium text-text-default mb-1">Hasta</label>
               <div className="flex gap-2">
-                <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="w-full flex-1 px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                <input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(1); }} className="w-full flex-1 px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring" />
                 {(startDate || endDate) && (
-                  <button onClick={() => { setStartDate(''); setEndDate(''); setPage(1); }} className="px-2 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-gray-400 rounded-md transition-colors" title="Limpiar fechas">
+                  <button onClick={() => { setStartDate(''); setEndDate(''); setPage(1); }} className="px-2 bg-surface-subtle hover:bg-gray-200 text-text-soft dark:hover:bg-zinc-700 rounded-md transition-colors" title="Limpiar fechas">
                     <X className="h-4 w-4" />
                   </button>
                 )}
@@ -813,7 +813,7 @@ export default function ArticulosPage() {
                                 if (e.key === 'Enter') commitDate(product);
                                 if (e.key === 'Escape') setEditingDateId(null);
                               }}
-                              className="px-2 py-1 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                              className="px-2 py-1 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
                             />
                           ) : (
                             <button
@@ -821,10 +821,10 @@ export default function ArticulosPage() {
                               onClick={() => startEditDate(product)}
                               title={
                                 product.purchaseDateSource === 'manual'
-                                  ? 'Fecha editada manualmente — clic para editar'
+                                  ? 'Fecha editada manualmente. Clic para editar'
                                   : product.purchaseDateSource === 'albaran'
-                                    ? 'Según último albarán — clic para editar'
-                                    : 'Sin compras registradas — clic para fijar fecha manual'
+                                    ? 'Según último albarán. Clic para editar'
+                                    : 'Sin compras registradas. Clic para fijar fecha manual'
                               }
                               className="inline-flex items-center gap-1 cursor-pointer hover:underline"
                             >
@@ -838,7 +838,7 @@ export default function ArticulosPage() {
                                 </span>
                               )}
                               {product.purchaseDateSource === 'manual' && (
-                                <span aria-hidden className="text-[10px] text-indigo-500">✎</span>
+                                <span aria-hidden className="text-[11px] text-primary">✎</span>
                               )}
                             </button>
                           )}
@@ -860,7 +860,7 @@ export default function ArticulosPage() {
                             onClick={() => handleEdit(product)}
                             title="Editar artículo"
                             aria-label="Editar artículo"
-                            className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -871,7 +871,7 @@ export default function ArticulosPage() {
                                 disabled={qrLoading}
                                 title="Descargar código QR"
                                 aria-label="Descargar código QR"
-                                className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40 disabled:opacity-50`}
+                                className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70 disabled:opacity-50`}
                               >
                                 <Download className="h-4 w-4" />
                               </button>
@@ -891,7 +891,7 @@ export default function ArticulosPage() {
                               disabled={qrLoading}
                               title="Generar código QR"
                               aria-label="Generar código QR"
-                              className={`${actionButtonClass} border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-400 dark:hover:bg-indigo-950/40 disabled:opacity-50`}
+                              className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70 disabled:opacity-50`}
                             >
                               <QrCode className="h-4 w-4" />
                             </button>

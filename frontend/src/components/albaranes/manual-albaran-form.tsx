@@ -154,11 +154,11 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
       <div className="grid grid-cols-3 gap-3">
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium text-gray-700">Proveedor</label>
+            <label className="block text-sm font-medium text-text-default">Proveedor</label>
             <button
               type="button"
               onClick={() => setShowSupplierDialog(true)}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              className="text-xs font-medium text-primary hover:text-primary"
             >
               + Nuevo proveedor
             </button>
@@ -166,31 +166,31 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
           <select
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           >
-            <option value="">— Sin proveedor —</option>
+            <option value="">Sin proveedor</option>
             {allSuppliers.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Fecha</label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Referencia</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Referencia</label>
           <input
             type="text"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="Nº albarán (opcional)"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           />
           {duplicateMatch && (
             <p className="mt-1 text-xs text-amber-700">
@@ -203,7 +203,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
       </div>
 
       {/* Lines header */}
-      <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide px-1">
+      <div className="grid grid-cols-12 gap-2 text-xs font-medium text-text-muted uppercase tracking-wide px-1">
         <div className="col-span-4">Producto</div>
         <div className="col-span-2">Cantidad</div>
         <div className="col-span-1">Unidad</div>
@@ -234,18 +234,18 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                       updateLine(line.id, { name: e.target.value, productId: '' });
                     }}
                     placeholder="Buscar producto o escribir nombre"
-                    className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-2 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
                   />
                 </div>
                 {/* Dropdown results */}
                 {filtered.length > 0 && !line.productId && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-surface-raised border border-line-soft rounded-md shadow-lg max-h-40 overflow-y-auto">
                     {filtered.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => selectProduct(line.id, p)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 flex items-center gap-2"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-secondary-container/60 flex items-center gap-2"
                       >
                         <Package className="h-3 w-3 text-gray-400" />
                         <span className="flex-1">{p.name}</span>
@@ -264,7 +264,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                   step="any"
                   value={line.quantity || ''}
                   onChange={(e) => updateLine(line.id, { quantity: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-2 py-2 border border-line rounded-md text-sm text-right focus:outline-none focus:ring-ring focus:border-ring"
                 />
               </div>
 
@@ -273,7 +273,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                 <select
                   value={line.unit}
                   onChange={(e) => updateLine(line.id, { unit: e.target.value })}
-                  className="w-full px-1 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-1 py-2 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
                 >
                   {UNITS.map((u) => (
                     <option key={u.value} value={u.value}>{u.label}</option>
@@ -289,12 +289,12 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                   step="any"
                   value={line.price || ''}
                   onChange={(e) => updateLine(line.id, { price: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-2 py-2 border border-line rounded-md text-sm text-right focus:outline-none focus:ring-ring focus:border-ring"
                 />
               </div>
 
               {/* Line total */}
-              <div className="col-span-2 text-right text-sm font-medium text-gray-700">
+              <div className="col-span-2 text-right text-sm font-medium text-text-default">
                 {formatEuro(lineTotal)}
               </div>
 
@@ -318,7 +318,7 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
                 value={line.lot}
                 onChange={(e) => updateLine(line.id, { lot: e.target.value })}
                 placeholder="Nº de lote (opcional)"
-                className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-2 py-1.5 border border-line rounded-md text-xs focus:outline-none focus:ring-ring focus:border-ring"
               />
             </div>
 
@@ -345,8 +345,8 @@ export default function ManualAlbaranForm({ suppliers, products, onComplete }: M
         </Button>
 
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">
-            Total: <strong className="text-gray-900">{formatEuro(grandTotal)}</strong>
+          <span className="text-sm text-text-soft">
+            Total: <strong className="text-text-strong">{formatEuro(grandTotal)}</strong>
           </span>
           <Button
             onClick={handleSubmit}

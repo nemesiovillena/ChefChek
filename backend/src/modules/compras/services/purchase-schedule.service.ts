@@ -430,7 +430,7 @@ export class PurchaseScheduleService {
         type: "SCHEDULED_ORDER_GENERATED",
         severity: "INFO",
         title: "Pedido programado generado",
-        message: `Pedido ${order.orderNumber} generado para ${order.supplier.name} — revisar y enviar.`,
+        message: `Pedido ${order.orderNumber} generado para ${order.supplier.name}. Revisar y enviar.`,
         entityType: "PURCHASE_ORDER",
         entityId: order.id,
       });

@@ -73,80 +73,97 @@ export class WebSocketGateway
     }
   }
 
+  /**
+   * Autenticación en curso de cada socket. El cliente emite joinTenant /
+   * joinDashboard nada más conectar, antes de que handleConnection termine de
+   * validar la sesión: los manejadores esperan a esta promesa en vez de leer
+   * `client.data` vacío (antes entraban en salas `tenant:undefined…`).
+   */
+  private readonly authentications = new WeakMap<
+    Socket,
+    Promise<AuthenticatedSocket | null>
+  >();
+
   async handleConnection(client: Socket) {
+    const authentication = this.authenticate(client);
+    this.authentications.set(client, authentication);
+    await authentication;
+  }
+
+  private async authenticate(
+    client: Socket,
+  ): Promise<AuthenticatedSocket | null> {
     try {
-      // Authenticate session
       const sessionId =
         client.handshake.auth.token ||
         client.handshake.headers.authorization?.replace("Bearer ", "");
 
       if (!sessionId) {
         this.logger.warn(`Connection rejected: No session token provided`);
-        client.emit("error" as keyof ServerToClientEvents, {
-          message: "Authentication required",
-          code: "NO_TOKEN",
-        });
-        client.disconnect();
-        return;
+        this.reject(client, "Authentication required", "NO_TOKEN");
+        return null;
       }
 
       const validation = await this.sessionService.validateSession(sessionId);
 
       if (!validation.valid || !validation.user) {
         this.logger.warn(`Connection rejected: Invalid session`);
-        client.emit("error" as keyof ServerToClientEvents, {
-          message: "Invalid session",
-          code: "INVALID_SESSION",
-        });
-        client.disconnect();
-        return;
+        this.reject(client, "Invalid session", "INVALID_SESSION");
+        return null;
       }
 
-      // Attach user data to socket
-      (client as any).data = {
-        userId: validation.user.id,
-        tenantId: (validation.user as any).tenantId,
-        role: (validation.user as any).role,
-        sessionId,
-      } as AuthenticatedSocket;
+      const user = validation.user as any;
+      const data: AuthenticatedSocket = {
+        userId: user.id,
+        tenantId: user.tenantId,
+        role: user.role,
+      };
+      (client as any).data = data;
 
-      // Join tenant room
-      const tenantId = (validation.user as any).tenantId;
-      await client.join(`tenant:${tenantId}`);
+      // Sala del tenant (avisos generales) y del usuario (sendToUser).
+      await client.join([`tenant:${data.tenantId}`, `user:${data.userId}`]);
 
       this.logger.log(
-        `Client connected: userId=${validation.user.id}, tenantId=${tenantId}`,
+        `Client connected: userId=${data.userId}, tenantId=${data.tenantId}`,
       );
 
-      // Notify others
       client
-        .to(`tenant:${tenantId}`)
+        .to(`tenant:${data.tenantId}`)
         .emit("userJoined" as keyof ServerToClientEvents, {
-          id: validation.user.id,
-          name: (validation.user as any).name,
-          email: (validation.user as any).email,
-          role: (validation.user as any).role,
-          tenantId,
+          id: data.userId,
+          name: user.name,
+          email: user.email,
+          role: data.role,
+          tenantId: data.tenantId,
         });
+      return data;
     } catch (error) {
       this.logger.error("Connection error:", error);
-      client.emit("error" as keyof ServerToClientEvents, {
-        message: "Connection failed",
-        code: "CONNECTION_ERROR",
-      });
-      client.disconnect();
+      this.reject(client, "Connection failed", "CONNECTION_ERROR");
+      return null;
     }
   }
 
-  async handleDisconnect(client: Socket) {
-    const data = (client as any).data as AuthenticatedSocket;
+  private reject(client: Socket, message: string, code: string) {
+    client.emit("error" as keyof ServerToClientEvents, { message, code });
+    client.disconnect();
+  }
 
-    if (data) {
+  /** Datos del socket una vez autenticado; null si la sesión no era válida. */
+  private async authenticated(
+    client: Socket,
+  ): Promise<AuthenticatedSocket | null> {
+    return (await this.authentications.get(client)) ?? null;
+  }
+
+  async handleDisconnect(client: Socket) {
+    const data = (client as any).data as AuthenticatedSocket | undefined;
+
+    if (data?.tenantId) {
       this.logger.log(
         `Client disconnected: userId=${data.userId}, tenantId=${data.tenantId}`,
       );
 
-      // Notify others
       client
         .to(`tenant:${data.tenantId}`)
         .emit("userLeft" as keyof ServerToClientEvents, {
@@ -159,9 +176,19 @@ export class WebSocketGateway
     }
   }
 
+  /**
+   * La conexión ya mete al socket en la sala de su tenant; esto solo lo
+   * confirma y rechaza pedir la sala de otro tenant.
+   */
   @SubscribeMessage("joinTenant")
-  async handleJoinTenant(@ConnectedSocket() client: Socket, tenantId: string) {
-    const data = (client as any).data as AuthenticatedSocket;
+  async handleJoinTenant(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() tenantId: string,
+  ) {
+    const data = await this.authenticated(client);
+    if (!data) {
+      return;
+    }
 
     if (data.tenantId !== tenantId) {
       client.emit("error" as keyof ServerToClientEvents, {
@@ -172,12 +199,14 @@ export class WebSocketGateway
     }
 
     await client.join(`tenant:${tenantId}`);
-    this.logger.log(`Client joined tenant room: ${tenantId}`);
   }
 
   @SubscribeMessage("joinKitchen")
   async handleJoinKitchen(@ConnectedSocket() client: Socket) {
-    const data = (client as any).data as AuthenticatedSocket;
+    const data = await this.authenticated(client);
+    if (!data) {
+      return;
+    }
     const room = `tenant:${data.tenantId}:kitchen`;
     await client.join(room);
     this.logger.log(`Client joined kitchen room: ${room}`);
@@ -185,14 +214,28 @@ export class WebSocketGateway
 
   @SubscribeMessage("joinDashboard")
   async handleJoinDashboard(@ConnectedSocket() client: Socket) {
-    const data = (client as any).data as AuthenticatedSocket;
+    const data = await this.authenticated(client);
+    if (!data) {
+      return;
+    }
     const room = `tenant:${data.tenantId}:dashboard`;
     await client.join(room);
     this.logger.log(`Client joined dashboard room: ${room}`);
   }
 
+  /** Solo salas propias del tenant del socket. */
   @SubscribeMessage("leaveRoom")
-  async handleLeaveRoom(@ConnectedSocket() client: Socket, room: string) {
+  async handleLeaveRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() room: string,
+  ) {
+    const data = await this.authenticated(client);
+    if (!data || typeof room !== "string") {
+      return;
+    }
+    if (!room.startsWith(`tenant:${data.tenantId}:`)) {
+      return;
+    }
     await client.leave(room);
     this.logger.log(`Client left room: ${room}`);
   }

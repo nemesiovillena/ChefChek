@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Dog, Loader2, Puzzle, Star, Tractor, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { type RangePreset, presetRange } from '@/lib/cuiner-sales-report-ranges';
 import { type DateRange, type MenuClass, useGestionProfitability } from '../api/gestion-api';
@@ -13,11 +13,11 @@ import { PeriodPicker } from './period-picker';
 const cardCls = 'rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4';
 const pctText = (p: number | null) => (p === null ? '—' : `${p.toLocaleString('es-ES')} %`);
 
-const MENU: { id: MenuClass; label: string; hint: string; icon: string }[] = [
-  { id: 'estrella', label: 'Estrellas', hint: 'Populares y rentables', icon: 'star' },
-  { id: 'caballo', label: 'Percherones', hint: 'Se venden mucho, dejan poco', icon: 'agriculture' },
-  { id: 'puzzle', label: 'Puzzles', hint: 'Rentables, se venden poco', icon: 'extension' },
-  { id: 'perro', label: 'Perros', hint: 'Ni se venden ni dejan', icon: 'pets' },
+const MENU: { id: MenuClass; label: string; hint: string; icon: LucideIcon }[] = [
+  { id: 'estrella', label: 'Estrellas', hint: 'Populares y rentables', icon: Star },
+  { id: 'caballo', label: 'Percherones', hint: 'Se venden mucho, dejan poco', icon: Tractor },
+  { id: 'puzzle', label: 'Puzzles', hint: 'Rentables, se venden poco', icon: Puzzle },
+  { id: 'perro', label: 'Perros', hint: 'Ni se venden ni dejan', icon: Dog },
 ];
 
 /**
@@ -96,9 +96,7 @@ export function GestionProfitabilityView() {
               {MENU.map((m) => (
                 <div key={m.id} className="rounded-lg bg-[var(--surface-container-high)] p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-[var(--on-surface)]">
-                    <span className="material-symbols-outlined text-base" aria-hidden>
-                      {m.icon}
-                    </span>
+                    <m.icon aria-hidden className="h-4 w-4" />
                     {m.label}
                   </div>
                   <div className="mt-1 text-2xl font-semibold tabular-nums text-[var(--on-surface)]">{data.menu[m.id]}</div>

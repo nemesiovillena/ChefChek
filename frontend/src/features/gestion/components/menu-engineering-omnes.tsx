@@ -1,5 +1,6 @@
 'use client';
 
+import { CircleAlert, CircleCheck } from 'lucide-react';
 import type { MenuEngineeringAnalysis } from '../api/gestion-menu-engineering-api';
 import { formatEuros } from '../gestion-format';
 
@@ -81,9 +82,7 @@ function Header({ ok, title }: { ok: boolean; title: string }) {
     <div className="flex items-center justify-between gap-2">
       <div className="text-sm font-semibold text-[var(--on-surface)]">{title}</div>
       <span className={`flex items-center gap-1 text-xs font-medium ${ok ? 'text-[var(--on-surface)]' : 'text-[var(--error)]'}`}>
-        <span className="material-symbols-outlined text-base" aria-hidden>
-          {ok ? 'check_circle' : 'error'}
-        </span>
+        {ok ? <CircleCheck aria-hidden className="h-4 w-4" /> : <CircleAlert aria-hidden className="h-4 w-4" />}
         {ok ? 'Cumple' : 'No cumple'}
       </span>
     </div>

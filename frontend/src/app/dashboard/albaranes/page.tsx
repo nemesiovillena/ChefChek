@@ -107,7 +107,7 @@ export default function AlbaranesPage() {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
@@ -119,7 +119,7 @@ export default function AlbaranesPage() {
         {/* En móvil el título y los dos botones no caben en una fila: se apilan
             y los botones se reparten el ancho */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-2">
-          <h1 className="text-3xl font-bold text-gray-900">Albaranes</h1>
+          <h1 className="text-3xl font-bold text-text-strong">Albaranes</h1>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -135,7 +135,7 @@ export default function AlbaranesPage() {
             </Button>
           </div>
         </div>
-        <p className="text-gray-600">Gestión de albaranes de proveedores</p>
+        <p className="text-text-soft">Gestión de albaranes de proveedores</p>
       </div>
 
       {/* Alta manual de albarán */}
@@ -155,8 +155,8 @@ export default function AlbaranesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pestañas: activos vs archivados (div role=tablist — un <nav> no fijo quedaría oculto por globals.css) */}
-      <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-2">
+      {/* Pestañas: activos vs archivados */}
+      <div role="tablist" className="flex gap-2 border-b border-line-soft mb-2">
         {(
           [
             { key: 'activos', label: 'Activos', icon: FileText },
@@ -170,8 +170,8 @@ export default function AlbaranesPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-muted hover:text-text-default hover:border-line'
             }`}
           >
             <tab.icon className="h-4 w-4" />
@@ -221,18 +221,18 @@ export default function AlbaranesPage() {
       )}
 
       {/* Qué se está viendo: evita que los antiguos parezcan "desaparecidos" */}
-      <p className="text-xs text-gray-500 mb-6">
+      <p className="text-xs text-text-muted mb-6">
         {activeTab === 'archivados'
           ? 'Albaranes con más de dos meses y los archivados manualmente'
           : statusView === 'pendientes'
             ? 'Pendientes y recibidos sin confirmar, de cualquier fecha'
             : searchTerm.trim()
               ? 'Buscando en todas las fechas'
-              : 'Últimos dos meses — los albaranes más antiguos están en Archivados'}
+              : 'Últimos dos meses. Los albaranes más antiguos están en Archivados'}
       </p>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+      <div className="bg-surface-raised rounded-xl border border-line-soft shadow-sm p-4 mb-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -285,8 +285,8 @@ export default function AlbaranesPage() {
 
       {/* Empty State */}
       {!loading && albaranes.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-surface-raised rounded-xl border border-line-soft shadow-sm p-12 text-center">
+          <div className="w-16 h-16 rounded-full bg-surface-subtle flex items-center justify-center mx-auto mb-4">
             {activeTab === 'archivados' ? (
               <Archive className="h-8 w-8 text-gray-400" />
             ) : (
@@ -295,13 +295,13 @@ export default function AlbaranesPage() {
           </div>
           {activeTab === 'archivados' ? (
             <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes archivados</h3>
-              <p className="text-gray-600">Los albaranes con más de dos meses y los que archives aparecerán aquí</p>
+              <h3 className="text-lg font-semibold text-text-strong mb-2">No hay albaranes archivados</h3>
+              <p className="text-text-soft">Los albaranes con más de dos meses y los que archives aparecerán aquí</p>
             </>
           ) : (
             <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay albaranes</h3>
-              <p className="text-gray-600 mb-4">Sube tu primer albarán para empezar a gestionarlos</p>
+              <h3 className="text-lg font-semibold text-text-strong mb-2">No hay albaranes</h3>
+              <p className="text-text-soft mb-4">Sube tu primer albarán para empezar a gestionarlos</p>
               <Button onClick={() => router.push('/dashboard/albaranes/subir')}>
                 <FileUp className="mr-2 h-4 w-4" />
                 Subir Albarán
@@ -328,10 +328,11 @@ export default function AlbaranesPage() {
                 size="sm"
                 disabled={meta.page === 1}
                 onClick={() => setPage(meta.page - 1)}
+                aria-label="Página anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-text-soft">
                 Página {meta.page} de {meta.totalPages}
               </span>
               <Button
@@ -339,6 +340,7 @@ export default function AlbaranesPage() {
                 size="sm"
                 disabled={meta.page === meta.totalPages}
                 onClick={() => setPage(meta.page + 1)}
+                aria-label="Página siguiente"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

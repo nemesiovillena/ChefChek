@@ -30,8 +30,6 @@ import {
   TrendingUp,
   Plus,
   Trash2,
-  Edit3,
-  Share2,
   AlertCircle,
   Clock,
   Info,
@@ -307,20 +305,6 @@ export default function DigitalMenuPage() {
                               <span>Creado: {new Date(menu.createdAt).toLocaleDateString()}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon">
-                              <Edit3 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
                         </div>
                       </Card>
                     ))
@@ -417,6 +401,7 @@ export default function DigitalMenuPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteQR(menu.id, qrCode?.qrCodeId)}
+                              aria-label="Borrar código QR"
                                 disabled={qrLoading}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
