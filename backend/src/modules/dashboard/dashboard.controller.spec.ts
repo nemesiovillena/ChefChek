@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DashboardController } from "./dashboard.controller";
 import { DashboardService } from "./dashboard.service";
+import { DashboardInsightsService } from "./dashboard-insights.service";
 import {
   DashboardQueryDto,
   CreateAlertDto,
@@ -37,6 +38,7 @@ describe("DashboardController", () => {
       controllers: [DashboardController],
       providers: [
         { provide: DashboardService, useValue: mockDashboardService },
+        { provide: DashboardInsightsService, useValue: {} },
       ],
     })
       .overrideGuard(AuthGuard)

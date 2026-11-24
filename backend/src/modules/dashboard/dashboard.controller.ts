@@ -29,13 +29,18 @@ import {
   CreateAlertDto,
   ResolveAlertDto,
   AlertsQueryDto,
+  SupplierSpendQueryDto,
 } from "./dto/dashboard.dto";
+import { DashboardInsightsService } from "./dashboard-insights.service";
 
 @ApiTags("Dashboard")
 @Controller("api/v1/dashboard")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly insights: DashboardInsightsService,
+  ) {}
 
   // KPIs y Métricas
   @Get("kpis")
@@ -75,6 +80,26 @@ export class DashboardController {
   })
   async getMenuMarginAnalysis(@Req() req: any) {
     return await this.dashboardService.getMenuMarginAnalysis(req.tenantId);
+  }
+
+  @Get("supplier-spend")
+  @RequireSection("recipes.cost")
+  @ApiOperation({
+    summary:
+      "Gasto por proveedor (neto sin IVA de las líneas de albaranes confirmados) frente al periodo anterior",
+  })
+  async getSupplierSpend(@Req() req: any, @Query() q: SupplierSpendQueryDto) {
+    return await this.insights.supplierSpend(req.tenantId, q.period ?? "MONTH");
+  }
+
+  @Get("recipe-margins")
+  @RequireSection("recipes.cost")
+  @ApiOperation({
+    summary:
+      "Coste de la carta: % de coste de cada receta con PVP frente al objetivo",
+  })
+  async getRecipeMargins(@Req() req: any) {
+    return await this.insights.recipeMargins(req.tenantId);
   }
 
   // Alertas
