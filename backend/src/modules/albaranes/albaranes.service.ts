@@ -88,6 +88,33 @@ function lineTotals(line: {
   return { gross, base, vat: (base * Number(line.vatPercent)) / 100 };
 }
 
+const roundCents = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Base y bruto del albarán sumados desde sus líneas (sin IVA), redondeados a
+ * céntimos. Se usan cuando el OCR no lee la base imponible del papel: si no,
+ * el albarán nacía con base 0 y cada corrección de línea sumaba su diferencia
+ * a ese 0. El IVA no se deduce: un 0 guardado significa «el papel no trae
+ * IVA» (Frutas Candela) para el aviso de descuadre y el envío a Cuiner.
+ */
+export function baseAndGrossFromLines(
+  lines: {
+    quantity: unknown;
+    unitPrice: unknown;
+    vatPercent: unknown;
+    totalPrice?: unknown;
+  }[],
+): { base: number; gross: number } {
+  let base = 0;
+  let gross = 0;
+  for (const line of lines) {
+    const t = lineTotals(line);
+    base += roundCents(t.base);
+    gross += roundCents(t.gross);
+  }
+  return { base: roundCents(base), gross: roundCents(gross) };
+}
+
 @Injectable()
 export class AlbaranesService {
   private readonly logger = new Logger(AlbaranesService.name);
@@ -1286,6 +1313,15 @@ export class AlbaranesService {
       // 3. Create albaran with lines
       const internalNumber =
         await this.numberService.generateInternalNumber(tenantId);
+      // Sin base del papel, la de las líneas leídas (misma cuenta que al mostrarla).
+      const fromLines = baseAndGrossFromLines(
+        extractedProducts.map((product: any) => ({
+          quantity: product.quantity || 0,
+          unitPrice: product.unit_price || 0,
+          vatPercent: product.vat_percent ?? 10,
+          totalPrice: product.total_price ?? null,
+        })),
+      );
       const albaran = await this.prisma.albaran.create({
         data: {
           tenantId,
@@ -1294,8 +1330,8 @@ export class AlbaranesService {
           purchaseOrderId: linkedOrderId,
           albaranNumber: document.document_number || `OCR-${Date.now()}`,
           date: albaranDate,
-          grossAmount: document.gross_amount ?? 0,
-          base: document.tax_base ?? document.gross_amount ?? 0,
+          grossAmount: document.gross_amount || fromLines.gross,
+          base: document.tax_base || fromLines.base,
           vatTotal: document.vat_total ?? 0,
           vatBreakdown: document.vat_breakdown ?? undefined,
           total: document.total_amount || 0,
