@@ -265,7 +265,7 @@ export default function AlbaranResumenPage() {
                 <div className="min-w-0">
                   <CardTitle className="text-xl sm:text-2xl break-words">Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
                   {albaran.internalNumber && (
-                    <p className="text-sm text-gray-500 mt-1">Ref: {albaran.internalNumber}</p>
+                    <p className="text-sm text-text-muted mt-1">Ref: {albaran.internalNumber}</p>
                   )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2 whitespace-nowrap">
@@ -300,7 +300,7 @@ export default function AlbaranResumenPage() {
                     <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-500">Proveedor</p>
+                    <p className="text-sm text-text-muted">Proveedor</p>
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{albaran.supplier?.name || '-'}</p>
                       {canChangeSupplier && (
@@ -331,7 +331,7 @@ export default function AlbaranResumenPage() {
                     <Calendar className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Fecha</p>
+                    <p className="text-sm text-text-muted">Fecha</p>
                     {dateDraft === null ? (
                       <div className="flex items-center gap-2">
                         <p className="font-semibold">{formatDate(albaran.date)}</p>
@@ -351,7 +351,7 @@ export default function AlbaranResumenPage() {
                           type="date"
                           value={dateDraft}
                           onChange={(e) => setDateDraft(e.target.value)}
-                          className="rounded-md border border-gray-300 bg-transparent px-2 py-1 text-base [color-scheme:light] dark:border-zinc-700 dark:[color-scheme:dark]"
+                          className="rounded-md border border-line bg-transparent px-2 py-1 text-base [color-scheme:light] dark:[color-scheme:dark]"
                         />
                         <Button size="sm" onClick={handleSaveDate} disabled={savingDate || !dateDraft}>
                           {savingDate ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Guardar'}
@@ -370,7 +370,7 @@ export default function AlbaranResumenPage() {
                       <Warehouse className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Almacén</p>
+                      <p className="text-sm text-text-muted">Almacén</p>
                       <p className="font-semibold">{albaran.warehouse.name}</p>
                     </div>
                   </div>
@@ -381,7 +381,7 @@ export default function AlbaranResumenPage() {
                     <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-500">Líneas</p>
+                    <p className="text-sm text-text-muted">Líneas</p>
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">{albaran.lines?.length || 0} líneas</p>
                       <Button
@@ -402,7 +402,7 @@ export default function AlbaranResumenPage() {
                     <ShoppingCart className="h-5 w-5 text-amber-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-500">Pedido vinculado</p>
+                    <p className="text-sm text-text-muted">Pedido vinculado</p>
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">
                         {albaran.purchaseOrder?.orderNumber || 'Sin vincular'}
@@ -424,9 +424,9 @@ export default function AlbaranResumenPage() {
               </div>
 
               {albaran.notes && (
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500 mb-1">Notas</p>
-                  <p className="text-gray-700">{albaran.notes}</p>
+                <div className="pt-4 border-t border-line-soft">
+                  <p className="text-sm text-text-muted mb-1">Notas</p>
+                  <p className="text-text-default">{albaran.notes}</p>
                 </div>
               )}
             </CardContent>
@@ -441,11 +441,11 @@ export default function AlbaranResumenPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Base imponible</span>
+                <span className="text-text-muted">Base imponible</span>
                 <span className="font-medium">{formatCurrency(totals.base)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">IVA</span>
+                <span className="text-text-muted">IVA</span>
                 <span className="font-medium">{formatCurrency(totals.vatTotal)}</span>
               </div>
               {(albaran.lines || []).some(
@@ -457,7 +457,7 @@ export default function AlbaranResumenPage() {
                 albaran.status !== 'CONFIRMADO' &&
                 albaran.status !== 'ARCHIVADO' && (
                   <label
-                    className={`flex items-start gap-2 pt-2 text-xs text-gray-600 ${
+                    className={`flex items-start gap-2 pt-2 text-xs text-text-soft ${
                       hasStandingDiscount
                         ? "cursor-not-allowed opacity-60"
                         : "cursor-pointer"
@@ -470,7 +470,7 @@ export default function AlbaranResumenPage() {
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      className="mt-0.5 h-4 w-4 rounded border-line"
                       checked={!!albaran.applyDiscountToCost}
                       disabled={updating || hasStandingDiscount}
                       onChange={(e) => handleToggleDiscount(e.target.checked)}
@@ -493,7 +493,7 @@ export default function AlbaranResumenPage() {
                     </span>
                   </label>
                 )}
-              <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
+              <div className="flex justify-between text-lg font-bold pt-3 border-t border-line-soft">
                 <span>Total</span>
                 <span className="text-primary">{formatCurrency(totals.total)}</span>
               </div>

@@ -115,12 +115,12 @@ export function ZebraPrinterStatus() {
   };
 
   return (
-    <div className="mt-6 border-t border-gray-200 pt-4 dark:border-zinc-800">
+    <div className="mt-6 border-t border-line-soft pt-4">
       <div className="flex items-center gap-2 mb-2">
         <Usb className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">Impresora Zebra (Browser Print)</h3>
       </div>
-      <p className="text-xs text-gray-500 mb-1">
+      <p className="text-xs text-text-muted mb-1">
         Las etiquetas térmicas se envían directas por USB con{' '}
         <span className="font-medium">Zebra Browser Print</span> (app oficial de
         Zebra, gratuita, para Windows/macOS). Instálala en el PC que imprime y
@@ -141,7 +141,7 @@ export function ZebraPrinterStatus() {
           type="button"
           onClick={check}
           disabled={state === 'checking'}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-hover-faint disabled:opacity-50"
         >
           {state === 'checking' ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -183,7 +183,7 @@ export function ZebraPrinterStatus() {
         )}
       </div>
       {state === 'error' && unreachable && (
-        <p className="mb-3 text-xs text-gray-600 dark:text-gray-400">
+        <p className="mb-3 text-xs text-text-soft">
           Se abrirá una pestaña con un aviso de seguridad: pulsa «Avanzado» y luego
           «Continuar a localhost». Cierra esa pestaña y pulsa «Comprobar». El
           navegador olvida este permiso cada cierto tiempo, así que es normal tener
@@ -202,11 +202,11 @@ export function ZebraPrinterStatus() {
       {devices.length > 0 && (
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <label className="text-sm">
-            <span className="block text-gray-600 dark:text-gray-400">
+            <span className="block text-text-soft">
               Impresora a usar
             </span>
             <select
-              className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+              className="mt-1 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
               style={{ colorScheme: 'light dark' }}
               value={selectedUid}
               onChange={(e) => setSelectedDraft(e.target.value)}
@@ -259,8 +259,8 @@ export function ZebraPrinterStatus() {
           elegido, la app calibra sola con sensor de raya negra (^MNM + ~JC,
           ver zebra-printer-readiness.ts). La calibración remota en modo hueco
           (^MNY) dejó una ZD220d en error (commit cdf522f): no usarla. */}
-      <div className="rounded-md border border-gray-200 p-3 text-xs text-gray-600 dark:border-zinc-800 dark:text-gray-400">
-        <p className="mb-1 font-semibold text-gray-700 dark:text-gray-300">
+      <div className="rounded-md border border-line-soft p-3 text-xs text-text-soft">
+        <p className="mb-1 font-semibold text-text-default">
           ¿Cambias de rollo (60×40 ↔ 57×32)?
         </p>
         <ol className="list-decimal space-y-0.5 pl-4">

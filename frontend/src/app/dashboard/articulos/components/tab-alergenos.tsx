@@ -25,7 +25,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Seleccionar Alérgenos</label>
+        <label className="block text-sm font-medium text-text-default mb-3">Seleccionar Alérgenos</label>
         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
           {allergenCatalog.map((allergen) => {
             const isSelected = allergens.includes(allergen.id);
@@ -35,12 +35,12 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
                 type="button"
                 onClick={() => toggleAllergen(allergen.id)}
                 className={`flex flex-col items-center p-2 rounded-lg border-2 transition-all ${
-                  isSelected ? 'border-primary bg-secondary-container/50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
+                  isSelected ? 'border-primary bg-secondary-container/50 shadow-sm' : 'border-line-soft hover:border-line'
                 }`}
                 title={allergen.name}
               >
                 <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={32} />
-                <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-primary' : 'text-gray-600'}`}>
+                <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-primary' : 'text-text-soft'}`}>
                   {allergen.name}
                 </span>
               </button>
@@ -49,15 +49,15 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
         </div>
       </div>
 
-      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-3 p-3 bg-surface-sunken rounded-lg">
         <input
           type="checkbox"
           id="hideAllergens"
           checked={hideAllergens}
           onChange={(e) => setHideAllergens(e.target.checked)}
-          className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+          className="h-4 w-4 text-primary border-line rounded focus:ring-ring"
         />
-        <label htmlFor="hideAllergens" className="text-sm text-gray-700">
+        <label htmlFor="hideAllergens" className="text-sm text-text-default">
           Ocultar en etiquetado
         </label>
         <span className="text-xs text-gray-400 ml-2">Los alérgenos no se mostrarán en el etiquetado</span>

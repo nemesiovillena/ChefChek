@@ -33,7 +33,7 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
   const overCost = pricing.costPercentage != null && pricing.costPercentage > pricing.targetCostPercentage;
 
   return (
-    <div className="border border-gray-200 dark:border-zinc-800 rounded-lg p-4 space-y-4">
+    <div className="border border-line-soft rounded-lg p-4 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-5 rounded-lg border transition-colors bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900/30">
           <div className="text-sm text-green-700 dark:text-green-400">Margen Bruto</div>
@@ -73,7 +73,7 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
 
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (con IVA)</label>
+          <label className="block text-sm font-medium text-text-default mb-1">PVP (con IVA)</label>
           <input
             type="number"
             step="any"
@@ -82,12 +82,12 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
             onChange={(e) => setSellingPriceWithVatInput(e.target.value)}
             onBlur={handleSaveSellingPriceWithVat}
             placeholder="Sin fijar"
-            className="w-36 px-3 py-2.5 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white text-lg font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-36 px-3 py-2.5 border border-line bg-surface-raised text-text-strong text-lg font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PVP (sin IVA)</label>
-          <div className="w-36 px-3 py-2.5 border border-transparent text-gray-900 dark:text-white text-lg font-semibold">
+          <label className="block text-sm font-medium text-text-default mb-1">PVP (sin IVA)</label>
+          <div className="w-36 px-3 py-2.5 border border-transparent text-text-strong text-lg font-semibold">
             {pricing.sellingPrice != null ? formatEuro(pricing.sellingPrice) : '—'}
           </div>
         </div>

@@ -103,13 +103,13 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
       <section className="space-y-4">
         <h3 className="font-semibold">Conector</h3>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <dt className="text-gray-500">Última conexión</dt>
+          <dt className="text-text-muted">Última conexión</dt>
           <dd>{formatDateTime(config?.lastSeenAt ?? null)}</dd>
-          <dt className="text-gray-500">Catálogo sincronizado</dt>
+          <dt className="text-text-muted">Catálogo sincronizado</dt>
           <dd>
             {status.catalog.suppliers} proveedores · {status.catalog.articles} artículos · {status.catalog.dishes} platos
           </dd>
-          <dt className="text-gray-500">Ventas recibidas</dt>
+          <dt className="text-text-muted">Ventas recibidas</dt>
           <dd>
             {status.sales.PENDIENTE ?? 0} pendientes · {status.sales.APLICADA ?? 0} aplicadas ·{' '}
             {status.sales.SIN_MAPEO ?? 0} sin enlazar
@@ -117,7 +117,7 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
         </dl>
 
         {!canEdit && (
-          <p className="rounded-lg bg-gray-100 p-3 text-sm text-gray-600 dark:bg-zinc-900 dark:text-zinc-400">
+          <p className="rounded-lg bg-surface-subtle p-3 text-sm text-text-soft">
             Solo un administrador puede cambiar la configuración del conector.
           </p>
         )}
@@ -184,7 +184,7 @@ export function CuinerConfigTab({ status }: { status: CuinerStatus }) {
           <div className="space-y-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950">
             <p>Copia este token en el servidor de Cuiner. No se volverá a mostrar.</p>
             <div className="flex gap-2">
-              <code className="flex-1 break-all rounded bg-white p-2 font-mono text-xs dark:bg-zinc-900">{token}</code>
+              <code className="flex-1 break-all rounded bg-surface-raised p-2 font-mono text-xs">{token}</code>
               <Button type="button" size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(token)} aria-label="Copiar token">
                 <Copy className="h-4 w-4" />
               </Button>
@@ -204,24 +204,24 @@ function CuinerExportsList() {
     <section>
       <h3 className="mb-3 font-semibold">Últimos envíos de albaranes</h3>
       {isLoading && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
-      <ul className="divide-y divide-gray-200 text-sm dark:divide-zinc-800">
+      <ul className="divide-y divide-line-soft text-sm">
         {(data ?? []).slice(0, 30).map((e) => (
           <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
             <Link href={`/dashboard/albaranes/${e.albaranId}/resumen`} className="text-primary hover:underline">
               {e.payload?.numdoc || 'Sin número'} · {e.payload?.total?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
             </Link>
-            <span className={e.status === 'ERROR' ? 'text-red-600' : e.status === 'ENVIADO' ? 'text-emerald-700' : 'text-gray-600'}>
+            <span className={e.status === 'ERROR' ? 'text-red-600' : e.status === 'ENVIADO' ? 'text-emerald-700' : 'text-text-soft'}>
               {CUINER_EXPORT_STATUS_LABELS[e.status]}
               {e.cuinerIdDocsCab ? ` · doc ${e.cuinerIdDocsCab}` : ''}
               {/* Procesado: hora en que el conector lo escribió; pendiente: desde cuándo espera en cola */}
-              <span className="ml-2 text-xs text-gray-500">
+              <span className="ml-2 text-xs text-text-muted">
                 {e.processedAt ? formatDateTime(e.processedAt) : `En cola desde ${formatDateTime(e.requestedAt)}`}
               </span>
             </span>
             {e.error && <p className="w-full text-xs text-red-600">{e.error}</p>}
           </li>
         ))}
-        {data?.length === 0 && <li className="py-4 text-gray-500">Todavía no se ha enviado ningún albarán.</li>}
+        {data?.length === 0 && <li className="py-4 text-text-muted">Todavía no se ha enviado ningún albarán.</li>}
       </ul>
     </section>
   );

@@ -56,15 +56,15 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <p className="text-sm font-medium text-gray-700">
+      <div className="bg-surface-sunken p-3 rounded-lg">
+        <p className="text-sm font-medium text-text-default">
           Prueba de rendimiento: pesa el artículo antes y después de limpiarlo/prepararlo para calcular el coste real del {unit} aprovechable.
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Peso Bruto ({unit})</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Peso Bruto ({unit})</label>
           <input
             type="number"
             step="any"
@@ -72,11 +72,11 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.grossWeight}
             onChange={(e) => update('grossWeight', e.target.value)}
             placeholder="Ej: 5.24"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+            className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Peso Neto ({unit})</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Peso Neto ({unit})</label>
           <input
             type="number"
             step="any"
@@ -84,11 +84,11 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.netWeight}
             onChange={(e) => update('netWeight', e.target.value)}
             placeholder="Ej: 3.99"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+            className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Merma (%)</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Merma (%)</label>
           <input
             type="number"
             step="any"
@@ -100,8 +100,8 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             placeholder="Ej: 15 (si ya la conoces)"
             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${
               hasYieldData
-                ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
-                : 'border-gray-300'
+                ? 'bg-surface-subtle text-text-muted border-line-soft cursor-not-allowed'
+                : 'border-line'
             }`}
           />
         </div>

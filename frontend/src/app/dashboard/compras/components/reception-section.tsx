@@ -102,7 +102,7 @@ const ALBARAN_STATUS_META: Record<string, { label: string; className: string }> 
   PENDIENTE: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-800' },
   REVISADO: { label: 'Pedido recibido', className: 'bg-blue-100 text-blue-800' },
   CONFIRMADO: { label: 'Confirmado', className: 'bg-green-100 text-green-800' },
-  ARCHIVADO: { label: 'Archivado', className: 'bg-gray-100 text-gray-700' },
+  ARCHIVADO: { label: 'Archivado', className: 'bg-surface-subtle text-text-default' },
 };
 
 /**
@@ -313,7 +313,7 @@ export function ReceptionSection({ order }: { order: PurchaseOrder }) {
             {albaranes.map((albaran) => {
               const statusMeta = ALBARAN_STATUS_META[albaran.status] ?? {
                 label: albaran.status,
-                className: 'bg-gray-100 text-gray-700',
+                className: 'bg-surface-subtle text-text-default',
               };
               return (
                 <li key={albaran.id}>

@@ -120,7 +120,7 @@ export default async function PublicLabelPage({
         </div>
       )}
 
-      <div className="mt-4 rounded-xl border border-black/10 bg-white p-4">
+      <div className="mt-4 rounded-xl border border-black/10 bg-surface-raised p-4">
         <Row
           k={label.labelType === 'ELABORATED' ? 'Elaboración' : 'Manipulación'}
           v={fmt(label.preparedAt, true)}
@@ -167,7 +167,7 @@ export default async function PublicLabelPage({
       </div>
 
       {label.ingredientLots.length > 0 && (
-        <div className="mt-4 rounded-xl border border-black/10 bg-white p-4">
+        <div className="mt-4 rounded-xl border border-black/10 bg-surface-raised p-4">
           <div className="mb-2 text-sm font-semibold">Lotes de ingredientes</div>
           {label.ingredientLots.map((il, i) => (
             <div

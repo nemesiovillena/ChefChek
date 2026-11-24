@@ -81,7 +81,7 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
   const lineTotal = (parseFloat(quantity) || 0) * (parseFloat(unitPrice) || 0);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-4 bg-gray-50 rounded-lg border border-dashed border-primary/30">
+    <form onSubmit={handleSubmit} className="space-y-3 p-4 bg-surface-sunken rounded-lg border border-dashed border-primary/30">
       <p className="text-xs font-medium text-primary">Añadir línea manual</p>
 
       {isConfirmed && (
@@ -120,13 +120,13 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
                 />
               </div>
               {search.trim() && (
-                <div className="mt-1 max-h-40 overflow-y-auto rounded-md border bg-white shadow-sm">
+                <div className="mt-1 max-h-40 overflow-y-auto rounded-md border bg-surface-raised shadow-sm">
                   {searching ? (
                     <div className="flex items-center justify-center py-3">
                       <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                     </div>
                   ) : products.length === 0 ? (
-                    <p className="px-3 py-2 text-xs text-gray-500">
+                    <p className="px-3 py-2 text-xs text-text-muted">
                       Sin resultados para «{search}». Si no existe, dalo de alta primero en Artículos
                       (una tasa va sin control de stock).
                     </p>
@@ -191,7 +191,7 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
                       key={m.id}
                       type="button"
                       onClick={() => handleSelectProduct({ id: m.id, name: m.name })}
-                      className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-white px-2.5 py-1 font-semibold text-amber-900 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-200"
+                      className="inline-flex items-center gap-1 rounded-full border border-amber-400 bg-surface-raised px-2.5 py-1 font-semibold text-amber-900 hover:bg-amber-100 dark:text-amber-200"
                     >
                       <Package className="h-3 w-3 shrink-0" />
                       {m.name}
@@ -255,7 +255,7 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
         )}
         <div>
           <Label className="text-xs">Total línea</Label>
-          <div className="h-8 px-3 flex items-center text-sm font-medium bg-gray-100 rounded-md border">
+          <div className="h-8 px-3 flex items-center text-sm font-medium bg-surface-subtle rounded-md border">
             {formatEuro(lineTotal)}
           </div>
         </div>

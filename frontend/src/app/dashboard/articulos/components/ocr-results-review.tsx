@@ -41,10 +41,10 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700">
+        <h3 className="text-sm font-medium text-text-default">
           Productos detectados
         </h3>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-text-muted">
           {includedCount} de {products.length} seleccionados
         </span>
       </div>
@@ -57,7 +57,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
               'border rounded-lg p-3 transition-colors',
               product.include
                 ? 'border-primary/30 bg-secondary-container/50'
-                : 'border-gray-200 bg-gray-50/50 opacity-60',
+                : 'border-line-soft bg-surface-sunken/50 opacity-60',
             )}
           >
             <div className="flex items-start gap-3">
@@ -68,7 +68,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                   'mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
                   product.include
                     ? 'bg-primary border-primary text-primary-foreground'
-                    : 'border-gray-300 hover:border-primary/60',
+                    : 'border-line hover:border-primary/60',
                 )}
               >
                 {product.include && <Check className="h-3 w-3" />}
@@ -81,7 +81,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                     value={product.name}
                     onChange={(e) => updateField(i, 'name', e.target.value)}
                     className={cn(
-                      'text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-ring focus:outline-none flex-1 min-w-0',
+                      'text-sm font-medium bg-transparent border-b border-transparent hover:border-line focus:border-ring focus:outline-none flex-1 min-w-0',
                       !product.include && 'line-through',
                     )}
                   />
@@ -105,10 +105,10 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                       step="any"
                       value={product.price || ''}
                       onChange={(e) => updateField(i, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-16 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
+                      className="w-16 text-xs border-b border-line focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="0.00"
                     />
-                    <span className="text-xs text-gray-500">€</span>
+                    <span className="text-xs text-text-muted">€</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-[11px] text-primary font-semibold uppercase">Cant.</span>
@@ -116,7 +116,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                       type="number"
                       value={product.quantity || ''}
                       onChange={(e) => updateField(i, 'quantity', parseInt(e.target.value) || 0)}
-                      className="w-10 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
+                      className="w-10 text-xs border-b border-line focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="1"
                     />
                   </div>
@@ -125,7 +125,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                     <select
                       value={product.unit || 'ud'}
                       onChange={(e) => updateField(i, 'unit', e.target.value)}
-                      className="text-xs border-b border-gray-300 focus:border-ring focus:outline-none bg-transparent"
+                      className="text-xs border-b border-line focus:border-ring focus:outline-none bg-transparent"
                     >
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -140,7 +140,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                       type="text"
                       value={product.category || ''}
                       onChange={(e) => updateField(i, 'category', e.target.value)}
-                      className="w-24 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
+                      className="w-24 text-xs border-b border-line focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Requerido"
                     />
                   </div>
@@ -150,7 +150,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                       type="text"
                       value={product.supplier || ''}
                       onChange={(e) => updateField(i, 'supplier', e.target.value)}
-                      className="w-20 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
+                      className="w-20 text-xs border-b border-line focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Opcional"
                     />
                   </div>
@@ -160,7 +160,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                       type="text"
                       value={product.lot || ''}
                       onChange={(e) => updateField(i, 'lot', e.target.value)}
-                      className="w-16 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
+                      className="w-16 text-xs border-b border-line focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Opcional"
                     />
                   </div>

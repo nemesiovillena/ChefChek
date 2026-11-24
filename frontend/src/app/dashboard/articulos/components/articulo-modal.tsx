@@ -353,13 +353,13 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
 
   return (
     <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
-      <div className="relative top-8 mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
+      <div className="relative top-8 mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-surface-raised border-line-soft mb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-text-strong">
             {article ? 'Editar Artículo' : 'Crear Artículo'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-text-muted dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -377,13 +377,13 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
 
         {/* Name field */}
         <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre *</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Nombre *</label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="Nombre del artículo"
-            className="w-full px-4 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring text-lg"
+            className="w-full px-4 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring text-lg"
           />
           {duplicateNameMatches.length > 0 && (
             <div role="status" className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
@@ -432,7 +432,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-zinc-800 mb-4">
+        <div className="border-b border-line-soft mb-4">
           <div role="tablist" aria-label="Secciones del artículo" className="flex -mb-px space-x-4 overflow-x-auto">
             {TABS.filter((tab) => !tab.editOnly || !!article?.id).map((tab) => (
               <button
@@ -444,7 +444,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
                     ? 'border-primary text-primary '
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-700'
+                    : 'border-transparent text-text-muted hover:text-text-default dark:hover:text-gray-300 hover:border-line dark:hover:border-zinc-700'
                 }`}
               >
                 {tab.label}
@@ -465,7 +465,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                 onPriceBasisChange={setPriceBasis}
               />
               <div className="mt-4 grid gap-1 sm:max-w-xs">
-                <label htmlFor="avg-unit-weight" className="text-sm font-medium text-gray-700">
+                <label htmlFor="avg-unit-weight" className="text-sm font-medium text-text-default">
                   Peso medio por pieza (kg o L)
                 </label>
                 <input
@@ -474,7 +474,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                   value={formData.avgUnitWeight}
                   onChange={(e) => setFormData({ ...formData, avgUnitWeight: e.target.value })}
                   placeholder="Ej. 0,04 (una zamburiña)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+                  className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
                 />
                 <p className="text-xs text-muted-foreground">
                   Para vender o recibir por piezas lo que compras por kilo o litro. Si lo dejas vacío, se aprende al cruzar un pedido en
@@ -567,7 +567,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
         </div>
 
         {/* Footer buttons */}
-        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-zinc-800">
+        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-line-soft">
           {article?.id && canLabel && (
             <button
               type="button"
@@ -584,7 +584,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
+            className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-text-default rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
           >
             Cerrar
           </button>

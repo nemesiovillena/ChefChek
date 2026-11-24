@@ -55,7 +55,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
               disabled={isPrinting}
               title="Imprimir receta"
               aria-label="Imprimir receta"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1f2937] shadow-sm hover:bg-white disabled:opacity-50 disabled:cursor-wait transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-[#1f2937] shadow-sm hover:bg-surface-raised disabled:opacity-50 disabled:cursor-wait transition-colors"
             >
               <Printer className="h-4 w-4" />
             </button>
@@ -64,7 +64,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
               onClick={onClose}
               title="Cerrar"
               aria-label="Cerrar"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-[#1f2937] shadow-sm hover:bg-white transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-[#1f2937] shadow-sm hover:bg-surface-raised transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -79,7 +79,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
                 {recipe.portionSize ? ` · ${Number(recipe.portionSize.toFixed(2))} g/ud` : ''}
               </span>
               {recipe.categories?.map((cat) => (
-                <span key={cat.categoryId} className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
+                <span key={cat.categoryId} className="rounded-full bg-surface-raised/20 px-2 py-0.5 text-xs font-medium">
                   {cat.categoryName}
                 </span>
               ))}

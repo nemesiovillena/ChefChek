@@ -63,7 +63,7 @@ export function CategoryForm({ category, tree, onSubmit, onCancel, isSubmitting 
                 type="button"
                 onClick={() => setValue('icon', icon)}
                 className={`w-10 h-10 text-2xl rounded-lg border-2 ${
-                  selectedIcon === icon ? 'border-primary bg-secondary-container/50' : 'border-gray-200'
+                  selectedIcon === icon ? 'border-primary bg-secondary-container/50' : 'border-line-soft'
                 }`}
               >
                 {icon}
@@ -101,7 +101,7 @@ export function CategoryForm({ category, tree, onSubmit, onCancel, isSubmitting 
           type="checkbox"
           {...register('isActive')}
           id="isActive"
-          className="w-4 h-4 rounded border-gray-300"
+          className="w-4 h-4 rounded border-line"
         />
         <label htmlFor="isActive" className="text-sm cursor-pointer">Categoría activa</label>
       </div>

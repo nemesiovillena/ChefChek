@@ -136,7 +136,7 @@ export function BackupList({ baseUrl, backups, loading, error, onRestoreStarted 
                   <button
                     onClick={() => handleDownload(b)}
                     disabled={!canDownload}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-300 dark:hover:bg-zinc-800"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-xs font-medium text-text-default transition-colors hover:bg-surface-hover-faint disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Download className="h-3.5 w-3.5" /> Descargar
                   </button>

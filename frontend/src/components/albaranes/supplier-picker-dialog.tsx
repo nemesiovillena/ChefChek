@@ -118,7 +118,7 @@ export function SupplierPickerDialog({
             ) : error ? (
               <div className="text-center py-8 text-red-600">{error}</div>
             ) : suppliers.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-text-muted">
                 {search ? `No se encontraron proveedores para "${search}"` : 'No hay proveedores disponibles'}
               </div>
             ) : (
@@ -131,7 +131,7 @@ export function SupplierPickerDialog({
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left disabled:opacity-50 ${
                       supplier.id === currentSupplierId
                         ? 'bg-secondary-container/50 border border-primary/30'
-                        : 'hover:bg-gray-100'
+                        : 'hover:bg-surface-hover'
                     }`}
                   >
                     <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center flex-shrink-0">

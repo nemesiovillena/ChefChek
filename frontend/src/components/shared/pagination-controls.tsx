@@ -46,19 +46,19 @@ export default function PaginationControls({
 
   const wrapperClassName =
     variant === 'card'
-      ? 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg'
-      : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 border-t border-gray-200 dark:border-zinc-800';
+      ? 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 bg-surface-raised border border-line-soft shadow rounded-lg'
+      : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 border-t border-line-soft';
 
   return (
     <div className={wrapperClassName}>
-      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex items-center gap-2 text-sm text-text-soft">
         <span>{total === 0 ? emptyLabel : `${from}–${to} de ${total}`}</span>
         <label className="flex items-center gap-1.5 ml-2">
           <span>Por página</span>
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="px-2 py-1 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+            className="px-2 py-1 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>{size}</option>
@@ -73,7 +73,7 @@ export default function PaginationControls({
             type="button"
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
-            className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1.5 rounded-md text-text-muted hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="Página anterior"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -90,7 +90,7 @@ export default function PaginationControls({
                 className={`min-w-[2rem] px-2 py-1 text-sm rounded-md transition-colors ${
                   p === page
                     ? 'bg-primary text-primary-foreground'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'
+                    : 'text-text-default hover:bg-surface-hover'
                 }`}
               >
                 {p}
@@ -102,7 +102,7 @@ export default function PaginationControls({
             type="button"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
-            className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1.5 rounded-md text-text-muted hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             aria-label="Página siguiente"
           >
             <ChevronRight className="h-4 w-4" />

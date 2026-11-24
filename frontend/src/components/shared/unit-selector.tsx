@@ -70,7 +70,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
 
   if (isLoading) {
     return (
-      <div className={`flex items-center gap-2 px-3 py-2 border rounded-md bg-gray-50 ${className}`}>
+      <div className={`flex items-center gap-2 px-3 py-2 border rounded-md bg-surface-sunken ${className}`}>
         <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
         <span className="text-sm text-gray-400">Cargando...</span>
       </div>
@@ -86,7 +86,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
             value={newName}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Nombre (ej: Docena)"
-            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-ring"
+            className="flex-1 px-2 py-1.5 text-sm border border-line rounded focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <input
             type="text"
@@ -96,7 +96,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
               setIsSymbolManuallyEdited(true);
             }}
             placeholder="Símbolo (ej: doc)"
-            className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-20 px-2 py-1.5 text-sm border border-line rounded focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="flex gap-1">
@@ -116,7 +116,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
               setNewSymbol('');
               setIsSymbolManuallyEdited(false);
             }}
-            className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"
+            className="px-3 py-1 text-xs border border-line rounded hover:bg-surface-hover-faint"
           >
             Cancelar
           </button>
@@ -133,7 +133,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+        className="flex-1 px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
       >
         <option value="">{placeholder}</option>
         {units?.map((unit: UnitOfMeasure) => (
@@ -145,7 +145,7 @@ export function UnitSelector({ value, onChange, className = '', placeholder = 'U
       <button
         type="button"
         onClick={() => setShowCreate(true)}
-        className="px-2 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-500 hover:text-primary"
+        className="px-2 py-2 border border-line rounded-md hover:bg-surface-hover-faint text-text-muted hover:text-primary"
         title="Crear nueva unidad"
       >
         <Plus className="h-4 w-4" />

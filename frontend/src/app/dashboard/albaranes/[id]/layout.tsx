@@ -29,7 +29,7 @@ export default function AlbaranDetailLayout({ children, params }: LayoutProps) {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 border-b border-line-soft">
           {tabs.map((tab) => (
             <Link
               key={tab.href}
@@ -37,7 +37,7 @@ export default function AlbaranDetailLayout({ children, params }: LayoutProps) {
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 tab.active
                   ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-text-muted hover:text-text-default hover:border-line'
               }`}
             >
               <tab.icon className="h-4 w-4" />

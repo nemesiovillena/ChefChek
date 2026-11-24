@@ -268,23 +268,23 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending || updateUserAccess.isPending;
-  const inputClass = 'w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring';
-  const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+  const inputClass = 'w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring';
+  const labelClass = 'block text-sm font-medium text-text-default mb-1';
 
   return (
     <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
-      <div className="relative top-8 mx-auto p-6 border w-full max-w-2xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
+      <div className="relative top-8 mx-auto p-6 border w-full max-w-2xl shadow-xl rounded-lg bg-surface-raised border-line-soft mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-text-strong">
             {targetUser ? 'Editar persona' : 'Nueva persona'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-text-muted dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
         {showLaborTab && (
-          <div role="tablist" className="mb-6 flex gap-1 border-b border-gray-200 dark:border-zinc-800">
+          <div role="tablist" className="mb-6 flex gap-1 border-b border-line-soft">
             {(
               [
                 ['datos', 'Datos'],
@@ -300,7 +300,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                   activeTab === id
                     ? 'border-primary text-primary '
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    : 'border-transparent text-text-muted hover:text-text-default dark:hover:text-gray-200'
                 }`}
               >
                 {label}
@@ -381,9 +381,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+              className="h-4 w-4 text-primary border-line rounded focus:ring-ring"
             />
-            <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Usuario activo</label>
+            <label htmlFor="isActive" className="text-sm text-text-default">Usuario activo</label>
           </div>
 
           <div className="flex items-start gap-3">
@@ -392,11 +392,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               id="isSharedAccount"
               checked={formData.isSharedAccount}
               onChange={(e) => setFormData({ ...formData, isSharedAccount: e.target.checked })}
-              className="mt-0.5 h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+              className="mt-0.5 h-4 w-4 text-primary border-line rounded focus:ring-ring"
             />
-            <label htmlFor="isSharedAccount" className="text-sm text-gray-700 dark:text-gray-300">
+            <label htmlFor="isSharedAccount" className="text-sm text-text-default">
               Cuenta compartida (dispositivo de cocina)
-              <span className="block text-xs text-gray-500">
+              <span className="block text-xs text-text-muted">
                 No es una persona: al registrar tareas o etiquetas hay que elegir quién lo hace, y no aparece en
                 esas listas.
               </span>
@@ -411,11 +411,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 id={`access-${grant.key}`}
                 checked={accessValue(grant.key)}
                 onChange={(e) => setAccessEdits((prev) => ({ ...prev, [grant.key]: e.target.checked }))}
-                className="mt-0.5 h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+                className="mt-0.5 h-4 w-4 text-primary border-line rounded focus:ring-ring"
               />
-              <label htmlFor={`access-${grant.key}`} className="text-sm text-gray-700 dark:text-gray-300">
+              <label htmlFor={`access-${grant.key}`} className="text-sm text-text-default">
                 {grant.label}
-                <span className="block text-xs text-gray-500">{grant.hint}</span>
+                <span className="block text-xs text-text-muted">{grant.hint}</span>
               </label>
             </div>
             {grant.key === 'compras-pedidos' && canEditPedidosLists && accessValue(grant.key) && userLists.isSuccess && (
@@ -430,7 +430,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
           <div>
             <label className={labelClass}>Foto de perfil</label>
             <div className="flex items-center gap-4">
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-gray-300 dark:border-zinc-700 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800">
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="px-4 py-2 border border-line rounded-md text-sm text-text-default hover:bg-surface-hover-faint">
                 Subir foto
               </button>
               <span className="text-xs text-gray-400">Máximo 2 MB (JPEG, PNG, WebP, GIF, HEIC)</span>
@@ -483,9 +483,9 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                   setFormData((f) => ({ ...f, whatsapp: f.phone }));
                 }
               }}
-              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+              className="h-4 w-4 text-primary border-line rounded focus:ring-ring"
             />
-            <label htmlFor="samePhoneForWhatsapp" className="text-sm text-gray-700 dark:text-gray-300">Usar el mismo número para WhatsApp</label>
+            <label htmlFor="samePhoneForWhatsapp" className="text-sm text-text-default">Usar el mismo número para WhatsApp</label>
           </div>
 
           {/* Nóminas */}
@@ -495,8 +495,8 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-zinc-800">
-          <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors">
+        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-line-soft">
+          <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 dark:bg-zinc-800 text-text-default rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors">
             Cerrar
           </button>
           {activeTab === 'datos' && (

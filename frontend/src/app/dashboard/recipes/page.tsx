@@ -439,7 +439,7 @@ export default function RecipesPage() {
   // Don't render anything if not authenticated or loading
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando recetas...</div>
       </div>
     );
@@ -447,7 +447,7 @@ export default function RecipesPage() {
 
   if (recipesError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-red-600">Error al cargar recetas: {recipesError.message}</div>
       </div>
     );
@@ -890,7 +890,7 @@ export default function RecipesPage() {
     <>
       <button
         onClick={() => setShowCategoriesModal(true)}
-        className="px-4 py-2 bg-white dark:bg-zinc-900 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-zinc-700 rounded-md hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+        className="px-4 py-2 bg-surface-raised text-text-default border border-line rounded-md hover:bg-surface-hover-faint transition-colors"
       >
         Gestionar categorías
       </button>
@@ -936,10 +936,10 @@ export default function RecipesPage() {
         )}
 
         {/* Filters */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg p-4 mb-6">
+        <div className="bg-surface-raised border border-line-soft shadow rounded-lg p-4 mb-6">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-text-default mb-1">
                 Buscar
               </label>
               <input
@@ -947,17 +947,17 @@ export default function RecipesPage() {
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Nombre o descripción"
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-text-default mb-1">
                 Categoría
               </label>
               <select
                 value={selectedCategory}
                 onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+                className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               >
                 <option value="">Todas</option>
                 {categories.map((category) => (
@@ -979,9 +979,9 @@ export default function RecipesPage() {
                 setPage(1);
               }}
               className="px-4 py-2 rounded-md border transition-all duration-200 flex items-center justify-center gap-2 h-[42px] mt-1 md:mt-0 font-medium text-sm select-none
-                disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-gray-400 disabled:border-line-soft
                 dark:disabled:bg-zinc-800/40 dark:disabled:text-zinc-600 dark:disabled:border-zinc-800/50
-                enabled:bg-white enabled:hover:bg-gray-50 enabled:text-gray-700 enabled:border-gray-300
+                enabled:bg-surface-raised enabled:hover:bg-surface-sunken enabled:text-text-default enabled:border-line
                 dark:enabled:bg-zinc-900 dark:enabled:hover:bg-zinc-800 dark:enabled:text-gray-300 dark:enabled:border-zinc-700
                 enabled:cursor-pointer"
             >
@@ -1953,7 +1953,7 @@ function CuinerLinkBadge({
         href={`/dashboard/cuiner?tab=platos&search=${encodeURIComponent(recipeName)}`}
         title={linkLabel}
         aria-label={linkLabel}
-        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 align-middle text-gray-400 transition-all duration-150 hover:bg-secondary-container/60 hover:text-primary active:scale-95 dark:bg-zinc-800 dark:text-zinc-500 "
+        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface-subtle align-middle text-gray-400 transition-all duration-150 hover:bg-secondary-container/60 hover:text-primary active:scale-95 dark:text-zinc-500 "
       >
         <Link2Off className="h-3.5 w-3.5" />
       </Link>
@@ -1967,7 +1967,7 @@ function CuinerLinkBadge({
       className={`ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full align-middle ${
         linked
           ? 'bg-secondary-container/50 text-primary '
-          : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'
+          : 'bg-surface-subtle text-gray-400 dark:text-zinc-500'
       }`}
     >
       {linked ? <Link2 className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}

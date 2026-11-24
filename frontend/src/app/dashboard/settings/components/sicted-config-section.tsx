@@ -16,7 +16,7 @@ import { SictedClosureCalendarForm } from './sicted-closure-calendar-form';
 
 const MANAGE_ROLES = ['ADMIN', 'OWNER', 'SUPERADMIN'];
 const fieldCls =
-  'min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-zinc-700 dark:bg-zinc-900';
+  'min-h-[44px] w-full rounded-lg border border-line bg-surface-raised px-3 text-base';
 
 /**
  * Fase del ciclo de distinción y fecha del próximo comité (las fija el
@@ -67,13 +67,13 @@ function CycleForm({
           <ExternalLink className="h-4 w-4" aria-hidden />
         </a>
       </div>
-      <p className="mb-3 text-sm text-gray-500">
+      <p className="mb-3 text-sm text-text-muted">
         Cópialas de tu Espacio de gestión en la web SICTED. Con ellas, la portada de SICTED muestra qué compromisos te faltan
         para el próximo comité.
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="text-sm">
-          <span className="mb-1 block text-gray-500">Fase actual</span>
+          <span className="mb-1 block text-text-muted">Fase actual</span>
           <select
             value={draftPhase}
             disabled={!canManage}
@@ -89,11 +89,11 @@ function CycleForm({
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-gray-500">Inicio de la fase</span>
+          <span className="mb-1 block text-text-muted">Inicio de la fase</span>
           <input type="date" value={start} disabled={!canManage} onChange={(e) => setStart(e.target.value)} className={fieldCls} />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-gray-500">Próximo comité de distinción</span>
+          <span className="mb-1 block text-text-muted">Próximo comité de distinción</span>
           <input
             type="date"
             value={committee}
@@ -161,7 +161,7 @@ export function SictedConfigSection() {
   }
 
   return (
-    <div className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
+    <div className="bg-surface-raised shadow rounded-lg mb-6 p-6">
       <div className="flex items-center gap-2 mb-2">
         <Verified className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold">SICTED</h2>
@@ -177,7 +177,7 @@ export function SictedConfigSection() {
       )}
       <SictedClosureCalendarForm canManage={canManage} />
       <h3 className="mb-1 font-semibold">Módulos complementarios</h3>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-text-muted mb-4">
         Marca lo que ofrece tu establecimiento. Cada opción añade a la autoevaluación las buenas prácticas complementarias
         correspondientes, igual que al configurar tu manual en la web oficial SICTED. Las prácticas de oficio aplican siempre.
       </p>
@@ -188,7 +188,7 @@ export function SictedConfigSection() {
           {(groups ?? []).map((g) => (
             <label
               key={g.key}
-              className={`flex items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-zinc-700 ${canManage ? 'cursor-pointer' : 'opacity-70'}`}
+              className={`flex items-start gap-3 rounded-lg border border-line-soft p-3 ${canManage ? 'cursor-pointer' : 'opacity-70'}`}
             >
               <input
                 type="checkbox"
@@ -199,7 +199,7 @@ export function SictedConfigSection() {
               />
               <span>
                 <span className="block font-medium">{g.label}</span>
-                <span className="block text-sm text-gray-500">{g.condition}</span>
+                <span className="block text-sm text-text-muted">{g.condition}</span>
               </span>
             </label>
           ))}

@@ -94,7 +94,7 @@ export function MailAttachmentList({ detail, canAlbaran }: { detail: MailDetail;
             <X className="h-5 w-5" />
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element -- blob local, no optimizable */}
-          <img src={preview.url} alt={preview.name} className="max-h-full max-w-full rounded-lg bg-white" />
+          <img src={preview.url} alt={preview.name} className="max-h-full max-w-full rounded-lg bg-surface-raised" />
         </div>
       )}
     </div>

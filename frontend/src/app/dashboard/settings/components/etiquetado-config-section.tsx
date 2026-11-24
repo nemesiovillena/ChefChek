@@ -118,12 +118,12 @@ export function EtiquetadoConfigSection() {
   };
 
   return (
-    <div className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
+    <div className="bg-surface-raised shadow rounded-lg mb-6 p-6">
       <div className="flex items-center gap-2 mb-4">
         <Tag className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold">Etiquetas</h2>
       </div>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-text-muted mb-4">
         Medidas y DPI de tu etiquetadora térmica Zebra (rollo). Se generan como
         ZPL y se envían directas a la impresora. Las hojas A4 son formatos
         estándar y no necesitan configuración.
@@ -152,11 +152,11 @@ export function EtiquetadoConfigSection() {
       </div>
 
       <label className="block text-sm mb-4">
-        <span className="block text-gray-600 dark:text-gray-400">
+        <span className="block text-text-soft">
           Formato de impresión por defecto
         </span>
         <select
-          className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+          className="mt-1 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
           style={{ colorScheme: 'light dark' }}
           value={defaultFormat}
           onChange={(e) => setDefaultFormatDraft(e.target.value)}
@@ -167,7 +167,7 @@ export function EtiquetadoConfigSection() {
             </option>
           ))}
         </select>
-        <span className="mt-1 block text-xs text-gray-500">
+        <span className="mt-1 block text-xs text-text-muted">
           Al crear o reimprimir una etiqueta se usa este formato; ahí solo
           eliges el número de copias. Cambia esta opción al cambiar el rollo
           de la impresora. Las etiquetas de menos de 36 mm de alto (p. ej.
@@ -179,7 +179,7 @@ export function EtiquetadoConfigSection() {
 
       {isAdmin && (
         <label className="block text-sm mb-4">
-          <span className="block text-gray-600 dark:text-gray-400">
+          <span className="block text-text-soft">
             Aviso de caducidad (días de antelación)
           </span>
           <input
@@ -189,9 +189,9 @@ export function EtiquetadoConfigSection() {
             inputMode="numeric"
             value={expiryWarningDays}
             onChange={(e) => setExpiryWarningDaysDraft(e.target.value)}
-            className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+            className="mt-1 w-24 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
           />
-          <span className="mt-1 block text-xs text-gray-500">
+          <span className="mt-1 block text-xs text-text-muted">
             Panel de Caducidades (APPCC) y la card del dashboard marcan una
             etiqueta como &quot;próxima a caducar&quot; cuando falten menos de
             estos días. Entre 1 y 30.
@@ -208,44 +208,44 @@ export function EtiquetadoConfigSection() {
             className={`flex flex-wrap items-end gap-3 rounded-md border p-3 ${
               isActive
                 ? 'border-green-400 bg-green-50/60 dark:border-green-800 dark:bg-green-950/20'
-                : 'border-gray-200 dark:border-zinc-800'
+                : 'border-line-soft'
             }`}
           >
             <label className="text-sm">
-              <span className="block text-gray-600 dark:text-gray-400">Nombre</span>
+              <span className="block text-text-soft">Nombre</span>
               <input
                 value={r.name}
                 onChange={(e) => patch(i, 'name', e.target.value)}
                 placeholder="Ej. Rollo cocina"
-                className="mt-1 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
               />
             </label>
             <label className="text-sm">
-              <span className="block text-gray-600 dark:text-gray-400">Ancho (mm)</span>
+              <span className="block text-text-soft">Ancho (mm)</span>
               <input
                 inputMode="decimal"
                 value={r.widthMm}
                 onChange={(e) => patch(i, 'widthMm', e.target.value)}
-                className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-24 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
               />
             </label>
             <label className="text-sm">
-              <span className="block text-gray-600 dark:text-gray-400">Alto (mm)</span>
+              <span className="block text-text-soft">Alto (mm)</span>
               <input
                 inputMode="decimal"
                 value={r.heightMm}
                 onChange={(e) => patch(i, 'heightMm', e.target.value)}
-                className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-24 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
               />
             </label>
             <label className="text-sm">
-              <span className="block text-gray-600 dark:text-gray-400">DPI</span>
+              <span className="block text-text-soft">DPI</span>
               <input
                 inputMode="numeric"
                 value={r.dpi}
                 onChange={(e) => patch(i, 'dpi', e.target.value)}
                 placeholder="203"
-                className="mt-1 w-20 rounded-md border border-gray-300 px-3 py-2 text-base dark:border-zinc-700 dark:bg-zinc-800"
+                className="mt-1 w-20 rounded-md border border-line px-3 py-2 text-base dark:bg-zinc-800"
               />
             </label>
             <button
@@ -266,7 +266,7 @@ export function EtiquetadoConfigSection() {
               <button
                 type="button"
                 onClick={() => setDefaultFormatDraft(`thermal:${r.id}`)}
-                className="mb-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-800"
+                className="mb-1 rounded-md border border-line px-3 py-1.5 text-sm text-text-default hover:bg-surface-hover-faint"
               >
                 Usar este
               </button>

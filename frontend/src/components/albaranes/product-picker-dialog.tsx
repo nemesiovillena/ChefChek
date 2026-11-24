@@ -89,11 +89,11 @@ export function ProductPickerDialog({
           ) : error ? (
             <div className="text-center py-8 text-red-600">{error}</div>
           ) : search && products.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-text-muted">
               No se encontraron productos para &ldquo;{search}&rdquo;
             </div>
           ) : !search ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-text-muted">
               Escribe para buscar productos
             </div>
           ) : (
@@ -103,7 +103,7 @@ export function ProductPickerDialog({
                   key={product.id}
                   onClick={() => handleSelectProduct(product.id)}
                   disabled={matching === product.id}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors text-left disabled:opacity-50"
+                  className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-surface-hover transition-colors text-left disabled:opacity-50"
                 >
                   <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center flex-shrink-0">
                     {matching === product.id ? (
@@ -114,7 +114,7 @@ export function ProductPickerDialog({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{product.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-text-muted">
                       {product.supplier && <span>{product.supplier.name}</span>}
                       {product.category && (
                         <>
@@ -130,7 +130,7 @@ export function ProductPickerDialog({
                     <p className="font-semibold text-primary">
                       {formatCurrency(product.netPrice)}
                     </p>
-                    <p className="text-xs text-gray-500">{product.referenceUnit}</p>
+                    <p className="text-xs text-text-muted">{product.referenceUnit}</p>
                   </div>
                 </button>
               ))}

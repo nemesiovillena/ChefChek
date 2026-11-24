@@ -333,19 +333,19 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-zinc-900 w-full max-w-xl rounded-lg shadow-xl overflow-hidden flex flex-col border border-gray-200 dark:border-zinc-800 animate-in fade-in zoom-in duration-150">
+      <div className="bg-surface-raised w-full max-w-xl rounded-lg shadow-xl overflow-hidden flex flex-col border border-line-soft animate-in fade-in zoom-in duration-150">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Importar Artículos</h3>
-          <button type="button" onClick={resetModal} aria-label="Cerrar" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-zinc-300">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line-soft">
+          <h3 className="text-lg font-bold text-text-strong">Importar Artículos</h3>
+          <button type="button" onClick={resetModal} aria-label="Cerrar" className="text-text-muted hover:text-text-default dark:hover:text-zinc-300">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
         <div className="p-6 flex-1 overflow-y-auto space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-text-soft">
             Sube un archivo en formato **CSV** o **XML** estructurado. Los proveedores y categorías que no existan se crearán automáticamente.
           </p>
 
@@ -358,7 +358,7 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
           </button>
 
           {/* Drag & Drop Area */}
-          <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg p-8 flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-850 hover:border-primary/60 transition-colors cursor-pointer"
+          <div className="border-2 border-dashed border-line rounded-lg p-8 flex flex-col items-center justify-center bg-surface-sunken hover:border-primary/60 transition-colors cursor-pointer"
                onClick={() => fileInputRef.current?.click()}>
             <input
               type="file"
@@ -368,10 +368,10 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
               className="hidden"
             />
             <Upload className="h-10 w-10 text-gray-400 mb-2" />
-            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+            <span className="text-sm text-text-default font-medium">
               {file ? file.name : 'Haz clic para seleccionar o arrastra el archivo CSV o XML'}
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            <span className="text-xs text-text-muted mt-1">
               Máximo 5MB
             </span>
           </div>
@@ -404,15 +404,15 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
           {/* Preview list */}
           {productsToImport.length > 0 && errors.length === 0 && (
-            <div className="border border-gray-200 dark:border-zinc-800 rounded-md overflow-hidden">
-              <div className="bg-gray-50 dark:bg-zinc-800 px-4 py-2 border-b border-gray-200 dark:border-zinc-800 text-xs font-semibold text-gray-700 dark:text-gray-300">
+            <div className="border border-line-soft rounded-md overflow-hidden">
+              <div className="bg-surface-sunken px-4 py-2 border-b border-line-soft text-xs font-semibold text-text-default">
                 Previsualización de importación ({productsToImport.length} artículos)
               </div>
               <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-zinc-800">
                 {productsToImport.map((p, idx) => (
                   <div key={idx} className="px-4 py-2 text-xs flex justify-between dark:text-zinc-400">
                     <span className="font-medium truncate max-w-[200px]">{p.name}</span>
-                    <span className="text-gray-500">
+                    <span className="text-text-muted">
                       {p.purchasePrice.toFixed(2)} &euro; - {p.categoryName || 'Sin categoría'} - {p.supplierName || 'Sin proveedor'}
                     </span>
                   </div>
@@ -423,10 +423,10 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/50">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-line-soft bg-surface-sunken">
           <button
             onClick={resetModal}
-            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-text-default rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 text-sm font-medium transition-colors"
           >
             Cerrar
           </button>

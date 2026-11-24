@@ -37,7 +37,7 @@ export function ProductPriceHistoryTable({
   }
 
   if (!history || history.length === 0) {
-    return <p className="text-sm text-gray-500 py-4">Sin historial de precios</p>;
+    return <p className="text-sm text-text-muted py-4">Sin historial de precios</p>;
   }
 
   const formatPrice = (price: number) =>
@@ -50,13 +50,13 @@ export function ProductPriceHistoryTable({
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Fecha</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Proveedor</th>
-            <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Anterior</th>
-            <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Nuevo</th>
-            <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Variación</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Albarán</th>
+          <tr className="border-b border-line-soft">
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Fecha</th>
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Proveedor</th>
+            <th className="text-right py-2 px-3 text-xs font-medium text-text-muted">Anterior</th>
+            <th className="text-right py-2 px-3 text-xs font-medium text-text-muted">Nuevo</th>
+            <th className="text-right py-2 px-3 text-xs font-medium text-text-muted">Variación</th>
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Albarán</th>
           </tr>
         </thead>
         <tbody>
@@ -84,12 +84,12 @@ export function ProductPriceHistoryTable({
             const isDown = isRealChange && change < 0;
 
             return (
-              <tr key={entry.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="py-2 px-3 text-gray-700">{formatDate(entry.recordedAt)}</td>
-                <td className="py-2 px-3 text-gray-700">
+              <tr key={entry.id} className="border-b border-gray-100 hover:bg-surface-hover-faint">
+                <td className="py-2 px-3 text-text-default">{formatDate(entry.recordedAt)}</td>
+                <td className="py-2 px-3 text-text-default">
                   {entry.supplier?.name || '—'}
                 </td>
-                <td className="py-2 px-3 text-right text-gray-500">
+                <td className="py-2 px-3 text-right text-text-muted">
                   {formatPrice(entry.previousPrice)}
                   {canNormalize && referenceUnit && (
                     <div className="text-xs text-gray-400">
@@ -110,7 +110,7 @@ export function ProductPriceHistoryTable({
                       (product-price-trend-badge.tsx) — consistencia visual entre
                       ambos puntos donde se muestra la variación de precio. */}
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                    isUp ? 'bg-red-100 text-red-700' : isDown ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    isUp ? 'bg-red-100 text-red-700' : isDown ? 'bg-green-100 text-green-700' : 'bg-surface-subtle text-text-muted'
                   }`}>
                     {isUp ? <TrendingUp className="h-3 w-3" /> : isDown ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
                     {isUp ? '+' : ''}{pctChange}%

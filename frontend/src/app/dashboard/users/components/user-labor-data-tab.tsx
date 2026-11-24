@@ -19,7 +19,7 @@ export function UserLaborDataTab({ userId }: { userId: string }) {
   const importEmployees = useImportEmployees();
 
   if (isLoading || !employees || !centers || !settingsData) {
-    return <p className="text-sm text-gray-500 dark:text-gray-400">Cargando…</p>;
+    return <p className="text-sm text-text-muted">Cargando…</p>;
   }
 
   const employee = employees.find((e) => e.userId === userId) ?? null;
@@ -33,7 +33,7 @@ export function UserLaborDataTab({ userId }: { userId: string }) {
     };
     return (
       <div className="space-y-3">
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="text-sm text-text-soft">
           Esta persona todavía no tiene ficha para fichar.
         </p>
         <button type="button" onClick={createSheet} disabled={importEmployees.isPending} className={primaryBtnCls}>

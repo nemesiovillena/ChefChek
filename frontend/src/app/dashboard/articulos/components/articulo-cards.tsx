@@ -39,8 +39,8 @@ export default function ArticuloCards({
         {[...Array(8)].map((_, i) => (
           <div key={i} className="border rounded-lg p-4 animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-            <div className="h-3 bg-gray-100 rounded w-1/2 mb-3" />
-            <div className="h-5 bg-gray-100 rounded-full w-16" />
+            <div className="h-3 bg-surface-subtle rounded w-1/2 mb-3" />
+            <div className="h-5 bg-surface-subtle rounded-full w-16" />
           </div>
         ))}
       </div>
@@ -50,7 +50,7 @@ export default function ArticuloCards({
   if (products.length === 0) {
     return (
       <div className="border rounded-lg p-12 text-center">
-        <p className="text-gray-500 text-sm">No hay artículos que coincidan con los filtros</p>
+        <p className="text-text-muted text-sm">No hay artículos que coincidan con los filtros</p>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function ArticuloCards({
               <button
                 onClick={() => onEdit(product)}
               aria-label={`Editar ${product.name}`}
-                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500"
+                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-surface-hover text-text-muted"
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -93,7 +93,7 @@ export default function ArticuloCards({
             <ImageThumbnail imageUrl={product.imageUrl} size={48} className="mb-2" />
 
             {/* Name + brand */}
-            <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+            <p className="text-sm font-medium text-text-strong truncate">{product.name}</p>
             {product.brand && (
               <p className="text-[11px] text-gray-400 truncate">{product.brand}</p>
             )}
@@ -109,7 +109,7 @@ export default function ArticuloCards({
 
             {/* Price + Stock */}
             <div className="mt-3 flex items-center justify-between">
-              <span className="text-sm font-mono text-gray-700">
+              <span className="text-sm font-mono text-text-default">
                 {formatEuro(product.purchasePrice || 0)}
               </span>
               <span className="text-xs font-semibold text-primary font-mono ml-1">

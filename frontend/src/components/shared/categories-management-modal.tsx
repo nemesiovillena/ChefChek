@@ -126,14 +126,14 @@ export function CategoriesManagementModal({ isOpen, onClose, context }: Props) {
           </TabsList>
 
           <TabsContent value="list" className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-text-soft">
               {categories?.filter(c => c.isActive).length ?? 0} activas de {categories?.length ?? 0} totales
             </p>
 
             {isLoading ? (
               <p className="text-center py-8">Cargando...</p>
             ) : (
-              <div className="border rounded-lg p-4 bg-white">
+              <div className="border rounded-lg p-4 bg-surface-raised">
                 <CategoryTreeView
                   tree={tree ?? []}
                   onEdit={handleEdit}

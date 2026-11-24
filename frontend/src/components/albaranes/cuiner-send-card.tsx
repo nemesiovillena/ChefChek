@@ -88,7 +88,7 @@ export function CuinerSendCard({ albaranId, confirmed }: { albaranId: string; co
         {error && <p className="text-red-600">{error.message}</p>}
 
         {existing && (
-          <p className={existing.status === 'ERROR' ? 'text-red-600' : alreadySent ? 'text-emerald-700' : 'text-gray-700 dark:text-zinc-300'}>
+          <p className={existing.status === 'ERROR' ? 'text-red-600' : alreadySent ? 'text-emerald-700' : 'text-text-default'}>
             {CUINER_EXPORT_STATUS_LABELS[existing.status]}
             {existing.cuinerIdDocsCab ? ` (documento ${existing.cuinerIdDocsCab})` : ''}
             {existing.error ? `: ${existing.error}` : ''}

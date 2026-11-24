@@ -36,6 +36,19 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
   --color-secondary-container: var(--secondary-container);
+  /* Superficies, textos y líneas de las pantallas antiguas (antes grises de
+     Tailwind corregidos en oscuro con !important). */
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-hover-faint: var(--surface-hover-faint);
+  --color-text-strong: var(--text-strong);
+  --color-text-default: var(--text-default);
+  --color-text-soft: var(--text-soft);
+  --color-text-muted: var(--text-muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -162,6 +175,18 @@
   --sidebar-accent-foreground: #1e1b15;
   --sidebar-border: #cfc5b8;
   --sidebar-ring: #7e766b;
+
+  --surface-raised: #ffffff;
+  --surface-sunken: #f9fafb;
+  --surface-subtle: #f3f4f6;
+  --surface-hover: #f3f4f6;
+  --surface-hover-faint: #f9fafb;
+  --text-strong: #111827;
+  --text-default: #374151;
+  --text-soft: #4b5563;
+  --text-muted: #6b7280;
+  --line: #d1d5db;
+  --line-soft: #e5e7eb;
 }
 
 .dark {
@@ -227,6 +252,18 @@
   --sidebar-accent-foreground: #e5e2e1;
   --sidebar-border: #444748;
   --sidebar-ring: #8e9192;
+
+  --surface-raised: var(--tonal-2);
+  --surface-sunken: var(--background);
+  --surface-subtle: var(--tonal-1);
+  --surface-hover: var(--tonal-3);
+  --surface-hover-faint: var(--tonal-3);
+  --text-strong: var(--primary);
+  --text-default: var(--on-surface);
+  --text-soft: var(--on-surface-variant);
+  --text-muted: var(--on-surface-variant);
+  --line: var(--border);
+  --line-soft: var(--border);
 }
 
 @layer base {
@@ -352,63 +389,17 @@
     border-radius: 10px;
   }
 
-  /* Unificación de diseño Soft Dark de Stitch para componentes heredados */
+  /* Campos de formulario en oscuro: fondo y texto del tema por defecto. Sin
+     !important, así que la clase de cada componente sigue mandando.
+     Checkbox/radio quedan fuera: su marca se pinta con `color`, y con el
+     texto claro del tema quedaría invisible sobre la caja (Compras → Listas). */
   .dark {
-    /* Sobreescritura de fondos claros clásicos */
-    .bg-white {
-      background-color: var(--tonal-2) !important;
-    }
-
-    .bg-gray-50 {
-      background-color: var(--background) !important;
-    }
-
-    .bg-gray-100 {
-      background-color: var(--tonal-1) !important;
-    }
-
-    /* Sobreescritura de hovers claros heredados de Tailwind */
-    .hover\:bg-gray-50:hover,
-    .hover\:bg-gray-100:hover,
-    .hover\:bg-slate-50:hover,
-    .hover\:bg-slate-100:hover,
-    .hover\:bg-neutral-50:hover,
-    .hover\:bg-neutral-100:hover {
-      background-color: var(--tonal-3) !important;
-    }
-
-    /* Sobreescritura de textos claros */
-    .text-gray-900 {
-      color: var(--primary) !important;
-    }
-
-    .text-gray-800 {
-      color: var(--primary) !important;
-    }
-
-    .text-gray-700 {
-      color: var(--on-surface) !important;
-    }
-
-    .text-gray-600, .text-gray-500 {
-      color: var(--on-surface-variant) !important;
-    }
-
-    /* Sobreescritura de bordes y divisiones */
-    .border-gray-200, .border-gray-300, .divide-gray-200 {
-      border-color: var(--border) !important;
-    }
-
-    /* Adaptar formularios nativos. Checkbox/radio quedan fuera: su marca se
-       pinta con la propiedad `color`, que aquí se fuerza a blanco, y en dark
-       el accent (--primary) también es blanco → check invisible sobre caja
-       blanca (ej. checklist de Compras → Listas en móvil). */
     input:not([type='checkbox']):not([type='radio']),
     select,
     textarea {
-      background-color: var(--tonal-1) !important;
-      color: var(--primary) !important;
-      border-color: var(--border) !important;
+      background-color: var(--tonal-1);
+      color: var(--primary);
+      border-color: var(--border);
     }
 
     /* Sin color-scheme el navegador pinta la caja vacía con el aspecto claro

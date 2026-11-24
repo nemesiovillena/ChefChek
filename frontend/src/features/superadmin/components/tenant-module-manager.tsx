@@ -90,7 +90,7 @@ export function TenantModuleManager({ tenant }: TenantModuleManagerProps) {
               title={mod.alwaysActive ? 'Este módulo no se puede desactivar' : undefined}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                className={`inline-block h-5 w-5 transform rounded-full bg-surface-raised shadow transition duration-200 ${
                   mod.enabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />

@@ -7,7 +7,7 @@ import { searchCuinerCatalog } from '@/hooks/use-cuiner';
 import type { CuinerCatalogHit, CuinerCodeRef, CuinerSuggestion } from '@/lib/cuiner-types';
 
 export const inputCls =
-  'min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-zinc-700 dark:bg-zinc-900';
+  'min-h-[44px] w-full rounded-lg border border-line bg-surface-raised px-3 text-base';
 
 /**
  * Buscador del catálogo de Cuiner (proveedores o artículos) por nombre,
@@ -59,9 +59,9 @@ export function CuinerCatalogSearch({
           <X className="h-4 w-4" />
         </Button>
       </div>
-      {hits && hits.length === 0 && <p className="text-sm text-gray-500">Sin resultados en el catálogo de Cuiner.</p>}
+      {hits && hits.length === 0 && <p className="text-sm text-text-muted">Sin resultados en el catálogo de Cuiner.</p>}
       {hits && hits.length > 0 && (
-        <ul className="max-h-60 divide-y divide-gray-200 overflow-y-auto rounded-md bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+        <ul className="max-h-60 divide-y divide-line-soft overflow-y-auto rounded-md bg-surface-raised">
           {hits.map((hit) => (
             <li key={hit.codigo}>
               <button
@@ -71,9 +71,9 @@ export function CuinerCatalogSearch({
               >
                 <span>
                   {hit.nombre}
-                  {hit.detalle && <span className="ml-2 text-xs text-gray-500">{hit.detalle}</span>}
+                  {hit.detalle && <span className="ml-2 text-xs text-text-muted">{hit.detalle}</span>}
                 </span>
-                <span className="font-mono text-xs text-gray-500">{hit.codigo}</span>
+                <span className="font-mono text-xs text-text-muted">{hit.codigo}</span>
               </button>
             </li>
           ))}
@@ -136,7 +136,7 @@ export function CuinerLinkCell({
           <span className="text-xs opacity-70">({suggestion.reason === 'cif' ? 'mismo CIF' : 'nombre parecido'})</span>
         </span>
       ) : (
-        <span className="text-sm text-gray-500">Sin enlazar</span>
+        <span className="text-sm text-text-muted">Sin enlazar</span>
       )}
 
       {busy && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
@@ -171,7 +171,7 @@ export function Pager({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (pages <= 1) return null;
   return (
-    <div className="flex items-center justify-between gap-2 pt-3 text-sm text-gray-600 dark:text-zinc-400">
+    <div className="flex items-center justify-between gap-2 pt-3 text-sm text-text-soft">
       <span>
         {total} resultados · página {page} de {pages}
       </span>

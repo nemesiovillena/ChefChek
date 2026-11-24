@@ -44,21 +44,21 @@ export default function TabNutricion({ nutritionalData, setNutritionalData }: Ta
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-50 p-3 rounded-lg">
-        <p className="text-sm font-medium text-gray-700">Valores para 100 gr.</p>
+      <div className="bg-surface-sunken p-3 rounded-lg">
+        <p className="text-sm font-medium text-text-default">Valores para 100 gr.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         {FIELDS.map(({ key, label }) => (
           <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+            <label className="block text-sm font-medium text-text-default mb-1">{label}</label>
             <input
               type="number"
               step="any"
               min="0"
               value={nutritionalData[key]}
               onChange={(e) => update(key, e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
             />
           </div>
         ))}

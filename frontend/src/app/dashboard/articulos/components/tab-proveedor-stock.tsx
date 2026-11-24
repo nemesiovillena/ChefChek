@@ -59,7 +59,7 @@ function OfferFormatFields({
           value={value.purchaseFormat}
           onChange={(e) => update('purchaseFormat', e.target.value)}
           placeholder="Formato (ej: Caja 6x2L)"
-          className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
+          className="w-full px-2 py-1.5 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
         />
         <UnitSelector
           value={value.referenceUnit}
@@ -69,7 +69,7 @@ function OfferFormatFields({
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-0.5">Uds/formato</label>
+          <label className="block text-xs font-medium text-text-muted mb-0.5">Uds/formato</label>
           <input
             type="number"
             step="1"
@@ -78,11 +78,11 @@ function OfferFormatFields({
             onChange={(e) => update('unitsPerFormat', e.target.value)}
             placeholder="Ej: 6"
             title="Unidades por formato (ej: 6 botellas por caja)"
-            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
+            className="w-full px-2 py-1.5 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-0.5">Cantidad/ud</label>
+          <label className="block text-xs font-medium text-text-muted mb-0.5">Cantidad/ud</label>
           <input
             type="number"
             step="any"
@@ -91,11 +91,11 @@ function OfferFormatFields({
             onChange={(e) => update('referenceUnitSize', e.target.value)}
             placeholder="Ej: 2"
             title="Cantidad por unidad (ej: 2 litros por botella)"
-            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
+            className="w-full px-2 py-1.5 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-0.5">Precio €</label>
+          <label className="block text-xs font-medium text-text-muted mb-0.5">Precio €</label>
           <input
             type="number"
             step="any"
@@ -103,7 +103,7 @@ function OfferFormatFields({
             value={value.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
             placeholder="Ej: 12.50"
-            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
+            className="w-full px-2 py-1.5 border border-line rounded-md text-sm focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function TabProveedorStock({
         // varias ofertas, así que se asigna un único proveedor inicial. Tras
         // crear el artículo, esta pestaña pasa a mostrar la lista de ofertas.
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Proveedor</label>
           <div className="flex gap-2">
             <div className="flex-1">
               <SupplierCombobox
@@ -190,13 +190,13 @@ export default function TabProveedorStock({
             <button
               type="button"
               onClick={() => setShowCreateSupplier(true)}
-              className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
+              className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-line bg-surface-raised text-text-soft hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
               title="Añadir nuevo proveedor"
             >
               <Plus className="h-4 w-4" />
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-text-muted mt-1">
             Podrás añadir más proveedores para este artículo después de crearlo.
           </p>
         </div>
@@ -205,15 +205,15 @@ export default function TabProveedorStock({
       {/* Producto sin stock: cargos de servicio (portes, logística...) que no
           son inventario físico. Al confirmar un albarán no genera lote,
           movimiento ni registro de stock para este artículo. */}
-      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center gap-3 p-3 bg-surface-sunken rounded-lg">
         <input
           type="checkbox"
           id="tracksInventory"
           checked={!formData.tracksInventory}
           onChange={(e) => setFormData({ ...formData, tracksInventory: !e.target.checked })}
-          className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
+          className="h-4 w-4 text-primary border-line rounded focus:ring-ring"
         />
-        <label htmlFor="tracksInventory" className="text-sm text-gray-700">
+        <label htmlFor="tracksInventory" className="text-sm text-text-default">
           No genera stock (servicio)
         </label>
         <span className="text-xs text-gray-400 ml-2">Ej: portes, gastos de logística. Al confirmar un albarán no crea lote ni movimiento de stock.</span>
@@ -222,26 +222,26 @@ export default function TabProveedorStock({
       {/* Stock limits */}
       <div className={`grid grid-cols-2 gap-4 ${!formData.tracksInventory ? 'opacity-50 pointer-events-none' : ''}`}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Stock mínimo</label>
           <input
             type="number"
             step="any"
             min="0"
             value={formData.minimumStock}
             onChange={(e) => update('minimumStock', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${isAtMin ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${isAtMin ? 'border-red-500 bg-red-50' : 'border-line'}`}
           />
           {isAtMin && <p className="text-xs text-red-600 mt-1">Stock en mínimo</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Stock máximo</label>
+          <label className="block text-sm font-medium text-text-default mb-1">Stock máximo</label>
           <input
             type="number"
             step="any"
             min="0"
             value={formData.maximumStock}
             onChange={(e) => update('maximumStock', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${isAboveMax ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${isAboveMax ? 'border-red-500 bg-red-50' : 'border-line'}`}
           />
           {isAboveMax && <p className="text-xs text-red-600 mt-1">Stock por encima del máximo</p>}
         </div>
@@ -412,16 +412,16 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">Proveedores</label>
+      <label className="block text-sm font-medium text-text-default mb-1">Proveedores</label>
       <div className="space-y-2">
-        {isLoading && <p className="text-sm text-gray-500">Cargando ofertas...</p>}
+        {isLoading && <p className="text-sm text-text-muted">Cargando ofertas...</p>}
         {!isLoading && (offers?.length ?? 0) === 0 && (
-          <p className="text-sm text-gray-500">Este artículo no tiene proveedores asignados todavía.</p>
+          <p className="text-sm text-text-muted">Este artículo no tiene proveedores asignados todavía.</p>
         )}
         {offers?.map((offer) => (
           <div
             key={offer.id}
-            className="rounded-md border border-gray-300 px-3 py-2"
+            className="rounded-md border border-line px-3 py-2"
           >
             <div className="flex items-center gap-2">
               <button
@@ -436,12 +436,12 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               <button
                 type="button"
                 onClick={() => offer.supplier && setFichaSupplier({ id: offer.supplierId, name: offer.supplier.name })}
-                className="flex-1 truncate text-left text-sm text-gray-900 hover:text-primary hover:underline"
+                className="flex-1 truncate text-left text-sm text-text-strong hover:text-primary hover:underline"
                 title="Ver ficha del proveedor"
               >
                 {offer.supplier?.name ?? 'Proveedor'}
               </button>
-              <span className="text-sm text-gray-600">{formatEuro(offer.purchasePrice)}</span>
+              <span className="text-sm text-text-soft">{formatEuro(offer.purchasePrice)}</span>
               <button
                 type="button"
                 onClick={() => (editingOfferId === offer.id ? setEditingOfferId(null) : startEditOffer(offer))}
@@ -480,14 +480,14 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
                   <button
                     type="button"
                     onClick={() => setEditingOfferId(null)}
-                    className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
+                    className="px-2 py-1 text-xs text-text-soft hover:text-text-strong"
                   >
                     Cancelar
                   </button>
                 </div>
               </div>
             ) : offer.unitsPerFormat * offer.referenceUnitSize !== 1 ? (
-              <p className="mt-1 pl-6 text-xs text-gray-500">
+              <p className="mt-1 pl-6 text-xs text-text-muted">
                 {offer.purchaseFormat || `${offer.unitsPerFormat}×${offer.referenceUnitSize}${offer.referenceUnit}`}
                 {' · '}≈ {formatEuro(offer.purchasePrice / (offer.unitsPerFormat * offer.referenceUnitSize))}/{offer.referenceUnit}
               </p>
@@ -504,7 +504,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
         ))}
 
         {addVisible ? (
-          <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-2">
+          <div className="space-y-2 rounded-md border border-dashed border-line p-2">
             <div className="flex gap-2">
               <div className="flex-1">
                 <SupplierCombobox
@@ -517,7 +517,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               <button
                 type="button"
                 onClick={() => setShowCreateSupplier(true)}
-                className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
+                className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-line bg-surface-raised text-text-soft hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
                 title="Añadir nuevo proveedor"
               >
                 <Plus className="h-4 w-4" />
@@ -539,7 +539,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
               <button
                 type="button"
                 onClick={() => setShowAdd(false)}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+                className="px-3 py-2 text-sm text-text-soft hover:text-text-strong"
               >
                 Cancelar
               </button>
@@ -557,7 +557,7 @@ function SupplierOffersSection({ productId, suppliers, onSupplierCreated, basePu
             <button
               type="button"
               onClick={() => setShowCreateSupplier(true)}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-text-muted hover:text-text-default"
             >
               Crear proveedor nuevo
             </button>

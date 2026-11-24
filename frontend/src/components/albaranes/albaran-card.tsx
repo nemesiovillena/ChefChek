@@ -57,7 +57,7 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
 
   return (
     <Link href={`/dashboard/albaranes/${albaran.id}`} className="block min-w-0">
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-5 cursor-pointer group relative">
+      <div className="bg-surface-raised rounded-xl border border-line-soft shadow-sm hover:shadow-md transition-shadow duration-200 p-5 cursor-pointer group relative">
         {/* min-w-0 + truncate: un número de albarán largo empujaba el estado y
             la papelera fuera de la tarjeta en móvil */}
         <div className="flex items-start justify-between gap-2 mb-3">
@@ -66,11 +66,11 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
               <FileText className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0">
-              <h3 className="truncate font-semibold text-gray-900">
+              <h3 className="truncate font-semibold text-text-strong">
                 {albaran.albaranNumber || 'Sin número'}
               </h3>
               {albaran.internalNumber && (
-                <p className="text-xs text-gray-500">Ref: {albaran.internalNumber}</p>
+                <p className="text-xs text-text-muted">Ref: {albaran.internalNumber}</p>
               )}
             </div>
           </div>
@@ -99,7 +99,7 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
           </div>
         </div>
 
-        <div className="space-y-2 text-sm text-gray-600">
+        <div className="space-y-2 text-sm text-text-soft">
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-gray-400" />
             <span>{albaran.supplier?.name || 'Proveedor desconocido'}</span>
@@ -113,7 +113,7 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
             <div className="flex items-center gap-2">
               <Euro className="h-4 w-4 text-gray-400" />
-              <span className="font-semibold text-gray-900">{formatCurrency(albaran.total)}</span>
+              <span className="font-semibold text-text-strong">{formatCurrency(albaran.total)}</span>
             </div>
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-gray-400" />

@@ -48,7 +48,7 @@ function ServingMeasureStep({
     <div className="space-y-3">
       <p className="text-sm">
         <span className="font-medium">{product.name}</span>
-        <span className="text-gray-500"> · se cuenta en {product.referenceUnit || 'sin unidad'}</span>
+        <span className="text-text-muted"> · se cuenta en {product.referenceUnit || 'sin unidad'}</span>
       </p>
       <label className="block text-sm font-medium" htmlFor={`measure-${dish.producto}`}>
         ¿Cuánto sale del artículo en cada venta?
@@ -73,7 +73,7 @@ function ServingMeasureStep({
         </p>
       )}
       {!measures.isLoading && options.length === 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-text-muted">
           No hay medidas para artículos en {product.referenceUnit || 'esa unidad'}: cada venta descontará 1 unidad entera.
         </p>
       )}
@@ -133,7 +133,7 @@ function DishTargetPicker({
               setMode(m);
               setProduct(null);
             }}
-            className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-primary text-primary-foreground' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
+            className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-primary text-primary-foreground' : 'bg-surface-raised text-text-default'}`}
           >
             {m === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek (venta directa)'}
           </button>
@@ -158,7 +158,7 @@ function DishTargetPicker({
           value={mode === 'recipe' ? filter : products.search}
           onChange={(e) => (mode === 'recipe' ? setFilter(e.target.value) : products.setSearch(e.target.value))}
         />
-        <ul className="max-h-60 divide-y divide-gray-200 overflow-y-auto rounded-md bg-white dark:divide-zinc-800 dark:bg-zinc-900">
+        <ul className="max-h-60 divide-y divide-line-soft overflow-y-auto rounded-md bg-surface-raised">
           {mode === 'recipe'
             ? recipeHits.map((r) => (
                 <li key={r.id}>
@@ -182,10 +182,10 @@ function DishTargetPicker({
         </ul>
         {(recipes.isLoading || products.loading) && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
         {!recipes.isLoading && mode === 'recipe' && recipeHits.length === 0 && (
-          <p className="text-sm text-gray-500">Ninguna receta coincide. Cambia el texto de búsqueda.</p>
+          <p className="text-sm text-text-muted">Ninguna receta coincide. Cambia el texto de búsqueda.</p>
         )}
         {!products.loading && mode === 'product' && products.search.trim() && products.products.length === 0 && (
-          <p className="text-sm text-gray-500">Ningún artículo coincide.</p>
+          <p className="text-sm text-text-muted">Ningún artículo coincide.</p>
         )}
         </>
       )}
@@ -268,7 +268,7 @@ export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string
           Enlace rápido por marca
         </Button>
       </div>
-      <p className="mb-2 text-sm text-gray-600 dark:text-zinc-400">
+      <p className="mb-2 text-sm text-text-soft">
         Ordenados por unidades vendidas. Los platos sin enlazar no descuentan stock en ChefChek. Usa «No descontar»
         en platos a 0 € cuyo tamaño va en un extra (ración, doble): enlaza el extra y deja de salir aquí.
       </p>
@@ -277,14 +277,14 @@ export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string
       {error && <p className="text-sm text-red-600">{error.message}</p>}
       {data && (
         <>
-          <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
+          <ul className="divide-y divide-line-soft">
             {data.items.map((dish) => {
               const key = `${dish.tipo}-${dish.producto}`;
               return (
                 <li key={key} className="grid gap-2 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] md:items-center">
                   <div>
                     <p className="font-medium">{dish.nombre}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-text-muted">
                       <span className="font-mono">{dish.producto}</span> · {dish.sold.toLocaleString('es-ES')} vendidos
                     </p>
                   </div>
@@ -299,7 +299,7 @@ export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string
                   ) : (
                     <div className="flex flex-wrap items-center gap-2">
                       {dish.mapped?.kind === 'none' ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-subtle px-3 py-1 text-sm text-text-default">
                           <Ban className="h-3.5 w-3.5" />
                           No descuenta stock
                         </span>
@@ -317,7 +317,7 @@ export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string
                           )}
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-500">Sin enlazar</span>
+                        <span className="text-sm text-text-muted">Sin enlazar</span>
                       )}
                       <Button type="button" size="sm" variant="outline" onClick={() => setEditing(key)}>
                         {dish.mapped && dish.mapped.kind !== 'none' ? 'Cambiar' : 'Enlazar'}
@@ -352,7 +352,7 @@ export function CuinerDishesTab({ initialSearch = '' }: { initialSearch?: string
               );
             })}
             {data.items.length === 0 && (
-              <li className="py-6 text-center text-sm text-gray-500">
+              <li className="py-6 text-center text-sm text-text-muted">
                 {/* La búsqueda exige la frase seguida: el nombre de la receta puede no coincidir con el de la carta. */}
                 {search ? `Sin resultados para «${search}». Prueba con una parte del nombre.` : 'Sin resultados.'}
               </li>

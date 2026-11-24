@@ -9,7 +9,7 @@ interface Props {
 export function CategoriesSummaryCard({ categoryCount, onManageCategories }: Props) {
   return (
     <div
-      className="bg-white border rounded-lg p-6 hover:shadow-md transition cursor-pointer"
+      className="bg-surface-raised border rounded-lg p-6 hover:shadow-md transition cursor-pointer"
       onClick={onManageCategories}
     >
       <div className="flex items-center justify-between mb-4">
@@ -18,8 +18,8 @@ export function CategoriesSummaryCard({ categoryCount, onManageCategories }: Pro
             <FolderTree className="h-6 w-6 text-green-600" />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Categorías</p>
-            <p className="text-3xl font-bold text-gray-900">{categoryCount}</p>
+            <p className="text-sm text-text-muted">Categorías</p>
+            <p className="text-3xl font-bold text-text-strong">{categoryCount}</p>
           </div>
         </div>
       </div>

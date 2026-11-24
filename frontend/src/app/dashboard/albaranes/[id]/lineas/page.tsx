@@ -551,7 +551,7 @@ export default function AlbaranLineasPage() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <CardTitle className="text-xl break-words">Líneas del Albarán {albaran.albaranNumber || 'Sin número'}</CardTitle>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-text-muted mt-1">
                 {albaran.supplier?.name} - {lines.length} líneas totales
               </p>
             </div>
@@ -587,10 +587,10 @@ export default function AlbaranLineasPage() {
               {/* Totales del albarán, los mismos que en Resumen, para revisar
                   IVA y total sin salir de las líneas. */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <span className="text-gray-500">
+                <span className="text-text-muted">
                   Base <span className="font-medium text-foreground">{formatCurrency(totals.base)}</span>
                 </span>
-                <span className="text-gray-500">
+                <span className="text-text-muted">
                   IVA <span className="font-medium text-foreground">{formatCurrency(totals.vatTotal)}</span>
                 </span>
                 <span className="font-semibold">
@@ -614,11 +614,11 @@ export default function AlbaranLineasPage() {
 
       {lines.length === 0 ? (
         <Card className="p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-full bg-surface-subtle flex items-center justify-center mx-auto mb-4">
             <Package className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin líneas</h3>
-          <p className="text-gray-600">Este albarán no tiene líneas registradas</p>
+          <h3 className="text-lg font-semibold text-text-strong mb-2">Sin líneas</h3>
+          <p className="text-text-soft">Este albarán no tiene líneas registradas</p>
         </Card>
       ) : (
         <>
@@ -687,19 +687,19 @@ export default function AlbaranLineasPage() {
                               </p>
                             )}
                             {isEditable(line) && line.articleNumber ? (
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-text-muted">
                                 Art:{' '}
                                 <EditableLineCell
                                   albaranId={id}
                                   lineId={line.id}
                                   field="articleNumber"
                                   value={line.articleNumber}
-                                  className="text-xs text-gray-500"
+                                  className="text-xs text-text-muted"
                                   onSave={refetch}
                                 />
                               </p>
                             ) : line.articleNumber ? (
-                              <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
+                              <p className="text-xs text-text-muted">Art: {line.articleNumber}</p>
                             ) : null}
                             {line.matchedProduct && (
                               <div className="mt-1 flex items-center gap-1.5 text-xs text-primary">
@@ -721,7 +721,7 @@ export default function AlbaranLineasPage() {
                                       type="button"
                                       onClick={() => handleUnmatchLine(line)}
                                       disabled={updating === line.id}
-                                      className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                      className="rounded p-0.5 text-gray-400 hover:bg-surface-hover hover:text-text-soft"
                                       title="Quitar artículo (no es este)"
                                       aria-label="Quitar artículo"
                                     >
@@ -754,7 +754,7 @@ export default function AlbaranLineasPage() {
                                     type="button"
                                     onClick={() => handleDismissSuggestion(line)}
                                     disabled={updating === line.id}
-                                    className="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                                    className="rounded p-0.5 text-gray-400 hover:bg-surface-hover hover:text-text-soft"
                                     title="No es este artículo"
                                   >
                                     <X className="h-3 w-3" />
@@ -795,7 +795,7 @@ export default function AlbaranLineasPage() {
                                 field="unit"
                                 value={line.unit}
                                 suffix=""
-                                className="text-gray-500"
+                                className="text-text-muted"
                                 onSave={refetch}
                               />
                             </div>
@@ -819,12 +819,12 @@ export default function AlbaranLineasPage() {
                                   })
                                 }
                               />
-                              <span className="text-gray-500">{line.unit}</span>
+                              <span className="text-text-muted">{line.unit}</span>
                             </div>
                           ) : (
                             <>
                               <span className="font-medium">{line.quantity}</span>
-                              <span className="text-gray-500 ml-1">{line.unit}</span>
+                              <span className="text-text-muted ml-1">{line.unit}</span>
                             </>
                           )}
                         </TableCell>
@@ -983,7 +983,7 @@ export default function AlbaranLineasPage() {
                         <TableRow className="max-md:block">
                           {/* Fila a ancho completo: el formulario (varios campos por fila)
                               no cabe en la columna "Acciones" sin solaparse. */}
-                          <TableCell colSpan={10} className="bg-gray-50 p-0 max-md:block max-md:whitespace-normal">
+                          <TableCell colSpan={10} className="bg-surface-sunken p-0 max-md:block max-md:whitespace-normal">
                             <CreateProductInline
                               albaranId={id}
                               line={line}

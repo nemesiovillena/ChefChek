@@ -45,7 +45,7 @@ export default function ApiError({
             {onRetry && (
               <button
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-1.5 rounded-md bg-surface-raised px-2.5 py-1.5 text-xs font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               >
                 <RefreshCw className="h-3 w-3" />
                 Reintentar
@@ -57,7 +57,7 @@ export default function ApiError({
                 href={helpLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-1.5 rounded-md bg-surface-raised px-2.5 py-1.5 text-xs font-medium text-red-700 shadow-sm hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               >
                 <HelpCircle className="h-3 w-3" />
                 Ayuda

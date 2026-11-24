@@ -94,13 +94,13 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
       </div>
 
       <div className="pt-2 border-t">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Datos fiscales y contacto</p>
+        <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Datos fiscales y contacto</p>
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-1">Razón social / nombre fiscal</label>
         <Input {...register('legalName')} placeholder="Tal como aparece en el albarán, ej. MAKRO AUTOSERVICIO MAYORISTA S.A." />
-        <p className="text-xs text-gray-500 mt-1">Si el nombre impreso en los albaranes es distinto al nombre de arriba, indícalo aquí para que el reconocimiento automático del proveedor al escanear funcione mejor.</p>
+        <p className="text-xs text-text-muted mt-1">Si el nombre impreso en los albaranes es distinto al nombre de arriba, indícalo aquí para que el reconocimiento automático del proveedor al escanear funcione mejor.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -147,7 +147,7 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
       </div>
 
       <div className="pt-2 border-t">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Condiciones comerciales</p>
+        <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Condiciones comerciales</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -206,7 +206,7 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
                 type="checkbox"
                 checked={selectedMethods.includes(method)}
                 onChange={() => toggleMethod(method)}
-                className="w-4 h-4 rounded border-gray-300"
+                className="w-4 h-4 rounded border-line"
               />
               <span className="text-sm">
                 {method === 'EMAIL' && 'Email'}
@@ -241,7 +241,7 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
           type="checkbox"
           {...register('isActive')}
           id="isActive"
-          className="w-4 h-4 rounded border-gray-300"
+          className="w-4 h-4 rounded border-line"
         />
         <label htmlFor="isActive" className="text-sm cursor-pointer">Proveedor activo</label>
       </div>

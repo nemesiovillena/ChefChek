@@ -190,7 +190,7 @@ function EmployeesContent() {
 
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );

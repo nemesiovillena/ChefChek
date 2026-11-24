@@ -12,14 +12,14 @@ export default function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; o
 
   return (
     <div className="fixed inset-0 bg-black/50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-6 border border-gray-200 dark:border-zinc-800 w-[95vw] max-w-6xl shadow-xl rounded-md bg-white dark:bg-zinc-900 text-gray-900 dark:text-white mb-10">
+      <div className="relative top-10 mx-auto p-6 border border-line-soft w-[95vw] max-w-6xl shadow-xl rounded-md bg-surface-raised text-text-strong mb-10">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+          <h3 className="text-lg leading-6 font-medium text-text-strong">
             Costo: {recipe.name}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            className="text-gray-400 hover:text-text-muted dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="h-6 w-6" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
               <path d="M6 18L18 6M6 6l12 12"></path>
@@ -28,7 +28,7 @@ export default function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; o
         </div>
 
         {costLoading ? (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">Calculando costo...</div>
+          <div className="text-center py-8 text-text-muted">Calculando costo...</div>
         ) : costData ? (
           <div className="space-y-6">
             <SummaryCards recipe={recipe} costData={costData} />
@@ -45,7 +45,7 @@ export default function RecipeCostModal({ recipe, onClose }: { recipe: Recipe; o
         <div className="mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
+            className="px-4 py-2 bg-gray-200 dark:bg-zinc-800 text-text-default rounded-md hover:bg-gray-300 dark:hover:bg-zinc-700 transition-colors"
           >
             Cerrar
           </button>

@@ -9,15 +9,15 @@ interface Props {
 
 export function ArticlesSummaryCard({ articleCount, onCreateArticle, onOpenAlbaranUpload }: Props) {
   return (
-    <div className="bg-white border rounded-lg p-6 hover:shadow-md transition">
+    <div className="bg-surface-raised border rounded-lg p-6 hover:shadow-md transition">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-secondary-container/50 rounded-lg">
             <Package className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Artículos totales</p>
-            <p className="text-3xl font-bold text-gray-900">{articleCount}</p>
+            <p className="text-sm text-text-muted">Artículos totales</p>
+            <p className="text-3xl font-bold text-text-strong">{articleCount}</p>
           </div>
         </div>
       </div>

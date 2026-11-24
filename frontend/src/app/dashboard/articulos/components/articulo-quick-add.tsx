@@ -61,7 +61,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="w-full px-4 py-2.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-400 hover:border-primary/60 hover:text-primary hover:bg-secondary-container/60 transition-colors flex items-center gap-2"
+        className="w-full px-4 py-2.5 border border-dashed border-line rounded-lg text-sm text-gray-400 hover:border-primary/60 hover:text-primary hover:bg-secondary-container/60 transition-colors flex items-center gap-2"
       >
         <Plus className="h-4 w-4" />
         Añadir artículo rápido...
@@ -72,7 +72,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
   return (
     <div className="border border-primary/30 rounded-lg bg-secondary-container/50 p-3 flex items-end gap-3">
       <div className="flex-1">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Nombre *</label>
+        <label className="block text-xs font-medium text-text-soft mb-1">Nombre *</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -83,7 +83,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
         />
       </div>
       <div className="w-[215px]">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Categoría</label>
+        <label className="block text-xs font-medium text-text-soft mb-1">Categoría</label>
         <div className="flex gap-1">
           <div className="flex-1">
             <CategoryCombobox
@@ -96,7 +96,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
           <button
             type="button"
             onClick={() => setShowCreateCategory(true)}
-            className="shrink-0 h-[38px] w-9 inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
+            className="shrink-0 h-[38px] w-9 inline-flex items-center justify-center rounded-md border border-line bg-surface-raised text-text-soft hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
             title="Añadir nueva categoría"
           >
             <Plus className="h-4 w-4" />
@@ -104,7 +104,7 @@ export default function ArticuloQuickAdd({ tree, onCreated, onOpenFull }: Articu
         </div>
       </div>
       <div className="w-[80px]">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
+        <label className="block text-xs font-medium text-text-soft mb-1">Unidad</label>
         <select
           value={referenceUnit}
           onChange={(e) => setReferenceUnit(e.target.value)}

@@ -28,14 +28,14 @@ export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting, ini
 
   return (
     <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
-      <div className="relative top-8 mx-auto p-6 border w-full max-w-md shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
+      <div className="relative top-8 mx-auto p-6 border w-full max-w-md shadow-xl rounded-lg bg-surface-raised border-line-soft mb-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-text-strong">
             {isEditing ? 'Editar miembro de personal' : 'Nuevo miembro de personal'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+            className="text-gray-400 hover:text-text-muted dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

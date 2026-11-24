@@ -28,7 +28,7 @@ export function ProductLotHistoryTable({ productId }: ProductLotHistoryTableProp
   }
 
   if (!lots || lots.length === 0) {
-    return <p className="text-sm text-gray-500 py-4">Sin lotes registrados para este artículo</p>;
+    return <p className="text-sm text-text-muted py-4">Sin lotes registrados para este artículo</p>;
   }
 
   const formatDate = (date: string | null) =>
@@ -40,18 +40,18 @@ export function ProductLotHistoryTable({ productId }: ProductLotHistoryTableProp
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Lote</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Recepción</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Proveedor</th>
-            <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Cantidad</th>
-            <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Albarán</th>
+          <tr className="border-b border-line-soft">
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Lote</th>
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Recepción</th>
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Proveedor</th>
+            <th className="text-right py-2 px-3 text-xs font-medium text-text-muted">Cantidad</th>
+            <th className="text-left py-2 px-3 text-xs font-medium text-text-muted">Albarán</th>
           </tr>
         </thead>
         <tbody>
           {lots.map((entry, i) => (
-            <tr key={`${entry.lotNumber}-${entry.albaranInternalNumber ?? i}`} className="border-b border-gray-100 hover:bg-gray-50">
-              <td className="py-2 px-3 font-medium text-gray-900">
+            <tr key={`${entry.lotNumber}-${entry.albaranInternalNumber ?? i}`} className="border-b border-gray-100 hover:bg-surface-hover-faint">
+              <td className="py-2 px-3 font-medium text-text-strong">
                 <div className="flex items-center gap-1.5">
                   {entry.lotNumber}
                   {entry.source === 'raw_line' && (
@@ -61,9 +61,9 @@ export function ProductLotHistoryTable({ productId }: ProductLotHistoryTableProp
                   )}
                 </div>
               </td>
-              <td className="py-2 px-3 text-gray-700">{formatDate(entry.albaranDate)}</td>
-              <td className="py-2 px-3 text-gray-700">{entry.supplierName || '—'}</td>
-              <td className="py-2 px-3 text-right text-gray-700">
+              <td className="py-2 px-3 text-text-default">{formatDate(entry.albaranDate)}</td>
+              <td className="py-2 px-3 text-text-default">{entry.supplierName || '—'}</td>
+              <td className="py-2 px-3 text-right text-text-default">
                 {entry.quantity}{entry.unit ? ` ${entry.unit}` : ''}
               </td>
               <td className="py-2 px-3">
