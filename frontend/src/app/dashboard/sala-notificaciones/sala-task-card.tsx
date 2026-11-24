@@ -3,6 +3,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { SalaTask } from '@/hooks/use-sala-tasks';
+import { CalendarDays, User, Users } from 'lucide-react';
 
 interface SalaTaskCardProps {
   task: SalaTask;
@@ -34,19 +35,19 @@ export function SalaTaskCard({ task, onClick }: SalaTaskCardProps) {
       <h4 className="font-body-lg text-body-lg text-primary truncate">{task.title}</h4>
       <div className="flex items-center gap-stack-sm mt-stack-xs text-on-surface-variant">
         <span className="font-label-sm text-label-sm flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">event</span>
+          <CalendarDays aria-hidden className="h-[14px] w-[14px]" />
           {eventDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
         </span>
         {task.guestCount != null && (
           <span className="font-label-sm text-label-sm flex items-center gap-1 min-w-0" title={task.guestCount}>
-            <span className="material-symbols-outlined text-[14px] shrink-0">groups</span>
+            <Users aria-hidden className="h-[14px] w-[14px] shrink-0" />
             <span className="truncate">{task.guestCount}</span>
           </span>
         )}
       </div>
       {task.customerName && (
         <p className="font-label-sm text-label-sm text-on-surface-variant mt-stack-xs truncate flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">person</span>
+          <User aria-hidden className="h-[14px] w-[14px]" />
           {task.customerName}
         </p>
       )}

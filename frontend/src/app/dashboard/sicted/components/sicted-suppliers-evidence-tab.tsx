@@ -59,7 +59,7 @@ export function SictedSuppliersEvidenceTab() {
               <Timer className="h-4 w-4" /> Caducidad próxima (PROV.6/PROV.8)
             </h4>
             <p className="text-sm text-[var(--on-surface-variant)]">
-              {evidence.expiringSoon.count} etiquetas dentro del umbral de {evidence.expiringSoon.warningDays} días —{' '}
+              {evidence.expiringSoon.count} etiquetas dentro del umbral de {evidence.expiringSoon.warningDays} días:{' '}
               <button type="button" onClick={() => router.push('/dashboard/appcc/caducidades')} className="underline">
                 ver detalle
               </button>

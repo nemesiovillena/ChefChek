@@ -2,50 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@font-face {
-  font-family: "Material Symbols Outlined";
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: block;
-  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
-}
-
-.material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  font-feature-settings: "liga";
-  -webkit-font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
-  /* Antes de que cargue la fuente, el nombre literal del icono ("warning",
-     "notifications_active"...) se mide con la fuente de fallback e infla el
-     contenedor (cards más altas + scroll extra en el primer render, sobre
-     todo en redes móviles lentas). Fijar el tamaño en `em` recorta ese
-     texto de fallback al tamaño real del icono. */
-  width: 1em;
-  height: 1em;
-  overflow: hidden;
-  /* Navegadores que no pueden cargar la fuente variable de iconos (Edge
-     antiguo) muestran el nombre del glifo como texto, recortado a una letra
-     por el `overflow: hidden` de arriba. Ocultar el span hasta que el script
-     de layout.tsx confirme vía document.fonts que la fuente cargó de verdad
-     (añade .ms-fonts-ready a <html>). Si la fuente no carga, los iconos
-     quedan en blanco en vez de mostrar texto basura. */
-  visibility: hidden;
-}
-
-.ms-fonts-ready .material-symbols-outlined {
-  visibility: visible;
-}
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -79,6 +35,20 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-secondary-container: var(--secondary-container);
+  /* Superficies, textos y líneas de las pantallas antiguas (antes grises de
+     Tailwind corregidos en oscuro con !important). */
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-hover-faint: var(--surface-hover-faint);
+  --color-text-strong: var(--text-strong);
+  --color-text-default: var(--text-default);
+  --color-text-soft: var(--text-soft);
+  --color-text-muted: var(--text-muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -164,7 +134,8 @@
   --secondary-container: #e2dfde;
   
   --muted: #faf3e8;
-  --muted-foreground: #7e766b;
+  /* ≥4,5:1 (WCAG AA) sobre fondo, tarjetas y superficies altas del tema claro */
+  --muted-foreground: #6b6358;
   
   --accent: #f4ede2;
   --accent-foreground: #1e1b15;
@@ -204,6 +175,18 @@
   --sidebar-accent-foreground: #1e1b15;
   --sidebar-border: #cfc5b8;
   --sidebar-ring: #7e766b;
+
+  --surface-raised: #ffffff;
+  --surface-sunken: #f9fafb;
+  --surface-subtle: #f3f4f6;
+  --surface-hover: #f3f4f6;
+  --surface-hover-faint: #f9fafb;
+  --text-strong: #111827;
+  --text-default: #374151;
+  --text-soft: #4b5563;
+  --text-muted: #6b7280;
+  --line: #d1d5db;
+  --line-soft: #e5e7eb;
 }
 
 .dark {
@@ -269,11 +252,64 @@
   --sidebar-accent-foreground: #e5e2e1;
   --sidebar-border: #444748;
   --sidebar-ring: #8e9192;
+
+  --surface-raised: var(--tonal-2);
+  --surface-sunken: var(--background);
+  --surface-subtle: var(--tonal-1);
+  --surface-hover: var(--tonal-3);
+  --surface-hover-faint: var(--tonal-3);
+  --text-strong: var(--primary);
+  --text-default: var(--on-surface);
+  --text-soft: var(--on-surface-variant);
+  --text-muted: var(--on-surface-variant);
+  --line: var(--border);
+  --line-soft: var(--border);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+
+  /* Lucide es la única librería de iconos: trazo 1,5 para el tono sobrio del
+     tema oscuro. Solo pisa el valor por defecto (2); un strokeWidth puesto a
+     mano en un icono concreto se respeta. */
+  svg.lucide[stroke-width='2'] {
+    stroke-width: 1.5;
+  }
+
+  /* Tailwind v4 dejó de poner la mano en los botones: se fija una vez aquí
+     para todo control activable, y not-allowed en los deshabilitados. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='switch'],
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Quien pide menos movimiento en su sistema no recibe animaciones ni
+     transiciones largas (pulsos, giros, deslizamientos de modales). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   body {
@@ -336,89 +372,34 @@
     }
   }
 
-  .material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
-    display: inline-block;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-    white-space: nowrap;
-    direction: ltr;
-  }
-
   /* Minimalist scrollbars */
   ::-webkit-scrollbar {
     width: 4px;
     height: 4px;
   }
 
+  /* Tokens del tema activo: con colores fijos el tema claro mostraba una
+     barra negra. */
   ::-webkit-scrollbar-track {
-    background: #1A1A1A;
+    background: var(--tonal-1);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #333333;
+    background: var(--outline-variant);
     border-radius: 10px;
   }
 
-  /* Unificación de diseño Soft Dark de Stitch para componentes heredados */
+  /* Campos de formulario en oscuro: fondo y texto del tema por defecto. Sin
+     !important, así que la clase de cada componente sigue mandando.
+     Checkbox/radio quedan fuera: su marca se pinta con `color`, y con el
+     texto claro del tema quedaría invisible sobre la caja (Compras → Listas). */
   .dark {
-    /* Sobreescritura de fondos claros clásicos */
-    .bg-white {
-      background-color: var(--tonal-2) !important;
-    }
-
-    .bg-gray-50 {
-      background-color: var(--background) !important;
-    }
-
-    .bg-gray-100 {
-      background-color: var(--tonal-1) !important;
-    }
-
-    /* Sobreescritura de hovers claros heredados de Tailwind */
-    .hover\:bg-gray-50:hover,
-    .hover\:bg-gray-100:hover,
-    .hover\:bg-slate-50:hover,
-    .hover\:bg-slate-100:hover,
-    .hover\:bg-neutral-50:hover,
-    .hover\:bg-neutral-100:hover {
-      background-color: var(--tonal-3) !important;
-    }
-
-    /* Sobreescritura de textos claros */
-    .text-gray-900 {
-      color: var(--primary) !important;
-    }
-
-    .text-gray-800 {
-      color: var(--primary) !important;
-    }
-
-    .text-gray-700 {
-      color: var(--on-surface) !important;
-    }
-
-    .text-gray-600, .text-gray-500 {
-      color: var(--on-surface-variant) !important;
-    }
-
-    /* Sobreescritura de bordes y divisiones */
-    .border-gray-200, .border-gray-300, .divide-gray-200 {
-      border-color: var(--border) !important;
-    }
-
-    /* Adaptar formularios nativos. Checkbox/radio quedan fuera: su marca se
-       pinta con la propiedad `color`, que aquí se fuerza a blanco, y en dark
-       el accent (--primary) también es blanco → check invisible sobre caja
-       blanca (ej. checklist de Compras → Listas en móvil). */
     input:not([type='checkbox']):not([type='radio']),
     select,
     textarea {
-      background-color: var(--tonal-1) !important;
-      color: var(--primary) !important;
-      border-color: var(--border) !important;
+      background-color: var(--tonal-1);
+      color: var(--primary);
+      border-color: var(--border);
     }
 
     /* Sin color-scheme el navegador pinta la caja vacía con el aspecto claro
@@ -431,12 +412,6 @@
       color: var(--primary-foreground);
     }
 
-  }
-
-  /* Ocultar menús de navegación y headers antiguos duplicados globalmente */
-  header:not(.fixed),
-  nav:not(.fixed) {
-    display: none !important;
   }
 
   /* Ancho de contenido único en toda la app (docs/code-standards.md §4).

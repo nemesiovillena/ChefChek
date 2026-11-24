@@ -138,7 +138,7 @@ export function EditableLineCell({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={save}
       onKeyDown={handleKeyDown}
-      className="h-7 w-full px-1 text-sm border border-indigo-400 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+      className="h-7 w-full px-1 text-sm border border-primary/30 rounded focus:outline-none focus:ring-1 focus:ring-ring"
     />
   );
 }

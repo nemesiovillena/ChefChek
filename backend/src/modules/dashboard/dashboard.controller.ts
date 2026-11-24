@@ -29,13 +29,18 @@ import {
   CreateAlertDto,
   ResolveAlertDto,
   AlertsQueryDto,
+  SupplierSpendQueryDto,
 } from "./dto/dashboard.dto";
+import { DashboardInsightsService } from "./dashboard-insights.service";
 
 @ApiTags("Dashboard")
 @Controller("api/v1/dashboard")
 @UseGuards(AuthGuard, TenantGuard, RolesGuard, SectionAccessGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly insights: DashboardInsightsService,
+  ) {}
 
   // KPIs y Métricas
   @Get("kpis")
@@ -58,23 +63,24 @@ export class DashboardController {
     return await this.dashboardService.getDashboardMetrics(req.tenantId, query);
   }
 
-  @Get("metrics/cost-trend")
+  @Get("supplier-spend")
   @RequireSection("recipes.cost")
-  @ApiOperation({ summary: "Obtener tendencia de costes por período" })
-  @ApiResponse({ status: 200, description: "Tendencia de costes" })
-  async getCostTrend(@Req() req: any, @Query("period") period?: string) {
-    return await this.dashboardService.getCostTrend(req.tenantId, period);
+  @ApiOperation({
+    summary:
+      "Gasto por proveedor (neto sin IVA de las líneas de albaranes confirmados) frente al periodo anterior",
+  })
+  async getSupplierSpend(@Req() req: any, @Query() q: SupplierSpendQueryDto) {
+    return await this.insights.supplierSpend(req.tenantId, q.period ?? "MONTH");
   }
 
-  @Get("metrics/menu-margin")
+  @Get("recipe-margins")
   @RequireSection("recipes.cost")
-  @ApiOperation({ summary: "Analizar márgenes financieros de menús" })
-  @ApiResponse({
-    status: 200,
-    description: "Análisis de márgenes con warnings",
+  @ApiOperation({
+    summary:
+      "Coste de la carta: % de coste de cada receta con PVP frente al objetivo",
   })
-  async getMenuMarginAnalysis(@Req() req: any) {
-    return await this.dashboardService.getMenuMarginAnalysis(req.tenantId);
+  async getRecipeMargins(@Req() req: any) {
+    return await this.insights.recipeMargins(req.tenantId);
   }
 
   // Alertas

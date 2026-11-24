@@ -58,7 +58,6 @@ export default function SictedHubPage() {
           Evidencias para el distintivo Compromiso de Turismo Responsable: registros inalterables, autoevaluación y plan de mejora.
         </p>
       </header>
-      {/* Fuera de <header>: globals.css oculta header:not(.fixed) en móvil. La guía es para administración. */}
       {canManage && (
         <Link
           href="/dashboard/sicted/ayuda"
@@ -183,7 +182,7 @@ export default function SictedHubPage() {
                   className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg bg-[var(--error-container)] px-3 py-2 text-left text-[var(--on-error-container)]"
                 >
                   <span>
-                    {r.template.name} — {formatPeriodKey(r.periodKey)}
+                    {r.template.name} · {formatPeriodKey(r.periodKey)}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0" />
                 </button>

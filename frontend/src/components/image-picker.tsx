@@ -70,7 +70,7 @@ export default function ImagePicker({
           <button
             type="button"
             onClick={openPanel}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-line text-text-default hover:bg-surface-hover-faint transition-colors"
           >
             <Search className="h-3.5 w-3.5" />
             Buscar imagen
@@ -79,7 +79,7 @@ export default function ImagePicker({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-zinc-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-line text-text-default hover:bg-surface-hover-faint disabled:opacity-50 transition-colors"
           >
             <Upload className="h-3.5 w-3.5" />
             {uploading ? 'Subiendo...' : 'Subir archivo'}
@@ -98,7 +98,7 @@ export default function ImagePicker({
         </div>
 
         {panelOpen && (
-          <div className="mt-3 p-3 rounded-md border border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/60">
+          <div className="mt-3 p-3 rounded-md border border-line-soft bg-surface-sunken">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -106,13 +106,13 @@ export default function ImagePicker({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Término de búsqueda"
-                className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="flex-1 px-3 py-1.5 text-sm bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               />
               <button
                 type="button"
                 onClick={handleSearch}
                 disabled={searching || !query.trim()}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+                className="px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
               >
                 {searching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Buscar
@@ -120,7 +120,7 @@ export default function ImagePicker({
               <button
                 type="button"
                 onClick={() => setPanelOpen(false)}
-                className="px-2 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                className="px-2 py-1.5 text-sm text-text-muted hover:text-text-default dark:hover:text-gray-200"
               >
                 Cerrar
               </button>
@@ -131,7 +131,7 @@ export default function ImagePicker({
             )}
 
             {results && results.length === 0 && !searching && (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-text-muted">
                 Sin resultados. Prueba otra búsqueda o sube un archivo.
               </p>
             )}
@@ -144,7 +144,7 @@ export default function ImagePicker({
                     type="button"
                     onClick={() => handlePick(r.url)}
                     title={r.title}
-                    className="aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-zinc-700 hover:ring-2 hover:ring-indigo-500 transition-all bg-white dark:bg-zinc-800"
+                    className="aspect-square rounded-md overflow-hidden border border-line-soft hover:ring-2 hover:ring-ring transition-all bg-surface-raised"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -161,7 +161,7 @@ export default function ImagePicker({
             {results && results.length > 0 && (
               <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
                 Fotos proporcionadas por{' '}
-                <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">
+                <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-text-soft dark:hover:text-gray-300">
                   Pexels
                 </a>
               </p>

@@ -38,7 +38,7 @@ export function SupplierMatchBadge({ hasSupplier, hasOcrData, ocrSupplierName }:
       }
     >
       <AlertTriangle className="h-3.5 w-3.5" />
-      {ocrSupplierName ? `No reconocido — el papel dice "${ocrSupplierName}"` : 'No reconocido'}
+      {ocrSupplierName ? `No reconocido: el papel dice "${ocrSupplierName}"` : 'No reconocido'}
     </span>
   );
 }

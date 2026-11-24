@@ -49,7 +49,6 @@ function SictedMantenimientoPageContent() {
       </button>
       <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Mantenimiento</h2>
 
-      {/* Tab bar con role=tablist: globals.css oculta <nav> no-fixed, no usar <nav> */}
       <div
         role="tablist"
         aria-label="Secciones de mantenimiento"

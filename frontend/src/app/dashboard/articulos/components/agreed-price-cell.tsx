@@ -36,7 +36,7 @@ export function AgreedPriceCell({ agreedPrice, currentPrice, isSaving, onSave, r
     return (
       <div className="mt-1.5 flex items-center gap-2 pl-6">
         <Tags className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-text-muted">
           {agreedPrice != null ? `Pactado: ${formatEuro(agreedPrice)}` : 'Sin pactar'}
         </span>
       </div>
@@ -60,25 +60,25 @@ export function AgreedPriceCell({ agreedPrice, currentPrice, isSaving, onSave, r
               if (e.key === 'Escape') setIsEditing(false);
             }}
             placeholder="Sin pactar"
-            className="w-24 rounded border border-gray-300 px-1.5 py-0.5 text-xs focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-24 rounded border border-line px-1.5 py-0.5 text-xs focus:outline-none focus:ring-ring focus:border-ring"
           />
           <button type="button" onClick={handleSave} disabled={isSaving} className="text-green-600 hover:text-green-700" title="Guardar">
             <Check className="h-3.5 w-3.5" />
           </button>
-          <button type="button" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-gray-600" title="Cancelar">
+          <button type="button" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-text-soft" title="Cancelar">
             <X className="h-3.5 w-3.5" />
           </button>
         </>
       ) : (
         <>
-          <button type="button" onClick={startEdit} className="text-xs text-gray-500 hover:text-indigo-600">
+          <button type="button" onClick={startEdit} className="text-xs text-text-muted hover:text-primary">
             {agreedPrice != null ? `Pactado: ${formatEuro(agreedPrice)}` : 'Fijar precio pactado'}
           </button>
           <button
             type="button"
             onClick={() => onSave(currentPrice)}
             disabled={isSaving}
-            className="shrink-0 text-gray-400 hover:text-indigo-600 disabled:opacity-50"
+            className="shrink-0 text-gray-400 hover:text-primary disabled:opacity-50"
             title={`Usar precio actual (${formatEuro(currentPrice)})`}
           >
             <Copy className="h-3.5 w-3.5" />

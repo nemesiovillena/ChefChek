@@ -11,7 +11,7 @@ const statusConfig: Record<AlbaranStatus, { label: string; variant: 'default' | 
   PENDIENTE: { label: 'Pendiente', variant: 'secondary', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' },
   REVISADO: { label: 'Pedido recibido', variant: 'secondary', className: 'bg-blue-100 text-blue-800 hover:bg-blue-100' },
   CONFIRMADO: { label: 'Confirmado', variant: 'secondary', className: 'bg-green-100 text-green-800 hover:bg-green-100' },
-  ARCHIVADO: { label: 'Archivado', variant: 'outline', className: 'bg-gray-100 text-gray-600 hover:bg-gray-100' },
+  ARCHIVADO: { label: 'Archivado', variant: 'outline', className: 'bg-surface-subtle text-text-soft hover:bg-surface-hover' },
 };
 
 export function AlbaranStatusBadge({ status }: AlbaranStatusBadgeProps) {

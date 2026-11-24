@@ -23,6 +23,7 @@ import {
   type NoteTagColor,
 } from '@/hooks/use-notes';
 import { NOTE_COLOR_CLASSES } from './note-display';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 
 function ColorPicker({
   value,
@@ -125,7 +126,7 @@ function TagRow({
           onClick={() => onMove(-1)}
           aria-label="Subir"
         >
-          <span className="material-symbols-outlined">arrow_upward</span>
+          <ArrowUp aria-hidden className="h-6 w-6" />
         </Button>
         <Button
           type="button"
@@ -135,10 +136,10 @@ function TagRow({
           onClick={() => onMove(1)}
           aria-label="Bajar"
         >
-          <span className="material-symbols-outlined">arrow_downward</span>
+          <ArrowDown aria-hidden className="h-6 w-6" />
         </Button>
         <Button type="button" variant="ghost" size="icon" onClick={remove} aria-label="Borrar etiqueta">
-          <span className="material-symbols-outlined">delete</span>
+          <Trash2 aria-hidden className="h-6 w-6" />
         </Button>
       </div>
       <ColorPicker

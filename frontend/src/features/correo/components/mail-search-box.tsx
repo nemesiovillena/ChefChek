@@ -39,7 +39,7 @@ export function MailSearchBox({ value, onSearch }: Props) {
         placeholder="Buscar remitente, asunto o texto…"
         aria-label="Buscar correos en esta carpeta"
         enterKeyHint="search"
-        className="min-h-[40px] min-w-0 flex-1 rounded-lg bg-transparent px-2 text-base text-[var(--on-surface)] outline-none placeholder:text-[var(--on-surface-variant)] focus:bg-[var(--surface-container)] sm:text-sm [&::-webkit-search-cancel-button]:hidden"
+        className="min-h-[40px] min-w-0 flex-1 rounded-lg bg-transparent px-2 text-base text-[var(--on-surface)] outline-none placeholder:text-[var(--on-surface-variant)] focus:bg-[var(--surface-container)] focus-visible:ring-2 focus-visible:ring-ring sm:text-sm [&::-webkit-search-cancel-button]:hidden"
       />
       {text && (
         <button

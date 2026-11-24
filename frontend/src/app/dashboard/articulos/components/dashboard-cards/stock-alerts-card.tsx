@@ -12,19 +12,19 @@ export function StockAlertsCard({ stockAlerts, onViewAlerts }: Props) {
 
   return (
     <div
-      className={`bg-white border rounded-lg p-6 hover:shadow-md transition cursor-pointer ${
+      className={`bg-surface-raised border rounded-lg p-6 hover:shadow-md transition cursor-pointer ${
         hasAlerts ? 'border-red-200' : ''
       }`}
       onClick={onViewAlerts}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${hasAlerts ? 'bg-red-100' : 'bg-gray-100'}`}>
-            <AlertTriangle className={`h-6 w-6 ${hasAlerts ? 'text-red-600' : 'text-gray-600'}`} />
+          <div className={`p-2 rounded-lg ${hasAlerts ? 'bg-red-100' : 'bg-surface-subtle'}`}>
+            <AlertTriangle className={`h-6 w-6 ${hasAlerts ? 'text-red-600' : 'text-text-soft'}`} />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Alertas de stock</p>
-            <p className={`text-3xl font-bold ${hasAlerts ? 'text-red-600' : 'text-gray-900'}`}>
+            <p className="text-sm text-text-muted">Alertas de stock</p>
+            <p className={`text-3xl font-bold ${hasAlerts ? 'text-red-600' : 'text-text-strong'}`}>
               {total}
             </p>
           </div>

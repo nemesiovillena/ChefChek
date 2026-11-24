@@ -134,7 +134,7 @@ function PositionCard({ position, sections }: { position: TeamPosition; sections
                 if (e.key === 'Escape') setEditing(false);
               }}
             />
-            <button type="button" aria-label="Guardar nombre" onClick={saveTitle} className="p-2 text-[var(--on-surface-variant)] hover:text-indigo-600">
+            <button type="button" aria-label="Guardar nombre" onClick={saveTitle} className="p-2 text-[var(--on-surface-variant)] hover:text-primary">
               <Check className="h-4 w-4" />
             </button>
             <button
@@ -169,7 +169,7 @@ function PositionCard({ position, sections }: { position: TeamPosition; sections
         )}
         {!editing && (
           <div className="flex items-center gap-1">
-            <button type="button" title="Renombrar" aria-label="Renombrar" onClick={() => setEditing(true)} className="p-2 text-[var(--on-surface-variant)] hover:text-indigo-600">
+            <button type="button" title="Renombrar" aria-label="Renombrar" onClick={() => setEditing(true)} className="p-2 text-[var(--on-surface-variant)] hover:text-primary">
               <Pencil className="h-4 w-4" />
             </button>
             <button type="button" title="Archivar" aria-label="Archivar" onClick={handleArchive} className="p-2 text-[var(--on-surface-variant)] hover:text-red-600">
@@ -245,7 +245,7 @@ export function TeamPositionsTab() {
           type="button"
           onClick={handleCreate}
           disabled={create.isPending || !newTitle.trim()}
-          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-indigo-600 px-4 text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-primary px-4 text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" /> Añadir
         </button>

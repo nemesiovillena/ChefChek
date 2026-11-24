@@ -126,7 +126,7 @@ export function SictedChecklistItemRow({
             {history.map((h) => (
               <li key={h.id}>
                 <LockedBadge entry={h} mode={mode} /> {h.performedByName} · {fmtTime(h.recordedAt)}
-                {entryDetailText(h) && ` — ${entryDetailText(h)}`}
+                {entryDetailText(h) && ` · ${entryDetailText(h)}`}
               </li>
             ))}
           </ul>

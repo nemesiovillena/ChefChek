@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useSictedStatus } from '@/hooks/use-sicted';
+import { BadgeCheck, Circle, CircleCheckBig } from 'lucide-react';
 
 // Hojas pendientes que se nombran en la card; el resto se resume en "+N más".
 const PENDING_LIST_LIMIT = 4;
@@ -29,7 +30,7 @@ export function SictedDashboardCard() {
       <div className="flex flex-wrap items-center justify-between gap-stack-sm">
         <div className="flex items-center gap-stack-md">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
-            <span className="material-symbols-outlined text-[22px]">verified</span>
+            <BadgeCheck aria-hidden className="h-[22px] w-[22px]" />
           </span>
           <div>
             <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">SICTED</h5>
@@ -64,7 +65,7 @@ export function SictedDashboardCard() {
         <p className="font-label-md text-label-md text-on-surface-variant">Sin hojas para hoy</p>
       ) : pendingToday.length === 0 ? (
         <p className="flex items-center gap-stack-sm font-headline-md text-headline-md text-primary">
-          <span className="material-symbols-outlined text-[28px]">task_alt</span>
+          <CircleCheckBig aria-hidden className="h-[28px] w-[28px]" />
           Todo hecho por hoy
         </p>
       ) : (
@@ -78,9 +79,7 @@ export function SictedDashboardCard() {
           <ul className="min-w-0 flex-1 space-y-1">
             {pendingToday.slice(0, PENDING_LIST_LIMIT).map((run) => (
               <li key={run.id} className="flex min-w-0 items-center gap-stack-sm font-label-md text-label-md text-primary">
-                <span className="material-symbols-outlined shrink-0 text-[16px] text-on-surface-variant">
-                  radio_button_unchecked
-                </span>
+                <Circle aria-hidden className="h-[16px] w-[16px] shrink-0 text-on-surface-variant" />
                 <span className="truncate">
                   {run.template.name}
                   <span className="text-on-surface-variant"> · {run.template.area}</span>

@@ -159,7 +159,7 @@ export class PriceAgreementService {
     });
 
     const origin = context.albaranLabel
-      ? ` — Albarán ${context.albaranLabel}`
+      ? ` · Albarán ${context.albaranLabel}`
       : "";
     await this.notificationsService.createNotification(tenantId, {
       type: "PRICE_AGREEMENT_DEVIATION",

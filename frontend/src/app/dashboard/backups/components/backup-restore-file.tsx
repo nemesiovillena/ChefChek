@@ -79,7 +79,7 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
         }}
       />
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container/50 text-primary ">
           {busy ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
@@ -98,7 +98,7 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
         <button
           onClick={() => inputRef.current?.click()}
           disabled={busy}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-300 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-2 rounded-md border border-line bg-surface-raised px-4 py-2 text-sm font-medium text-text-default transition-colors hover:bg-surface-hover-faint disabled:opacity-50"
         >
           <UploadCloud className="h-4 w-4" /> Elegir archivo
         </button>
@@ -112,7 +112,7 @@ export function BackupRestoreFile({ baseUrl, onRestoreStarted }: Props) {
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
             <div
-              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+              className="h-full rounded-full bg-primary transition-all duration-300"
               style={{ width: `${uploadPct}%` }}
             />
           </div>

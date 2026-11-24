@@ -30,7 +30,7 @@ export default function StockBadge({ current, minimum, unit = '' }: StockBadgePr
     >
       <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
       {current.toFixed(current % 1 === 0 ? 0 : 2)}
-      {unit && <span className="text-[10px] opacity-70">{unit}</span>}
+      {unit && <span className="text-[11px] opacity-70">{unit}</span>}
     </span>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, StickyNote, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth.context';
@@ -77,7 +77,7 @@ export default function NotasPage() {
         <div className="flex gap-2">
           {isManager && (
             <Button variant="outline" onClick={() => setTagsOpen(true)}>
-              <span className="material-symbols-outlined mr-1 text-[18px]">sell</span>
+              <Tag aria-hidden className="h-[18px] w-[18px] mr-1" />
               Etiquetas
             </Button>
           )}
@@ -163,7 +163,7 @@ export default function NotasPage() {
         </div>
       ) : notes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-16 text-center text-on-surface-variant">
-          <span className="material-symbols-outlined text-[40px]">sticky_note_2</span>
+          <StickyNote aria-hidden className="h-[40px] w-[40px]" />
           <p className="mt-2 text-body-md">
             {search || tagId
               ? 'No hay notas con este filtro.'

@@ -51,7 +51,6 @@ function SictedProveedoresPageContent() {
       </button>
       <h2 className="font-headline-lg text-headline-lg text-primary mb-6">Proveedores y aprovisionamiento</h2>
 
-      {/* Tab bar con role=tablist: globals.css oculta <nav> no-fixed, no usar <nav> */}
       <div
         role="tablist"
         aria-label="Secciones de proveedores y aprovisionamiento"

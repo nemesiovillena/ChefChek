@@ -56,7 +56,7 @@ export default function MenusPage() {
   // Don't render anything if not authenticated or loading
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );
@@ -124,7 +124,7 @@ export default function MenusPage() {
 
   if (isLoading || pageLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-surface-sunken">
         <div className="text-lg">Cargando...</div>
       </div>
     );
@@ -134,10 +134,10 @@ export default function MenusPage() {
     <div className="w-full">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Menús</h1>
+          <h1 className="text-3xl font-bold text-text-strong">Menús</h1>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             {showCreateForm ? 'Cancelar' : 'Crear Menú'}
           </button>
@@ -145,41 +145,41 @@ export default function MenusPage() {
 
         {/* Formulario de Creación */}
         {showCreateForm && (
-          <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg mb-6 p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Crear Nuevo Menú</h2>
+          <div className="bg-surface-raised border border-line-soft shadow rounded-lg mb-6 p-6">
+            <h2 className="text-xl font-semibold mb-4 text-text-strong">Crear Nuevo Menú</h2>
             <form onSubmit={handleCreateMenu} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-default mb-1">
                   Nombre del Menú *
                 </label>
                 <input
                   name="name"
                   type="text"
                   required
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-text-default mb-1">
                   Descripción
                 </label>
                 <textarea
                   name="description"
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-surface-raised text-text-strong border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                 >
                   Crear Menú
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="px-4 py-2 bg-gray-300 dark:bg-zinc-850 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-zinc-750 transition-colors"
+                  className="px-4 py-2 bg-gray-300 dark:bg-zinc-850 text-text-default rounded-md hover:bg-gray-400 dark:hover:bg-zinc-750 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -189,42 +189,42 @@ export default function MenusPage() {
         )}
 
         {/* Lista de Menús */}
-        <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow rounded-lg overflow-hidden">
+        <div className="bg-surface-raised border border-line-soft shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-zinc-800">
-              <thead className="bg-gray-50 dark:bg-zinc-800/50">
+            <table className="min-w-full divide-y divide-line-soft">
+              <thead className="bg-surface-sunken">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                     Menú
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                     Descripción
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider">
                     Creado
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-text-muted tracking-wider">
                     Acciones
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-zinc-900 divide-y divide-gray-200 dark:divide-zinc-800">
+              <tbody className="bg-surface-raised divide-y divide-line-soft">
                 {menus.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={5} className="px-6 py-4 text-center text-text-muted">
                       No se encontraron menús
                     </td>
                   </tr>
                 ) : (
                   menus.map((menu) => (
-                    <tr key={menu.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/50">
+                    <tr key={menu.id} className="hover:bg-surface-hover-faint">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{menu.name}</div>
+                        <div className="text-sm font-medium text-text-strong">{menu.name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-strong">
                         {menu.description || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -239,13 +239,13 @@ export default function MenusPage() {
                           {menu.isActive ? 'Activo' : 'Desactivado'}
                         </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-muted">
                         {new Date(menu.createdAt).toLocaleDateString('es-ES')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <button
                           onClick={() => handleViewDetails(menu.id)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 hover:underline font-semibold"
+                          className="text-primary hover:text-primary hover:underline font-semibold"
                         >
                           Ver Detalles
                         </button>
@@ -260,18 +260,18 @@ export default function MenusPage() {
 
         {/* Modal de Detalles */}
         {selectedMenu && (
-          <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 max-w-2xl w-full shadow-2xl">
-              <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{selectedMenu.name}</h3>
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center p-4 z-50">
+            <div className="bg-surface-raised border border-line-soft rounded-lg p-6 max-w-2xl w-full shadow-2xl">
+              <h3 className="text-2xl font-bold mb-4 text-text-strong">{selectedMenu.name}</h3>
               <div className="space-y-3">
                 {selectedMenu.description && (
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">Descripción:</span>
-                    <p className="mt-1 text-gray-900 dark:text-white">{selectedMenu.description}</p>
+                    <span className="text-text-muted">Descripción:</span>
+                    <p className="mt-1 text-text-strong">{selectedMenu.description}</p>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500 dark:text-gray-400">Estado:</span>
+                  <span className="text-text-muted">Estado:</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     selectedMenu.isActive
                       ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -281,8 +281,8 @@ export default function MenusPage() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500 dark:text-gray-400">Creado:</span>
-                  <span className="ml-2 text-gray-900 dark:text-white">
+                  <span className="text-text-muted">Creado:</span>
+                  <span className="ml-2 text-text-strong">
                     {new Date(selectedMenu.createdAt).toLocaleDateString('es-ES')}
                   </span>
                 </div>
@@ -290,7 +290,7 @@ export default function MenusPage() {
               <div className="mt-6 flex justify-end">
                 <button
                   onClick={() => setSelectedMenu(null)}
-                  className="px-4 py-2 bg-gray-300 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-zinc-700 transition-colors"
+                  className="px-4 py-2 bg-gray-300 dark:bg-zinc-800 text-text-default rounded-md hover:bg-gray-400 dark:hover:bg-zinc-700 transition-colors"
                 >
                   Cerrar
                 </button>

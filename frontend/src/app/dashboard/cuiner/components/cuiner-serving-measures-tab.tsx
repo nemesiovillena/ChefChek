@@ -55,7 +55,7 @@ function MeasureForm({
 
   return (
     <form
-      className="grid gap-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30 md:grid-cols-[1.2fr_0.6fr_0.6fr_2fr_auto] md:items-end"
+      className="grid gap-2 rounded-lg border border-primary/30 bg-secondary-container/50 p-3 md:grid-cols-[1.2fr_0.6fr_0.6fr_2fr_auto] md:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         const parsed = parseDraft(draft);
@@ -153,7 +153,7 @@ export function CuinerServingMeasuresTab() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-sm text-gray-600 dark:text-zinc-400">
+        <p className="max-w-2xl text-sm text-text-soft">
           Cuánto sale de un artículo en cada venta. Al enlazar un plato con un artículo eliges la medida, y la app la propone según las
           palabras del nombre del plato en el TPV. Si cambias una cantidad, cuenta para las ventas que se apliquen a partir de ahora.
         </p>
@@ -177,7 +177,7 @@ export function CuinerServingMeasuresTab() {
       {error && <p className="text-sm text-red-600">{error.message}</p>}
 
       {data && (
-        <ul className="divide-y divide-gray-200 dark:divide-zinc-800">
+        <ul className="divide-y divide-line-soft">
           {data.map((m) =>
             editing === m.id ? (
               <li key={m.id} className="py-3">

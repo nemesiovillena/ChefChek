@@ -83,7 +83,7 @@ export class SictedRegistrosPdfService {
     doc
       .font("Helvetica-Bold")
       .fontSize(14)
-      .text(`Registro de limpieza/revisión — ${name}`, { align: "left" });
+      .text(`Registro de limpieza/revisión: ${name}`, { align: "left" });
     doc
       .font("Helvetica")
       .fontSize(9)

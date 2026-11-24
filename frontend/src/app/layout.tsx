@@ -37,36 +37,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // suppressHydrationWarning: antes de hidratar, el script de abajo añade
-    // `ms-fonts-ready` y el tema `dark` a <html>; el className del cliente
-    // difiere a propósito del del servidor. Solo silencia atributos de <html>.
+    // suppressHydrationWarning: el cliente añade el tema `dark` a <html> (ver
+    // dashboard/layout.tsx), así que su className difiere a propósito del del
+    // servidor. Solo silencia atributos de <html>.
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
-        <link
-          rel="preload"
-          href="/fonts/material-symbols-outlined.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        {/* Los iconos se renderizan como el nombre del glifo en texto
-            ("local_shipping") hasta que la fuente de iconos lo convierte en
-            ligadura. Edge antiguo no puede cargar la fuente variable woff2 y
-            deja ese texto visible (recortado a una letra por el overflow de
-            globals.css). Los spans .material-symbols-outlined arrancan ocultos
-            y solo se revelan si document.fonts confirma que la fuente cargó
-            de verdad. En navegadores que no cargan la fuente (o sin la API)
-            los iconos no se muestran, en vez de mostrar texto basura. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var f='24px \"Material Symbols Outlined\"';if(!document.fonts||!document.fonts.load)return;document.fonts.load(f).then(function(){if(document.fonts.check(f))document.documentElement.classList.add('ms-fonts-ready');},function(){});}catch(e){}})();",
-          }}
-        />
         {process.env.NODE_ENV === "production" && (
           <script dangerouslySetInnerHTML={{ __html: REGISTER_SERVICE_WORKER }} />
         )}

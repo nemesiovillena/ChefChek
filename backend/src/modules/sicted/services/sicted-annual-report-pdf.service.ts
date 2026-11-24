@@ -34,7 +34,7 @@ export class SictedAnnualReportPdfService {
       .fontSize(8)
       .fillColor("#666")
       .text(
-        "Herramienta de apoyo interno — no sustituye la evaluación oficial de un evaluador externo SICTED.",
+        "Herramienta de apoyo interno. No sustituye la evaluación oficial de un evaluador externo SICTED.",
       )
       .fillColor("#000");
 
@@ -45,7 +45,7 @@ export class SictedAnnualReportPdfService {
       }
       this.line(
         doc,
-        `${report.assessment.label} — cerrada el ${report.assessment.closedAt.slice(0, 10)} · ${report.assessment.pendingMandatoryCount} obligatorias sin cumplir`,
+        `${report.assessment.label}, cerrada el ${report.assessment.closedAt.slice(0, 10)} · ${report.assessment.pendingMandatoryCount} obligatorias sin cumplir`,
       );
     });
 
@@ -56,7 +56,7 @@ export class SictedAnnualReportPdfService {
       for (const o of report.objectives) {
         this.line(
           doc,
-          `${o.title} — ${o.status}${o.indicator ? ` · ${o.indicator}` : ""}${o.target ? ` (meta: ${o.target})` : ""}${o.currentValue ? ` · actual: ${o.currentValue}` : ""}`,
+          `${o.title} · ${o.status}${o.indicator ? ` · ${o.indicator}` : ""}${o.target ? ` (meta: ${o.target})` : ""}${o.currentValue ? ` · actual: ${o.currentValue}` : ""}`,
         );
       }
     });
@@ -69,7 +69,7 @@ export class SictedAnnualReportPdfService {
       for (const a of report.improvementActions.closedThisYear) {
         this.line(
           doc,
-          `  #${a.code} ${a.title} — implantada ${a.closedAt.slice(0, 10)}`,
+          `  #${a.code} ${a.title}, implantada ${a.closedAt.slice(0, 10)}`,
         );
       }
     });
@@ -90,7 +90,7 @@ export class SictedAnnualReportPdfService {
       for (const d of report.legalDocs) {
         this.line(
           doc,
-          `${d.label} — ${d.title}${d.expiresAt ? ` · caduca ${d.expiresAt.slice(0, 10)}` : ""}`,
+          `${d.label} · ${d.title}${d.expiresAt ? ` · caduca ${d.expiresAt.slice(0, 10)}` : ""}`,
         );
       }
     });

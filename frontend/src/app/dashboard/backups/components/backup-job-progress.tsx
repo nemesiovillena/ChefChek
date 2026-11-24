@@ -56,7 +56,7 @@ export function BackupJobProgress({ baseUrl, jobId, onTerminal }: Props) {
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
         <div
-          className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+          className="h-full rounded-full bg-primary transition-all duration-300"
           style={{ width: `${data.progress}%` }}
         />
       </div>

@@ -55,13 +55,13 @@ export function SettingsSectionIndex() {
     <div
       role="navigation"
       aria-label="Secciones de Configuración"
-      className="sticky top-14 z-10 mb-6 -mx-2 flex gap-2 overflow-x-auto md:flex-wrap rounded-lg bg-gray-50/95 px-2 py-3 backdrop-blur dark:bg-zinc-950/90"
+      className="sticky top-14 z-10 mb-6 -mx-2 flex gap-2 overflow-x-auto md:flex-wrap rounded-lg bg-surface-sunken/95 px-2 py-3 backdrop-blur"
     >
       {visible.map((s) => (
         <a
           key={s.id}
           href={`#${s.id}`}
-          className="shrink-0 whitespace-nowrap rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm hover:border-indigo-500 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900"
+          className="shrink-0 whitespace-nowrap rounded-full border border-line bg-surface-raised px-3 py-1.5 text-sm hover:border-primary/60 hover:text-primary"
         >
           {s.label}
         </a>

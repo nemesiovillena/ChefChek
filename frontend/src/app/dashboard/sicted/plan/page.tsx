@@ -255,7 +255,7 @@ function SictedPlanContent() {
       </div>
 
       {templates && templates.length > 0 && (
-        <label className="mb-4 flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3">
+        <label className="mb-4 flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 focus-within:ring-2 focus-within:ring-ring">
           <Search className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
           <input
             value={query}

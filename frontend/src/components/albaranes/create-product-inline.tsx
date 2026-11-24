@@ -231,7 +231,7 @@ export function CreateProductInline({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-3 bg-gray-50 rounded-lg">
+    <form onSubmit={handleSubmit} className="space-y-3 p-3 bg-surface-sunken rounded-lg">
       <div>
         <Label htmlFor="name" className="text-xs">Nombre</Label>
         <Input
@@ -285,9 +285,9 @@ export function CreateProductInline({
 
       {lineSubtotal !== null && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs dark:border-blue-900 dark:bg-blue-950/30">
-          <div className="text-gray-600 dark:text-gray-300">
+          <div className="text-text-soft">
             Subtotal línea:{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-100">
+            <span className="font-semibold text-text-strong">
               {lineQuantity.toLocaleString('es-ES')} {subtotalUnitLabel}{' '}
               × {fmtEuro(subtotalPrice)} € = {fmtEuro(lineSubtotal)} €
             </span>

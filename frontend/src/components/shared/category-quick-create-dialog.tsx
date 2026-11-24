@@ -86,34 +86,34 @@ export default function CategoryQuickCreateDialog({
 
   return (
     <div className="fixed inset-0 bg-gray-600/50 z-[60] flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-surface-raised rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-medium text-text-strong mb-4">
           {parentId ? 'Nueva subcategoría' : 'Nueva categoría'}
         </h3>
 
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-text-default mb-1">
               Nombre <span className="text-red-500">*</span>
             </label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre de la categoría"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring text-sm"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-text-default mb-1">
               Categoría padre <span className="text-gray-400 text-xs">(opcional)</span>
             </label>
             <select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:ring-ring focus:border-ring text-sm bg-surface-raised"
             >
               <option value="">Sin categoría padre (categoría principal)</option>
               {tree.map((node) => (
@@ -122,7 +122,7 @@ export default function CategoryQuickCreateDialog({
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-text-muted mt-1">
               Si eliges un padre, se creará como subcategoría de éste.
             </p>
           </div>
@@ -131,14 +131,14 @@ export default function CategoryQuickCreateDialog({
         <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={() => { reset(); onClose(); }}
-            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-sm text-text-default hover:text-text-strong"
           >
             Cancelar
           </button>
           <button
             onClick={handleCreate}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Crear categoría

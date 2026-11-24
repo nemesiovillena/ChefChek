@@ -3,8 +3,9 @@
 import { useAuth } from '@/contexts/auth.context';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { Bell, ChevronDown, ChevronUp, LayoutGrid, LoaderCircle, LogOut, User, X } from 'lucide-react';
 import { useWebSocketNotifications } from '@/hooks/use-websocket';
 import { resolveNotificationRoute } from '@/lib/notification-routes';
 import { useModules } from '@/features/modules/hooks/use-modules';
@@ -50,6 +51,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   /** Mobile-only "Más" drawer, grouping every category in one sheet. */
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  // El menú «Más» se cierra con Escape y devuelve el foco al botón que lo abrió.
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const focusOnMount = useCallback((el: HTMLDivElement | null) => el?.focus(), []);
+  const closeMobileMenu = () => {
+    setShowMobileMenu(false);
+    moreButtonRef.current?.focus();
+  };
 
   // Load module activation states + per-role section access for the current
   // tenant once authenticated. `refetchSections` ensures a fresh map after a
@@ -155,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212] text-[#e5e2e1]">
         <div className="flex flex-col items-center gap-4">
-          <span className="material-symbols-outlined text-4xl animate-spin text-secondary">progress_activity</span>
+          <LoaderCircle aria-hidden className="h-9 w-9 animate-spin text-secondary" />
           <div className="font-label-md text-label-md tracking-wider">VALIDANDO ACCESO...</div>
         </div>
       </div>
@@ -181,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="font-label-md text-label-md text-on-surface-variant cursor-pointer hover:text-primary transition-colors pb-1 flex items-center gap-1 uppercase whitespace-nowrap"
               >
                 {group.title}
-                <span className="material-symbols-outlined text-[16px] max-lg:hidden!">{openGroup === group.title ? 'expand_less' : 'expand_more'}</span>
+                {openGroup === group.title ? <ChevronUp aria-hidden className="h-4 w-4 max-lg:hidden!" /> : <ChevronDown aria-hidden className="h-4 w-4 max-lg:hidden!" />}
               </button>
               {openGroup === group.title && (
                 <div className="absolute top-8 left-0 w-56 bg-surface-container-high border border-border rounded-lg shadow-xl z-50 overflow-hidden p-2">
@@ -192,7 +200,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       onClick={() => setOpenGroup(null)}
                       className="flex items-center gap-2 px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-md transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                      {item.icon && <item.icon aria-hidden className="h-[18px] w-[18px]" />}
                       {item.label}
                     </Link>
                   ))}
@@ -210,30 +218,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-stack-md shrink-0">
           {/* Nombre/rol solo desde xl y truncado: por debajo el menú ocupa el ancho y empujaba fuera el botón de cerrar sesión */}
           <div className="text-right hidden sm:block md:hidden xl:block max-w-44">
-            <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{(user?.role || 'CHEF DE CUISINE').replace('_', ' ').toUpperCase()}</p>
-            <p className="font-body-md text-body-md text-primary truncate">{user?.name || 'Marcus V.'}</p>
+            {/* Sin usuario cargado no se muestra nada: antes salía un nombre y un rol de ejemplo. */}
+            {user?.role && (
+              <p className="font-label-sm text-label-sm text-on-surface-variant truncate">{user.role.replace('_', ' ').toUpperCase()}</p>
+            )}
+            {user?.name && <p className="font-body-md text-body-md text-primary truncate">{user.name}</p>}
           </div>
-          <div className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant cursor-pointer text-sm font-medium text-on-surface-variant" onClick={() => showSettings && router.push(SETTINGS_LINK.href)}>
-            {user?.avatarUrl ? (
+          {(() => {
+            const avatarClass =
+              'w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden border border-outline-variant text-sm font-medium text-on-surface-variant';
+            const avatarContent = user?.avatarUrl ? (
               <Image
-                alt="Foto de perfil"
+                alt=""
                 width={40}
                 height={40}
                 className="object-cover w-full h-full"
                 src={user.avatarUrl}
               />
             ) : (
-              getInitials(user?.name) || <span className="material-symbols-outlined text-[20px]">person</span>
-            )}
-          </div>
+              getInitials(user?.name) || <User aria-hidden className="h-5 w-5" />
+            );
+            // Solo es un control cuando lleva a Ajustes; si no, es una imagen de identidad.
+            return showSettings ? (
+              <Link
+                href={SETTINGS_LINK.href}
+                aria-label="Ajustes"
+                className={`${avatarClass} hover:border-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+              >
+                {avatarContent}
+              </Link>
+            ) : (
+              <div className={avatarClass}>{avatarContent}</div>
+            );
+          })()}
           <button
+            type="button"
             onClick={() => setShowNotifications(!showNotifications)}
             className="hidden lg:flex relative text-on-surface-variant hover:text-primary cursor-pointer active:scale-95 duration-200 p-1 items-center justify-center"
             title="Notificaciones"
+            aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'}
+            aria-expanded={showNotifications}
           >
-            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <Bell aria-hidden className="h-[22px] w-[22px]" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+              <span aria-hidden className="absolute -top-1 -right-1 bg-error text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -274,7 +302,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       >
                         <p className="text-xs text-primary font-medium">{notif.title}</p>
                         <p className="text-[11px] text-on-surface-variant mt-0.5 leading-snug">{notif.message}</p>
-                        <p className="text-[10px] text-on-surface-variant opacity-75 mt-0.5">
+                        <p className="text-[11px] text-on-surface-variant opacity-75 mt-0.5">
                           {new Date(notif.createdAt).toLocaleTimeString()}
                         </p>
                       </div>
@@ -306,11 +334,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </button>
           <button
+            type="button"
             onClick={logout}
-            className="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200 ml-2"
-            title="Cerrar Sesión"
+            className="text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200 ml-2 p-1 flex items-center justify-center"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
           >
-            logout
+            <LogOut aria-hidden className="h-[22px] w-[22px]" />
           </button>
         </div>
       </header>
@@ -324,24 +354,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {showMobileMenu && (
         <>
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden"
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
             onClick={() => setShowMobileMenu(false)}
           />
-          <div className="fixed bottom-16 left-3 right-3 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div
+            ref={focusOnMount}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú principal"
+            onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMenu(); }}
+            className="focus:outline-none fixed bottom-16 left-3 right-3 z-50 max-h-[70vh] bg-surface-container-high border border-border rounded-2xl p-4 shadow-2xl overflow-y-auto md:hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
             <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-border">
               <span className="text-xs font-bold text-primary uppercase tracking-wider">Menú Principal</span>
               <button
-                onClick={() => setShowMobileMenu(false)}
+                type="button"
+                onClick={closeMobileMenu}
+                aria-label="Cerrar menú"
                 className="text-on-surface-variant hover:text-primary p-1 flex items-center justify-center cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">close</span>
+                <X aria-hidden className="h-[18px] w-[18px]" />
               </button>
             </div>
             <div className="space-y-3.5">
               {visibleGroups.map((group) => (
                 <div key={group.title} className="space-y-1">
                   {group.title && (
-                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold px-2 py-0.5">
+                    <p className="text-[11px] text-on-surface-variant uppercase tracking-wider font-semibold px-2 py-0.5">
                       {group.title}
                     </p>
                   )}
@@ -353,7 +392,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         onClick={() => setShowMobileMenu(false)}
                         className="flex items-center gap-3 px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-secondary">{item.icon}</span>
+                        {item.icon && <item.icon aria-hidden className="h-[18px] w-[18px] text-secondary" />}
                         <span className="font-medium">{item.label}</span>
                       </Link>
                     ))}
@@ -366,7 +405,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={() => setShowMobileMenu(false)}
                   className="flex items-center gap-3 px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-variant hover:text-primary rounded-lg transition-colors active:bg-surface-variant"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-secondary">{SETTINGS_LINK.icon}</span>
+                  {SETTINGS_LINK.icon && <SETTINGS_LINK.icon aria-hidden className="h-[18px] w-[18px] text-secondary" />}
                   <span className="font-medium">{SETTINGS_LINK.label}</span>
                 </Link>
               </div>}
@@ -385,16 +424,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             href={item.href}
             className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1.5 px-2"
           >
-            <span className="material-symbols-outlined text-[22px]">{item.icon}</span>
-            <span className="text-[10px] font-medium tracking-tight mt-0.5">{item.label}</span>
+            {item.icon && <item.icon aria-hidden className="h-[22px] w-[22px]" />}
+            <span className="text-[11px] font-medium tracking-tight mt-0.5">{item.label}</span>
           </Link>
         ))}
         <button
+          ref={moreButtonRef}
+          type="button"
           onClick={() => setShowMobileMenu(!showMobileMenu)}
+          aria-expanded={showMobileMenu}
           className="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary active:scale-95 transition-all duration-200 py-1.5 px-2 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[22px]">apps</span>
-          <span className="text-[10px] font-medium tracking-tight mt-0.5">Más</span>
+          <LayoutGrid aria-hidden className="h-[22px] w-[22px]" />
+          <span className="text-[11px] font-medium tracking-tight mt-0.5">Más</span>
         </button>
       </nav>
 

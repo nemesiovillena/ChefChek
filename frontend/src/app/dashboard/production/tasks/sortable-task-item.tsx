@@ -59,7 +59,7 @@ export function SortableTaskItem({
           ) : (
             <div className="flex flex-col items-end gap-0.5">
               {task.isPostponed && (
-                <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0">
+                <Badge variant="outline" className="text-[11px] h-4 px-1.5 py-0">
                   Pospuesta
                 </Badge>
               )}

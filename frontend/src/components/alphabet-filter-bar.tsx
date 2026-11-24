@@ -35,7 +35,6 @@ export function AlphabetFilterBar({ selected, available, onSelect }: AlphabetFil
   const availableSet = available ? new Set(available) : null;
 
   return (
-    // role="toolbar" en un <div>: globals.css oculta los <nav> no fijos.
     <div role="toolbar" aria-label="Filtrar por letra" className="mb-6 flex flex-wrap gap-1.5">
       <button
         type="button"

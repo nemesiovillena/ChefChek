@@ -9,17 +9,17 @@ interface Props {
 export function SuppliersSummaryCard({ supplierCount, onManageSuppliers }: Props) {
   return (
     <div
-      className="bg-white border rounded-lg p-6 hover:shadow-md transition cursor-pointer"
+      className="bg-surface-raised border rounded-lg p-6 hover:shadow-md transition cursor-pointer"
       onClick={onManageSuppliers}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Users className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-secondary-container/50 rounded-lg">
+            <Users className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Proveedores activos</p>
-            <p className="text-3xl font-bold text-gray-900">{supplierCount}</p>
+            <p className="text-sm text-text-muted">Proveedores activos</p>
+            <p className="text-3xl font-bold text-text-strong">{supplierCount}</p>
           </div>
         </div>
       </div>

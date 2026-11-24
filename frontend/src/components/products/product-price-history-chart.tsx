@@ -58,7 +58,7 @@ export function ProductPriceHistoryChart({
   }
 
   if (!history || history.length === 0) {
-    return <p className="text-sm text-gray-500 py-4">Sin historial de precios</p>;
+    return <p className="text-sm text-text-muted py-4">Sin historial de precios</p>;
   }
 
   // Cronológico (antiguo → reciente) para la línea de evolución. Normalizado a
@@ -81,7 +81,7 @@ export function ProductPriceHistoryChart({
     });
 
   return (
-    <div className="w-full h-[240px] bg-white border border-gray-200 rounded-lg p-3">
+    <div className="w-full h-[240px] bg-surface-raised border border-line-soft rounded-lg p-3">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
           <defs>

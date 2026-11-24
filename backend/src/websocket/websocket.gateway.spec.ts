@@ -125,7 +125,7 @@ describe("WebSocketGateway", () => {
 
       await gateway.handleConnection(mockSocket as unknown as Socket);
 
-      expect(mockSocket.join).toHaveBeenCalledWith("tenant:t-1");
+      expect(mockSocket.join).toHaveBeenCalledWith(["tenant:t-1", "user:u-1"]);
       expect(mockSocket.to).toHaveBeenCalledWith("tenant:t-1");
       expect(mockSocket.emit).toHaveBeenCalledWith("userJoined", {
         id: "u-1",
@@ -166,16 +166,23 @@ describe("WebSocketGateway", () => {
   describe("room subscriptions", () => {
     let mockSocket: any;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       mockSocket = {
-        data: {
-          userId: "u-1",
-          tenantId: "t-1",
-        },
+        data: {},
+        handshake: { auth: { token: "session-1" }, headers: {} },
         emit: jest.fn(),
+        to: jest.fn().mockReturnThis(),
+        disconnect: jest.fn(),
         join: jest.fn().mockResolvedValue(undefined),
         leave: jest.fn().mockResolvedValue(undefined),
       };
+      sessionService.validateSession.mockResolvedValue({
+        valid: true,
+        user: { id: "u-1", tenantId: "t-1", role: "ADMIN" },
+      });
+      await gateway.handleConnection(mockSocket);
+      mockSocket.join.mockClear();
+      mockSocket.emit.mockClear();
     });
 
     it("should allow join Tenant room if tenantId matches socket data", async () => {
@@ -196,6 +203,43 @@ describe("WebSocketGateway", () => {
       });
     });
 
+    it("espera a la autenticación si joinTenant llega antes de que termine la conexión", async () => {
+      let resolveSession: (v: unknown) => void = () => undefined;
+      sessionService.validateSession.mockReturnValue(
+        new Promise((r) => (resolveSession = r)),
+      );
+      const early: any = {
+        ...mockSocket,
+        data: {},
+        join: jest.fn().mockResolvedValue(undefined),
+        emit: jest.fn(),
+      };
+      const connecting = gateway.handleConnection(early);
+      const joining = gateway.handleJoinTenant(early, "t-1");
+      resolveSession({
+        valid: true,
+        user: { id: "u-1", tenantId: "t-1", role: "ADMIN" },
+      });
+      await Promise.all([connecting, joining]);
+
+      expect(early.emit).not.toHaveBeenCalledWith("error", expect.any(Object));
+      expect(early.join).not.toHaveBeenCalledWith("tenant:undefined");
+      expect(early.join).toHaveBeenLastCalledWith("tenant:t-1");
+    });
+
+    it("ignora las salas si la sesión no era válida", async () => {
+      sessionService.validateSession.mockResolvedValue({ valid: false });
+      const rejected: any = {
+        ...mockSocket,
+        data: {},
+        join: jest.fn(),
+        emit: jest.fn(),
+      };
+      await gateway.handleConnection(rejected);
+      await gateway.handleJoinDashboard(rejected);
+      expect(rejected.join).not.toHaveBeenCalled();
+    });
+
     it("should allow joining kitchen room", async () => {
       await gateway.handleJoinKitchen(mockSocket);
       expect(mockSocket.join).toHaveBeenCalledWith("tenant:t-1:kitchen");
@@ -206,9 +250,14 @@ describe("WebSocketGateway", () => {
       expect(mockSocket.join).toHaveBeenCalledWith("tenant:t-1:dashboard");
     });
 
-    it("should allow leaving room", async () => {
-      await gateway.handleLeaveRoom(mockSocket, "some-room");
-      expect(mockSocket.leave).toHaveBeenCalledWith("some-room");
+    it("should allow leaving a room of its own tenant", async () => {
+      await gateway.handleLeaveRoom(mockSocket, "tenant:t-1:kitchen");
+      expect(mockSocket.leave).toHaveBeenCalledWith("tenant:t-1:kitchen");
+    });
+
+    it("no deja salir de salas de otro tenant", async () => {
+      await gateway.handleLeaveRoom(mockSocket, "tenant:t-2:kitchen");
+      expect(mockSocket.leave).not.toHaveBeenCalled();
     });
   });
 

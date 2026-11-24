@@ -57,7 +57,6 @@ function MySpace() {
   return (
     <>
       <p className="-mt-3 text-[var(--on-surface-variant)]">Hola, {profile.name.split(' ')[0]}.</p>
-      {/* role=tablist: globals.css oculta los <nav> que no son fijos. */}
       <div role="tablist" aria-label="Secciones de Mi espacio" className="flex gap-1 overflow-x-auto rounded-2xl bg-[var(--surface-container)] p-1">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button

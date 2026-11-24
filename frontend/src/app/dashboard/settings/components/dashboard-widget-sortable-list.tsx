@@ -26,6 +26,7 @@ import {
   type DashboardWidgetSlot,
 } from '@/features/dashboard-layout/dashboard-widgets';
 import { WidgetSizePicker } from '@/features/dashboard-layout/widget-size-picker';
+import { GripVertical } from 'lucide-react';
 
 /**
  * Cards de una pantalla: arriba las visibles, en el orden en que se pintan
@@ -131,7 +132,7 @@ function SortableWidgetRow({
         aria-label={`Mover ${label}`}
         className="flex h-8 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded text-[var(--on-surface-variant)] active:cursor-grabbing"
       >
-        <span className="material-symbols-outlined text-[20px]">drag_indicator</span>
+        <GripVertical aria-hidden className="h-[20px] w-[20px]" />
       </button>
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <WidgetSizePicker slot={slot} onChange={onResize} />

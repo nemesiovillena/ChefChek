@@ -68,7 +68,7 @@ export function NotificationSystem() {
               </div>
               <button
                 onClick={() => removeNotification(notification.id)}
-                className="text-gray-500 hover:text-gray-700 ml-4"
+                className="text-text-muted hover:text-text-default ml-4"
               >
                 ✕
               </button>

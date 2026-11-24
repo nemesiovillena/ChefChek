@@ -171,3 +171,17 @@ The shape language is "Soft" (0.25rem), providing just enough rounding to feel m
 - **Chips/Badges:** Use a "Surface Variant" background with text color inherited from the category (e.g., a Teal text for a "Success" tag).
 - **Lists:** Dividers between list items should be extremely subtle—use `#262626` or `#333333` at 50% opacity to ensure the UI doesn't look "striped."
 - **Checkboxes/Radios:** These components use a heavy stroke when unchecked and a solid secondary color fill when checked, ensuring high visibility on dark surfaces.
+
+## Implementación en ChefChek (reglas vigentes, 2026-11-24)
+
+Este documento describe el tema **oscuro, que es el principal**. Lo que sigue recoge cómo se aplica en el código y las decisiones tomadas en la auditoría antislop (`anti-slop/audit-001-2026-11-24.md`).
+
+- **Temas:** oscuro por defecto (`.dark`), con un tema claro alternativo crema/marrón definido en `:root` de `frontend/src/app/globals.css`. Los dos deben cumplir WCAG AA: texto normal ≥4,5:1 y texto grande ≥3:1. En claro, `--muted-foreground` es `#6b6358` por ese motivo.
+- **Color:** solo tokens del tema (`primary`, `secondary`, `secondary-container`, `on-surface*`, `outline*`, `error`). Las pantallas antiguas usan `surface-raised/sunken/subtle/hover`, `text-strong/default/soft/muted` y `line/line-soft`, que valen en los dos temas; no hay parche oscuro con `!important` y no se deben añadir grises de Tailwind sin variante oscura. El ámbar, rojo, verde y esmeralda de Tailwind se reservan para **estados reales** (aviso, error, correcto, stock). No se usan índigo, violeta ni azules decorativos.
+- **Iconos:** solo **Lucide**, con trazo **1,5** global (`svg.lucide[stroke-width='2']` en `globals.css`). Un `strokeWidth` puesto a mano se respeta. Material Symbols está retirado. Un icono decorativo lleva `aria-hidden`; un botón de solo icono lleva `aria-label`.
+- **Tipografía:** Geist para texto y Geist Mono (en lugar de JetBrains Mono) para etiquetas. Las etiquetas en mono y mayúsculas (`font-label-*` + `uppercase`) son el **motivo de identidad** del sistema: un tono de herramienta precisa, como en un parte de cocina. Se usan solo en rótulos y metadatos, nunca en párrafos. Tamaño mínimo de texto: 11 px. La excepción son los contadores numéricos dentro de círculos de 16 px.
+- **Radios:** la escala real sale de `--radius: 0.625rem` (shadcn): `rounded-lg` = 10 px en tarjetas y modales, `rounded-md` en controles y `rounded-full` solo en píldoras de estado y avatares. Se mantiene y no se convierte a los 4/8 px de arriba.
+- **Elevación:** capas tonales. Los fondos de modal oscurecen (`bg-black/50`–`60`) sin desenfoque. El desenfoque se reserva a dos superficies que flotan sobre contenido que se desplaza: la barra inferior del móvil y el índice fijo de Ajustes.
+- **Foco y movimiento:** foco visible con `focus-visible:ring-2 ring-primary` en enlaces y tarjetas navegables, y `ring-ring` en campos. `prefers-reduced-motion` anula animaciones y transiciones globalmente. Ninguna animación en bucle es decorativa: solo se anima lo que está en curso de verdad (carga, grabación).
+- **Semántica:** se pueden usar `<header>` y `<nav>` en las páginas (ya no hay ninguna regla global que los oculte). La navegación usa `<Link>`, nunca `<div onClick>`. Los paneles móviles se cierran con Escape y devuelven el foco al botón que los abrió.
+- **Textos:** en la interfaz no se usa la raya (—). Se usan dos puntos, punto, coma, paréntesis o «·». La raya solo sirve como marca de celda vacía.

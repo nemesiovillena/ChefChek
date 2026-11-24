@@ -51,7 +51,6 @@ function CheckInConfigurationContent() {
 
       <CheckInReadinessBanner withLink={activeTab !== 'textos'} />
 
-      {/* Tab bar con role=tablist: globals.css oculta <nav> no-fixed, no usar <nav> */}
       <div
         role="tablist"
         aria-label="Secciones de ajustes de fichaje"

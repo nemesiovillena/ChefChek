@@ -35,8 +35,8 @@ export function SupplierPriceTrendBadge({ supplierId }: Props) {
       label: 'Bajó'
     },
     stable: {
-      bg: 'bg-gray-100',
-      text: 'text-gray-700',
+      bg: 'bg-surface-subtle',
+      text: 'text-text-default',
       icon: Minus,
       label: 'Sin cambios'
     }

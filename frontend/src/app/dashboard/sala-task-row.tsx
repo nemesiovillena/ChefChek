@@ -1,6 +1,7 @@
 'use client';
 
 import type { SalaTask } from '@/hooks/use-sala-tasks';
+import { User, Users } from 'lucide-react';
 
 interface SalaTaskRowProps {
   task: SalaTask;
@@ -30,7 +31,7 @@ export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
           </h4>
           {task.customerName && (
             <p className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 mt-0.5 truncate">
-              <span className="material-symbols-outlined text-[14px] shrink-0">person</span>
+              <User aria-hidden className="h-[14px] w-[14px] shrink-0" />
               <span className="truncate">{task.customerName}</span>
             </p>
           )}
@@ -42,7 +43,7 @@ export function SalaTaskRow({ task, onClick }: SalaTaskRowProps) {
             className="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1 max-w-[10rem]"
             title={task.guestCount}
           >
-            <span className="material-symbols-outlined text-[14px] shrink-0">groups</span>
+            <Users aria-hidden className="h-[14px] w-[14px] shrink-0" />
             <span className="truncate">{task.guestCount}</span>
           </span>
         )}

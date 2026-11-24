@@ -599,7 +599,7 @@ describe("TechnicalSheetsService", () => {
       // Línea única de la subreceta: nombre en minúsculas + nota + cantidad
       expect(
         texts.some((t) =>
-          t.includes("1. crumble tradicional (subreceta — base) - 50 g"),
+          t.includes("1. crumble tradicional (subreceta: base) - 50 g"),
         ),
       ).toBe(true);
       // Alérgenos: manuales [1,14] ∪ productos [1,7]

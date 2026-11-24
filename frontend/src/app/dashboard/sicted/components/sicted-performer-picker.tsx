@@ -36,7 +36,7 @@ export function SictedPerformerPicker({ value, onChange, fixed }: SictedPerforme
   }
 
   return (
-    <label className="flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm">
+    <label className="flex min-h-[48px] items-center gap-2 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-ring">
       <User className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />
       <span className="shrink-0 text-[var(--on-surface-variant)]">Quién:</span>
       <select

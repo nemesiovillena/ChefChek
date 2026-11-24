@@ -15,14 +15,14 @@ export function SupplierPriceHistory({ supplierId, supplierName }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+        <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
       </div>
     );
   }
 
   if (!history || history.length === 0) {
     return (
-      <div className="text-center py-6 text-sm text-gray-600">
+      <div className="text-center py-6 text-sm text-text-soft">
         Sin datos históricos para {supplierName}
       </div>
     );
@@ -81,22 +81,22 @@ export function SupplierPriceHistory({ supplierId, supplierName }: Props) {
           ) : trendDown ? (
             <TrendingDown className="h-4 w-4 text-green-600" />
           ) : (
-            <Minus className="h-4 w-4 text-gray-600" />
+            <Minus className="h-4 w-4 text-text-soft" />
           )}
           <span className={cn(
             'text-sm font-semibold',
-            trendUp ? 'text-red-700' : trendDown ? 'text-green-700' : 'text-gray-700',
+            trendUp ? 'text-red-700' : trendDown ? 'text-green-700' : 'text-text-default',
           )}>
             {trendUp ? '+' : ''}{pct}% en el período
           </span>
         </div>
-        <div className="text-xs text-gray-600 font-medium">
+        <div className="text-xs text-text-soft font-medium">
           {sorted.length} registros
         </div>
       </div>
 
       {/* Mini sparkline chart */}
-      <div className="bg-white border border-gray-200 rounded-lg p-3">
+      <div className="bg-surface-raised border border-line-soft rounded-lg p-3">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`grad-${supplierId}`} x1="0" y1="0" x2="0" y2="1">
@@ -128,13 +128,13 @@ export function SupplierPriceHistory({ supplierId, supplierName }: Props) {
       </div>
 
       {/* Price history table */}
-      <div className="max-h-44 overflow-y-auto border border-gray-200 rounded-lg">
+      <div className="max-h-44 overflow-y-auto border border-line-soft rounded-lg">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-gray-100 border-b border-gray-200">
+          <thead className="sticky top-0 bg-surface-subtle border-b border-line-soft">
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Fecha</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Precio medio</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-700">Var.</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-text-default">Fecha</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-text-default">Precio medio</th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-text-default">Var.</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -142,18 +142,18 @@ export function SupplierPriceHistory({ supplierId, supplierName }: Props) {
               const prev = i > 0 ? sorted[i - 1].averagePrice : null;
               const change = prev !== null ? entry.averagePrice - prev : null;
               return (
-                <tr key={entry.id} className="hover:bg-gray-50 bg-white">
-                  <td className="px-3 py-1.5 text-gray-800 font-medium">
+                <tr key={entry.id} className="hover:bg-surface-hover-faint bg-surface-raised">
+                  <td className="px-3 py-1.5 text-text-strong font-medium">
                     {new Date(entry.recordDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-gray-900 font-bold">
+                  <td className="px-3 py-1.5 text-right text-text-strong font-bold">
                     {formatEuro(entry.averagePrice)}
                   </td>
                   <td className={cn(
                     'px-3 py-1.5 text-right font-semibold',
                     change !== null && change > 0 && 'text-red-700',
                     change !== null && change < 0 && 'text-green-700',
-                    (change === null || change === 0) && 'text-gray-500',
+                    (change === null || change === 0) && 'text-text-muted',
                   )}>
                     {change !== null ? `${change > 0 ? '+' : ''}${change.toFixed(2)}` : '—'}
                   </td>
