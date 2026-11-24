@@ -1307,7 +1307,7 @@ export class AlbaranesService {
               ? "Importado desde OCR (leído con IA)"
               : `Importado desde OCR (confianza: ${((document.confidence || 0) * 100).toFixed(0)}%)`) +
             (failedFiles.length > 0
-              ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}) — revisa si faltan líneas.`
+              ? ` Aviso: ${failedFiles.length} de ${files.length} archivo(s) no se pudieron procesar (${failedFiles.map((f) => `${f.filename}: ${f.reason}`).join("; ")}). Revisa si faltan líneas.`
               : ""),
           lines: {
             // lineOrder preserva el orden del documento: createdAt no sirve de

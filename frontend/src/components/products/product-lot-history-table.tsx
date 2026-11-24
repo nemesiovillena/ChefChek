@@ -55,7 +55,7 @@ export function ProductLotHistoryTable({ productId }: ProductLotHistoryTableProp
                 <div className="flex items-center gap-1.5">
                   {entry.lotNumber}
                   {entry.source === 'raw_line' && (
-                    <span title="Sin registro formal de lote — solo el nº capturado en el albarán">
+                    <span title="Sin registro formal de lote: solo el nº capturado en el albarán">
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
                     </span>
                   )}
@@ -68,7 +68,7 @@ export function ProductLotHistoryTable({ productId }: ProductLotHistoryTableProp
               </td>
               <td className="py-2 px-3">
                 {entry.albaranNumber || entry.albaranInternalNumber ? (
-                  <span className="inline-flex items-center gap-1 text-indigo-600 text-xs">
+                  <span className="inline-flex items-center gap-1 text-primary text-xs">
                     <FileText className="h-3 w-3" />
                     {entry.albaranNumber || entry.albaranInternalNumber}
                   </span>

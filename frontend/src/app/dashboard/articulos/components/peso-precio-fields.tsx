@@ -108,7 +108,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             value={formData.purchaseFormat}
             onChange={(e) => update('purchaseFormat', e.target.value)}
             placeholder="Ej: Caja 6 botellas, Saco 25kg"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
@@ -129,7 +129,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             value={formData.unitsPerFormat}
             onChange={(e) => update('unitsPerFormat', e.target.value)}
             placeholder="Ej: 6 (botellas por caja)"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
       </div>
@@ -146,7 +146,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
               value={formData.referenceUnitSize}
               onChange={(e) => update('referenceUnitSize', e.target.value)}
               placeholder={unitLabels.sizePlaceholder}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
             />
           </div>
         )}
@@ -158,7 +158,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             min="0"
             value={formData.purchasePrice}
             onChange={(e) => update('purchasePrice', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
           {/* Base del precio: solo cuando el llamador la gestiona (línea de
               albarán y modal de Artículos). El llamador convierte a precio por
@@ -186,8 +186,8 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
                     aria-pressed={basis === b}
                     className={`px-2.5 py-1 transition-colors ${
                       basis === b
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-white text-gray-600 hover:bg-secondary-container/60 hover:text-primary'
                     }`}
                   >
                     {b === 'unit' ? `1 ${unitNoun}` : `${formatNoun} (${formatContent})`}
@@ -215,7 +215,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             onChange={(e) => update('discountPercentage', e.target.value)}
             placeholder="Ej: 10"
             title="Descuento informativo del proveedor sobre este artículo. No recalcula el Precio Compra."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
@@ -227,19 +227,19 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             max="100"
             value={formData.iva}
             onChange={(e) => update('iva', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
       </div>
 
       {/* Reference price preview */}
       {price > 0 && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-2 flex items-center justify-between">
-          <span className="text-sm text-indigo-700">
+        <div className="bg-secondary-container/50 border border-primary/30 rounded-lg px-4 py-2 flex items-center justify-between">
+          <span className="text-sm text-primary">
             Precio de referencia: <strong>{formatEuro(refPrice)}/{formData.referenceUnit || 'kilo'}</strong>
           </span>
           {calculatedUnitSize !== 1 && (
-            <span className="text-xs text-indigo-500">
+            <span className="text-xs text-primary">
               Total: {calculatedUnitSize} {unitLabels.total} por formato
               {basis === 'unit' && onPriceBasisChange
                 ? ` (= ${formatEuro(price * calculatedUnitSize)}/${formatNoun})`
@@ -264,7 +264,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             <button
               type="button"
               onClick={() => setShowCreateCategory(true)}
-              className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-colors"
+              className="shrink-0 h-[38px] w-[38px] inline-flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-secondary-container/60 hover:text-primary hover:border-primary/60 transition-colors"
               title="Añadir nueva categoría"
             >
               <Plus className="h-4 w-4" />
@@ -278,7 +278,7 @@ export default function PesoPrecioFields({ formData, setFormData, tree, priceBas
             value={formData.brand}
             onChange={(e) => update('brand', e.target.value)}
             placeholder="Marca del artículo"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
       </div>

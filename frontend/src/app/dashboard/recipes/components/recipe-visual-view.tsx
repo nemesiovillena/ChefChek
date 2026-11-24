@@ -34,7 +34,7 @@ export default function RecipeVisualView({ recipe, allergenById, isPrinting, onP
       role="dialog"
       aria-modal="true"
       aria-label={`Receta: ${recipe.name}`}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/50"
     >
       <div className="mx-auto min-h-full w-full max-w-5xl bg-[var(--surface-container-high)] md:my-6 md:overflow-hidden md:rounded-[28px] md:shadow-[0_8px_32px_-4px_rgba(0,0,0,0.25)] lg:max-w-6xl xl:max-w-[1320px]">
         {/* Hero */}

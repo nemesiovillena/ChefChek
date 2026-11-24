@@ -75,12 +75,14 @@ export default function ArticuloCards({
             <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => onEdit(product)}
+              aria-label={`Editar ${product.name}`}
                 className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-500"
               >
                 <Pencil className="h-3 w-3" />
               </button>
               <button
                 onClick={() => onDelete(product.id, product.name)}
+              aria-label={`Borrar ${product.name}`}
                 className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-red-50 text-gray-400 hover:text-red-500"
               >
                 <Trash2 className="h-3 w-3" />
@@ -110,7 +112,7 @@ export default function ArticuloCards({
               <span className="text-sm font-mono text-gray-700">
                 {formatEuro(product.purchasePrice || 0)}
               </span>
-              <span className="text-xs font-semibold text-indigo-600 font-mono ml-1">
+              <span className="text-xs font-semibold text-primary font-mono ml-1">
                 {product.referenceUnit && `${formatEuro(product.purchasePrice / (product.unitSize || 1))}/${product.referenceUnit}`}
               </span>
               <StockBadge

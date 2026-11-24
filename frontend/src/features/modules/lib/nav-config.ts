@@ -1,3 +1,5 @@
+import { ArrowLeftRight, BadgeCheck, BookOpen, CalendarClock, CalendarDays, CalendarRange, ChartLine, ChefHat, CircleHelp, ClipboardList, Clock, Compass, DatabaseBackup, FileText, FolderOpen, IdCard, Inbox, Landmark, LayoutDashboard, Mail, MessagesSquare, Package, PiggyBank, QrCode, Receipt, Settings, ShieldPlus, ShoppingCart, SlidersHorizontal, StickyNote, Tag, Target, Trash2, TrendingUp, TriangleAlert, Truck, Umbrella, User, Utensils, UtensilsCrossed, Warehouse, type LucideIcon } from 'lucide-react';
+
 /**
  * Navigation configuration driven by the module system.
  *
@@ -22,8 +24,8 @@ export interface NavItem {
    * (Histórico de precios, Sprint, Papelera, Copias de seguridad).
    */
   sectionKey?: string;
-  /** Material Symbols icon name (used in dropdowns and mobile nav). */
-  icon?: string;
+  /** Lucide icon (used in dropdowns and mobile nav). */
+  icon?: LucideIcon;
   /** Visible only to ADMIN/OWNER/SUPERADMIN (e.g. admin-oriented guides). */
   managerOnly?: boolean;
   /**
@@ -58,7 +60,7 @@ export interface NavSection {
 export const SETTINGS_LINK: NavItem = {
   label: 'Configuración',
   href: '/dashboard/settings',
-  icon: 'settings',
+  icon: Settings,
 };
 
 /**
@@ -69,112 +71,112 @@ export const NAV_GROUPS: NavSection[] = [
   {
     title: 'Cocina',
     items: [
-      { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: 'restaurant' },
-      { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
-      { label: 'Contador de platos', href: '/dashboard/raciones', moduleId: 'raciones', icon: 'set_meal' },
+      { label: 'Producción', href: '/dashboard/production', moduleId: 'production', icon: ChefHat },
+      { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: BookOpen },
+      { label: 'Contador de platos', href: '/dashboard/raciones', moduleId: 'raciones', icon: UtensilsCrossed },
       {
         label: 'Captura de recetas',
         href: '/dashboard/captura-recetas',
         moduleId: 'captura-recetas',
-        icon: 'travel_explore',
+        icon: Compass,
       },
-      { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: 'description' },
+      { label: 'Fichas técnicas', href: '/dashboard/technical-sheets', moduleId: 'technical-sheets', icon: FileText },
       {
         label: 'Notificaciones de Sala',
         href: '/dashboard/sala-notificaciones',
         moduleId: 'sala-notificaciones',
-        icon: 'event_note',
+        icon: CalendarClock,
       },
     ],
   },
   {
     title: 'Almacén',
     items: [
-      { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
-      { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: 'description' },
-      { label: 'Artículos', href: '/dashboard/articulos', moduleId: 'articulos', icon: 'inventory_2' },
-      { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: 'local_shipping' },
-      { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: 'warehouse' },
-      { label: 'Histórico de precios', href: '/dashboard/historico-precios', sectionKey: 'historico-precios', icon: 'trending_up' },
-      { label: 'Cuiner', href: '/dashboard/cuiner', moduleId: 'cuiner', icon: 'sync_alt', managerOnly: true, extraRoles: ['USER_CUINER'] },
+      { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: ShoppingCart },
+      { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: FileText },
+      { label: 'Artículos', href: '/dashboard/articulos', moduleId: 'articulos', icon: Package },
+      { label: 'Proveedores', href: '/dashboard/proveedores', moduleId: 'proveedores', icon: Truck },
+      { label: 'Stock', href: '/dashboard/warehouse', moduleId: 'almacenes', icon: Warehouse },
+      { label: 'Histórico de precios', href: '/dashboard/historico-precios', sectionKey: 'historico-precios', icon: TrendingUp },
+      { label: 'Cuiner', href: '/dashboard/cuiner', moduleId: 'cuiner', icon: ArrowLeftRight, managerOnly: true, extraRoles: ['USER_CUINER'] },
     ],
   },
   {
     title: 'APPCC',
     items: [
-      { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: 'health_and_safety' },
-      { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: 'warning' },
-      { label: 'Etiquetado', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: 'label' },
+      { label: 'APPCC', href: '/dashboard/appcc', moduleId: 'appcc', icon: ShieldPlus },
+      { label: 'Alérgenos', href: '/dashboard/allergens', moduleId: 'allergens', icon: TriangleAlert },
+      { label: 'Etiquetado', href: '/dashboard/etiquetado', moduleId: 'etiquetado', icon: Tag },
       // Cuelga de /dashboard/appcc pero los datos son de FoodLabel (módulo
       // etiquetado) — moduleId aquí debe ser 'etiquetado', no 'appcc'; ver
       // entrada específica en ROUTE_MODULE_MAP más abajo.
-      { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: 'schedule' },
+      { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: Clock },
     ],
   },
   {
     title: 'Calidad',
     items: [
-      { label: 'SICTED', href: '/dashboard/sicted', moduleId: 'sicted', icon: 'verified' },
-      { label: 'Cómo usar SICTED', href: '/dashboard/sicted/ayuda', moduleId: 'sicted', icon: 'help', managerOnly: true },
+      { label: 'SICTED', href: '/dashboard/sicted', moduleId: 'sicted', icon: BadgeCheck },
+      { label: 'Cómo usar SICTED', href: '/dashboard/sicted/ayuda', moduleId: 'sicted', icon: CircleHelp, managerOnly: true },
     ],
   },
   {
     title: 'Personal',
     items: [
       // Siempre disponible (sin módulo): personas, cuentas y puestos.
-      { label: 'Empleados', href: '/dashboard/users', icon: 'badge', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
-      { label: 'Mi espacio', href: '/dashboard/mi-espacio', moduleId: 'rrhh', icon: 'person', personalAccountOnly: true },
-      { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: 'schedule' },
-      { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: 'calendar_month', personalAccountOnly: true },
-      { label: 'Turnos', href: '/dashboard/turnos/planificador', moduleId: 'turnos', icon: 'calendar_view_week', personalAccountOnly: true },
-      { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: 'beach_access', personalAccountOnly: true },
-      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: 'inbox', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
-      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: 'folder_shared', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
-      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
-      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: 'tune', managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Empleados', href: '/dashboard/users', icon: IdCard, managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Mi espacio', href: '/dashboard/mi-espacio', moduleId: 'rrhh', icon: User, personalAccountOnly: true },
+      { label: 'Fichar', href: '/dashboard/check-in', moduleId: 'check-in', icon: Clock },
+      { label: 'Registro de jornada', href: '/dashboard/check-in/jornadas', moduleId: 'check-in', icon: CalendarDays, personalAccountOnly: true },
+      { label: 'Turnos', href: '/dashboard/turnos/planificador', moduleId: 'turnos', icon: CalendarRange, personalAccountOnly: true },
+      { label: 'Ausencias y vacaciones', href: '/dashboard/turnos/ausencias', moduleId: 'turnos', icon: Umbrella, personalAccountOnly: true },
+      { label: 'Solicitudes del equipo', href: '/dashboard/rrhh/solicitudes', moduleId: 'rrhh', icon: Inbox, managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Documentos del equipo', href: '/dashboard/rrhh/documentos', moduleId: 'rrhh', icon: FolderOpen, managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Informes de jornada', href: '/dashboard/check-in/informes', moduleId: 'check-in', icon: ClipboardList, managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
+      { label: 'Ajustes de fichaje', href: '/dashboard/check-in/configuracion', moduleId: 'check-in', icon: SlidersHorizontal, managerOnly: true, extraRoles: ['GESTION'], personalAccountOnly: true },
     ],
   },
   {
     // Ventas y facturación del TPV: gerencia y oficina (rol GESTION).
     title: 'Gestión',
     items: [
-      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: 'monitoring', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: 'savings', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: 'calendar_month', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: 'account_balance', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: 'summarize', managerOnly: true, extraRoles: ['GESTION'] },
-      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: 'receipt', managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Panel', href: '/dashboard/gestion', moduleId: 'gestion', icon: ChartLine, managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Rentabilidad', href: '/dashboard/gestion/rentabilidad', moduleId: 'gestion', icon: PiggyBank, managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Calendario', href: '/dashboard/gestion/calendario', moduleId: 'gestion', icon: CalendarDays, managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Resultados', href: '/dashboard/gestion/resultados', moduleId: 'gestion', icon: Landmark, managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Informes', href: '/dashboard/gestion/informes', moduleId: 'gestion', icon: ClipboardList, managerOnly: true, extraRoles: ['GESTION'] },
+      { label: 'Tickets', href: '/dashboard/gestion/tickets', moduleId: 'gestion', icon: Receipt, managerOnly: true, extraRoles: ['GESTION'] },
     ],
   },
   {
     title: 'Contenido',
     items: [
-      { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: 'restaurant_menu' },
-      { label: 'Menú digital', href: '/dashboard/digital-menu', moduleId: 'digital-menu', icon: 'qr_code' },
-      { label: 'Wiki', href: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento', icon: 'menu_book' },
+      { label: 'Menús', href: '/dashboard/menus', moduleId: 'menus', icon: Utensils },
+      { label: 'Menú digital', href: '/dashboard/digital-menu', moduleId: 'digital-menu', icon: QrCode },
+      { label: 'Wiki', href: '/dashboard/wiki-procedimientos', moduleId: 'conocimiento', icon: BookOpen },
     ],
   },
   {
     title: 'Herramientas',
     items: [
-      { label: 'Asistente IA', href: '/dashboard/asistente', moduleId: 'asistente-ia', icon: 'smart_toy' },
+      { label: 'Asistente IA', href: '/dashboard/asistente', moduleId: 'asistente-ia', icon: MessagesSquare },
       // Buzón del restaurante (leer y enviar): gerencia y personas autorizadas en su ficha.
-      { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: 'mail', hiddenForRoles: ['SUPERADMIN'] },
-      { label: 'Notas', href: '/dashboard/notas', moduleId: 'notas', icon: 'sticky_note_2' },
-      { label: 'Sprint', href: '/dashboard/sprint-tracker', sectionKey: 'sprint', icon: 'track_changes' },
-      { label: 'Papelera', href: '/dashboard/papelera', sectionKey: 'papelera', icon: 'delete' },
-      { label: 'Copias de Seguridad', href: '/dashboard/backups', sectionKey: 'backups', icon: 'cloud_sync' },
+      { label: 'Correo', href: '/dashboard/correo', moduleId: 'correo', icon: Mail, hiddenForRoles: ['SUPERADMIN'] },
+      { label: 'Notas', href: '/dashboard/notas', moduleId: 'notas', icon: StickyNote },
+      { label: 'Sprint', href: '/dashboard/sprint-tracker', sectionKey: 'sprint', icon: Target },
+      { label: 'Papelera', href: '/dashboard/papelera', sectionKey: 'papelera', icon: Trash2 },
+      { label: 'Copias de Seguridad', href: '/dashboard/backups', sectionKey: 'backups', icon: DatabaseBackup },
     ],
   },
 ];
 
 /** Bottom navigation for mobile: curated quick-access subset, not the full tree. */
 export const MOBILE_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
-  { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: 'receipt_long' },
-  { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: 'shopping_cart' },
-  { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: 'description' },
-  { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: 'schedule' },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Recetas', href: '/dashboard/recipes', moduleId: 'recipes', icon: BookOpen },
+  { label: 'Compras', href: '/dashboard/compras', moduleId: 'compras', icon: ShoppingCart },
+  { label: 'Albaranes', href: '/dashboard/albaranes', moduleId: 'albaranes', icon: FileText },
+  { label: 'Caducidades', href: '/dashboard/appcc/caducidades', moduleId: 'etiquetado', icon: Clock },
 ];
 
 /**

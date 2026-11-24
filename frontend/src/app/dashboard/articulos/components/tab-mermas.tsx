@@ -72,7 +72,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.grossWeight}
             onChange={(e) => update('grossWeight', e.target.value)}
             placeholder="Ej: 5.24"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
@@ -84,7 +84,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             value={formData.netWeight}
             onChange={(e) => update('netWeight', e.target.value)}
             placeholder="Ej: 3.99"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           />
         </div>
         <div>
@@ -98,7 +98,7 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
             onChange={(e) => update('wastePercentage', e.target.value)}
             disabled={hasYieldData}
             placeholder="Ej: 15 (si ya la conoces)"
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-ring focus:border-ring ${
               hasYieldData
                 ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed'
                 : 'border-gray-300'
@@ -108,22 +108,22 @@ export default function TabMermas({ formData, setFormData }: TabMermasProps) {
       </div>
 
       {hasAnyYieldInfo && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3 space-y-1.5">
+        <div className="bg-secondary-container/50 border border-primary/30 rounded-lg px-4 py-3 space-y-1.5">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-            <span className="text-indigo-700">Precio Compra/{unit} (referencia):</span>
-            <span className="text-indigo-900 font-semibold text-right">{formatEuro(pricePerUnit)}/{unit}</span>
+            <span className="text-primary">Precio Compra/{unit} (referencia):</span>
+            <span className="text-primary font-semibold text-right">{formatEuro(pricePerUnit)}/{unit}</span>
             {hasYieldData && (
               <>
-                <span className="text-indigo-700">Coste Total de compra:</span>
-                <span className="text-indigo-900 font-semibold text-right">{formatEuro(totalCost!)}</span>
+                <span className="text-primary">Coste Total de compra:</span>
+                <span className="text-primary font-semibold text-right">{formatEuro(totalCost!)}</span>
               </>
             )}
-            <span className="text-indigo-700">Rendimiento:</span>
-            <span className="text-indigo-900 font-semibold text-right">{yieldPercentage!.toFixed(2)} %</span>
-            <span className="text-indigo-700">Merma:</span>
-            <span className="text-indigo-900 font-semibold text-right">{effectiveWaste!.toFixed(2)} %</span>
-            <span className="text-indigo-700">Precio Real/{unit}:</span>
-            <span className="text-indigo-900 font-semibold text-right">{formatEuro(realPrice!)}/{unit}</span>
+            <span className="text-primary">Rendimiento:</span>
+            <span className="text-primary font-semibold text-right">{yieldPercentage!.toFixed(2)} %</span>
+            <span className="text-primary">Merma:</span>
+            <span className="text-primary font-semibold text-right">{effectiveWaste!.toFixed(2)} %</span>
+            <span className="text-primary">Precio Real/{unit}:</span>
+            <span className="text-primary font-semibold text-right">{formatEuro(realPrice!)}/{unit}</span>
           </div>
         </div>
       )}

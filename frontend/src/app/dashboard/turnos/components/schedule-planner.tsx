@@ -316,7 +316,6 @@ export function SchedulePlanner() {
         )}
       </div>
 
-      {/* role=tablist: globals.css oculta los <nav> que no son fijos. */}
       <div role="tablist" aria-label="Vista" className="flex gap-1 overflow-x-auto rounded-2xl bg-[var(--surface-container)] p-1">
         {VIEWS.map(({ id, label }) => (
           <button

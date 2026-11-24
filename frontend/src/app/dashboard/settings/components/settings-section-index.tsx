@@ -61,7 +61,7 @@ export function SettingsSectionIndex() {
         <a
           key={s.id}
           href={`#${s.id}`}
-          className="shrink-0 whitespace-nowrap rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm hover:border-indigo-500 hover:text-indigo-600 dark:border-zinc-700 dark:bg-zinc-900"
+          className="shrink-0 whitespace-nowrap rounded-full border border-gray-300 bg-white px-3 py-1.5 text-sm hover:border-primary/60 hover:text-primary dark:border-zinc-700 dark:bg-zinc-900"
         >
           {s.label}
         </a>

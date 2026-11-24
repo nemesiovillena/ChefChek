@@ -92,7 +92,6 @@ function AbsencesContent() {
       </div>
 
       {tabs.length > 1 && (
-        // Tab bar con role=tablist: globals.css oculta <nav> no-fixed, no usar <nav>
         <div
           role="tablist"
           aria-label="Secciones de ausencias"

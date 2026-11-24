@@ -117,7 +117,7 @@ export function ZebraPrinterStatus() {
   return (
     <div className="mt-6 border-t border-gray-200 pt-4 dark:border-zinc-800">
       <div className="flex items-center gap-2 mb-2">
-        <Usb className="h-4 w-4 text-indigo-600" />
+        <Usb className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold">Impresora Zebra (Browser Print)</h3>
       </div>
       <p className="text-xs text-gray-500 mb-1">
@@ -130,7 +130,7 @@ export function ZebraPrinterStatus() {
         href="https://www.zebra.com/us/en/support-downloads/software/printer-software/browser-print.html"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline mb-3 dark:text-indigo-400"
+        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-3 "
       >
         Descargar Zebra Browser Print
         <ExternalLink className="h-3 w-3" />
@@ -175,7 +175,7 @@ export function ZebraPrinterStatus() {
             href={BROWSER_PRINT_AUTHORIZE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90"
           >
             <ShieldCheck className="h-4 w-4" />
             Autorizar Browser Print
@@ -222,7 +222,7 @@ export function ZebraPrinterStatus() {
             type="button"
             onClick={printTest}
             disabled={testing}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {testing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -235,7 +235,7 @@ export function ZebraPrinterStatus() {
             type="button"
             onClick={savePrinter}
             disabled={!selectedUid || isSaved}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             Guardar

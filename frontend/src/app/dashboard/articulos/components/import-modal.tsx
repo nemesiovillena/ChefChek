@@ -338,7 +338,7 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-zinc-800">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Importar Artículos</h3>
-          <button onClick={resetModal} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-zinc-300">
+          <button type="button" onClick={resetModal} aria-label="Cerrar" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-zinc-300">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -351,14 +351,14 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
           <button
             onClick={downloadTemplate}
-            className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:underline"
+            className="flex items-center gap-2 text-xs font-semibold text-primary hover:text-primary hover:underline"
           >
             <FileText className="h-4 w-4" />
             Descargar plantilla de ejemplo (CSV)
           </button>
 
           {/* Drag & Drop Area */}
-          <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg p-8 flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-850 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors cursor-pointer"
+          <div className="border-2 border-dashed border-gray-300 dark:border-zinc-700 rounded-lg p-8 flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-850 hover:border-primary/60 transition-colors cursor-pointer"
                onClick={() => fileInputRef.current?.click()}>
             <input
               type="file"
@@ -433,7 +433,7 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
           <button
             onClick={handleImport}
             disabled={productsToImport.length === 0 || errors.length > 0 || importMutation.isPending}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-md text-sm font-medium disabled:opacity-50 transition-colors"
           >
             {importMutation.isPending ? 'Importando...' : 'Confirmar Importación'}
           </button>

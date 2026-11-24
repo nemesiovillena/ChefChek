@@ -96,7 +96,7 @@ function SictedSupplierIncidentForm({ onSaved, onCancel }: { onSaved: () => void
         <option value="">Albarán (opcional)…</option>
         {recentAlbaranes.map((a) => (
           <option key={a.id} value={a.id}>
-            {a.albaranNumber || a.internalNumber} — {new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid' }).format(new Date(a.date))}
+            {a.albaranNumber || a.internalNumber} · {new Intl.DateTimeFormat('es-ES', { timeZone: 'Europe/Madrid' }).format(new Date(a.date))}
           </option>
         ))}
       </select>

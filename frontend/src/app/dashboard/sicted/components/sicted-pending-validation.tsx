@@ -139,7 +139,7 @@ export function SictedPendingValidation({ runs }: SictedPendingValidationProps) 
             {canSupervise && (
               <label
                 className="flex min-h-[44px] shrink-0 items-center rounded-lg bg-[var(--surface-container)] px-3"
-                aria-label={`Seleccionar ${r.template.name} — ${formatPeriodKey(r.periodKey)}`}
+                aria-label={`Seleccionar ${r.template.name}, ${formatPeriodKey(r.periodKey)}`}
               >
                 <input
                   type="checkbox"
@@ -155,7 +155,7 @@ export function SictedPendingValidation({ runs }: SictedPendingValidationProps) 
               className="flex min-h-[44px] flex-1 items-center justify-between gap-2 rounded-lg bg-[var(--surface-container)] px-3 py-2 text-left hover:bg-[var(--surface-container-high)]"
             >
               <span>
-                {r.template.name} — {r.template.area}
+                {r.template.name} · {r.template.area}
                 <span className="text-[var(--on-surface-variant)]"> · {formatPeriodKey(r.periodKey)}</span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-[var(--on-surface-variant)]" />

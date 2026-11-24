@@ -36,7 +36,7 @@ function GroupProductPicker({
   if (!touched && products.search !== search) products.setSearch(search);
 
   return (
-    <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-secondary-container/50 p-3 ">
       <div className="flex gap-2">
         <input
           className={inputCls}
@@ -57,7 +57,7 @@ function GroupProductPicker({
           <li key={p.id}>
             <button
               type="button"
-              className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-secondary-container/60 dark:hover:bg-zinc-800"
               onClick={() =>
                 onPick({ id: p.id, name: p.name, referenceUnit: p.referenceUnit, categoryName: p.category?.name ?? null, avgUnitWeight: p.avgUnitWeight ?? null })
               }

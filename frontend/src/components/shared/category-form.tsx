@@ -63,7 +63,7 @@ export function CategoryForm({ category, tree, onSubmit, onCancel, isSubmitting 
                 type="button"
                 onClick={() => setValue('icon', icon)}
                 className={`w-10 h-10 text-2xl rounded-lg border-2 ${
-                  selectedIcon === icon ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'
+                  selectedIcon === icon ? 'border-primary bg-secondary-container/50' : 'border-gray-200'
                 }`}
               >
                 {icon}

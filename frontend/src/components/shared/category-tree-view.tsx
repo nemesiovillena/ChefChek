@@ -55,9 +55,9 @@ function CategoryTreeNodeComponent({
         )}
 
         {isExpanded ? (
-          <FolderOpen className="h-4 w-4 text-indigo-500" />
+          <FolderOpen className="h-4 w-4 text-primary" />
         ) : (
-          <Folder className="h-4 w-4 text-indigo-500" />
+          <Folder className="h-4 w-4 text-primary" />
         )}
 
         {node.icon && (

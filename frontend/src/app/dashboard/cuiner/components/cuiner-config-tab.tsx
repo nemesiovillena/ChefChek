@@ -207,7 +207,7 @@ function CuinerExportsList() {
       <ul className="divide-y divide-gray-200 text-sm dark:divide-zinc-800">
         {(data ?? []).slice(0, 30).map((e) => (
           <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-            <Link href={`/dashboard/albaranes/${e.albaranId}/resumen`} className="text-indigo-600 hover:underline">
+            <Link href={`/dashboard/albaranes/${e.albaranId}/resumen`} className="text-primary hover:underline">
               {e.payload?.numdoc || 'Sin número'} · {e.payload?.total?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
             </Link>
             <span className={e.status === 'ERROR' ? 'text-red-600' : e.status === 'ENVIADO' ? 'text-emerald-700' : 'text-gray-600'}>

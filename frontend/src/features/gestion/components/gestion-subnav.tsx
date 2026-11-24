@@ -14,8 +14,7 @@ const LINKS = [
 ];
 
 /**
- * Pestañas de Gestión como rutas propias. Va en <div role="tablist">: globals.css
- * oculta los <nav> que no son fijos.
+ * Pestañas de Gestión como rutas propias, en <div role="tablist">.
  */
 export function GestionSubnav() {
   const pathname = usePathname();

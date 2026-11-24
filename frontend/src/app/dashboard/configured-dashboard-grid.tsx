@@ -14,6 +14,7 @@ import { SortableContext, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { WidgetSizePicker } from '@/features/dashboard-layout/widget-size-picker';
 import { WIDGET_LABELS, type DashboardWidgetSlot } from '@/features/dashboard-layout/dashboard-widgets';
+import { GripVertical } from 'lucide-react';
 
 /** Sin desplazar las demás mientras se arrastra: con tamaños distintos, el hueco solo se resuelve al soltar. */
 const noShiftStrategy = () => null;
@@ -131,7 +132,7 @@ function EditableCell({
         className="absolute inset-0 z-10 cursor-grab touch-none rounded-xl border-2 border-dashed border-secondary/40 active:cursor-grabbing"
       >
         <div className="absolute right-2 top-2 flex items-center gap-2 rounded-lg bg-surface-container-high/95 px-2 py-1 shadow">
-          <span className="material-symbols-outlined text-[18px] text-on-surface-variant">drag_indicator</span>
+          <GripVertical aria-hidden className="h-[18px] w-[18px] text-on-surface-variant" />
           <WidgetSizePicker slot={slot} onChange={onResize} />
         </div>
       </div>

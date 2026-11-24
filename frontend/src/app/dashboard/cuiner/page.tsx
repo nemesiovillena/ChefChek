@@ -89,7 +89,7 @@ function CuinerPageContent() {
                 onClick={() => setTab(t.id)}
                 className={`-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium disabled:opacity-40 ${
                   activeTab === t.id
-                    ? 'border-indigo-600 text-indigo-600'
+                    ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-zinc-400'
                 }`}
               >

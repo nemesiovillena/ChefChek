@@ -120,7 +120,7 @@ export function ProductPriceHistoryTable({
                   {entry.albaran ? (
                     <a
                       href={`/dashboard/albaranes/${entry.albaran.id}`}
-                      className="inline-flex items-center gap-1 text-indigo-600 hover:underline text-xs"
+                      className="inline-flex items-center gap-1 text-primary hover:underline text-xs"
                     >
                       <FileText className="h-3 w-3" />
                       {entry.albaran.albaranNumber || entry.albaran.internalNumber}

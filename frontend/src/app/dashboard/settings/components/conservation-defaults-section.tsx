@@ -64,7 +64,7 @@ export function ConservationDefaultsSection() {
   return (
     <div className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
       <div className="flex items-center gap-2 mb-4">
-        <Snowflake className="h-5 w-5 text-indigo-600" />
+        <Snowflake className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold">Conservación</h2>
       </div>
       <p className="text-sm text-gray-500 mb-4">
@@ -153,7 +153,7 @@ export function ConservationDefaultsSection() {
             type="button"
             onClick={save}
             disabled={updateDefaults.isPending || draft === null}
-            className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {updateDefaults.isPending ? 'Guardando…' : 'Guardar'}
           </button>

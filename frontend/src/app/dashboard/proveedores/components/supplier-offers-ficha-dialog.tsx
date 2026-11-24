@@ -34,11 +34,11 @@ export function SupplierOffersFichaDialog({ supplierId, supplierName, onClose }:
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
+    <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-3xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{supplierName}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-300 transition-colors">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -54,7 +54,7 @@ export function SupplierOffersFichaDialog({ supplierId, supplierName, onClose }:
                 onClick={() => setActiveTab(tab.id)}
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    ? 'border-primary text-primary '
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-700'
                 }`}
               >

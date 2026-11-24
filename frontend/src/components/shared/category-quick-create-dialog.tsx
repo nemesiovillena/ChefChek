@@ -100,7 +100,7 @@ export default function CategoryQuickCreateDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre de la categoría"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring text-sm"
               autoFocus
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
             />
@@ -113,7 +113,7 @@ export default function CategoryQuickCreateDialog({
             <select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring text-sm bg-white"
             >
               <option value="">Sin categoría padre (categoría principal)</option>
               {tree.map((node) => (
@@ -138,7 +138,7 @@ export default function CategoryQuickCreateDialog({
           <button
             onClick={handleCreate}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-1.5"
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5"
           >
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Crear categoría

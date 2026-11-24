@@ -82,7 +82,7 @@ export default function RecipePricingEditor({ recipe, pricing }: { recipe: Recip
             onChange={(e) => setSellingPriceWithVatInput(e.target.value)}
             onBlur={handleSaveSellingPriceWithVat}
             placeholder="Sin fijar"
-            className="w-36 px-3 py-2.5 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white text-lg font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-36 px-3 py-2.5 border border-gray-300 dark:border-zinc-700 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white text-lg font-semibold rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
         <div>

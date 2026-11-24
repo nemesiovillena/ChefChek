@@ -106,7 +106,7 @@ export function CuinerSendCard({ albaranId, confirmed }: { albaranId: string; co
               ))}
             </ul>
             {preview.problems.some((p) => p.includes('enlazad')) && (
-              <Link href="/dashboard/cuiner" className="mt-2 inline-block text-indigo-600 hover:underline">
+              <Link href="/dashboard/cuiner" className="mt-2 inline-block text-primary hover:underline">
                 Ir a los enlaces de Cuiner
               </Link>
             )}

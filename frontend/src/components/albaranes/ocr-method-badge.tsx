@@ -50,7 +50,7 @@ export function OcrMethodBadge({ extractionMethod, extractionModel }: OcrMethodB
       title="La extracción con IA falló o no estaba configurada; los datos provienen del método básico y pueden contener errores. Revisa las líneas con atención."
     >
       <AlertTriangle className="h-3.5 w-3.5" />
-      Método básico — revisar
+      Método básico, revisar
     </span>
   );
 }

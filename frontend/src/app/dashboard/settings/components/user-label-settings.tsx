@@ -18,7 +18,7 @@ export function UserLabelSettings() {
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Configuración</h1>
         <div id="etiquetas" className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
           <div className="flex items-center gap-2">
-            <Tag className="h-5 w-5 text-indigo-600" />
+            <Tag className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Etiquetas</h2>
           </div>
           {isEnabled('etiquetado') ? (

@@ -28,7 +28,7 @@ const WEEKDAYS = [
 const fieldCls =
   'min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-zinc-700 dark:bg-zinc-900';
 const buttonCls =
-  'inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white disabled:opacity-40';
+  'inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-40';
 
 /**
  * Configuración → SICTED: días de cierre del local. En un día de cierre no se
@@ -54,7 +54,7 @@ export function SictedClosureCalendarForm({ canManage }: { canManage: boolean })
   }
 
   if (isLoading || !calendar) {
-    return <Loader2 className="mb-6 h-5 w-5 animate-spin text-indigo-600" />;
+    return <Loader2 className="mb-6 h-5 w-5 animate-spin text-primary" />;
   }
 
   async function toggleWeekday(day: number) {

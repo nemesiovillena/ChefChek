@@ -137,7 +137,7 @@ export default function MenusPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Menús</h1>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             {showCreateForm ? 'Cancelar' : 'Crear Menú'}
           </button>
@@ -156,7 +156,7 @@ export default function MenusPage() {
                   name="name"
                   type="text"
                   required
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div>
@@ -166,13 +166,13 @@ export default function MenusPage() {
                 <textarea
                   name="description"
                   rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
                 >
                   Crear Menú
                 </button>
@@ -245,7 +245,7 @@ export default function MenusPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <button
                           onClick={() => handleViewDetails(menu.id)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 hover:underline font-semibold"
+                          className="text-primary hover:text-primary hover:underline font-semibold"
                         >
                           Ver Detalles
                         </button>
@@ -260,7 +260,7 @@ export default function MenusPage() {
 
         {/* Modal de Detalles */}
         {selectedMenu && (
-          <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/55 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg p-6 max-w-2xl w-full shadow-2xl">
               <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{selectedMenu.name}</h3>
               <div className="space-y-3">

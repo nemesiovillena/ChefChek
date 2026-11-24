@@ -352,7 +352,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
+    <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-4xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -383,7 +383,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="Nombre del artículo"
-            className="w-full px-4 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+            className="w-full px-4 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring text-lg"
           />
           {duplicateNameMatches.length > 0 && (
             <div role="status" className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
@@ -443,7 +443,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                 onClick={() => setActiveTab(tab.id)}
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                    ? 'border-primary text-primary '
                     : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-zinc-700'
                 }`}
               >
@@ -474,7 +474,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                   value={formData.avgUnitWeight}
                   onChange={(e) => setFormData({ ...formData, avgUnitWeight: e.target.value })}
                   placeholder="Ej. 0,04 (una zamburiña)"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
                 />
                 <p className="text-xs text-muted-foreground">
                   Para vender o recibir por piezas lo que compras por kilo o litro. Si lo dejas vacío, se aprende al cruzar un pedido en
@@ -575,7 +575,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
                 router.push(`/dashboard/etiquetado/nueva?productId=${article.id}`);
                 onClose();
               }}
-              className="mr-auto inline-flex items-center gap-2 px-6 py-2 rounded-md border border-teal-300 bg-teal-50 text-teal-700 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 transition-colors"
+              className="mr-auto inline-flex items-center gap-2 px-6 py-2 rounded-md border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70 transition-colors"
             >
               <Tag className="h-4 w-4" />
               Etiquetar
@@ -592,7 +592,7 @@ function ArticuloModalForm({ article, tree, suppliers, onClose, initialTab }: Ar
             type="button"
             onClick={handleSubmit}
             disabled={isSaving}
-            className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             {isSaving ? 'Guardando...' : 'Guardar'}
           </button>

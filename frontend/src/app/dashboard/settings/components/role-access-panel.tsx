@@ -131,7 +131,7 @@ function RoleAccessMatrix({ config }: { config: RoleAccessConfig }) {
         checked={draft[col][sectionKey] ?? true}
         disabled={disabled}
         onChange={() => toggle(col, sectionKey)}
-        aria-label={`${col === 'USER' ? 'Usuario' : 'Visor'} — ${sectionKey}`}
+        aria-label={`${col === 'USER' ? 'Usuario' : 'Visor'}, ${sectionKey}`}
       />
     </td>
   );

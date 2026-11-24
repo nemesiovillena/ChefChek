@@ -263,7 +263,7 @@ function FullSettingsPage() {
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
               >
                 Editar
               </button>
@@ -280,7 +280,7 @@ function FullSettingsPage() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 />
               </div>
@@ -292,14 +292,14 @@ function FullSettingsPage() {
                   type="text"
                   value={formData.domain}
                   onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="tudominio.com"
                 />
               </div>
               <div className="flex space-x-4">
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
                   Guardar cambios
                 </button>
@@ -358,7 +358,7 @@ function FullSettingsPage() {
               Idioma por defecto
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => handleLanguageChange(e.target.value)}
               defaultValue="es"
             >
@@ -378,7 +378,7 @@ function FullSettingsPage() {
               Moneda por defecto
             </label>
             <select
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               onChange={(e) => handleCurrencyChange(e.target.value)}
               defaultValue="EUR"
             >
@@ -393,7 +393,7 @@ function FullSettingsPage() {
         {/* Costeo de Recetas */}
         <div id="costeo" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Percent className="h-5 w-5 text-indigo-600" />
+            <Percent className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Costeo de Recetas</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
@@ -425,7 +425,7 @@ function FullSettingsPage() {
         {/* Motor de extracción (OCR de albaranes) */}
         <div id="ocr" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="h-5 w-5 text-indigo-600" />
+            <Sparkles className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Motor de extracción</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
@@ -439,12 +439,12 @@ function FullSettingsPage() {
                 onClick={() => handleOcrModelChange(model.id)}
                 className={`p-2 rounded-lg border text-left transition-colors ${
                   ocrModel === model.id
-                    ? 'border-indigo-600 bg-gray-100 ring-1 ring-indigo-600'
-                    : 'border-gray-200 hover:border-indigo-300'
+                    ? 'border-primary bg-gray-100 ring-1 ring-primary'
+                    : 'border-gray-200 hover:border-primary/60'
                 }`}
               >
                 <div className="text-xs font-medium text-gray-900 truncate">{model.name}</div>
-                <div className="text-[10px] text-gray-500">{model.cost}/img</div>
+                <div className="text-[11px] text-gray-500">{model.cost}/img</div>
               </button>
             ))}
           </div>
@@ -491,7 +491,7 @@ function FullSettingsPage() {
         {/* Texto fijo del pedido al proveedor */}
         <div id="mensaje-proveedor" className="scroll-mt-40 bg-white shadow rounded-lg mb-6 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5 text-indigo-600" />
+            <MessageSquare className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Mensaje al proveedor</h2>
           </div>
           <p className="text-sm text-gray-500 mb-4">
@@ -506,7 +506,7 @@ function FullSettingsPage() {
         {/* Claves API */}
         <div id="claves-api" className="scroll-mt-40 bg-white shadow rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Key className="h-5 w-5 text-indigo-600" />
+            <Key className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Claves API</h2>
           </div>
           <p className="text-sm text-gray-500 mb-6">
@@ -569,7 +569,7 @@ function FullSettingsPage() {
                         value={apiKeys[provider.id] || ''}
                         onChange={(e) => handleApiKeyChange(provider.id, e.target.value)}
                         placeholder={provider.keyPlaceholder}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-mono"
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm font-mono"
                       />
                       <button
                         type="button"
@@ -585,7 +585,7 @@ function FullSettingsPage() {
                       className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                         isSaved
                           ? 'bg-green-600 text-white'
-                          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
                       }`}
                     >
                       {isSaved ? '✓ Guardada' : 'Guardar'}
@@ -657,14 +657,14 @@ function PurchaseOrderNoteForm({ initialSupplierNote }: { initialSupplierNote: s
         onChange={(e) => setSupplierNote(e.target.value)}
         rows={3}
         placeholder="Si no dispone de algún artículo, por favor, comuníquelo."
-        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       />
       <button
         type="button"
         onClick={handleSave}
         disabled={updateMutation.isPending}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          saved ? 'bg-green-600 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
         } disabled:opacity-50`}
       >
         {saved ? '✓ Guardado' : 'Guardar'}
@@ -712,7 +712,7 @@ function CostingConfigForm({
           step="any"
           value={targetCostPercentage}
           onChange={(e) => setTargetCostPercentage(e.target.value)}
-          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
       <div>
@@ -726,7 +726,7 @@ function CostingConfigForm({
           step="any"
           value={theoreticalPriceMultiplier}
           onChange={(e) => setTheoreticalPriceMultiplier(e.target.value)}
-          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
       <button
@@ -734,7 +734,7 @@ function CostingConfigForm({
         onClick={handleSave}
         disabled={updateCostingConfigMutation.isPending}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          saved ? 'bg-green-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          saved ? 'bg-green-600 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
         } disabled:opacity-50`}
       >
         {saved ? '✓ Guardado' : 'Guardar'}

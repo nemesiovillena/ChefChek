@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth.context';
 import { useNoteHighlights } from '@/hooks/use-notes';
 import { NOTE_COLOR_CLASSES, noteDue, noteHeading } from './notas/note-display';
 import { useNoteActions } from './notas/use-note-actions';
+import { Check, Pin, StickyNote } from 'lucide-react';
 
 /**
  * Card Notas del inicio: todas las pendientes, fijadas primero. En un
@@ -30,7 +31,7 @@ export function NotasDashboardCard({ sharedDevice }: { sharedDevice: boolean }) 
       <div className="flex flex-wrap items-center justify-between gap-stack-sm">
         <div className="flex items-center gap-stack-md">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
-            <span className="material-symbols-outlined text-[22px]">sticky_note_2</span>
+            <StickyNote aria-hidden className="h-[22px] w-[22px]" />
           </span>
           <div>
             <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Notas</h5>
@@ -65,7 +66,7 @@ export function NotasDashboardCard({ sharedDevice }: { sharedDevice: boolean }) 
                   }}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-on-surface-variant hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-50"
                 >
-                  <span className="material-symbols-outlined text-[18px]">check</span>
+                  <Check aria-hidden className="h-[18px] w-[18px]" />
                 </button>
                 <span
                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${
@@ -77,9 +78,7 @@ export function NotasDashboardCard({ sharedDevice }: { sharedDevice: boolean }) 
                   {noteHeading(note)}
                 </span>
                 {note.pinned && (
-                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant" aria-label="Fijada">
-                    push_pin
-                  </span>
+                  <Pin role="img" aria-label="Fijada" className="h-[16px] w-[16px] text-on-surface-variant" />
                 )}
                 {due === 'overdue' && (
                   <span className="shrink-0 font-label-sm text-label-sm text-error">Vencida</span>

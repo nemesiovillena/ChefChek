@@ -1,14 +1,15 @@
 'use client';
 
+import { Archive, FilePen, Folder, Inbox, Send, ShieldAlert, Trash2, type LucideIcon } from 'lucide-react';
 import type { MailFolder } from '../hooks/use-correo';
 
-const ICONS: Record<string, string> = {
-  '\\Inbox': 'inbox',
-  '\\Sent': 'send',
-  '\\Drafts': 'draft',
-  '\\Archive': 'archive',
-  '\\Junk': 'report',
-  '\\Trash': 'delete',
+const ICONS: Record<string, LucideIcon> = {
+  '\\Inbox': Inbox,
+  '\\Sent': Send,
+  '\\Drafts': FilePen,
+  '\\Archive': Archive,
+  '\\Junk': ShieldAlert,
+  '\\Trash': Trash2,
 };
 
 interface Props {
@@ -45,7 +46,7 @@ export function MailFolderList({ folders, selected, onSelect }: Props) {
                   : 'text-[var(--on-surface)] hover:bg-[var(--surface-container-high)]'
               }`}
             >
-              <span className="material-symbols-outlined text-[18px]">{ICONS[f.specialUse ?? ''] ?? 'folder'}</span>
+              {(() => { const FolderIcon = ICONS[f.specialUse ?? ''] ?? Folder; return <FolderIcon aria-hidden className="h-[18px] w-[18px] shrink-0" />; })()}
               <span className="truncate">{f.name}</span>
             </button>
           </li>

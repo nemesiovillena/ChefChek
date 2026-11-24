@@ -81,8 +81,8 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
   const lineTotal = (parseFloat(quantity) || 0) * (parseFloat(unitPrice) || 0);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 p-4 bg-gray-50 rounded-lg border border-dashed border-indigo-300">
-      <p className="text-xs font-medium text-indigo-600">Añadir línea manual</p>
+    <form onSubmit={handleSubmit} className="space-y-3 p-4 bg-gray-50 rounded-lg border border-dashed border-primary/30">
+      <p className="text-xs font-medium text-primary">Añadir línea manual</p>
 
       {isConfirmed && (
         <div role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
@@ -96,13 +96,13 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
         <div>
           <Label className="text-xs">Artículo *</Label>
           {selectedProduct ? (
-            <div className="mt-1 flex items-center gap-2 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-sm">
-              <Package className="h-4 w-4 text-indigo-600 shrink-0" />
-              <span className="flex-1 truncate font-medium text-indigo-900">{selectedProduct.name}</span>
+            <div className="mt-1 flex items-center gap-2 rounded-md border border-primary/30 bg-secondary-container/50 px-2 py-1.5 text-sm">
+              <Package className="h-4 w-4 text-primary shrink-0" />
+              <span className="flex-1 truncate font-medium text-primary">{selectedProduct.name}</span>
               <button
                 type="button"
                 onClick={() => setSelectedProduct(null)}
-                className="rounded p-0.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700"
+                className="rounded p-0.5 text-primary hover:bg-secondary-container/60 hover:text-primary"
                 title="Elegir otro artículo"
               >
                 <X className="h-3.5 w-3.5" />
@@ -136,9 +136,9 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectProduct(p)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-indigo-50"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-secondary-container/60"
                       >
-                        <Package className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <Package className="h-3.5 w-3.5 text-primary shrink-0" />
                         <span className="flex-1 truncate">{p.name}</span>
                       </button>
                     ))
@@ -162,16 +162,16 @@ export function AddLineForm({ albaranId, albaranStatus, onSuccess, onCancel }: A
             className="h-8 text-sm"
           />
           {!isConfirmed && selectedProduct && (
-            <div className="mt-1 flex items-center gap-2 rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-sm">
-              <Package className="h-4 w-4 text-indigo-600 shrink-0" />
+            <div className="mt-1 flex items-center gap-2 rounded-md border border-primary/30 bg-secondary-container/50 px-2 py-1.5 text-sm">
+              <Package className="h-4 w-4 text-primary shrink-0" />
               <span className="flex-1 truncate">
-                <span className="text-xs text-indigo-600">Artículo: </span>
-                <span className="font-medium text-indigo-900">{selectedProduct.name}</span>
+                <span className="text-xs text-primary">Artículo: </span>
+                <span className="font-medium text-primary">{selectedProduct.name}</span>
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedProduct(null)}
-                className="rounded p-0.5 text-indigo-400 hover:bg-indigo-100 hover:text-indigo-700"
+                className="rounded p-0.5 text-primary hover:bg-secondary-container/60 hover:text-primary"
                 title="Quitar artículo"
               >
                 <X className="h-3.5 w-3.5" />

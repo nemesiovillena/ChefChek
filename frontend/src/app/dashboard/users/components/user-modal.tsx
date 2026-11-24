@@ -268,11 +268,11 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending || updateUserAccess.isPending;
-  const inputClass = 'w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500';
+  const inputClass = 'w-full px-3 py-2 bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring';
   const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
   return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
+    <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-2xl shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -299,7 +299,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 onClick={() => setTab(id)}
                 className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
                   activeTab === id
-                    ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                    ? 'border-primary text-primary '
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
@@ -381,7 +381,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               id="isActive"
               checked={formData.isActive}
               onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
             />
             <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">Usuario activo</label>
           </div>
@@ -392,7 +392,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
               id="isSharedAccount"
               checked={formData.isSharedAccount}
               onChange={(e) => setFormData({ ...formData, isSharedAccount: e.target.checked })}
-              className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="mt-0.5 h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
             />
             <label htmlFor="isSharedAccount" className="text-sm text-gray-700 dark:text-gray-300">
               Cuenta compartida (dispositivo de cocina)
@@ -411,7 +411,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                 id={`access-${grant.key}`}
                 checked={accessValue(grant.key)}
                 onChange={(e) => setAccessEdits((prev) => ({ ...prev, [grant.key]: e.target.checked }))}
-                className="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
               />
               <label htmlFor={`access-${grant.key}`} className="text-sm text-gray-700 dark:text-gray-300">
                 {grant.label}
@@ -483,7 +483,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
                   setFormData((f) => ({ ...f, whatsapp: f.phone }));
                 }
               }}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
             />
             <label htmlFor="samePhoneForWhatsapp" className="text-sm text-gray-700 dark:text-gray-300">Usar el mismo número para WhatsApp</label>
           </div>
@@ -500,7 +500,7 @@ function UserModalForm({ targetUser, currentTenantId, onClose, onSaved, initialT
             Cerrar
           </button>
           {activeTab === 'datos' && (
-            <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            <button type="button" onClick={handleSubmit} disabled={isSaving} className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors">
               {isSaving ? 'Guardando...' : 'Guardar'}
             </button>
           )}

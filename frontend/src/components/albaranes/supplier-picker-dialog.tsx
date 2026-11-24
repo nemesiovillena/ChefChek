@@ -130,17 +130,17 @@ export function SupplierPickerDialog({
                     disabled={updating}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left disabled:opacity-50 ${
                       supplier.id === currentSupplierId
-                        ? 'bg-indigo-50 border border-indigo-200'
+                        ? 'bg-secondary-container/50 border border-primary/30'
                         : 'hover:bg-gray-100'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                      <Building2 className="h-5 w-5 text-indigo-600" />
+                    <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center flex-shrink-0">
+                      <Building2 className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{supplier.name}</p>
                       {supplier.id === currentSupplierId && (
-                        <span className="text-xs text-indigo-600">Proveedor actual</span>
+                        <span className="text-xs text-primary">Proveedor actual</span>
                       )}
                     </div>
                   </button>
@@ -153,7 +153,7 @@ export function SupplierPickerDialog({
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="w-full flex items-center justify-center gap-2 py-2 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2 text-sm text-primary hover:text-primary hover:bg-secondary-container/60 rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4" />
             Crear nuevo proveedor

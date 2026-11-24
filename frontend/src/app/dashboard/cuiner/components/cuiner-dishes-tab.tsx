@@ -116,7 +116,7 @@ function DishTargetPicker({
   }, [recipes.data, filter]);
 
   return (
-    <div className="space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30">
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-secondary-container/50 p-3 ">
       <div className="flex flex-wrap gap-2" role="tablist">
         {(['recipe', 'product'] as const).map((m) => (
           <button
@@ -133,7 +133,7 @@ function DishTargetPicker({
               setMode(m);
               setProduct(null);
             }}
-            className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
+            className={`rounded-full px-3 py-1 text-sm ${mode === m ? 'bg-primary text-primary-foreground' : 'bg-white text-gray-700 dark:bg-zinc-900 dark:text-zinc-300'}`}
           >
             {m === 'recipe' ? 'Receta de ChefChek' : 'Artículo de ChefChek (venta directa)'}
           </button>
@@ -162,7 +162,7 @@ function DishTargetPicker({
           {mode === 'recipe'
             ? recipeHits.map((r) => (
                 <li key={r.id}>
-                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => onPick({ recipeId: r.id })}>
+                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-secondary-container/60 dark:hover:bg-zinc-800" onClick={() => onPick({ recipeId: r.id })}>
                     {r.name}
                     {r.isActive === false && (
                       <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -174,7 +174,7 @@ function DishTargetPicker({
               ))
             : products.products.slice(0, 20).map((p) => (
                 <li key={p.id}>
-                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-zinc-800" onClick={() => setProduct(p)}>
+                  <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-secondary-container/60 dark:hover:bg-zinc-800" onClick={() => setProduct(p)}>
                     {p.name}
                   </button>
                 </li>

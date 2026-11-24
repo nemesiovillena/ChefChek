@@ -26,7 +26,7 @@ export default function TabCodigos({ formData, setFormData }: TabCodigosProps) {
           value={formData.qr}
           onChange={(e) => update('qr', e.target.value)}
           placeholder="Código QR"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
         />
       </div>
 
@@ -37,7 +37,7 @@ export default function TabCodigos({ formData, setFormData }: TabCodigosProps) {
           value={formData.barcode}
           onChange={(e) => update('barcode', e.target.value)}
           placeholder="Ej: 8412345678901"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
         />
       </div>
 
@@ -48,7 +48,7 @@ export default function TabCodigos({ formData, setFormData }: TabCodigosProps) {
           value={formData.lot}
           onChange={(e) => update('lot', e.target.value)}
           placeholder="Último lote recibido"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
         />
         <p className="text-xs text-gray-500 mt-1">
           Se actualiza automáticamente al confirmar un albarán con lote. Editable manualmente.

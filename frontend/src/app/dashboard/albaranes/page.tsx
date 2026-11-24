@@ -155,7 +155,7 @@ export default function AlbaranesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Pestañas: activos vs archivados (div role=tablist — un <nav> no fijo quedaría oculto por globals.css) */}
+      {/* Pestañas: activos vs archivados */}
       <div role="tablist" className="flex gap-2 border-b border-gray-200 mb-2">
         {(
           [
@@ -170,7 +170,7 @@ export default function AlbaranesPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-indigo-600 text-indigo-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
@@ -228,7 +228,7 @@ export default function AlbaranesPage() {
             ? 'Pendientes y recibidos sin confirmar, de cualquier fecha'
             : searchTerm.trim()
               ? 'Buscando en todas las fechas'
-              : 'Últimos dos meses — los albaranes más antiguos están en Archivados'}
+              : 'Últimos dos meses. Los albaranes más antiguos están en Archivados'}
       </p>
 
       {/* Filters */}
@@ -328,6 +328,7 @@ export default function AlbaranesPage() {
                 size="sm"
                 disabled={meta.page === 1}
                 onClick={() => setPage(meta.page - 1)}
+                aria-label="Página anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -339,6 +340,7 @@ export default function AlbaranesPage() {
                 size="sm"
                 disabled={meta.page === meta.totalPages}
                 onClick={() => setPage(meta.page + 1)}
+                aria-label="Página siguiente"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

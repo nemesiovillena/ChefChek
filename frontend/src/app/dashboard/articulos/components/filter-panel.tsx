@@ -38,7 +38,7 @@ export default function FilterPanel({
           <SlidersHorizontal className="h-4 w-4" />
           Filtros avanzados
           {activeCount > 0 && (
-            <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-1.5 py-0.5 rounded-full">
+            <span className="bg-secondary-container/50 text-primary text-xs font-semibold px-1.5 py-0.5 rounded-full">
               {activeCount}
             </span>
           )}
@@ -78,20 +78,23 @@ export default function FilterPanel({
           <label className="block text-xs font-medium text-gray-500 mb-1.5">Estado del stock</label>
           <div className="flex gap-1.5">
             {[
-              { value: 'all' as const, label: 'Todos', color: 'bg-gray-100 text-gray-600' },
-              { value: 'ok' as const, label: '🟢 OK', color: 'bg-emerald-50 text-emerald-700' },
-              { value: 'low' as const, label: '🟡 Bajo', color: 'bg-amber-50 text-amber-700' },
-              { value: 'empty' as const, label: '🔴 Agotado', color: 'bg-red-50 text-red-700' },
+              { value: 'all' as const, label: 'Todos', color: 'bg-gray-100 text-gray-600', dot: '' },
+              { value: 'ok' as const, label: 'OK', color: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+              { value: 'low' as const, label: 'Bajo', color: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
+              { value: 'empty' as const, label: 'Agotado', color: 'bg-red-50 text-red-700', dot: 'bg-red-500' },
             ].map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => onStockFilterChange(opt.value)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                type="button"
+                aria-pressed={stockFilter === opt.value}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   stockFilter === opt.value
                     ? opt.color + ' ring-1 ring-inset ring-current/20'
-                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 }`}
               >
+                {opt.dot && <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${opt.dot}`} />}
                 {opt.label}
               </button>
             ))}

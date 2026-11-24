@@ -31,7 +31,7 @@ export function ModuleListWidget() {
         </div>
         <button
           onClick={() => refetch()}
-          className="mt-4 text-indigo-600 hover:text-indigo-800 underline"
+          className="mt-4 text-primary hover:text-primary underline"
         >
           Retry
         </button>

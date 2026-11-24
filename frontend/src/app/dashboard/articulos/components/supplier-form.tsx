@@ -221,7 +221,7 @@ export function SupplierForm({ supplier, initialName, onSubmit, onCancel, isSubm
         {unmarkedContactMethods.length > 0 && (
           <p className="mt-2 text-xs text-amber-600">
             Tienes {unmarkedContactMethods.join(' y ')} guardado pero no marcado como método de
-            pedido — el proveedor no mostrará esta opción al enviar pedidos.
+            pedido. El proveedor no mostrará esta opción al enviar pedidos.
           </p>
         )}
       </div>

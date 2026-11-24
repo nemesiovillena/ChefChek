@@ -108,7 +108,7 @@ function CycleForm({
           type="button"
           disabled={update.isPending}
           onClick={handleSave}
-          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white disabled:opacity-40"
+          className="mt-3 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-40"
         >
           {update.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Guardar fase
@@ -163,7 +163,7 @@ export function SictedConfigSection() {
   return (
     <div className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
       <div className="flex items-center gap-2 mb-2">
-        <Verified className="h-5 w-5 text-indigo-600" />
+        <Verified className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold">SICTED</h2>
       </div>
       {commitments && (
@@ -182,7 +182,7 @@ export function SictedConfigSection() {
         correspondientes, igual que al configurar tu manual en la web oficial SICTED. Las prácticas de oficio aplican siempre.
       </p>
       {isLoading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {(groups ?? []).map((g) => (
@@ -210,7 +210,7 @@ export function SictedConfigSection() {
           type="button"
           disabled={!dirty || update.isPending}
           onClick={handleSave}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white disabled:opacity-40"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-40"
         >
           {update.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Guardar

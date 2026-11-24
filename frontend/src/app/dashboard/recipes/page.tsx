@@ -874,9 +874,9 @@ export default function RecipesPage() {
           <span>{label}</span>
           {isActive ? (
             sortDirection === 'asc' ? (
-              <ChevronUp className="h-3.5 w-3.5 text-indigo-600" />
+              <ChevronUp className="h-3.5 w-3.5 text-primary" />
             ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-indigo-600" />
+              <ChevronDown className="h-3.5 w-3.5 text-primary" />
             )
           ) : (
             <ChevronDown className="h-3.5 w-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -896,7 +896,7 @@ export default function RecipesPage() {
       </button>
       <button
         onClick={() => { setActiveTab('general'); setDismissedRecipeMatchIds(new Set()); setKnownIngredientAllergens(new Map()); setIsDrink(canViewDrinks && kind === 'drink'); setShowCreateForm(true); }}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
       >
         Crear Receta
       </button>
@@ -915,7 +915,6 @@ export default function RecipesPage() {
         />
 
         {canViewDrinks && (
-          // role="tablist" en un <div>: globals.css oculta los <nav> no fijos.
           <div role="tablist" aria-label="Tipo de receta" className="mb-4 flex gap-2">
             {(['food', 'drink'] as const).map((k) => (
               <button
@@ -948,7 +947,7 @@ export default function RecipesPage() {
                 value={searchTerm}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Nombre o descripción"
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               />
             </div>
             <div className="flex-1">
@@ -958,7 +957,7 @@ export default function RecipesPage() {
               <select
                 value={selectedCategory}
                 onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
-                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               >
                 <option value="">Todas</option>
                 {categories.map((category) => (
@@ -1040,7 +1039,7 @@ export default function RecipesPage() {
                         recipe.categories.map((cat) => (
                           <span
                             key={cat.categoryId}
-                            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-secondary-container/50 text-primary "
                           >
                             {categories.find((c) => c.id === cat.categoryId)?.icon} {cat.categoryName}
                           </span>
@@ -1050,7 +1049,7 @@ export default function RecipesPage() {
                       )}
                     </div>
                   </div>
-                  <Eye className="h-5 w-5 flex-shrink-0 text-purple-600 dark:text-purple-400" />
+                  <Eye className="h-5 w-5 flex-shrink-0 text-primary" />
                 </button>
               ))
             )}
@@ -1093,7 +1092,7 @@ export default function RecipesPage() {
                           }`}
                           title={
                             isOverTarget
-                              ? `${recipe.name} — coste real ${recipe.pricing!.costPercentage!.toFixed(1)}% supera el objetivo ${recipe.pricing!.targetCostPercentage.toFixed(1)}%`
+                              ? `${recipe.name}: coste real ${recipe.pricing!.costPercentage!.toFixed(1)}% supera el objetivo ${recipe.pricing!.targetCostPercentage.toFixed(1)}%`
                               : recipe.name
                           }
                         >
@@ -1111,7 +1110,7 @@ export default function RecipesPage() {
                             {recipe.categories.map((cat) => (
                               <span
                                 key={cat.categoryId}
-                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
+                                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-secondary-container/50 text-primary "
                               >
                                 {categories.find((c) => c.id === cat.categoryId)?.icon} {cat.categoryName}
                               </span>
@@ -1154,8 +1153,8 @@ export default function RecipesPage() {
                         {canEditRecipes ? (
                           <button
                             onClick={() => handleToggleStatus(recipe)}
-                            title={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
-                            aria-label={recipe.isActive ? 'Activo — clic para desactivar' : 'Desactivado — clic para activar'}
+                            title={recipe.isActive ? 'Activo. Clic para desactivar' : 'Desactivado. Clic para activar'}
+                            aria-label={recipe.isActive ? 'Activo. Clic para desactivar' : 'Desactivado. Clic para activar'}
                             className={`inline-flex h-6 w-6 items-center justify-center rounded-full cursor-pointer hover:opacity-85 active:scale-95 transition-all duration-150 ${
                               recipe.isActive
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
@@ -1184,7 +1183,7 @@ export default function RecipesPage() {
                           onClick={() => setVisualViewRecipe(recipe)}
                           title="Vista visual"
                           aria-label="Vista visual"
-                          className={`${actionButtonClass} border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-900/30 dark:bg-sky-950/20 dark:text-sky-400 dark:hover:bg-sky-950/40`}
+                          className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -1193,7 +1192,7 @@ export default function RecipesPage() {
                           disabled={generatingSheetId === recipe.id}
                           title="Receta (imprimir)"
                           aria-label="Receta (imprimir)"
-                          className={`${actionButtonClass} border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:opacity-50 disabled:cursor-wait dark:border-purple-900/30 dark:bg-purple-950/20 dark:text-purple-400 dark:hover:bg-purple-950/40`}
+                          className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70 disabled:opacity-50 disabled:cursor-wait`}
                         >
                           <BookOpen className="h-4 w-4" />
                         </button>
@@ -1203,7 +1202,7 @@ export default function RecipesPage() {
                             disabled={generatingSheetId === recipe.id}
                             title="Ficha técnica"
                             aria-label="Ficha técnica"
-                            className={`${actionButtonClass} border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-wait dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-400 dark:hover:bg-amber-950/40`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70 disabled:opacity-50 disabled:cursor-wait`}
                           >
                             <FileText className="h-4 w-4" />
                           </button>
@@ -1213,7 +1212,7 @@ export default function RecipesPage() {
                             onClick={() => handleViewCost(recipe)}
                             title="Costo"
                             aria-label="Costo"
-                            className={`${actionButtonClass} border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-400 dark:hover:bg-emerald-950/40`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                           >
                             <Calculator className="h-4 w-4" />
                           </button>
@@ -1223,7 +1222,7 @@ export default function RecipesPage() {
                             onClick={() => router.push(`/dashboard/etiquetado/nueva?recipeId=${recipe.id}`)}
                             title="Etiquetar"
                             aria-label="Etiquetar"
-                            className={`${actionButtonClass} border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100 dark:border-teal-900/30 dark:bg-teal-950/20 dark:text-teal-400 dark:hover:bg-teal-950/40`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                           >
                             <Tag className="h-4 w-4" />
                           </button>
@@ -1233,7 +1232,7 @@ export default function RecipesPage() {
                             onClick={() => handleEdit(recipe)}
                             title="Editar receta"
                             aria-label="Editar receta"
-                            className={`${actionButtonClass} border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:border-[var(--secondary)]/30 dark:bg-[var(--secondary)]/10 dark:text-[var(--secondary)] dark:hover:bg-[var(--secondary)]/20`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -1243,7 +1242,7 @@ export default function RecipesPage() {
                             onClick={() => setRecipeToDuplicate(recipe)}
                             title="Duplicar receta"
                             aria-label="Duplicar receta"
-                            className={`${actionButtonClass} border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900`}
+                            className={`${actionButtonClass} border border-primary/30 bg-secondary-container/50 text-primary hover:bg-secondary-container/70`}
                           >
                             <Copy className="h-4 w-4" />
                           </button>
@@ -1288,7 +1287,7 @@ export default function RecipesPage() {
         )}
 
         {showCreateForm && canEditRecipes && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
+          <div className="fixed inset-0 bg-black/40 overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
             <div className="relative top-8 mx-auto w-full max-w-3xl mb-8 rounded-[28px] border border-[var(--outline-variant)] bg-[var(--surface-container-high)] shadow-[0_8px_32px_-4px_rgba(0,0,0,0.18)]">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -1323,8 +1322,7 @@ export default function RecipesPage() {
                   </button>
                 </div>
 
-                {/* Pestañas de sección. Se usa role="tablist" (no <nav>) porque
-                    globals.css oculta todo <nav> que no sea .fixed. */}
+                {/* Pestañas de sección */}
                 <div role="tablist" aria-label="Secciones de la receta" className="flex gap-1 border-b border-[var(--outline-variant)]">
                   {RECIPE_TABS.map((tab) => (
                     <button
@@ -1489,7 +1487,7 @@ export default function RecipesPage() {
                       {estimatedYieldWeight.hasUnknownWeightItems && (
                         <p className="mt-1 text-xs text-[var(--on-surface-variant)]">
                           * El estimado no incluye ingredientes o sub-recetas en
-                          unidades/raciones (sin peso conocido en el sistema) — ajusta a
+                          unidades/raciones (sin peso conocido en el sistema). Ajusta a
                           mano si hace falta.
                         </p>
                       )}
@@ -1645,8 +1643,8 @@ export default function RecipesPage() {
                                     max="100"
                                     title={
                                       ingredient.hasArticleWaste
-                                        ? 'Merma % del artículo — si la cambias aquí, se guarda en el artículo para todas sus recetas'
-                                        : 'El artículo no tiene merma — la que pongas aquí se guarda en el artículo'
+                                        ? 'Merma % del artículo. Si la cambias aquí, se guarda en el artículo para todas sus recetas'
+                                        : 'El artículo no tiene merma. La que pongas aquí se guarda en el artículo'
                                     }
                                     placeholder="Merma %"
                                     // Una sola merma por artículo: undefined = sin tocar (se
@@ -1949,13 +1947,13 @@ function CuinerLinkBadge({
 }) {
   const linked = (dishes?.length ?? 0) > 0;
   if (!linked && canOpenCuiner) {
-    const linkLabel = 'Sin enlazar a Cuiner — clic para enlazar en Platos';
+    const linkLabel = 'Sin enlazar a Cuiner. Clic para enlazar en Platos';
     return (
       <Link
         href={`/dashboard/cuiner?tab=platos&search=${encodeURIComponent(recipeName)}`}
         title={linkLabel}
         aria-label={linkLabel}
-        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 align-middle text-gray-400 transition-all duration-150 hover:bg-indigo-100 hover:text-indigo-700 active:scale-95 dark:bg-zinc-800 dark:text-zinc-500 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300"
+        className="ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 align-middle text-gray-400 transition-all duration-150 hover:bg-secondary-container/60 hover:text-primary active:scale-95 dark:bg-zinc-800 dark:text-zinc-500 "
       >
         <Link2Off className="h-3.5 w-3.5" />
       </Link>
@@ -1968,7 +1966,7 @@ function CuinerLinkBadge({
       aria-label={label}
       className={`ml-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full align-middle ${
         linked
-          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+          ? 'bg-secondary-container/50 text-primary '
           : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'
       }`}
     >

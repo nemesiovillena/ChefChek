@@ -55,7 +55,7 @@ function MeasureForm({
 
   return (
     <form
-      className="grid gap-2 rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 dark:border-indigo-900 dark:bg-indigo-950/30 md:grid-cols-[1.2fr_0.6fr_0.6fr_2fr_auto] md:items-end"
+      className="grid gap-2 rounded-lg border border-primary/30 bg-secondary-container/50 p-3 md:grid-cols-[1.2fr_0.6fr_0.6fr_2fr_auto] md:items-end"
       onSubmit={(e) => {
         e.preventDefault();
         const parsed = parseDraft(draft);

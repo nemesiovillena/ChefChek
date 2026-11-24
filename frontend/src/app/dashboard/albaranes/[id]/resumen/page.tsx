@@ -296,8 +296,8 @@ export default function AlbaranResumenPage() {
               </AlbaranTotalMismatchNotice>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-indigo-600" />
+                  <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-gray-500">Proveedor</p>
@@ -308,7 +308,8 @@ export default function AlbaranResumenPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => setSupplierPickerOpen(true)}
-                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          aria-label="Cambiar proveedor"
+                          className="h-6 px-2 text-primary hover:text-primary hover:bg-secondary-container/60"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -326,8 +327,8 @@ export default function AlbaranResumenPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Fecha</p>
@@ -338,7 +339,7 @@ export default function AlbaranResumenPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => setDateDraft(albaran.date.slice(0, 10))}
-                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          className="h-6 px-2 text-primary hover:text-primary hover:bg-secondary-container/60"
                           title="Corregir la fecha"
                         >
                           <Edit2 className="h-3 w-3" />
@@ -376,8 +377,8 @@ export default function AlbaranResumenPage() {
                 )}
 
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-purple-600" />
+                  <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm text-gray-500">Líneas</p>
@@ -387,7 +388,8 @@ export default function AlbaranResumenPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => router.push(`/dashboard/albaranes/${id}/lineas`)}
-                        className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        aria-label="Ver líneas del albarán"
+                        className="h-6 px-2 text-primary hover:text-primary hover:bg-secondary-container/60"
                       >
                         <ArrowUpRight className="h-3 w-3" />
                       </Button>
@@ -410,7 +412,8 @@ export default function AlbaranResumenPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => setOrderPickerOpen(true)}
-                          className="h-6 px-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          aria-label="Cambiar pedido vinculado"
+                          className="h-6 px-2 text-primary hover:text-primary hover:bg-secondary-container/60"
                         >
                           <Edit2 className="h-3 w-3" />
                         </Button>
@@ -492,7 +495,7 @@ export default function AlbaranResumenPage() {
                 )}
               <div className="flex justify-between text-lg font-bold pt-3 border-t border-gray-200">
                 <span>Total</span>
-                <span className="text-indigo-600">{formatCurrency(totals.total)}</span>
+                <span className="text-primary">{formatCurrency(totals.total)}</span>
               </div>
             </CardContent>
           </Card>

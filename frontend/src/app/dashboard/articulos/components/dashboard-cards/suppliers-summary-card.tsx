@@ -14,8 +14,8 @@ export function SuppliersSummaryCard({ supplierCount, onManageSuppliers }: Props
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Users className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-secondary-container/50 rounded-lg">
+            <Users className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="text-sm text-gray-500">Proveedores activos</p>

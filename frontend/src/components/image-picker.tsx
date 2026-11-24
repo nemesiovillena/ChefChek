@@ -106,13 +106,13 @@ export default function ImagePicker({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Término de búsqueda"
-                className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
               />
               <button
                 type="button"
                 onClick={handleSearch}
                 disabled={searching || !query.trim()}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+                className="px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
               >
                 {searching && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Buscar
@@ -144,7 +144,7 @@ export default function ImagePicker({
                     type="button"
                     onClick={() => handlePick(r.url)}
                     title={r.title}
-                    className="aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-zinc-700 hover:ring-2 hover:ring-indigo-500 transition-all bg-white dark:bg-zinc-800"
+                    className="aspect-square rounded-md overflow-hidden border border-gray-200 dark:border-zinc-700 hover:ring-2 hover:ring-ring transition-all bg-white dark:bg-zinc-800"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

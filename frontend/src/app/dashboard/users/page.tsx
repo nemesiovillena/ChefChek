@@ -352,7 +352,7 @@ function EmployeesContent() {
                     <div className="flex items-center justify-end gap-3">
                       <button
                         onClick={() => handleEdit(targetUser)}
-                        className="text-[var(--on-surface-variant)] hover:text-indigo-600 transition-colors"
+                        className="text-[var(--on-surface-variant)] hover:text-primary transition-colors"
                         title="Editar usuario"
                       >
                         <Pencil className="h-4 w-4" />
@@ -386,7 +386,7 @@ function EmployeesContent() {
             view === 'personas' ? (
               <button
                 onClick={handleCreate}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
               >
                 Nueva persona
               </button>
@@ -394,7 +394,6 @@ function EmployeesContent() {
           }
         />
 
-        {/* role="tablist" en un <div>: globals.css oculta los <nav> no fijos. */}
         <div role="tablist" aria-label="Empleados" className="mb-4 flex gap-2">
           {(['personas', 'puestos'] as const).map((v) => (
             <button

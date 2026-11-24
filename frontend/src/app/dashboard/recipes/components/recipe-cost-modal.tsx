@@ -63,17 +63,17 @@ function SummaryCards({ recipe, costData }: { recipe: Recipe; costData: RecipeCo
         <div className="text-sm text-green-700 dark:text-green-400">Costo Total</div>
         <div className="text-2xl font-bold text-green-900 dark:text-green-200">{formatEuro(costData.totalCost)}</div>
       </div>
-      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-lg transition-colors">
-        <div className="text-sm text-blue-700 dark:text-blue-400">Costo por Ración</div>
-        <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">{formatEuro(costData.costPerPortion)}</div>
+      <div className="bg-secondary-container/40 border border-outline-variant p-4 rounded-lg transition-colors">
+        <div className="text-sm text-on-surface-variant">Costo por Ración</div>
+        <div className="text-2xl font-bold text-primary">{formatEuro(costData.costPerPortion)}</div>
       </div>
       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 p-4 rounded-lg transition-colors">
         <div className="text-sm text-amber-700 dark:text-amber-400">Coste Objetivo Máximo</div>
         <div className="text-2xl font-bold text-amber-900 dark:text-amber-200">{formatPercent(pricing.targetCostPercentage)}</div>
       </div>
-      <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 p-4 rounded-lg transition-colors">
-        <div className="text-sm text-purple-700 dark:text-purple-400">PVP Teórico (coste×{pricing.theoreticalPriceMultiplier})</div>
-        <div className="text-2xl font-bold text-purple-900 dark:text-purple-200">{formatEuro(pricing.theoreticalSellingPrice)}</div>
+      <div className="bg-secondary-container/40 border border-outline-variant p-4 rounded-lg transition-colors">
+        <div className="text-sm text-on-surface-variant">PVP Teórico (coste×{pricing.theoreticalPriceMultiplier})</div>
+        <div className="text-2xl font-bold text-primary">{formatEuro(pricing.theoreticalSellingPrice)}</div>
       </div>
     </div>
   );

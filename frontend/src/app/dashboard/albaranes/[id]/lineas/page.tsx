@@ -364,7 +364,7 @@ export default function AlbaranLineasPage() {
     // (icono con tooltip) y repetirlo aquí era la causa principal de que la
     // fila no cupiera entera en iPad.
     if (line.lineStatus === 'CONFIRMADO' || albaran?.status === 'ARCHIVADO') {
-      return <span className="text-gray-300">—</span>;
+      return <span className="text-on-surface-variant" aria-label="Sin acciones">—</span>;
     }
 
     // Línea rechazada: se puede recuperar (p. ej. un cargo de logística que se
@@ -377,7 +377,7 @@ export default function AlbaranLineasPage() {
             variant="outline"
             onClick={() => handleOpenPicker(line)}
             title="Elegir artículo existente"
-            className="text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+            className="text-primary border-primary/30 hover:bg-secondary-container/60"
           >
             <Search className="h-3.5 w-3.5" />
             <span className={MOBILE_ACTION_LABEL}>Elegir artículo</span>
@@ -420,7 +420,7 @@ export default function AlbaranLineasPage() {
                 className={
                   line.matchStatus === 'MATCH_DUDOSO'
                     ? 'text-yellow-700 border-yellow-300 hover:bg-yellow-50'
-                    : 'text-indigo-700 border-indigo-300 hover:bg-indigo-50'
+                    : 'text-primary border-primary/30 hover:bg-secondary-container/60'
                 }
               >
                 <Search className="h-3.5 w-3.5" />
@@ -594,7 +594,7 @@ export default function AlbaranLineasPage() {
                   IVA <span className="font-medium text-foreground">{formatCurrency(totals.vatTotal)}</span>
                 </span>
                 <span className="font-semibold">
-                  Total <span className="text-indigo-600">{formatCurrency(totals.total)}</span>
+                  Total <span className="text-primary">{formatCurrency(totals.total)}</span>
                 </span>
               </div>
             </div>
@@ -639,7 +639,7 @@ export default function AlbaranLineasPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowAddLine(true)}
-                  className="text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                  className="text-primary border-primary/30 hover:bg-secondary-container/60"
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Añadir línea
@@ -702,7 +702,7 @@ export default function AlbaranLineasPage() {
                               <p className="text-xs text-gray-500">Art: {line.articleNumber}</p>
                             ) : null}
                             {line.matchedProduct && (
-                              <div className="mt-1 flex items-center gap-1.5 text-xs text-indigo-600">
+                              <div className="mt-1 flex items-center gap-1.5 text-xs text-primary">
                                 <span>→ {line.matchedProduct.name}</span>
                                 {/* Visibles siempre (no solo al pasar el ratón): en iPad no hay hover. */}
                                 {canRelink(line) && (
@@ -711,7 +711,7 @@ export default function AlbaranLineasPage() {
                                       type="button"
                                       onClick={() => handleOpenPicker(line)}
                                       disabled={updating === line.id}
-                                      className="rounded p-0.5 text-indigo-500 hover:bg-indigo-50"
+                                      className="rounded p-0.5 text-primary hover:bg-secondary-container/60"
                                       title="Cambiar artículo"
                                       aria-label="Cambiar artículo"
                                     >
@@ -937,7 +937,7 @@ export default function AlbaranLineasPage() {
                                   {formatCurrency(net!)}
                                 </span>
                                 {looksMisread && (
-                                  <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
                                     No cuadra con {formatCurrency(gross)} (cant. × precio). Revisa el papel
                                   </span>
                                 )}
@@ -946,7 +946,7 @@ export default function AlbaranLineasPage() {
                                     <span className="text-xs text-gray-400 line-through">
                                       {formatCurrency(gross)}
                                     </span>
-                                    <span className="text-[10px] font-medium text-emerald-700">
+                                    <span className="text-[11px] font-medium text-emerald-700">
                                       Dto. −{formatCurrency(gross - net!)} (−{discountPct}%)
                                     </span>
                                   </>

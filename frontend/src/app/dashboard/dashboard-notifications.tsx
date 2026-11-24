@@ -2,11 +2,12 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { NotificationEvent } from '@/lib/websocket-client';
+import { CircleAlert, Info, TriangleAlert } from 'lucide-react';
 
 const TYPE_STYLES = {
-  ERROR: { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: 'error' },
-  WARNING: { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: 'warning' },
-  DEFAULT: { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: 'info' },
+  ERROR: { wrap: 'bg-error/10 border-error/20', icon: 'text-error', glyph: CircleAlert },
+  WARNING: { wrap: 'bg-warning/10 border-warning/20', icon: 'text-warning', glyph: TriangleAlert },
+  DEFAULT: { wrap: 'bg-secondary-container/10 border-transparent', icon: 'text-secondary', glyph: Info },
 } as const;
 
 /** Un aviso de "Notificaciones y Alertas": icono por tipo, título y mensaje; las leídas salen atenuadas. */
@@ -23,7 +24,7 @@ export function DashboardNotificationRow({
       onClick={onOpen}
       className={`flex items-start gap-stack-sm p-2 rounded border cursor-pointer hover:opacity-80 transition-opacity ${style.wrap} ${!notif.read ? '' : 'opacity-60'}`}
     >
-      <span className={`material-symbols-outlined ${style.icon} text-[16px]`}>{style.glyph}</span>
+      <style.glyph aria-hidden className={`h-4 w-4 shrink-0 `} />
       <div>
         <p className="text-xs text-primary font-medium">{notif.title}</p>
         <p className="text-[11px] text-on-surface-variant leading-tight">{notif.message}</p>

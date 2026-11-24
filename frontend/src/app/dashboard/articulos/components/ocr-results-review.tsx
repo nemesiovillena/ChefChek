@@ -56,7 +56,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
             className={cn(
               'border rounded-lg p-3 transition-colors',
               product.include
-                ? 'border-indigo-200 bg-indigo-50/30'
+                ? 'border-primary/30 bg-secondary-container/50'
                 : 'border-gray-200 bg-gray-50/50 opacity-60',
             )}
           >
@@ -67,8 +67,8 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                 className={cn(
                   'mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
                   product.include
-                    ? 'bg-indigo-600 border-indigo-600 text-white'
-                    : 'border-gray-300 hover:border-indigo-400',
+                    ? 'bg-primary border-primary text-primary-foreground'
+                    : 'border-gray-300 hover:border-primary/60',
                 )}
               >
                 {product.include && <Check className="h-3 w-3" />}
@@ -81,7 +81,7 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                     value={product.name}
                     onChange={(e) => updateField(i, 'name', e.target.value)}
                     className={cn(
-                      'text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none flex-1 min-w-0',
+                      'text-sm font-medium bg-transparent border-b border-transparent hover:border-gray-300 focus:border-ring focus:outline-none flex-1 min-w-0',
                       !product.include && 'line-through',
                     )}
                   />
@@ -99,33 +99,33 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                 {/* Editable fields row */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Precio</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Precio</span>
                     <input
                       type="number"
                       step="any"
                       value={product.price || ''}
                       onChange={(e) => updateField(i, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-16 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"
+                      className="w-16 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="0.00"
                     />
                     <span className="text-xs text-gray-500">€</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Cant.</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Cant.</span>
                     <input
                       type="number"
                       value={product.quantity || ''}
                       onChange={(e) => updateField(i, 'quantity', parseInt(e.target.value) || 0)}
-                      className="w-10 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"
+                      className="w-10 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="1"
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Und.</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Und.</span>
                     <select
                       value={product.unit || 'ud'}
                       onChange={(e) => updateField(i, 'unit', e.target.value)}
-                      className="text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent"
+                      className="text-xs border-b border-gray-300 focus:border-ring focus:outline-none bg-transparent"
                     >
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -135,32 +135,32 @@ export default function OcrResultsReview({ products, onProductsChange }: OcrResu
                     </select>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Categoría*</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Categoría*</span>
                     <input
                       type="text"
                       value={product.category || ''}
                       onChange={(e) => updateField(i, 'category', e.target.value)}
-                      className="w-24 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"
+                      className="w-24 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Requerido"
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Proveedor</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Proveedor</span>
                     <input
                       type="text"
                       value={product.supplier || ''}
                       onChange={(e) => updateField(i, 'supplier', e.target.value)}
-                      className="w-20 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"
+                      className="w-20 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Opcional"
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[11px] text-indigo-600 font-semibold uppercase">Lote</span>
+                    <span className="text-[11px] text-primary font-semibold uppercase">Lote</span>
                     <input
                       type="text"
                       value={product.lot || ''}
                       onChange={(e) => updateField(i, 'lot', e.target.value)}
-                      className="w-16 text-xs border-b border-gray-300 focus:border-indigo-500 focus:outline-none px-0.5 py-0"
+                      className="w-16 text-xs border-b border-gray-300 focus:border-ring focus:outline-none px-0.5 py-0"
                       placeholder="Opcional"
                     />
                   </div>
@@ -184,7 +184,7 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium',
         isHigh && 'bg-emerald-50 text-emerald-700',
         isMedium && 'bg-amber-50 text-amber-700',
         isLow && 'bg-red-50 text-red-700',

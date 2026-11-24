@@ -111,17 +111,17 @@ export function BackupList({ baseUrl, backups, loading, error, onRestoreStarted 
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-[var(--on-surface)]">
                     {formatWhen(b.createdAt)}
                     {b.type === 'AUTO_PRE_RESTORE' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[11px] font-medium text-[var(--primary)]">
                         <ShieldCheck className="h-3 w-3" /> Auto pre-restore
                       </span>
                     )}
                     {b.scope === 'GLOBAL' && (
-                      <span className="rounded-full bg-[var(--tertiary)]/20 px-2 py-0.5 text-[10px] font-medium text-[var(--on-tertiary-container)]">
+                      <span className="rounded-full bg-[var(--tertiary)]/20 px-2 py-0.5 text-[11px] font-medium text-[var(--on-tertiary-container)]">
                         Global
                       </span>
                     )}
                     {b.status === 'FAILED' && (
-                      <span className="rounded-full bg-[var(--error)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--error)]">
+                      <span className="rounded-full bg-[var(--error)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--error)]">
                         Falló
                       </span>
                     )}
@@ -143,7 +143,7 @@ export function BackupList({ baseUrl, backups, loading, error, onRestoreStarted 
                   <button
                     onClick={() => handleRestore(b)}
                     disabled={!canDownload}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-secondary-container/50 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-secondary-container/60 disabled:cursor-not-allowed disabled:opacity-40 "
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Restaurar
                   </button>

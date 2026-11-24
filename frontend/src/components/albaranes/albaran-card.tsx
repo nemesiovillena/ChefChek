@@ -62,8 +62,8 @@ export function AlbaranCard({ albaran, onDelete }: AlbaranCardProps) {
             la papelera fuera de la tarjeta en móvil */}
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="w-10 h-10 shrink-0 rounded-lg bg-indigo-100 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-indigo-600" />
+            <div className="w-10 h-10 shrink-0 rounded-lg bg-secondary-container/50 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-semibold text-gray-900">

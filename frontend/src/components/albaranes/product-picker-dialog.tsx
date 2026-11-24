@@ -105,11 +105,11 @@ export function ProductPickerDialog({
                   disabled={matching === product.id}
                   className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors text-left disabled:opacity-50"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-secondary-container/50 flex items-center justify-center flex-shrink-0">
                     {matching === product.id ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
                     ) : (
-                      <Package className="h-5 w-5 text-indigo-600" />
+                      <Package className="h-5 w-5 text-primary" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -127,7 +127,7 @@ export function ProductPickerDialog({
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-semibold text-indigo-600">
+                    <p className="font-semibold text-primary">
                       {formatCurrency(product.netPrice)}
                     </p>
                     <p className="text-xs text-gray-500">{product.referenceUnit}</p>

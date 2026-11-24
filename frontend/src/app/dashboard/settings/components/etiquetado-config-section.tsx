@@ -120,7 +120,7 @@ export function EtiquetadoConfigSection() {
   return (
     <div className="bg-white shadow rounded-lg mb-6 p-6 dark:bg-zinc-900">
       <div className="flex items-center gap-2 mb-4">
-        <Tag className="h-5 w-5 text-indigo-600" />
+        <Tag className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-semibold">Etiquetas</h2>
       </div>
       <p className="text-sm text-gray-500 mb-4">
@@ -147,7 +147,7 @@ export function EtiquetadoConfigSection() {
           <span className="font-semibold">{activeFormatLabel ?? 'ninguno'}</span>
         </span>
         {formatUnsaved && (
-          <span className="font-medium">— cambio sin guardar, pulsa Guardar</span>
+          <span className="font-medium">(cambio sin guardar, pulsa Guardar)</span>
         )}
       </div>
 
@@ -280,7 +280,7 @@ export function EtiquetadoConfigSection() {
         <button
           type="button"
           onClick={add}
-          className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-300"
+          className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-secondary-container/50 px-3 py-1.5 text-sm text-primary hover:bg-secondary-container/60 "
         >
           <Plus className="h-4 w-4" />
           Añadir perfil
@@ -292,7 +292,7 @@ export function EtiquetadoConfigSection() {
             updateConfig.isPending ||
             (drafts === null && defaultFormatDraft === null && expiryWarningDaysDraft === null)
           }
-          className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-md bg-primary px-4 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {updateConfig.isPending ? 'Guardando…' : 'Guardar'}
         </button>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, type ReactNode } from 'react';
-import Image from 'next/image';
+import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   DndContext,
@@ -43,6 +43,7 @@ import {
   useWebSocketNotifications,
   useWebSocketRooms,
 } from '@/hooks/use-websocket';
+import { ArrowRight, BookOpen, ChartLine, CircleCheck, ClipboardPlus, Clock, Eye, IdCard, LoaderCircle, Plus, ShoppingCart, Tag, Truck } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -195,7 +196,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#121212] text-[#e5e2e1]">
         <div className="flex flex-col items-center gap-4">
-          <span className="material-symbols-outlined text-4xl animate-spin text-secondary">progress_activity</span>
+          <LoaderCircle aria-hidden className="h-9 w-9 animate-spin text-secondary" />
           <div className="font-label-md text-label-md tracking-wider">VALIDANDO ACCESO...</div>
         </div>
       </div>
@@ -216,12 +217,17 @@ export default function DashboardPage() {
     return `${day}/${month}`;
   };
 
+  // Las tarjetas que navegan son enlaces reales (Tab + Enter) con un anillo de
+  // foco visible, en vez de <div onClick>.
+  const cardLinkFocus =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+
   // Fragmentos reutilizados en el orden móvil (pedido por el usuario) y en el
   // bento grid de escritorio, que agrupa las cards de otra forma.
   const pedidosPendientesCard = (
-    <div
-      onClick={() => router.push('/dashboard/compras')}
-      className="relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors shrink-0"
+    <Link
+      href="/dashboard/compras"
+      className={`relative tonal-layer-2 p-stack-lg rounded-xl flex items-center justify-between border border-border hover:border-secondary transition-colors shrink-0 ${cardLinkFocus}`}
     >
       {!!kpis?.scheduledDraftOrders && kpis.scheduledDraftOrders > 0 && (
         <span
@@ -256,7 +262,7 @@ export default function DashboardPage() {
             ) : (
               <>
                 {kpis.nextScheduledPurchase.isToday && (
-                  <span className="mr-1 inline-flex items-center rounded-full bg-primary px-1.5 py-0.5 align-middle text-[9px] font-bold text-primary-foreground">
+                  <span className="mr-1 inline-flex items-center rounded-full bg-primary px-1.5 py-0.5 align-middle text-[10px] font-bold text-primary-foreground">
                     HOY
                   </span>
                 )}
@@ -272,9 +278,9 @@ export default function DashboardPage() {
         )}
       </div>
       <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-        <span className="material-symbols-outlined text-secondary">local_shipping</span>
+        <Truck aria-hidden className="h-6 w-6 text-secondary" />
       </div>
-    </div>
+    </Link>
   );
 
   const filteredNotifications = showAllNotifications ? notifications : notifications.filter((notif) => !notif.read);
@@ -334,7 +340,7 @@ export default function DashboardPage() {
       >
         {filteredNotifications.length === 0 ? (
           <div className="flex items-center gap-stack-sm p-2 bg-secondary-container/10 rounded">
-            <span className="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+            <CircleCheck aria-hidden className="h-[16px] w-[16px] text-secondary" />
             <p className="text-xs text-on-surface-variant">
               {showAllNotifications ? 'No hay notificaciones' : 'No hay notificaciones sin leer'}
             </p>
@@ -507,21 +513,19 @@ export default function DashboardPage() {
     </div>
   );
 
+  // Sin foto de stock: la tarjeta es un acceso directo al listado y no debe
+  // aparentar un plato del restaurante que no existe.
   const recetasCard = (
-    <div
-      className="tonal-layer-2 rounded-xl overflow-hidden relative group h-48 md:h-32 border border-border cursor-pointer"
-      onClick={() => router.push('/dashboard/recipes')}
+    <Link
+      href="/dashboard/recipes"
+      className={`group tonal-layer-2 rounded-xl h-48 md:h-32 p-stack-lg md:p-stack-md flex items-end justify-between gap-stack-md border border-border hover:border-secondary hover:bg-surface-container-low transition-colors duration-200 ${cardLinkFocus}`}
     >
-      <Image
-        alt="Seasonal Veg Prep"
-        fill
-        className="w-full h-full object-cover opacity-30 grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_IYUl3hekNMpAcZCYRjsZ7_Sf_zxQOvTMS4RQNTTiaKDVGsmncn5fZvSJSmO4AxyElaF_rqmTEqNslT-FpsimF7v92xwk_RWQ2G7yV0ttulljmVkoin8_d_XFhQdKznRcoqd-KSP8ZWtPMlasO-vHOrm6-gTZjYboyL2Zcpn83y-IAiJ8AI3I5JTHqR5UUcWTdCkSvU72j3_HGm3lLzL1LwAjZZjKJ79wiWhE5fJ1Cdbt9ZzRw_hKgzVvLnFgzwqqd-P-NinIRu0"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#121212] to-transparent p-stack-lg flex flex-col justify-end">
-        <p className="font-label-sm text-label-sm text-secondary tracking-widest uppercase">Listado de Recetas</p>
+      <div>
+        <p className="font-label-md text-label-md text-primary uppercase">Recetas</p>
+        <p className="font-label-sm text-label-sm text-on-surface-variant">Fichas, escandallos y alérgenos</p>
       </div>
-    </div>
+      <BookOpen aria-hidden className="h-[32px] w-[32px] text-on-surface-variant group-hover:text-secondary transition-colors" />
+    </Link>
   );
 
   // Teaser de alertas de caducidad (FoodLabel próximas a caducar/caducadas,
@@ -530,9 +534,9 @@ export default function DashboardPage() {
   // count === 0 sigue visible en tono neutral (no deja hueco en el grid).
   const hasExpiringLabels = (kpis?.expiringLabels?.count ?? 0) > 0;
   const caducidadesAlertCard = (
-    <div
-      onClick={() => router.push('/dashboard/appcc/caducidades')}
-      className="relative tonal-layer-2 p-stack-lg md:p-stack-md rounded-xl flex items-center justify-between border border-border cursor-pointer hover:border-secondary transition-colors"
+    <Link
+      href="/dashboard/appcc/caducidades"
+      className={`relative tonal-layer-2 p-stack-lg md:p-stack-md rounded-xl flex items-center justify-between border border-border hover:border-secondary transition-colors ${cardLinkFocus}`}
     >
       <div>
         <p
@@ -557,25 +561,25 @@ export default function DashboardPage() {
         )}
       </div>
       <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center">
-        <span className="material-symbols-outlined text-secondary">schedule</span>
+        <Clock aria-hidden className="h-6 w-6 text-secondary" />
       </div>
-    </div>
+    </Link>
   );
 
   const comprasCard = (
-    <div
-      onClick={() => router.push('/dashboard/compras')}
-      className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
+    <Link
+      href="/dashboard/compras"
+      className={`group tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary hover:bg-surface-container-low transition-colors duration-200 ${cardLinkFocus}`}
     >
-      <span className="material-symbols-outlined text-[40px] text-on-surface-variant hover:text-secondary transition-colors">shopping_cart</span>
+      <ShoppingCart aria-hidden className="h-[40px] w-[40px] text-on-surface-variant group-hover:text-secondary transition-colors" />
       <p className="font-label-md text-label-md text-on-surface-variant">Compras</p>
-    </div>
+    </Link>
   );
 
   const etiquetadoCard = (
-    <div
-      onClick={() => router.push('/dashboard/etiquetado/nueva')}
-      className="group relative tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex flex-col justify-between gap-stack-md md:gap-stack-sm border border-border overflow-hidden cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+    <Link
+      href="/dashboard/etiquetado/nueva"
+      className={`group relative tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex flex-col justify-between gap-stack-md md:gap-stack-sm border border-border overflow-hidden hover:border-secondary hover:bg-surface-container-low transition-colors duration-200 ${cardLinkFocus}`}
     >
       {/* Motivo de etiqueta impresa: esquina troquelada + perforación */}
       <div
@@ -589,7 +593,7 @@ export default function DashboardPage() {
 
       <div className="flex items-center gap-stack-md">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary transition-transform duration-300 group-hover:-rotate-6">
-          <span className="material-symbols-outlined text-[22px]">label</span>
+          <Tag aria-hidden className="h-[22px] w-[22px]" />
         </span>
         <div>
           <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Etiquetado</h5>
@@ -599,32 +603,28 @@ export default function DashboardPage() {
 
       <div className="flex items-center gap-stack-sm text-on-surface-variant group-hover:text-secondary transition-colors">
         <span className="font-label-sm text-label-sm">Crear etiqueta</span>
-        <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:rotate-90">
-          add
-        </span>
+        <Plus aria-hidden className="h-[16px] w-[16px] transition-transform duration-300 group-hover:rotate-90" />
       </div>
-    </div>
+    </Link>
   );
 
   // Fichar en este mismo dispositivo: /fichar abre el kiosco en las cuentas compartidas.
   const ficharCard = (
-    <div
-      onClick={() => router.push('/fichar')}
-      className="group tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex items-center justify-between gap-stack-md border border-border cursor-pointer hover:border-secondary hover:bg-surface-container-low transition-colors duration-200"
+    <Link
+      href="/fichar"
+      className={`group tonal-layer-2 rounded-xl p-stack-lg md:p-stack-md flex items-center justify-between gap-stack-md border border-border hover:border-secondary hover:bg-surface-container-low transition-colors duration-200 ${cardLinkFocus}`}
     >
       <div className="flex items-center gap-stack-md">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary-container/40 text-secondary">
-          <span className="material-symbols-outlined text-[22px]">badge</span>
+          <IdCard aria-hidden className="h-[22px] w-[22px]" />
         </span>
         <div>
           <h5 className="font-label-md text-label-md text-primary uppercase tracking-wide">Fichar</h5>
           <p className="font-label-sm text-label-sm text-on-surface-variant">Entrada, pausas y salida</p>
         </div>
       </div>
-      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">
-        arrow_forward
-      </span>
-    </div>
+      <ArrowRight aria-hidden className="h-6 w-6 text-on-surface-variant group-hover:text-secondary transition-colors" />
+    </Link>
   );
 
   const crearOrdenButton = (extraClassName: string) => (
@@ -632,7 +632,7 @@ export default function DashboardPage() {
       onClick={() => router.push('/dashboard/production')}
       className={`bg-primary text-primary-foreground px-stack-lg py-stack-md md:py-stack-sm rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all items-center gap-stack-sm cursor-pointer ${extraClassName}`}
     >
-      <span className="material-symbols-outlined text-[18px]">add_notes</span>
+      <ClipboardPlus aria-hidden className="h-[18px] w-[18px]" />
       CREAR ORDEN PRODUCCIÓN
     </button>
   );
@@ -687,7 +687,7 @@ export default function DashboardPage() {
       {preview && (
         <div className="mb-stack-md flex flex-wrap items-center justify-between gap-stack-md rounded-xl border border-secondary bg-secondary-container/20 px-stack-lg py-stack-sm md:shrink-0">
           <p className="font-label-md text-label-md text-primary">
-            <span className="material-symbols-outlined mr-1 align-middle text-[18px]">visibility</span>
+            <Eye aria-hidden className="h-[18px] w-[18px] mr-1 align-middle" />
             Vista previa: arrastra las cards para ordenarlas y cambia su tamaño (ancho × alto).
             {previewEdits && <span className="ml-1 text-error">Cambios sin guardar.</span>}
           </p>
@@ -824,7 +824,7 @@ export default function DashboardPage() {
           caducidadesAlertCard
         ) : (
           <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
-            <span className="material-symbols-outlined text-[40px] text-on-surface-variant">schedule</span>
+            <Clock aria-hidden className="h-[40px] w-[40px] text-on-surface-variant" />
             <p className="font-label-md text-label-md text-on-surface-variant">Caducidades no disponible</p>
           </div>
         )}
@@ -832,20 +832,20 @@ export default function DashboardPage() {
         {canSeeEtiquetado ? (
           etiquetadoCard
         ) : (
-          <div
-            onClick={() => router.push('/dashboard/dashboard-interactivo')}
-            className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary cursor-pointer hover:bg-surface-container-low transition-colors duration-200"
+          <Link
+            href="/dashboard/dashboard-interactivo"
+            className={`group tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md hover:border-secondary hover:bg-surface-container-low transition-colors duration-200 ${cardLinkFocus}`}
           >
-            <span className="material-symbols-outlined text-[40px] text-on-surface-variant hover:text-secondary transition-colors">monitoring</span>
-            <p className="font-label-md text-label-md text-on-surface-variant">Telemetría de Cocina en Vivo</p>
-          </div>
+            <ChartLine aria-hidden className="h-[40px] w-[40px] text-on-surface-variant group-hover:text-secondary transition-colors" />
+            <p className="font-label-md text-label-md text-on-surface-variant">Dashboard interactivo</p>
+          </Link>
         )}
 
         {canSeeRecipes ? (
           recetasCard
         ) : (
           <div className="tonal-layer-2 rounded-xl p-stack-lg border border-border border-dashed flex flex-col items-center justify-center gap-stack-md">
-            <span className="material-symbols-outlined text-[40px] text-on-surface-variant">receipt_long</span>
+            <BookOpen aria-hidden className="h-[40px] w-[40px] text-on-surface-variant" />
             <p className="font-label-md text-label-md text-on-surface-variant">Recetas no disponible</p>
           </div>
         )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { useNotification } from '@/components/notification-system';
 import {
   createTenant,
@@ -121,10 +122,12 @@ export function ClientFormDialog({
         <div className="flex items-center justify-between border-b border-border px-stack-lg py-stack-md">
           <h2 className="font-headline-md text-headline-md text-primary">Nuevo cliente</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer"
+            aria-label="Cerrar"
+            className="text-on-surface-variant hover:text-error cursor-pointer p-1"
           >
-            close
+            <X aria-hidden className="h-6 w-6" />
           </button>
         </div>
 

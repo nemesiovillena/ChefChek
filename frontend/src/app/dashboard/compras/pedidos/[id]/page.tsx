@@ -430,7 +430,6 @@ function OrderDetail({ order }: { order: PurchaseOrder }) {
 
   return (
     <div className="space-y-6">
-      {/* div, no <header>: la regla global header:not(.fixed){display:none} oculta cualquier <header> que no sea el navbar fijo */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--on-surface)]">

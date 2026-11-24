@@ -9,6 +9,7 @@ import { TrashedClientList } from '../components/trashed-client-list';
 import { ClientDetailsPanel } from '../components/client-details-panel';
 import { ClientFormDialog } from '../components/client-form-dialog';
 import type { TenantSummary } from '../api/superadmin-api';
+import { LoaderCircle, LogOut, Plus, Store, Trash } from 'lucide-react';
 
 type View = 'active' | 'trashed';
 
@@ -48,9 +49,7 @@ export function SuperadminDashboardPage() {
     return (
       <div className="dark min-h-screen flex items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
-          <span className="material-symbols-outlined text-4xl animate-spin text-secondary">
-            progress_activity
-          </span>
+          <LoaderCircle aria-hidden className="h-9 w-9 animate-spin text-secondary" />
           <div className="font-label-md text-label-md tracking-wider">VALIDANDO ACCESO...</div>
         </div>
       </div>
@@ -78,11 +77,13 @@ export function SuperadminDashboardPage() {
             {user?.email}
           </p>
           <button
+            type="button"
             onClick={logout}
-            className="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200"
-            title="Cerrar Sesión"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            className="text-on-surface-variant hover:text-error cursor-pointer active:scale-95 duration-200 p-1"
           >
-            logout
+            <LogOut aria-hidden className="h-6 w-6" />
           </button>
         </div>
       </header>
@@ -123,7 +124,7 @@ export function SuperadminDashboardPage() {
                 onClick={() => setShowCreate(true)}
                 className="w-full flex items-center justify-center gap-stack-sm px-stack-md py-stack-sm rounded-full bg-primary text-primary-foreground font-label-md text-label-md hover:opacity-90 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-xl">add</span>
+                <Plus aria-hidden className="h-5 w-5" />
                 Nuevo cliente
               </button>
             )}
@@ -162,14 +163,14 @@ export function SuperadminDashboardPage() {
             />
           ) : view === 'trashed' ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-on-surface-variant py-24">
-              <span className="material-symbols-outlined text-5xl">delete_sweep</span>
+              <Trash aria-hidden className="h-6 w-6 text-5xl" />
               <p className="font-label-md text-label-md">
                 Selecciona un cliente en la papelera para reactivarlo o borrarlo.
               </p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-on-surface-variant py-24">
-              <span className="material-symbols-outlined text-5xl">store</span>
+              <Store aria-hidden className="h-6 w-6 text-5xl" />
               <p className="font-label-md text-label-md">
                 Selecciona un cliente para ver y editar sus datos.
               </p>

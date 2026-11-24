@@ -35,12 +35,12 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
                 type="button"
                 onClick={() => toggleAllergen(allergen.id)}
                 className={`flex flex-col items-center p-2 rounded-lg border-2 transition-all ${
-                  isSelected ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
+                  isSelected ? 'border-primary bg-secondary-container/50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
                 }`}
                 title={allergen.name}
               >
                 <AllergenIcon id={allergen.id} name={allergen.name} icon={allergen.icon} size={32} />
-                <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-indigo-700' : 'text-gray-600'}`}>
+                <span className={`text-xs mt-1 text-center leading-tight ${isSelected ? 'font-bold text-primary' : 'text-gray-600'}`}>
                   {allergen.name}
                 </span>
               </button>
@@ -55,7 +55,7 @@ export default function TabAlergenos({ allergens, setAllergens, hideAllergens, s
           id="hideAllergens"
           checked={hideAllergens}
           onChange={(e) => setHideAllergens(e.target.checked)}
-          className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+          className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
         />
         <label htmlFor="hideAllergens" className="text-sm text-gray-700">
           Ocultar en etiquetado

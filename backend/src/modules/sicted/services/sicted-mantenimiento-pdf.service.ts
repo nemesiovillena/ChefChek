@@ -53,7 +53,7 @@ export class SictedMantenimientoPdfService {
         .font("Helvetica")
         .fontSize(8)
         .text(
-          `${r.performedAt.toISOString().slice(0, 10)} — ${r.plan.title} (${r.asset.name}) · ${r.performedByName}${r.providerName ? ` · ${r.providerName}` : ""}`,
+          `${r.performedAt.toISOString().slice(0, 10)} · ${r.plan.title} (${r.asset.name}) · ${r.performedByName}${r.providerName ? ` · ${r.providerName}` : ""}`,
         );
     }
     if (sictedRecords.length === 0) {
@@ -80,7 +80,7 @@ export class SictedMantenimientoPdfService {
         .font("Helvetica")
         .fontSize(8)
         .text(
-          `${inc.detectedAt.toISOString().slice(0, 10)} — ${label} (${inc.asset?.name ?? "sin equipo"}) · ${inc.status}${inc.resolvedAt ? ` · resuelta ${inc.resolvedAt.toISOString().slice(0, 10)}` : ""}`,
+          `${inc.detectedAt.toISOString().slice(0, 10)} · ${label} (${inc.asset?.name ?? "sin equipo"}) · ${inc.status}${inc.resolvedAt ? ` · resuelta ${inc.resolvedAt.toISOString().slice(0, 10)}` : ""}`,
         );
     }
     if (incidents.length === 0) {

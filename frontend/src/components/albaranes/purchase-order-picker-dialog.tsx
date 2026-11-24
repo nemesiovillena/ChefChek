@@ -107,12 +107,12 @@ export function PurchaseOrderPickerDialog({
                     disabled={updating}
                     className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:opacity-50 ${
                       order.id === currentPurchaseOrderId
-                        ? 'border border-indigo-200 bg-indigo-50'
+                        ? 'border border-primary/30 bg-secondary-container/50'
                         : 'hover:bg-gray-100'
                     }`}
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
-                      <ShoppingCart className="h-5 w-5 text-indigo-600" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container/50">
+                      <ShoppingCart className="h-5 w-5 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{order.orderNumber}</p>

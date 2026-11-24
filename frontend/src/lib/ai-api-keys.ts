@@ -164,10 +164,10 @@ export const OCR_MODELS: OcrModelOption[] = [
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', cost: '~0,005 €', desc: 'El más barato, muy buena visión' },
   { id: 'gpt-4o', name: 'GPT-4o', cost: '~0,05 €', desc: 'Máxima precisión, más caro' },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku', cost: '~0,01 €', desc: 'Buen balance calidad/precio' },
-  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'OpenRouter — GPT-4o Mini' },
-  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'OpenRouter — Claude Haiku' },
-  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'OpenRouter — Gemini Flash' },
-  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'OpenRouter — Llama 4 Maverick' },
+  { id: 'openrouter-gpt-4o-mini', name: 'OR: GPT-4o Mini', cost: '~0,01 €', desc: 'GPT-4o Mini vía OpenRouter' },
+  { id: 'openrouter-claude-haiku', name: 'OR: Claude Haiku', cost: '~0,01 €', desc: 'Claude Haiku vía OpenRouter' },
+  { id: 'openrouter-gemini-flash', name: 'OR: Gemini Flash', cost: '~0,005 €', desc: 'Gemini Flash vía OpenRouter' },
+  { id: 'openrouter-llama', name: 'OR: Llama 4', cost: '~0,002 €', desc: 'Llama 4 Maverick vía OpenRouter' },
 ];
 
 const OCR_MODEL_STORAGE_KEY = 'ocr_ai_model';

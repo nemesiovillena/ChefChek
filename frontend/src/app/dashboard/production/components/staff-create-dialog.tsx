@@ -27,7 +27,7 @@ export default function StaffCreateDialog({ onClose, onSubmit, isSubmitting, ini
   };
 
   return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-sm overflow-y-auto z-50 flex items-start justify-center p-4">
+    <div className="fixed inset-0 bg-black/55 overflow-y-auto z-50 flex items-start justify-center p-4">
       <div className="relative top-8 mx-auto p-6 border w-full max-w-md shadow-xl rounded-lg bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">

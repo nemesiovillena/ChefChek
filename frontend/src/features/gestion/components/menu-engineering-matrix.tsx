@@ -99,9 +99,7 @@ function QuadrantCard({ menuClass, rows, canOpenRecipes }: { menuClass: MenuClas
   return (
     <div className="rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container)] p-4" style={{ borderLeft: `4px solid ${info.color}` }}>
       <div className="flex items-center gap-2 text-sm font-semibold text-[var(--on-surface)]">
-        <span className="material-symbols-outlined text-base" aria-hidden>
-          {info.icon}
-        </span>
+        <info.icon aria-hidden className="h-4 w-4" />
         {info.plural} · {rows.length}
       </div>
       <div className="text-xs text-[var(--on-surface-variant)]">{info.rule}</div>

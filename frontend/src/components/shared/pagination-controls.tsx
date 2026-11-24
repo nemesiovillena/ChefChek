@@ -58,7 +58,7 @@ export default function PaginationControls({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="px-2 py-1 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            className="px-2 py-1 bg-white dark:bg-zinc-850 text-gray-900 dark:text-white border border-gray-300 dark:border-zinc-700 rounded-md focus:outline-none focus:ring-ring focus:border-ring"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>{size}</option>
@@ -89,7 +89,7 @@ export default function PaginationControls({
                 onClick={() => onPageChange(p)}
                 className={`min-w-[2rem] px-2 py-1 text-sm rounded-md transition-colors ${
                   p === page
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800'
                 }`}
               >

@@ -84,7 +84,7 @@ const SECTIONS: GuideSection[] = [
       </>,
       <>
         El encargado <strong>valida</strong> las hojas que lo requieran (se activa en cada plantilla del Plan). En la portada de
-        SICTED verás las pendientes de validar —pulsa una para abrirla y validarla, aunque sea de otro día— y las incompletas de los
+        SICTED verás las pendientes de validar (pulsa una para abrirla y validarla, aunque sea de otro día) y las incompletas de los
         últimos 7 días.
       </>,
       <>

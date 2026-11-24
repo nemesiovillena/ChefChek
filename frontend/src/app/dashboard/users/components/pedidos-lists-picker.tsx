@@ -42,7 +42,7 @@ export function PedidosListsPicker({ value, onChange }: PedidosListsPickerProps)
               type="checkbox"
               checked={value.includes(list.id)}
               onChange={(e) => toggle(list.id, e.target.checked)}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-ring"
             />
             <span>
               {list.name}
