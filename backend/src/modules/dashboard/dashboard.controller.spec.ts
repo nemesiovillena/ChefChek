@@ -20,8 +20,6 @@ describe("DashboardController", () => {
   const mockDashboardService = {
     calculateKPIs: jest.fn(),
     getDashboardMetrics: jest.fn(),
-    getCostTrend: jest.fn(),
-    getMenuMarginAnalysis: jest.fn(),
     getAlerts: jest.fn(),
     getAlertStats: jest.fn(),
     createAlert: jest.fn(),
@@ -62,8 +60,6 @@ describe("DashboardController", () => {
   describe("getKPIs", () => {
     it("should return calculated KPIs", async () => {
       const mockKPIs = {
-        averageCost: { current: 100, target: 95, status: "OK" },
-        averageMargin: { current: 30, target: 33, status: "OK" },
         lowStockAlerts: { current: 0, target: 0, status: "OK" },
         digitalMenuScans: { current: 50, target: 60, status: "OK" },
         activeAlerts: { current: 0, target: 0, status: "OK" },
@@ -146,70 +142,6 @@ describe("DashboardController", () => {
         mockReq.tenantId,
         query,
       );
-    });
-  });
-
-  describe("getCostTrend", () => {
-    it("should return cost trend data", async () => {
-      const period = "MONTH";
-      const mockTrend = [
-        { date: new Date("2024-01"), value: 100 },
-        { date: new Date("2024-02"), value: 105 },
-      ];
-
-      mockDashboardService.getCostTrend.mockResolvedValue({
-        success: true,
-        data: mockTrend,
-      });
-
-      const result = await controller.getCostTrend(mockReq, period);
-
-      expect(mockDashboardService.getCostTrend).toHaveBeenCalledWith(
-        mockReq.tenantId,
-        period,
-      );
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockTrend);
-    });
-
-    it("should use default period if not provided", async () => {
-      mockDashboardService.getCostTrend.mockResolvedValue({
-        success: true,
-        data: [],
-      });
-
-      await controller.getCostTrend(mockReq);
-
-      expect(mockDashboardService.getCostTrend).toHaveBeenCalledWith(
-        mockReq.tenantId,
-        undefined,
-      );
-    });
-  });
-
-  describe("getMenuMarginAnalysis", () => {
-    it("should return menu margin analysis", async () => {
-      const mockAnalysis = {
-        menus: [
-          { id: "menu-1", name: "Menu 1", marginPercent: 30, status: "OK" },
-        ],
-        averageMargin: 30,
-        worstMargin: { marginPercent: 20 },
-        bestMargin: { marginPercent: 40 },
-      };
-
-      mockDashboardService.getMenuMarginAnalysis.mockResolvedValue({
-        success: true,
-        data: mockAnalysis,
-      });
-
-      const result = await controller.getMenuMarginAnalysis(mockReq);
-
-      expect(mockDashboardService.getMenuMarginAnalysis).toHaveBeenCalledWith(
-        mockReq.tenantId,
-      );
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockAnalysis);
     });
   });
 

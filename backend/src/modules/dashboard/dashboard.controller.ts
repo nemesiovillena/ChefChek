@@ -63,25 +63,6 @@ export class DashboardController {
     return await this.dashboardService.getDashboardMetrics(req.tenantId, query);
   }
 
-  @Get("metrics/cost-trend")
-  @RequireSection("recipes.cost")
-  @ApiOperation({ summary: "Obtener tendencia de costes por período" })
-  @ApiResponse({ status: 200, description: "Tendencia de costes" })
-  async getCostTrend(@Req() req: any, @Query("period") period?: string) {
-    return await this.dashboardService.getCostTrend(req.tenantId, period);
-  }
-
-  @Get("metrics/menu-margin")
-  @RequireSection("recipes.cost")
-  @ApiOperation({ summary: "Analizar márgenes financieros de menús" })
-  @ApiResponse({
-    status: 200,
-    description: "Análisis de márgenes con warnings",
-  })
-  async getMenuMarginAnalysis(@Req() req: any) {
-    return await this.dashboardService.getMenuMarginAnalysis(req.tenantId);
-  }
-
   @Get("supplier-spend")
   @RequireSection("recipes.cost")
   @ApiOperation({
