@@ -385,11 +385,18 @@ FROM ArticulosProv WHERE Empresa = @empresa
   Send-InChunks $Cfg 'articleSuppliers' @($articleSuppliers)
 
   # Carta del centro: el mismo código es distinto plato según el tipo (P/I/M).
+  # Un código tiene varias filas (cartas guardadas en distintas fechas) y el
+  # TPV lo renombra o lo reutiliza: nombre y familia salen de la fila más
+  # reciente, no de MAX(), que elegía por orden alfabético un nombre antiguo.
   $dishes = foreach ($r in (Invoke-SqlQuery $Conn @'
-SELECT Tipo, Codigo, MAX(Descripcion) AS Descripcion, MAX(Familias) AS Familias
-FROM CartasLin
-WHERE Empresa = @empresa AND Centro = @centro AND Tipo IN ('P', 'I', 'M') AND ISNULL(Baja, 0) = 0
-GROUP BY Tipo, Codigo
+SELECT Tipo, Codigo, Descripcion, Familias
+FROM (
+  SELECT Tipo, Codigo, Descripcion, Familias,
+    ROW_NUMBER() OVER (PARTITION BY Tipo, Codigo ORDER BY ActFecha DESC, Id_CartasLin DESC) AS Orden
+  FROM CartasLin
+  WHERE Empresa = @empresa AND Centro = @centro AND Tipo IN ('P', 'I', 'M') AND ISNULL(Baja, 0) = 0
+) c
+WHERE Orden = 1
 '@ $p).Rows) {
     $code = Get-Value $r 'Codigo'
     if ($code -notmatch $CodePattern) { $skipped++; continue }
