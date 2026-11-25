@@ -3,30 +3,22 @@ import { WebSocketGateway } from "./websocket.gateway";
 import { SessionService } from "../modules/auth/session.service";
 import { Socket, Server } from "socket.io";
 
-// Mock de redis
+// Mock de redis: el connect de cada prueba se controla con mockConnect.
+const mockConnect = jest.fn().mockResolvedValue(undefined);
+const mockQuit = jest.fn().mockResolvedValue(undefined);
 jest.mock("redis", () => {
-  const mockConnect = jest.fn().mockResolvedValue(undefined);
-  const mockDuplicate = jest.fn().mockImplementation(() => {
-    return {
-      connect: mockConnect,
-    };
+  const client = () => ({
+    connect: (...a: unknown[]) => mockConnect(...a),
+    quit: (...a: unknown[]) => mockQuit(...a),
+    duplicate: () => client(),
   });
-  return {
-    createClient: jest.fn().mockImplementation(() => {
-      return {
-        connect: mockConnect,
-        duplicate: mockDuplicate,
-      };
-    }),
-  };
+  return { createClient: jest.fn().mockImplementation(client) };
 });
 
-// Mock de RedisAdapter
-jest.mock("@socket.io/redis-adapter", () => {
-  return {
-    RedisAdapter: jest.fn(),
-  };
-});
+const mockCreateAdapter = jest.fn().mockReturnValue("redis-adapter");
+jest.mock("@socket.io/redis-adapter", () => ({
+  createAdapter: (...a: unknown[]) => mockCreateAdapter(...a),
+}));
 
 describe("WebSocketGateway", () => {
   let gateway: WebSocketGateway;
@@ -58,12 +50,37 @@ describe("WebSocketGateway", () => {
   });
 
   describe("afterInit", () => {
-    it("should initialize Redis adapter", async () => {
-      const loggerSpy = jest.spyOn((gateway as any).logger, "log");
+    const env = { ...process.env };
+    afterEach(() => {
+      process.env = { ...env };
+      mockConnect.mockReset().mockResolvedValue(undefined);
+      mockQuit.mockClear();
+      mockCreateAdapter.mockClear();
+    });
+
+    it("sin REDIS_URL ni REDIS_HOST se queda en memoria sin intentar conectar", async () => {
+      delete process.env.REDIS_URL;
+      delete process.env.REDIS_HOST;
+      const errorSpy = jest.spyOn((gateway as any).logger, "error");
       await gateway.afterInit(mockServer);
-      expect(loggerSpy).toHaveBeenCalledWith(
-        "Redis adapter configured for WebSocket",
-      );
+      expect(mockConnect).not.toHaveBeenCalled();
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it("con REDIS_URL monta el adaptador de Redis", async () => {
+      process.env.REDIS_URL = "redis://redis:6379";
+      await gateway.afterInit(mockServer);
+      expect(mockCreateAdapter).toHaveBeenCalledTimes(1);
+      expect(mockServer.adapter).toHaveBeenCalledWith("redis-adapter");
+    });
+
+    it("si Redis no responde sigue en memoria y cierra los clientes", async () => {
+      process.env.REDIS_HOST = "redis";
+      mockConnect.mockRejectedValue(new Error("ECONNREFUSED"));
+      await gateway.afterInit(mockServer);
+      expect(mockServer.adapter).not.toHaveBeenCalled();
+      expect(mockQuit).toHaveBeenCalledTimes(2);
     });
   });
 
