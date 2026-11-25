@@ -11,7 +11,7 @@ import {
 import { Server, Socket } from "socket.io";
 import { Logger } from "@nestjs/common";
 import { createClient } from "redis";
-import { RedisAdapter } from "@socket.io/redis-adapter";
+import { createAdapter } from "@socket.io/redis-adapter";
 import {
   AuthenticatedSocket,
   ClientToServerEvents,
@@ -33,43 +33,41 @@ export class WebSocketGateway
   server: Server<ClientToServerEvents, ServerToClientEvents>;
 
   private readonly logger = new Logger(WebSocketGateway.name);
-  private redisClient: ReturnType<typeof createClient>;
-  private pubClient: ReturnType<typeof createClient>;
-  private subClient: ReturnType<typeof createClient>;
 
   constructor(private readonly sessionService: SessionService) {}
 
   async afterInit(server: Server) {
     this.logger.log("WebSocket Gateway initialized");
 
-    // Configure Redis adapter for multi-instance support
-    try {
-      this.redisClient = createClient({
-        url:
-          process.env.REDIS_URL ||
-          `redis://${process.env.REDIS_HOST || "localhost"}:${process.env.REDIS_PORT || 6379}`,
-        database: 2, // Separate DB for WebSocket
-      });
-
-      this.pubClient = this.redisClient.duplicate();
-      this.subClient = this.redisClient.duplicate();
-
-      await Promise.all([
-        this.redisClient.connect(),
-        this.pubClient.connect(),
-        this.subClient.connect(),
-      ]);
-
-      const redisAdapter = new (RedisAdapter as any)(
-        this.pubClient,
-        this.subClient,
+    // El adaptador de Redis solo hace falta para repartir eventos entre varias
+    // instancias del backend. Sin REDIS_URL/REDIS_HOST (producción corre una
+    // sola instancia) Socket.IO usa su adaptador en memoria, que es lo correcto.
+    const url =
+      process.env.REDIS_URL ||
+      (process.env.REDIS_HOST
+        ? `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT || 6379}`
+        : null);
+    if (!url) {
+      this.logger.log(
+        "WebSocket en una sola instancia (adaptador en memoria; sin REDIS_URL ni REDIS_HOST)",
       );
+      return;
+    }
 
-      server.adapter(redisAdapter as any);
+    const pubClient = createClient({ url, database: 2 });
+    const subClient = pubClient.duplicate();
+    try {
+      await Promise.all([pubClient.connect(), subClient.connect()]);
+      server.adapter(createAdapter(pubClient, subClient));
       this.logger.log("Redis adapter configured for WebSocket");
     } catch (error) {
-      this.logger.error("Failed to configure Redis adapter:", error);
-      this.logger.warn("WebSocket will work in single-instance mode");
+      // Sin Redis alcanzable se sigue en memoria; se cierran los clientes para
+      // que no queden reintentando en segundo plano.
+      await Promise.allSettled([pubClient.quit(), subClient.quit()]);
+      this.logger.error(
+        `No se pudo conectar a Redis (${url}); WebSocket sigue en una sola instancia`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
   }
 
