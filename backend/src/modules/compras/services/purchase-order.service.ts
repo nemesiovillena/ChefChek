@@ -4,7 +4,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { AlbaranStatus, LineStatus, PurchaseOrderStatus } from "@prisma/client";
-import { isOrderLineCovered } from "../utils/order-shortfall.util";
+import {
+  arrivedProductIds,
+  isOrderLineCovered,
+  LINE_HAS_PRODUCT,
+} from "../utils/order-shortfall.util";
 import { PrismaService } from "../../../common/services/prisma.service";
 import { PurchaseOrderNumberService } from "./purchase-order-number.service";
 import {
@@ -158,13 +162,13 @@ export class PurchaseOrderService {
         ? await this.prisma.albaranLine.findMany({
             where: {
               albaranId: { in: unconfirmedAlbaranIds },
-              matchedProductId: { not: null },
+              ...LINE_HAS_PRODUCT,
               lineStatus: { not: LineStatus.RECHAZADO },
             },
-            select: { matchedProductId: true },
+            select: { matchedProductId: true, suggestedProductId: true },
           })
         : [];
-    const arrived = new Set(arrivedLines.map((l) => l.matchedProductId));
+    const arrived = arrivedProductIds(arrivedLines);
     return {
       ...order,
       lines: order.lines.map((l) => ({
