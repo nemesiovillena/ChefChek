@@ -7,7 +7,11 @@ import {
   isBilledPerFormat,
   ReceptionConversionResult,
 } from "../../../common/utils/reception-unit-conversion.util";
-import { isOrderLineCovered } from "../utils/order-shortfall.util";
+import {
+  arrivedProductIds,
+  isOrderLineCovered,
+  LINE_HAS_PRODUCT,
+} from "../utils/order-shortfall.util";
 import { PurchaseOrderStatusService } from "./purchase-order-status.service";
 
 const SUGGESTION_WINDOW_DAYS = 7;
@@ -113,10 +117,10 @@ export class OrderReconciliationService {
       this.prisma.albaranLine.findMany({
         where: {
           albaranId,
-          matchedProductId: { not: null },
+          ...LINE_HAS_PRODUCT,
           lineStatus: { not: LineStatus.RECHAZADO },
         },
-        select: { matchedProductId: true },
+        select: { matchedProductId: true, suggestedProductId: true },
       }),
       this.prisma.purchaseOrderLine.findMany({
         where: { orderId },
@@ -131,7 +135,7 @@ export class OrderReconciliationService {
         },
       }),
     ]);
-    const arrived = new Set(albaranLines.map((l) => l.matchedProductId));
+    const arrived = arrivedProductIds(albaranLines);
     const missing = orderLines
       .filter((l) => !arrived.has(l.productId) && !isOrderLineCovered(l))
       .map((l) => ({

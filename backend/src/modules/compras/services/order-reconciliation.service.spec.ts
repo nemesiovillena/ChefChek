@@ -885,6 +885,44 @@ describe("OrderReconciliationService", () => {
       );
     });
 
+    it("cuenta como llegado el artículo sugerido aunque la línea aún no esté vinculada", async () => {
+      prismaMock.purchaseOrder.findFirst.mockResolvedValue({
+        id: "o1",
+        status: PurchaseOrderStatus.ENVIADO,
+      });
+      prismaMock.albaranLine.findMany.mockResolvedValue([
+        { matchedProductId: null, suggestedProductId: "p-apio" },
+        { matchedProductId: null, suggestedProductId: null },
+      ]);
+      prismaMock.purchaseOrderLine.findMany.mockResolvedValue([
+        {
+          productId: "p-apio",
+          quantity: 1,
+          unit: "Manojo",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Apio" },
+        },
+        {
+          productId: "p-chirivia",
+          quantity: 1,
+          unit: "Bolsa",
+          receivedQuantity: null,
+          receivedSourceUnit: null,
+          product: { name: "Chirivías" },
+        },
+      ]);
+
+      await service.markReceivedOnArrival(tenantId, "o1", "ALB-0397", "alb-1");
+
+      expect(statusServiceMock.notifyPartialReception).toHaveBeenCalledWith(
+        tenantId,
+        "o1",
+        [{ name: "Chirivías", quantity: 1, unit: "Bolsa", received: null }],
+        "No ha llegado todo el pedido",
+      );
+    });
+
     it("no avisa si el albarán trae todos los artículos del pedido", async () => {
       prismaMock.purchaseOrder.findFirst.mockResolvedValue({
         id: "o1",
