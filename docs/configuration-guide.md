@@ -20,7 +20,7 @@ Guía completa de configuración para despliegue de ChefChek en diferentes entor
 | Variable | Tipo | Default | Requerido | Descripción | Ejemplo |
 |----------|------|---------|-----------|-------------|---------|
 | `DATABASE_URL` | string | - | ✅ Sí | URL de conexión PostgreSQL con schema | `postgresql://chefchek:password@localhost:5432/chefchek?schema=public` |
-| `REDIS_URL` | string | - | ⚠️ Opcional | URL de Redis para caché y colas | `redis://localhost:6379` |
+| `REDIS_URL` | string | - | ⚠️ Opcional | Solo con varias instancias del backend: adaptador de Socket.IO para repartir los eventos. Sin ella (o `REDIS_HOST`) el WebSocket funciona en memoria | `redis://localhost:6379` |
 
 ### Autenticación
 
