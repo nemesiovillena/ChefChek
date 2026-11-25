@@ -16,6 +16,37 @@ export interface ShortfallItem {
   received: number | null;
 }
 
+/** Línea de albarán con el artículo vinculado o, si aún no, el sugerido. */
+export interface ArrivedAlbaranLine {
+  matchedProductId: string | null;
+  suggestedProductId: string | null;
+}
+
+/**
+ * Artículos que vienen en un albarán sin confirmar. Cuenta también el
+ * artículo sugerido: cocina marca «Pedido recibido» al descargar y oficina
+ * acepta las sugerencias después; sin esto el apio sugerido pero aún sin
+ * vincular salía como «no ha llegado».
+ */
+export function arrivedProductIds(lines: ArrivedAlbaranLine[]): Set<string> {
+  const ids = new Set<string>();
+  for (const line of lines) {
+    const productId = line.matchedProductId ?? line.suggestedProductId;
+    if (productId) {
+      ids.add(productId);
+    }
+  }
+  return ids;
+}
+
+/** Filtro Prisma de líneas que llevan artículo vinculado o sugerido. */
+export const LINE_HAS_PRODUCT = {
+  OR: [
+    { matchedProductId: { not: null } },
+    { suggestedProductId: { not: null } },
+  ],
+};
+
 /** Máximo de artículos nombrados en el aviso; el resto se resume. */
 const MAX_ITEMS_IN_MESSAGE = 6;
 
