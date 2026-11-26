@@ -49,6 +49,9 @@ export function BalanceImportDialog() {
   const [fileName, setFileName] = useState("");
   const [data, setData] = useState<BalanceExtraction | null>(null);
   const [periodIdx, setPeriodIdx] = useState(0);
+  // Periodos ya importados: un balance comparativo trae dos años en el mismo
+  // archivo y se importan uno tras otro sin volver a leerlo.
+  const [imported, setImported] = useState<number[]>([]);
   // Categoría elegida por cuenta, por periodo (clave «periodo:código»).
   const [targets, setTargets] = useState<Record<string, BalanceTarget>>({});
 
@@ -65,6 +68,7 @@ export function BalanceImportDialog() {
     setData(null);
     setTargets({});
     setPeriodIdx(0);
+    setImported([]);
     setOpen(true);
     try {
       setData(await extract.mutateAsync(file));
@@ -88,7 +92,14 @@ export function BalanceImportDialog() {
         title: "Balance importado",
         message: `${r.expenses} gasto(s) repartidos en ${r.months} mes(es)${r.replaced ? `; sustituidos ${r.replaced} anteriores` : ""}.`,
       });
-      setOpen(false);
+      const done = [...imported, periodIdx];
+      setImported(done);
+      const next = (data?.periods ?? []).findIndex((_, i) => !done.includes(i));
+      if (next === -1) {
+        setOpen(false);
+      } else {
+        setPeriodIdx(next);
+      }
     } catch (e) {
       if (!replaceExisting && isAxiosError(e) && e.response?.status === 409) {
         const ok = await confirm({
@@ -170,6 +181,7 @@ export function BalanceImportDialog() {
                       onClick={() => setPeriodIdx(i)}
                       className={`rounded-full border px-3 py-1 text-sm ${i === periodIdx ? "border-[var(--primary)] bg-[var(--primary-container)] text-[var(--on-primary-container)]" : "border-[var(--outline-variant)] text-[var(--on-surface-variant)]"}`}
                     >
+                      {imported.includes(i) && "✓ "}
                       {day(p.from)} – {day(p.to)}
                     </button>
                   ))}
@@ -177,9 +189,12 @@ export function BalanceImportDialog() {
               )}
 
               <p className="text-sm text-[var(--on-surface-variant)]">
-                Revisa a qué va cada cuenta. Los gastos se reparten entre los
-                meses del periodo según las ventas de cada mes; ventas y compras
-                solo se guardan para cuadrarlas con Cuiner y los albaranes.
+                Revisa a qué va cada cuenta. Gastos y compras se reparten entre
+                los meses del periodo según las ventas de cada mes; en esos
+                meses, las compras del balance sustituyen a los albaranes. Las
+                ventas solo se guardan para cuadrarlas con Cuiner. Si el
+                balance trae dos años, importa uno y después el otro, sin
+                volver a subirlo.
               </p>
 
               <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
@@ -255,17 +270,18 @@ export function BalanceImportDialog() {
                   onClick={() => setOpen(false)}
                   disabled={apply.isPending}
                 >
-                  Cancelar
+                  {imported.length ? "Cerrar" : "Cancelar"}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => void doApply(false)}
-                  disabled={apply.isPending}
+                  disabled={apply.isPending || imported.includes(periodIdx)}
                 >
                   {apply.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Importar {day(period.from)} – {day(period.to)}
+                  {imported.includes(periodIdx) ? "Importado" : "Importar"}{" "}
+                  {day(period.from)} – {day(period.to)}
                 </Button>
               </div>
             </div>

@@ -191,7 +191,7 @@ export type BalanceTarget = ExpenseCategory | "ventas" | "compras" | "ignorar";
 export const BALANCE_TARGET_LABEL: Record<BalanceTarget, string> = {
   ...EXPENSE_LABEL,
   ventas: "Ventas (solo para cuadrar)",
-  compras: "Compras (solo para cuadrar)",
+  compras: "Compras (coste de producto)",
   ignorar: "No importar",
 };
 
