@@ -128,3 +128,83 @@ export function useCopyExpenses() {
     onSuccess: invalidate,
   });
 }
+
+// ───────────────────────────────────────── Balance de explotación del gestor
+
+/** Dónde va cada cuenta del balance: un gasto, ventas/compras (para cuadrar) o nada. */
+export type BalanceTarget = ExpenseCategory | 'ventas' | 'compras' | 'ignorar';
+
+export const BALANCE_TARGET_LABEL: Record<BalanceTarget, string> = {
+  ...EXPENSE_LABEL,
+  ventas: 'Ventas (solo para cuadrar)',
+  compras: 'Compras (solo para cuadrar)',
+  ignorar: 'No importar',
+};
+
+/** amount > 0 resta al beneficio (gasto); < 0 suma (ingreso, rappel). */
+export interface BalanceAccountLine {
+  code: string;
+  name: string;
+  amount: number;
+  target: BalanceTarget;
+}
+
+export interface BalanceTotals {
+  sales: number;
+  purchases: number;
+  labor: number;
+  overheads: number;
+  financial: number;
+  result: number;
+}
+
+export interface BalancePeriod {
+  from: string;
+  to: string;
+  accounts: BalanceAccountLine[];
+  totals: BalanceTotals;
+}
+
+export interface BalanceExtraction {
+  company: string | null;
+  periods: BalancePeriod[];
+}
+
+// La IA lee 2–3 páginas; el servidor corta a ~170 s.
+const BALANCE_EXTRACT_TIMEOUT_MS = 180_000;
+
+/** Lee el balance del gestor con IA. No guarda nada. */
+export function useExtractBalance() {
+  return useMutation<BalanceExtraction, Error, File>({
+    mutationFn: async (file) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return (await apiClient.post(`${GESTION_BASE}/expenses/balance/extract`, formData, { timeout: BALANCE_EXTRACT_TIMEOUT_MS })).data;
+    },
+  });
+}
+
+export function useApplyBalance() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (input: { from: string; to: string; fileName?: string; accounts: BalanceAccountLine[]; replaceExisting?: boolean }) =>
+      (await apiClient.post(`${GESTION_BASE}/expenses/balance/apply`, input)).data as { months: number; expenses: number; replaced: number },
+    onSuccess: invalidate,
+  });
+}
+
+const EXPENSE_KEYS = Object.keys(EXPENSE_LABEL) as ExpenseCategory[];
+
+/** Los mismos totales que calcula el servidor, para ver al momento el efecto de cambiar una categoría. */
+export function balanceTotals(lines: BalanceAccountLine[]): BalanceTotals {
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const sum = (pick: (t: BalanceTarget) => boolean) => lines.filter((l) => pick(l.target)).reduce((n, l) => n + l.amount, 0);
+  return {
+    sales: round(-sum((t) => t === 'ventas')),
+    purchases: round(sum((t) => t === 'compras')),
+    labor: round(sum((t) => t === 'personal')),
+    overheads: round(sum((t) => EXPENSE_KEYS.includes(t as ExpenseCategory) && t !== 'personal' && t !== 'financieros')),
+    financial: round(sum((t) => t === 'financieros')),
+    result: round(-lines.reduce((n, l) => n + l.amount, 0)),
+  };
+}

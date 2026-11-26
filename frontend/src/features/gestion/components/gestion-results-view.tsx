@@ -6,6 +6,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { inputCls, labelCls } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import { useGestionResults } from '../api/gestion-results-api';
 import { formatEuros } from '../gestion-format';
+import { BalanceImportDialog } from './balance-import-dialog';
 import { ExpensesManager } from './expenses-manager';
 import { GestionReportTable } from './gestion-report-table';
 import { KpiCard } from './kpi-card';
@@ -143,7 +144,10 @@ export function GestionResultsView() {
 
       {/* Fuera del bloque de datos: si el cálculo falla, los gastos se pueden seguir gestionando. */}
       <div className={cardCls}>
-        <div className={titleCls}>Gastos de {year}</div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-[var(--on-surface)]">Gastos de {year}</div>
+          <BalanceImportDialog />
+        </div>
         <ExpensesManager key={year} year={year} />
       </div>
     </div>

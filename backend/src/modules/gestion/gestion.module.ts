@@ -4,6 +4,11 @@ import { AuthModule } from "../auth/auth.module";
 import { CuinerModule } from "../cuiner/cuiner.module";
 import { CheckInModule } from "../check-in/check-in.module";
 import { RecipesModule } from "../recipes/recipes.module";
+import { AiAssistantModule } from "../ai-assistant/ai-assistant.module";
+import { AiAssistantConfigModule } from "../ai-assistant/config/ai-assistant-config.module";
+import { RecipeCaptureConfigModule } from "../recipe-capture/config/recipe-capture-config.module";
+import { RecipeCaptureCompletionService } from "../recipe-capture/recipe-capture-completion.service";
+import { GestionBalanceImportService } from "./gestion-balance-import.service";
 import { GestionProfitabilityService } from "./gestion-profitability.service";
 import { GestionProfitabilityReportsService } from "./gestion-profitability-reports.service";
 import { GestionController } from "./gestion.controller";
@@ -25,6 +30,9 @@ import { GestionMenuEngineeringService } from "./gestion-menu-engineering.servic
     CuinerModule,
     CheckInModule,
     RecipesModule,
+    AiAssistantModule,
+    AiAssistantConfigModule,
+    RecipeCaptureConfigModule,
   ],
   controllers: [GestionController],
   providers: [
@@ -39,6 +47,9 @@ import { GestionMenuEngineeringService } from "./gestion-menu-engineering.servic
     GestionExpensesService,
     GestionTicketReportsService,
     GestionMenuEngineeringService,
+    // Lectura del balance del gestor: la misma IA que la Captura de recetas.
+    RecipeCaptureCompletionService,
+    GestionBalanceImportService,
   ],
 })
 export class GestionModule {}
