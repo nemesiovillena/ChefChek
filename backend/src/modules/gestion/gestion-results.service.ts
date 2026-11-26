@@ -2,7 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { CHARGED, cents, inRange } from "./gestion-sql.util";
 import { GestionProfitabilityService } from "./gestion-profitability.service";
-import { GestionExpensesService } from "./gestion-expenses.service";
+import {
+  FINANCIAL_EXPENSE,
+  GestionExpensesService,
+  LABOR_EXPENSE,
+} from "./gestion-expenses.service";
 import type { GestionTable } from "./gestion-table.types";
 
 const MONTHS = [
@@ -31,9 +35,16 @@ export interface ResultsMonth {
   purchasesWithVat: number;
   grossMargin: number;
   labor: number;
+  /** real = nóminas + SS introducidas; fichajes = horas × coste/hora. */
+  laborSource: "real" | "fichajes";
   overheads: number;
   ebitda: number;
   ebitdaPct: number | null;
+  /** Intereses y gastos financieros: por debajo del EBITDA. */
+  financial: number;
+  /** EBITDA − gastos financieros. */
+  result: number;
+  resultPct: number | null;
   /** Días con venta en el mes (para el punto de equilibrio diario). */
   openDays: number;
 }
@@ -41,7 +52,10 @@ export interface ResultsMonth {
 export interface GestionResults {
   year: number;
   months: ResultsMonth[];
-  totals: Omit<ResultsMonth, "month" | "label">;
+  totals: Omit<ResultsMonth, "month" | "label" | "laborSource"> & {
+    /** Meses con nóminas reales; el resto, estimado por fichajes. */
+    realLaborMonths: number;
+  };
   breakEven: {
     monthly: number | null;
     daily: number | null;
@@ -60,8 +74,9 @@ export interface GestionResults {
 
 /**
  * Cuenta de explotación y flujo de caja por mes. Coste de producto = compras
- * reales (albaranes recibidos); personal = horas fichadas × coste/hora;
- * gastos generales = los introducidos a mano en Gestión.
+ * reales (albaranes recibidos); personal = nóminas + SS introducidas en el
+ * mes o, si no las hay, horas fichadas × coste/hora; gastos generales = los
+ * introducidos en Gestión; los financieros van por debajo del EBITDA.
  */
 @Injectable()
 export class GestionResultsService {
@@ -117,7 +132,17 @@ export class GestionResultsService {
       const key = `${year}-${String(m).padStart(2, "0")}`;
       const s = sales.find((x) => x.month === key);
       const p = purchases.find((x) => x.month === key);
-      const laborCost = (labor ?? []).reduce(
+      const monthExpenses = expenses.filter((e) => e.month === key);
+      const sumOf = (pick: (category: string) => boolean) =>
+        monthExpenses
+          .filter((e) => pick(e.category))
+          .reduce((n, e) => n + e.amount, 0);
+      const realLabor = sumOf((c) => c === LABOR_EXPENSE);
+      const financial = sumOf((c) => c === FINANCIAL_EXPENSE);
+      const overheads = sumOf(
+        (c) => c !== LABOR_EXPENSE && c !== FINANCIAL_EXPENSE,
+      );
+      const estimatedLabor = (labor ?? []).reduce(
         (n, l) =>
           n +
           (l.hourlyCost === null
@@ -125,12 +150,12 @@ export class GestionResultsService {
             : ((l.minutesByMonth[key] ?? 0) / 60) * l.hourlyCost),
         0,
       );
-      const overheads = expenses
-        .filter((e) => e.month === key)
-        .reduce((n, e) => n + e.amount, 0);
+      const laborSource = realLabor !== 0 ? "real" : "fichajes";
+      const laborCost = laborSource === "real" ? realLabor : estimatedLabor;
       const salesBase = s?.base ?? 0;
       const grossMargin = salesBase - (p?.base ?? 0);
       const ebitda = grossMargin - laborCost - overheads;
+      const result = ebitda - financial;
       months.push({
         month: key,
         label: MONTHS[m - 1],
@@ -140,14 +165,18 @@ export class GestionResultsService {
         purchasesWithVat: cents(p?.withVat ?? 0),
         grossMargin: cents(grossMargin),
         labor: cents(laborCost),
+        laborSource,
         overheads: cents(overheads),
         ebitda: cents(ebitda),
         ebitdaPct: pct(ebitda, salesBase),
+        financial: cents(financial),
+        result: cents(result),
+        resultPct: pct(result, salesBase),
         openDays: s?.days ?? 0,
       });
     }
 
-    const sum = (k: keyof ResultsMonth) =>
+    const sum = (k: Exclude<keyof ResultsMonth, "laborSource">) =>
       cents(months.reduce((n, m) => n + (m[k] as number), 0));
     const totalSales = sum("sales");
     const totals = {
@@ -160,6 +189,10 @@ export class GestionResultsService {
       overheads: sum("overheads"),
       ebitda: sum("ebitda"),
       ebitdaPct: pct(sum("ebitda"), totalSales),
+      financial: sum("financial"),
+      result: sum("result"),
+      resultPct: pct(sum("result"), totalSales),
+      realLaborMonths: months.filter((m) => m.laborSource === "real").length,
       openDays: months.reduce((n, m) => n + m.openDays, 0),
     };
 
@@ -206,12 +239,15 @@ export class GestionResultsService {
         variablePct: variable === null ? null : cents(variable * 100),
       },
       warnings: {
-        laborWithoutCost: (labor ?? []).filter((l) => l.hourlyCost === null)
-          .length,
+        // Solo importa si algún mes con ventas tira de fichajes.
+        laborWithoutCost: active.some((m) => m.laborSource === "fichajes")
+          ? (labor ?? []).filter((l) => l.hourlyCost === null).length
+          : 0,
         monthsWithoutOverheads: active.filter((m) => m.overheads === 0).length,
         unconfirmedAlbaranes: unconfirmed.reduce((n, u) => n + u.count, 0),
         monthsWithoutPurchases: active.filter((m) => m.purchases === 0).length,
-        laborUnavailable: labor === null,
+        laborUnavailable:
+          labor === null && active.some((m) => m.laborSource === "fichajes"),
       },
     };
   }
@@ -223,7 +259,7 @@ export class GestionResultsService {
   ): Promise<GestionTable> {
     const r = await this.build(tenantId, year);
     const notes = [
-      "Coste de producto = compras de albaranes recibidos; personal = horas fichadas × coste/hora actual de cada ficha; gastos generales = los introducidos en Gestión → Resultados.",
+      `Coste de producto = compras de albaranes recibidos; personal = ${laborNote(r.totals.realLaborMonths, r.months.length)}; gastos generales = los introducidos en Gestión → Resultados.`,
       ...(r.warnings.unconfirmedAlbaranes
         ? [
             `${r.warnings.unconfirmedAlbaranes} albarán(es) sin confirmar en ${year}: sus compras aún no cuentan.`,
@@ -259,6 +295,9 @@ export class GestionResultsService {
           { key: "overheads", label: "Gastos generales", kind: "euros" },
           { key: "ebitda", label: "EBITDA", kind: "euros" },
           { key: "ebitdaPct", label: "% EBITDA", kind: "percent" },
+          { key: "financial", label: "Gastos financieros", kind: "euros" },
+          { key: "result", label: "Resultado", kind: "euros" },
+          { key: "resultPct", label: "% Resultado", kind: "percent" },
         ],
         rows: r.months.map((m) => ({ ...m })),
         totals: { label: "Total", ...r.totals },
@@ -274,14 +313,19 @@ export class GestionResultsService {
     }
     let balance = 0;
     const rows = r.months.map((m) => {
-      const net = m.salesWithVat - m.purchasesWithVat - m.labor - m.overheads;
+      const net =
+        m.salesWithVat -
+        m.purchasesWithVat -
+        m.labor -
+        m.overheads -
+        m.financial;
       balance += net;
       return {
         label: m.label,
         inflow: m.salesWithVat,
         suppliers: m.purchasesWithVat,
         labor: m.labor,
-        overheads: m.overheads,
+        overheads: cents(m.overheads + m.financial),
         net: cents(net),
         balance: cents(balance),
       };
@@ -295,7 +339,11 @@ export class GestionResultsService {
         { key: "inflow", label: "Cobros (ventas)", kind: "euros" },
         { key: "suppliers", label: "Pagos proveedores", kind: "euros" },
         { key: "labor", label: "Personal", kind: "euros" },
-        { key: "overheads", label: "Gastos generales", kind: "euros" },
+        {
+          key: "overheads",
+          label: "Gastos generales y financieros",
+          kind: "euros",
+        },
         { key: "net", label: "Saldo del mes", kind: "euros" },
         { key: "balance", label: "Acumulado", kind: "euros" },
       ],
@@ -305,7 +353,7 @@ export class GestionResultsService {
         inflow: r.totals.salesWithVat,
         suppliers: r.totals.purchasesWithVat,
         labor: r.totals.labor,
-        overheads: r.totals.overheads,
+        overheads: cents(r.totals.overheads + r.totals.financial),
         net: cents(balance),
         balance: null,
       },
@@ -316,6 +364,17 @@ export class GestionResultsService {
       ],
     };
   }
+}
+
+/** De dónde sale el personal del año, para las notas de los informes. */
+export function laborNote(realMonths: number, months: number): string {
+  if (months > 0 && realMonths === months) {
+    return "nóminas + Seguridad Social introducidas";
+  }
+  if (realMonths === 0) {
+    return "horas fichadas × coste/hora actual de cada ficha";
+  }
+  return `nóminas + Seguridad Social en ${realMonths} mes(es) y horas fichadas × coste/hora en el resto`;
 }
 
 /** Fecha de hoy en Madrid, AAAA-MM-DD. */

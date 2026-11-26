@@ -13,9 +13,23 @@ export const EXPENSE_CATEGORIES = [
   "gestoria",
   "marketing",
   "mantenimiento",
+  "limpieza",
+  "bancos",
+  "tributos",
   "otros",
+  "personal",
+  "financieros",
 ] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/**
+ * Nóminas + Seguridad Social reales del mes (cuentas 640 y 642 del gestor):
+ * si un mes las tiene, sustituyen a la estimación por horas fichadas.
+ */
+export const LABOR_EXPENSE: ExpenseCategory = "personal";
+
+/** Intereses y comisiones de préstamos (66x): van por debajo del EBITDA. */
+export const FINANCIAL_EXPENSE: ExpenseCategory = "financieros";
 
 export interface ExpenseRow {
   id: string;
@@ -54,7 +68,7 @@ const toRow = (r: {
   amount: cents(r.amount),
 });
 
-/** Gastos generales del local por mes (sin IVA), introducidos a mano. */
+/** Gastos del local por mes (sin IVA), introducidos a mano o importados del balance del gestor. */
 @Injectable()
 export class GestionExpensesService {
   constructor(private readonly prisma: PrismaService) {}

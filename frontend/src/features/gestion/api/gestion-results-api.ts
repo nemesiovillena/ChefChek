@@ -2,16 +2,40 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import apiClient from '@/lib/api-client';
 import { GESTION_BASE } from './gestion-api';
 
-export type ExpenseCategory = 'alquiler' | 'suministros' | 'seguros' | 'gestoria' | 'marketing' | 'mantenimiento' | 'otros';
+export type ExpenseCategory =
+  | 'alquiler'
+  | 'suministros'
+  | 'seguros'
+  | 'gestoria'
+  | 'marketing'
+  | 'mantenimiento'
+  | 'limpieza'
+  | 'bancos'
+  | 'tributos'
+  | 'otros'
+  | 'personal'
+  | 'financieros';
 
+/** En el orden del balance del gestor (cuentas 621 a 669). */
 export const EXPENSE_LABEL: Record<ExpenseCategory, string> = {
-  alquiler: 'Alquiler',
-  suministros: 'Suministros (luz, agua, gas)',
+  alquiler: 'Alquiler y licencias',
+  mantenimiento: 'Reparaciones y mantenimiento',
+  gestoria: 'Gestoría y profesionales',
   seguros: 'Seguros',
-  gestoria: 'Gestoría',
-  marketing: 'Marketing',
-  mantenimiento: 'Mantenimiento',
-  otros: 'Otros',
+  bancos: 'Comisiones bancarias y de tarjeta',
+  marketing: 'Publicidad y marketing',
+  suministros: 'Suministros (luz, agua, gas, teléfono)',
+  limpieza: 'Limpieza y mantelería',
+  otros: 'Otros servicios',
+  tributos: 'Tributos (basuras, IAE…)',
+  personal: 'Personal: nóminas + Seguridad Social',
+  financieros: 'Gastos financieros (intereses)',
+};
+
+/** Ayuda bajo el selector para las categorías que no son gastos generales. */
+export const EXPENSE_HINT: Partial<Record<ExpenseCategory, string>> = {
+  personal: 'El mes que la tenga, sustituye a la estimación por horas fichadas.',
+  financieros: 'Va por debajo del EBITDA: resta en el resultado, no en el EBITDA.',
 };
 
 export interface ResultsMonth {
@@ -23,16 +47,21 @@ export interface ResultsMonth {
   purchasesWithVat: number;
   grossMargin: number;
   labor: number;
+  /** real = nóminas + SS introducidas; fichajes = horas × coste/hora. */
+  laborSource: 'real' | 'fichajes';
   overheads: number;
   ebitda: number;
   ebitdaPct: number | null;
+  financial: number;
+  result: number;
+  resultPct: number | null;
   openDays: number;
 }
 
 export interface GestionResults {
   year: number;
   months: ResultsMonth[];
-  totals: Omit<ResultsMonth, 'month' | 'label'>;
+  totals: Omit<ResultsMonth, 'month' | 'label' | 'laborSource'> & { realLaborMonths: number };
   breakEven: { monthly: number | null; daily: number | null; variablePct: number | null };
   warnings: {
     laborWithoutCost: number;
