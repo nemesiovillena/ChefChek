@@ -307,7 +307,8 @@ export function parseBalanceExtraction(raw: string): BalanceExtraction {
     const accounts: BalanceAccountLine[] = [];
     for (const a of Array.isArray(p.accounts) ? p.accounts : []) {
       const account = readAccount(a);
-      if (account) {
+      // Las cuentas a 0 solo hacen ruido en la revisión.
+      if (account && account.amount !== 0) {
         accounts.push({
           ...account,
           target: defaultBalanceTarget(account.code, account.name),
