@@ -7,6 +7,7 @@ import { useConfirm } from '@/contexts/confirm.context';
 import { useNotification } from '@/components/notification-system';
 import { inputCls, labelCls } from '@/app/dashboard/check-in/components/check-in-form-styles';
 import {
+  EXPENSE_HINT,
   EXPENSE_LABEL,
   type ExpenseCategory,
   useCopyExpenses,
@@ -24,7 +25,7 @@ const previousMonth = (month: string) => {
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
 };
 
-/** Gastos generales de un mes (sin IVA): alta, baja y copia del mes anterior. */
+/** Gastos de un mes (sin IVA): alta, baja y copia del mes anterior. */
 export function ExpensesManager({ year }: { year: number }) {
   const notify = useNotification();
   const confirm = useConfirm();
@@ -92,7 +93,7 @@ export function ExpensesManager({ year }: { year: number }) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-[var(--on-surface-variant)]">Sin gastos generales este mes.</p>
+        <p className="text-sm text-[var(--on-surface-variant)]">Sin gastos este mes.</p>
       ) : (
         <ul className="divide-y divide-[var(--outline-variant)] rounded-lg border border-[var(--outline-variant)]">
           {rows.map((e) => (
@@ -129,6 +130,7 @@ export function ExpensesManager({ year }: { year: number }) {
               </option>
             ))}
           </select>
+          {EXPENSE_HINT[form.category] && <span className="mt-1 text-xs text-[var(--on-surface-variant)]">{EXPENSE_HINT[form.category]}</span>}
         </label>
         <label className="flex min-w-[12rem] flex-[2] flex-col">
           <span className={labelCls}>Concepto</span>

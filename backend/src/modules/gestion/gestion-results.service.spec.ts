@@ -1,7 +1,7 @@
 import { GestionResultsService, madridToday } from "./gestion-results.service";
 import { GestionExpensesService } from "./gestion-expenses.service";
 
-function make() {
+function make(extraExpenses: object[] = []) {
   const prisma = {
     $queryRaw: jest.fn().mockImplementation((strings: TemplateStringsArray) =>
       Promise.resolve(
@@ -54,6 +54,7 @@ function make() {
         concept: "Local",
         amount: 1000,
       },
+      ...extraExpenses,
     ]),
   };
   return new GestionResultsService(
@@ -107,6 +108,73 @@ describe("GestionResultsService", () => {
       balance: 4700,
     });
     expect(t.rows[1]).toMatchObject({ net: 12400, balance: 17100 });
+  });
+});
+
+describe("GestionResultsService con nóminas y gastos financieros", () => {
+  const extra = [
+    {
+      id: "n",
+      month: "2025-02",
+      category: "personal",
+      concept: "Nóminas + SS",
+      amount: 5000,
+    },
+    {
+      id: "i",
+      month: "2025-02",
+      category: "financieros",
+      concept: "Intereses préstamo",
+      amount: 100,
+    },
+  ];
+
+  it("las nóminas sustituyen a los fichajes y los financieros van tras el EBITDA", async () => {
+    const r = await make(extra).build("t1", 2025);
+    // Enero sin nóminas: sigue saliendo de fichajes.
+    expect(r.months[0]).toMatchObject({
+      labor: 2000,
+      laborSource: "fichajes",
+      overheads: 1000,
+      financial: 0,
+      result: 4000,
+    });
+    // Febrero: 20000 − 6000 − 5000 (nóminas, no los 2000 fichados) − 1000.
+    expect(r.months[1]).toMatchObject({
+      labor: 5000,
+      laborSource: "real",
+      overheads: 1000,
+      ebitda: 8000,
+      financial: 100,
+      result: 7900,
+      resultPct: 39.5,
+    });
+    expect(r.totals).toMatchObject({
+      labor: 7000,
+      financial: 100,
+      result: 11900,
+      realLaborMonths: 1,
+    });
+  });
+
+  it("sin meses de fichajes no avisa de fichas sin coste/hora", async () => {
+    const r = await make([
+      ...extra,
+      {
+        id: "n1",
+        month: "2025-01",
+        category: "personal",
+        concept: "Nóminas + SS",
+        amount: 4000,
+      },
+    ]).build("t1", 2025);
+    expect(r.warnings.laborWithoutCost).toBe(0);
+  });
+
+  it("el flujo de caja descuenta también los financieros", async () => {
+    const t = await make(extra).table("t1", "flujo-caja", 2025);
+    // 22000 − 6600 − 5000 − (1000 + 100)
+    expect(t.rows[1]).toMatchObject({ overheads: 1100, net: 9300 });
   });
 });
 

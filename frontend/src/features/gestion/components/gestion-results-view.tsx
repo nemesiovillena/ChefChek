@@ -53,7 +53,7 @@ export function GestionResultsView() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard label="Ventas sin IVA" value={formatEuros(data.totals.sales)} />
             <KpiCard
               label="EBITDA"
@@ -65,8 +65,13 @@ export function GestionResultsView() {
               value={formatEuros(data.totals.grossMargin)}
               compareText={`compras ${pctText(data.breakEven.variablePct)} de las ventas (meses cerrados con albaranes)`}
             />
-            <KpiCard label="Personal" value={formatEuros(data.totals.labor)} compareText="horas fichadas × coste/hora" />
+            <KpiCard label="Personal" value={formatEuros(data.totals.labor)} compareText={laborText(data.totals.realLaborMonths, data.months.length)} />
             <KpiCard label="Gastos generales" value={formatEuros(data.totals.overheads)} compareText="introducidos abajo" />
+            <KpiCard
+              label="Resultado"
+              value={formatEuros(data.totals.result)}
+              compareText={`${pctText(data.totals.resultPct)} de las ventas, tras ${formatEuros(data.totals.financial)} de gastos financieros`}
+            />
             <KpiCard
               label="Punto de equilibrio"
               value={data.breakEven.monthly === null ? '—' : `${formatEuros(data.breakEven.monthly)}/mes`}
@@ -117,10 +122,18 @@ export function GestionResultsView() {
                   { key: 'overheads', label: 'Gastos generales', kind: 'euros' },
                   { key: 'ebitda', label: 'EBITDA', kind: 'euros' },
                   { key: 'ebitdaPct', label: '% EBITDA', kind: 'percent' },
+                  { key: 'financial', label: 'Financieros', kind: 'euros' },
+                  { key: 'result', label: 'Resultado', kind: 'euros' },
+                  { key: 'resultPct', label: '% Resultado', kind: 'percent' },
                 ],
-                rows: data.months.map((m) => ({ ...m })),
+                rows: data.months.map((m) => ({ ...m, label: m.laborSource === 'real' ? m.label : `${m.label} *` })),
                 totals: { label: 'Total', ...data.totals },
-                notes: ['Compras = albaranes recibidos en el mes. Una compra grande (o un albarán mal leído) se nota en su mes.'],
+                notes: [
+                  'Compras = albaranes recibidos en el mes. Una compra grande (o un albarán mal leído) se nota en su mes.',
+                  ...(data.totals.realLaborMonths < data.months.length
+                    ? ['* Personal estimado por horas fichadas × coste/hora: añade abajo «Personal: nóminas + Seguridad Social» del mes para usar el real.']
+                    : []),
+                ],
               }}
             />
           </div>
@@ -130,11 +143,17 @@ export function GestionResultsView() {
 
       {/* Fuera del bloque de datos: si el cálculo falla, los gastos se pueden seguir gestionando. */}
       <div className={cardCls}>
-        <div className={titleCls}>Gastos generales de {year}</div>
+        <div className={titleCls}>Gastos de {year}</div>
         <ExpensesManager key={year} year={year} />
       </div>
     </div>
   );
+}
+
+function laborText(realMonths: number, months: number) {
+  if (months > 0 && realMonths === months) return 'nóminas + Seguridad Social';
+  if (realMonths === 0) return 'horas fichadas × coste/hora';
+  return `nóminas en ${realMonths} mes(es), fichajes en el resto`;
 }
 
 function Warning({ text }: { text: string }) {

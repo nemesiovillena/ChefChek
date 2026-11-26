@@ -4584,7 +4584,9 @@ model GestionExpense {
   tenantId  String
   // Primer día del mes al que corresponde el gasto.
   month     DateTime @db.Date
-  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento | otros
+  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento |
+  // limpieza | bancos | tributos | otros | personal (nóminas + SS reales) |
+  // financieros (por debajo del EBITDA)
   category  String
   concept   String
   amount    Float

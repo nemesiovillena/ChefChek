@@ -11,6 +11,7 @@ import {
   Min,
 } from "class-validator";
 import { GESTION_EXPORT_FORMATS } from "../gestion-table.types";
+import { EXPENSE_CATEGORIES } from "../gestion-expenses.service";
 import type { GestionExportFormat } from "../gestion-table.types";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -144,15 +145,7 @@ export class GestionExpenseDto {
   @Matches(YEAR_MONTH)
   month!: string;
 
-  @IsIn([
-    "alquiler",
-    "suministros",
-    "seguros",
-    "gestoria",
-    "marketing",
-    "mantenimiento",
-    "otros",
-  ])
+  @IsIn(EXPENSE_CATEGORIES)
   category!: string;
 
   @IsString()
