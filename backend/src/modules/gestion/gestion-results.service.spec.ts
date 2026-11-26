@@ -218,6 +218,40 @@ describe("GestionResultsService cuadre con la contabilidad", () => {
   });
 });
 
+describe("GestionResultsService con compras del balance", () => {
+  it("en los meses del balance usa sus compras repartidas por ventas", async () => {
+    const r = await make(
+      [],
+      [
+        {
+          periodFrom: new Date("2025-01-01T00:00:00Z"),
+          periodTo: new Date("2025-02-28T00:00:00Z"),
+          fileName: null,
+          sales: 30000,
+          purchases: 12000,
+          labor: 0,
+          overheads: 0,
+          financial: 0,
+          result: 0,
+        },
+      ],
+    ).build("t1", 2025);
+    // Ventas 10000 y 20000: 1/3 y 2/3 de 12000.
+    expect(r.months[0]).toMatchObject({
+      purchases: 4000,
+      purchasesWithVat: 4400, // IVA medio de los albaranes (10 %)
+      purchasesSource: "contabilidad",
+      purchasesAlbaranes: 3000,
+      grossMargin: 6000,
+    });
+    expect(r.months[1]).toMatchObject({ purchases: 8000 });
+    expect(r.months[2].purchasesSource).toBe("albaranes");
+    expect(r.totals.bookPurchaseMonths).toBe(2);
+    // El cuadre sigue comparando con los albaranes.
+    expect(r.accounting[0].gestion.purchases).toBe(9000);
+  });
+});
+
 describe("GestionResultsService sin datos de compras", () => {
   it("no da punto de equilibrio y avisa de los meses sin albaranes", async () => {
     const service = new GestionResultsService(

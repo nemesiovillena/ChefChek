@@ -247,7 +247,7 @@ function Reconciliation({ check }: { check: AccountingCheck }) {
       b: books.purchases,
       hint: (g, b) =>
         g < b
-          ? "Faltan albaranes en ChefChek (meses sin albaranes o facturas sin albarán): el coste de producto de Gestión sale bajo."
+          ? "Faltan albaranes en ChefChek (meses sin albaranes o facturas sin albarán): Resultados ya usa las compras del balance en estos meses."
           : "Hay albaranes que el gestor aún no ha contabilizado, o alguno mal leído.",
     },
     {

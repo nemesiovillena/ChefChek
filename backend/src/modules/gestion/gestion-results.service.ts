@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/services/prisma.service";
 import { CHARGED, cents, inRange } from "./gestion-sql.util";
+import { monthsBetween, spreadByWeight } from "./gestion-balance-import.util";
 import { GestionProfitabilityService } from "./gestion-profitability.service";
 import {
   FINANCIAL_EXPENSE,
@@ -33,6 +34,13 @@ export interface ResultsMonth {
   salesWithVat: number;
   purchases: number;
   purchasesWithVat: number;
+  /**
+   * contabilidad = compras del balance del gestor repartidas por ventas (el
+   * mes está en un balance importado); albaranes = albaranes recibidos.
+   */
+  purchasesSource: "contabilidad" | "albaranes";
+  /** Compras de los albaranes aunque el mes use las de contabilidad. */
+  purchasesAlbaranes: number;
   grossMargin: number;
   labor: number;
   /** real = nóminas + SS introducidas; fichajes = horas × coste/hora. */
@@ -58,8 +66,15 @@ export interface GestionResults {
   accounting: AccountingCheck[];
   totals: Omit<
     ResultsMonth,
-    "month" | "label" | "laborSource" | "laborFichajes"
+    | "month"
+    | "label"
+    | "laborSource"
+    | "laborFichajes"
+    | "purchasesSource"
+    | "purchasesAlbaranes"
   > & {
+    /** Meses con compras del balance del gestor; el resto, albaranes. */
+    bookPurchaseMonths: number;
     /** Meses con nóminas reales; el resto, estimado por fichajes. */
     realLaborMonths: number;
   };
@@ -168,6 +183,34 @@ export class GestionResultsService {
         }),
       ]);
 
+    // Compras del balance del gestor, repartidas entre sus meses según las
+    // ventas (como los gastos al importarlo): son las reales; los albaranes
+    // solo se llevan desde hace poco y pueden faltar.
+    const salesWeights = Object.fromEntries(
+      sales.map((x) => [x.month, x.base]),
+    );
+    const bookPurchases: Record<string, number> = {};
+    for (const b of books) {
+      const from = b.periodFrom.toISOString().slice(0, 10);
+      const to = b.periodTo.toISOString().slice(0, 10);
+      if (
+        from.slice(0, 4) !== String(year) ||
+        to.slice(0, 4) !== String(year)
+      ) {
+        continue;
+      }
+      Object.assign(
+        bookPurchases,
+        spreadByWeight(b.purchases, monthsBetween(from, to), salesWeights),
+      );
+    }
+    // IVA medio de los albaranes del año, para el flujo de caja de esos meses.
+    const albaranBase = purchases.reduce((n, p) => n + p.base, 0);
+    const vatFactor =
+      albaranBase > 0
+        ? purchases.reduce((n, p) => n + p.withVat, 0) / albaranBase
+        : 1.1;
+
     const months: ResultsMonth[] = [];
     for (let m = 1; m <= lastMonth; m++) {
       const key = `${year}-${String(m).padStart(2, "0")}`;
@@ -194,7 +237,13 @@ export class GestionResultsService {
       const laborSource = realLabor !== 0 ? "real" : "fichajes";
       const laborCost = laborSource === "real" ? realLabor : estimatedLabor;
       const salesBase = s?.base ?? 0;
-      const grossMargin = salesBase - (p?.base ?? 0);
+      const fromBooks = bookPurchases[key];
+      const purchasesSource =
+        fromBooks !== undefined ? "contabilidad" : "albaranes";
+      const purchaseBase = fromBooks ?? p?.base ?? 0;
+      const purchaseWithVat =
+        fromBooks !== undefined ? fromBooks * vatFactor : (p?.withVat ?? 0);
+      const grossMargin = salesBase - purchaseBase;
       const ebitda = grossMargin - laborCost - overheads;
       const result = ebitda - financial;
       months.push({
@@ -202,8 +251,10 @@ export class GestionResultsService {
         label: MONTHS[m - 1],
         sales: cents(salesBase),
         salesWithVat: cents(s?.total ?? 0),
-        purchases: cents(p?.base ?? 0),
-        purchasesWithVat: cents(p?.withVat ?? 0),
+        purchases: cents(purchaseBase),
+        purchasesWithVat: cents(purchaseWithVat),
+        purchasesSource,
+        purchasesAlbaranes: cents(p?.base ?? 0),
         grossMargin: cents(grossMargin),
         labor: cents(laborCost),
         laborSource,
@@ -219,7 +270,13 @@ export class GestionResultsService {
     }
 
     const sum = (
-      k: Exclude<keyof ResultsMonth, "laborSource" | "laborFichajes">,
+      k: Exclude<
+        keyof ResultsMonth,
+        | "laborSource"
+        | "laborFichajes"
+        | "purchasesSource"
+        | "purchasesAlbaranes"
+      >,
     ) => cents(months.reduce((n, m) => n + (m[k] as number), 0));
     const totalSales = sum("sales");
     const totals = {
@@ -236,6 +293,9 @@ export class GestionResultsService {
       result: sum("result"),
       resultPct: pct(sum("result"), totalSales),
       realLaborMonths: months.filter((m) => m.laborSource === "real").length,
+      bookPurchaseMonths: months.filter(
+        (m) => m.purchasesSource === "contabilidad",
+      ).length,
       openDays: months.reduce((n, m) => n + m.openDays, 0),
     };
 
@@ -303,7 +363,7 @@ export class GestionResultsService {
   ): Promise<GestionTable> {
     const r = await this.build(tenantId, year);
     const notes = [
-      `Coste de producto = compras de albaranes recibidos; personal = ${laborNote(r.totals.realLaborMonths, r.months.length)}; gastos generales = los introducidos en Gestión → Resultados.`,
+      `Coste de producto = ${r.totals.bookPurchaseMonths ? `compras del balance del gestor en ${r.totals.bookPurchaseMonths} mes(es) (repartidas según ventas) y albaranes recibidos en el resto` : "compras de albaranes recibidos"}; personal = ${laborNote(r.totals.realLaborMonths, r.months.length)}; gastos generales = los introducidos en Gestión → Resultados.`,
       ...(r.warnings.unconfirmedAlbaranes
         ? [
             `${r.warnings.unconfirmedAlbaranes} albarán(es) sin confirmar en ${year}: sus compras aún no cuentan.`,
@@ -447,7 +507,8 @@ export function accountingChecks(
       const total = (pick: (m: ResultsMonth) => number) =>
         cents(inPeriod.reduce((n, m) => n + pick(m), 0));
       const sales = total((m) => m.sales);
-      const purchases = total((m) => m.purchases);
+      // Albaranes: las compras del mes ya vienen del balance si está importado.
+      const purchases = total((m) => m.purchasesAlbaranes);
       const labor = total((m) => m.laborFichajes);
       const overheads = total((m) => m.overheads);
       const financial = total((m) => m.financial);

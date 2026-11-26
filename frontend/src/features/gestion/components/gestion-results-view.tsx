@@ -94,7 +94,7 @@ export function GestionResultsView() {
             <KpiCard
               label="Margen bruto"
               value={formatEuros(data.totals.grossMargin)}
-              compareText={`compras ${pctText(data.breakEven.variablePct)} de las ventas (meses cerrados con albaranes)`}
+              compareText={`compras ${pctText(data.breakEven.variablePct)} de las ventas (meses cerrados con compras)`}
             />
             <KpiCard
               label="Personal"
@@ -186,11 +186,13 @@ export function GestionResultsView() {
                 ],
                 rows: data.months.map((m) => ({
                   ...m,
-                  label: m.laborSource === "real" ? m.label : `${m.label} *`,
+                  label: `${m.label}${m.purchasesSource === "contabilidad" ? " †" : ""}${m.laborSource === "real" ? "" : " *"}`,
                 })),
                 totals: { label: "Total", ...data.totals },
                 notes: [
-                  "Compras = albaranes recibidos en el mes. Una compra grande (o un albarán mal leído) se nota en su mes.",
+                  data.totals.bookPurchaseMonths > 0
+                    ? "† Compras del balance del gestor, repartidas según las ventas de cada mes. El resto de meses, albaranes recibidos."
+                    : "Compras = albaranes recibidos en el mes. Una compra grande (o un albarán mal leído) se nota en su mes.",
                   ...(data.totals.realLaborMonths < data.months.length
                     ? [
                         "* Personal estimado por horas fichadas × coste/hora: añade abajo «Personal: nóminas + Seguridad Social» del mes para usar el real.",

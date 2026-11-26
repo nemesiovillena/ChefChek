@@ -56,6 +56,9 @@ export interface ResultsMonth {
   labor: number;
   /** real = nóminas + SS introducidas; fichajes = horas × coste/hora. */
   laborSource: "real" | "fichajes";
+  /** contabilidad = compras del balance del gestor; albaranes = albaranes recibidos. */
+  purchasesSource: "contabilidad" | "albaranes";
+  purchasesAlbaranes: number;
   /** Estimación por fichajes aunque el mes use nóminas. */
   laborFichajes: number;
   overheads: number;
@@ -73,8 +76,13 @@ export interface GestionResults {
   accounting: AccountingCheck[];
   totals: Omit<
     ResultsMonth,
-    "month" | "label" | "laborSource" | "laborFichajes"
-  > & { realLaborMonths: number };
+    | "month"
+    | "label"
+    | "laborSource"
+    | "laborFichajes"
+    | "purchasesSource"
+    | "purchasesAlbaranes"
+  > & { realLaborMonths: number; bookPurchaseMonths: number };
   breakEven: {
     monthly: number | null;
     daily: number | null;
