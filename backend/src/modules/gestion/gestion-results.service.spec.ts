@@ -1,8 +1,9 @@
 import { GestionResultsService, madridToday } from "./gestion-results.service";
 import { GestionExpensesService } from "./gestion-expenses.service";
 
-function make(extraExpenses: object[] = []) {
+function make(extraExpenses: object[] = [], books: object[] = []) {
   const prisma = {
+    gestionAccountingPeriod: { findMany: jest.fn().mockResolvedValue(books) },
     $queryRaw: jest.fn().mockImplementation((strings: TemplateStringsArray) =>
       Promise.resolve(
         strings.join("").includes("PENDIENTE")
@@ -178,10 +179,84 @@ describe("GestionResultsService con nóminas y gastos financieros", () => {
   });
 });
 
+describe("GestionResultsService cuadre con la contabilidad", () => {
+  const book = (from: string, to: string, sales: number) => ({
+    periodFrom: new Date(`${from}T00:00:00Z`),
+    periodTo: new Date(`${to}T00:00:00Z`),
+    fileName: "balance.pdf",
+    sales,
+    purchases: 12000,
+    labor: 9000,
+    overheads: 2000,
+    financial: 0,
+    result: sales - 23000,
+  });
+
+  it("compara el balance con Gestión en esos meses y con el año anterior", async () => {
+    const r = await make(
+      [],
+      [
+        book("2024-01-01", "2024-02-29", 25000),
+        book("2025-01-01", "2025-02-28", 31000),
+      ],
+    ).build("t1", 2025);
+    expect(r.accounting).toHaveLength(1);
+    expect(r.accounting[0]).toMatchObject({
+      from: "2025-01-01",
+      to: "2025-02-28",
+      books: { sales: 31000, purchases: 12000, labor: 9000 },
+      // Ventas Cuiner, albaranes y fichajes (100 h × 20 € cada mes).
+      gestion: {
+        sales: 30000,
+        purchases: 9000,
+        labor: 4000,
+        overheads: 2000,
+        result: 15000,
+      },
+      previousBooks: { sales: 25000 },
+    });
+  });
+});
+
+describe("GestionResultsService con compras del balance", () => {
+  it("en los meses del balance usa sus compras repartidas por ventas", async () => {
+    const r = await make(
+      [],
+      [
+        {
+          periodFrom: new Date("2025-01-01T00:00:00Z"),
+          periodTo: new Date("2025-02-28T00:00:00Z"),
+          fileName: null,
+          sales: 30000,
+          purchases: 12000,
+          labor: 0,
+          overheads: 0,
+          financial: 0,
+          result: 0,
+        },
+      ],
+    ).build("t1", 2025);
+    // Ventas 10000 y 20000: 1/3 y 2/3 de 12000.
+    expect(r.months[0]).toMatchObject({
+      purchases: 4000,
+      purchasesWithVat: 4400, // IVA medio de los albaranes (10 %)
+      purchasesSource: "contabilidad",
+      purchasesAlbaranes: 3000,
+      grossMargin: 6000,
+    });
+    expect(r.months[1]).toMatchObject({ purchases: 8000 });
+    expect(r.months[2].purchasesSource).toBe("albaranes");
+    expect(r.totals.bookPurchaseMonths).toBe(2);
+    // El cuadre sigue comparando con los albaranes.
+    expect(r.accounting[0].gestion.purchases).toBe(9000);
+  });
+});
+
 describe("GestionResultsService sin datos de compras", () => {
   it("no da punto de equilibrio y avisa de los meses sin albaranes", async () => {
     const service = new GestionResultsService(
       {
+        gestionAccountingPeriod: { findMany: jest.fn().mockResolvedValue([]) },
         $queryRaw: jest
           .fn()
           .mockResolvedValue([
