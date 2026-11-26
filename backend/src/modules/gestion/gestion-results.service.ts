@@ -37,6 +37,8 @@ export interface ResultsMonth {
   labor: number;
   /** real = nóminas + SS introducidas; fichajes = horas × coste/hora. */
   laborSource: "real" | "fichajes";
+  /** Estimación por fichajes aunque el mes use nóminas: para cuadrarla. */
+  laborFichajes: number;
   overheads: number;
   ebitda: number;
   ebitdaPct: number | null;
@@ -52,7 +54,12 @@ export interface ResultsMonth {
 export interface GestionResults {
   year: number;
   months: ResultsMonth[];
-  totals: Omit<ResultsMonth, "month" | "label" | "laborSource"> & {
+  /** Balances del gestor importados de este año, cuadrados con Gestión. */
+  accounting: AccountingCheck[];
+  totals: Omit<
+    ResultsMonth,
+    "month" | "label" | "laborSource" | "laborFichajes"
+  > & {
     /** Meses con nóminas reales; el resto, estimado por fichajes. */
     realLaborMonths: number;
   };
@@ -70,6 +77,28 @@ export interface GestionResults {
     monthsWithoutPurchases: number;
     laborUnavailable: boolean;
   };
+}
+
+/** Totales de la contabilidad (o de Gestión) de un periodo, sin IVA. */
+export interface PeriodFigures {
+  sales: number;
+  purchases: number;
+  labor: number;
+  overheads: number;
+  financial: number;
+  result: number;
+}
+
+/** Un balance del gestor frente a lo que calcula Gestión en esos meses. */
+export interface AccountingCheck {
+  from: string;
+  to: string;
+  fileName: string | null;
+  books: PeriodFigures;
+  /** Gestión en los mismos meses: ventas Cuiner, albaranes, fichajes… */
+  gestion: PeriodFigures;
+  /** El mismo periodo un año antes, si se importó. */
+  previousBooks: PeriodFigures | null;
 }
 
 /**
@@ -103,10 +132,11 @@ export class GestionResultsService {
       from: `${year}-01-01`,
       to: year === thisYear ? today : `${year}-12-31`,
     };
-    const [sales, purchases, labor, expenses, unconfirmed] = await Promise.all([
-      this.prisma.$queryRaw<
-        { month: string; base: number; total: number; days: number }[]
-      >`
+    const [sales, purchases, labor, expenses, unconfirmed, books] =
+      await Promise.all([
+        this.prisma.$queryRaw<
+          { month: string; base: number; total: number; days: number }[]
+        >`
         SELECT to_char(s.fecha, 'YYYY-MM') AS month,
           COALESCE(SUM(s.base), 0)::float8 AS base,
           COALESCE(SUM(s.base + COALESCE(s.impuesto, 0)), 0)::float8 AS total,
@@ -114,18 +144,29 @@ export class GestionResultsService {
         FROM cuiner_sale_lines s
         WHERE ${inRange(tenantId, range)} AND ${CHARGED}
         GROUP BY 1`,
-      this.profitability.purchasesByMonth(tenantId, range),
-      this.profitability.labor(tenantId, range),
-      this.expenses.list(tenantId, year),
-      // Albaranes aún sin confirmar: sus compras no cuentan todavía.
-      this.prisma.$queryRaw<{ month: string; count: number }[]>`
+        this.profitability.purchasesByMonth(tenantId, range),
+        this.profitability.labor(tenantId, range),
+        this.expenses.list(tenantId, year),
+        // Albaranes aún sin confirmar: sus compras no cuentan todavía.
+        this.prisma.$queryRaw<{ month: string; count: number }[]>`
         SELECT to_char(a.date, 'YYYY-MM') AS month, COUNT(*)::int AS count
         FROM albaranes a
         WHERE a."tenantId" = ${tenantId} AND a."deletedAt" IS NULL
           AND a.status IN ('PENDIENTE', 'REVISADO')
           AND a.date >= ${range.from}::date AND a.date < (${range.to}::date + 1)
         GROUP BY 1`,
-    ]);
+        // Balances del gestor de este año y del anterior (para comparar).
+        this.prisma.gestionAccountingPeriod.findMany({
+          where: {
+            tenantId,
+            periodFrom: {
+              gte: new Date(`${year - 1}-01-01T00:00:00Z`),
+              lte: new Date(`${year}-12-31T00:00:00Z`),
+            },
+          },
+          orderBy: { periodFrom: "asc" },
+        }),
+      ]);
 
     const months: ResultsMonth[] = [];
     for (let m = 1; m <= lastMonth; m++) {
@@ -166,6 +207,7 @@ export class GestionResultsService {
         grossMargin: cents(grossMargin),
         labor: cents(laborCost),
         laborSource,
+        laborFichajes: cents(estimatedLabor),
         overheads: cents(overheads),
         ebitda: cents(ebitda),
         ebitdaPct: pct(ebitda, salesBase),
@@ -176,8 +218,9 @@ export class GestionResultsService {
       });
     }
 
-    const sum = (k: Exclude<keyof ResultsMonth, "laborSource">) =>
-      cents(months.reduce((n, m) => n + (m[k] as number), 0));
+    const sum = (
+      k: Exclude<keyof ResultsMonth, "laborSource" | "laborFichajes">,
+    ) => cents(months.reduce((n, m) => n + (m[k] as number), 0));
     const totalSales = sum("sales");
     const totals = {
       sales: totalSales,
@@ -229,6 +272,7 @@ export class GestionResultsService {
     return {
       year,
       months,
+      accounting: accountingChecks(books, months, year),
       totals,
       breakEven: {
         monthly,
@@ -364,6 +408,73 @@ export class GestionResultsService {
       ],
     };
   }
+}
+
+type BookRow = {
+  periodFrom: Date;
+  periodTo: Date;
+  fileName: string | null;
+} & PeriodFigures;
+
+const day = (d: Date) => d.toISOString().slice(0, 10);
+const figures = (b: BookRow): PeriodFigures => ({
+  sales: b.sales,
+  purchases: b.purchases,
+  labor: b.labor,
+  overheads: b.overheads,
+  financial: b.financial,
+  result: b.result,
+});
+
+/**
+ * Cada balance del gestor de este año frente a Gestión en los mismos meses.
+ * El personal de Gestión es la estimación por fichajes (si el mes tiene
+ * nóminas, compararlas consigo mismas no diría nada).
+ */
+export function accountingChecks(
+  books: BookRow[],
+  months: ResultsMonth[],
+  year: number,
+): AccountingCheck[] {
+  return books
+    .filter((b) => b.periodFrom.getUTCFullYear() === year)
+    .map((b) => {
+      const from = day(b.periodFrom);
+      const to = day(b.periodTo);
+      const inPeriod = months.filter(
+        (m) => m.month >= from.slice(0, 7) && m.month <= to.slice(0, 7),
+      );
+      const total = (pick: (m: ResultsMonth) => number) =>
+        cents(inPeriod.reduce((n, m) => n + pick(m), 0));
+      const sales = total((m) => m.sales);
+      const purchases = total((m) => m.purchases);
+      const labor = total((m) => m.laborFichajes);
+      const overheads = total((m) => m.overheads);
+      const financial = total((m) => m.financial);
+      // Mismos meses un año antes (por mes: febrero acaba el 28 o el 29).
+      const monthOf = (d: Date, minusYears = 0) =>
+        `${d.getUTCFullYear() - minusYears}${day(d).slice(4, 7)}`;
+      const previous = books.find(
+        (p) =>
+          monthOf(p.periodFrom) === monthOf(b.periodFrom, 1) &&
+          monthOf(p.periodTo) === monthOf(b.periodTo, 1),
+      );
+      return {
+        from,
+        to,
+        fileName: b.fileName,
+        books: figures(b),
+        gestion: {
+          sales,
+          purchases,
+          labor,
+          overheads,
+          financial,
+          result: cents(sales - purchases - labor - overheads - financial),
+        },
+        previousBooks: previous ? figures(previous) : null,
+      };
+    });
 }
 
 /** De dónde sale el personal del año, para las notas de los informes. */
