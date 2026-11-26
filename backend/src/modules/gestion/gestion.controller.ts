@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,9 +11,20 @@ import {
   Query,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { Throttle } from "@nestjs/throttler";
+import { ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { AssistantCompletionError } from "../ai-assistant/assistant-completion.service";
+import {
+  BALANCE_FILE_TYPES,
+  BalanceExtractionError,
+  GestionBalanceImportService,
+} from "./gestion-balance-import.service";
+import type { BalanceTarget } from "./gestion-balance-import.util";
 import { Response } from "express";
 import { AuthGuard } from "../../guards/auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -30,6 +42,7 @@ import {
   SalesReportQueryDto,
 } from "../cuiner/dto/cuiner.dto";
 import {
+  GestionBalanceApplyDto,
   GestionCalendarDateDto,
   GestionCopyExpensesDto,
   GestionExpenseDto,
@@ -84,6 +97,11 @@ function sendFile(
  * Gestión: panel e informes de ventas del TPV (Cuiner). Solo lectura: no toca
  * stock ni ventas. Ve facturación, así que solo gerencia y oficina.
  */
+/** El balance del gestor son 2–3 páginas; con margen para fotos. */
+const MAX_BALANCE_BYTES = 15 * 1024 * 1024;
+// Cada lectura es una llamada de pago a la IA.
+const BALANCE_EXTRACT_THROTTLE = { default: { limit: 5, ttl: 60000 } };
+
 @ApiTags("Gestión")
 @Controller("api/v1/gestion")
 @UseGuards(
@@ -103,6 +121,7 @@ export class GestionController {
     private readonly seasonality: GestionSeasonalityService,
     private readonly results: GestionResultsService,
     private readonly expenses: GestionExpensesService,
+    private readonly balanceImport: GestionBalanceImportService,
     private readonly ticketReports: GestionTicketReportsService,
     private readonly tickets: GestionTicketsService,
     private readonly tableExport: GestionTableExportService,
@@ -198,6 +217,55 @@ export class GestionController {
   @Post("expenses/copy")
   copyExpenses(@Req() req: AuthedRequest, @Body() dto: GestionCopyExpensesDto) {
     return this.expenses.copyMonth(req.tenantId, dto.from, dto.to);
+  }
+
+  /**
+   * Lee con IA el balance de explotación del gestor y devuelve cada cuenta
+   * con su categoría propuesta. No guarda nada: se revisa y se importa aparte.
+   */
+  @Post("expenses/balance/extract")
+  @Throttle(BALANCE_EXTRACT_THROTTLE)
+  @ApiConsumes("multipart/form-data")
+  @UseInterceptors(
+    FileInterceptor("file", { limits: { fileSize: MAX_BALANCE_BYTES } }),
+  )
+  async extractBalance(
+    @Req() req: AuthedRequest,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    if (!file) {
+      throw new BadRequestException("No se ha subido ningún archivo");
+    }
+    if (!BALANCE_FILE_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException(
+        "Formato no admitido. Sube el balance en PDF (o una foto JPG/PNG).",
+      );
+    }
+    try {
+      return await this.balanceImport.extract(req.tenantId, [
+        { mimeType: file.mimetype, dataBase64: file.buffer.toString("base64") },
+      ]);
+    } catch (error) {
+      if (
+        error instanceof BalanceExtractionError ||
+        error instanceof AssistantCompletionError
+      ) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /** Importa un periodo revisado: gastos repartidos por meses según ventas. */
+  @Post("expenses/balance/apply")
+  applyBalance(@Req() req: AuthedRequest, @Body() dto: GestionBalanceApplyDto) {
+    return this.balanceImport.apply(req.tenantId, {
+      ...dto,
+      accounts: dto.accounts.map((a) => ({
+        ...a,
+        target: a.target as BalanceTarget,
+      })),
+    });
   }
 
   @Patch("expenses/:id")

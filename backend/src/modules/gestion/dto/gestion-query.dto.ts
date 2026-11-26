@@ -1,5 +1,9 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNumber,
@@ -9,8 +13,11 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
 import { GESTION_EXPORT_FORMATS } from "../gestion-table.types";
+import { EXPENSE_CATEGORIES } from "../gestion-expenses.service";
+import { BALANCE_TARGETS } from "../gestion-balance-import.util";
 import type { GestionExportFormat } from "../gestion-table.types";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -144,15 +151,7 @@ export class GestionExpenseDto {
   @Matches(YEAR_MONTH)
   month!: string;
 
-  @IsIn([
-    "alquiler",
-    "suministros",
-    "seguros",
-    "gestoria",
-    "marketing",
-    "mantenimiento",
-    "otros",
-  ])
+  @IsIn(EXPENSE_CATEGORIES)
   category!: string;
 
   @IsString()
@@ -186,4 +185,50 @@ export class GestionCopyExpensesDto {
 
   @Matches(YEAR_MONTH)
   to!: string;
+}
+
+const DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** Una cuenta del balance del gestor con la categoría elegida. */
+export class GestionBalanceAccountDto {
+  @Matches(/^\d{2,12}$/)
+  code!: string;
+
+  @IsString()
+  @MaxLength(120)
+  name!: string;
+
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-100_000_000)
+  @Max(100_000_000)
+  amount!: number;
+
+  @IsIn(BALANCE_TARGETS)
+  target!: string;
+}
+
+/** Importar un periodo del balance del gestor ya revisado. */
+export class GestionBalanceApplyDto {
+  @Matches(DATE)
+  from!: string;
+
+  @Matches(DATE)
+  to!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  fileName?: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => GestionBalanceAccountDto)
+  accounts!: GestionBalanceAccountDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  replaceExisting?: boolean;
 }

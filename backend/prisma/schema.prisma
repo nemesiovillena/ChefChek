@@ -4584,7 +4584,9 @@ model GestionExpense {
   tenantId  String
   // Primer día del mes al que corresponde el gasto.
   month     DateTime @db.Date
-  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento | otros
+  // alquiler | suministros | seguros | gestoria | marketing | mantenimiento |
+  // limpieza | bancos | tributos | otros | personal (nóminas + SS reales) |
+  // financieros (por debajo del EBITDA)
   category  String
   concept   String
   amount    Float
@@ -4593,6 +4595,30 @@ model GestionExpense {
 
   @@index([tenantId, month])
   @@map("gestion_expenses")
+}
+
+// Gestión: totales de un balance de explotación del gestor (contabilidad),
+// para cuadrarlos con lo que calcula Gestión (ventas Cuiner, albaranes,
+// personal). Un registro por periodo importado; reimportar lo sustituye.
+model GestionAccountingPeriod {
+  id         String   @id @default(cuid())
+  tenantId   String
+  periodFrom DateTime @db.Date
+  periodTo   DateTime @db.Date
+  // Sin IVA. Ventas = cuentas 70x; compras = 60x/61x netas de rappels.
+  sales      Float
+  purchases  Float
+  labor      Float
+  overheads  Float
+  financial  Float
+  // Beneficio que da el balance (incluye lo que Gestión no usa).
+  result     Float
+  fileName   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, periodFrom, periodTo])
+  @@map("gestion_accounting_periods")
 }
 
 // Cabecera de un ticket del TPV de Cuiner (VentasCab) para Gestión: solo
